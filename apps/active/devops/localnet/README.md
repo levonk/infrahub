@@ -8,17 +8,20 @@ A comprehensive, containerized home lab environment providing transparent proxyi
 - **DNS**: Multi-layered resolution with ODoH, DNSSEC, caching, and ad/malware blocking
 - **NTP**: Time synchronization with NTS and leap smearing support
 - **Web Proxy**: Transparent HTTP/HTTPS proxying with caching and Tor anonymization
+- **WireGuard VPN**: Secure remote access with network isolation and split-tunnel support
 
 ### 🔒 Privacy & Security
 - Oblivious DNS over HTTPS (ODoH) for DNS privacy
 - Network Time Security (NTS) for NTP
-- Tor integration for web traffic anonymization
+- Tor integration for web traffic anonymization (optional for direct mode, automatic for transparent mode)
 - ECS stripping to prevent DNS fingerprinting
 - Malware, ad, and tracker blocking via curated blocklists
+- VPN clients can optionally route through Tor (SOCKS5:9050)
 
-### 📦 Artifact Repositories
+### 📦 Artifact Repositories & Development Tools
 - **Sonatype Nexus**: Multi-format repository (Maven, npm, Docker, PyPI)
 - **Verdaccio**: Lightweight npm package caching and private registry
+- **LocalStack**: Local AWS cloud stack (S3, DynamoDB, Lambda, SQS, SNS, etc.)
 
 ### 📊 Observability
 - **Prometheus**: Metrics collection and storage
@@ -27,20 +30,26 @@ A comprehensive, containerized home lab environment providing transparent proxyi
 - **Elasticsearch + Loki**: Centralized logging
 - **Vector**: High-performance log pipeline
 
-### 🎯 Dual Access Modes
-- **Transparent Mode**: Automatic interception for legacy devices
-- **Direct Mode**: Explicit configuration for modern applications
+### 🎯 Three-Tier Access Model
+- **Tier 1 (Host)**: Explicit configuration - full control, can bypass services
+- **Tier 2 (Services)**: Direct internet access for upstream queries (DNS, packages, time)
+- **Tier 3 (Apps)**: Transparent interception - enforced routing, cannot bypass
+
+See [Three-Tier Access Model](internal-docs/architecture-three-tier-access.md) for details.
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
-- Docker Engine >= 24.0
+- Docker Engine >= 24.0 (or Docker Desktop)
 - Docker Compose >= 2.20
-- Linux kernel >= 5.10 with nftables support
-- systemd (for timer-based updates)
+- **Works on:**
+  - ✅ Windows 11 + Docker Desktop + WSL2
+  - ✅ macOS + Docker Desktop
+  - ✅ Linux (any distribution)
 - 8GB RAM minimum (4 cores recommended)
 - 50GB disk space minimum
+- **No host network modifications required!**
 
 ### Installation
 
@@ -55,15 +64,12 @@ A comprehensive, containerized home lab environment providing transparent proxyi
    nano .env  # Set your HOST_IP and other preferences
    ```
 
-3. **Setup host** (requires sudo):
-   ```bash
-   sudo ./scripts/setup-host.sh
-   ```
-
-4. **Start services**:
+3. **Start services** (no host setup needed!):
    ```bash
    make up
    ```
+
+   **Note:** No `sudo` required! The transparent proxy runs entirely in containers.
 
 5. **Verify health**:
    ```bash
@@ -80,9 +86,12 @@ A comprehensive, containerized home lab environment providing transparent proxyi
 ## 📖 Documentation
 
 - [Quickstart Guide](docs/quickstart.md) - Detailed setup instructions
+- [Transparent Proxy Usage](docs/transparent-proxy-usage.md) - **How to use with your containers**
 - [Architecture](docs/architecture.md) - System design and diagrams
 - [Service Chains](docs/service-chains.md) - DNS/NTP/Web/Logging flows
 - [Port Mapping](docs/port-mapping.md) - All exposed ports
+- [WireGuard VPN Setup](docs/wireguard-setup.md) - Remote access configuration
+- [LocalStack Setup](docs/localstack-setup.md) - Local AWS development
 - [Troubleshooting](docs/troubleshooting.md) - Common issues and solutions
 
 ## 🛠️ Common Operations
@@ -211,6 +220,8 @@ See [docs/quickstart.md](docs/quickstart.md) for detailed configuration options.
 | **Prometheus** | Metrics | 9090/tcp |
 | **Grafana** | Dashboards | 3000/tcp |
 | **Jaeger** | Tracing | 16686/tcp, 9411/tcp |
+| **WireGuard** | VPN | 51820/udp, 51821/udp |
+| **LocalStack** | AWS Local | 4566/tcp |
 
 ## 🤝 Contributing
 

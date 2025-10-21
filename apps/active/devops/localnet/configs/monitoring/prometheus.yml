@@ -1,0 +1,104 @@
+# Home Lab In-a-Box - Prometheus Configuration
+# Purpose: Metrics collection from all services
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'homelab'
+    environment: 'production'
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          service: 'monitoring'
+  
+  # DNS services
+  - job_name: 'dnsdist'
+    static_configs:
+      - targets: ['dnsdist:8083']
+        labels:
+          service: 'dns'
+          layer: 'dnsdist'
+  
+  - job_name: 'coredns'
+    static_configs:
+      - targets: ['coredns:9153']
+        labels:
+          service: 'dns'
+          layer: 'coredns'
+  
+  # NTP service
+  - job_name: 'chronyd'
+    static_configs:
+      - targets: ['chronyd:9123']
+        labels:
+          service: 'ntp'
+  
+  # Web proxy services
+  - job_name: 'envoy'
+    static_configs:
+      - targets: ['envoy:9901']
+        labels:
+          service: 'web'
+          layer: 'envoy'
+  
+  # Logging services
+  - job_name: 'vector'
+    static_configs:
+      - targets: ['vector:9598']
+        labels:
+          service: 'logging'
+  
+  - job_name: 'loki'
+    static_configs:
+      - targets: ['loki:3100']
+        labels:
+          service: 'logging'
+  
+  - job_name: 'promtail'
+    static_configs:
+      - targets: ['promtail:9080']
+        labels:
+          service: 'logging'
+  
+  # Monitoring services
+  - job_name: 'grafana'
+    static_configs:
+      - targets: ['grafana:3000']
+        labels:
+          service: 'monitoring'
+  
+  # Blackbox exporter (external endpoint monitoring)
+  - job_name: 'blackbox_dns'
+    metrics_path: /probe
+    params:
+      module: [dns_udp]
+    static_configs:
+      - targets:
+        - 1.1.1.1:53
+        - 8.8.8.8:53
+        - 9.9.9.9:53
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+  
+  - job_name: 'blackbox_ntp'
+    metrics_path: /probe
+    params:
+      module: [ntp]
+    static_configs:
+      - targets:
+        - time.google.com:123
+        - time.nist.gov:123
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - target_label: __address__
+        replacement: blackbox-exporter:9115

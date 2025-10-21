@@ -1,0 +1,130 @@
+# Home Lab In-a-Box - dnscrypt-proxy Configuration
+# Purpose: Encrypt DNS queries with ODoH, DNSSEC validation, and blocklists
+
+##############################################
+# Global settings
+##############################################
+
+# Server selection
+# Use Cloudflare, Google, and Quad9 for redundancy
+server_names = ['cloudflare', 'google', 'quad9']
+
+# Listen addresses
+listen_addresses = ['0.0.0.0:5300']
+
+# Maximum number of active connections
+max_clients = 250
+
+# Use servers reachable over IPv4
+ipv4_servers = true
+
+# Use servers reachable over IPv6
+ipv6_servers = false
+
+# Require DNSSEC validation
+require_dnssec = true
+
+# Require servers that support DNS-over-HTTPS
+require_nolog = true
+
+##############################################
+# ODoH (Oblivious DNS over HTTPS)
+##############################################
+
+[odoh]
+# Enable Oblivious DoH for maximum privacy
+enabled = true
+
+# ODoH relay URLs (Cloudflare)
+relay_urls = ['https://odoh.cloudflare-dns.com/dns-query']
+
+##############################################
+# Filters and Blocklists
+##############################################
+
+[blocked_names]
+# Additional blocklist file (beyond dnsdist CDB)
+blocked_names_file = '/etc/dnscrypt-proxy/blocked-names.txt'
+
+# Log blocked queries
+log_file = '/var/log/dnscrypt-proxy/blocked.log'
+
+##############################################
+# Query logging
+##############################################
+
+[query_log]
+# Log all queries for analysis
+file = '/var/log/dnscrypt-proxy/query.log'
+
+# Log format: tab-separated values
+format = 'tsv'
+
+# Fields: timestamp, client_ip, query, response_code, upstream
+ignored_qtypes = []
+
+##############################################
+# Cloaking (local DNS overrides)
+##############################################
+
+[cloaking_rules]
+# Local DNS overrides for internal services
+cloaking_rules_file = '/etc/dnscrypt-proxy/cloaking-rules.txt'
+
+##############################################
+# Sources
+##############################################
+
+[sources]
+# Use the public list of DNS servers
+[sources.'public-resolvers']
+urls = ['https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/master/v3/public-resolvers.md', 'https://download.dnscrypt.info/resolvers-list/v3/public-resolvers.md']
+cache_file = '/var/cache/dnscrypt-proxy/public-resolvers.md'
+minisign_key = 'RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3'
+refresh_delay = 72
+
+# ODoH servers list
+[sources.'odoh-servers']
+urls = ['https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/master/v3/odoh-servers.md', 'https://download.dnscrypt.info/resolvers-list/v3/odoh-servers.md']
+cache_file = '/var/cache/dnscrypt-proxy/odoh-servers.md'
+minisign_key = 'RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3'
+refresh_delay = 72
+
+##############################################
+# Performance
+##############################################
+
+# Timeout for DNS queries
+timeout = 5000
+
+# Keep connections alive
+keepalive = 30
+
+# Load balancing strategy
+lb_strategy = 'p2'
+
+# Certificate refresh delay
+cert_refresh_delay = 240
+
+##############################################
+# Privacy
+##############################################
+
+# Disable DNS rebinding protection (handled by dnsdist)
+block_ipv6 = false
+
+# Reject queries for local zones
+block_unqualified = true
+
+# Block queries for undelegated TLDs
+block_undelegated = true
+
+##############################################
+# Logging
+##############################################
+
+# Log level (0=FATAL, 1=ERROR, 2=WARNING, 3=NOTICE, 4=INFO, 5=DEBUG)
+log_level = 3
+
+# Use syslog instead of stdout
+use_syslog = false

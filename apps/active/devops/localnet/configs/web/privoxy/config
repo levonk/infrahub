@@ -1,0 +1,13 @@
+# Privoxy Configuration
+listen-address  0.0.0.0:8118
+forward / squid:3128
+logdir /var/log/privoxy
+logfile logfile
+permit-access  172.20.0.0/16
+enable-remote-toggle  0
+enable-edit-actions 0
+actionsfile match-all.action
+actionsfile default.action
+filterfile default.filter
+toggle  1
+buffer-limit 4096

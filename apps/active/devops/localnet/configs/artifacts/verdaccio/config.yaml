@@ -1,0 +1,46 @@
+# Verdaccio Configuration
+# https://verdaccio.org/docs/configuration
+
+storage: /verdaccio/storage/data
+plugins: /verdaccio/plugins
+
+# Web UI
+web:
+  title: Homelab NPM Registry
+  enable: true
+
+# Authentication
+auth:
+  htpasswd:
+    file: /verdaccio/storage/htpasswd
+    max_users: -1
+
+# Uplinks (proxy to npmjs.org)
+uplinks:
+  npmjs:
+    url: https://registry.npmjs.org/
+    timeout: 30s
+
+# Packages access control
+packages:
+  '@*/*':
+    access: $all
+    publish: $authenticated
+    unpublish: $authenticated
+    proxy: npmjs
+
+  '**':
+    access: $all
+    publish: $authenticated
+    unpublish: $authenticated
+    proxy: npmjs
+
+# Server configuration
+server:
+  keepAliveTimeout: 60
+
+# Logs
+logs: { type: stdout, format: pretty, level: http }
+
+# Listen on all interfaces
+listen: 0.0.0.0:4873

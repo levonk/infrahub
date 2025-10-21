@@ -1,4 +1,4 @@
-.PHONY: help up down restart logs logs-follow health-check flush-cache backup restore clean
+.PHONY: help up down restart logs logs-follow health-check flush-cache backup restore clean clean-configs fix-configs test test-all
 
 # Default target
 .DEFAULT_GOAL := help
@@ -63,17 +63,38 @@ restore: ## Restore volumes from backup
 	@./scripts/restore-volumes.sh
 	@echo "$(GREEN)✓ Restore complete$(NC)"
 
-test: ## Run integration tests
-	@echo "$(BLUE)Running integration tests...$(NC)"
-	@./tests/dns-leak-test.sh
-	@./tests/ntp-accuracy-test.sh
-	@./tests/proxy-chain-test.sh
+test: ## Run E2E tests (quick subset)
+	@echo "$(BLUE)Running E2E tests...$(NC)"
+	@./scripts/tests/test-dns-services.sh
+	@./scripts/tests/test-monitoring.sh
 	@echo "$(GREEN)✓ Tests complete$(NC)"
+
+test-all: ## Run all E2E tests (comprehensive)
+	@echo "$(BLUE)Running all E2E tests...$(NC)"
+	@./scripts/tests/run-all-tests.sh
 
 update-blocklists: ## Update DNS/web blocklists
 	@echo "$(BLUE)Updating blocklists...$(NC)"
 	docker compose exec dnsdist /blocklists/update-blocklists.sh
 	@echo "$(GREEN)✓ Blocklists updated$(NC)"
+
+clean-configs: ## Remove Docker-created config directories (safe, no data loss)
+	@echo "$(BLUE)Cleaning up Docker-created config directories...$(NC)"
+	@docker run --rm -v "$$(pwd)/configs:/configs" alpine sh -c '\
+		find /configs -type d \( \
+			-name "*.conf" -o \
+			-name "*.yaml" -o \
+			-name "*.yml" -o \
+			-name "config" -o \
+			-name "config.yaml" \
+		\) -exec rm -rf {} + 2>/dev/null || true'
+	@echo "$(GREEN)✓ Config directories removed$(NC)"
+	@echo "$(YELLOW)Run 'make fix-configs' to recreate config files$(NC)"
+
+fix-configs: clean-configs ## Recreate all config files from templates
+	@echo "$(BLUE)Recreating config files...$(NC)"
+	@./scripts/create-configs.sh
+	@echo "$(GREEN)✓ Config files created$(NC)"
 
 clean: ## Remove all containers, volumes, and networks (WARNING: destroys data!)
 	@echo "$(RED)⚠ WARNING: This will destroy all data!$(NC)"
