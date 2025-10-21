@@ -1,0 +1,44 @@
+# Environment variables
+.env
+
+# Docker volumes (if using local directories)
+volumes/
+data/
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Backup files
+backups/
+*.tar.gz
+*.zip
+
+# Compiled blocklists
+blocklists/compiled/*.cdb
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Secrets
+secrets/
+*.key
+*.pem
+*.crt
+*.p12
+
+# Docker Compose overrides
+docker-compose.override.yml

@@ -1,0 +1,429 @@
+version: '3.8'
+
+# Home Lab In-a-Box - Docker Compose Configuration
+# Complete infrastructure stack with transparent proxying, monitoring, and artifact repositories
+
+networks:
+  homelab:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: ${DOCKER_NETWORK_SUBNET:-172.20.0.0/16}
+
+volumes:
+  # DNS Services
+  dns-cache:
+    driver: local
+  
+  # Web Proxy Services
+  web-cache:
+    driver: local
+  
+  # Artifact Repositories
+  nexus-data:
+    driver: local
+  
+  verdaccio-data:
+    driver: local
+  
+  # Observability Services
+  elasticsearch-data:
+    driver: local
+  
+  prometheus-data:
+    driver: local
+  
+  grafana-data:
+    driver: local
+  
+  loki-data:
+    driver: local
+
+services:
+  # ============================================================================
+  # DNS Services
+  # ============================================================================
+  
+  dnsdist:
+    image: powerdns/dnsdist-18:latest
+    container_name: homelab-dnsdist
+    networks:
+      - homelab
+    ports:
+      - "${DNS_TRANSPARENT_PORT:-53}:53/udp"  # Transparent mode
+      - "${DNS_DIRECT_PORT:-5353}:5353/udp"   # Direct mode
+      - "8083:8083/tcp"                        # Metrics
+    volumes:
+      - ./configs/dns/dnsdist.conf:/etc/dnsdist/dnsdist.conf:ro
+      - ./blocklists/compiled:/etc/dnsdist/blocklists:ro
+    environment:
+      - HOST_IP=${HOST_IP}
+      - TRANSPARENT_MODE=true
+    healthcheck:
+      test: ["CMD", "dig", "+short", "health.check.local", "@127.0.0.1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+  
+  coredns:
+    image: coredns/coredns:latest
+    container_name: homelab-coredns
+    networks:
+      - homelab
+    ports:
+      - "9153:9153/tcp"  # Metrics
+      - "8080:8080/tcp"  # Health
+    volumes:
+      - ./configs/dns/coredns/Corefile:/etc/coredns/Corefile:ro
+      - dns-cache:/var/lib/coredns
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+  
+  dnscrypt-proxy:
+    image: klutchell/dnscrypt-proxy:latest
+    container_name: homelab-dnscrypt-proxy
+    networks:
+      - homelab
+    volumes:
+      - ./configs/dns/dnscrypt-proxy/dnscrypt-proxy.toml:/etc/dnscrypt-proxy/dnscrypt-proxy.toml:ro
+    healthcheck:
+      test: ["CMD", "nc", "-zv", "localhost", "5300"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+  
+  # ============================================================================
+  # NTP Services
+  # ============================================================================
+  
+  chronyd:
+    image: cturra/ntp:latest
+    container_name: homelab-chronyd
+    networks:
+      - homelab
+    ports:
+      - "${NTP_TRANSPARENT_PORT:-123}:123/udp"  # Transparent mode
+      - "${NTP_DIRECT_PORT:-1123}:1123/udp"     # Direct mode
+      - "9123:9123/tcp"                          # Metrics
+    volumes:
+      - ./configs/ntp/chrony.conf:/etc/chrony/chrony.conf:ro
+    environment:
+      - NTP_ENABLE_NTS=${NTP_ENABLE_NTS:-true}
+    healthcheck:
+      test: ["CMD", "chronyc", "tracking"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+  
+  # ============================================================================
+  # Web Proxy Services
+  # ============================================================================
+  
+  envoy:
+    image: envoyproxy/envoy:v1.28-latest
+    container_name: homelab-envoy
+    networks:
+      - homelab
+    ports:
+      - "${HTTP_TRANSPARENT_PORT:-80}:80/tcp"    # Transparent HTTP
+      - "${HTTPS_TRANSPARENT_PORT:-443}:443/tcp" # Transparent HTTPS
+      - "3129:3129/tcp"                          # Internal
+      - "9901:9901/tcp"                          # Admin + Metrics
+    volumes:
+      - ./configs/web/envoy.yaml:/etc/envoy/envoy.yaml:ro
+    depends_on:
+      - squid
+      - jaeger
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9901/ready"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+  
+  squid:
+    image: ubuntu/squid:latest
+    container_name: homelab-squid
+    networks:
+      - homelab
+    ports:
+      - "${PROXY_DIRECT_PORT:-3128}:3128/tcp"  # Direct mode
+    volumes:
+      - ./configs/web/squid.conf:/etc/squid/squid.conf:ro
+      - web-cache:/var/spool/squid
+    environment:
+      - CACHE_SIZE_MB=${PROXY_CACHE_SIZE_MB:-10240}
+    depends_on:
+      - privoxy
+    healthcheck:
+      test: ["CMD", "squidclient", "-h", "localhost", "mgr:info"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+  
+  privoxy:
+    image: vimagick/privoxy:latest
+    container_name: homelab-privoxy
+    networks:
+      - homelab
+    volumes:
+      - ./configs/web/privoxy/config:/etc/privoxy/config:ro
+    depends_on:
+      - tor
+    healthcheck:
+      test: ["CMD", "nc", "-zv", "localhost", "8118"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+  
+  tor:
+    image: dperson/torproxy:latest
+    container_name: homelab-tor
+    networks:
+      - homelab
+    environment:
+      - TOR_ENABLED=${ENABLE_TOR_WEB:-true}
+    healthcheck:
+      test: ["CMD", "nc", "-zv", "localhost", "9050"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+  
+  # ============================================================================
+  # Artifact Repositories
+  # ============================================================================
+  
+  nexus:
+    image: sonatype/nexus3:latest
+    container_name: homelab-nexus
+    networks:
+      - homelab
+    ports:
+      - "${NEXUS_WEB_PORT:-8081}:8081/tcp"      # Web UI
+      - "${NEXUS_DOCKER_PORT:-8082}:8082/tcp"   # Docker registry
+    volumes:
+      - nexus-data:/nexus-data
+      - ./configs/artifacts/nexus/nexus.properties:/nexus-data/etc/nexus.properties:ro
+    environment:
+      - INSTALL4J_ADD_VM_PARAMS=-Xms2g -Xmx2g -XX:MaxDirectMemorySize=2g
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/service/rest/v1/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    restart: unless-stopped
+  
+  verdaccio:
+    image: verdaccio/verdaccio:latest
+    container_name: homelab-verdaccio
+    networks:
+      - homelab
+    ports:
+      - "${VERDACCIO_PORT:-4873}:4873/tcp"
+    volumes:
+      - verdaccio-data:/verdaccio/storage
+      - ./configs/artifacts/verdaccio/config.yaml:/verdaccio/conf/config.yaml:ro
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:4873/-/ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+  
+  # ============================================================================
+  # Logging Services
+  # ============================================================================
+  
+  vector:
+    image: timberio/vector:latest-alpine
+    container_name: homelab-vector
+    networks:
+      - homelab
+    ports:
+      - "9598:9598/tcp"  # Metrics
+    volumes:
+      - ./configs/logging/vector.toml:/etc/vector/vector.toml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - elasticsearch
+      - loki
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9598/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+  
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: homelab-elasticsearch
+    networks:
+      - homelab
+    ports:
+      - "9200:9200/tcp"  # API
+      - "9300:9300/tcp"  # Cluster
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
+      - ELASTIC_PASSWORD=changeme
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200/_cluster/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+  
+  loki:
+    image: grafana/loki:latest
+    container_name: homelab-loki
+    networks:
+      - homelab
+    ports:
+      - "3100:3100/tcp"
+    volumes:
+      - ./configs/logging/loki.yaml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3100/ready"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+  
+  promtail:
+    image: grafana/promtail:latest
+    container_name: homelab-promtail
+    networks:
+      - homelab
+    ports:
+      - "9080:9080/tcp"  # Metrics
+    volumes:
+      - ./configs/logging/promtail.yaml:/etc/promtail/config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - loki
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9080/ready"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+  
+  # ============================================================================
+  # Monitoring Services
+  # ============================================================================
+  
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: homelab-prometheus
+    networks:
+      - homelab
+    ports:
+      - "9090:9090/tcp"
+    volumes:
+      - ./configs/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=${PROMETHEUS_RETENTION_DAYS:-30}d'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+  
+  grafana:
+    image: grafana/grafana:latest
+    container_name: homelab-grafana
+    networks:
+      - homelab
+    ports:
+      - "3000:3000/tcp"
+    volumes:
+      - ./configs/monitoring/grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      - ./configs/monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-changeme}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=http://${HOST_IP}:3000
+    depends_on:
+      - prometheus
+      - loki
+      - elasticsearch
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+  
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: homelab-jaeger
+    networks:
+      - homelab
+    ports:
+      - "16686:16686/tcp"  # Web UI
+      - "9411:9411/tcp"    # Zipkin API
+      - "14268:14268/tcp"  # Collector
+    environment:
+      - COLLECTOR_ZIPKIN_HOST_PORT=:9411
+      - SAMPLING_STRATEGIES_FILE=/etc/jaeger/sampling.json
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:14269/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+  
+  blackbox-exporter:
+    image: prom/blackbox-exporter:latest
+    container_name: homelab-blackbox-exporter
+    networks:
+      - homelab
+    ports:
+      - "9115:9115/tcp"
+    volumes:
+      - ./configs/monitoring/blackbox.yml:/etc/blackbox_exporter/config.yml:ro
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9115/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
