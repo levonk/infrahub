@@ -80,11 +80,15 @@ fi
 # Check if required packages are installed
 # Core utilities used by the project:
 #   bc         - Math calculations in NTP accuracy tests
+#   chronyc    - Modern NTP client for host-to-docker NTP testing
 #   curl       - HTTP requests in health checks and tests
 #   dig        - DNS queries in DNS leak tests
 #   docker     - Container runtime (required)
 #   make       - Build automation (Makefile commands)
-REQUIRED_PACKAGES=("bc" "curl" "dig" "docker" "make")
+#   nc         - Netcat for TCP port testing (NTP, DNS)
+#   ntpdate    - Legacy NTP client for host-to-docker NTP testing (deprecated but still useful)
+# Note: chronyd service will be disabled/masked to avoid time-daemon conflicts
+REQUIRED_PACKAGES=("bc" "chronyc" "curl" "dig" "docker" "make" "nc" "ntpdate")
 
 # Add nftables only for non-WSL environments
 if [[ "$SKIP_NFTABLES" == "false" ]]; then
@@ -102,11 +106,20 @@ for pkg in "${REQUIRED_PACKAGES[@]}"; do
             bc)
                 PACKAGES_TO_INSTALL+=("bc")
                 ;;
+            chronyc)
+                PACKAGES_TO_INSTALL+=("chrony")
+                ;;
             curl)
                 PACKAGES_TO_INSTALL+=("curl")
                 ;;
             dig)
                 PACKAGES_TO_INSTALL+=("dnsutils")
+                ;;
+            nc)
+                PACKAGES_TO_INSTALL+=("netcat-openbsd")
+                ;;
+            ntpdate)
+                PACKAGES_TO_INSTALL+=("ntpdate")
                 ;;
             docker)
                 # Docker requires special installation - provide instructions
@@ -142,6 +155,62 @@ else
     echo -e "${GREEN}✓ All required packages already installed${NC}"
 fi
 echo ""
+
+# Manage chronyd service - only disable if another time daemon is running
+if command -v chronyc &> /dev/null && command -v systemctl &> /dev/null; then
+    echo -e "${BLUE}Checking time daemon configuration...${NC}"
+    
+    # Check for other time daemons (ntpsec, systemd-timesyncd, etc.)
+    OTHER_TIME_DAEMON_RUNNING=false
+    
+    # Check for ntpsec
+    if systemctl is-active --quiet ntpsec 2>/dev/null || systemctl is-active --quiet ntp 2>/dev/null; then
+        OTHER_TIME_DAEMON_RUNNING=true
+        TIME_DAEMON_NAME="ntpsec/ntp"
+    fi
+    
+    # Check for systemd-timesyncd
+    if systemctl is-active --quiet systemd-timesyncd 2>/dev/null; then
+        OTHER_TIME_DAEMON_RUNNING=true
+        TIME_DAEMON_NAME="systemd-timesyncd"
+    fi
+    
+    if [[ "$OTHER_TIME_DAEMON_RUNNING" == "true" ]]; then
+        # Another time daemon is running - disable chronyd to avoid conflict
+        echo -e "${YELLOW}Detected active time daemon: ${TIME_DAEMON_NAME}${NC}"
+        echo -e "${BLUE}Disabling chronyd to avoid time-daemon conflict...${NC}"
+        
+        # Stop the service if it's running
+        if systemctl is-active --quiet chronyd 2>/dev/null; then
+            systemctl stop chronyd 2>/dev/null || true
+        fi
+        
+        # Disable and mask the service
+        systemctl disable chronyd 2>/dev/null || true
+        systemctl mask chronyd 2>/dev/null || true
+        
+        echo -e "${GREEN}✓ chronyd service disabled and masked (using ${TIME_DAEMON_NAME} instead)${NC}"
+        echo -e "${BLUE}chronyc client tool is still available for testing${NC}"
+    else
+        # No other time daemon - let chronyd run as the time server
+        echo -e "${GREEN}No conflicting time daemon detected${NC}"
+        echo -e "${BLUE}Enabling chronyd as the system time daemon...${NC}"
+        
+        # Unmask if previously masked
+        systemctl unmask chronyd 2>/dev/null || true
+        
+        # Enable and start chronyd
+        systemctl enable chronyd 2>/dev/null || true
+        systemctl start chronyd 2>/dev/null || true
+        
+        if systemctl is-active --quiet chronyd 2>/dev/null; then
+            echo -e "${GREEN}✓ chronyd service enabled and running${NC}"
+        else
+            echo -e "${YELLOW}⚠ chronyd service enabled but not running - may start on next boot${NC}"
+        fi
+    fi
+    echo ""
+fi
 
 if [[ "$SKIP_NFTABLES" == "false" ]]; then
     # Enable IP forwarding
