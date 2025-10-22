@@ -7,6 +7,12 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+# Source .env file if it exists
+if [[ -f "$PROJECT_ROOT/.env" ]]; then
+    # shellcheck disable=SC1091
+    source "$PROJECT_ROOT/.env"
+fi
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -192,48 +198,73 @@ else
     test_result "DNS Resolution" "WARN" "dig command not available, skipping all DNS resolution tests"
 fi
 
-# Test 3: Verify host can reach each DNS service layer
+# Test 3: Verify host can reach each DNS service layer (both UDP and TCP)
 echo ""
 echo "Test 3: Host-to-Service Connectivity"
 if command -v dig &> /dev/null; then
-    # Test 3a: Host → DNSDist transparent mode (port 5353)
-    if dig @localhost -p 5353 example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
-        test_result "Host→DNSDist (5353)" "PASS" "Host can query DNSDist transparent mode on localhost:5353"
+    # Test 3a: Host → DNSDist transparent mode UDP (read port from env, default 15354)
+    DNS_TRANSPARENT_PORT=${DNS_TRANSPARENT_PORT:-15354}
+    if dig @localhost -p ${DNS_TRANSPARENT_PORT} example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+        test_result "Host→DNSDist UDP (${DNS_TRANSPARENT_PORT})" "PASS" "Host can query DNSDist transparent mode via UDP on localhost:${DNS_TRANSPARENT_PORT}"
     else
         dnsdist_uptime_seconds=$(uptime_to_seconds "${DNSDIST_UPTIME:-}")
         if [[ ${dnsdist_uptime_seconds:-0} -gt 300 ]]; then
-            test_result "Host→DNSDist (5353)" "FAIL" "DNSDist running for ${DNSDIST_UPTIME} but host cannot query port 5353"
+            test_result "Host→DNSDist UDP (${DNS_TRANSPARENT_PORT})" "FAIL" "DNSDist running for ${DNSDIST_UPTIME} but host cannot query UDP port ${DNS_TRANSPARENT_PORT}"
             echo ""
             echo -e "${YELLOW}Recommended action:${NC}"
             echo "  docker compose -f \"$PROJECT_ROOT/docker-compose.yml\" ps dnsdist"
             echo "  docker compose -f \"$PROJECT_ROOT/docker-compose.yml\" logs dnsdist --tail=20"
             echo ""
-            echo "Check if port 5353 is properly mapped and DNSDist is listening."
+            echo "Check if port ${DNS_TRANSPARENT_PORT} is properly mapped and DNSDist is listening."
         else
-            test_result "Host→DNSDist (5353)" "WARN" "Cannot query DNSDist from host yet (starting for ${DNSDIST_UPTIME:-unknown})"
+            test_result "Host→DNSDist UDP (${DNS_TRANSPARENT_PORT})" "WARN" "Cannot query DNSDist UDP from host yet (starting for ${DNSDIST_UPTIME:-unknown})"
         fi
     fi
     
-    # Test 3b: Host → DNSDist direct mode (port 15353)
-    if dig @localhost -p 15353 example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
-        test_result "Host→DNSDist (15353)" "PASS" "Host can query DNSDist direct mode on localhost:15353"
+    # Test 3b: Host → DNSDist transparent mode TCP (read port from env, default 5454)
+    if dig @localhost -p ${DNS_TRANSPARENT_PORT} +tcp example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+        test_result "Host→DNSDist TCP (${DNS_TRANSPARENT_PORT})" "PASS" "Host can query DNSDist transparent mode via TCP on localhost:${DNS_TRANSPARENT_PORT}"
     else
         dnsdist_uptime_seconds=$(uptime_to_seconds "${DNSDIST_UPTIME:-}")
         if [[ ${dnsdist_uptime_seconds:-0} -gt 300 ]]; then
-            test_result "Host→DNSDist (15353)" "FAIL" "DNSDist running for ${DNSDIST_UPTIME} but host cannot query port 15353"
+            test_result "Host→DNSDist TCP (${DNS_TRANSPARENT_PORT})" "FAIL" "DNSDist running for ${DNSDIST_UPTIME} but host cannot query TCP port ${DNS_TRANSPARENT_PORT}"
         else
-            test_result "Host→DNSDist (15353)" "WARN" "Cannot query DNSDist direct mode from host yet (starting for ${DNSDIST_UPTIME:-unknown})"
+            test_result "Host→DNSDist TCP (${DNS_TRANSPARENT_PORT})" "WARN" "Cannot query DNSDist TCP from host yet (starting for ${DNSDIST_UPTIME:-unknown})"
         fi
     fi
     
-    # Test 3c: Host → dnscrypt-proxy (port 5300)
+    # Test 3c: Host → DNSDist direct mode UDP (port 15353)
+    if dig @localhost -p 15353 example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+        test_result "Host→DNSDist UDP (15353)" "PASS" "Host can query DNSDist direct mode via UDP on localhost:15353"
+    else
+        dnsdist_uptime_seconds=$(uptime_to_seconds "${DNSDIST_UPTIME:-}")
+        if [[ ${dnsdist_uptime_seconds:-0} -gt 300 ]]; then
+            test_result "Host→DNSDist UDP (15353)" "FAIL" "DNSDist running for ${DNSDIST_UPTIME} but host cannot query UDP port 15353"
+        else
+            test_result "Host→DNSDist UDP (15353)" "WARN" "Cannot query DNSDist direct mode UDP from host yet (starting for ${DNSDIST_UPTIME:-unknown})"
+        fi
+    fi
+    
+    # Test 3d: Host → DNSDist direct mode TCP (port 15353)
+    if dig @localhost -p 15353 +tcp example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+        test_result "Host→DNSDist TCP (15353)" "PASS" "Host can query DNSDist direct mode via TCP on localhost:15353"
+    else
+        dnsdist_uptime_seconds=$(uptime_to_seconds "${DNSDIST_UPTIME:-}")
+        if [[ ${dnsdist_uptime_seconds:-0} -gt 300 ]]; then
+            test_result "Host→DNSDist TCP (15353)" "FAIL" "DNSDist running for ${DNSDIST_UPTIME} but host cannot query TCP port 15353"
+        else
+            test_result "Host→DNSDist TCP (15353)" "WARN" "Cannot query DNSDist direct mode TCP from host yet (starting for ${DNSDIST_UPTIME:-unknown})"
+        fi
+    fi
+    
+    # Test 3e: Host → dnscrypt-proxy UDP (port 5300)
     if dig @localhost -p 5300 example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
-        test_result "Host→dnscrypt-proxy" "PASS" "Host can query dnscrypt-proxy on localhost:5300"
+        test_result "Host→dnscrypt-proxy UDP" "PASS" "Host can query dnscrypt-proxy via UDP on localhost:5300"
     else
         IFS='|' read -r DNSCRYPT_STATUS DNSCRYPT_UPTIME DNSCRYPT_HEALTH <<< "$(parse_container_status dnscrypt-proxy)"
         dnscrypt_uptime_seconds=$(uptime_to_seconds "${DNSCRYPT_UPTIME:-}")
         if [[ ${dnscrypt_uptime_seconds:-0} -gt 300 ]]; then
-            test_result "Host→dnscrypt-proxy" "FAIL" "dnscrypt-proxy running for ${DNSCRYPT_UPTIME} but host cannot query port 5300"
+            test_result "Host→dnscrypt-proxy UDP" "FAIL" "dnscrypt-proxy running for ${DNSCRYPT_UPTIME} but host cannot query UDP port 5300"
             echo ""
             echo -e "${YELLOW}Recommended action:${NC}"
             echo "  docker compose -f \"$PROJECT_ROOT/docker-compose.yml\" ps dnscrypt-proxy"
@@ -241,7 +272,21 @@ if command -v dig &> /dev/null; then
             echo ""
             echo "Check if port 5300 is properly mapped and dnscrypt-proxy is listening."
         else
-            test_result "Host→dnscrypt-proxy" "WARN" "Cannot query dnscrypt-proxy from host yet (starting for ${DNSCRYPT_UPTIME:-unknown})"
+            test_result "Host→dnscrypt-proxy UDP" "WARN" "Cannot query dnscrypt-proxy UDP from host yet (starting for ${DNSCRYPT_UPTIME:-unknown})"
+        fi
+    fi
+    
+    # Test 3f: Host → dnscrypt-proxy TCP (port 5300)
+    # Note: dnscrypt-proxy only exposes UDP in docker-compose.yml, but we test TCP anyway
+    if dig @localhost -p 5300 +tcp example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+        test_result "Host→dnscrypt-proxy TCP" "PASS" "Host can query dnscrypt-proxy via TCP on localhost:5300"
+    else
+        IFS='|' read -r DNSCRYPT_STATUS DNSCRYPT_UPTIME DNSCRYPT_HEALTH <<< "$(parse_container_status dnscrypt-proxy)"
+        dnscrypt_uptime_seconds=$(uptime_to_seconds "${DNSCRYPT_UPTIME:-}")
+        if [[ ${dnscrypt_uptime_seconds:-0} -gt 300 ]]; then
+            test_result "Host→dnscrypt-proxy TCP" "WARN" "dnscrypt-proxy TCP not accessible from host (only UDP exposed in docker-compose)"
+        else
+            test_result "Host→dnscrypt-proxy TCP" "WARN" "Cannot query dnscrypt-proxy TCP from host yet (starting for ${DNSCRYPT_UPTIME:-unknown})"
         fi
     fi
 else

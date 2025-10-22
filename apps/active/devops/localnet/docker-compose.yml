@@ -171,7 +171,8 @@ services:
       homelab:
         ipv4_address: 172.20.255.50  # Static IP in high range, reserved for DNS
     ports:
-      - "5300:5053/udp"  # Map container's default port 5053 to host port 5300
+      - "5300:5053/udp"  # Map container's default port 5053 to host port 5300 (UDP)
+      - "5300:5053/tcp"  # Map container's default port 5053 to host port 5300 (TCP)
     volumes:
       - ./configs/dns/dnscrypt-proxy/dnscrypt-proxy.toml:/etc/dnscrypt-proxy/dnscrypt-proxy.toml:ro
     healthcheck:
