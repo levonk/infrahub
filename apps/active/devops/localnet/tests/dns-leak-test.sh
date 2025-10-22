@@ -192,9 +192,65 @@ else
     test_result "DNS Resolution" "WARN" "dig command not available, skipping all DNS resolution tests"
 fi
 
-# Test 3: Verify DNS queries are encrypted (not plain text)
+# Test 3: Verify host can reach each DNS service layer
 echo ""
-echo "Test 3: DNS Encryption Transport"
+echo "Test 3: Host-to-Service Connectivity"
+if command -v dig &> /dev/null; then
+    # Test 3a: Host → DNSDist transparent mode (port 5353)
+    if dig @localhost -p 5353 example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+        test_result "Host→DNSDist (5353)" "PASS" "Host can query DNSDist transparent mode on localhost:5353"
+    else
+        dnsdist_uptime_seconds=$(uptime_to_seconds "${DNSDIST_UPTIME:-}")
+        if [[ ${dnsdist_uptime_seconds:-0} -gt 300 ]]; then
+            test_result "Host→DNSDist (5353)" "FAIL" "DNSDist running for ${DNSDIST_UPTIME} but host cannot query port 5353"
+            echo ""
+            echo -e "${YELLOW}Recommended action:${NC}"
+            echo "  docker compose -f \"$PROJECT_ROOT/docker-compose.yml\" ps dnsdist"
+            echo "  docker compose -f \"$PROJECT_ROOT/docker-compose.yml\" logs dnsdist --tail=20"
+            echo ""
+            echo "Check if port 5353 is properly mapped and DNSDist is listening."
+        else
+            test_result "Host→DNSDist (5353)" "WARN" "Cannot query DNSDist from host yet (starting for ${DNSDIST_UPTIME:-unknown})"
+        fi
+    fi
+    
+    # Test 3b: Host → DNSDist direct mode (port 15353)
+    if dig @localhost -p 15353 example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+        test_result "Host→DNSDist (15353)" "PASS" "Host can query DNSDist direct mode on localhost:15353"
+    else
+        dnsdist_uptime_seconds=$(uptime_to_seconds "${DNSDIST_UPTIME:-}")
+        if [[ ${dnsdist_uptime_seconds:-0} -gt 300 ]]; then
+            test_result "Host→DNSDist (15353)" "FAIL" "DNSDist running for ${DNSDIST_UPTIME} but host cannot query port 15353"
+        else
+            test_result "Host→DNSDist (15353)" "WARN" "Cannot query DNSDist direct mode from host yet (starting for ${DNSDIST_UPTIME:-unknown})"
+        fi
+    fi
+    
+    # Test 3c: Host → dnscrypt-proxy (port 5300)
+    if dig @localhost -p 5300 example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+        test_result "Host→dnscrypt-proxy" "PASS" "Host can query dnscrypt-proxy on localhost:5300"
+    else
+        IFS='|' read -r DNSCRYPT_STATUS DNSCRYPT_UPTIME DNSCRYPT_HEALTH <<< "$(parse_container_status dnscrypt-proxy)"
+        dnscrypt_uptime_seconds=$(uptime_to_seconds "${DNSCRYPT_UPTIME:-}")
+        if [[ ${dnscrypt_uptime_seconds:-0} -gt 300 ]]; then
+            test_result "Host→dnscrypt-proxy" "FAIL" "dnscrypt-proxy running for ${DNSCRYPT_UPTIME} but host cannot query port 5300"
+            echo ""
+            echo -e "${YELLOW}Recommended action:${NC}"
+            echo "  docker compose -f \"$PROJECT_ROOT/docker-compose.yml\" ps dnscrypt-proxy"
+            echo "  docker compose -f \"$PROJECT_ROOT/docker-compose.yml\" logs dnscrypt-proxy --tail=20"
+            echo ""
+            echo "Check if port 5300 is properly mapped and dnscrypt-proxy is listening."
+        else
+            test_result "Host→dnscrypt-proxy" "WARN" "Cannot query dnscrypt-proxy from host yet (starting for ${DNSCRYPT_UPTIME:-unknown})"
+        fi
+    fi
+else
+    test_result "Host Connectivity" "WARN" "dig command not available, skipping host connectivity tests"
+fi
+
+# Test 4: Verify DNS queries are encrypted (not plain text)
+echo ""
+echo "Test 4: DNS Encryption Transport"
 IFS='|' read -r DNSCRYPT_STATUS DNSCRYPT_UPTIME DNSCRYPT_HEALTH <<< "$(parse_container_status dnscrypt-proxy)"
 
 # Check if dnscrypt-proxy has been running long enough
@@ -232,9 +288,9 @@ else
     fi
 fi
 
-# Test 4: Verify ODoH privacy separation (relay + target server architecture)
+# Test 5: Verify ODoH privacy separation (relay + target server architecture)
 echo ""
-echo "Test 4: ODoH Privacy Separation"
+echo "Test 5: ODoH Privacy Separation"
 # ODoH provides privacy by separating query content from client identity
 # Requires both target servers (process queries) and relay servers (hide client IP)
 if docker compose -f "$PROJECT_ROOT/docker-compose.yml" exec -T dnscrypt-proxy test -f /var/cache/dnscrypt-proxy/odoh-servers.md 2>/dev/null && \
