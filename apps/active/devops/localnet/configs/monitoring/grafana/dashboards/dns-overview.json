@@ -1,0 +1,173 @@
+{
+  "dashboard": {
+    "title": "DNS Overview",
+    "tags": ["homelab", "dns"],
+    "timezone": "browser",
+    "schemaVersion": 38,
+    "version": 1,
+    "refresh": "30s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "DNS Query Rate",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+        "targets": [
+          {
+            "expr": "rate(dnsdist_queries_total[5m])",
+            "legendFormat": "dnsdist - {{mode}}",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(coredns_dns_requests_total[5m])",
+            "legendFormat": "coredns - {{type}}",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          {"format": "qps", "label": "Queries/sec"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 2,
+        "title": "DNS Response Time (p95)",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(dnsdist_latency_bucket[5m]))",
+            "legendFormat": "dnsdist p95",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(coredns_dns_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "coredns p95",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          {"format": "ms", "label": "Latency"},
+          {"format": "short"}
+        ],
+        "alert": {
+          "conditions": [
+            {
+              "evaluator": {"params": [50], "type": "gt"},
+              "operator": {"type": "and"},
+              "query": {"params": ["A", "5m", "now"]},
+              "reducer": {"params": [], "type": "avg"},
+              "type": "query"
+            }
+          ],
+          "executionErrorState": "alerting",
+          "frequency": "1m",
+          "handler": 1,
+          "name": "DNS Latency Alert",
+          "noDataState": "no_data",
+          "notifications": []
+        }
+      },
+      {
+        "id": 3,
+        "title": "DNS Cache Hit Rate",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+        "targets": [
+          {
+            "expr": "rate(coredns_cache_hits_total[5m]) / (rate(coredns_cache_hits_total[5m]) + rate(coredns_cache_misses_total[5m]))",
+            "legendFormat": "Cache Hit Rate",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "percentunit", "label": "Hit Rate", "max": 1, "min": 0},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 4,
+        "title": "DNS Blocklist Blocks",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+        "targets": [
+          {
+            "expr": "rate(dnsdist_blocked_queries_total[5m])",
+            "legendFormat": "Blocked Queries/sec",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "qps", "label": "Blocks/sec"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 5,
+        "title": "DNS Query Types",
+        "type": "piechart",
+        "gridPos": {"h": 8, "w": 8, "x": 0, "y": 16},
+        "targets": [
+          {
+            "expr": "sum by (type) (rate(coredns_dns_requests_total[5m]))",
+            "legendFormat": "{{type}}",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "DNS Response Codes",
+        "type": "piechart",
+        "gridPos": {"h": 8, "w": 8, "x": 8, "y": 16},
+        "targets": [
+          {
+            "expr": "sum by (rcode) (rate(coredns_dns_responses_total[5m]))",
+            "legendFormat": "{{rcode}}",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "DNS Upstream Health",
+        "type": "stat",
+        "gridPos": {"h": 8, "w": 8, "x": 16, "y": 16},
+        "targets": [
+          {
+            "expr": "up{job=\"dnscrypt-proxy\"}",
+            "legendFormat": "dnscrypt-proxy",
+            "refId": "A"
+          },
+          {
+            "expr": "up{job=\"coredns\"}",
+            "legendFormat": "coredns",
+            "refId": "B"
+          },
+          {
+            "expr": "up{job=\"dnsdist\"}",
+            "legendFormat": "dnsdist",
+            "refId": "C"
+          }
+        ],
+        "options": {
+          "colorMode": "background",
+          "graphMode": "none",
+          "orientation": "auto",
+          "textMode": "value_and_name"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "red", "value": null},
+                {"color": "green", "value": 1}
+              ]
+            }
+          }
+        }
+      }
+    ]
+  }
+}

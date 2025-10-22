@@ -1,0 +1,47 @@
+[Unit]
+Description=Home Lab Blocklist Update Service
+Documentation=https://github.com/lrepo52/job-aide/tree/main/apps/active/devops/localnet
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=root
+Group=docker
+
+# Working directory
+WorkingDirectory=/opt/homelab/localnet
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/homelab/localnet/blocklists
+
+# Resource limits
+CPUQuota=50%
+MemoryLimit=512M
+TasksMax=10
+
+# Timeout after 10 minutes
+TimeoutStartSec=600
+
+# Restart blocklist compiler container to update blocklists
+ExecStart=/usr/bin/docker compose -f /opt/homelab/localnet/docker-compose.yml up --build --force-recreate blocklist-compiler
+
+# Restart dnsdist to reload blocklists
+ExecStartPost=/usr/bin/docker compose -f /opt/homelab/localnet/docker-compose.yml restart dnsdist
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=blocklist-update
+
+# Restart policy
+Restart=on-failure
+RestartSec=5min
+
+[Install]
+WantedBy=multi-user.target
