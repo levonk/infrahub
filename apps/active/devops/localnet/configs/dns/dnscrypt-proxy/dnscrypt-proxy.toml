@@ -1,16 +1,27 @@
 # Home Lab In-a-Box - dnscrypt-proxy Configuration
-# Purpose: Encrypt DNS queries with ODoH, DNSSEC validation, and blocklists
+# Purpose: Encrypt DNS queries with ODoH (Oblivious DNS over HTTPS), DNSSEC validation, and blocklists
+#
+# ODoH Configuration:
+# - odoh_servers = true enables ODoH-only mode (disables DNSCrypt and DoH)
+# - Requires both odoh-servers (targets) and odoh-relays (relays) source lists
+# - 8 ODoH target servers available from multiple providers
+# - Provides maximum privacy by separating query content from client identity
+#
+# NOTE: Testing with klutchell/dnscrypt-proxy:2.1.5 to verify ODoH functionality
 
 ##############################################
 # Global settings
 ##############################################
 
 # Server selection
-# Use Cloudflare, Google, and Quad9 for redundancy
-server_names = ['cloudflare', 'google', 'quad9']
+# Leave empty to auto-select from available ODoH servers
+# Available ODoH servers: odoh-cloudflare, odoh-crypto-sx, odoh-id-gmail, 
+# odoh-jp.tiar.app, odoh-jp.tiarap.org, odoh-marco.cx, odoh-snowstorm, odoh-tiarap.org
+server_names = []
 
 # Listen addresses
-listen_addresses = ['0.0.0.0:5300']
+# Container listens on 5053 (image default), mapped to host 5300
+listen_addresses = ['0.0.0.0:5053']
 
 # Maximum number of active connections
 max_clients = 250
@@ -21,80 +32,29 @@ ipv4_servers = true
 # Use servers reachable over IPv6
 ipv6_servers = false
 
+# Use servers implementing the DNSCrypt protocol
+dnscrypt_servers = false
+
+# Use servers implementing the DNS-over-HTTPS protocol
+doh_servers = false
+
+# Use servers implementing the Oblivious DoH protocol
+odoh_servers = true
+
 # Require DNSSEC validation
 require_dnssec = true
 
 # Require servers that support DNS-over-HTTPS
 require_nolog = true
 
-##############################################
-# ODoH (Oblivious DNS over HTTPS)
-##############################################
-
-[odoh]
-# Enable Oblivious DoH for maximum privacy
-enabled = true
-
-# ODoH relay URLs (Cloudflare)
-relay_urls = ['https://odoh.cloudflare-dns.com/dns-query']
-
-##############################################
-# Filters and Blocklists
-##############################################
-
-[blocked_names]
-# Additional blocklist file (beyond dnsdist CDB)
-blocked_names_file = '/etc/dnscrypt-proxy/blocked-names.txt'
-
-# Log blocked queries
-log_file = '/var/log/dnscrypt-proxy/blocked.log'
-
-##############################################
-# Query logging
-##############################################
-
-[query_log]
-# Log all queries for analysis
-file = '/var/log/dnscrypt-proxy/query.log'
-
-# Log format: tab-separated values
-format = 'tsv'
-
-# Fields: timestamp, client_ip, query, response_code, upstream
-ignored_qtypes = []
-
-##############################################
-# Cloaking (local DNS overrides)
-##############################################
-
-[cloaking_rules]
 # Local DNS overrides for internal services
-cloaking_rules_file = '/etc/dnscrypt-proxy/cloaking-rules.txt'
-
-##############################################
-# Sources
-##############################################
-
-[sources]
-# Use the public list of DNS servers
-[sources.'public-resolvers']
-urls = ['https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/master/v3/public-resolvers.md', 'https://download.dnscrypt.info/resolvers-list/v3/public-resolvers.md']
-cache_file = '/var/cache/dnscrypt-proxy/public-resolvers.md'
-minisign_key = 'RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3'
-refresh_delay = 72
-
-# ODoH servers list
-[sources.'odoh-servers']
-urls = ['https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/master/v3/odoh-servers.md', 'https://download.dnscrypt.info/resolvers-list/v3/odoh-servers.md']
-cache_file = '/var/cache/dnscrypt-proxy/odoh-servers.md'
-minisign_key = 'RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3'
-refresh_delay = 72
+cloaking_rules = '/etc/dnscrypt-proxy/cloaking-rules.txt'
 
 ##############################################
 # Performance
 ##############################################
 
-# Timeout for DNS queries
+# Timeout for DNS queries (milliseconds)
 timeout = 5000
 
 # Keep connections alive
@@ -124,7 +84,72 @@ block_undelegated = true
 ##############################################
 
 # Log level (0=FATAL, 1=ERROR, 2=WARNING, 3=NOTICE, 4=INFO, 5=DEBUG)
-log_level = 3
+log_level = 4
 
 # Use syslog instead of stdout
 use_syslog = false
+
+##############################################
+# ODoH (Oblivious DNS over HTTPS)
+##############################################
+
+# Anonymized DNS configuration for ODoH
+# Routes define which relays to use for which servers
+# Using wildcard '*' to apply relays to all ODoH servers
+[anonymized_dns]
+
+# Use all available relays for all ODoH servers
+# The relay names must match those in the odoh-relays.md source list
+routes = [
+    { server_name='*', via=['*'] }
+]
+
+##############################################
+# Filters and Blocklists
+##############################################
+
+[blocked_names]
+# Additional blocklist file (beyond dnsdist CDB)
+blocked_names_file = '/etc/dnscrypt-proxy/blocked-names.txt'
+
+# Log blocked queries
+log_file = '/var/log/dnscrypt-proxy/blocked.log'
+
+##############################################
+# Query logging
+##############################################
+
+[query_log]
+# Log all queries for analysis
+file = '/var/log/dnscrypt-proxy/query.log'
+
+# Log format: tab-separated values
+format = 'tsv'
+
+# Fields: timestamp, client_ip, query, response_code, upstream
+ignored_qtypes = []
+
+##############################################
+# Sources
+##############################################
+
+# ODoH servers list - target servers for Oblivious DNS
+[sources.odoh-servers]
+urls = ['https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/master/v3/odoh-servers.md', 'https://download.dnscrypt.info/resolvers-list/v3/odoh-servers.md']
+cache_file = '/var/cache/dnscrypt-proxy/odoh-servers.md'
+minisign_key = 'RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3'
+refresh_delay = 72
+
+# ODoH relays list - relay servers for Oblivious DNS (required for ODoH)
+[sources.odoh-relays]
+urls = ['https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/master/v3/odoh-relays.md', 'https://download.dnscrypt.info/resolvers-list/v3/odoh-relays.md']
+cache_file = '/var/cache/dnscrypt-proxy/odoh-relays.md'
+minisign_key = 'RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3'
+refresh_delay = 72
+
+# Public resolvers as fallback (not used when odoh_servers = true)
+[sources.public-resolvers]
+urls = ['https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/master/v3/public-resolvers.md', 'https://download.dnscrypt.info/resolvers-list/v3/public-resolvers.md']
+cache_file = '/var/cache/dnscrypt-proxy/public-resolvers.md'
+minisign_key = 'RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3'
+refresh_delay = 72

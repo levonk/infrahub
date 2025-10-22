@@ -1,0 +1,10 @@
+FROM powerdns/dnsdist-21:latest
+
+# Switch to root to install packages
+USER root
+
+# Install dnsutils for dig command (needed for health checks)
+RUN apt-get update && apt-get install -y dnsutils && rm -rf /var/lib/apt/lists/*
+
+# Use the same entrypoint as the base image
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/dnsdist-startup"]

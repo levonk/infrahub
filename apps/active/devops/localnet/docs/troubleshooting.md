@@ -86,6 +86,45 @@ docker network prune -f
 make up
 ```
 
+#### IP Address Conflicts
+
+**Symptoms:**
+```
+Error response from daemon: failed to set up container networking: Address already in use
+```
+
+**Cause:**
+Docker containers competing for the same IP address, typically after network recreation.
+
+**Solution:**
+
+Our DNS services use **high IP range (`172.20.255.x`)** to avoid conflicts with DHCP:
+
+- **DNS Services**: `172.20.255.50-59` (static, reserved)
+- **Other Services**: `172.20.0.2-254.254` (DHCP assigned)
+
+If you see IP conflicts:
+
+```bash
+# 1. Verify DNS IP configuration
+./scripts/validate-dns-ips.sh
+
+# 2. If validation fails, recreate DNS services
+docker compose down dnsdist coredns dnscrypt-proxy
+docker compose up -d dnscrypt-proxy coredns dnsdist
+
+# 3. Verify again
+./scripts/validate-dns-ips.sh
+```
+
+**For detailed DNS troubleshooting, see:** [DNS Troubleshooting Guide](troubleshooting-dns.md)
+
+**Why high IP range?**
+- Docker DHCP starts from bottom (`172.20.0.2`) and works upward
+- DNS services at top (`172.20.255.x`) never conflict with DHCP
+- Survives network recreation (`docker compose down`)
+- See [ADR: High IP Range for DNS](../internal-docs/adr/adr-dns-high-ip-range.md) for full rationale
+
 ---
 
 ### Container Issues

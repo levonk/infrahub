@@ -7,46 +7,16 @@
     log {
         class all
     }
-    
+
     # Error handling
     errors
-    
-    # Health check endpoint
-    # Used by Docker health checks
-    health :8080
-    
-    # Prometheus metrics
-    # Scraped by Prometheus for monitoring
-    prometheus :9153
-    
-    # DNSSEC validation
-    # Validate DNSSEC signatures from upstream
-    dnssec
-    
-    # Caching
-    # TTL: Respect upstream TTL, max 3600s (1 hour)
-    # Success cache: 4096 entries
-    # Denial cache: 1024 entries (NXDOMAIN, NODATA)
-    cache 3600 {
-        success 4096
-        denial 1024
-    }
-    
-    # Forward to dnscrypt-proxy for encrypted DNS (ODoH)
-    forward . dnscrypt-proxy:5300 {
-        max_concurrent 1000
-        health_check 5s
-    }
-    
-    # Load balancing policy
-    policy sequential
-    
-    # Enable query name minimization (privacy)
-    # Only send necessary labels to upstream
-    minimal
-}
 
-# Local zone for health checks
-health.check.local {
-    whoami
+    # Logging
+    log
+
+    # Forward to dnscrypt-proxy for encrypted DNS (ODoH)
+    forward . 172.20.255.50:5053
+
+    # Caching
+    cache 30
 }

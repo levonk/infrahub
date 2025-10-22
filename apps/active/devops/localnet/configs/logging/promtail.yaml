@@ -1,4 +1,6 @@
 # Promtail Configuration
+# SECURITY: Reads from journald instead of Docker socket (codeguard-0-devops-ci-cd-containers)
+
 server:
   http_listen_port: 9080
   grpc_listen_port: 0
@@ -10,10 +12,19 @@ clients:
   - url: http://loki:3100/loki/api/v1/push
 
 scrape_configs:
-  - job_name: system
-    static_configs:
-      - targets:
-          - localhost
-        labels:
-          job: varlogs
-          __path__: /var/log/*log
+  # Collect logs from journald (secure alternative to Docker socket)
+  - job_name: journald
+    journal:
+      max_age: 12h
+      labels:
+        job: journald
+    relabel_configs:
+      # Extract container name from CONTAINER_NAME field
+      - source_labels: ['__journal__container_name']
+        target_label: 'container'
+      # Extract service name from SYSLOG_IDENTIFIER
+      - source_labels: ['__journal__syslog_identifier']
+        target_label: 'service'
+      # Extract systemd unit
+      - source_labels: ['__journal__systemd_unit']
+        target_label: 'unit'

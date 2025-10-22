@@ -1,0 +1,66 @@
+# Git and version control
+.git/
+.gitignore
+.gitattributes
+
+# Documentation
+README.md
+internal-docs/
+docs/
+*.md
+
+# Environment and secrets
+.env
+.env.*
+secrets/
+*.key
+*.pem
+*.crt
+*.p12
+
+# Docker files
+docker-compose.yml
+docker-compose.*.yml
+Dockerfile*
+.dockerignore
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.swp
+*.swo
+*~
+
+# Backups
+backups/
+*.tar.gz
+*.zip
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+
+# Test files
+tests/
+test/
+*.test.*
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# Node modules (if any scripts use Node)
+node_modules/
+
+# Coverage reports
+coverage/
