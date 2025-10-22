@@ -28,6 +28,10 @@ volumes:
   dns-cache:
     driver: local
 
+  # NTP Services
+  chronyd-data:
+    driver: local
+
   # Web Proxy Services
   web-cache:
     driver: local
@@ -220,19 +224,26 @@ services:
     networks:
       - homelab
     ports:
-      - "${NTP_TRANSPARENT_PORT:-123}:123/udp"  # Transparent mode
-      - "${NTP_DIRECT_PORT:-1123}:1123/udp"     # Direct mode
+      - "${NTP_TRANSPARENT_PORT:-123}:123/udp"  # Transparent mode UDP
+      - "${NTP_TRANSPARENT_PORT:-123}:123/tcp"  # Transparent mode TCP
+      - "${NTP_DIRECT_PORT:-1123}:1123/udp"     # Direct mode UDP
+      - "${NTP_DIRECT_PORT:-1123}:1123/tcp"     # Direct mode TCP
+      - "4460:4460/tcp"                          # NTS-KE (Network Time Security Key Exchange)
       - "9123:9123/tcp"                          # Metrics
     volumes:
-      - ./configs/ntp/chrony.conf:/etc/chrony/chrony.conf:ro
+      - ./configs/ntp/chrony.conf:/etc/chrony/chrony.conf:ro  # Custom config (read-only)
+      - chronyd-data:/var/lib/chrony                          # Persistent storage for drift file and NTS keys
     environment:
-      - NTP_ENABLE_NTS=${NTP_ENABLE_NTS:-true}
+      # Use environment variables to configure the image's startup script
+      # This allows us to use the image's entrypoint while customizing the config
+      - ENABLE_NTS=true
+      - LOG_LEVEL=0
     healthcheck:
       test: ["CMD", "chronyc", "tracking"]
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 10s
+      start_period: 30s
     restart: unless-stopped
 
   # ============================================================================
