@@ -1,5 +1,4 @@
-version: '3.8'
-
+---
 services:
   # Claude Code Core Service
   claude-code:
@@ -28,10 +27,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2.0'
+          cpus: "2.0"
           memory: 2G
         reservations:
-          cpus: '0.5'
+          cpus: "0.5"
           memory: 512M
 
   # Claude Code Web UI
@@ -57,7 +56,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.5'
+          cpus: "0.5"
           memory: 512M
 
   # Claude Code Authentication Service
@@ -84,7 +83,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.5'
+          cpus: "0.5"
           memory: 256M
 
   # MCP Server
@@ -96,7 +95,6 @@ services:
       - MCP_CONFIG_FILE=/app/config/mcp-config.json
     volumes:
       - claude-code-config:/app/config
-      - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - claude-code-network
     depends_on:
@@ -109,7 +107,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1.0'
+          cpus: "1.0"
           memory: 1G
 
   # PluggedIn MCP Proxy
@@ -134,7 +132,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.5'
+          cpus: "0.5"
           memory: 256M
 
   # PluggedIn App
@@ -158,7 +156,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.5'
+          cpus: "0.5"
           memory: 256M
 
   # Claude Code Database (for sessions and history)
@@ -182,7 +180,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.5'
+          cpus: "0.5"
           memory: 512M
 
 volumes:
