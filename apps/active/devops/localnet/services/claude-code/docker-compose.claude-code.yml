@@ -159,11 +159,14 @@ services:
           cpus: "0.5"
           memory: 256M
 
-  # Claude Code Database (for sessions and history)
+  # PostgreSQL Database (for concurrent/multi-user scenarios)
+  # Only started when DATABASE_TYPE=postgresql (via --profile postgresql)
   claude-code-db:
     image: postgres:15-alpine
     container_name: claude-code-db
     restart: unless-stopped
+    profiles:
+      - postgresql  # Activate with: docker compose --profile postgresql up
     environment:
       - POSTGRES_DB=claude_code
       - POSTGRES_USER=claude_user

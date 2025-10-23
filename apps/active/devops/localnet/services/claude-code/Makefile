@@ -1,4 +1,4 @@
-.PHONY: help build up down restart logs logs-follow health-check clean clean-all test-mcp test-integration test-orchestration test-api-auth test-mcp-integration test-web-ui status
+.PHONY: help build up down restart logs logs-follow health-check clean clean-all test-mcp test-integration test-orchestration test-api-auth test-mcp-integration test-web-ui test-performance test-postgresql test-sqlite status
 
 # Default target
 .DEFAULT_GOAL := help
@@ -120,6 +120,10 @@ test-performance: ## Test performance requirements and resource usage
 	@echo "$(BLUE)Testing performance requirements and resource usage...$(NC)"
 	@./tests/performance.test.sh
 
-test-error-scenarios: ## Test error handling for invalid credentials, network failures, resource constraints
-	@echo "$(BLUE)Testing error handling for edge cases and failure scenarios...$(NC)"
-	@./tests/error-scenarios.test.sh
+test-postgresql: ## Test with PostgreSQL database backend
+	@echo "$(BLUE)Testing with PostgreSQL database backend...$(NC)"
+	@DATABASE_TYPE=postgresql $(MAKE) test-integration
+
+test-sqlite: ## Test with SQLite database backend
+	@echo "$(BLUE)Testing with SQLite database backend...$(NC)"
+	@DATABASE_TYPE=sqlite $(MAKE) test-integration

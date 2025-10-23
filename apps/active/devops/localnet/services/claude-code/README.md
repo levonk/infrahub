@@ -523,3 +523,154 @@ find ${BACKUP_DIR} -name "*.sql.gz" -mtime +30 -delete
 2. **Scale**: Increase resources or scale horizontally
 3. **Optimize**: Review and fix performance issues
 4. **Rollback**: If optimization fails, rollback deployment
+
+## Database Fallback Options
+
+### Overview
+
+The Claude Code Integration Service supports multiple database backends through a unified abstraction layer:
+
+- **PostgreSQL** (Default): Full-featured OLTP database with concurrent access, ACID compliance, and advanced features
+- **SQLite** (Fallback): Lightweight, file-based database perfect for single-user scenarios or development
+
+### When to Use PostgreSQL
+- Multiple concurrent users/sessions
+- High-availability requirements
+- Advanced features needed (complex queries, triggers, stored procedures)
+- Production deployments with multiple agents/worktrees
+- Data integrity and concurrent access critical
+
+### When to Use SQLite
+- Single-user development/local testing
+- Lightweight deployments
+- Resource-constrained environments
+- Simple data persistence without concurrency needs
+- Prototyping and experimentation
+
+### Configuration
+
+#### Environment Variables
+
+```bash
+# Database Type Selection
+DATABASE_TYPE=postgresql  # or 'sqlite'
+
+# PostgreSQL Settings (when DATABASE_TYPE=postgresql)
+DATABASE_URL=postgresql://user:password@host:port/database
+CLAUDE_CODE_DB_PASSWORD=your_secure_password
+
+# SQLite Settings (when DATABASE_TYPE=sqlite)
+SQLITE_PATH=/app/data/claude_code.db
+```
+
+#### Docker Compose Usage
+
+```bash
+# PostgreSQL (default - concurrent access)
+docker compose up
+
+# SQLite (lightweight - single-user)
+DATABASE_TYPE=sqlite docker compose up
+
+# PostgreSQL with explicit profile (same as default)
+docker compose --profile postgresql up
+```
+
+### Database Schema Compatibility
+
+The abstraction layer ensures both databases use compatible schemas:
+
+- **UUID Primary Keys**: Both support UUID generation
+- **JSON Storage**: PostgreSQL uses JSONB, SQLite stores as TEXT
+- **Timestamps**: Both support ISO format timestamps
+- **Constraints**: Foreign keys and check constraints work in both
+- **Indexing**: Optimized indexes for both query patterns
+
+### Migration Between Databases
+
+Data can be migrated between PostgreSQL and SQLite using standard export/import tools:
+
+```bash
+# Export from PostgreSQL
+pg_dump -h localhost -U user -d claude_code > export.sql
+
+# Import to SQLite (with schema conversion)
+# Note: Some advanced PostgreSQL features may need manual adaptation
+```
+
+### Performance Characteristics
+
+#### PostgreSQL
+- **Concurrent Connections**: 100+ simultaneous users
+- **Query Performance**: Excellent for complex queries
+- **Storage**: Efficient for large datasets
+- **Backup/Restore**: Built-in tools available
+
+#### SQLite
+- **Concurrent Connections**: Single-writer, multiple readers
+- **Query Performance**: Fast for simple queries
+- **Storage**: Single file, easy backup
+- **Resource Usage**: Minimal CPU/memory footprint
+
+### Security Considerations
+
+#### PostgreSQL
+- Network isolation required
+- User authentication and permissions
+- SSL/TLS encryption for connections
+- Regular security updates needed
+
+#### SQLite
+- File system security critical
+- No network access (file-based)
+- Container volume permissions important
+- Backup file protection essential
+
+### Development Setup
+
+#### Quick SQLite Development
+```bash
+# Use SQLite for fast development cycles
+export DATABASE_TYPE=sqlite
+export SQLITE_PATH=./dev.db
+
+# Start services
+docker compose up
+
+# Database persists in local file
+ls -la dev.db
+```
+
+#### PostgreSQL Production
+```bash
+# Use PostgreSQL for production features
+export DATABASE_TYPE=postgresql
+export DATABASE_URL=postgresql://prod_user:secure_pass@db.host:5432/claude_prod
+
+# Start with PostgreSQL profile
+docker compose --profile postgresql up
+```
+
+### Testing Both Backends
+
+```bash
+# Test with PostgreSQL
+DATABASE_TYPE=postgresql make test-integration
+
+# Test with SQLite
+DATABASE_TYPE=sqlite make test-integration
+```
+
+### Monitoring and Maintenance
+
+#### PostgreSQL
+- Connection pooling monitoring
+- Query performance analysis
+- Regular VACUUM operations
+- Backup verification
+
+#### SQLite
+- File size monitoring
+- WAL file management (if enabled)
+- Regular VACUUM operations
+- Backup file integrity checks
