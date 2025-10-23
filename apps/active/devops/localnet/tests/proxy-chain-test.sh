@@ -42,13 +42,21 @@ parse_container_status() {
     
     status=$(docker compose -f "$PROJECT_ROOT/docker-compose.yml" ps "$container_name" --format "{{.Status}}" 2>/dev/null || echo "not found")
     
-    # Extract uptime (e.g., "Up 23 minutes")
+    # Extract uptime (e.g., "Up 23 minutes") - use variable to avoid unbound BASH_REMATCH
     uptime=""
-    { [[ "$status" =~ Up[[:space:]]([^(]+) ]] && uptime="${BASH_REMATCH[1]}"; } || true
+    local uptime_pattern='Up[[:space:]]+([^(]+)'
+    if [[ "$status" =~ $uptime_pattern ]]; then
+        uptime="${BASH_REMATCH[1]}"
+        # Trim trailing whitespace
+        uptime="${uptime%"${uptime##*[![:space:]]}"}"
+    fi
     
-    # Check health status
+    # Check health status - use variable to avoid unbound BASH_REMATCH
     health=""
-    { [[ "$status" =~ \(([^)]+)\) ]] && health="${BASH_REMATCH[1]}"; } || true
+    local health_pattern='[(]([^)]+)[)]'
+    if [[ "$status" =~ $health_pattern ]]; then
+        health="${BASH_REMATCH[1]}"
+    fi
     
     # Get restart count
     restart_count=$(docker compose -f "$PROJECT_ROOT/docker-compose.yml" ps "$container_name" --format "{{.Status}}" 2>/dev/null | grep -oP 'Restarting \(\K[0-9]+' || echo "0")
@@ -139,42 +147,170 @@ if echo "$TOR_STATUS" | grep -q "Up" || true; then
     fi
 fi
 
-# Test 5: Test direct proxy access
+# ============================================================================
+# Layer 3: Internal Container Network Tests
+# ============================================================================
+
+# Test 5: Tor internal connectivity (port 9050)
 echo ""
-echo "Test 5: Direct Proxy Access (port 3128)"
+echo "Test 5: Tor Internal Connectivity (container network)"
+if docker compose -f "$PROJECT_ROOT/docker-compose.yml" exec -T privoxy nc -zv tor 9050 2>&1 | grep -q "succeeded\|open"; then
+    test_result "Tor Internal" "PASS" "Tor accessible from privoxy container on port 9050"
+else
+    tor_uptime_seconds=$(uptime_to_seconds "$TOR_UPTIME")
+    if [[ $tor_uptime_seconds -gt 300 ]]; then
+        test_result "Tor Internal" "FAIL" "Tor running for ${TOR_UPTIME} but not accessible on internal network"
+        echo ""
+        echo "${YELLOW}Recommended action:${NC}"
+        echo "  docker compose -f \"$PROJECT_ROOT/docker-compose.yml\" restart tor privoxy squid envoy transparent-gateway"
+        echo ""
+        echo "This will restart Tor and all dependent services in the proxy chain."
+    else
+        test_result "Tor Internal" "WARN" "Tor not accessible yet (starting for ${TOR_UPTIME})"
+    fi
+fi
+
+# Test 6: Privoxy internal connectivity (port 8118)
+echo ""
+echo "Test 6: Privoxy Internal Connectivity (container network)"
+if docker compose -f "$PROJECT_ROOT/docker-compose.yml" exec -T squid nc -zv privoxy 8118 2>&1 | grep -q "succeeded\|open"; then
+    test_result "Privoxy Internal" "PASS" "Privoxy accessible from squid container on port 8118"
+else
+    privoxy_uptime_seconds=$(uptime_to_seconds "$PRIVOXY_UPTIME")
+    if [[ $privoxy_uptime_seconds -gt 300 ]]; then
+        test_result "Privoxy Internal" "FAIL" "Privoxy running for ${PRIVOXY_UPTIME} but not accessible on internal network"
+        echo ""
+        echo "${YELLOW}Recommended action:${NC}"
+        echo "  docker compose -f \"$PROJECT_ROOT/docker-compose.yml\" restart privoxy squid envoy transparent-gateway"
+        echo ""
+        echo "This will restart Privoxy and all dependent services."
+    else
+        test_result "Privoxy Internal" "WARN" "Privoxy not accessible yet (starting for ${PRIVOXY_UPTIME})"
+    fi
+fi
+
+# Test 7: Squid internal connectivity (port 3128)
+echo ""
+echo "Test 7: Squid Internal Connectivity (container network)"
+if docker compose -f "$PROJECT_ROOT/docker-compose.yml" exec -T envoy nc -zv squid 3128 2>&1 | grep -q "succeeded\|open"; then
+    test_result "Squid Internal" "PASS" "Squid accessible from envoy container on port 3128"
+else
+    squid_uptime_seconds=$(uptime_to_seconds "$SQUID_UPTIME")
+    if [[ $squid_uptime_seconds -gt 300 ]]; then
+        test_result "Squid Internal" "FAIL" "Squid running for ${SQUID_UPTIME} but not accessible on internal network"
+        echo ""
+        echo "${YELLOW}Recommended action:${NC}"
+        echo "  docker compose -f \"$PROJECT_ROOT/docker-compose.yml\" restart squid envoy transparent-gateway"
+        echo ""
+        echo "This will restart Squid and all dependent services."
+    else
+        test_result "Squid Internal" "WARN" "Squid not accessible yet (starting for ${SQUID_UPTIME})"
+    fi
+fi
+
+# Test 8: Envoy internal connectivity (port 3129)
+echo ""
+echo "Test 8: Envoy Internal Connectivity (container network)"
+if docker compose -f "$PROJECT_ROOT/docker-compose.yml" exec -T squid nc -zv envoy 3129 2>&1 | grep -q "succeeded\|open"; then
+    test_result "Envoy Internal" "PASS" "Envoy accessible from squid container on port 3129"
+else
+    envoy_uptime_seconds=$(uptime_to_seconds "$ENVOY_UPTIME")
+    if [[ $envoy_uptime_seconds -gt 300 ]]; then
+        test_result "Envoy Internal" "FAIL" "Envoy running for ${ENVOY_UPTIME} but not accessible on internal network"
+        echo ""
+        echo "${YELLOW}Recommended action:${NC}"
+        echo "  docker compose -f \"$PROJECT_ROOT/docker-compose.yml\" restart envoy transparent-gateway"
+        echo ""
+        echo "This will restart Envoy and the transparent gateway."
+    else
+        test_result "Envoy Internal" "WARN" "Envoy not accessible yet (starting for ${ENVOY_UPTIME})"
+    fi
+fi
+
+# ============================================================================
+# Layer 4: Host Access Tests
+# ============================================================================
+
+# Test 9: Squid host access (port 3128)
+echo ""
+echo "Test 9: Squid Host Access (port 3128)"
 if command -v curl &> /dev/null; then
     if curl -sf -x http://localhost:3128 http://example.com -m 10 > /dev/null 2>&1; then
-        test_result "Direct Proxy" "PASS" "Successfully accessed example.com through Squid proxy"
+        test_result "Squid Host Access" "PASS" "Successfully accessed example.com through Squid from host"
     else
-        # Check if Squid has been running long enough that this should work
         squid_uptime_seconds=$(uptime_to_seconds "$SQUID_UPTIME")
         if [[ $squid_uptime_seconds -gt 300 ]]; then
-            test_result "Direct Proxy" "FAIL" "Squid running for ${SQUID_UPTIME} but still cannot proxy requests - check logs"
+            test_result "Squid Host Access" "FAIL" "Squid running for ${SQUID_UPTIME} but host cannot proxy requests"
             echo ""
             echo "${YELLOW}Recommended action:${NC}"
             echo "  docker compose -f \"$PROJECT_ROOT/docker-compose.yml\" restart squid envoy transparent-gateway"
             echo ""
             echo "This will restart Squid and all dependent services in the proxy chain."
         else
-            test_result "Direct Proxy" "WARN" "Could not access example.com through proxy (Squid starting for ${SQUID_UPTIME})"
+            test_result "Squid Host Access" "WARN" "Could not access example.com from host (Squid starting for ${SQUID_UPTIME})"
         fi
     fi
 else
-    test_result "Direct Proxy" "WARN" "curl command not available, skipping"
+    test_result "Squid Host Access" "WARN" "curl command not available, skipping"
 fi
 
-# Test 6: Check Envoy admin interface
+# Test 10: Envoy host access - HTTP transparent mode (port 10080)
 echo ""
-echo "Test 6: Envoy Admin Interface"
-if curl -sf http://localhost:9901/stats 2>/dev/null | head -5 > /dev/null; then
-    test_result "Envoy Admin" "PASS" "Envoy admin interface is accessible"
+echo "Test 10: Envoy Host Access - HTTP (port 10080)"
+if command -v nc &> /dev/null; then
+    if timeout 3 nc -zv localhost 10080 2>&1 | grep -q "succeeded\|open"; then
+        test_result "Envoy HTTP Host" "PASS" "Envoy HTTP port 10080 accessible from host"
+    else
+        envoy_uptime_seconds=$(uptime_to_seconds "$ENVOY_UPTIME")
+        if [[ $envoy_uptime_seconds -gt 300 ]]; then
+            test_result "Envoy HTTP Host" "FAIL" "Envoy running for ${ENVOY_UPTIME} but HTTP port 10080 not accessible from host"
+        else
+            test_result "Envoy HTTP Host" "WARN" "Envoy HTTP port 10080 not accessible yet (starting for ${ENVOY_UPTIME})"
+        fi
+    fi
 else
-    test_result "Envoy Admin" "WARN" "Envoy admin interface not accessible"
+    test_result "Envoy HTTP Host" "WARN" "nc (netcat) not available - install netcat to test"
 fi
 
-# Test 7: Check Squid cache statistics
+# Test 11: Envoy host access - HTTPS transparent mode (port 10443)
 echo ""
-echo "Test 7: Squid Cache Statistics"
+echo "Test 11: Envoy Host Access - HTTPS (port 10443)"
+if command -v nc &> /dev/null; then
+    if timeout 3 nc -zv localhost 10443 2>&1 | grep -q "succeeded\|open"; then
+        test_result "Envoy HTTPS Host" "PASS" "Envoy HTTPS port 10443 accessible from host"
+    else
+        envoy_uptime_seconds=$(uptime_to_seconds "$ENVOY_UPTIME")
+        if [[ $envoy_uptime_seconds -gt 300 ]]; then
+            test_result "Envoy HTTPS Host" "FAIL" "Envoy running for ${ENVOY_UPTIME} but HTTPS port 10443 not accessible from host"
+        else
+            test_result "Envoy HTTPS Host" "WARN" "Envoy HTTPS port 10443 not accessible yet (starting for ${ENVOY_UPTIME})"
+        fi
+    fi
+else
+    test_result "Envoy HTTPS Host" "WARN" "nc (netcat) not available - install netcat to test"
+fi
+
+# Test 12: Envoy admin/metrics endpoint (port 9901)
+echo ""
+echo "Test 12: Envoy Admin/Metrics Endpoint (port 9901)"
+if curl -sf http://localhost:9901/stats 2>/dev/null | head -5 > /dev/null; then
+    test_result "Envoy Metrics" "PASS" "Envoy admin/metrics interface accessible from host"
+else
+    envoy_uptime_seconds=$(uptime_to_seconds "$ENVOY_UPTIME")
+    if [[ $envoy_uptime_seconds -gt 300 ]]; then
+        test_result "Envoy Metrics" "FAIL" "Envoy running for ${ENVOY_UPTIME} but metrics not accessible from host"
+    else
+        test_result "Envoy Metrics" "WARN" "Envoy metrics not accessible yet (starting for ${ENVOY_UPTIME})"
+    fi
+fi
+
+# ============================================================================
+# Layer 5: Functional Tests
+# ============================================================================
+
+# Test 13: Check Squid cache statistics
+echo ""
+echo "Test 13: Squid Cache Statistics"
 if docker compose -f "$PROJECT_ROOT/docker-compose.yml" exec -T squid squidclient mgr:info 2>/dev/null | grep -q "Squid Object Cache"; then
     test_result "Squid Stats" "PASS" "Squid cache statistics available"
     
@@ -199,9 +335,9 @@ else
     fi
 fi
 
-# Test 8: Verify transparent proxy gateway
+# Test 14: Verify transparent proxy gateway
 echo ""
-echo "Test 8: Transparent Gateway Integration"
+echo "Test 14: Transparent Gateway Integration"
 IFS='|' read -r GATEWAY_STATUS GATEWAY_UPTIME GATEWAY_HEALTH GATEWAY_RESTARTS <<< "$(parse_container_status transparent-gateway)"
 if echo "$GATEWAY_STATUS" | grep -q "Up" || true; then
     if echo "$GATEWAY_STATUS" | grep -q "Up"; then

@@ -28,6 +28,10 @@ volumes:
   dns-cache:
     driver: local
 
+  # NTP Services
+  chronyd-data:
+    driver: local
+
   # Web Proxy Services
   web-cache:
     driver: local
@@ -75,6 +79,8 @@ services:
     container_name: homelab-transparent-gateway
     cap_add:
       - NET_ADMIN
+    sysctls:
+      - net.ipv4.ip_forward=1
     networks:
       homelab:
         ipv4_address: 172.20.0.254
@@ -171,7 +177,8 @@ services:
       homelab:
         ipv4_address: 172.20.255.50  # Static IP in high range, reserved for DNS
     ports:
-      - "5300:5053/udp"  # Map container's default port 5053 to host port 5300
+      - "5300:5053/udp"  # Map container's default port 5053 to host port 5300 (UDP)
+      - "5300:5053/tcp"  # Map container's default port 5053 to host port 5300 (TCP)
     volumes:
       - ./configs/dns/dnscrypt-proxy/dnscrypt-proxy.toml:/etc/dnscrypt-proxy/dnscrypt-proxy.toml:ro
     healthcheck:
@@ -214,25 +221,44 @@ services:
   # ============================================================================
 
   chronyd:
-    image: cturra/ntp:latest
+    build:
+      context: ./configs/ntp
+      dockerfile: Dockerfile
+    image: homelab-chronyd:latest
     container_name: homelab-chronyd
     networks:
       - homelab
     ports:
-      - "${NTP_TRANSPARENT_PORT:-123}:123/udp"  # Transparent mode
-      - "${NTP_DIRECT_PORT:-1123}:1123/udp"     # Direct mode
+      - "${NTP_TRANSPARENT_PORT:-123}:123/udp"  # Transparent mode UDP
+      - "${NTP_TRANSPARENT_PORT:-123}:123/tcp"  # Transparent mode TCP
+      - "${NTP_DIRECT_PORT:-1123}:1123/udp"     # Direct mode UDP
+      - "${NTP_DIRECT_PORT:-1123}:1123/tcp"     # Direct mode TCP
+      - "4460:4460/tcp"                          # NTS-KE (Network Time Security Key Exchange)
       - "9123:9123/tcp"                          # Metrics
     volumes:
-      - ./configs/ntp/chrony.conf:/etc/chrony/chrony.conf:ro
+      - ./configs/ntp/chrony.conf:/etc/chrony/chrony.conf:ro  # Custom config (read-only)
+      - chronyd-data:/var/lib/chrony                          # Persistent storage for drift file and NTS keys
     environment:
-      - NTP_ENABLE_NTS=${NTP_ENABLE_NTS:-true}
+      # Use environment variables to configure the image's startup script
+      # This allows us to use the image's entrypoint while customizing the config
+      - ENABLE_NTS=true
+      - LOG_LEVEL=0
     healthcheck:
       test: ["CMD", "chronyc", "tracking"]
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 10s
+      start_period: 30s
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - SYS_TIME          # Required for chronyd to adjust system time
+      - NET_BIND_SERVICE  # Required to bind to port 123
+      - SETUID            # Required for chronyd to drop privileges
+      - SETGID            # Required for chronyd to drop privileges
 
   # ============================================================================
   # Web Proxy Services
@@ -244,10 +270,10 @@ services:
     networks:
       - homelab
     ports:
-      - "${HTTP_TRANSPARENT_PORT:-80}:80/tcp"    # Transparent HTTP
-      - "${HTTPS_TRANSPARENT_PORT:-443}:443/tcp" # Transparent HTTPS
-      - "3129:3129/tcp"                          # Internal
-      - "9901:9901/tcp"                          # Admin + Metrics
+      - "${HTTP_TRANSPARENT_PORT:-10080}:80/tcp"    # Transparent HTTP (host 10080 → container 80)
+      - "${HTTPS_TRANSPARENT_PORT:-10443}:443/tcp" # Transparent HTTPS (host 10443 → container 443)
+      - "3129:3129/tcp"                            # Internal
+      - "9901:9901/tcp"                            # Admin + Metrics
     volumes:
       - ./configs/web/envoy.yaml:/etc/envoy/envoy.yaml:ro
     depends_on:

@@ -1,0 +1,17 @@
+FROM base
+
+RUN curl https://pkg.cloudflareclient.com/pubkey.gpg | gpg --yes --dearmor --output /usr/share/keyrings/cloudflare-warp-archive-keyring.gpg && \
+    echo "deb [signed-by=/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg] https://pkg.cloudflareclient.com/ $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/cloudflare-client.list && \
+    apt-get update && \
+    apt-get install -y cloudflare-warp && \
+    apt-get clean
+
+COPY healthcheck/check-warp.sh /healthcheck/
+RUN chmod +x /healthcheck/check-warp.sh
+HEALTHCHECK --interval=15s --timeout=5s CMD /healthcheck/check-warp.sh
+
+CMD ["warp-svc"]
+EOF
+
+echo 'warp-cli --accept-tos status | grep -q "Status: Connected" || exit 1' > services/vpn/cloudflare-warp/healthcheck/check-warp.sh
+chmod +x services/vpn/cloudflare-warp/healthcheck/check-warp.sh
