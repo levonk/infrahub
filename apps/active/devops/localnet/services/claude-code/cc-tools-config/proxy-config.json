@@ -10,12 +10,12 @@
       "protocol": "http"
     },
     "security": {
-      "require_auth": false,
+      "require_auth": true,
       "cors": {
         "enabled": true,
-        "allowed_origins": ["*"],
+        "allowed_origins": ["http://localhost:3000"],
         "allowed_methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        "allowed_headers": ["*"]
+        "allowed_headers": ["Content-Type", "Authorization"]
       }
     },
     "timeout": 30000,

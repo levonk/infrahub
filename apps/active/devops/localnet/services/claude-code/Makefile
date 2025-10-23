@@ -1,4 +1,4 @@
-.PHONY: help build up down restart logs logs-follow health-check clean clean-all
+.PHONY: help build up down restart logs logs-follow health-check clean clean-all test-mcp status
 
 # Default target
 .DEFAULT_GOAL := help
@@ -59,6 +59,9 @@ health-check: ## Check health status of Claude Code services
 	@docker compose -f $(COMPOSE_FILE) --env-file $(ENV_FILE) exec claude-code curl -f http://localhost:8081/health 2>/dev/null && echo "$(GREEN)✓ Claude Code healthy$(NC)" || echo "$(RED)✗ Claude Code unhealthy$(NC)"
 	@docker compose -f $(COMPOSE_FILE) --env-file $(ENV_FILE) exec claude-code-ui curl -f http://localhost:3000/health 2>/dev/null && echo "$(GREEN)✓ Claude Code UI healthy$(NC)" || echo "$(RED)✗ Claude Code UI unhealthy$(NC)"
 	@docker compose -f $(COMPOSE_FILE) --env-file $(ENV_FILE) exec claude-code-auth curl -f http://localhost:8080/health 2>/dev/null && echo "$(GREEN)✓ Claude Code Auth healthy$(NC)" || echo "$(RED)✗ Claude Code Auth unhealthy$(NC)"
+	@docker compose -f $(COMPOSE_FILE) --env-file $(ENV_FILE) exec claude-code-mcp curl -f http://localhost:8082/health 2>/dev/null && echo "$(GREEN)✓ Claude Code MCP healthy$(NC)" || echo "$(RED)✗ Claude Code MCP unhealthy$(NC)"
+	@docker compose -f $(COMPOSE_FILE) --env-file $(ENV_FILE) exec pluggedin-mcp-proxy curl -f http://localhost:8085/health 2>/dev/null && echo "$(GREEN)✓ MCP Proxy healthy$(NC)" || echo "$(RED)✗ MCP Proxy unhealthy$(NC)"
+	@docker compose -f $(COMPOSE_FILE) --env-file $(ENV_FILE) exec pluggedin-app curl -f http://localhost:8086/health 2>/dev/null && echo "$(GREEN)✓ PluggedIn App healthy$(NC)" || echo "$(RED)✗ PluggedIn App unhealthy$(NC)"
 	@echo "$(GREEN)✓ Health check complete$(NC)"
 
 clean: ## Remove Claude Code containers and networks (keeps volumes)
@@ -81,5 +84,14 @@ status: ## Show status of Claude Code containers
 	@echo "$(BLUE)Claude Code Service Status:$(NC)"
 	@docker compose -f $(COMPOSE_FILE) --env-file $(ENV_FILE) ps
 
-shell: ## Open shell in Claude Code container
-	@docker compose -f $(COMPOSE_FILE) --env-file $(ENV_FILE) exec claude-code /bin/bash
+test-mcp: ## Test MCP tool integration and functionality
+	@echo "$(BLUE)Testing MCP tool integration...$(NC)"
+	@echo "1. Checking MCP server connectivity..."
+	@docker compose -f $(COMPOSE_FILE) --env-file $(ENV_FILE) exec claude-code-mcp curl -f http://localhost:8082/tools 2>/dev/null && echo "$(GREEN)✓ MCP server tools endpoint accessible$(NC)" || echo "$(RED)✗ MCP server tools endpoint not accessible$(NC)"
+	@echo "2. Testing MCP proxy connectivity..."
+	@docker compose -f $(COMPOSE_FILE) --env-file $(ENV_FILE) exec pluggedin-mcp-proxy curl -f http://localhost:8085/tools 2>/dev/null && echo "$(GREEN)✓ MCP proxy tools endpoint accessible$(NC)" || echo "$(RED)✗ MCP proxy tools endpoint not accessible$(NC)"
+	@echo "3. Testing tool discovery..."
+	@docker compose -f $(COMPOSE_FILE) --env-file $(ENV_FILE) exec claude-code-mcp curl -s http://localhost:8082/tools | grep -q "file-system\|shell\|git" && echo "$(GREEN)✓ MCP tools discovered (file-system, shell, git)$(NC)" || echo "$(RED)✗ MCP tools not properly discovered$(NC)"
+	@echo "4. Testing Claude Code integration..."
+	@docker compose -f $(COMPOSE_FILE) --env-file $(ENV_FILE) exec claude-code curl -s http://claude-code-mcp:8082/tools | grep -q "tools" && echo "$(GREEN)✓ Claude Code can reach MCP server$(NC)" || echo "$(RED)✗ Claude Code cannot reach MCP server$(NC)"
+	@echo "$(GREEN)✓ MCP integration test complete$(NC)"
