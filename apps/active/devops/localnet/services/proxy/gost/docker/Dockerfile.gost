@@ -1,4 +1,4 @@
-FROM base
+FROM base-debian
 
 ARG GOST_VERSION=3.0.0-rc8
 ARG TARGETPLATFORM
@@ -18,7 +18,3 @@ RUN chmod +x /healthcheck/check-gost.sh
 HEALTHCHECK --interval=30s --timeout=5s CMD /healthcheck/check-gost.sh
 
 CMD ["gost", "-L", "socks5://:1080"]
-EOF
-
-echo 'curl -sSf --socks5 localhost:1080 http://example.com || exit 1' > services/proxy/gost/healthcheck/check-gost.sh
-chmod +x services/proxy/gost/healthcheck/check-gost.sh

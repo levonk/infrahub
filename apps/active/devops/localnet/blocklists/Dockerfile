@@ -2,7 +2,7 @@
 # Purpose: Build and compile DNS/web blocklists to CDB format
 # Security: Non-root user, minimal dependencies, no shell access
 
-FROM alpine:3.19 AS builder
+FROM base-alpine AS builder
 
 # Install build dependencies and build tinycdb from source
 RUN apk add --no-cache \

@@ -1,10 +1,8 @@
 # Use secure alpine base image
-FROM alpine:3.19
+FROM base-alpine
 
 # Install required packages
 RUN apk add --no-cache \
-    curl \
-    bash \
     python3 \
     py3-pip \
     git \

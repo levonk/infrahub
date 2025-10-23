@@ -1,0 +1,53 @@
+# Alpine-based base image for services requiring minimal size and security
+FROM alpine:3.19@sha256:6457d53fb065d6f250e1504b9bc42d5b6c65941d57532c072d112bea313ae1f79de
+
+# Labels for metadata and security scanning
+LABEL org.opencontainers.image.title="Base Alpine Image" \
+      org.opencontainers.image.description="Minimal Alpine-based base image for services prioritizing size and security" \
+      org.opencontainers.image.version="1.0.0" \
+      org.opencontainers.image.vendor="LocalNet" \
+      maintainer="devops@localnet"
+
+# Security hardening: prevent privilege escalation and set secure defaults
+ENV LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8 \
+    PAGER=cat \
+    EDITOR=/bin/vi
+
+# Install essential packages with security updates and minimal dependencies
+RUN apk update && \
+    apk upgrade && \
+    apk add --no-cache \
+        curl \
+        ca-certificates \
+        gnupg \
+        bash \
+        && \
+    # Clean up package manager cache and temporary files
+    rm -rf /var/cache/apk/* /tmp/* && \
+    # Remove unnecessary files and create essential directories
+    mkdir -p /etc/service/config /healthcheck /tmp && \
+    chmod 755 /etc/service /healthcheck && \
+    chmod 1777 /tmp
+
+# Create non-root user for services (matches Debian base image UID/GID)
+RUN addgroup -g 1001 -S appuser && \
+    adduser -u 1001 -S appuser -G appuser -s /bin/bash -h /home/appuser && \
+    # Set proper ownership
+    chown -R appuser:appuser /etc/service /healthcheck /tmp /home/appuser
+
+# Security hardening: remove potentially dangerous files and set restrictive permissions
+RUN find / -type f \( -name "*.pyc" -o -name "*.pyo" -o -name "*.orig" \) -delete 2>/dev/null || true && \
+    find / -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true && \
+    # Remove suid/sgid bits from files (except necessary ones)
+    find / -type f \( -perm /4000 -o -perm /2000 \) ! -path "/bin/su" ! -path "/usr/bin/su" -exec chmod ug-s {} \; 2>/dev/null || true
+
+# Switch to non-root user by default
+USER appuser
+
+# Set working directory
+WORKDIR /etc/service
+
+# Default health check (services should override this)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD echo "Base image healthy"

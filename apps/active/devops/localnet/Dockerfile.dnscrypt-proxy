@@ -2,7 +2,7 @@
 # Based on official dnscrypt-proxy binary installation
 # Reference: https://github.com/trinib/AdGuard-WireGuard-Unbound-DNScrypt/wiki/Install-DNScrypt-proxy-%28DoH%29%28oDoH%29%28Anonymized-DNS%29
 
-FROM alpine:3.19
+FROM base-alpine
 
 # Install dependencies
 RUN apk add --no-cache \

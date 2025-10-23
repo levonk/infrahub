@@ -6,7 +6,7 @@
 # - Need full control over chronyd configuration for NTS, leap smearing, and access control
 # - Need to ensure chronyd listens on UDP port 123 for NTP queries
 
-FROM alpine:3.19
+FROM base-alpine
 
 # Install chronyd and required tools
 RUN apk add --no-cache \

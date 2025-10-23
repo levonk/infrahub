@@ -1,4 +1,4 @@
-FROM alpine:latest
+FROM base-alpine
 
 # Install iptables and basic networking tools
 RUN apk add --no-cache \
