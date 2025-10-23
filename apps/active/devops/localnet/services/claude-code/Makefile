@@ -1,4 +1,4 @@
-.PHONY: help build up down restart logs logs-follow health-check clean clean-all test-mcp status
+.PHONY: help build up down restart logs logs-follow health-check clean clean-all test-mcp test-integration test-orchestration test-api-auth test-mcp-integration test-web-ui status
 
 # Default target
 .DEFAULT_GOAL := help
@@ -95,3 +95,31 @@ test-mcp: ## Test MCP tool integration and functionality
 	@echo "4. Testing Claude Code integration..."
 	@docker compose -f $(COMPOSE_FILE) --env-file $(ENV_FILE) exec claude-code curl -s http://claude-code-mcp:8082/tools | grep -q "tools" && echo "$(GREEN)✓ Claude Code can reach MCP server$(NC)" || echo "$(RED)✗ Claude Code cannot reach MCP server$(NC)"
 	@echo "$(GREEN)✓ MCP integration test complete$(NC)"
+
+test-integration: ## Run all integration tests (comprehensive suite)
+	@echo "$(BLUE)Running comprehensive integration test suite...$(NC)"
+	@./tests/run-integration-tests.sh
+
+test-orchestration: ## Test Docker Compose service orchestration
+	@echo "$(BLUE)Testing service orchestration...$(NC)"
+	@./tests/orchestration.test.sh
+
+test-api-auth: ## Test API endpoints and authentication
+	@echo "$(BLUE)Testing API endpoints and authentication...$(NC)"
+	@./tests/api-auth.test.sh
+
+test-mcp-integration: ## Test MCP tool integration and functionality
+	@echo "$(BLUE)Testing MCP tool integration...$(NC)"
+	@./tests/mcp-integration.test.sh
+
+test-web-ui: ## Test web UI interaction and session management
+	@echo "$(BLUE)Testing web UI interaction and session management...$(NC)"
+	@./tests/web-ui.test.sh
+
+test-performance: ## Test performance requirements and resource usage
+	@echo "$(BLUE)Testing performance requirements and resource usage...$(NC)"
+	@./tests/performance.test.sh
+
+test-error-scenarios: ## Test error handling for invalid credentials, network failures, resource constraints
+	@echo "$(BLUE)Testing error handling for edge cases and failure scenarios...$(NC)"
+	@./tests/error-scenarios.test.sh
