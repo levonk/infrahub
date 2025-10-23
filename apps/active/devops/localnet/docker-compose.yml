@@ -231,18 +231,13 @@ services:
     ports:
       - "${NTP_TRANSPARENT_PORT:-123}:123/udp"  # Transparent mode UDP
       - "${NTP_TRANSPARENT_PORT:-123}:123/tcp"  # Transparent mode TCP
-      - "${NTP_DIRECT_PORT:-1123}:1123/udp"     # Direct mode UDP
-      - "${NTP_DIRECT_PORT:-1123}:1123/tcp"     # Direct mode TCP
+      - "${NTP_DIRECT_PORT:-1123}:1123/udp"     # Direct mode UDP (mapped from container port 123)
+      - "${NTP_DIRECT_PORT:-1123}:1123/tcp"     # Direct mode TCP (mapped from container port 123)
       - "4460:4460/tcp"                          # NTS-KE (Network Time Security Key Exchange)
-      - "9123:9123/tcp"                          # Metrics
+      - "9123:9123/tcp"                          # Metrics (if exporter added later)
     volumes:
       - ./configs/ntp/chrony.conf:/etc/chrony/chrony.conf:ro  # Custom config (read-only)
       - chronyd-data:/var/lib/chrony                          # Persistent storage for drift file and NTS keys
-    environment:
-      # Use environment variables to configure the image's startup script
-      # This allows us to use the image's entrypoint while customizing the config
-      - ENABLE_NTS=true
-      - LOG_LEVEL=0
     healthcheck:
       test: ["CMD", "chronyc", "tracking"]
       interval: 30s

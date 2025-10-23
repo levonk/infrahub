@@ -119,7 +119,7 @@ for pkg in "${REQUIRED_PACKAGES[@]}"; do
                 PACKAGES_TO_INSTALL+=("netcat-openbsd")
                 ;;
             ntpdate)
-                PACKAGES_TO_INSTALL+=("ntpdate")
+                PACKAGES_TO_INSTALL+=("ntpsec-ntpdate")
                 ;;
             docker)
                 # Docker requires special installation - provide instructions
@@ -159,16 +159,16 @@ echo ""
 # Manage chronyd service - only disable if another time daemon is running
 if command -v chronyc &> /dev/null && command -v systemctl &> /dev/null; then
     echo -e "${BLUE}Checking time daemon configuration...${NC}"
-    
+
     # Check for other time daemons (ntpsec, systemd-timesyncd, etc.)
     OTHER_TIME_DAEMON_RUNNING=false
-    
+
     # Check for ntpsec
     if systemctl is-active --quiet ntpsec 2>/dev/null || systemctl is-active --quiet ntp 2>/dev/null; then
         OTHER_TIME_DAEMON_RUNNING=true
         TIME_DAEMON_NAME="ntpsec/ntp"
     fi
-    
+
     # Check for systemd-timesyncd
     if systemctl is-active --quiet systemd-timesyncd 2>/dev/null; then
         OTHER_TIME_DAEMON_RUNNING=true
@@ -179,30 +179,30 @@ if command -v chronyc &> /dev/null && command -v systemctl &> /dev/null; then
         # Another time daemon is running - disable chronyd to avoid conflict
         echo -e "${YELLOW}Detected active time daemon: ${TIME_DAEMON_NAME}${NC}"
         echo -e "${BLUE}Disabling chronyd to avoid time-daemon conflict...${NC}"
-        
+
         # Stop the service if it's running
         if systemctl is-active --quiet chronyd 2>/dev/null; then
             systemctl stop chronyd 2>/dev/null || true
         fi
-        
+
         # Disable and mask the service
         systemctl disable chronyd 2>/dev/null || true
         systemctl mask chronyd 2>/dev/null || true
-        
+
         echo -e "${GREEN}✓ chronyd service disabled and masked (using ${TIME_DAEMON_NAME} instead)${NC}"
         echo -e "${BLUE}chronyc client tool is still available for testing${NC}"
     else
         # No other time daemon - let chronyd run as the time server
         echo -e "${GREEN}No conflicting time daemon detected${NC}"
         echo -e "${BLUE}Enabling chronyd as the system time daemon...${NC}"
-        
+
         # Unmask if previously masked
         systemctl unmask chronyd 2>/dev/null || true
-        
+
         # Enable and start chronyd
         systemctl enable chronyd 2>/dev/null || true
         systemctl start chronyd 2>/dev/null || true
-        
+
         if systemctl is-active --quiet chronyd 2>/dev/null; then
             echo -e "${GREEN}✓ chronyd service enabled and running${NC}"
         else
