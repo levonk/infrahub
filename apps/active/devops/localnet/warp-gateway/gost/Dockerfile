@@ -1,4 +1,4 @@
-FROM debian:12-slim
+FROM base-alpine
 
 ARG GOST_VERSION=3.0.0-rc8
 ARG TARGETPLATFORM
@@ -8,16 +8,10 @@ RUN case ${TARGETPLATFORM} in \
       "linux/arm64") ARCH="arm64" ;; \
       *) echo "Unsupported platform: ${TARGETPLATFORM}" && exit 1 ;; \
     esac && \
-    apt-get update && \
-    apt-get install -y curl && \
     curl -LO https://github.com/ginuerzh/gost/releases/download/v${GOST_VERSION}/gost-linux-${ARCH}-${GOST_VERSION}.gz && \
     gunzip gost-linux-${ARCH}-${GOST_VERSION}.gz && \
     mv gost-linux-${ARCH}-${GOST_VERSION} /usr/bin/gost && \
-    chmod +x /usr/bin/gost && \
-    apt-get purge -y curl && \
-    apt-get autoremove -y && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+    chmod +x /usr/bin/gost
 
 USER nobody
 
