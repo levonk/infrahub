@@ -170,6 +170,8 @@ services:
       - POSTGRES_PASSWORD=${CLAUDE_CODE_DB_PASSWORD}
     volumes:
       - claude-code-db:/var/lib/postgresql/data
+      - ./services/claude-code/docker/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+      - ./services/claude-code/docker/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
     networks:
       - claude-code-network
     healthcheck:

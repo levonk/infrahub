@@ -232,14 +232,75 @@ The Makefile provides convenient commands for managing the entire stack:
 - `clean` - Remove containers (keep data)
 - `clean-all` - Remove everything (WARNING: destroys data)
 
-## Integration with Job-Aide Monorepo
+## API Endpoints and Authentication
 
-This service integrates with the broader job-aide ecosystem:
+### Authentication
 
-- **Localnet Infrastructure**: Uses DNS and networking from localnet
-- **Environment Variables**: Shared configuration with other services
-- **Data Persistence**: Isolated volumes for service data
-- **Monitoring**: Health checks and logging integration
+The Claude Code integration uses API key-based authentication with JWT tokens for session management:
+
+1. **API Key Authentication**: Clients provide an API key in the `Authorization: Bearer {api-key}` header
+2. **Session Management**: Valid API keys create authenticated sessions with configurable expiration (24 hours)
+3. **Rate Limiting**: 100 requests/minute, 1000 requests/hour per authenticated session
+
+### Web UI API
+
+The web interface exposes the following REST endpoints (see `../../../contracts/web-ui-api.yaml` for complete OpenAPI specification):
+
+#### `POST /sessions`
+
+Creates a new Claude Code session for authenticated users.
+
+**Request Body**:
+```json
+{
+  "user_id": "string",
+  "preferences": {
+    "model": "claude-3-5-sonnet-20241022",
+    "max_tokens": 4096
+  }
+}
+```
+
+**Response** (201 Created):
+```json
+{
+  "session_id": "uuid",
+  "created_at": "2025-10-23T10:00:00Z",
+  "expires_at": "2025-10-24T10:00:00Z",
+  "web_ui_url": "https://claude-code.localnet/session/uuid"
+}
+```
+
+**Authentication**: Required (API key in Authorization header)
+
+#### Error Responses
+
+All endpoints return standardized error responses:
+```json
+{
+  "error": "Error message",
+  "code": "ERROR_CODE",
+  "retry_after": 60
+}
+```
+
+### MCP Tool Integration
+
+The MCP (Model Context Protocol) provides tool integration capabilities:
+
+- **Tool Discovery**: Automatic discovery and registration of available MCP tools
+- **Secure Execution**: Tools run in isolated containers with proper security boundaries
+- **Protocol Compliance**: Full MCP v1.0 protocol implementation for tool communication
+
+### Database Schema
+
+Session and conversation data follows the schema defined in `../../../specs/002-claude-code-integration/data-model.md`:
+
+- **UserSession**: API key validation and session management
+- **Conversation**: Message history and metadata storage
+- **Message**: Individual chat messages with token counting
+- **MCPTool**: Registered tools and capabilities
+- **ToolUsage**: Tool execution tracking and performance metrics
 
 ## Troubleshooting
 
@@ -281,9 +342,184 @@ make shell
 make health-check
 ```
 
-## Related Documentation
+## Production Deployment
 
-- `../../../specs/002-claude-code-integration/tasks.md` - Implementation tasks
-- `../../../specs/002-claude-code-integration/spec.md` - Complete specifications
-- `../../../specs/002-claude-code-integration/data-model.md` - Data structures
-- `../../../contracts/web-ui-api.yaml` - API specifications
+### Prerequisites for Production Deployment
+
+- **Infrastructure Requirements**:
+  - Docker Engine 24.0+ with Compose V2
+  - PostgreSQL 15+ database server (external or containerized)
+  - SSL/TLS certificates for HTTPS endpoints
+  - DNS configuration for production domains
+  - Network security groups/firewalls configured
+
+- **Security Requirements**:
+  - Valid Claude API key with production access
+  - Strong JWT secret (64 bytes, cryptographically secure)
+  - Secure database credentials (32+ characters)
+  - SSL/TLS certificates from trusted CA
+  - Network isolation (internal Docker networks only)
+
+### Production Environment Setup
+
+1. **Clone the production environment template**:
+   ```bash
+   cp env.production .env.production
+   # Edit .env.production with production values
+   ```
+
+2. **Configure SSL/TLS certificates**:
+   - Place certificates in `ssl/` directory
+   - Update nginx configuration for SSL termination
+   - Enable HSTS headers
+
+3. **Set up external PostgreSQL** (recommended for production):
+   ```bash
+   # Create production database
+   createdb -U postgres claude_code_prod
+   psql -U postgres -d claude_code_prod -f sql/schema.sql
+   ```
+
+### Production Deployment Checklist
+
+#### Pre-Deployment
+- [ ] All integration tests passing (`make test-integration`)
+- [ ] Security scan completed (no critical vulnerabilities)
+- [ ] Performance testing completed (95% requests <5 seconds)
+- [ ] Production environment variables configured
+- [ ] SSL/TLS certificates installed and valid
+- [ ] DNS records configured for production domains
+- [ ] Database backup created
+- [ ] Rollback plan documented and tested
+
+#### Security Hardening
+- [ ] Non-root container execution verified
+- [ ] Network isolation confirmed (internal networks only)
+- [ ] Resource limits applied (2GB RAM, 2 CPU cores max)
+- [ ] Secrets stored in secure vault (not in environment files)
+- [ ] API key rotation procedure documented
+- [ ] Audit logging enabled
+- [ ] HTTPS enforcement configured
+- [ ] CSP headers enabled
+
+#### Deployment Steps
+- [ ] Build production images: `make build`
+- [ ] Run pre-deployment health checks: `make health-check`
+- [ ] Deploy to staging environment first
+- [ ] Validate staging deployment (24-48 hours)
+- [ ] Deploy to production environment
+- [ ] Run post-deployment tests
+- [ ] Enable production monitoring and alerting
+
+#### Post-Deployment
+- [ ] Monitoring dashboards configured
+- [ ] Alerting rules active
+- [ ] Backup procedures scheduled
+- [ ] Log aggregation working
+- [ ] Performance monitoring active
+- [ ] Security monitoring enabled
+
+### Monitoring and Observability
+
+#### Health Checks
+- **Container Health**: All services report healthy status
+- **API Endpoints**: Authentication and session creation functional
+- **Database**: Connection pool healthy, no connection errors
+- **MCP Integration**: Tool discovery and execution working
+
+#### Metrics to Monitor
+- **Performance**: API response times (<5 seconds 95% of requests)
+- **Resource Usage**: CPU <80%, Memory <80%
+- **Error Rates**: Authentication failures <5%, API errors <1%
+- **Security**: Failed authentication attempts, suspicious patterns
+
+#### Logging Configuration
+```yaml
+# docker-compose.production.yml logging configuration
+services:
+  claude-code:
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+        labels: service,environment
+```
+
+### Rollback Procedures
+
+#### Automated Rollback (Preferred)
+```bash
+# Quick rollback to previous version
+make rollback
+
+# Or manually:
+docker-compose -f docker-compose.production.yml down
+docker-compose -f docker-compose.production.yml pull  # Pull previous images
+docker-compose -f docker-compose.production.yml up -d
+```
+
+#### Manual Rollback Steps
+1. **Stop current deployment**:
+   ```bash
+   docker-compose -f docker-compose.production.yml down
+   ```
+
+2. **Restore from backup** (if database changes made):
+   ```bash
+   pg_restore -U claude_prod_user -d claude_code_prod backup.sql
+   ```
+
+3. **Deploy previous version**:
+   ```bash
+   # Tag previous images as latest, or use specific tags
+   docker-compose -f docker-compose.production.yml up -d
+   ```
+
+4. **Verify rollback success**:
+   ```bash
+   make health-check
+   # Check application functionality
+   curl -f https://claude-code.yourdomain.com/health
+   ```
+
+#### Rollback Triggers
+- **Automatic**: Health checks fail for >5 minutes
+- **Manual**: Error rate >10%, Performance degradation >50%
+- **Emergency**: Security incident detected
+
+### Backup and Recovery
+
+#### Database Backups
+```bash
+# Daily backup script
+#!/bin/bash
+BACKUP_DIR="/backups/claude-code"
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+
+pg_dump -U claude_prod_user -h db-host claude_code_prod \
+  | gzip > ${BACKUP_DIR}/claude_code_prod_${TIMESTAMP}.sql.gz
+
+# Keep last 30 days
+find ${BACKUP_DIR} -name "*.sql.gz" -mtime +30 -delete
+```
+
+#### Configuration Backups
+- Environment files encrypted and versioned
+- Docker Compose files version controlled
+- SSL certificates with renewal automation
+
+### Incident Response
+
+#### Security Incident Procedure
+1. **Isolate**: Disconnect affected services from network
+2. **Assess**: Review logs for breach indicators
+3. **Contain**: Rotate all API keys and secrets
+4. **Recover**: Deploy from clean backup
+5. **Report**: Document incident and remediation
+
+#### Performance Incident Procedure
+1. **Monitor**: Identify bottleneck (CPU, memory, database)
+2. **Scale**: Increase resources or scale horizontally
+3. **Optimize**: Review and fix performance issues
+4. **Rollback**: If optimization fails, rollback deployment

@@ -1,4 +1,4 @@
-# Use secure alpine base image
+# Use secure alpine base image with Python support for session management API
 FROM base-alpine
 
 # Install required packages
@@ -6,6 +6,8 @@ RUN apk add --no-cache \
     python3 \
     py3-pip \
     git \
+    postgresql-client \
+    curl \
     && rm -rf /var/cache/apk/*
 
 # Create non-root user
@@ -15,25 +17,24 @@ RUN addgroup -g 1001 -S claude && \
 # Set working directory
 WORKDIR /app
 
-# Copy configuration templates
-COPY cc-tools-config/ ./config/
+# Copy requirements first for better caching
+COPY docker/requirements.txt ./
 
-# Download and install cc-tools from GitHub
+# Install Python dependencies
+RUN pip3 install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY docker/main.py ./
+COPY docker/auth-service/ ./auth-service/
+
+# Copy cc-tools for potential integration (if needed)
 RUN git clone https://github.com/Veraticus/cc-tools.git /tmp/cc-tools && \
-    cd /tmp/cc-tools && \
-    # Assuming cc-tools has installation script or can be copied
-    cp -r . /app/cc-tools/ && \
-    cd /app && \
+    cp -r /tmp/cc-tools/cc-tools /app/ && \
     rm -rf /tmp/cc-tools
 
-# Install Python dependencies if any
-RUN if [ -f cc-tools/requirements.txt ]; then pip3 install -r cc-tools/requirements.txt; fi
-
-# Create necessary directories
-RUN mkdir -p /app/data /app/config /healthcheck
-
-# Set permissions
-RUN chown -R claude:claude /app
+# Create necessary directories with proper permissions
+RUN mkdir -p /app/data /app/config /healthcheck && \
+    chown -R claude:claude /app
 
 # Switch to non-root user
 USER claude
@@ -46,4 +47,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
 EXPOSE 8081
 
 # Start command
-CMD ["python3", "cc-tools/main.py"]
+CMD ["python3", "main.py"]
