@@ -1,0 +1,27 @@
+# Alpine-based minimal base image for greenfield services
+FROM alpine:3.19
+
+# Install essential packages for service development
+RUN apk add --no-cache \
+    curl \
+    gnupg \
+    bash \
+    ca-certificates \
+    && rm -rf /var/cache/apk/*
+
+# Create standard directories
+RUN mkdir -p /etc/service/config /healthcheck
+
+# Create non-root user for services
+RUN addgroup -g 1001 -S appuser && \
+    adduser -u 1001 -S appuser -G appuser
+
+# Set proper permissions
+RUN chown -R appuser:appuser /etc/service /healthcheck
+
+# Switch to non-root user by default
+USER appuser
+
+# Health check (services should override this)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD echo "Base image healthy"
