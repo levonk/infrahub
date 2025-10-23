@@ -1,0 +1,199 @@
+version: '3.8'
+
+services:
+  # Claude Code Core Service
+  claude-code:
+    build:
+      context: ./services/claude-code/docker
+      dockerfile: Dockerfile
+    container_name: claude-code
+    restart: unless-stopped
+    environment:
+      - CLAUDE_API_KEY=${CLAUDE_API_KEY}
+      - CLAUDE_CODE_CONFIG_DIR=/app/config
+      - CLAUDE_CODE_DATA_DIR=/app/data
+    volumes:
+      - claude-code-config:/app/config
+      - claude-code-data:/app/data
+    networks:
+      - claude-code-network
+    depends_on:
+      - claude-code-db
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # Claude Code Web UI
+  claude-code-ui:
+    image: siteboon/claudecodeui:latest
+    container_name: claude-code-ui
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - CLAUDE_CODE_API_URL=http://claude-code:8081
+      - CLAUDE_CODE_AUTH_URL=http://claude-code-auth:8080
+    networks:
+      - claude-code-network
+    depends_on:
+      - claude-code
+      - claude-code-auth
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  # Claude Code Authentication Service
+  claude-code-auth:
+    build:
+      context: ./services/claude-code/docker
+      dockerfile: Dockerfile.auth
+    container_name: claude-code-auth
+    restart: unless-stopped
+    environment:
+      - JWT_SECRET=${CLAUDE_CODE_JWT_SECRET}
+      - API_KEYS_FILE=/app/config/api-keys.json
+    volumes:
+      - claude-code-config:/app/config
+    networks:
+      - claude-code-network
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+  # MCP Server
+  claude-code-mcp:
+    image: steipete/claude-code-mcp:latest
+    container_name: claude-code-mcp
+    restart: unless-stopped
+    environment:
+      - MCP_CONFIG_FILE=/app/config/mcp-config.json
+    volumes:
+      - claude-code-config:/app/config
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - claude-code-network
+    depends_on:
+      - claude-code
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8082/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+
+  # PluggedIn MCP Proxy
+  pluggedin-mcp-proxy:
+    image: veritexnik/pluggedin-mcp-proxy:latest
+    container_name: pluggedin-mcp-proxy
+    restart: unless-stopped
+    environment:
+      - MCP_TARGET_URL=http://claude-code-mcp:8082
+      - PROXY_CONFIG_FILE=/app/config/proxy-config.json
+    volumes:
+      - claude-code-config:/app/config
+    networks:
+      - claude-code-network
+    depends_on:
+      - claude-code-mcp
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8085/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+  # PluggedIn App
+  pluggedin-app:
+    image: veritexnik/pluggedin-app:latest
+    container_name: pluggedin-app
+    restart: unless-stopped
+    environment:
+      - CLAUDE_CODE_URL=http://claude-code:8081
+      - MCP_PROXY_URL=http://pluggedin-mcp-proxy:8085
+    networks:
+      - claude-code-network
+    depends_on:
+      - claude-code
+      - pluggedin-mcp-proxy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8086/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+  # Claude Code Database (for sessions and history)
+  claude-code-db:
+    image: postgres:15-alpine
+    container_name: claude-code-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=claude_code
+      - POSTGRES_USER=claude_user
+      - POSTGRES_PASSWORD=${CLAUDE_CODE_DB_PASSWORD}
+    volumes:
+      - claude-code-db:/var/lib/postgresql/data
+    networks:
+      - claude-code-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U claude_user -d claude_code"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+volumes:
+  claude-code-config:
+    driver: local
+  claude-code-data:
+    driver: local
+  claude-code-db:
+    driver: local
+
+networks:
+  claude-code-network:
+    driver: bridge
+    internal: true

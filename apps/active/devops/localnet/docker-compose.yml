@@ -23,6 +23,13 @@ networks:
       config:
         - subnet: ${WIREGUARD_NETWORK_SUBNET:-172.21.0.0/16}
 
+  claude-code:
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.22.0.0/16
+
 volumes:
   # DNS Services
   dns-cache:
@@ -648,3 +655,10 @@ services:
       retries: 3
       start_period: 10s
     restart: unless-stopped
+
+# ============================================================================
+# Claude Code Integration Services
+# ============================================================================
+
+include:
+  - services/claude-code/docker-compose.claude-code.yml
