@@ -12,7 +12,7 @@ NC := \033[0m # No Color
 
 # Project paths
 PROJECT_ROOT := ../../../../../..
-COMPOSE_FILE := $(PROJECT_ROOT)/apps/active/devops/localnet/services/claude-code/docker-compose.claude-code.yml
+COMPOSE_FILE := $(PROJECT_ROOT)/apps/active/devops/localnet/services/ai-codeassist/claude-code/claude-code/docker-compose.claude-code.yml
 ENV_FILE := $(PROJECT_ROOT)/apps/active/devops/localnet/.env
 
 help: ## Show this help message

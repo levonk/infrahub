@@ -81,4 +81,4 @@ This build system works with the broader localnet infrastructure. The Claude Cod
 - `tasks.md` - Detailed implementation tasks
 - `spec.md` - Complete specifications and requirements
 - `Makefile` - Build system commands
-- Docker compose file: `../../../apps/active/devops/localnet/services/claude-code/docker-compose.claude-code.yml`
+- Docker compose file: `../../../apps/active/devops/localnet/services/ai-codeassist/claude-code/claude-code/docker-compose.claude-code.yml`

@@ -144,9 +144,9 @@ test-claude: ## Run tests for Claude Code services
 
 lint-claude: ## Lint Claude Code docker-compose configuration
 	@echo "$(BLUE)Linting Claude Code configuration...$(NC)"
-	@docker compose -f services/claude-code/docker-compose.claude-code.yml config > /dev/null && echo "$(GREEN)✓ Claude Code docker-compose.yml syntax valid$(NC)" || (echo "$(RED)✗ Claude Code docker-compose.yml syntax invalid$(NC)"; exit 1)
+	@docker compose -f services/ai-codeassist/claude-code/claude-code/docker-compose.claude-code.yml config > /dev/null && echo "$(GREEN)✓ Claude Code docker-compose.yml syntax valid$(NC)" || (echo "$(RED)✗ Claude Code docker-compose.yml syntax invalid$(NC)"; exit 1)
 	@if command -v yamllint >/dev/null 2>&1; then \
-		yamllint services/claude-code/docker-compose.claude-code.yml || echo "$(YELLOW)⚠ yamllint issues found$(NC)"; \
+		yamllint services/ai-codeassist/claude-code/claude-code/docker-compose.claude-code.yml || echo "$(YELLOW)⚠ yamllint issues found$(NC)"; \
 	else \
 		echo "$(YELLOW)⚠ yamllint not installed$(NC)"; \
 	fi

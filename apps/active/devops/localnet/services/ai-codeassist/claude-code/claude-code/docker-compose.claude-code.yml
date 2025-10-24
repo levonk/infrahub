@@ -3,7 +3,7 @@ services:
   # Claude Code Core Service
   claude-code:
     build:
-      context: ./services/claude-code/docker
+      context: ./docker
       dockerfile: Dockerfile
     container_name: claude-code
     restart: unless-stopped
@@ -48,6 +48,9 @@ services:
     depends_on:
       - claude-code
       - claude-code-auth
+      - claude-code-mcp
+      - claude-code-proxy
+      - claude-code-router
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
       interval: 30s
@@ -62,7 +65,7 @@ services:
   # Claude Code Authentication Service
   claude-code-auth:
     build:
-      context: ./services/claude-code/docker
+      context: ./docker
       dockerfile: Dockerfile.auth
     container_name: claude-code-auth
     restart: unless-stopped
@@ -148,6 +151,8 @@ services:
     depends_on:
       - claude-code
       - pluggedin-mcp-proxy
+      - claude-code-proxy
+      - claude-code-router
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8086/health"]
       interval: 30s
@@ -158,6 +163,84 @@ services:
         limits:
           cpus: "0.5"
           memory: 256M
+
+  # Claude Code Proxy (Internal Service Communication) - Port 8083
+  claude-code-proxy:
+    image: nginx:alpine
+    container_name: claude-code-proxy
+    restart: unless-stopped
+    environment:
+      - CLAUDE_CODE_URL=http://claude-code:8081
+      - MCP_PROXY_URL=http://pluggedin-mcp-proxy:8085
+    ports:
+      - "8083:8083"
+    volumes:
+      - ../../claude-code-proxy/nginx.conf:/etc/nginx/nginx.conf:ro
+      - claude-code-config:/app/config
+    networks:
+      - claude-code-network
+    depends_on:
+      - claude-code
+      - claude-code-router
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+
+  # Claude Code Router (External API Routing) - Port 8084
+  claude-code-router:
+    image: nginx:alpine
+    container_name: claude-code-router
+    restart: unless-stopped
+    ports:
+      - "8084:8084"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - PROXY_CONFIG_FILE=/app/config/router-config.json
+    volumes:
+      - ../../claude-code-router/nginx.conf:/etc/nginx/nginx.conf:ro
+      - claude-code-config:/app/config
+    networks:
+      - claude-code-network
+    depends_on:
+      - claude-code
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8084/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+
+  # Traefik UI Gateway (Friendly access to internal web interfaces)
+  traefik:
+    image: traefik:v3.0
+    container_name: traefik
+    restart: unless-stopped
+    command:
+      - --entrypoints.webui.address=:8087
+      - --providers.file.directory=/etc/traefik/dynamic
+      - --providers.file.watch=true
+      - --log.level=INFO
+    ports:
+      - "8087:8087"
+    volumes:
+      - ../../proxy/traefik:/etc/traefik/dynamic:ro
+    networks:
+      - claude-code-network
+    depends_on:
+      - claude-code-ui
+      - pluggedin-app
+      - claude-code-auth
 
   # PostgreSQL Database (for concurrent/multi-user scenarios)
   # Only started when DATABASE_TYPE=postgresql (via --profile postgresql)
@@ -173,8 +256,8 @@ services:
       - POSTGRES_PASSWORD=${CLAUDE_CODE_DB_PASSWORD}
     volumes:
       - claude-code-db:/var/lib/postgresql/data
-      - ./services/claude-code/docker/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
-      - ./services/claude-code/docker/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
+      - ./docker/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+      - ./docker/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
     networks:
       - claude-code-network
     healthcheck:
