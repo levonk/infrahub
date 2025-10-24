@@ -1,0 +1,99 @@
+---
+# DNS service stack for Home Lab In-a-Box
+services:
+  dnsdist:
+    build:
+      context: ../dnsdist
+      dockerfile: docker/Dockerfile.dnsdist
+    image: homelab-dnsdist:latest
+    container_name: homelab-dnsdist
+    networks:
+      - homelab
+    ports:
+      - "${DNS_TRANSPARENT_PORT:-5353}:53/udp"  # Transparent mode - map container 53 to host 5353
+      - "${DNS_TRANSPARENT_PORT:-5353}:53/tcp"  # Transparent mode TCP
+      - "${DNS_DIRECT_PORT:-15353}:5353/udp"    # Direct mode - map container 5353 to host 15353
+      - "${DNS_DIRECT_PORT:-15353}:5353/tcp"    # Direct mode TCP
+      - "${DNSDIST_METRICS_HOST_PORT:-8083}:${DNSDIST_METRICS_PORT:-8083}/tcp"  # Metrics
+    volumes:
+      - ../../configs/dns/dnsdist.conf:/etc/dnsdist/dnsdist.conf:ro
+      - ../dns-blocklists/compiled:/etc/dnsdist/blocklists:ro
+    environment:
+      - HOST_IP=${HOST_IP}
+      - TRANSPARENT_MODE=true
+    depends_on:
+      - coredns
+      - dnscrypt-proxy
+    healthcheck:
+      test: ["CMD", "dig", "+short", "health.check.local", "@127.0.0.1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  coredns:
+    image: coredns/coredns:latest
+    container_name: homelab-coredns
+    command: ["-conf", "/etc/coredns/Corefile"]
+    networks:
+      homelab:
+        ipv4_address: 172.20.255.51  # Static IP in high range, reserved for DNS
+    ports:
+      - "${COREDNS_METRICS_HOST_PORT:-9153}:9153/tcp"  # Metrics
+      - "${COREDNS_HEALTH_HOST_PORT:-8080}:8080/tcp"   # Health
+    volumes:
+      - ../../configs/dns/coredns/Corefile:/etc/coredns/Corefile:ro
+      - dns-cache:/var/lib/coredns
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep coredns || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  dnscrypt-proxy:
+    build:
+      context: ../dnscrypt
+      dockerfile: docker/Dockerfile.dnscrypt-proxy
+    image: homelab-dnscrypt-proxy:2.1.5
+    container_name: homelab-dnscrypt-proxy
+    networks:
+      homelab:
+        ipv4_address: 172.20.255.50  # Static IP in high range, reserved for DNS
+    ports:
+      - "${DNSCRYPT_PROXY_HOST_PORT:-5300}:5053/udp"  # Map container's default port 5053 to configurable host port (UDP)
+      - "${DNSCRYPT_PROXY_HOST_PORT:-5300}:5053/tcp"  # Map container's default port 5053 to configurable host port (TCP)
+    volumes:
+      - ../../configs/dns/dnscrypt-proxy/dnscrypt-proxy.toml:/etc/dnscrypt-proxy/dnscrypt-proxy.toml:ro
+    healthcheck:
+      test: ["CMD", "dnscrypt-proxy", "-resolve", "cloudflare.com", "-config", "/etc/dnscrypt-proxy/dnscrypt-proxy.toml"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s  # Increased to allow server list download
+    restart: unless-stopped
+
+  blocklist-compiler:
+    build:
+      context: ../dns-blocklists
+      dockerfile: Dockerfile.blocklist-compiler
+    container_name: homelab-blocklist-compiler
+    networks:
+      - homelab
+    volumes:
+      - ../dns-blocklists/sources:/blocklists/sources
+      - ../dns-blocklists/compiled:/blocklists/compiled
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp/blocklists:mode=1777,size=512m
+    healthcheck:
+      test: ["CMD", "test", "-f", "/blocklists/compiled/blocklist.cdb"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: "no"  # Run once on startup, use cron/systemd for updates
