@@ -3,7 +3,7 @@
 services:
   dnsdist:
     build:
-      context: ../dnsdist
+      context: ./services/dns/dnsdist
       dockerfile: docker/Dockerfile.dnsdist
     image: homelab-dnsdist:latest
     container_name: homelab-dnsdist
@@ -17,7 +17,7 @@ services:
       - "${DNSDIST_METRICS_HOST_PORT:-8083}:${DNSDIST_METRICS_PORT:-8083}/tcp"  # Metrics
     volumes:
       - ../../configs/dns/dnsdist.conf:/etc/dnsdist/dnsdist.conf:ro
-      - ../dns-blocklists/compiled:/etc/dnsdist/blocklists:ro
+      - ./services/dns/dns-blocklists/compiled:/etc/dnsdist/blocklists:ro
     environment:
       - HOST_IP=${HOST_IP}
       - TRANSPARENT_MODE=true
@@ -55,7 +55,7 @@ services:
 
   dnscrypt-proxy:
     build:
-      context: ../dnscrypt
+      context: ./services/dns/dnscrypt
       dockerfile: docker/Dockerfile.dnscrypt-proxy
     image: homelab-dnscrypt-proxy:2.1.5
     container_name: homelab-dnscrypt-proxy
@@ -77,14 +77,14 @@ services:
 
   blocklist-compiler:
     build:
-      context: ../dns-blocklists
+      context: ./services/dns/dns-blocklists
       dockerfile: Dockerfile.blocklist-compiler
     container_name: homelab-blocklist-compiler
     networks:
       - homelab
     volumes:
-      - ../dns-blocklists/sources:/blocklists/sources
-      - ../dns-blocklists/compiled:/blocklists/compiled
+      - ./services/dns/dns-blocklists/sources:/blocklists/sources
+      - ./services/dns/dns-blocklists/compiled:/blocklists/compiled
     security_opt:
       - no-new-privileges:true
     read_only: true
