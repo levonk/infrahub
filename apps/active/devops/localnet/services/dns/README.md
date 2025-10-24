@@ -17,7 +17,7 @@ A hardened DNS service stack that provides authoritative and recursive resolutio
 | `dnsdist`          | Edge DNS dispatcher, blocklist enforcement, telemetry | `53/udp`, `53/tcp`, `5353/*`, metrics `:8083` | `./dnsdist` |
 | `coredns`          | Authoritative + stub resolver for internal zones      | Metrics `:9153`, health `:8080`            | `./coredns` |
 | `dnscrypt-proxy`   | Encrypted recursive upstream resolver                 | Host `:5300 -> container :5053`            | `./dnscrypt` |
-| `blocklist-compiler` | Builds CDB blocklist artifacts from curated sources  | n/a (run-once)                              | `./dns-blocklists` |
+| `blocklist-compiler` | Builds CDB blocklist artifacts from curated sources  | n/a (run-once)                              | `services/dns/dns-blocklists` |
 
 All services run on the `homelab` Docker network with static IP assignments for deterministic DNS routing.
 
@@ -46,12 +46,12 @@ make health-check
 
 ## 🔄 Blocklist Management
 
-Blocklists live at `dns-blocklists/sources/` and compiled artifacts publish to `dns-blocklists/compiled/`.
+Blocklists live at `services/dns/dns-blocklists/sources/` and compiled artifacts publish to `services/dns/dns-blocklists/compiled/`.
 
 - `make blocklists-refresh` runs the compiler container to regenerate artifacts.
 - `make blocklists-view` inspects compiled outputs mounted in dnsdist.
 
-Update sources by editing files in `dns-blocklists/sources/` and re-running the refresh target. Keep the curated lists under version control.
+Update sources by editing files in `services/dns/dns-blocklists/sources/` and re-running the refresh target. Keep the curated lists under version control.
 
 ## 🔍 Observability
 
