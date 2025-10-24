@@ -92,7 +92,7 @@ services:
       homelab:
         ipv4_address: 172.20.0.254
     ports:
-      - "9099:9099/tcp"  # Metrics endpoint
+      - "${TRANSPARENT_GATEWAY_METRICS_HOST_PORT:-9099}:${TRANSPARENT_GATEWAY_METRICS_PORT:-9099}/tcp"  # Metrics endpoint
     environment:
       - DNS_SERVER=dnsdist
       - DNS_PORT=5353
@@ -102,9 +102,9 @@ services:
       - WEB_PROXY_PORT=3128
       - GATEWAY_FAILURE_MODE=${GATEWAY_FAILURE_MODE:-fallback-direct}
       - GATEWAY_TIMEOUT=${GATEWAY_TIMEOUT:-30}
-      - METRICS_PORT=9099
+      - METRICS_PORT=${TRANSPARENT_GATEWAY_METRICS_PORT:-9099}
     healthcheck:
-      test: ["CMD", "sh", "-c", "iptables -t nat -L -n && nc -zv localhost 9099"]
+      test: ["CMD", "sh", "-c", "iptables -t nat -L -n && nc -zv localhost ${TRANSPARENT_GATEWAY_METRICS_PORT:-9099}"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -135,7 +135,7 @@ services:
       - "${DNS_TRANSPARENT_PORT:-5353}:53/tcp"  # Transparent mode TCP
       - "${DNS_DIRECT_PORT:-15353}:5353/udp"    # Direct mode - map container 5353 to host 15353
       - "${DNS_DIRECT_PORT:-15353}:5353/tcp"    # Direct mode TCP
-      - "8083:8083/tcp"                          # Metrics
+      - "${DNSDIST_METRICS_HOST_PORT:-8083}:${DNSDIST_METRICS_PORT:-8083}/tcp"  # Metrics
     volumes:
       - ./configs/dns/dnsdist.conf:/etc/dnsdist/dnsdist.conf:ro
       - ./blocklists/compiled:/etc/dnsdist/blocklists:ro
@@ -161,8 +161,8 @@ services:
       homelab:
         ipv4_address: 172.20.255.51  # Static IP in high range, reserved for DNS
     ports:
-      - "9153:9153/tcp"  # Metrics
-      - "8080:8080/tcp"  # Health
+      - "${COREDNS_METRICS_HOST_PORT:-9153}:9153/tcp"  # Metrics
+      - "${COREDNS_HEALTH_HOST_PORT:-8080}:8080/tcp"   # Health
     volumes:
       - ./configs/dns/coredns/Corefile:/etc/coredns/Corefile:ro
       - dns-cache:/var/lib/coredns
@@ -184,8 +184,8 @@ services:
       homelab:
         ipv4_address: 172.20.255.50  # Static IP in high range, reserved for DNS
     ports:
-      - "5300:5053/udp"  # Map container's default port 5053 to host port 5300 (UDP)
-      - "5300:5053/tcp"  # Map container's default port 5053 to host port 5300 (TCP)
+      - "${DNSCRYPT_PROXY_HOST_PORT:-5300}:5053/udp"  # Map container's default port 5053 to configurable host port (UDP)
+      - "${DNSCRYPT_PROXY_HOST_PORT:-5300}:5053/tcp"  # Map container's default port 5053 to configurable host port (TCP)
     volumes:
       - ./configs/dns/dnscrypt-proxy/dnscrypt-proxy.toml:/etc/dnscrypt-proxy/dnscrypt-proxy.toml:ro
     healthcheck:
@@ -240,8 +240,8 @@ services:
       - "${NTP_TRANSPARENT_PORT:-123}:123/tcp"  # Transparent mode TCP
       - "${NTP_DIRECT_PORT:-1123}:1123/udp"     # Direct mode UDP (mapped from container port 123)
       - "${NTP_DIRECT_PORT:-1123}:1123/tcp"     # Direct mode TCP (mapped from container port 123)
-      - "4460:4460/tcp"                          # NTS-KE (Network Time Security Key Exchange)
-      - "9123:9123/tcp"                          # Metrics (if exporter added later)
+      - "${CHRONYD_NTS_HOST_PORT:-4460}:4460/tcp"          # NTS-KE (Network Time Security Key Exchange)
+      - "${CHRONYD_METRICS_HOST_PORT:-9123}:9123/tcp"      # Metrics (if exporter added later)
     volumes:
       - ./configs/ntp/chrony.conf:/etc/chrony/chrony.conf:ro  # Custom config (read-only)
       - chronyd-data:/var/lib/chrony                          # Persistent storage for drift file and NTS keys
@@ -274,8 +274,8 @@ services:
     ports:
       - "${HTTP_TRANSPARENT_PORT:-10080}:80/tcp"    # Transparent HTTP (host 10080 → container 80)
       - "${HTTPS_TRANSPARENT_PORT:-10443}:443/tcp" # Transparent HTTPS (host 10443 → container 443)
-      - "3129:3129/tcp"                            # Internal
-      - "9901:9901/tcp"                            # Admin + Metrics
+      - "${ENVOY_INTERNAL_HOST_PORT:-3129}:3129/tcp"  # Internal
+      - "${ENVOY_ADMIN_HOST_PORT:-9901}:9901/tcp"     # Admin + Metrics
     volumes:
       - ./configs/web/envoy.yaml:/etc/envoy/envoy.yaml:ro
     depends_on:
@@ -372,7 +372,7 @@ services:
     networks:
       - homelab
     ports:
-      - "4873:4873/tcp"
+      - "${VERDACCIO_HOST_PORT:-4873}:${VERDACCIO_PORT:-4873}/tcp"
     volumes:
       - verdaccio-data:/verdaccio/storage
       - ./configs/artifacts/verdaccio/config.yaml:/verdaccio/conf/config.yaml:ro
@@ -394,7 +394,7 @@ services:
     networks:
       - homelab
     ports:
-      - "9598:9598/tcp"  # Metrics
+      - "${VECTOR_METRICS_HOST_PORT:-9598}:9598/tcp"  # Metrics
     volumes:
       - ./configs/logging/vector.toml:/etc/vector/vector.toml:ro
       # SECURITY: Docker socket removed - use syslog or journald driver instead
@@ -417,8 +417,8 @@ services:
     networks:
       - homelab
     ports:
-      - "9200:9200/tcp"  # API
-      - "9300:9300/tcp"  # Cluster
+      - "${ELASTICSEARCH_HTTP_HOST_PORT:-9200}:9200/tcp"    # API
+      - "${ELASTICSEARCH_TRANSPORT_HOST_PORT:-9300}:9300/tcp"  # Cluster
     volumes:
       - elasticsearch-data:/usr/share/elasticsearch/data
     environment:
@@ -442,7 +442,7 @@ services:
     networks:
       - homelab
     ports:
-      - "3100:3100/tcp"
+      - "${LOKI_HOST_PORT:-3100}:3100/tcp"
     volumes:
       - ./configs/logging/loki.yaml:/etc/loki/local-config.yaml:ro
       - loki-data:/loki
@@ -460,7 +460,7 @@ services:
     networks:
       - homelab
     ports:
-      - "9080:9080/tcp"  # Metrics
+      - "${PROMTAIL_METRICS_HOST_PORT:-9080}:9080/tcp"  # Metrics
     volumes:
       - ./configs/logging/promtail.yaml:/etc/promtail/config.yml:ro
       # SECURITY: Docker socket removed - use syslog or journald driver instead
@@ -486,7 +486,7 @@ services:
     networks:
       - homelab
     ports:
-      - "19090:9090/tcp"
+      - "${PROMETHEUS_HOST_PORT:-19090}:9090/tcp"
     volumes:
       - ./configs/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
@@ -510,7 +510,7 @@ services:
     networks:
       - homelab
     ports:
-      - "3000:3000/tcp"
+      - "${GRAFANA_HOST_PORT:-3000}:3000/tcp"
     volumes:
       - ./configs/monitoring/grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
       - ./configs/monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
@@ -518,7 +518,7 @@ services:
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-changeme}
       - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_SERVER_ROOT_URL=http://${HOST_IP}:3000
+      - GF_SERVER_ROOT_URL=http://${HOST_IP}:${GRAFANA_HOST_PORT:-3000}
     depends_on:
       - prometheus
       - loki
@@ -537,9 +537,9 @@ services:
     networks:
       - homelab
     ports:
-      - "16686:16686/tcp"  # Web UI
-      - "9411:9411/tcp"    # Zipkin API
-      - "14268:14268/tcp"  # Collector
+      - "${JAEGER_UI_HOST_PORT:-16686}:16686/tcp"      # Web UI
+      - "${JAEGER_ZIPKIN_HOST_PORT:-9411}:9411/tcp"    # Zipkin API
+      - "${JAEGER_COLLECTOR_HOST_PORT:-14268}:14268/tcp"  # Collector
     environment:
       - COLLECTOR_ZIPKIN_HOST_PORT=:9411
       - SAMPLING_STRATEGIES_FILE=/etc/jaeger/sampling.json
@@ -557,7 +557,7 @@ services:
     networks:
       - homelab
     ports:
-      - "9115:9115/tcp"
+      - "${BLACKBOX_EXPORTER_HOST_PORT:-9115}:9115/tcp"
     volumes:
       - ./configs/monitoring/blackbox.yml:/etc/blackbox_exporter/config.yml:ro
     healthcheck:
