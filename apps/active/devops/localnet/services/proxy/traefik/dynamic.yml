@@ -21,6 +21,20 @@ http:
         - internal
       middlewares:
         - strip-claude-code-auth
+    claude-code-intercept-proxy:
+      rule: "PathPrefix(`/claude-code-intercept/api`)"
+      service: claude-code-intercept-proxy
+      entryPoints:
+        - internal
+      middlewares:
+        - strip-claude-code-intercept-api
+    claude-code-intercept-ui:
+      rule: "PathPrefix(`/claude-code-intercept/ui`)"
+      service: claude-code-intercept-ui
+      entryPoints:
+        - internal
+      middlewares:
+        - strip-claude-code-intercept-ui
   services:
     claude-code-ui:
       loadBalancer:
@@ -34,6 +48,14 @@ http:
       loadBalancer:
         servers:
           - url: "http://claude-code-auth:8080"
+    claude-code-intercept-proxy:
+      loadBalancer:
+        servers:
+          - url: "http://claude-code-intercept:3001"
+    claude-code-intercept-ui:
+      loadBalancer:
+        servers:
+          - url: "http://claude-code-intercept:5173"
   middlewares:
     strip-claude-code-ui:
       stripPrefix:
@@ -47,3 +69,11 @@ http:
       stripPrefix:
         prefixes:
           - "/claude-code-auth"
+    strip-claude-code-intercept-api:
+      stripPrefix:
+        prefixes:
+          - "/claude-code-intercept/api"
+    strip-claude-code-intercept-ui:
+      stripPrefix:
+        prefixes:
+          - "/claude-code-intercept/ui"

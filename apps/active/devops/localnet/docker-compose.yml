@@ -82,7 +82,7 @@ services:
   transparent-gateway:
     build:
       context: ./configs/transparent-gateway
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.transparent-gateway
     container_name: homelab-transparent-gateway
     cap_add:
       - NET_ADMIN
@@ -202,7 +202,7 @@ services:
   blocklist-compiler:
     build:
       context: ./blocklists
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.blocklist-compiler
     container_name: homelab-blocklist-compiler
     networks:
       - homelab
@@ -230,7 +230,7 @@ services:
   chronyd:
     build:
       context: ./configs/ntp
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.chronyd
     image: homelab-chronyd:latest
     container_name: homelab-chronyd
     networks:
