@@ -17,7 +17,7 @@ services:
       - "${DNSDIST_METRICS_HOST_PORT:-8083}:${DNSDIST_METRICS_PORT:-8083}/tcp"  # Metrics
     volumes:
       - ../../configs/dns/dnsdist.conf:/etc/dnsdist/dnsdist.conf:ro
-      - ./services/dns/dns-blocklists/compiled:/etc/dnsdist/blocklists:ro
+      - ./dns-blocklists/mounts/blocklists/compiled:/etc/dnsdist/blocklists:ro
     environment:
       - HOST_IP=${HOST_IP}
       - TRANSPARENT_MODE=true
@@ -40,6 +40,8 @@ services:
       homelab:
         ipv4_address: 172.20.255.51  # Static IP in high range, reserved for DNS
     ports:
+      - "${COREDNS_DIRECT_PORT:-15351}:53/udp"  # Direct mode UDP
+      - "${COREDNS_DIRECT_PORT:-15351}:53/tcp"  # Direct mode TCP
       - "${COREDNS_METRICS_HOST_PORT:-9153}:9153/tcp"  # Metrics
       - "${COREDNS_HEALTH_HOST_PORT:-8080}:8080/tcp"   # Health
     volumes:
@@ -83,8 +85,8 @@ services:
     networks:
       - homelab
     volumes:
-      - ./services/dns/dns-blocklists/sources:/blocklists/sources
-      - ./services/dns/dns-blocklists/compiled:/blocklists/compiled
+      - ./dns-blocklists/mounts/blocklists/sources:/blocklists/sources
+      - ./dns-blocklists/mounts/blocklists/compiled:/blocklists/compiled
     security_opt:
       - no-new-privileges:true
     read_only: true

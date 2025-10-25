@@ -46,12 +46,12 @@ make health-check
 
 ## 🔄 Blocklist Management
 
-Blocklists live at `services/dns/dns-blocklists/sources/` and compiled artifacts publish to `services/dns/dns-blocklists/compiled/`.
+Blocklists live under `services/dns/dns-blocklists/mounts/blocklists/sources/` and compiled artifacts publish to `services/dns/dns-blocklists/mounts/blocklists/compiled/`.
 
 - `make blocklists-refresh` runs the compiler container to regenerate artifacts.
 - `make blocklists-view` inspects compiled outputs mounted in dnsdist.
 
-Update sources by editing files in `services/dns/dns-blocklists/sources/` and re-running the refresh target. Keep the curated lists under version control.
+Update sources by editing files in `services/dns/dns-blocklists/mounts/blocklists/sources/` and re-running the refresh target. Keep the curated lists under version control.
 
 ## 🔍 Observability
 
@@ -89,8 +89,10 @@ services/dns/
 ├── .env.example
 ├── coredns/
 ├── dns-blocklists/
-│   ├── sources/
-│   └── compiled/
+│   └── mounts/
+│       └── blocklists/
+│           ├── sources/
+│           └── compiled/
 ├── dnscrypt/
 └── dnsdist/
 ```

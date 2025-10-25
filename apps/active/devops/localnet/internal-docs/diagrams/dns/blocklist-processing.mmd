@@ -1,0 +1,42 @@
+graph TB
+    subgraph "Blocklist Sources"
+        SB[StevenBlack Hosts]
+        AA[AdAway]
+        PT[PhishTank]
+        EL[EasyList]
+        DM[Disconnect.me]
+    end
+    
+    subgraph "Processing Pipeline"
+        Download[Download Lists]
+        Combine[Combine & Deduplicate]
+        Format[Format Conversion]
+        CDB[CDB Compilation<br/>O1 Lookup]
+    end
+    
+    subgraph "Deployment"
+        Volume[Docker Volume]
+        dnsdist[dnsdist Runtime]
+        Lookup[Real-time Lookup]
+    end
+    
+    SB --> Download
+    AA --> Download
+    PT --> Download
+    EL --> Download
+    DM --> Download
+    
+    Download --> Combine
+    Combine --> Format
+    Format --> CDB
+    
+    CDB --> Volume
+    Volume --> dnsdist
+    dnsdist --> Lookup
+    
+    Lookup -->|Match| Block[Return NXDOMAIN]
+    Lookup -->|No Match| Allow[Forward to CoreDNS]
+    
+    style CDB fill:#ffcc99
+    style Block fill:#ff9999
+    style Allow fill:#99ff99

@@ -1,0 +1,74 @@
+graph TB
+    subgraph "Client Layer"
+        Client[Client Device]
+    end
+    
+    subgraph "Layer 0: Traffic Interception"
+        nftables[nftables TPROXY<br/>Port 53 → 5353]
+    end
+    
+    subgraph "Layer 1: Load Balancing & Filtering"
+        dnsdist[dnsdist<br/>Port 5353]
+        Blocklist[CDB Blocklist<br/>O1 Lookup]
+        RateLimit[Rate Limiter<br/>100 qps/IP]
+        ECSStrip[ECS Stripper]
+    end
+    
+    subgraph "Layer 2: Caching & DNSSEC"
+        CoreDNS[CoreDNS<br/>Port 53 internal]
+        Cache[Cache<br/>3600s TTL<br/>4096 entries]
+        DNSSEC[DNSSEC Validator]
+    end
+    
+    subgraph "Layer 3: Encrypted DNS"
+        dnscrypt[dnscrypt-proxy<br/>Port 5300]
+        ODoH[ODoH Relay<br/>Cloudflare]
+    end
+    
+    subgraph "Layer 4: Optional Anonymization"
+        Tor[Tor SOCKS5<br/>Port 9050]
+    end
+    
+    subgraph "Layer 5: External Resolvers"
+        Cloudflare[Cloudflare<br/>1.1.1.1]
+        Google[Google<br/>8.8.8.8]
+        Quad9[Quad9<br/>9.9.9.9]
+    end
+    
+    Client -->|DNS Query| nftables
+    nftables -->|Transparent| dnsdist
+    Client -.->|Direct Port 5353| dnsdist
+    
+    dnsdist --> Blocklist
+    Blocklist -->|Not Blocked| RateLimit
+    RateLimit --> ECSStrip
+    ECSStrip --> CoreDNS
+    
+    CoreDNS --> Cache
+    Cache -->|Cache Miss| DNSSEC
+    Cache -->|Cache Hit| Client
+    DNSSEC --> dnscrypt
+    
+    dnscrypt --> ODoH
+    ODoH -.->|Optional| Tor
+    ODoH --> Cloudflare
+    dnscrypt --> Google
+    dnscrypt --> Quad9
+    
+    Cloudflare -->|Response| dnscrypt
+    Google -->|Response| dnscrypt
+    Quad9 -->|Response| dnscrypt
+    
+    dnscrypt -->|Encrypted Response| CoreDNS
+    CoreDNS -->|Cached Response| dnsdist
+    dnsdist -->|Final Response| Client
+    
+    Blocklist -.->|Blocked| Client
+    
+    style nftables fill:#ff9999
+    style dnsdist fill:#99ff99
+    style CoreDNS fill:#99ff99
+    style dnscrypt fill:#99ccff
+    style ODoH fill:#99ccff
+    style Tor fill:#cc99ff
+    style Blocklist fill:#ffcc99
