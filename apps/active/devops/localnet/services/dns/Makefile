@@ -11,6 +11,8 @@ NC := \033[0m
 COMPOSE_FILE := docker-compose.dns.yml
 ENV_ARGS :=
 
+ENSURE_NETWORK := ../../scripts/ensure-network.py
+
 ifeq (,$(wildcard .env))
 ENV_ARGS +=
 else
@@ -40,6 +42,7 @@ build: ## Build local Docker images for the DNS stack
 
 up: ## Start DNS services in detached mode
 	@echo "$(BLUE)Starting DNS services...$(NC)"
+	@$(ENSURE_NETWORK) -f $(COMPOSE_FILE)
 	@$(COMPOSE) up -d
 	@echo "$(GREEN)✓ Services started$(NC)"
 	@echo "Run 'make health-check' once the containers have finished booting."
@@ -51,6 +54,7 @@ down: ## Stop DNS services and remove containers
 
 restart: ## Restart DNS services
 	@echo "$(YELLOW)Restarting DNS services...$(NC)"
+	@$(ENSURE_NETWORK) -f $(COMPOSE_FILE)
 	@$(COMPOSE) restart dnsdist coredns dnscrypt-proxy
 	@echo "$(GREEN)✓ Services restarted$(NC)"
 
@@ -105,6 +109,7 @@ lint: ## Validate docker-compose configuration
 clean: ## Remove containers and networks (keep volumes)
 	@echo "$(RED)Removing DNS containers and networks...$(NC)"
 	@$(COMPOSE) down --remove-orphans
+	@docker network prune -f >/dev/null
 	@echo "$(GREEN)✓ Containers and networks removed$(NC)"
 
 clean-all: ## Remove containers, networks, and volumes (data loss!)
@@ -112,6 +117,7 @@ clean-all: ## Remove containers, networks, and volumes (data loss!)
 	@read -p "Are you sure? [y/N] " -n 1 -r; echo ""; \
 	if echo "$$REPLY" | grep -Eq '^[Yy]$$'; then \
 		$(COMPOSE) down -v --remove-orphans; \
+		docker network prune -f >/dev/null; \
 		echo "$(GREEN)✓ All DNS volumes removed$(NC)"; \
 	else \
 		echo "$(YELLOW)Cancelled$(NC)"; \

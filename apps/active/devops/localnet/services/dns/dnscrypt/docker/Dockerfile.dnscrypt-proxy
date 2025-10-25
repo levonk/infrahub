@@ -4,6 +4,9 @@
 
 FROM base-alpine
 
+# Ensure package installation runs with appropriate privileges
+USER root
+
 # Install dependencies
 RUN apk add --no-cache \
     ca-certificates \
@@ -42,11 +45,9 @@ RUN addgroup -g 1000 dnscrypt && \
     adduser -D -u 1000 -G dnscrypt dnscrypt && \
     chown -R dnscrypt:dnscrypt /etc/dnscrypt-proxy /var/cache/dnscrypt-proxy /var/log/dnscrypt-proxy
 
-# Copy configuration
-COPY configs/dns/dnscrypt-proxy/dnscrypt-proxy.toml /etc/dnscrypt-proxy/dnscrypt-proxy.toml
-
-# Create empty files for optional features
-RUN touch /etc/dnscrypt-proxy/blocked-names.txt \
+# Create empty files for optional features (runtime config mounted via volume)
+RUN touch /etc/dnscrypt-proxy/dnscrypt-proxy.toml \
+        /etc/dnscrypt-proxy/blocked-names.txt \
           /etc/dnscrypt-proxy/cloaking-rules.txt && \
     chown dnscrypt:dnscrypt /etc/dnscrypt-proxy/*.txt
 

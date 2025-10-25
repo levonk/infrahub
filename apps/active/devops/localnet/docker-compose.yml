@@ -28,7 +28,7 @@ networks:
     internal: true
     ipam:
       config:
-        - subnet: 172.22.0.0/16
+        - subnet: ${CLAUDECODE_NETWORK_SUBNET:-172.22.0.0/16}
 
 volumes:
   # DNS Services
@@ -63,25 +63,15 @@ volumes:
 
 services: {}
 
+# ============================================================================
 # Proxy and gateway services are loaded via services/proxy/docker-compose.proxy.yml
-
-# ============================================================================
-# DNS Services (included via include directive at end of file)
-# ============================================================================
-
-# ============================================================================
-# Monitoring Services
-# ============================================================================
-
-# ============================================================================
-# External Service Includes
 # ============================================================================
 
 include:
   - services/artifact/docker-compose.artifact.yml
-  - services/proxy/docker-compose.proxy.yml
   - services/dns/docker-compose.dns.yml
-  - services/ntp/docker-compose.ntp.yml
+  # - services/ntp/docker-compose.ntp.yml
+  # - services/proxy/docker-compose.proxy.yml
   # - services/vpn/docker-compose.vpn.yml
   # - services/logging/docker-compose.logging.yml
   # - services/ai-codeassist/claude-code/claude-code/docker-compose.claude-code.yml

@@ -9,7 +9,7 @@ networks:
 services:
   dnsdist:
     build:
-      context: ./services/dns/dnsdist
+      context: ./dnsdist
       dockerfile: docker/Dockerfile.dnsdist
     image: homelab-dns-dnsdist:latest
     container_name: homelab-dns-dnsdist
@@ -63,7 +63,7 @@ services:
 
   dnscrypt-proxy:
     build:
-      context: ./services/dns/dnscrypt
+      context: ./dnscrypt
       dockerfile: docker/Dockerfile.dnscrypt-proxy
     image: homelab-dns-dnscrypt-proxy:2.1.5
     container_name: homelab-dns-dnscrypt-proxy
@@ -85,7 +85,7 @@ services:
 
   blocklist-compiler:
     build:
-      context: ./services/dns/dns-blocklists
+      context: ./dns-blocklists
       dockerfile: Dockerfile.blocklist-compiler
     container_name: homelab-dns-blocklist-compiler
     networks:
@@ -105,3 +105,7 @@ services:
       retries: 3
       start_period: 60s
     restart: "no"  # Run once on startup, use cron/systemd for updates
+
+volumes:
+  dns-cache:
+    driver: local

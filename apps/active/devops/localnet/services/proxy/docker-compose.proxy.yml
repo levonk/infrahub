@@ -65,7 +65,6 @@ services:
       start_period: 10s
     restart: unless-stopped
 
-volumes:
   squid:
     image: ubuntu/squid:latest
     container_name: homelab-proxy-squid
@@ -118,3 +117,6 @@ volumes:
       start_period: 30s
     restart: unless-stopped
 
+volumes:
+  web-cache:
+    driver: local

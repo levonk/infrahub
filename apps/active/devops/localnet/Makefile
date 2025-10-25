@@ -10,6 +10,8 @@ YELLOW := \033[0;33m
 RED := \033[0;31m
 NC := \033[0m # No Color
 
+ENSURE_NETWORK := ./scripts/ensure-network.py
+
 help: ## Show this help message
 	@echo "$(BLUE)Home Lab In-a-Box - Available Commands$(NC)"
 	@echo ""
@@ -18,6 +20,7 @@ help: ## Show this help message
 
 up: ## Start all services
 	@echo "$(BLUE)Starting all services...$(NC)"
+	@$(ENSURE_NETWORK) -f docker-compose.yml
 	docker compose up -d
 	@echo "$(GREEN)✓ Services started$(NC)"
 	@echo "Run 'make health-check' to verify service health"
@@ -102,6 +105,7 @@ clean: ## Remove all containers, volumes, and networks (WARNING: destroys data!)
 	echo; \
 	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
 		docker compose down -v; \
+		docker network prune -f >/dev/null; \
 		echo "$(GREEN)✓ Cleanup complete$(NC)"; \
 	else \
 		echo "$(YELLOW)Cancelled$(NC)"; \
