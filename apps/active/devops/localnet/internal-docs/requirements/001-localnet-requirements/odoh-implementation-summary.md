@@ -79,7 +79,7 @@ dnscrypt-proxy:
   build:
     context: .
     dockerfile: Dockerfile.dnscrypt-proxy
-  image: homelab-dnscrypt-proxy:2.1.5
+  image: homelab-dns-dnscrypt-proxy:2.1.5
   networks:
     homelab:
       ipv4_address: 172.20.255.50  # Static IP required by dnsdist

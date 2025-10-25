@@ -1,0 +1,54 @@
+---
+# Artifact repository services (Nexus & Verdaccio)
+networks:
+  homelab:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: ${DOCKER_NETWORK_SUBNET:-172.20.0.0/16}
+
+volumes:
+  nexus-data:
+    driver: local
+  verdaccio-data:
+    driver: local
+
+services:
+  nexus:
+    image: sonatype/nexus3:latest
+    container_name: homelab-artifact-nexus
+    networks:
+      - homelab
+    ports:
+      - "${NEXUS_WEB_PORT:-8081}:8081/tcp"
+      - "${NEXUS_DOCKER_PORT:-8082}:8082/tcp"
+    volumes:
+      - nexus-data:/nexus-data
+      - ../../configs/artifacts/nexus/nexus.properties:/nexus-data/etc/nexus.properties:ro
+    environment:
+      - INSTALL4J_ADD_VM_PARAMS=-Xms2g -Xmx2g -XX:MaxDirectMemorySize=2g
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/service/rest/v1/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    restart: unless-stopped
+
+  verdaccio:
+    image: verdaccio/verdaccio:latest
+    container_name: homelab-artifact-verdaccio
+    networks:
+      - homelab
+    ports:
+      - "${VERDACCIO_HOST_PORT:-4873}:${VERDACCIO_PORT:-4873}/tcp"
+    volumes:
+      - verdaccio-data:/verdaccio/storage
+      - ../../configs/artifacts/verdaccio/config.yaml:/verdaccio/conf/config.yaml:ro
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:4873/-/ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped

@@ -1,12 +1,18 @@
 ---
 # DNS service stack for Home Lab In-a-Box
+networks:
+  homelab:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: ${DOCKER_NETWORK_SUBNET:-172.20.0.0/16}
 services:
   dnsdist:
     build:
       context: ./services/dns/dnsdist
       dockerfile: docker/Dockerfile.dnsdist
-    image: homelab-dnsdist:latest
-    container_name: homelab-dnsdist
+    image: homelab-dns-dnsdist:latest
+    container_name: homelab-dns-dnsdist
     networks:
       - homelab
     ports:
@@ -34,7 +40,7 @@ services:
 
   coredns:
     image: coredns/coredns:latest
-    container_name: homelab-coredns
+    container_name: homelab-dns-coredns
     command: ["-conf", "/etc/coredns/Corefile"]
     networks:
       homelab:
@@ -59,8 +65,8 @@ services:
     build:
       context: ./services/dns/dnscrypt
       dockerfile: docker/Dockerfile.dnscrypt-proxy
-    image: homelab-dnscrypt-proxy:2.1.5
-    container_name: homelab-dnscrypt-proxy
+    image: homelab-dns-dnscrypt-proxy:2.1.5
+    container_name: homelab-dns-dnscrypt-proxy
     networks:
       homelab:
         ipv4_address: 172.20.255.50  # Static IP in high range, reserved for DNS
@@ -81,7 +87,7 @@ services:
     build:
       context: ./services/dns/dns-blocklists
       dockerfile: Dockerfile.blocklist-compiler
-    container_name: homelab-blocklist-compiler
+    container_name: homelab-dns-blocklist-compiler
     networks:
       - homelab
     volumes:

@@ -21,8 +21,8 @@ echo "========================================="
 echo ""
 
 # Get actual IPs from running containers
-ACTUAL_COREDNS_IP=$(docker inspect homelab-coredns --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null || echo "NOT_RUNNING")
-ACTUAL_DNSCRYPT_IP=$(docker inspect homelab-dnscrypt-proxy --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null || echo "NOT_RUNNING")
+ACTUAL_COREDNS_IP=$(docker inspect homelab-dns-coredns --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null || echo "NOT_RUNNING")
+ACTUAL_DNSCRYPT_IP=$(docker inspect homelab-dns-dnscrypt-proxy --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null || echo "NOT_RUNNING")
 
 # Validation flags
 ALL_VALID=true

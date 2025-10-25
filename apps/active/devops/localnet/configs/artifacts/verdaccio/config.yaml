@@ -44,12 +44,3 @@ logs: { type: stdout, format: pretty, level: http }
 
 # Listen on all interfaces
 listen: 0.0.0.0:4873
-
-# Storage configuration with LRU eviction (T071a)
-# Eviction triggers when storage exceeds 80% of max_storage_size
-max_storage_size: 50gb
-storage_eviction:
-  enabled: true
-  threshold: 0.8  # Trigger eviction at 80% capacity
-  policy: lru     # Least Recently Used eviction
-  check_interval: 3600  # Check every hour (seconds)

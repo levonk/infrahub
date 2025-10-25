@@ -6,7 +6,7 @@ set -e
 
 # Configuration
 MAX_OFFSET_MS=10
-CHRONYD_CONTAINER="homelab-chronyd"
+CHRONYD_CONTAINER="homelab-ntp-chronyd"
 
 echo "=== NTP Accuracy Health Check ==="
 echo "Maximum allowed offset: ${MAX_OFFSET_MS}ms"
