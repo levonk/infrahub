@@ -15,7 +15,7 @@ services:
       - claude-code-config:/app/config
       - claude-code-data:/app/data
     networks:
-      - claude-code-network
+      - claude-code
     depends_on:
       - claude-code-db
     healthcheck:
@@ -44,7 +44,8 @@ services:
       - CLAUDE_CODE_API_URL=http://claude-code:8081
       - CLAUDE_CODE_AUTH_URL=http://claude-code-auth:8080
     networks:
-      - claude-code-network
+      - claude-code
+      - homelab
     depends_on:
       - claude-code
       - claude-code-auth
@@ -75,7 +76,7 @@ services:
     volumes:
       - claude-code-config:/app/config
     networks:
-      - claude-code-network
+      - claude-code
     ports:
       - "8080:8080"
     healthcheck:
@@ -288,6 +289,6 @@ volumes:
     driver: local
 
 networks:
-  claude-code-network:
-    driver: bridge
-    internal: true
+  claude-code:
+    external: true
+    name: claude-code

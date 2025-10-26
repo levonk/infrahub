@@ -1,12 +1,5 @@
 ---
 # Artifact repository services (Nexus & Verdaccio)
-networks:
-  homelab:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: ${DOCKER_NETWORK_SUBNET:-172.20.0.0/16}
-
 volumes:
   nexus-data:
     driver: local
@@ -20,11 +13,10 @@ services:
     networks:
       - homelab
     ports:
-      - "${NEXUS_WEB_PORT:-8081}:8081/tcp"
-      - "${NEXUS_DOCKER_PORT:-8082}:8082/tcp"
+      - "${NEXUS_WEB_HOST_PORT:-8081}:8081/tcp"
+      - "${NEXUS_DOCKER_HOST_PORT:-8082}:8082/tcp"
     volumes:
       - nexus-data:/nexus-data
-      - ../../configs/artifacts/nexus/nexus.properties:/nexus-data/etc/nexus.properties:ro
     environment:
       - INSTALL4J_ADD_VM_PARAMS=-Xms2g -Xmx2g -XX:MaxDirectMemorySize=2g
     healthcheck:
@@ -48,7 +40,7 @@ services:
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:4873/-/ping"]
       interval: 30s
-      timeout: 5s
+      timeout: 10s
       retries: 3
-      start_period: 10s
+      start_period: 30s
     restart: unless-stopped

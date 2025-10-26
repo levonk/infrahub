@@ -1,4 +1,4 @@
-.PHONY: help up down restart logs logs-follow health-check flush-cache backup restore clean clean-configs fix-configs test test-all lint test-claude lint-claude
+.PHONY: help build up down restart logs logs-follow health-check flush-cache backup restore clean clean-configs fix-configs test test-all lint test-claude lint-claude
 
 # Default target
 .DEFAULT_GOAL := help
@@ -11,6 +11,7 @@ RED := \033[0;31m
 NC := \033[0m # No Color
 
 ENSURE_NETWORK := ./scripts/ensure-network.py
+NETWORK_NAME := localnet_homelab
 
 help: ## Show this help message
 	@echo "$(BLUE)Home Lab In-a-Box - Available Commands$(NC)"
@@ -18,9 +19,15 @@ help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(GREEN)%-20s$(NC) %s\n", $$1, $$2}'
 	@echo ""
 
+build: ## Build all Docker images
+	@echo "$(BLUE)Building all Docker images...$(NC)"
+	docker compose build
+	@echo "$(GREEN)✓ Build complete$(NC)"
+
 up: ## Start all services
 	@echo "$(BLUE)Starting all services...$(NC)"
-	@$(ENSURE_NETWORK) -f docker-compose.yml
+	@$(ENSURE_NETWORK) -f docker-compose.yml --label "com.docker.compose.network=homelab"
+	@sleep 1
 	docker compose up -d
 	@echo "$(GREEN)✓ Services started$(NC)"
 	@echo "Run 'make health-check' to verify service health"
@@ -99,17 +106,16 @@ fix-configs: clean-configs ## Recreate all config files from templates
 	@./scripts/create-configs.sh
 	@echo "$(GREEN)✓ Config files created$(NC)"
 
-clean: ## Remove all containers, volumes, and networks (WARNING: destroys data!)
-	@echo "$(RED)⚠ WARNING: This will destroy all data!$(NC)"
-	@read -p "Are you sure? [y/N] " -n 1 -r; \
-	echo; \
-	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
-		docker compose down -v; \
-		docker network prune -f >/dev/null; \
-		echo "$(GREEN)✓ Cleanup complete$(NC)"; \
-	else \
-		echo "$(YELLOW)Cancelled$(NC)"; \
-	fi
+clean: ## Remove all containers, volumes, and networks, then restart services
+	@echo "$(YELLOW)Cleaning up Docker resources and restarting...$(NC)"
+	@echo "$(BLUE)Force-removing stuck containers...$(NC)"
+	@docker ps -a --filter "name=homelab-" --format "{{.Names}}" | xargs -r docker rm -f 2>/dev/null || true
+	@docker ps -a --filter "name=localnet-" --format "{{.Names}}" | xargs -r docker rm -f 2>/dev/null || true
+	docker compose down -v --remove-orphans 2>/dev/null || true
+	docker network rm $(NETWORK_NAME) 2>/dev/null || true
+	@sleep 2
+	@echo "$(GREEN)✓ Cleanup complete, starting services...$(NC)"
+	@$(MAKE) up
 
 ps: ## Show running containers
 	docker compose ps

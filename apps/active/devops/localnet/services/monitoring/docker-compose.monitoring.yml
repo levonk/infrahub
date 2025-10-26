@@ -1,12 +1,5 @@
 ---
 # Monitoring services stack for Home Lab In-a-Box
-networks:
-  homelab:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: ${DOCKER_NETWORK_SUBNET:-172.20.0.0/16}
-
 volumes:
   prometheus-data:
     driver: local

@@ -1,12 +1,5 @@
 ---
 # Logging observability stack for Home Lab In-a-Box
-networks:
-  homelab:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: ${DOCKER_NETWORK_SUBNET:-172.20.0.0/16}
-
 services:
   vector:
     image: timberio/vector:latest-alpine

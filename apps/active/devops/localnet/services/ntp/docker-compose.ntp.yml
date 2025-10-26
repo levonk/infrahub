@@ -1,12 +1,5 @@
 ---
 # NTP service stack for Home Lab In-a-Box
-networks:
-  homelab:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: ${DOCKER_NETWORK_SUBNET:-172.20.0.0/16}
-
 services:
   chronyd:
     build:
@@ -17,10 +10,10 @@ services:
     networks:
       - homelab
     ports:
-      - "${NTP_TRANSPARENT_PORT:-123}:123/udp"  # Transparent mode UDP
-      - "${NTP_TRANSPARENT_PORT:-123}:123/tcp"  # Transparent mode TCP
-      - "${NTP_DIRECT_PORT:-1123}:1123/udp"     # Direct mode UDP (mapped from container port 123)
-      - "${NTP_DIRECT_PORT:-1123}:1123/tcp"     # Direct mode TCP (mapped from container port 123)
+      - "${NTP_TRANSPARENT_HOST_PORT:-123}:${NTP_TRANSPARENT_CONTAINER_PORT:-123}/udp"  # Transparent mode UDP
+      - "${NTP_TRANSPARENT_HOST_PORT:-123}:${NTP_TRANSPARENT_CONTAINER_PORT:-123}/tcp"  # Transparent mode TCP
+      - "${NTP_DIRECT_HOST_PORT:-1123}:${NTP_DIRECT_CONTAINER_PORT:-1123}/udp"     # Direct mode UDP (mapped from container port 123)
+      - "${NTP_DIRECT_HOST_PORT:-1123}:${NTP_DIRECT_CONTAINER_PORT:-1123}/tcp"     # Direct mode TCP (mapped from container port 123)
       - "${CHRONYD_NTS_HOST_PORT:-4460}:4460/tcp"          # NTS-KE (Network Time Security Key Exchange)
       - "${CHRONYD_METRICS_HOST_PORT:-9123}:9123/tcp"      # Metrics (if exporter added later)
     volumes:

@@ -13,9 +13,25 @@ x-logging: &default-logging
 networks:
   homelab:
     driver: bridge
+    external: false
     ipam:
+      driver: default
       config:
         - subnet: ${DOCKER_NETWORK_SUBNET:-172.20.0.0/16}
+          gateway: ${DOCKER_NETWORK_GATEWAY:-172.20.0.1}
+          # Reserve high IP range (*.255.x) for DNS infrastructure per ADR
+          # These auxiliary addresses prevent DHCP from assigning IPs in this range
+          aux_addresses:
+            dns-dnscrypt: ${DNS_DNSCRYPT_IP:-172.20.255.50}
+            dns-coredns: ${DNS_COREDNS_IP:-172.20.255.51}
+            dns-reserved-52: ${DNS_RESERVED_52_IP:-172.20.255.52}
+            dns-reserved-53: ${DNS_RESERVED_53_IP:-172.20.255.53}
+            dns-reserved-54: ${DNS_RESERVED_54_IP:-172.20.255.54}
+            dns-reserved-55: ${DNS_RESERVED_55_IP:-172.20.255.55}
+            dns-reserved-56: ${DNS_RESERVED_56_IP:-172.20.255.56}
+            dns-reserved-57: ${DNS_RESERVED_57_IP:-172.20.255.57}
+            dns-reserved-58: ${DNS_RESERVED_58_IP:-172.20.255.58}
+            dns-reserved-59: ${DNS_RESERVED_59_IP:-172.20.255.59}
 
   wireguard:
     driver: bridge

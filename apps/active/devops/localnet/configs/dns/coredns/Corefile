@@ -1,6 +1,10 @@
 # Home Lab In-a-Box - CoreDNS Configuration
 # Purpose: Local DNS caching, DNSSEC validation, and upstream forwarding
 
+# Health check endpoint (used by Docker healthcheck)
+# Port configured via COREDNS_HEALTH_PORT environment variable (default 18080)
+health :${COREDNS_HEALTH_PORT:-18080}
+
 . {
     # Logging
     # Format: {timestamp} {client} {type} {name} {rcode}

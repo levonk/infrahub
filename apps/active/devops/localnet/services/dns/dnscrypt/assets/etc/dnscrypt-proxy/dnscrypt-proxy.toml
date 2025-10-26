@@ -1,0 +1,205 @@
+# Home Lab In-a-Box - dnscrypt-proxy Configuration
+# Purpose: Encrypt DNS queries with ODoH (Oblivious DNS over HTTPS), DNSSEC validation, and blocklists
+#
+# ODoH Configuration:
+# - odoh_servers = true enables ODoH-only mode (disables DNSCrypt and DoH)
+# - Requires both odoh-servers (targets) and odoh-relays (relays) source lists
+# - 8 ODoH target servers available from multiple providers
+# - Provides maximum privacy by separating query content from client identity
+#
+# NOTE: Testing with klutchell/dnscrypt-proxy:2.1.5 to verify ODoH functionality
+
+##############################################
+# Global settings
+##############################################
+
+# Server selection
+# Leave empty to auto-select from available ODoH servers
+# Available ODoH servers: odoh-cloudflare, odoh-crypto-sx, odoh-id-gmail,
+# odoh-jp.tiar.app, odoh-jp.tiarap.org, odoh-marco.cx, odoh-snowstorm, odoh-tiarap.org
+server_names = []
+
+# Listen addresses
+# Container listens on 5053 (image default), mapped to host 5300
+listen_addresses = ['0.0.0.0:{DNSCRYPT_PROXY_CONTAINER_PORT}']
+
+# Maximum number of active connections
+max_clients = 250
+
+# Use servers reachable over IPv4
+ipv4_servers = true
+
+# Use servers reachable over IPv6
+ipv6_servers = false
+
+# Use servers implementing the DNSCrypt protocol
+dnscrypt_servers = false
+
+# Use servers implementing the DNS-over-HTTPS protocol
+doh_servers = false
+
+# Use servers implementing the Oblivious DoH protocol
+odoh_servers = true
+
+# Require DNSSEC validation
+require_dnssec = true
+
+# Require servers that support DNS-over-HTTPS
+require_nolog = true
+
+# Local DNS overrides for internal services
+cloaking_rules = '/etc/dnscrypt-proxy/cloaking-rules.txt'
+
+##############################################
+# Performance
+##############################################
+
+# Timeout for DNS queries (milliseconds)
+timeout = 5000
+
+# Keep connections alive
+keepalive = 30
+
+# Load balancing strategy
+lb_strategy = 'p2'
+
+# Certificate refresh delay
+cert_refresh_delay = 240
+
+##############################################
+# Privacy
+##############################################
+
+# Disable DNS rebinding protection (handled by dnsdist)
+block_ipv6 = false
+
+# Reject queries for local zones
+block_unqualified = true
+
+# Block queries for undelegated TLDs
+block_undelegated = true
+
+##############################################
+# Logging
+##############################################
+
+# Log level (0=FATAL, 1=ERROR, 2=WARNING, 3=NOTICE, 4=INFO, 5=DEBUG)
+log_level = 4
+
+# Use syslog instead of stdout
+use_syslog = false
+
+##############################################
+# ODoH (Oblivious DNS over HTTPS)
+##############################################
+
+# Anonymized DNS configuration for ODoH
+# Routes define which relays to use for which servers
+# Using wildcard '*' to apply relays to all ODoH servers
+[anonymized_dns]
+
+# Use all available relays for all ODoH servers
+# The relay names must match those in the odoh-relays.md source list
+routes = [
+  { server_name = 'odoh-crypto-sx', via = [
+    'odohrelay-crypto-sx',
+  ] },
+  { server_name = 'odoh-cloudflare', via = [
+    'odohrelay-crypto-sx',
+  ] },
+  { server_name = 'odoh-id-gmail', via = [
+    'odohrelay-crypto-sx',
+  ] },
+  { server_name = 'odoh-jp.tiar.app', via = [
+    'odohrelay-crypto-sx',
+  ] },
+  { server_name = 'odoh-jp.tiarap.org', via = [
+    'odohrelay-crypto-sx',
+  ] },
+  { server_name = 'odoh-marco.cx', via = [
+    'odohrelay-crypto-sx',
+  ] },
+  { server_name = 'odoh-snowstorm', via = [
+    'odohrelay-crypto-sx',
+  ] },
+  { server_name = 'odoh-tiarap.org', via = [
+    'odohrelay-crypto-sx',
+  ] },
+]
+
+##############################################
+# Filters and Blocklists
+##############################################
+
+[blocked_names]
+# Additional blocklist file (beyond dnsdist CDB)
+blocked_names_file = '/etc/dnscrypt-proxy/blocked-names.txt'
+
+# Log blocked queries
+log_file = '/var/log/dnscrypt-proxy/blocked.log'
+
+##############################################
+# Query logging
+##############################################
+
+[query_log]
+# Log all queries for analysis
+file = '/var/log/dnscrypt-proxy/query.log'
+
+# Log format: tab-separated values
+format = 'tsv'
+
+# Fields: timestamp, client_ip, query, response_code, upstream
+ignored_qtypes = []
+
+##############################################
+# Sources
+##############################################
+
+# ODoH servers list - target servers for Oblivious DNS
+[sources.'odoh-servers']
+urls = [
+  'https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/master/v3/odoh-servers.md',
+  'https://download.dnscrypt.info/resolvers-list/v3/odoh-servers.md',
+]
+minisign_key = 'RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3'
+cache_file = 'odoh-servers.md'
+refresh_delay = 73
+
+[sources.'odoh-relays']
+urls = [
+  'https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/master/v3/odoh-relays.md',
+  'https://download.dnscrypt.info/resolvers-list/v3/odoh-relays.md',
+]
+minisign_key = 'RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3'
+cache_file = 'odoh-relays.md'
+refresh_delay = 73
+
+# Public resolvers as fallback (not used when odoh_servers = true)
+[sources.'public-resolvers']
+urls = [
+  'https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/master/v3/public-resolvers.md',
+  'https://download.dnscrypt.info/resolvers-list/v3/public-resolvers.md',
+]
+minisign_key = 'RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3'
+cache_file = 'public-resolvers.md'
+refresh_delay = 73
+
+[sources.'onion-services']
+urls = [
+  'https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/master/v3/onion-services.md',
+  'https://download.dnscrypt.info/resolvers-list/v3/onion-services.md',
+  'https://ipv6.download.dnscrypt.info/resolvers-list/v3/onion-services.md',
+]
+minisign_key = 'RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3'
+cache_file = 'onion-services.md'
+refresh_delay = 73
+
+[sources.'opennic']
+urls = [
+  'https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/master/v3/opennic.md',
+  'https://download.dnscrypt.info/resolvers-list/v3/opennic.md',
+]
+minisign_key = 'RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3'
+cache_file = 'opennic.md'
+refresh_delay = 73

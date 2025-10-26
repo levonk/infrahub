@@ -36,6 +36,11 @@ def parse_args() -> argparse.Namespace:
         dest="project_directory",
         help="Compose project directory passed through to docker compose",
     )
+    parser.add_argument(
+        "--label",
+        dest="network_label",
+        help="Label to apply to created networks (e.g., com.docker.compose.network=homelab)",
+    )
     return parser.parse_args()
 
 
@@ -88,7 +93,7 @@ def iter_network_specs(compose_config: dict) -> Iterable[Tuple[str, str, Set[str
         yield name, driver, subnets, internal_flag
 
 
-def ensure_network(name: str, driver: str, subnets: Set[str], internal: bool) -> None:
+def ensure_network(name: str, driver: str, subnets: Set[str], internal: bool, label: str | None = None) -> None:
     inspect_proc = subprocess.run(
         ["docker", "network", "inspect", name], capture_output=True, text=True
     )
@@ -99,6 +104,8 @@ def ensure_network(name: str, driver: str, subnets: Set[str], internal: bool) ->
             create_cmd.append("--internal")
         for subnet in sorted(subnets):
             create_cmd.extend(["--subnet", subnet])
+        if label:
+            create_cmd.extend(["--label", label])
         create_cmd.append(name)
         print(
             "Creating missing network '{name}' (driver={driver}{subnets}{internal})".format(
@@ -152,7 +159,7 @@ def main() -> int:
     for compose_file in compose_files:
         config = docker_compose_config(compose_args, compose_file)
         for name, driver, subnets, internal in iter_network_specs(config):
-            ensure_network(name, driver, subnets, internal)
+            ensure_network(name, driver, subnets, internal, namespace.network_label)
 
     return 0
 

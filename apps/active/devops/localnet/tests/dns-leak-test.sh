@@ -208,31 +208,33 @@ if command -v dig &> /dev/null; then
     fi
 
     # Test 2e: CoreDNS direct (UDP) - test from dnsdist container
-    if docker compose -f "$PROJECT_ROOT/docker-compose.yml" exec -T dnsdist dig @172.20.255.51 -p 53 example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
-        test_result "CoreDNS UDP Direct" "PASS" "CoreDNS responding via UDP at 172.20.255.51:53"
+    COREDNS_IP=${DNS_COREDNS_IP:-172.20.255.51}
+    if docker compose -f "$PROJECT_ROOT/docker-compose.yml" exec -T dnsdist dig @${COREDNS_IP} -p 53 example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+        test_result "CoreDNS UDP Direct" "PASS" "CoreDNS responding via UDP at ${COREDNS_IP}:53"
     else
-        test_result "CoreDNS UDP Direct" "WARN" "CoreDNS not responding via UDP at 172.20.255.51:53"
+        test_result "CoreDNS UDP Direct" "WARN" "CoreDNS not responding via UDP at ${COREDNS_IP}:53"
     fi
 
     # Test 2f: CoreDNS direct (TCP)
-    if docker compose -f "$PROJECT_ROOT/docker-compose.yml" exec -T dnsdist dig @172.20.255.51 -p 53 +tcp example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
-        test_result "CoreDNS TCP Direct" "PASS" "CoreDNS responding via TCP at 172.20.255.51:53"
+    if docker compose -f "$PROJECT_ROOT/docker-compose.yml" exec -T dnsdist dig @${COREDNS_IP} -p 53 +tcp example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+        test_result "CoreDNS TCP Direct" "PASS" "CoreDNS responding via TCP at ${COREDNS_IP}:53"
     else
-        test_result "CoreDNS TCP Direct" "WARN" "CoreDNS not responding via TCP at 172.20.255.51:53"
+        test_result "CoreDNS TCP Direct" "WARN" "CoreDNS not responding via TCP at ${COREDNS_IP}:53"
     fi
 
     # Test 2g: dnscrypt-proxy direct (UDP) - test from dnsdist container
-    if docker compose -f "$PROJECT_ROOT/docker-compose.yml" exec -T dnsdist dig @172.20.255.50 -p 5053 example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
-        test_result "dnscrypt-proxy UDP" "PASS" "dnscrypt-proxy responding via UDP at 172.20.255.50:5053"
+    DNSCRYPT_IP=${DNS_DNSCRYPT_IP:-172.20.255.50}
+    if docker compose -f "$PROJECT_ROOT/docker-compose.yml" exec -T dnsdist dig @${DNSCRYPT_IP} -p 5053 example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+        test_result "dnscrypt-proxy UDP" "PASS" "dnscrypt-proxy responding via UDP at ${DNSCRYPT_IP}:5053"
     else
-        test_result "dnscrypt-proxy UDP" "WARN" "dnscrypt-proxy not responding via UDP at 172.20.255.50:5053"
+        test_result "dnscrypt-proxy UDP" "WARN" "dnscrypt-proxy not responding via UDP at ${DNSCRYPT_IP}:5053"
     fi
 
     # Test 2h: dnscrypt-proxy direct (TCP)
-    if docker compose -f "$PROJECT_ROOT/docker-compose.yml" exec -T dnsdist dig @172.20.255.50 -p 5053 +tcp example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
-        test_result "dnscrypt-proxy TCP" "PASS" "dnscrypt-proxy responding via TCP at 172.20.255.50:5053"
+    if docker compose -f "$PROJECT_ROOT/docker-compose.yml" exec -T dnsdist dig @${DNSCRYPT_IP} -p 5053 +tcp example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+        test_result "dnscrypt-proxy TCP" "PASS" "dnscrypt-proxy responding via TCP at ${DNSCRYPT_IP}:5053"
     else
-        test_result "dnscrypt-proxy TCP" "WARN" "dnscrypt-proxy not responding via TCP at 172.20.255.50:5053"
+        test_result "dnscrypt-proxy TCP" "WARN" "dnscrypt-proxy not responding via TCP at ${DNSCRYPT_IP}:5053"
     fi
 else
     test_result "DNS Resolution" "WARN" "dig command not available, skipping all DNS resolution tests"
@@ -273,27 +275,28 @@ if command -v dig &> /dev/null; then
         fi
     fi
 
-    # Test 3c: Host → DNSDist direct mode UDP (port 15353)
-    if dig @localhost -p 15353 example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
-        test_result "Host→DNSDist UDP (15353)" "PASS" "Host can query DNSDist direct mode via UDP on localhost:15353"
+    # Test 3c: Host → DNSDist direct mode UDP (read port from env, default 15353)
+    DNS_DIRECT_PORT=${DNS_DIRECT_PORT:-15353}
+    if dig @localhost -p ${DNS_DIRECT_PORT} example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+        test_result "Host→DNSDist UDP (${DNS_DIRECT_PORT})" "PASS" "Host can query DNSDist direct mode via UDP on localhost:${DNS_DIRECT_PORT}"
     else
         dnsdist_uptime_seconds=$(uptime_to_seconds "${DNSDIST_UPTIME:-}")
         if [[ ${dnsdist_uptime_seconds:-0} -gt 300 ]]; then
-            test_result "Host→DNSDist UDP (15353)" "FAIL" "DNSDist running for ${DNSDIST_UPTIME} but host cannot query UDP port 15353"
+            test_result "Host→DNSDist UDP (${DNS_DIRECT_PORT})" "FAIL" "DNSDist running for ${DNSDIST_UPTIME} but host cannot query UDP port ${DNS_DIRECT_PORT}"
         else
-            test_result "Host→DNSDist UDP (15353)" "WARN" "Cannot query DNSDist direct mode UDP from host yet (starting for ${DNSDIST_UPTIME:-unknown})"
+            test_result "Host→DNSDist UDP (${DNS_DIRECT_PORT})" "WARN" "Cannot query DNSDist direct mode UDP from host yet (starting for ${DNSDIST_UPTIME:-unknown})"
         fi
     fi
 
-    # Test 3d: Host → DNSDist direct mode TCP (port 15353)
-    if dig @localhost -p 15353 +tcp example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
-        test_result "Host→DNSDist TCP (15353)" "PASS" "Host can query DNSDist direct mode via TCP on localhost:15353"
+    # Test 3d: Host → DNSDist direct mode TCP (read port from env, default 15353)
+    if dig @localhost -p ${DNS_DIRECT_PORT} +tcp example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+        test_result "Host→DNSDist TCP (${DNS_DIRECT_PORT})" "PASS" "Host can query DNSDist direct mode via TCP on localhost:${DNS_DIRECT_PORT}"
     else
         dnsdist_uptime_seconds=$(uptime_to_seconds "${DNSDIST_UPTIME:-}")
         if [[ ${dnsdist_uptime_seconds:-0} -gt 300 ]]; then
-            test_result "Host→DNSDist TCP (15353)" "FAIL" "DNSDist running for ${DNSDIST_UPTIME} but host cannot query TCP port 15353"
+            test_result "Host→DNSDist TCP (${DNS_DIRECT_PORT})" "FAIL" "DNSDist running for ${DNSDIST_UPTIME} but host cannot query TCP port ${DNS_DIRECT_PORT}"
         else
-            test_result "Host→DNSDist TCP (15353)" "WARN" "Cannot query DNSDist direct mode TCP from host yet (starting for ${DNSDIST_UPTIME:-unknown})"
+            test_result "Host→DNSDist TCP (${DNS_DIRECT_PORT})" "WARN" "Cannot query DNSDist direct mode TCP from host yet (starting for ${DNSDIST_UPTIME:-unknown})"
         fi
     fi
 
@@ -322,36 +325,37 @@ if command -v dig &> /dev/null; then
         fi
     fi
 
-# Test 3g: Host → dnscrypt-proxy UDP (port 5300)
-    if dig @localhost -p 5300 example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
-        test_result "Host→dnscrypt-proxy UDP" "PASS" "Host can query dnscrypt-proxy via UDP on localhost:5300"
+# Test 3g: Host → dnscrypt-proxy UDP (read port from env, default 5300)
+    DNSCRYPT_PROXY_HOST_PORT=${DNSCRYPT_PROXY_HOST_PORT:-5300}
+    if dig @localhost -p ${DNSCRYPT_PROXY_HOST_PORT} example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+        test_result "Host→dnscrypt-proxy UDP (${DNSCRYPT_PROXY_HOST_PORT})" "PASS" "Host can query dnscrypt-proxy via UDP on localhost:${DNSCRYPT_PROXY_HOST_PORT}"
     else
         IFS='|' read -r DNSCRYPT_STATUS DNSCRYPT_UPTIME DNSCRYPT_HEALTH <<< "$(parse_container_status dnscrypt-proxy)"
         dnscrypt_uptime_seconds=$(uptime_to_seconds "${DNSCRYPT_UPTIME:-}")
         if [[ ${dnscrypt_uptime_seconds:-0} -gt 300 ]]; then
-            test_result "Host→dnscrypt-proxy UDP" "FAIL" "dnscrypt-proxy running for ${DNSCRYPT_UPTIME} but host cannot query UDP port 5300"
+            test_result "Host→dnscrypt-proxy UDP (${DNSCRYPT_PROXY_HOST_PORT})" "FAIL" "dnscrypt-proxy running for ${DNSCRYPT_UPTIME} but host cannot query UDP port ${DNSCRYPT_PROXY_HOST_PORT}"
             echo ""
             echo -e "${YELLOW}Recommended action:${NC}"
             echo "  docker compose -f \"$PROJECT_ROOT/docker-compose.yml\" ps dnscrypt-proxy"
             echo "  docker compose -f \"$PROJECT_ROOT/docker-compose.yml\" logs dnscrypt-proxy --tail=20"
             echo ""
-            echo "Check if port 5300 is properly mapped and dnscrypt-proxy is listening."
+            echo "Check if port ${DNSCRYPT_PROXY_HOST_PORT} is properly mapped and dnscrypt-proxy is listening."
         else
-            test_result "Host→dnscrypt-proxy UDP" "WARN" "Cannot query dnscrypt-proxy UDP from host yet (starting for ${DNSCRYPT_UPTIME:-unknown})"
+            test_result "Host→dnscrypt-proxy UDP (${DNSCRYPT_PROXY_HOST_PORT})" "WARN" "Cannot query dnscrypt-proxy UDP from host yet (starting for ${DNSCRYPT_UPTIME:-unknown})"
         fi
     fi
 
-    # Test 3h: Host → dnscrypt-proxy TCP (port 5300)
+    # Test 3h: Host → dnscrypt-proxy TCP (read port from env, default 5300)
     # Note: dnscrypt-proxy only exposes UDP in docker-compose.yml, but we test TCP anyway
-    if dig @localhost -p 5300 +tcp example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
-        test_result "Host→dnscrypt-proxy TCP" "PASS" "Host can query dnscrypt-proxy via TCP on localhost:5300"
+    if dig @localhost -p ${DNSCRYPT_PROXY_HOST_PORT} +tcp example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+        test_result "Host→dnscrypt-proxy TCP (${DNSCRYPT_PROXY_HOST_PORT})" "PASS" "Host can query dnscrypt-proxy via TCP on localhost:${DNSCRYPT_PROXY_HOST_PORT}"
     else
         IFS='|' read -r DNSCRYPT_STATUS DNSCRYPT_UPTIME DNSCRYPT_HEALTH <<< "$(parse_container_status dnscrypt-proxy)"
         dnscrypt_uptime_seconds=$(uptime_to_seconds "${DNSCRYPT_UPTIME:-}")
         if [[ ${dnscrypt_uptime_seconds:-0} -gt 300 ]]; then
-            test_result "Host→dnscrypt-proxy TCP" "WARN" "dnscrypt-proxy TCP not accessible from host (only UDP exposed in docker-compose)"
+            test_result "Host→dnscrypt-proxy TCP (${DNSCRYPT_PROXY_HOST_PORT})" "WARN" "dnscrypt-proxy TCP not accessible from host (only UDP exposed in docker-compose)"
         else
-            test_result "Host→dnscrypt-proxy TCP" "WARN" "Cannot query dnscrypt-proxy TCP from host yet (starting for ${DNSCRYPT_UPTIME:-unknown})"
+            test_result "Host→dnscrypt-proxy TCP (${DNSCRYPT_PROXY_HOST_PORT})" "WARN" "Cannot query dnscrypt-proxy TCP from host yet (starting for ${DNSCRYPT_UPTIME:-unknown})"
         fi
     fi
 else

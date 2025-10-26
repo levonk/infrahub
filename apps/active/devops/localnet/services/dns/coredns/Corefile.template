@@ -1,0 +1,24 @@
+# Home Lab In-a-Box - CoreDNS Configuration
+# Purpose: Local DNS caching, DNSSEC validation, and upstream forwarding
+
+# Root zone configuration
+. {
+    # Health check endpoint (used by Docker healthcheck)
+    # Port configured via COREDNS_HEALTH_PORT environment variable (default 18080)
+    health :$COREDNS_HEALTH_PORT
+
+    # Logging
+    # Format: {timestamp} {client} {type} {name} {rcode}
+    log {
+        class all
+    }
+
+    # Error handling
+    errors
+
+    # Forward to dnscrypt-proxy for encrypted DNS (ODoH)
+    forward . 172.20.255.50:5053
+
+    # Caching
+    cache 30
+}

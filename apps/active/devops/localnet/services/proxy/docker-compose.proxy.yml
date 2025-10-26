@@ -120,3 +120,7 @@ services:
 volumes:
   web-cache:
     driver: local
+
+networks:
+  homelab:
+    external: true
