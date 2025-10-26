@@ -344,7 +344,7 @@ services:
     networks:
       - homelab
     ports:
-      - "${NEXUS_WEB_PORT:-8081}:8081/tcp"      # Web UI
+      - "${NEXUS_WEB_HOST_PORT:-8081}:8081/tcp"      # Web UI
       - "${NEXUS_DOCKER_PORT:-8082}:8082/tcp"   # Docker registry
     volumes:
       - nexus-data:/nexus-data
