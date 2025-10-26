@@ -8,6 +8,9 @@
 
 FROM base-alpine
 
+# Switch to root for package installation
+USER root
+
 # Install chronyd and required tools
 RUN apk add --no-cache \
     chrony \
@@ -17,15 +20,17 @@ RUN apk add --no-cache \
 
 # Create chrony directories (user already created by chrony package)
 # /var/run is a symlink to /run on Alpine, but create both to be safe
-# Note: /run/chrony must be owned by root so chronyd (running as root initially) can write PID file
-# before dropping privileges. After privilege drop, chronyd runs as chrony user.
+# Note: /run/chrony must be owned by chrony with 750 permissions so chronyd can write PID file
+# and socket files. This allows the chrony user to read/write/execute, group to read/execute, others nothing.
 RUN mkdir -p /var/lib/chrony /var/log/chrony /run/chrony /var/run/chrony && \
-    chown -R chrony:chrony /var/lib/chrony /var/log/chrony && \
-    chmod 750 /var/lib/chrony /var/log/chrony && \
-    chmod 755 /run/chrony /var/run/chrony
+    chown -R chrony:chrony /var/lib/chrony /var/log/chrony /run/chrony /var/run/chrony && \
+    chmod 750 /var/lib/chrony /var/log/chrony /run/chrony /var/run/chrony
 
-# Copy custom chrony configuration
-# This will be mounted from the host at runtime
+# Create chrony configuration directory
+# Pre-create /etc/chrony directory to avoid mount point creation errors
+# This must be a directory (not a file) so the chrony.conf file can be mounted into it
+RUN mkdir -p /etc/chrony && chown -R chrony:chrony /etc/chrony && chmod 755 /etc/chrony
+
 VOLUME ["/etc/chrony"]
 VOLUME ["/var/lib/chrony"]
 

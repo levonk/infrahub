@@ -1,17 +1,13 @@
-FROM sonatype/nexus3:3.69.0
+FROM sonatype/nexus3:3.85.0-alpine
 
 USER root
 
-RUN microdnf -y update \
-    && microdnf -y install jq \
-    && microdnf clean all
+RUN apk add --no-cache bash jq su-exec
 
 # Ensure nexus user has proper home directory and Java preferences directory
 RUN mkdir -p /opt/sonatype/nexus/.java/.userPrefs \
     && chown -R nexus:nexus /opt/sonatype/nexus/.java \
     && chmod -R 0755 /opt/sonatype/nexus/.java
-
-RUN mv /opt/sonatype/docker-entrypoint.sh /opt/sonatype/docker-entrypoint-original.sh
 
 COPY entrypoint.sh /opt/sonatype/docker-entrypoint.sh
 COPY configure-docker-proxy.sh /opt/sonatype/scripts/configure-docker-proxy.sh
@@ -29,9 +25,12 @@ ENV NEXUS_ADMIN_USERNAME=admin \
     NEXUS_DOCKER_BLOB_STORE=default \
     NEXUS_DOCKER_V1_ENABLED=false \
     NEXUS_DOCKER_FORCE_BASIC_AUTH=true \
-    NEXUS_SKIP_DOCKER_SETUP=false
+	NEXUS_SKIP_DOCKER_SETUP=false \
+	NEXUS_WEB_CONTAINER_PORT=8081
 
-USER nexus
+# Health check for Nexus service
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
+	CMD curl -f http://localhost:${NEXUS_WEB_CONTAINER_PORT}/service/rest/v1/status || exit 1
 
 ENTRYPOINT ["/opt/sonatype/docker-entrypoint.sh"]
 CMD ["nexus", "run"]

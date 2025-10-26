@@ -86,7 +86,7 @@ services: {}
 include:
   - services/artifact/docker-compose.artifact.yml
   - services/dns/docker-compose.dns.yml
-  # - services/ntp/docker-compose.ntp.yml
+  - services/ntp/docker-compose.ntp.yml
   # - services/proxy/docker-compose.proxy.yml
   # - services/vpn/docker-compose.vpn.yml
   # - services/logging/docker-compose.logging.yml

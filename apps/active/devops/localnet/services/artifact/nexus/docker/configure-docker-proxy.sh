@@ -199,6 +199,102 @@ configure_docker_realm() {
   log "Docker bearer token realm activated"
 }
 
+create_pip_proxy_repository() {
+  local repo_name="pypi"
+  if repository_exists "${repo_name}"; then
+    log "Repository '${repo_name}' already exists; skipping"
+    return 0
+  fi
+
+  log "Creating PyPI proxy repository '${repo_name}'"
+  curl -sf -u "${NEXUS_ADMIN_USERNAME}:${ADMIN_PASSWORD}" \
+    -H "Content-Type: application/json" \
+    -X POST "${REPO_ENDPOINT}/pypi/proxy" \
+    -d @- <<JSON
+{
+  "name": "${repo_name}",
+  "online": true,
+  "storage": {
+    "blobStoreName": "${NEXUS_PIP_BLOB_STORE:-default}",
+    "strictContentTypeValidation": true
+  },
+  "proxy": {
+    "remoteUrl": "${NEXUS_PIP_PROXY_REMOTE_URL:-https://pypi.org}",
+    "contentMaxAge": 1440,
+    "metadataMaxAge": 1440
+  },
+  "negativeCache": {
+    "enabled": true,
+    "timeToLive": 1440
+  },
+  "httpClient": {
+    "blocked": false,
+    "autoBlock": true,
+    "connection": {
+      "retries": 0,
+      "useTrustStore": false,
+      "timeout": 60,
+      "enableCircularRedirects": false,
+      "enableCookies": false
+    }
+  }
+}
+JSON
+}
+
+create_pip_hosted_repository() {
+  local repo_name="pip-private"
+  if repository_exists "${repo_name}"; then
+    log "Repository '${repo_name}' already exists; skipping"
+    return 0
+  fi
+
+  log "Creating pip hosted repository '${repo_name}'"
+  curl -sf -u "${NEXUS_ADMIN_USERNAME}:${ADMIN_PASSWORD}" \
+    -H "Content-Type: application/json" \
+    -X POST "${REPO_ENDPOINT}/pypi/hosted" \
+    -d @- <<JSON
+{
+  "name": "${repo_name}",
+  "online": true,
+  "storage": {
+    "blobStoreName": "${NEXUS_PIP_BLOB_STORE:-default}",
+    "strictContentTypeValidation": true,
+    "writePolicy": "ALLOW_ONCE"
+  }
+}
+JSON
+}
+
+create_pip_group_repository() {
+  local repo_name="pip-public"
+  if repository_exists "${repo_name}"; then
+    log "Repository '${repo_name}' already exists; skipping"
+    return 0
+  fi
+
+  log "Creating pip group repository '${repo_name}'"
+  curl -sf -u "${NEXUS_ADMIN_USERNAME}:${ADMIN_PASSWORD}" \
+    -H "Content-Type: application/json" \
+    -X POST "${REPO_ENDPOINT}/pypi/group" \
+    -d @- <<JSON
+{
+  "name": "${repo_name}",
+  "online": true,
+  "storage": {
+    "blobStoreName": "${NEXUS_PIP_BLOB_STORE:-default}",
+    "strictContentTypeValidation": true
+  },
+  "group": {
+    "memberNames": [
+      "pip-private",
+      "pypi"
+    ]
+  }
+}
+JSON
+}
+
 main() {
   if [[ -f "${MARKER_FILE}" ]]; then
     log "Docker proxy already configured (marker present)"
@@ -229,8 +325,12 @@ main() {
   create_docker_group_repository
   configure_docker_realm
 
+  create_pip_proxy_repository
+  create_pip_hosted_repository
+  create_pip_group_repository
+
   echo "configured $(date -Iseconds)" > "${MARKER_FILE}"
-  log "Docker proxy configuration complete"
+  log "Repository configuration complete"
 }
 
 main "$@"
