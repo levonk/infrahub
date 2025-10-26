@@ -2,10 +2,10 @@
 # Purpose: Local DNS caching, DNSSEC validation, and upstream forwarding
 
 # Root zone configuration
-. {
+.:{COREDNS_DNS_CONTAINER_PORT} {
     # Health check endpoint (used by Docker healthcheck)
     # Port configured via COREDNS_HEALTH_PORT environment variable (default 18080)
-    health :$COREDNS_HEALTH_PORT
+    health :{COREDNS_HEALTH_PORT}
 
     # Logging
     # Format: {timestamp} {client} {type} {name} {rcode}
@@ -17,7 +17,7 @@
     errors
 
     # Forward to dnscrypt-proxy for encrypted DNS (ODoH)
-    forward . 172.20.255.50:5053
+    forward . {DNS_DNSCRYPT_IP}:{DNSCRYPT_PROXY_CONTAINER_PORT}
 
     # Caching
     cache 30

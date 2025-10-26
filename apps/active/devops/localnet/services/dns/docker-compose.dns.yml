@@ -59,8 +59,8 @@ services:
       # Direct mode: CoreDNS listens on container :${COREDNS_DNS_CONTAINER_PORT}, forwarded to host
       # Primary DNS resolver with caching and DNSSEC validation
       # DNSDist forwards queries to this service as the primary upstream
-      - "${COREDNS_DNS_HOST_PORT:-15353}:${COREDNS_DNS_CONTAINER_PORT:-15353}/udp"  # Direct mode UDP
-      - "${COREDNS_DNS_HOST_PORT:-15353}:${COREDNS_DNS_CONTAINER_PORT:-15353}/tcp"  # Direct mode TCP
+      - "${COREDNS_DNS_HOST_PORT:-15354}:${COREDNS_DNS_CONTAINER_PORT:-15353}/udp"  # Direct mode UDP
+      - "${COREDNS_DNS_HOST_PORT:-15354}:${COREDNS_DNS_CONTAINER_PORT:-15353}/tcp"  # Direct mode TCP
       # Metrics endpoint for monitoring CoreDNS performance
       - "${COREDNS_METRICS_HOST_PORT:-9153}:9153/tcp"  # Metrics
       # Health check endpoint (default host port: 27493)
@@ -69,6 +69,9 @@ services:
       - COREDNS_HEALTH_PORT=${COREDNS_HEALTH_CONTAINER_PORT:-18080}
     volumes:
       - dns-cache:/var/lib/coredns
+    depends_on:
+      dnscrypt-proxy:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://127.0.0.1:${COREDNS_HEALTH_CONTAINER_PORT:-18080}/health"]
       interval: 10s

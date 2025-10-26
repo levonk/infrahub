@@ -209,17 +209,18 @@ if command -v dig &> /dev/null; then
 
     # Test 2e: CoreDNS direct (UDP) - test from dnsdist container
     COREDNS_IP=${DNS_COREDNS_IP:-172.20.255.51}
-    if docker compose -f "$PROJECT_ROOT/docker-compose.yml" exec -T dnsdist dig @${COREDNS_IP} -p 53 example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
-        test_result "CoreDNS UDP Direct" "PASS" "CoreDNS responding via UDP at ${COREDNS_IP}:53"
+    COREDNS_CONTAINER_PORT=${COREDNS_DNS_CONTAINER_PORT:-15353}
+    if docker compose -f "$PROJECT_ROOT/docker-compose.yml" exec -T dnsdist dig @${COREDNS_IP} -p ${COREDNS_CONTAINER_PORT} example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+        test_result "CoreDNS UDP Direct" "PASS" "CoreDNS responding via UDP at ${COREDNS_IP}:${COREDNS_CONTAINER_PORT}"
     else
-        test_result "CoreDNS UDP Direct" "WARN" "CoreDNS not responding via UDP at ${COREDNS_IP}:53"
+        test_result "CoreDNS UDP Direct" "WARN" "CoreDNS not responding via UDP at ${COREDNS_IP}:${COREDNS_CONTAINER_PORT}"
     fi
 
     # Test 2f: CoreDNS direct (TCP)
-    if docker compose -f "$PROJECT_ROOT/docker-compose.yml" exec -T dnsdist dig @${COREDNS_IP} -p 53 +tcp example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
-        test_result "CoreDNS TCP Direct" "PASS" "CoreDNS responding via TCP at ${COREDNS_IP}:53"
+    if docker compose -f "$PROJECT_ROOT/docker-compose.yml" exec -T dnsdist dig @${COREDNS_IP} -p ${COREDNS_CONTAINER_PORT} +tcp example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+        test_result "CoreDNS TCP Direct" "PASS" "CoreDNS responding via TCP at ${COREDNS_IP}:${COREDNS_CONTAINER_PORT}"
     else
-        test_result "CoreDNS TCP Direct" "WARN" "CoreDNS not responding via TCP at ${COREDNS_IP}:53"
+        test_result "CoreDNS TCP Direct" "WARN" "CoreDNS not responding via TCP at ${COREDNS_IP}:${COREDNS_CONTAINER_PORT}"
     fi
 
     # Test 2g: dnscrypt-proxy direct (UDP) - test from dnsdist container
@@ -301,7 +302,7 @@ if command -v dig &> /dev/null; then
     fi
 
         # Test 3e: Host → CoreDNS direct UDP (port ${COREDNS_DIRECT_PORT})
-    COREDNS_DIRECT_PORT=${COREDNS_DIRECT_PORT:-15351}
+    COREDNS_DIRECT_PORT=${COREDNS_DNS_HOST_PORT:-15354}
     IFS='|' read -r COREDNS_STATUS COREDNS_UPTIME COREDNS_HEALTH <<< "$(parse_container_status coredns)"
     coredns_uptime_seconds=$(uptime_to_seconds "${COREDNS_UPTIME:-}")
     if dig @localhost -p ${COREDNS_DIRECT_PORT} example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
