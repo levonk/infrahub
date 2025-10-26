@@ -22,7 +22,7 @@ services:
       # Metrics endpoint for monitoring DNSDist performance
       - "${DNSDIST_METRICS_HOST_PORT:-8083}:${DNSDIST_METRICS_CONTAINER_PORT:-8083}/tcp"  # Metrics
     volumes:
-      - ../../configs/dns/dnsdist.conf:/etc/dnsdist/dnsdist.conf:ro
+      - ./dnsdist/configs/dnsdist.conf:/etc/dnsdist/dnsdist.conf:ro
       - ./dns-blocklists/mounts/blocklists/compiled:/etc/dnsdist/blocklists:ro
     environment:
       - HOST_IP=${HOST_IP}
@@ -68,6 +68,7 @@ services:
     environment:
       - COREDNS_HEALTH_PORT=${COREDNS_HEALTH_CONTAINER_PORT:-18080}
     volumes:
+      - ./coredns/configs/Corefile:/etc/coredns/Corefile:ro
       - dns-cache:/var/lib/coredns
     depends_on:
       dnscrypt-proxy:
@@ -104,7 +105,7 @@ services:
       - "${DNSCRYPT_PROXY_HOST_PORT:-5300}:${DNSCRYPT_PROXY_CONTAINER_PORT:-5053}/udp"  # UDP
       - "${DNSCRYPT_PROXY_HOST_PORT:-5300}:${DNSCRYPT_PROXY_CONTAINER_PORT:-5053}/tcp"  # TCP
     volumes:
-      - ../../configs/dns/dnscrypt-proxy/dnscrypt-proxy.toml:/etc/dnscrypt-proxy/dnscrypt-proxy.toml:ro
+      - ./dnscrypt/configs/dnscrypt-proxy.toml:/etc/dnscrypt-proxy/dnscrypt-proxy.toml:ro
     environment:
       - DNSCRYPT_PROXY_CONTAINER_PORT=${DNSCRYPT_PROXY_CONTAINER_PORT:-5053}
       - DNSCRYPT_PROXY_LISTEN_ADDRESS=${DNSCRYPT_PROXY_LISTEN_ADDRESS:-0.0.0.0:5053}
