@@ -22,7 +22,7 @@ networks:
           # Reserve high IP range (*.255.x) for DNS infrastructure per ADR
           # These auxiliary addresses prevent DHCP from assigning IPs in this range
           aux_addresses:
-            dns-dnscrypt: ${DNS_DNSCRYPT_IP:-172.20.255.50}
+            dns-dnscrypt: ${DNS_DNSCRYPT_STD_IP:-172.20.255.50}
             dns-coredns: ${DNS_COREDNS_IP:-172.20.255.51}
             dns-reserved-52: ${DNS_RESERVED_52_IP:-172.20.255.52}
             dns-reserved-53: ${DNS_RESERVED_53_IP:-172.20.255.53}

@@ -94,7 +94,7 @@ services:
     container_name: homelab-dns-dnscrypt-proxy
     networks:
       homelab:
-        ipv4_address: ${DNS_DNSCRYPT_IP:-172.20.255.50}
+        ipv4_address: ${DNS_DNSCRYPT_STD_IP:-172.20.255.50}
         aliases:
           - dnscrypt-proxy
     ports:

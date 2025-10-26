@@ -17,7 +17,7 @@
     errors
 
     # Forward to dnscrypt-proxy for encrypted DNS (ODoH)
-    forward . {DNS_DNSCRYPT_IP}:{DNSCRYPT_PROXY_CONTAINER_PORT}
+    forward . {DNS_DNSCRYPT_STD_IP}:{DNSCRYPT_PROXY_CONTAINER_PORT}
 
     # Caching
     cache 30
