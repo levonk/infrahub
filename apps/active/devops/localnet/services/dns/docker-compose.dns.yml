@@ -69,9 +69,6 @@ services:
       - COREDNS_HEALTH_PORT=${COREDNS_HEALTH_CONTAINER_PORT:-18080}
     volumes:
       - dns-cache:/var/lib/coredns
-    depends_on:
-      dnscrypt-proxy:
-        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://127.0.0.1:${COREDNS_HEALTH_CONTAINER_PORT:-18080}/health"]
       interval: 10s
