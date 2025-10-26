@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Artifact Repository Test - Verify artifact storage and retrieval
 # Tests that artifact services (Nexus, etc.) are running and accessible
+# Tests the project in {REPO_ROOT}/job-aide/apps/active/devops/localnet/services/artifacts
+
 
 set -euo pipefail
 
@@ -162,7 +164,7 @@ echo ""
 echo "Test 3: Nexus Health Status"
 if command -v curl &> /dev/null; then
     health_response=$(curl -sf "http://${NEXUS_HOST}:${NEXUS_PORT}/service/rest/v1/status" 2>/dev/null || echo "{}")
-    
+
     if echo "$health_response" | grep -q "\"state\":\"STARTED\""; then
         test_result "Nexus Health" "PASS" "Nexus is in STARTED state"
     else
@@ -184,7 +186,7 @@ echo "Test 4: Nexus Repositories Configuration"
 if command -v curl &> /dev/null; then
     # Try to list repositories
     repos=$(curl -sf "http://${NEXUS_HOST}:${NEXUS_PORT}/service/rest/v1/repositories" 2>/dev/null || echo "[]")
-    
+
     if echo "$repos" | grep -q "\"name\""; then
         repo_count=$(echo "$repos" | grep -c "\"name\"" || echo "0")
         test_result "Repositories Configured" "PASS" "Found ${repo_count} repositories"

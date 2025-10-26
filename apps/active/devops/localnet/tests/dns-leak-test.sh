@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # DNS Leak Test - Verify no DNS leaks and ODoH enabled
 # Tests that all DNS queries are routed through local DNS infrastructure
+# Tests the project in {REPO_ROOT}/job-aide/apps/active/devops/localnet/services/dns
 
 set -euo pipefail
 
