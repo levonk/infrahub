@@ -6,6 +6,11 @@ RUN microdnf -y update \
     && microdnf -y install jq \
     && microdnf clean all
 
+# Ensure nexus user has proper home directory and Java preferences directory
+RUN mkdir -p /opt/sonatype/nexus/.java/.userPrefs \
+    && chown -R nexus:nexus /opt/sonatype/nexus/.java \
+    && chmod -R 0755 /opt/sonatype/nexus/.java
+
 RUN mv /opt/sonatype/docker-entrypoint.sh /opt/sonatype/docker-entrypoint-original.sh
 
 COPY entrypoint.sh /opt/sonatype/docker-entrypoint.sh
