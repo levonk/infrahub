@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # NTP Accuracy Test - Verify NTP offset <10ms, NTS enabled, stratum 2
 # Tests time synchronization accuracy and security
+# Tests the project in {REPO_ROOT}/job-aide/apps/active/devops/localnet/services/ntp
 
 set -euo pipefail
 
@@ -22,9 +23,9 @@ test_result() {
     local test_name="$1"
     local result="$2"
     local message="$3"
-    
+
     TESTS_RUN=$((TESTS_RUN + 1))
-    
+
     if [[ "$result" == "PASS" ]]; then
         echo -e "${GREEN}✓ PASS${NC}: $test_name - $message"
         TESTS_PASSED=$((TESTS_PASSED + 1))
@@ -39,9 +40,9 @@ test_result() {
 parse_container_status() {
     local container_name="$1"
     local status uptime health
-    
+
     status=$(docker compose -f "$PROJECT_ROOT/docker-compose.yml" ps "$container_name" --format "{{.Status}}" 2>/dev/null || echo "not found")
-    
+
     # Extract uptime (e.g., "Up 23 minutes") - use variable to avoid regex parsing issues
     uptime=""
     local uptime_pattern='Up[[:space:]]+([^(]+)'
@@ -50,14 +51,14 @@ parse_container_status() {
         # Trim trailing whitespace
         uptime="${uptime%"${uptime##*[![:space:]]}"}"
     fi
-    
+
     # Check health status (use variable to avoid regex parsing issues)
     health=""
     local health_pattern='[(]([^)]+)[)]'
     if [[ "$status" =~ $health_pattern ]]; then
         health="${BASH_REMATCH[1]}"
     fi
-    
+
     echo "$status|$uptime|$health"
 }
 
@@ -65,7 +66,7 @@ parse_container_status() {
 uptime_to_seconds() {
     local uptime="$1"
     local seconds=0
-    
+
     # Parse "X minutes", "X hours", "X seconds", etc.
     if [[ "$uptime" =~ ([0-9]+)[[:space:]]*hour ]]; then
         seconds=$((${BASH_REMATCH[1]} * 3600))
@@ -76,7 +77,7 @@ uptime_to_seconds() {
     if [[ "$uptime" =~ ([0-9]+)[[:space:]]*second ]]; then
         seconds=$((seconds + ${BASH_REMATCH[1]}))
     fi
-    
+
     echo "$seconds"
 }
 
@@ -383,7 +384,7 @@ if [[ -n "$OFFSET_OUTPUT" ]]; then
     OFFSET=$(echo "$OFFSET_OUTPUT" | awk '{print $4}')
     OFFSET_MS=$(echo "$OFFSET * 1000" | bc -l 2>/dev/null || echo "0")
     OFFSET_ABS=$(echo "$OFFSET_MS" | tr -d '-')
-    
+
     if command -v bc &> /dev/null; then
         if (( $(echo "$OFFSET_ABS < 10" | bc -l) )); then
             test_result "NTP Offset Accuracy" "PASS" "Offset is ${OFFSET_MS}ms (within 10ms target)"

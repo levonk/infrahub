@@ -3,9 +3,9 @@
 services:
   chronyd:
     build:
-      context: ./chronyd/docker
-      dockerfile: Dockerfile.chronyd
-    image: homelab-chronyd:latest
+      context: ./chronyd
+      dockerfile: docker/Dockerfile.chronyd
+    image: homelab-ntp-chronyd:latest
     container_name: homelab-ntp-chronyd
     networks:
       - homelab
@@ -35,3 +35,4 @@ services:
       - NET_BIND_SERVICE
       - SETUID
       - SETGID
+      - DAC_OVERRIDE  # Needed for entrypoint to chmod /run/chrony at startup
