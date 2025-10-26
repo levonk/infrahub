@@ -106,7 +106,7 @@ services:
       - DNSCRYPT_PROXY_CONTAINER_PORT=${DNSCRYPT_PROXY_CONTAINER_PORT:-5053}
       - DNSCRYPT_PROXY_LISTEN_ADDRESS=${DNSCRYPT_PROXY_LISTEN_ADDRESS:-0.0.0.0:5053}
     healthcheck:
-      test: ["CMD", "dnscrypt-proxy", "-resolve", "cloudflare.com", "-config", "/etc/dnscrypt-proxy/dnscrypt-proxy.toml"]
+      test: ["CMD", "dnscrypt-proxy", "-resolve", "cloudflare.com", "-config", "/var/cache/dnscrypt-proxy/dnscrypt-proxy.toml"]
       interval: 10s
       timeout: 5s
       retries: 3
