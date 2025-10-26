@@ -9,7 +9,11 @@ source "$SCRIPT_DIR/test-helpers.sh"
 # Test configuration
 VERDACCIO_PORT="${VERDACCIO_PORT:-14873}"
 NEXUS_WEB_HOST_PORT="${NEXUS_WEB_HOST_PORT:-8081}"
+<<<<<<< HEAD
 NEXUS_DOCKER_PORT="${NEXUS_DOCKER_PORT:-8082}"
+=======
+NEXUS_DOCKER_HOST_PORT="${NEXUS_DOCKER_HOST_PORT:-8082}"
+>>>>>>> 002-claude-code-integration
 
 test_verdaccio_health() {
     test_start "Verdaccio Health"
@@ -102,8 +106,13 @@ test_nexus_web_ui() {
 test_nexus_docker_registry() {
     test_start "Nexus Docker Registry"
 
+<<<<<<< HEAD
     if nc -zv localhost "$NEXUS_DOCKER_PORT" 2>&1 | grep -q "succeeded"; then
         test_pass "Nexus Docker registry listening on port $NEXUS_DOCKER_PORT"
+=======
+    if nc -zv localhost "$NEXUS_DOCKER_HOST_PORT" 2>&1 | grep -q "succeeded"; then
+        test_pass "Nexus Docker registry listening on port $NEXUS_DOCKER_HOST_PORT"
+>>>>>>> 002-claude-code-integration
     else
         test_warn "Nexus Docker registry not listening (may need configuration)"
     fi

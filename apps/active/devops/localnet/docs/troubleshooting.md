@@ -165,7 +165,7 @@ make up
 ```bash
 # Inspect container
 docker compose ps
-docker inspect homelab-dnsdist
+docker inspect homelab-dns-dnsdist
 
 # Check exit code
 docker compose ps -a

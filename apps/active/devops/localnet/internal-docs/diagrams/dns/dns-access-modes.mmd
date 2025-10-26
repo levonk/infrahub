@@ -1,0 +1,18 @@
+graph LR
+    subgraph "Transparent Mode"
+        T1[Client] -->|Port 53| T2[nftables]
+        T2 -->|TPROXY| T3[dnsdist:5353]
+    end
+    
+    subgraph "Direct Mode"
+        D1[Client] -->|Port 5353| D2[dnsdist:5353]
+    end
+    
+    subgraph "VPN Mode"
+        V1[VPN Client] -->|WireGuard Tunnel| V2[Host DNS]
+        V2 -->|Port 5353| V3[dnsdist:5353]
+    end
+    
+    style T2 fill:#ff9999
+    style D2 fill:#99ff99
+    style V2 fill:#99ccff

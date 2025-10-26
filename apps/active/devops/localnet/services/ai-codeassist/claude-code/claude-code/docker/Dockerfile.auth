@@ -1,0 +1,42 @@
+# Use secure alpine base image
+FROM base-alpine
+
+# Install required packages
+RUN apk add --no-cache \
+    python3 \
+    py3-pip \
+    py3-flask \
+    py3-cryptography \
+    && rm -rf /var/cache/apk/*
+
+# Create non-root user
+RUN addgroup -g 1002 -S claudeauth && \
+    adduser -u 1002 -S claudeauth -G claudeauth
+
+# Set working directory
+WORKDIR /app
+
+# Copy auth service code (to be created)
+COPY auth-service/ ./auth-service/
+
+# Install Python dependencies
+RUN pip3 install flask pyjwt cryptography
+
+# Create necessary directories
+RUN mkdir -p /app/config /healthcheck
+
+# Set permissions
+RUN chown -R claudeauth:claudeauth /app
+
+# Switch to non-root user
+USER claudeauth
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD python3 -c "import requests; requests.get('http://localhost:8080/health')" || exit 1
+
+# Expose port
+EXPOSE 8080
+
+# Start command
+CMD ["python3", "auth-service/app.py"]

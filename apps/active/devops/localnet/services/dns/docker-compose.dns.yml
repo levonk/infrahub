@@ -1,0 +1,142 @@
+---
+# DNS service stack for Home Lab In-a-Box
+# The 'homelab' network is defined in the parent docker-compose.yml with proper subnet configuration
+services:
+  dnsdist:
+    build:
+      context: ./dnsdist
+      dockerfile: docker/Dockerfile.dnsdist
+    image: homelab-dns-dnsdist:latest
+    container_name: homelab-dns-dnsdist
+    networks:
+      - homelab
+    ports:
+      # Transparent mode: DNSDist listens on container :53, forwarded to host port 5353
+      # This is the main entry point for DNS queries from the network
+      - "${DNS_TRANSPARENT_HOST_PORT:-5353}:${DNS_TRANSPARENT_CONTAINER_PORT:-53}/udp"  # Transparent mode UDP
+      - "${DNS_TRANSPARENT_HOST_PORT:-5353}:${DNS_TRANSPARENT_CONTAINER_PORT:-53}/tcp"  # Transparent mode TCP
+      # Direct mode: DNSDist's secondary listener on container :5353, forwarded to host port 15353
+      # Used for testing/debugging the DNSDist service directly
+      - "${DNS_DIRECT_HOST_PORT:-15353}:${DNS_DIRECT_CONTAINER_PORT:-5353}/udp"    # Direct mode UDP
+      - "${DNS_DIRECT_HOST_PORT:-15353}:${DNS_DIRECT_CONTAINER_PORT:-5353}/tcp"    # Direct mode TCP
+      # Metrics endpoint for monitoring DNSDist performance
+      - "${DNSDIST_METRICS_HOST_PORT:-8083}:${DNSDIST_METRICS_CONTAINER_PORT:-8083}/tcp"  # Metrics
+    volumes:
+      - ../../configs/dns/dnsdist.conf:/etc/dnsdist/dnsdist.conf:ro
+      - ./dns-blocklists/mounts/blocklists/compiled:/etc/dnsdist/blocklists:ro
+    environment:
+      - HOST_IP=${HOST_IP}
+      - TRANSPARENT_MODE=true
+    depends_on:
+      coredns:
+        condition: service_healthy
+      dnscrypt-proxy:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "dig", "+short", "example.com", "@127.0.0.1", "-p", "${DNS_DIRECT_CONTAINER_PORT:-5353}"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+
+  coredns:
+    # CoreDNS: Primary DNS resolver with caching and DNSSEC validation
+    # Role: Serves as the primary upstream resolver for DNSDist
+    # Provides recursive DNS resolution, local zone support, and DNSSEC validation
+    # Falls back to dnscrypt-proxy if CoreDNS becomes unavailable (via DNSDist fallback rules)
+    build:
+      context: ./coredns
+      dockerfile: Dockerfile
+    image: homelab-dns-coredns:latest
+    container_name: homelab-dns-coredns
+    networks:
+      homelab:
+        ipv4_address: ${DNS_COREDNS_IP:-172.20.255.51}
+        aliases:
+          - coredns
+    ports:
+      # Direct mode: CoreDNS listens on container :${COREDNS_DNS_CONTAINER_PORT}, forwarded to host
+      # Primary DNS resolver with caching and DNSSEC validation
+      # DNSDist forwards queries to this service as the primary upstream
+      - "${COREDNS_DNS_HOST_PORT:-15354}:${COREDNS_DNS_CONTAINER_PORT:-15353}/udp"  # Direct mode UDP
+      - "${COREDNS_DNS_HOST_PORT:-15354}:${COREDNS_DNS_CONTAINER_PORT:-15353}/tcp"  # Direct mode TCP
+      # Metrics endpoint for monitoring CoreDNS performance
+      - "${COREDNS_METRICS_HOST_PORT:-9153}:9153/tcp"  # Metrics
+      # Health check endpoint (default host port: 27493)
+      - "${COREDNS_HEALTH_HOST_PORT:-27493}:${COREDNS_HEALTH_CONTAINER_PORT:-18080}/tcp"   # Health
+    environment:
+      - COREDNS_HEALTH_PORT=${COREDNS_HEALTH_CONTAINER_PORT:-18080}
+    volumes:
+      - dns-cache:/var/lib/coredns
+    depends_on:
+      dnscrypt-proxy:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:${COREDNS_HEALTH_CONTAINER_PORT:-18080}/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 2
+      start_period: 10s
+    restart: unless-stopped
+
+  dnscrypt-proxy:
+    # dnscrypt-proxy: Encrypted DNS proxy with privacy features
+    # Role: Provides DNS-over-HTTPS/DNS-over-TLS encryption and ODoH (Oblivious DoH) privacy
+    # Fallback upstream: Serves as fallback resolver if CoreDNS becomes unavailable
+    # Design: DNSDist forwards to CoreDNS first, falls back to dnscrypt-proxy on failure
+    # This ensures encrypted queries are still possible even if primary resolver fails
+    build:
+      context: ./dnscrypt
+      dockerfile: docker/Dockerfile.dnscrypt-proxy
+    image: homelab-dns-dnscrypt-proxy:2.1.5
+    container_name: homelab-dns-dnscrypt-proxy
+    networks:
+      homelab:
+        ipv4_address: ${DNS_DNSCRYPT_IP:-172.20.255.50}
+        aliases:
+          - dnscrypt-proxy
+    ports:
+      # Encrypted DNS proxy: dnscrypt-proxy listens on container port (configurable), forwarded to host port
+      # Provides DNS-over-HTTPS/DNS-over-TLS encryption and ODoH (Oblivious DoH) privacy
+      # Serves as fallback upstream for DNSDist if CoreDNS becomes unavailable
+      # Port is configurable via DNSCRYPT_PROXY_CONTAINER_PORT and DNSCRYPT_PROXY_HOST_PORT in .env
+      - "${DNSCRYPT_PROXY_HOST_PORT:-5300}:${DNSCRYPT_PROXY_CONTAINER_PORT:-5053}/udp"  # UDP
+      - "${DNSCRYPT_PROXY_HOST_PORT:-5300}:${DNSCRYPT_PROXY_CONTAINER_PORT:-5053}/tcp"  # TCP
+    volumes:
+      - ../../configs/dns/dnscrypt-proxy/dnscrypt-proxy.toml:/etc/dnscrypt-proxy/dnscrypt-proxy.toml:ro
+    environment:
+      - DNSCRYPT_PROXY_CONTAINER_PORT=${DNSCRYPT_PROXY_CONTAINER_PORT:-5053}
+      - DNSCRYPT_PROXY_LISTEN_ADDRESS=${DNSCRYPT_PROXY_LISTEN_ADDRESS:-0.0.0.0:5053}
+    healthcheck:
+      test: ["CMD", "dnscrypt-proxy", "-resolve", "cloudflare.com", "-config", "/var/cache/dnscrypt-proxy/dnscrypt-proxy.toml"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 45s  # Allow time for ODoH server/relay list downloads
+    restart: unless-stopped
+
+  blocklist-compiler:
+    build:
+      context: ./dns-blocklists
+      dockerfile: Dockerfile.blocklist-compiler
+    container_name: homelab-dns-blocklist-compiler
+    networks:
+      - homelab
+    volumes:
+      - ./dns-blocklists/mounts/blocklists/sources:/blocklists/sources
+      - ./dns-blocklists/mounts/blocklists/compiled:/blocklists/compiled
+    read_only: true
+    tmpfs:
+      - /tmp/blocklists:mode=1777,size=512m
+    healthcheck:
+      test: ["CMD", "test", "-f", "/blocklists/compiled/blocklist.cdb"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: "no"  # Run once on startup, use cron/systemd for updates
+
+volumes:
+  dns-cache:
+    driver: local

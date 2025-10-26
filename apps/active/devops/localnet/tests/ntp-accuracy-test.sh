@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # NTP Accuracy Test - Verify NTP offset <10ms, NTS enabled, stratum 2
 # Tests time synchronization accuracy and security
+<<<<<<< HEAD
+=======
+# Tests the project in {REPO_ROOT}/job-aide/apps/active/devops/localnet/services/ntp
+>>>>>>> 002-claude-code-integration
 
 set -euo pipefail
 
@@ -22,9 +26,15 @@ test_result() {
     local test_name="$1"
     local result="$2"
     local message="$3"
+<<<<<<< HEAD
     
     TESTS_RUN=$((TESTS_RUN + 1))
     
+=======
+
+    TESTS_RUN=$((TESTS_RUN + 1))
+
+>>>>>>> 002-claude-code-integration
     if [[ "$result" == "PASS" ]]; then
         echo -e "${GREEN}✓ PASS${NC}: $test_name - $message"
         TESTS_PASSED=$((TESTS_PASSED + 1))
@@ -39,9 +49,15 @@ test_result() {
 parse_container_status() {
     local container_name="$1"
     local status uptime health
+<<<<<<< HEAD
     
     status=$(docker compose -f "$PROJECT_ROOT/docker-compose.yml" ps "$container_name" --format "{{.Status}}" 2>/dev/null || echo "not found")
     
+=======
+
+    status=$(docker compose -f "$PROJECT_ROOT/docker-compose.yml" ps "$container_name" --format "{{.Status}}" 2>/dev/null || echo "not found")
+
+>>>>>>> 002-claude-code-integration
     # Extract uptime (e.g., "Up 23 minutes") - use variable to avoid regex parsing issues
     uptime=""
     local uptime_pattern='Up[[:space:]]+([^(]+)'
@@ -50,14 +66,22 @@ parse_container_status() {
         # Trim trailing whitespace
         uptime="${uptime%"${uptime##*[![:space:]]}"}"
     fi
+<<<<<<< HEAD
     
+=======
+
+>>>>>>> 002-claude-code-integration
     # Check health status (use variable to avoid regex parsing issues)
     health=""
     local health_pattern='[(]([^)]+)[)]'
     if [[ "$status" =~ $health_pattern ]]; then
         health="${BASH_REMATCH[1]}"
     fi
+<<<<<<< HEAD
     
+=======
+
+>>>>>>> 002-claude-code-integration
     echo "$status|$uptime|$health"
 }
 
@@ -65,7 +89,11 @@ parse_container_status() {
 uptime_to_seconds() {
     local uptime="$1"
     local seconds=0
+<<<<<<< HEAD
     
+=======
+
+>>>>>>> 002-claude-code-integration
     # Parse "X minutes", "X hours", "X seconds", etc.
     if [[ "$uptime" =~ ([0-9]+)[[:space:]]*hour ]]; then
         seconds=$((${BASH_REMATCH[1]} * 3600))
@@ -76,7 +104,11 @@ uptime_to_seconds() {
     if [[ "$uptime" =~ ([0-9]+)[[:space:]]*second ]]; then
         seconds=$((seconds + ${BASH_REMATCH[1]}))
     fi
+<<<<<<< HEAD
     
+=======
+
+>>>>>>> 002-claude-code-integration
     echo "$seconds"
 }
 
@@ -273,7 +305,10 @@ elif command -v chronyc &> /dev/null; then
 else
     test_result "Host NTP UDP/123" "WARN" "ntpdate or chronyc not available on host - install ntp or chrony to test"
 fi
+<<<<<<< HEAD
 fi
+=======
+>>>>>>> 002-claude-code-integration
 
 # Test 10: NTP UDP Protocol - Direct Mode from Host (port 1123)
 echo ""
@@ -311,7 +346,10 @@ else
         test_result "Host NTP UDP/1123" "WARN" "Port 1123 mapping not found - check docker-compose port configuration"
     fi
 fi
+<<<<<<< HEAD
 fi
+=======
+>>>>>>> 002-claude-code-integration
 
 # ============================================================================
 # Layer 6: Host Access - External Protocol Functionality (TCP)
@@ -385,7 +423,11 @@ if [[ -n "$OFFSET_OUTPUT" ]]; then
     OFFSET=$(echo "$OFFSET_OUTPUT" | awk '{print $4}')
     OFFSET_MS=$(echo "$OFFSET * 1000" | bc -l 2>/dev/null || echo "0")
     OFFSET_ABS=$(echo "$OFFSET_MS" | tr -d '-')
+<<<<<<< HEAD
     
+=======
+
+>>>>>>> 002-claude-code-integration
     if command -v bc &> /dev/null; then
         if (( $(echo "$OFFSET_ABS < 10" | bc -l) )); then
             test_result "NTP Offset Accuracy" "PASS" "Offset is ${OFFSET_MS}ms (within 10ms target)"

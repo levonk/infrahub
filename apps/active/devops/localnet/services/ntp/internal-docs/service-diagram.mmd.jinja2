@@ -1,0 +1,17 @@
+%% {{ _service_name | default("ntp") }} service topology
+%% Update the diagram when adding new containers or dependencies.
+graph TD
+  host_clients[(Client Hosts)]:::client
+  direct_consumers[(Direct NTP Consumers)]:::client
+  chronyd[[{{ _chronyd_service_name | default("chronyd") }} Container]]:::service
+  upstream[(Authenticated Upstream NTP Servers)]:::dependency
+  monitoring[(Prometheus Scraper)]:::dependency
+
+  host_clients -->|UDP/TCP :123 (transparent)| chronyd
+  direct_consumers -->|UDP/TCP :1123 (direct)| chronyd
+  chronyd -->|NTS-KE :4460| upstream
+  chronyd -->|Metrics :9123| monitoring
+
+  classDef client fill:#dbeafe,stroke:#2563eb,color:#0f172a;
+  classDef service fill:#dcfce7,stroke:#16a34a,color:#14532d;
+  classDef dependency fill:#fef3c7,stroke:#f59e0b,color:#78350f;

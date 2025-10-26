@@ -1,0 +1,25 @@
+# Development overrides for {{ _service_name | default("ntp") }}
+# Merge with docker-compose.{{ _service_name | default("ntp") }}.yml during local development
+
+version: "3.8"
+
+services:
+  {{ _chronyd_service_name | default("chronyd") }}:
+    environment:
+      - CHRONY_LOG_LEVEL=debug
+    # Mount local config for rapid iteration
+    volumes:
+      - ./chronyd/config/chrony.conf:/etc/chrony/chrony.conf:ro
+    command: chronyd -d -f /etc/chrony/chrony.conf
+    ports:
+      - "${NTP_TRANSPARENT_PORT:-123}:123/udp"
+      - "${NTP_TRANSPARENT_PORT:-123}:123/tcp"
+      - "${NTP_DIRECT_PORT:-1123}:1123/udp"
+      - "${NTP_DIRECT_PORT:-1123}:1123/tcp"
+      - "${CHRONYD_NTS_HOST_PORT:-4460}:4460/tcp"
+      - "${CHRONYD_METRICS_HOST_PORT:-9123}:9123/tcp"
+
+networks:
+  homelab:
+    driver: bridge
+    internal: false

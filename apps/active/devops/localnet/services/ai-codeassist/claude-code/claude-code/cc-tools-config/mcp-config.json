@@ -1,0 +1,31 @@
+{
+  "mcp": {
+    "server": {
+      "host": "0.0.0.0",
+      "port": 8082,
+      "timeout": 30000
+    },
+    "tools": {
+      "discovery": {
+        "enabled": true,
+        "scan_interval": 60000,
+        "tool_paths": [
+          "/app/tools"
+        ]
+      },
+      "registration": {
+        "auto_register": true,
+        "require_approval": false
+      }
+    },
+    "security": {
+      "allow_local_tools": true,
+      "require_tls": true,
+      "token_auth": true
+    }
+  },
+  "logging": {
+    "level": "info",
+    "format": "json"
+  }
+}

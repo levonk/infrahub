@@ -122,7 +122,11 @@ This prevents IP conflicts because:
 ./scripts/validate-dns-ips.sh
 
 # Check actual container IPs
+<<<<<<< HEAD
 docker inspect homelab-coredns homelab-dnscrypt-proxy --format='{{.Name}}: {{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}'
+=======
+docker inspect homelab-dns-coredns homelab-dns-dnscrypt-proxy --format='{{.Name}}: {{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}'
+>>>>>>> 002-claude-code-integration
 
 # Check expected IPs in docker-compose.yml
 grep -A 2 "ipv4_address" docker-compose.yml | grep -E "(coredns|dnscrypt-proxy)" -A 1
@@ -461,7 +465,11 @@ If configs are out of sync:
 
 ```bash
 # 1. Check what IPs are actually assigned
+<<<<<<< HEAD
 docker inspect homelab-coredns homelab-dnscrypt-proxy \
+=======
+docker inspect homelab-dns-coredns homelab-dns-dnscrypt-proxy \
+>>>>>>> 002-claude-code-integration
   --format='{{.Name}}: {{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}'
 
 # 2. Update docker-compose.yml if needed

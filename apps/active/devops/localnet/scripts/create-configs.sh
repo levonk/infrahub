@@ -112,6 +112,9 @@ EOF
 
 echo "✓ Created blackbox.yml"
 
+# Ensure base web config directory exists
+mkdir -p "$CONFIGS_DIR/web"
+
 # Create Squid config
 cat > "$CONFIGS_DIR/web/squid.conf" << 'EOF'
 # Squid Proxy Configuration
@@ -161,8 +164,10 @@ EOF
 
 echo "✓ Created squid.conf"
 
-# Create Envoy config
-cat > "$CONFIGS_DIR/web/envoy.yaml" << 'EOF'
+# Create Envoy config directory and file
+ENVOY_CONFIG_DIR="$CONFIGS_DIR/web/envoy"
+mkdir -p "$ENVOY_CONFIG_DIR"
+cat > "$ENVOY_CONFIG_DIR/envoy.yaml" << 'EOF'
 # Envoy Proxy Configuration
 static_resources:
   listeners:
@@ -218,7 +223,7 @@ admin:
       port_value: 9901
 EOF
 
-echo "✓ Created envoy.yaml"
+echo "✓ Created envoy/envoy.yaml"
 
 # Create Privoxy config
 cat > "$CONFIGS_DIR/web/privoxy/config" << 'EOF'

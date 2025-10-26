@@ -1,0 +1,18 @@
+# dnscrypt-proxy configuration
+listen_addresses = ['0.0.0.0:5053']
+
+# Upstream DNS servers
+server_names = ['cloudflare', 'cloudflare-ipv6']
+
+# Enable ODoH (Oblivious DoH)
+odoh_servers = true
+
+# Cache settings
+cache = true
+cache_size = 4096
+cache_min_ttl = 60
+cache_max_ttl = 86400
+
+# Logging
+log_level = 2
+log_format = 'text'

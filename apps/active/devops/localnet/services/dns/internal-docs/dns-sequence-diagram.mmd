@@ -1,0 +1,27 @@
+sequenceDiagram
+    participant Client as Client (homelab device)
+    participant dnsdist as dnsdist (edge dispatcher)
+    participant Blocklist as blocklist.cdb
+    participant coredns as CoreDNS
+    participant dnscrypt as dnscrypt-proxy
+    participant Upstream as ODoH upstreams
+
+    Client->>dnsdist: Query health.check.local
+    dnsdist->>Blocklist: Check domain status
+    alt Blocked
+        Blocklist-->>dnsdist: NXDOMAIN policy
+        dnsdist-->>Client: NXDOMAIN
+    else Allowed
+        Blocklist-->>dnsdist: Pass through
+        dnsdist->>coredns: Forward query
+        alt Cache hit
+            coredns-->>dnsdist: Cached response
+        else Cache miss
+            coredns->>dnscrypt: Resolve upstream
+            dnscrypt->>Upstream: Encrypted ODoH lookup
+            Upstream-->>dnscrypt: Signed answer
+            dnscrypt-->>coredns: Validated response
+        end
+        coredns-->>dnsdist: Answer (with DNSSEC validation)
+        dnsdist-->>Client: Final response
+    end

@@ -1,0 +1,88 @@
+---
+# Logging observability stack for Home Lab In-a-Box
+services:
+  vector:
+    image: timberio/vector:latest-alpine
+    container_name: homelab-logging-vector
+    networks:
+      - homelab
+    ports:
+      - "${VECTOR_METRICS_HOST_PORT:-9598}:9598/tcp"  # Metrics endpoint
+    volumes:
+      - ./services/logging/vector/config/vector.toml:/etc/vector/vector.toml:ro
+    depends_on:
+      - elasticsearch
+      - loki
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9598/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: homelab-logging-elasticsearch
+    networks:
+      - homelab
+    ports:
+      - "${ELASTICSEARCH_HTTP_HOST_PORT:-9200}:9200/tcp"    # API
+      - "${ELASTICSEARCH_TRANSPORT_HOST_PORT:-9300}:9300/tcp"  # Cluster
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=true
+      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
+      - ELASTIC_PASSWORD=${ELASTICSEARCH_PASSWORD:-changeme_PLEASE_SET_IN_ENV}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "-u", "elastic:${ELASTICSEARCH_PASSWORD:-changeme_PLEASE_SET_IN_ENV}", "http://localhost:9200/_cluster/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+
+  loki:
+    image: grafana/loki:latest
+    container_name: homelab-logging-loki
+    networks:
+      - homelab
+    ports:
+      - "${LOKI_HOST_PORT:-3100}:3100/tcp"
+    volumes:
+      - ./services/logging/loki/config/loki.yaml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3100/ready"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: homelab-logging-promtail
+    networks:
+      - homelab
+    ports:
+      - "${PROMTAIL_METRICS_HOST_PORT:-9080}:9080/tcp"  # Metrics
+    volumes:
+      - ./services/logging/promtail/config/promtail.yaml:/etc/promtail/config.yml:ro
+    depends_on:
+      - loki
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9080/ready"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  elasticsearch-data:
+    driver: local
+  loki-data:
+    driver: local

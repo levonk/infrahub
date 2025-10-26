@@ -15,13 +15,13 @@
 
 # Server selection
 # Leave empty to auto-select from available ODoH servers
-# Available ODoH servers: odoh-cloudflare, odoh-crypto-sx, odoh-id-gmail, 
+# Available ODoH servers: odoh-cloudflare, odoh-crypto-sx, odoh-id-gmail,
 # odoh-jp.tiar.app, odoh-jp.tiarap.org, odoh-marco.cx, odoh-snowstorm, odoh-tiarap.org
 server_names = []
 
 # Listen addresses
 # Container listens on 5053 (image default), mapped to host 5300
-listen_addresses = ['0.0.0.0:5053']
+listen_addresses = ['0.0.0.0:{DNSCRYPT_PROXY_CONTAINER_PORT}']
 
 # Maximum number of active connections
 max_clients = 250

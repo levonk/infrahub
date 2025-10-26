@@ -1,4 +1,4 @@
-.PHONY: help up down restart logs logs-follow health-check flush-cache backup restore clean clean-configs fix-configs test test-all
+.PHONY: help build up down restart logs logs-follow health-check flush-cache backup restore clean clean-configs fix-configs test test-all lint test-claude lint-claude
 
 # Default target
 .DEFAULT_GOAL := help
@@ -10,14 +10,24 @@ YELLOW := \033[0;33m
 RED := \033[0;31m
 NC := \033[0m # No Color
 
+ENSURE_NETWORK := ./scripts/ensure-network.py
+NETWORK_NAME := localnet_homelab
+
 help: ## Show this help message
 	@echo "$(BLUE)Home Lab In-a-Box - Available Commands$(NC)"
 	@echo ""
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(GREEN)%-20s$(NC) %s\n", $$1, $$2}'
 	@echo ""
 
+build: ## Build all Docker images
+	@echo "$(BLUE)Building all Docker images...$(NC)"
+	docker compose build
+	@echo "$(GREEN)✓ Build complete$(NC)"
+
 up: ## Start all services
 	@echo "$(BLUE)Starting all services...$(NC)"
+	@$(ENSURE_NETWORK) -f docker-compose.yml --label "com.docker.compose.network=homelab"
+	@sleep 1
 	docker compose up -d
 	@echo "$(GREEN)✓ Services started$(NC)"
 	@echo "Run 'make health-check' to verify service health"
@@ -96,16 +106,16 @@ fix-configs: clean-configs ## Recreate all config files from templates
 	@./scripts/create-configs.sh
 	@echo "$(GREEN)✓ Config files created$(NC)"
 
-clean: ## Remove all containers, volumes, and networks (WARNING: destroys data!)
-	@echo "$(RED)⚠ WARNING: This will destroy all data!$(NC)"
-	@read -p "Are you sure? [y/N] " -n 1 -r; \
-	echo; \
-	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
-		docker compose down -v; \
-		echo "$(GREEN)✓ Cleanup complete$(NC)"; \
-	else \
-		echo "$(YELLOW)Cancelled$(NC)"; \
-	fi
+clean: ## Remove all containers, volumes, and networks, then restart services
+	@echo "$(YELLOW)Cleaning up Docker resources and restarting...$(NC)"
+	@echo "$(BLUE)Force-removing stuck containers...$(NC)"
+	@docker ps -a --filter "name=homelab-" --format "{{.Names}}" | xargs -r docker rm -f 2>/dev/null || true
+	@docker ps -a --filter "name=localnet-" --format "{{.Names}}" | xargs -r docker rm -f 2>/dev/null || true
+	docker compose down -v --remove-orphans 2>/dev/null || true
+	docker network rm $(NETWORK_NAME) 2>/dev/null || true
+	@sleep 2
+	@echo "$(GREEN)✓ Cleanup complete, starting services...$(NC)"
+	@$(MAKE) up
 
 ps: ## Show running containers
 	docker compose ps
@@ -122,3 +132,32 @@ config: ## Validate docker-compose.yml configuration
 	@echo "$(BLUE)Validating configuration...$(NC)"
 	docker compose config > /dev/null
 	@echo "$(GREEN)✓ Configuration valid$(NC)"
+
+lint: ## Lint docker-compose.yml and YAML files
+	@echo "$(BLUE)Linting configuration files...$(NC)"
+	@docker compose config > /dev/null && echo "$(GREEN)✓ docker-compose.yml syntax valid$(NC)" || (echo "$(RED)✗ docker-compose.yml syntax invalid$(NC)"; exit 1)
+	@if command -v yamllint >/dev/null 2>&1; then \
+		find . -name "*.yml" -o -name "*.yaml" | xargs yamllint --no-warnings || echo "$(YELLOW)⚠ yamllint not configured$(NC)"; \
+	else \
+		echo "$(YELLOW)⚠ yamllint not installed$(NC)"; \
+	fi
+	@echo "$(GREEN)✓ Lint complete$(NC)"
+
+test-claude: ## Run tests for Claude Code services
+	@echo "$(BLUE)Running Claude Code service tests...$(NC)"
+	@docker compose --profile claude-code ps | grep -q "claude-code" && echo "$(GREEN)✓ Claude Code services are running$(NC)" || (echo "$(RED)✗ Claude Code services not running$(NC)"; exit 1)
+	@echo "$(BLUE)Testing Claude Code API health...$(NC)"
+	@docker compose exec -T claude-code curl -f http://localhost:8081/health >/dev/null 2>&1 && echo "$(GREEN)✓ Claude Code API healthy$(NC)" || echo "$(YELLOW)⚠ Claude Code API not responding$(NC)"
+	@docker compose exec -T claude-code-ui curl -f http://localhost:3000/health >/dev/null 2>&1 && echo "$(GREEN)✓ Claude Code UI healthy$(NC)" || echo "$(YELLOW)⚠ Claude Code UI not responding$(NC)"
+	@docker compose exec -T claude-code-auth curl -f http://localhost:8080/health >/dev/null 2>&1 && echo "$(GREEN)✓ Claude Code Auth healthy$(NC)" || echo "$(YELLOW)⚠ Claude Code Auth not responding$(NC)"
+	@echo "$(GREEN)✓ Claude Code tests complete$(NC)"
+
+lint-claude: ## Lint Claude Code docker-compose configuration
+	@echo "$(BLUE)Linting Claude Code configuration...$(NC)"
+	@docker compose -f services/ai-codeassist/claude-code/claude-code/docker-compose.claude-code.yml config > /dev/null && echo "$(GREEN)✓ Claude Code docker-compose.yml syntax valid$(NC)" || (echo "$(RED)✗ Claude Code docker-compose.yml syntax invalid$(NC)"; exit 1)
+	@if command -v yamllint >/dev/null 2>&1; then \
+		yamllint services/ai-codeassist/claude-code/claude-code/docker-compose.claude-code.yml || echo "$(YELLOW)⚠ yamllint issues found$(NC)"; \
+	else \
+		echo "$(YELLOW)⚠ yamllint not installed$(NC)"; \
+	fi
+	@echo "$(GREEN)✓ Claude Code lint complete$(NC)"

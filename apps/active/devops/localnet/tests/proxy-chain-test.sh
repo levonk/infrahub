@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 # Proxy Chain Test - Verify transparent proxy, cache hit rate >50%, Tor enabled
 # Tests web proxy chain functionality and performance
+<<<<<<< HEAD
+=======
+# Tests the project in {REPO_ROOT}/job-aide/apps/active/devops/localnet/services/proxy
+
+>>>>>>> 002-claude-code-integration
 
 set -euo pipefail
 
@@ -22,9 +27,15 @@ test_result() {
     local test_name="$1"
     local result="$2"
     local message="$3"
+<<<<<<< HEAD
     
     TESTS_RUN=$((TESTS_RUN + 1))
     
+=======
+
+    TESTS_RUN=$((TESTS_RUN + 1))
+
+>>>>>>> 002-claude-code-integration
     if [[ "$result" == "PASS" ]]; then
         echo -e "${GREEN}✓ PASS${NC}: $test_name - $message"
         TESTS_PASSED=$((TESTS_PASSED + 1))
@@ -39,9 +50,15 @@ test_result() {
 parse_container_status() {
     local container_name="$1"
     local status uptime health restart_count
+<<<<<<< HEAD
     
     status=$(docker compose -f "$PROJECT_ROOT/docker-compose.yml" ps "$container_name" --format "{{.Status}}" 2>/dev/null || echo "not found")
     
+=======
+
+    status=$(docker compose -f "$PROJECT_ROOT/docker-compose.yml" ps "$container_name" --format "{{.Status}}" 2>/dev/null || echo "not found")
+
+>>>>>>> 002-claude-code-integration
     # Extract uptime (e.g., "Up 23 minutes") - use variable to avoid unbound BASH_REMATCH
     uptime=""
     local uptime_pattern='Up[[:space:]]+([^(]+)'
@@ -50,17 +67,28 @@ parse_container_status() {
         # Trim trailing whitespace
         uptime="${uptime%"${uptime##*[![:space:]]}"}"
     fi
+<<<<<<< HEAD
     
+=======
+
+>>>>>>> 002-claude-code-integration
     # Check health status - use variable to avoid unbound BASH_REMATCH
     health=""
     local health_pattern='[(]([^)]+)[)]'
     if [[ "$status" =~ $health_pattern ]]; then
         health="${BASH_REMATCH[1]}"
     fi
+<<<<<<< HEAD
     
     # Get restart count
     restart_count=$(docker compose -f "$PROJECT_ROOT/docker-compose.yml" ps "$container_name" --format "{{.Status}}" 2>/dev/null | grep -oP 'Restarting \(\K[0-9]+' || echo "0")
     
+=======
+
+    # Get restart count
+    restart_count=$(docker compose -f "$PROJECT_ROOT/docker-compose.yml" ps "$container_name" --format "{{.Status}}" 2>/dev/null | grep -oP 'Restarting \(\K[0-9]+' || echo "0")
+
+>>>>>>> 002-claude-code-integration
     echo "$status|$uptime|$health|$restart_count"
 }
 
@@ -68,7 +96,11 @@ parse_container_status() {
 uptime_to_seconds() {
     local uptime="$1"
     local seconds=0
+<<<<<<< HEAD
     
+=======
+
+>>>>>>> 002-claude-code-integration
     # Parse "X minutes", "X hours", "X seconds", etc.
     if [[ "$uptime" =~ ([0-9]+)[[:space:]]*hour ]]; then
         seconds=$((${BASH_REMATCH[1]} * 3600))
@@ -79,7 +111,11 @@ uptime_to_seconds() {
     if [[ "$uptime" =~ ([0-9]+)[[:space:]]*second ]]; then
         seconds=$((seconds + ${BASH_REMATCH[1]}))
     fi
+<<<<<<< HEAD
     
+=======
+
+>>>>>>> 002-claude-code-integration
     echo "$seconds"
 }
 
@@ -313,7 +349,11 @@ echo ""
 echo "Test 13: Squid Cache Statistics"
 if docker compose -f "$PROJECT_ROOT/docker-compose.yml" exec -T squid squidclient mgr:info 2>/dev/null | grep -q "Squid Object Cache"; then
     test_result "Squid Stats" "PASS" "Squid cache statistics available"
+<<<<<<< HEAD
     
+=======
+
+>>>>>>> 002-claude-code-integration
     # Try to get cache hit rate
     CACHE_INFO=$(docker compose -f "$PROJECT_ROOT/docker-compose.yml" exec -T squid squidclient mgr:5min 2>/dev/null || echo "")
     if [[ -n "$CACHE_INFO" ]]; then
