@@ -1,3 +1,5 @@
+# /home/micro/p/gh/lrepo52/job-aide-wt01/apps/active/devops/localnet/docker-compose.yml
+
 # Home Lab In-a-Box - Docker Compose Configuration
 # Complete infrastructure stack with transparent proxying, monitoring, and artifact repositories
 
@@ -22,16 +24,14 @@ networks:
           # Reserve high IP range (*.255.x) for DNS infrastructure per ADR
           # These auxiliary addresses prevent DHCP from assigning IPs in this range
           aux_addresses:
-            dns-dnscrypt: ${DNS_DNSCRYPT_STD_IP:-172.20.255.50}
             dns-coredns: ${DNS_COREDNS_IP:-172.20.255.51}
-            dns-reserved-52: ${DNS_RESERVED_52_IP:-172.20.255.52}
-            dns-reserved-53: ${DNS_RESERVED_53_IP:-172.20.255.53}
-            dns-reserved-54: ${DNS_RESERVED_54_IP:-172.20.255.54}
-            dns-reserved-55: ${DNS_RESERVED_55_IP:-172.20.255.55}
-            dns-reserved-56: ${DNS_RESERVED_56_IP:-172.20.255.56}
-            dns-reserved-57: ${DNS_RESERVED_57_IP:-172.20.255.57}
-            dns-reserved-58: ${DNS_RESERVED_58_IP:-172.20.255.58}
-            dns-reserved-59: ${DNS_RESERVED_59_IP:-172.20.255.59}
+            dns-dnscrypt-odoh: ${DNS_DNSCRYPT_ODOH_IP:-172.25.255.60}
+            dns-dnscrypt-anon: ${DNS_DNSCRYPT_ANON_IP:-172.25.255.61}
+            dns-dnscrypt-std: ${DNS_DNSCRYPT_STD_IP:-172.25.255.62}
+            dns-dnscrypt-doh: ${DNS_DNSCRYPT_DOH_IP:-172.25.255.63}
+            dns-dnscrypt-encrypted: ${DNS_DNSCRYPT_ENCRYPTED_IP:-172.25.255.64}
+            dns-dnscrypt-plaintext: ${DNS_DNSCRYPT_PLAINTEXT_IP:-172.25.255.65}
+            proxy-socks5-tor: ${PROXY_SOCKS5_TOR_IP:-172.25.255.70}
 
   wireguard:
     driver: bridge

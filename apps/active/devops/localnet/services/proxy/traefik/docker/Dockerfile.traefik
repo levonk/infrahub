@@ -1,0 +1,18 @@
+# Use the official Traefik image
+FROM traefik:latest
+
+# Copy the dynamic configuration
+COPY ../dynamic.yml /etc/traefik/dynamic.yml
+
+# Copy the healthcheck script
+COPY healthcheck/check-health.sh /usr/local/bin/check-health.sh
+RUN chmod +x /usr/local/bin/check-health.sh
+
+# Expose the default ports for web and admin
+EXPOSE 80 443 8080
+
+# Healthcheck
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+	CMD ["/usr/local/bin/check-health.sh"]
+
+# The entrypoint is already defined in the base image

@@ -1,0 +1,46 @@
+# /home/micro/p/gh/lrepo52/job-aide-wt01/apps/active/devops/localnet/services/dns/coredns/configs/Corefile.template
+
+# Home Lab In-a-Box - CoreDNS Configuration
+# Purpose: Local DNS caching, DNSSEC validation, and upstream forwarding
+
+# Health check endpoint (used by Docker healthcheck)
+# Port configured via COREDNS_HEALTH_PORT environment variable (default 18080)
+health :{COREDNS_HEALTH_PORT:-18080}
+
+.:{COREDNS_DNS_CONTAINER_PORT} {
+    # Logging
+    log
+
+    # Error handling
+    errors
+
+    # Forwarding Chain
+    forward . {DNS_DNSCRYPT_ODOH_IP}:{DNS_DNSCRYPT_ODOH_CONTAINER_PORT} \
+              {DNS_DNSCRYPT_ANON_IP}:{DNS_DNSCRYPT_ANON_CONTAINER_PORT} \
+              socks5://{PROXY_SOCKS5_TOR_IP}:{PROXY_SOCKS5_TOR_CONTAINER_PORT} \
+              {DNS_DNSCRYPT_STD_IP}:{DNS_DNSCRYPT_STD_CONTAINER_PORT} \
+              {DNS_DNSCRYPT_DOH_IP}:{DNS_DNSCRYPT_DOH_CONTAINER_PORT} \
+              {DNS_DNSCRYPT_ENCRYPTED_IP}:{DNS_DNSCRYPT_ENCRYPTED_CONTAINER_PORT} \
+              {DNS_DNSCRYPT_PLAINTEXT_IP}:{DNS_DNSCRYPT_PLAINTEXT_CONTAINER_PORT} \
+              9.9.9.9 \
+              1.1.1.1 \
+              8.8.8.8 \
+              149.112.112.112 \
+              1.0.0.1 \
+			  8.8.4.4 \
+			  76.76.19.19 \
+			  76.223.122.150 \
+			  208.67.222.222 \
+			  208.67.220.220 \
+			  {
+				policy sequential
+			  }
+
+    # Caching
+    cache 3600 {
+		success 9984 30
+		denial 9984 30
+		prefetch 5 10s
+		max_size 20000
+	}
+}

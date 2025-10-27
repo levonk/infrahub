@@ -1,0 +1,19 @@
+# /home/micro/p/gh/lrepo52/job-aide-wt01/apps/active/devops/localnet/services/proxy/tor/Dockerfile
+
+
+FROM base-alpine:latest
+
+RUN apk add --no-cache tor netcat-openbsd
+
+COPY assets/ /
+
+COPY entrypoint-service.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+COPY healthcheck/check-health.sh /usr/local/bin/check-health.sh
+RUN chmod +x /usr/local/bin/check-health.sh
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD ["/usr/local/bin/check-health.sh"]
+
+ENTRYPOINT ["/entrypoint.sh"]

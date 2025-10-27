@@ -4,7 +4,14 @@ FROM powerdns/dnsdist-21:latest
 USER root
 
 # Install dnsutils for dig command (needed for health checks)
-RUN apt-get update && apt-get install -y dnsutils && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y dnsutils curl && rm -rf /var/lib/apt/lists/*
+
+# Set the healthcheck port as a variable
+ENV DNSDIST_HEALTHCHECK_PORT=5353
+
+# Healthcheck to ensure dnsdist is responding
+HEALTHCHECK --interval=10s --timeout=5s --start-period=15s --retries=3 \
+    CMD dig +short example.com @127.0.0.1 -p ${DNSDIST_HEALTHCHECK_PORT} || exit 1
 
 # Use the same entrypoint as the base image
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/dnsdist-startup"]

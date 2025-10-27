@@ -1,10 +1,7 @@
 #!/usr/bin/env bash
 # DNS Leak Test - Verify no DNS leaks and ODoH enabled
 # Tests that all DNS queries are routed through local DNS infrastructure
-<<<<<<< HEAD
-=======
 # Tests the project in {REPO_ROOT}/job-aide/apps/active/devops/localnet/services/dns
->>>>>>> 002-claude-code-integration
 
 set -euo pipefail
 
@@ -32,15 +29,8 @@ test_result() {
     local test_name="$1"
     local result="$2"
     local message="$3"
-<<<<<<< HEAD
 
     TESTS_RUN=$((TESTS_RUN + 1))
-
-=======
-
-    TESTS_RUN=$((TESTS_RUN + 1))
-
->>>>>>> 002-claude-code-integration
     if [[ "$result" == "PASS" ]]; then
         echo -e "${GREEN}✓ PASS${NC}: $test_name - $message"
         TESTS_PASSED=$((TESTS_PASSED + 1))
@@ -57,34 +47,16 @@ parse_container_status() {
     local status=""
     local uptime=""
     local health=""
-<<<<<<< HEAD
-
     status=$(docker compose -f "$PROJECT_ROOT/docker-compose.yml" ps "$container_name" --format "{{.Status}}" 2>/dev/null || echo "not found")
-
-=======
-
-    status=$(docker compose -f "$PROJECT_ROOT/docker-compose.yml" ps "$container_name" --format "{{.Status}}" 2>/dev/null || echo "not found")
-
->>>>>>> 002-claude-code-integration
     # Extract uptime (e.g., "Up 23 minutes" or "Up 3 hours (unhealthy)")
     # Match "Up " followed by time info, stopping before optional health status in parens
     if [[ "$status" =~ Up[[:space:]]([0-9]+[[:space:]]+(second|minute|hour|day)s?) ]]; then
         uptime="${BASH_REMATCH[1]:-}"
     fi
-<<<<<<< HEAD
-
-=======
-
->>>>>>> 002-claude-code-integration
     # Check health status (e.g., "(unhealthy)" or "(healthy)")
     if [[ "$status" =~ \(([^\)]+)\) ]]; then
         health="${BASH_REMATCH[1]:-}"
     fi
-<<<<<<< HEAD
-
-=======
-
->>>>>>> 002-claude-code-integration
     echo "$status|$uptime|$health"
 }
 
@@ -92,21 +64,11 @@ parse_container_status() {
 uptime_to_seconds() {
     local uptime="$1"
     local seconds=0
-<<<<<<< HEAD
-
-=======
-
->>>>>>> 002-claude-code-integration
     # Return 0 if uptime is empty or whitespace-only
     if [[ -z "${uptime// /}" ]]; then
         echo "0"
         return
     fi
-<<<<<<< HEAD
-
-=======
-
->>>>>>> 002-claude-code-integration
     # Parse "X minutes", "X hours", "X seconds", etc.
     if [[ "$uptime" =~ ([0-9]+)[[:space:]]*hour ]]; then
         seconds=$((${BASH_REMATCH[1]:-0} * 3600))
@@ -117,13 +79,6 @@ uptime_to_seconds() {
     if [[ "$uptime" =~ ([0-9]+)[[:space:]]*second ]]; then
         seconds=$((seconds + ${BASH_REMATCH[1]:-0}))
     fi
-<<<<<<< HEAD
-
-    echo "$seconds"
-}
-
-=======
-
     echo "$seconds"
 }
 
@@ -166,8 +121,6 @@ format_duration() {
 
     echo "${parts[*]}"
 }
-
->>>>>>> 002-claude-code-integration
 echo "========================================="
 echo "DNS Leak Test"
 echo "========================================="
@@ -194,15 +147,7 @@ echo ""
 echo "Test 2: DNS Resolution (TCP and UDP)"
 if command -v dig &> /dev/null; then
     dnsdist_uptime_seconds=$(uptime_to_seconds "${DNSDIST_UPTIME:-}")
-<<<<<<< HEAD
-
     # Test DNS from inside the dnsdist container (works in WSL2 where host can't reach bridge network)
-
-=======
-
-    # Test DNS from inside the dnsdist container (works in WSL2 where host can't reach bridge network)
-
->>>>>>> 002-claude-code-integration
     # Test 2a: DNSDist localhost port 53 UDP (transparent mode)
     if docker compose -f "$PROJECT_ROOT/docker-compose.yml" exec -T dnsdist dig @127.0.0.1 -p 53 example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
         test_result "DNSDist UDP (port 53)" "PASS" "DNS query successful via UDP port 53"
@@ -213,11 +158,6 @@ if command -v dig &> /dev/null; then
             test_result "DNSDist UDP (port 53)" "WARN" "UDP query failed (DNSDist starting for ${DNSDIST_UPTIME:-unknown})"
         fi
     fi
-<<<<<<< HEAD
-
-=======
-
->>>>>>> 002-claude-code-integration
     # Test 2b: DNSDist localhost port 53 TCP
     if docker compose -f "$PROJECT_ROOT/docker-compose.yml" exec -T dnsdist dig @127.0.0.1 -p 53 +tcp example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
         test_result "DNSDist TCP (port 53)" "PASS" "DNS query successful via TCP port 53"
@@ -228,11 +168,6 @@ if command -v dig &> /dev/null; then
             test_result "DNSDist TCP (port 53)" "WARN" "TCP query failed (DNSDist starting for ${DNSDIST_UPTIME:-unknown})"
         fi
     fi
-<<<<<<< HEAD
-
-=======
-
->>>>>>> 002-claude-code-integration
     # Test 2c: DNSDist localhost port 5353 UDP (direct mode)
     if docker compose -f "$PROJECT_ROOT/docker-compose.yml" exec -T dnsdist dig @127.0.0.1 -p 5353 example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
         test_result "DNSDist UDP (port 5353)" "PASS" "DNS query successful via UDP port 5353"
@@ -248,11 +183,6 @@ if command -v dig &> /dev/null; then
             test_result "DNSDist UDP (port 5353)" "WARN" "UDP port 5353 query failed (DNSDist starting for ${DNSDIST_UPTIME:-unknown})"
         fi
     fi
-<<<<<<< HEAD
-
-=======
-
->>>>>>> 002-claude-code-integration
     # Test 2d: DNSDist localhost port 5353 TCP
     if docker compose -f "$PROJECT_ROOT/docker-compose.yml" exec -T dnsdist dig @127.0.0.1 -p 5353 +tcp example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
         test_result "DNSDist TCP (port 5353)" "PASS" "DNS query successful via TCP port 5353"
@@ -263,35 +193,6 @@ if command -v dig &> /dev/null; then
             test_result "DNSDist TCP (port 5353)" "WARN" "TCP port 5353 query failed (DNSDist starting for ${DNSDIST_UPTIME:-unknown})"
         fi
     fi
-<<<<<<< HEAD
-
-    # Test 2e: CoreDNS direct (UDP) - test from dnsdist container
-    if docker compose -f "$PROJECT_ROOT/docker-compose.yml" exec -T dnsdist dig @172.20.255.51 -p 53 example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
-        test_result "CoreDNS UDP Direct" "PASS" "CoreDNS responding via UDP at 172.20.255.51:53"
-    else
-        test_result "CoreDNS UDP Direct" "WARN" "CoreDNS not responding via UDP at 172.20.255.51:53"
-    fi
-
-    # Test 2f: CoreDNS direct (TCP)
-    if docker compose -f "$PROJECT_ROOT/docker-compose.yml" exec -T dnsdist dig @172.20.255.51 -p 53 +tcp example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
-        test_result "CoreDNS TCP Direct" "PASS" "CoreDNS responding via TCP at 172.20.255.51:53"
-    else
-        test_result "CoreDNS TCP Direct" "WARN" "CoreDNS not responding via TCP at 172.20.255.51:53"
-    fi
-
-    # Test 2g: dnscrypt-proxy direct (UDP) - test from dnsdist container
-    if docker compose -f "$PROJECT_ROOT/docker-compose.yml" exec -T dnsdist dig @172.20.255.50 -p 5053 example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
-        test_result "dnscrypt-proxy UDP" "PASS" "dnscrypt-proxy responding via UDP at 172.20.255.50:5053"
-    else
-        test_result "dnscrypt-proxy UDP" "WARN" "dnscrypt-proxy not responding via UDP at 172.20.255.50:5053"
-    fi
-
-    # Test 2h: dnscrypt-proxy direct (TCP)
-    if docker compose -f "$PROJECT_ROOT/docker-compose.yml" exec -T dnsdist dig @172.20.255.50 -p 5053 +tcp example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
-        test_result "dnscrypt-proxy TCP" "PASS" "dnscrypt-proxy responding via TCP at 172.20.255.50:5053"
-    else
-        test_result "dnscrypt-proxy TCP" "WARN" "dnscrypt-proxy not responding via TCP at 172.20.255.50:5053"
-=======
 
     # Test 2e: CoreDNS direct (UDP) - test from dnsdist container
     COREDNS_IP=${DNS_COREDNS_IP:-172.20.255.51}
@@ -309,20 +210,38 @@ if command -v dig &> /dev/null; then
         test_result "CoreDNS TCP Direct" "WARN" "CoreDNS not responding via TCP at ${COREDNS_IP}:${COREDNS_CONTAINER_PORT}"
     fi
 
-    # Test 2g: dnscrypt-proxy direct (UDP) - test from dnsdist container
-    DNSCRYPT_IP=${DNS_DNSCRYPT_STD_IP:-172.20.255.50}
-    if docker compose -f "$PROJECT_ROOT/docker-compose.yml" exec -T dnsdist dig @${DNSCRYPT_IP} -p 5053 example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
-        test_result "dnscrypt-proxy UDP" "PASS" "dnscrypt-proxy responding via UDP at ${DNSCRYPT_IP}:5053"
-    else
-        test_result "dnscrypt-proxy UDP" "WARN" "dnscrypt-proxy not responding via UDP at ${DNSCRYPT_IP}:5053"
-    fi
+    # Test 2g: dnscrypt-proxy services direct (UDP and TCP)
+    DNSCRYPT_SERVICES=("odoh" "anon" "std" "doh" "encrypted" "plaintext")
+    for service in "${DNSCRYPT_SERVICES[@]}"; do
+        service_ip_var="DNS_DNSCRYPT_$(echo "$service" | tr '[:lower:]' '[:upper:]')_IP"
+        service_ip=${!service_ip_var:-}
+        if [[ -z "$service_ip" ]]; then
+            test_result "dnscrypt-$service config" "WARN" "IP for dnscrypt-$service not found in environment variables (expected $service_ip_var)"
+            continue
+        fi
 
-    # Test 2h: dnscrypt-proxy direct (TCP)
-    if docker compose -f "$PROJECT_ROOT/docker-compose.yml" exec -T dnsdist dig @${DNSCRYPT_IP} -p 5053 +tcp example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
-        test_result "dnscrypt-proxy TCP" "PASS" "dnscrypt-proxy responding via TCP at ${DNSCRYPT_IP}:5053"
+        # Test UDP
+        if docker compose -f "$PROJECT_ROOT/docker-compose.yml" exec -T dnsdist dig @"${service_ip}" -p 5053 example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+            test_result "dnscrypt-$service UDP" "PASS" "dnscrypt-$service responding via UDP at ${service_ip}:5053"
+        else
+            test_result "dnscrypt-$service UDP" "WARN" "dnscrypt-$service not responding via UDP at ${service_ip}:5053"
+        fi
+
+        # Test TCP
+        if docker compose -f "$PROJECT_ROOT/docker-compose.yml" exec -T dnsdist dig @"${service_ip}" -p 5053 +tcp example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+            test_result "dnscrypt-$service TCP" "PASS" "dnscrypt-$service responding via TCP at ${service_ip}:5053"
+        else
+            test_result "dnscrypt-$service TCP" "WARN" "dnscrypt-$service not responding via TCP at ${service_ip}:5053"
+        fi
+    done
+
+    # Test 2h: Tor SOCKS proxy
+    TOR_IP=${PROXY_SOCKS5_TOR_IP:-172.25.255.70}
+    TOR_PORT=${PROXY_SOCKS5_TOR_CONTAINER_PORT:-9050}
+    if docker compose -f "$PROJECT_ROOT/docker-compose.yml" exec -T dnsdist curl -s --socks5-hostname "${TOR_IP}:${TOR_PORT}" https://check.torproject.org/api/ip 2>/dev/null | grep -q '"IsTor":true'; then
+        test_result "Tor SOCKS Proxy" "PASS" "Tor SOCKS proxy is routing traffic correctly at ${TOR_IP}:${TOR_PORT}"
     else
-        test_result "dnscrypt-proxy TCP" "WARN" "dnscrypt-proxy not responding via TCP at ${DNSCRYPT_IP}:5053"
->>>>>>> 002-claude-code-integration
+        test_result "Tor SOCKS Proxy" "WARN" "Tor SOCKS proxy not responding or routing correctly at ${TOR_IP}:${TOR_PORT}"
     fi
 else
     test_result "DNS Resolution" "WARN" "dig command not available, skipping all DNS resolution tests"
@@ -350,11 +269,6 @@ if command -v dig &> /dev/null; then
             test_result "Host→DNSDist UDP (${DNS_TRANSPARENT_PORT})" "WARN" "Cannot query DNSDist UDP from host yet (starting for ${DNSDIST_UPTIME:-unknown})"
         fi
     fi
-<<<<<<< HEAD
-
-=======
-
->>>>>>> 002-claude-code-integration
     # Test 3b: Host → DNSDist transparent mode TCP (read port from env, default 5454)
     if dig @localhost -p ${DNS_TRANSPARENT_PORT} +tcp example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
         test_result "Host→DNSDist TCP (${DNS_TRANSPARENT_PORT})" "PASS" "Host can query DNSDist transparent mode via TCP on localhost:${DNS_TRANSPARENT_PORT}"
@@ -366,37 +280,6 @@ if command -v dig &> /dev/null; then
             test_result "Host→DNSDist TCP (${DNS_TRANSPARENT_PORT})" "WARN" "Cannot query DNSDist TCP from host yet (starting for ${DNSDIST_UPTIME:-unknown})"
         fi
     fi
-<<<<<<< HEAD
-
-    # Test 3c: Host → DNSDist direct mode UDP (port 15353)
-    if dig @localhost -p 15353 example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
-        test_result "Host→DNSDist UDP (15353)" "PASS" "Host can query DNSDist direct mode via UDP on localhost:15353"
-    else
-        dnsdist_uptime_seconds=$(uptime_to_seconds "${DNSDIST_UPTIME:-}")
-        if [[ ${dnsdist_uptime_seconds:-0} -gt 300 ]]; then
-            test_result "Host→DNSDist UDP (15353)" "FAIL" "DNSDist running for ${DNSDIST_UPTIME} but host cannot query UDP port 15353"
-        else
-            test_result "Host→DNSDist UDP (15353)" "WARN" "Cannot query DNSDist direct mode UDP from host yet (starting for ${DNSDIST_UPTIME:-unknown})"
-        fi
-    fi
-
-    # Test 3d: Host → DNSDist direct mode TCP (port 15353)
-    if dig @localhost -p 15353 +tcp example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
-        test_result "Host→DNSDist TCP (15353)" "PASS" "Host can query DNSDist direct mode via TCP on localhost:15353"
-    else
-        dnsdist_uptime_seconds=$(uptime_to_seconds "${DNSDIST_UPTIME:-}")
-        if [[ ${dnsdist_uptime_seconds:-0} -gt 300 ]]; then
-            test_result "Host→DNSDist TCP (15353)" "FAIL" "DNSDist running for ${DNSDIST_UPTIME} but host cannot query TCP port 15353"
-        else
-            test_result "Host→DNSDist TCP (15353)" "WARN" "Cannot query DNSDist direct mode TCP from host yet (starting for ${DNSDIST_UPTIME:-unknown})"
-        fi
-    fi
-
-    # Test 3e: Host → dnscrypt-proxy UDP (port 5300)
-    if dig @localhost -p 5300 example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
-        test_result "Host→dnscrypt-proxy UDP" "PASS" "Host can query dnscrypt-proxy via UDP on localhost:5300"
-=======
-
     # Test 3c: Host → DNSDist direct mode UDP (read port from env, default 15353)
     DNS_DIRECT_PORT=${DNS_DIRECT_PORT:-15353}
     if dig @localhost -p ${DNS_DIRECT_PORT} example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
@@ -409,7 +292,6 @@ if command -v dig &> /dev/null; then
             test_result "Host→DNSDist UDP (${DNS_DIRECT_PORT})" "WARN" "Cannot query DNSDist direct mode UDP from host yet (starting for ${DNSDIST_UPTIME:-unknown})"
         fi
     fi
-
     # Test 3d: Host → DNSDist direct mode TCP (read port from env, default 15353)
     if dig @localhost -p ${DNS_DIRECT_PORT} +tcp example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
         test_result "Host→DNSDist TCP (${DNS_DIRECT_PORT})" "PASS" "Host can query DNSDist direct mode via TCP on localhost:${DNS_DIRECT_PORT}"
@@ -421,8 +303,7 @@ if command -v dig &> /dev/null; then
             test_result "Host→DNSDist TCP (${DNS_DIRECT_PORT})" "WARN" "Cannot query DNSDist direct mode TCP from host yet (starting for ${DNSDIST_UPTIME:-unknown})"
         fi
     fi
-
-        # Test 3e: Host → CoreDNS direct UDP (port ${COREDNS_DIRECT_PORT})
+    # Test 3e: Host → CoreDNS direct UDP (port ${COREDNS_DIRECT_PORT})
     COREDNS_DIRECT_PORT=${COREDNS_DNS_HOST_PORT:-15354}
     IFS='|' read -r COREDNS_STATUS COREDNS_UPTIME COREDNS_HEALTH <<< "$(parse_container_status coredns)"
     coredns_uptime_seconds=$(uptime_to_seconds "${COREDNS_UPTIME:-}")
@@ -435,7 +316,6 @@ if command -v dig &> /dev/null; then
             test_result "Host→CoreDNS UDP (${COREDNS_DIRECT_PORT})" "WARN" "Cannot query CoreDNS UDP from host yet (starting for ${COREDNS_UPTIME:-unknown})"
         fi
     fi
-
     # Test 3f: Host → CoreDNS direct TCP (port ${COREDNS_DIRECT_PORT})
     if dig @localhost -p ${COREDNS_DIRECT_PORT} +tcp example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
         test_result "Host→CoreDNS TCP (${COREDNS_DIRECT_PORT})" "PASS" "Host can query CoreDNS via TCP on localhost:${COREDNS_DIRECT_PORT}"
@@ -446,38 +326,20 @@ if command -v dig &> /dev/null; then
             test_result "Host→CoreDNS TCP (${COREDNS_DIRECT_PORT})" "WARN" "Cannot query CoreDNS TCP from host yet (starting for ${COREDNS_UPTIME:-unknown})"
         fi
     fi
-
-# Test 3g: Host → dnscrypt-proxy UDP (read port from env, default 5300)
+    # Test 3g: Host → dnscrypt-proxy UDP (read port from env, default 5300)
     DNSCRYPT_PROXY_HOST_PORT=${DNSCRYPT_PROXY_HOST_PORT:-5300}
     if dig @localhost -p ${DNSCRYPT_PROXY_HOST_PORT} example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
         test_result "Host→dnscrypt-proxy UDP (${DNSCRYPT_PROXY_HOST_PORT})" "PASS" "Host can query dnscrypt-proxy via UDP on localhost:${DNSCRYPT_PROXY_HOST_PORT}"
->>>>>>> 002-claude-code-integration
     else
         IFS='|' read -r DNSCRYPT_STATUS DNSCRYPT_UPTIME DNSCRYPT_HEALTH <<< "$(parse_container_status dnscrypt-proxy)"
         dnscrypt_uptime_seconds=$(uptime_to_seconds "${DNSCRYPT_UPTIME:-}")
         if [[ ${dnscrypt_uptime_seconds:-0} -gt 300 ]]; then
-<<<<<<< HEAD
-            test_result "Host→dnscrypt-proxy UDP" "FAIL" "dnscrypt-proxy running for ${DNSCRYPT_UPTIME} but host cannot query UDP port 5300"
-=======
             test_result "Host→dnscrypt-proxy UDP (${DNSCRYPT_PROXY_HOST_PORT})" "FAIL" "dnscrypt-proxy running for ${DNSCRYPT_UPTIME} but host cannot query UDP port ${DNSCRYPT_PROXY_HOST_PORT}"
->>>>>>> 002-claude-code-integration
             echo ""
             echo -e "${YELLOW}Recommended action:${NC}"
             echo "  docker compose -f \"$PROJECT_ROOT/docker-compose.yml\" ps dnscrypt-proxy"
             echo "  docker compose -f \"$PROJECT_ROOT/docker-compose.yml\" logs dnscrypt-proxy --tail=20"
             echo ""
-<<<<<<< HEAD
-            echo "Check if port 5300 is properly mapped and dnscrypt-proxy is listening."
-        else
-            test_result "Host→dnscrypt-proxy UDP" "WARN" "Cannot query dnscrypt-proxy UDP from host yet (starting for ${DNSCRYPT_UPTIME:-unknown})"
-        fi
-    fi
-
-    # Test 3f: Host → dnscrypt-proxy TCP (port 5300)
-    # Note: dnscrypt-proxy only exposes UDP in docker-compose.yml, but we test TCP anyway
-    if dig @localhost -p 5300 +tcp example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
-        test_result "Host→dnscrypt-proxy TCP" "PASS" "Host can query dnscrypt-proxy via TCP on localhost:5300"
-=======
             echo "Check if port ${DNSCRYPT_PROXY_HOST_PORT} is properly mapped and dnscrypt-proxy is listening."
         else
             test_result "Host→dnscrypt-proxy UDP (${DNSCRYPT_PROXY_HOST_PORT})" "WARN" "Cannot query dnscrypt-proxy UDP from host yet (starting for ${DNSCRYPT_UPTIME:-unknown})"
@@ -488,35 +350,18 @@ if command -v dig &> /dev/null; then
     # Note: dnscrypt-proxy only exposes UDP in docker-compose.yml, but we test TCP anyway
     if dig @localhost -p ${DNSCRYPT_PROXY_HOST_PORT} +tcp example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
         test_result "Host→dnscrypt-proxy TCP (${DNSCRYPT_PROXY_HOST_PORT})" "PASS" "Host can query dnscrypt-proxy via TCP on localhost:${DNSCRYPT_PROXY_HOST_PORT}"
->>>>>>> 002-claude-code-integration
     else
         IFS='|' read -r DNSCRYPT_STATUS DNSCRYPT_UPTIME DNSCRYPT_HEALTH <<< "$(parse_container_status dnscrypt-proxy)"
         dnscrypt_uptime_seconds=$(uptime_to_seconds "${DNSCRYPT_UPTIME:-}")
         if [[ ${dnscrypt_uptime_seconds:-0} -gt 300 ]]; then
-<<<<<<< HEAD
-            test_result "Host→dnscrypt-proxy TCP" "WARN" "dnscrypt-proxy TCP not accessible from host (only UDP exposed in docker-compose)"
-        else
-            test_result "Host→dnscrypt-proxy TCP" "WARN" "Cannot query dnscrypt-proxy TCP from host yet (starting for ${DNSCRYPT_UPTIME:-unknown})"
-=======
             test_result "Host→dnscrypt-proxy TCP (${DNSCRYPT_PROXY_HOST_PORT})" "WARN" "dnscrypt-proxy TCP not accessible from host (only UDP exposed in docker-compose)"
         else
             test_result "Host→dnscrypt-proxy TCP (${DNSCRYPT_PROXY_HOST_PORT})" "WARN" "Cannot query dnscrypt-proxy TCP from host yet (starting for ${DNSCRYPT_UPTIME:-unknown})"
->>>>>>> 002-claude-code-integration
         fi
-    fi
-else
-    test_result "Host Connectivity" "WARN" "dig command not available, skipping host connectivity tests"
-fi
-
-# Test 4: Verify DNS queries are encrypted (not plain text)
-echo ""
-echo "Test 4: DNS Encryption Transport"
 IFS='|' read -r DNSCRYPT_STATUS DNSCRYPT_UPTIME DNSCRYPT_HEALTH <<< "$(parse_container_status dnscrypt-proxy)"
 
 # Check if dnscrypt-proxy has been running long enough
 dnscrypt_uptime_seconds=$(uptime_to_seconds "${DNSCRYPT_UPTIME:-}")
-
-# Verify DNS encryption is active by checking query log exists and has entries
 if docker compose -f "$PROJECT_ROOT/docker-compose.yml" exec -T dnscrypt-proxy test -f /var/log/dnscrypt-proxy/query.log 2>/dev/null; then
     query_count=$(docker compose -f "$PROJECT_ROOT/docker-compose.yml" exec -T dnscrypt-proxy sh -c 'wc -l < /var/log/dnscrypt-proxy/query.log' 2>/dev/null || echo "0")
     if [[ ${query_count:-0} -gt 0 ]]; then
@@ -550,7 +395,7 @@ fi
 
 # Test 5: Verify ODoH privacy separation (relay + target server architecture)
 echo ""
-echo "Test 5: ODoH Privacy Separation"
+echo "Test 6: ODoH Privacy Separation"
 # ODoH provides privacy by separating query content from client identity
 # Requires both target servers (process queries) and relay servers (hide client IP)
 if docker compose -f "$PROJECT_ROOT/docker-compose.yml" exec -T dnscrypt-proxy test -f /var/cache/dnscrypt-proxy/odoh-servers.md 2>/dev/null && \
@@ -558,11 +403,6 @@ if docker compose -f "$PROJECT_ROOT/docker-compose.yml" exec -T dnscrypt-proxy t
     # Count available servers and relays
     server_count=$(docker compose -f "$PROJECT_ROOT/docker-compose.yml" exec -T dnscrypt-proxy sh -c 'grep -c "^## odoh-" /var/cache/dnscrypt-proxy/odoh-servers.md 2>/dev/null || echo "0"')
     relay_count=$(docker compose -f "$PROJECT_ROOT/docker-compose.yml" exec -T dnscrypt-proxy sh -c 'grep -c "^## odohrelay-" /var/cache/dnscrypt-proxy/odoh-relays.md 2>/dev/null || echo "0"')
-<<<<<<< HEAD
-
-=======
-
->>>>>>> 002-claude-code-integration
     if [[ ${server_count:-0} -gt 0 ]] && [[ ${relay_count:-0} -gt 0 ]]; then
         test_result "ODoH Privacy" "PASS" "ODoH privacy active: ${server_count} target servers, ${relay_count} relay servers (client IP hidden from DNS servers)"
     else
@@ -594,22 +434,18 @@ else
     fi
 fi
 
-# Test 4: Verify no direct external DNS queries (check iptables rules)
+# Test 7: Verify no direct external DNS queries (check iptables rules)
 echo ""
-echo "Test 6: DNS Traffic Interception"
+echo "Test 7: DNS Traffic Interception"
 if docker compose -f "$PROJECT_ROOT/docker-compose.yml" exec -T transparent-gateway iptables -t nat -L PREROUTING 2>/dev/null | grep -q "53"; then
     test_result "DNS Interception" "PASS" "iptables rules redirect DNS traffic (port 53)"
 else
     test_result "DNS Interception" "WARN" "Could not verify iptables DNS interception rules"
 fi
 
-# Test 7: Verify DNS metrics are being collected
+# Test 8: Verify DNS metrics are being collected
 echo ""
-<<<<<<< HEAD
-echo "Test 7: DNS Metrics Collection"
-=======
-echo "Test 7: DNS Metrics Collection (expected to fail)"
->>>>>>> 002-claude-code-integration
+echo "Test 8: DNS Metrics Collection"
 if curl -sf http://localhost:8083/metrics 2>/dev/null | grep -q "dnsdist"; then
     test_result "DNS Metrics" "PASS" "DNSDist metrics endpoint is accessible"
 else
@@ -627,9 +463,9 @@ else
     fi
 fi
 
-# Test 8: Verify blocklist is loaded
+# Test 9: Verify blocklist is loaded
 echo ""
-echo "Test 8: DNS Blocklist Integration"
+echo "Test 9: DNS Blocklist Integration"
 if docker compose -f "$PROJECT_ROOT/docker-compose.yml" logs dnsdist 2>/dev/null | grep -qi "blocklist\|cdb"; then
     test_result "Blocklist Loaded" "PASS" "Blocklist integration detected"
 else

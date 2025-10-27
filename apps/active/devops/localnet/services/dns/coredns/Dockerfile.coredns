@@ -18,6 +18,12 @@ RUN apk add --no-cache coredns gettext curl
 # Copy Corefile template for runtime expansion
 COPY Corefile.template /etc/coredns/Corefile.template
 
+# Expose the default DNS port and the metrics port
+EXPOSE 53/udp 53/tcp 9153/tcp
+
+HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=2 \
+    CMD curl -f http://127.0.0.1:18080/health || exit 1
+
 # Copy entrypoint script
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh

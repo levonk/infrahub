@@ -45,9 +45,13 @@ EXPOSE 123/udp 123/tcp 4460/tcp
 COPY ../assets/usr/local/bin/chronyd-entrypoint.sh /usr/local/bin/chronyd-entrypoint.sh
 RUN chmod 0755 /usr/local/bin/chronyd-entrypoint.sh
 
-# Health check using chronyc
+# Copy healthcheck script
+COPY healthcheck/check-health.sh /usr/local/bin/check-health.sh
+RUN chmod +x /usr/local/bin/check-health.sh
+
+# Health check using custom script
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD chronyc tracking || exit 1
+    CMD ["/usr/local/bin/check-health.sh"]
 
 # Run entrypoint script
 # -d: Don't daemonize (run in foreground for Docker)

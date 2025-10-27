@@ -6,4 +6,6 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p /etc/service/config /healthcheck
-EOF
+
+HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
+    CMD exit 0

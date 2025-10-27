@@ -90,6 +90,6 @@ RUN chown -R intercept:intercept /app
 USER intercept
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD wget -qO- http://localhost:${PORT}/health > /dev/null || exit 1
+    CMD wget -qO- http://localhost:${CLAUDE_CODE_INTERCEPT_API_PORT}/health > /dev/null || exit 1
 
 ENTRYPOINT ["/app/claude-code-intercept-entrypoint.sh"]

@@ -23,6 +23,7 @@ RUN mkdir -p /etc/dnscrypt-proxy /var/cache/dnscrypt-proxy /var/log/dnscrypt-pro
 COPY assets/usr/local/bin/dnscrypt-proxy /usr/local/bin/dnscrypt-proxy
 RUN chmod +x /usr/local/bin/dnscrypt-proxy
 
+
 # Create non-root user (for future use, but run as root for now to bind to port 5053)
 RUN addgroup -g 1000 dnscrypt && \
     adduser -D -u 1000 -G dnscrypt dnscrypt && \

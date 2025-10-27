@@ -20,7 +20,7 @@ WORKDIR /app
 COPY auth-service/ ./auth-service/
 
 # Install Python dependencies
-RUN pip3 install flask pyjwt cryptography
+RUN pip3 install flask pyjwt cryptography requests
 
 # Create necessary directories
 RUN mkdir -p /app/config /healthcheck
