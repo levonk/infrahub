@@ -48,7 +48,7 @@ services:
     # Falls back to dnscrypt-proxy if CoreDNS becomes unavailable (via DNSDist fallback rules)
     build:
       context: ./coredns
-      dockerfile: Dockerfile
+      dockerfile: docker/Dockerfile.coredns
     image: homelab-dns-coredns:latest
     container_name: homelab-dns-coredns
     networks:
@@ -85,84 +85,84 @@ services:
   dnscrypt-odoh:
     build:
       context: ./dnscrypt
-      dockerfile: Dockerfile
+      dockerfile: docker/Dockerfile.dnscrypt-proxy
     image: homelab-dns-dnscrypt-proxy:latest
     container_name: homelab-dns-dnscrypt-odoh
     networks:
       homelab:
-        ipv4_address: ${DNS_DNSCRYPT_ODOH_IP:-172.25.255.60}
+        ipv4_address: ${DNS_DNSCRYPT_ODOH_IP:-172.20.255.60}
     command: ["/etc/dnscrypt-proxy/dnscrypt-proxy-odoh.toml"]
     restart: unless-stopped
 
   dnscrypt-anon:
     build:
       context: ./dnscrypt
-      dockerfile: Dockerfile
+      dockerfile: docker/Dockerfile.dnscrypt-proxy
     image: homelab-dns-dnscrypt-proxy:latest
     container_name: homelab-dns-dnscrypt-anon
     networks:
       homelab:
-        ipv4_address: ${DNS_DNSCRYPT_ANON_IP:-172.25.255.61}
+        ipv4_address: ${DNS_DNSCRYPT_ANON_IP:-172.20.255.61}
     command: ["/etc/dnscrypt-proxy/dnscrypt-proxy-anon.toml"]
     restart: unless-stopped
 
-  dnscrypt-std:
+  dnscrypt-proxy:
     build:
       context: ./dnscrypt
-      dockerfile: Dockerfile
+      dockerfile: docker/Dockerfile.dnscrypt-proxy
     image: homelab-dns-dnscrypt-proxy:latest
-    container_name: homelab-dns-dnscrypt-std
+    container_name: homelab-dns-dnscrypt-proxy
     networks:
       homelab:
-        ipv4_address: ${DNS_DNSCRYPT_STD_IP:-172.25.255.62}
+        ipv4_address: ${DNS_DNSCRYPT_STD_IP:-172.20.255.62}
     command: ["/etc/dnscrypt-proxy/dnscrypt-proxy-std.toml"]
     restart: unless-stopped
 
   dnscrypt-doh:
     build:
       context: ./dnscrypt
-      dockerfile: Dockerfile
+      dockerfile: docker/Dockerfile.dnscrypt-proxy
     image: homelab-dns-dnscrypt-proxy:latest
     container_name: homelab-dns-dnscrypt-doh
     networks:
       homelab:
-        ipv4_address: ${DNS_DNSCRYPT_DOH_IP:-172.25.255.63}
+        ipv4_address: ${DNS_DNSCRYPT_DOH_IP:-172.20.255.63}
     command: ["/etc/dnscrypt-proxy/dnscrypt-proxy-doh.toml"]
     restart: unless-stopped
 
   dnscrypt-encrypted:
     build:
       context: ./dnscrypt
-      dockerfile: Dockerfile
+      dockerfile: docker/Dockerfile.dnscrypt-proxy
     image: homelab-dns-dnscrypt-proxy:latest
     container_name: homelab-dns-dnscrypt-encrypted
     networks:
       homelab:
-        ipv4_address: ${DNS_DNSCRYPT_ENCRYPTED_IP:-172.25.255.64}
+        ipv4_address: ${DNS_DNSCRYPT_ENCRYPTED_IP:-172.20.255.64}
     command: ["/etc/dnscrypt-proxy/dnscrypt-proxy-encrypted.toml"]
     restart: unless-stopped
 
   dnscrypt-plaintext:
     build:
       context: ./dnscrypt
-      dockerfile: Dockerfile
+      dockerfile: docker/Dockerfile.dnscrypt-proxy
     image: homelab-dns-dnscrypt-proxy:latest
     container_name: homelab-dns-dnscrypt-plaintext
     networks:
       homelab:
-        ipv4_address: ${DNS_DNSCRYPT_PLAINTEXT_IP:-172.25.255.65}
+        ipv4_address: ${DNS_DNSCRYPT_PLAINTEXT_IP:-172.20.255.65}
     command: ["/etc/dnscrypt-proxy/dnscrypt-proxy-plaintext.toml"]
     restart: unless-stopped
 
   tor-proxy:
     build:
       context: ../proxy/tor
-      dockerfile: Dockerfile
+      dockerfile: docker/Dockerfile.tor
     image: homelab-proxy-tor:latest
     container_name: homelab-proxy-tor
     networks:
       homelab:
-        ipv4_address: ${PROXY_SOCKS5_TOR_IP:-172.25.255.70}
+        ipv4_address: ${PROXY_SOCKS5_TOR_IP:-172.20.255.70}
     restart: unless-stopped
 
   blocklist-compiler:

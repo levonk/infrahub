@@ -1,3 +1,16 @@
-# /home/micro/p/gh/lrepo52/job-aide-wt01/apps/active/devops/localnet/services/dns/dnscrypt/assets/etc/dnscrypt-proxy/dnscrypt-proxy-std.toml.template
+# dnscrypt-proxy Standard Configuration
+# This service uses standard DNSCrypt and DoH resolvers.
 
-listen_addresses = ['0.0.0.0:${DNS_DNSCRYPT_STD_CONTAINER_PORT}']
+# Inherit from the base configuration by not overriding most settings.
+
+# Listen address with port placeholder for runtime substitution
+listen_addresses = ['0.0.0.0:{DNSCRYPT_PROXY_CONTAINER_PORT}']
+
+# Enable standard DNSCrypt and DoH, disable ODoH for this instance
+dnscrypt_servers = true
+doh_servers = true
+odoh_servers = false
+
+# Route all traffic through the Tor SOCKS5 proxy to ensure connectivity
+[proxy]
+socks5 = '172.20.255.70:9050'

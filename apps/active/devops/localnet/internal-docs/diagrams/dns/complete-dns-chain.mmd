@@ -1,74 +1,109 @@
-graph TB
+graph TD
     subgraph "Client Layer"
         Client[Client Device]
     end
-    
-    subgraph "Layer 0: Traffic Interception"
-        nftables[nftables TPROXY<br/>Port 53 → 5353]
+
+    subgraph "Layer 0: Traffic Interception (Host)"
+        direction LR
+        nftables[nftables TPROXY<br>Host Port 53 → 15353]
     end
-    
+
     subgraph "Layer 1: Load Balancing & Filtering"
-        dnsdist[dnsdist<br/>Port 5353]
-        Blocklist[CDB Blocklist<br/>O1 Lookup]
-        RateLimit[Rate Limiter<br/>100 qps/IP]
-        ECSStrip[ECS Stripper]
+        direction LR
+        dnsdist["dnsdist<br>172.20.255.49:15353<br>(Entrypoint)"]
+        dnsdist --> Blocklist[CDB Blocklist]
+        dnsdist --> RateLimit[Rate Limiter]
+        dnsdist --> ECSStrip[ECS Stripper]
     end
-    
-    subgraph "Layer 2: Caching & DNSSEC"
-        CoreDNS[CoreDNS<br/>Port 53 internal]
-        Cache[Cache<br/>3600s TTL<br/>4096 entries]
-        DNSSEC[DNSSEC Validator]
+
+    subgraph "Layer 2: Caching & Forwarding Orchestration"
+        direction LR
+        coredns["CoreDNS<br>172.20.255.51:15353<br>Orchestrator"]
+        coredns --> Cache[Cache]
+        coredns --> DNSSEC[DNSSEC Validator]
     end
-    
-    subgraph "Layer 3: Encrypted DNS"
-        dnscrypt[dnscrypt-proxy<br/>Port 5300]
-        ODoH[ODoH Relay<br/>Cloudflare]
+
+    subgraph "Layer 3: DNSCrypt Forwarding Services (Protocol Fallback Chain)"
+        direction TB
+        subgraph "Tier 1: Oblivious DoH"
+            dnscrypt_odoh["dnscrypt-proxy ODoH<br>172.20.255.52:5053"]
+        end
+        subgraph "Tier 2: Anonymized DNSCrypt"
+            dnscrypt_anon["dnscrypt-proxy Anon<br>172.20.255.53:5053"]
+        end
+        subgraph "Tier 3: DNS-over-Tor"
+			direction TB
+            dnscrypt_tor["dnscrypt-proxy Tor<br>172.20.255.58:5053"]
+            tor_proxy["Tor SOCKS Proxy<br>172.20.255.60:9050"]
+            dnscrypt_tor -- "Forwards through" --> tor_proxy
+        end
+        subgraph "Tier 4: Standard DNSCrypt"
+            dnscrypt_std["dnscrypt-proxy STD<br>172.20.255.54:5053"]
+        end
+        subgraph "Tier 5: DoH"
+            dnscrypt_doh["dnscrypt-proxy DoH<br>172.20.255.55:5053"]
+        end
+        subgraph "Tier 6: Encrypted (TLS)"
+            dnscrypt_encrypted["dnscrypt-proxy Encrypted<br>172.20.255.56:5053"]
+        end
+        subgraph "Tier 7: Plaintext"
+            dnscrypt_plaintext["dnscrypt-proxy Plaintext<br>172.20.255.57:5053"]
+        end
     end
-    
-    subgraph "Layer 4: Optional Anonymization"
-        Tor[Tor SOCKS5<br/>Port 9050]
+
+    subgraph "Layer 4: External Resolvers"
+        direction LR
+        Resolvers(Cloudflare, Google, Quad9, etc.)
     end
-    
-    subgraph "Layer 5: External Resolvers"
-        Cloudflare[Cloudflare<br/>1.1.1.1]
-        Google[Google<br/>8.8.8.8]
-        Quad9[Quad9<br/>9.9.9.9]
-    end
-    
-    Client -->|DNS Query| nftables
-    nftables -->|Transparent| dnsdist
-    Client -.->|Direct Port 5353| dnsdist
-    
-    dnsdist --> Blocklist
-    Blocklist -->|Not Blocked| RateLimit
-    RateLimit --> ECSStrip
-    ECSStrip --> CoreDNS
-    
-    CoreDNS --> Cache
-    Cache -->|Cache Miss| DNSSEC
-    Cache -->|Cache Hit| Client
-    DNSSEC --> dnscrypt
-    
-    dnscrypt --> ODoH
-    ODoH -.->|Optional| Tor
-    ODoH --> Cloudflare
-    dnscrypt --> Google
-    dnscrypt --> Quad9
-    
-    Cloudflare -->|Response| dnscrypt
-    Google -->|Response| dnscrypt
-    Quad9 -->|Response| dnscrypt
-    
-    dnscrypt -->|Encrypted Response| CoreDNS
-    CoreDNS -->|Cached Response| dnsdist
-    dnsdist -->|Final Response| Client
-    
-    Blocklist -.->|Blocked| Client
-    
-    style nftables fill:#ff9999
-    style dnsdist fill:#99ff99
-    style CoreDNS fill:#99ff99
-    style dnscrypt fill:#99ccff
-    style ODoH fill:#99ccff
-    style Tor fill:#cc99ff
-    style Blocklist fill:#ffcc99
+
+    %% Connections
+    Client -- "DNS Query<br>(port 53)" --> nftables
+    nftables -- "Redirect to 15353" --> dnsdist
+    dnsdist -- "Forward" --> coredns
+
+    coredns -- "Fallback 1" --> dnscrypt_odoh
+    coredns -- "Fallback 2" --> dnscrypt_anon
+    coredns -- "Fallback 3" --> dnscrypt_tor
+    coredns -- "Fallback 4" --> dnscrypt_std
+    coredns -- "Fallback 5" --> dnscrypt_doh
+    coredns -- "Fallback 6" --> dnscrypt_encrypted
+    coredns -- "Fallback 7" --> dnscrypt_plaintext
+
+    dnscrypt_odoh -- "Encrypted Query" --> Resolvers
+    dnscrypt_anon -- "Encrypted Query" --> Resolvers
+    tor_proxy -- "via Tor" --> Resolvers
+    dnscrypt_std -- "Encrypted Query" --> Resolvers
+    dnscrypt_doh -- "Encrypted Query" --> Resolvers
+    dnscrypt_encrypted -- "Encrypted Query" --> Resolvers
+    dnscrypt_plaintext -- "Plaintext Query" --> Resolvers
+
+    Resolvers -- "Response" --> dnscrypt_odoh
+    Resolvers -- "Response" --> dnscrypt_anon
+    Resolvers -- "Response" --> dnscrypt_tor
+    Resolvers -- "Response" --> dnscrypt_std
+    Resolvers -- "Response" --> dnscrypt_doh
+    Resolvers -- "Response" --> dnscrypt_encrypted
+    Resolvers -- "Response" --> dnscrypt_plaintext
+
+    dnscrypt_odoh -- "Response" --> coredns
+    dnscrypt_anon -- "Response" --> coredns
+    dnscrypt_tor -- "Response" --> coredns
+    dnscrypt_std -- "Response" --> coredns
+    dnscrypt_doh -- "Response" --> coredns
+    dnscrypt_encrypted -- "Response" --> coredns
+    dnscrypt_plaintext -- "Response" --> coredns
+
+    coredns -- "Final Response" --> dnsdist
+    dnsdist -- "Final Response" --> Client
+
+    %% Styling
+    style nftables fill:#D5A6BD
+    style dnsdist fill:#A6C1D5
+    style coredns fill:#A6D5B2
+    style dnscrypt_odoh fill:#D5C4A6
+    style dnscrypt_anon fill:#D5B3A6
+    style dnscrypt_std fill:#D5A6A6
+    style dnscrypt_doh fill:#C4A6D5
+    style dnscrypt_encrypted fill:#A6A6D5
+    style dnscrypt_plaintext fill:#A6D5D5
+    style tor_proxy fill:#E6B8AF

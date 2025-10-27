@@ -3,6 +3,8 @@
 
 FROM base-alpine:latest
 
+USER root
+
 RUN apk add --no-cache tor netcat-openbsd
 
 COPY assets/ /

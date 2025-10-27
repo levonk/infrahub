@@ -1,5 +1,7 @@
 # Builder stage: prepare Corefile with environment variable expansion
 FROM base-alpine:latest AS builder
+
+USER root
 RUN apk add --no-cache gettext
 COPY Corefile.template /Corefile.template
 # Expand environment variables in template at build time
@@ -18,11 +20,14 @@ RUN apk add --no-cache coredns gettext curl
 # Copy Corefile template for runtime expansion
 COPY Corefile.template /etc/coredns/Corefile.template
 
-# Expose the default DNS port and the metrics port
-EXPOSE 53/udp 53/tcp 9153/tcp
+# Expose the default DNS, metrics, and health check ports
+EXPOSE 53/udp 53/tcp 9153/tcp 18080/tcp
+
+# Set the default health check port. This can be overridden in docker-compose.yml.
+ENV COREDNS_HEALTH_CONTAINER_PORT=18080
 
 HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=2 \
-    CMD curl -f http://127.0.0.1:18080/health || exit 1
+    CMD curl -f http://127.0.0.1:${COREDNS_HEALTH_CONTAINER_PORT}/health || exit 1
 
 # Copy entrypoint script
 COPY entrypoint.sh /entrypoint.sh

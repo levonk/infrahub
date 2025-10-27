@@ -11,6 +11,7 @@ USER root
 
 # Install dependencies
 RUN apk add --no-cache \
+    bash \
     ca-certificates
 
 # Create directories
@@ -30,7 +31,7 @@ RUN addgroup -g 1000 dnscrypt && \
     chown -R dnscrypt:dnscrypt /etc/dnscrypt-proxy /var/cache/dnscrypt-proxy /var/log/dnscrypt-proxy
 
 # Copy config file from build context (assets/ mirrors container filesystem)
-COPY assets/etc/dnscrypt-proxy/dnscrypt-proxy.toml /etc/dnscrypt-proxy/dnscrypt-proxy.toml
+COPY assets/etc/dnscrypt-proxy /etc/.
 
 # Create empty files for optional features
 RUN touch /etc/dnscrypt-proxy/blocked-names.txt \
@@ -43,8 +44,8 @@ RUN touch /etc/dnscrypt-proxy/blocked-names.txt \
 USER root
 
 # Copy entrypoint script
-COPY docker/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+COPY assets/entrypoint-dnscrypt.sh /entrypoint-dnscrypt.sh
+RUN chmod +x /entrypoint-dnscrypt.sh
 
 # Expose DNS port (will be overridden by docker-compose port mapping)
 EXPOSE 5053/udp 5053/tcp
@@ -54,4 +55,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
     CMD dnscrypt-proxy -resolve cloudflare.com -config /etc/dnscrypt-proxy/dnscrypt-proxy.toml || exit 1
 
 # Run entrypoint script which substitutes the port and starts dnscrypt-proxy
-ENTRYPOINT ["/entrypoint.sh"]
+ENTRYPOINT ["/entrypoint-dnscrypt.sh"]

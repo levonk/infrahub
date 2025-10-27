@@ -77,7 +77,7 @@ Error response from daemon: Pool overlaps with other one on this address space
 Edit `.env` file:
 ```bash
 # Change from 172.20.0.0/16 to another subnet
-DOCKER_NETWORK_SUBNET=172.25.0.0/16
+DOCKER_NETWORK_SUBNET=172.20.0.0/16
 ```
 
 Then clean up and restart:
