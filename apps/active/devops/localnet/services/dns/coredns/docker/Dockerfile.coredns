@@ -1,24 +1,15 @@
-# Builder stage: prepare Corefile with environment variable expansion
-FROM base-alpine:latest AS builder
-
-USER root
-RUN apk add --no-cache gettext
-COPY Corefile.template /Corefile.template
-# Expand environment variables in template at build time
-RUN mkdir -p /rootfs/etc/coredns && \
-    envsubst < /Corefile.template > /rootfs/etc/coredns/Corefile
-
-# Final stage: CoreDNS with expanded Corefile
+# Final stage: CoreDNS with runtime configuration
 FROM base-alpine:latest
 
 # Switch to root for package installation
 USER root
 
-# Install CoreDNS, gettext (for envsubst in entrypoint), and curl (for healthcheck)
-RUN apk add --no-cache coredns gettext curl
+# Install CoreDNS for the service and curl for the healthcheck.
+# gettext is not needed as the entrypoint uses sed for substitution.
+RUN apk add --no-cache coredns curl
 
 # Copy Corefile template for runtime expansion
-COPY Corefile.template /etc/coredns/Corefile.template
+COPY configs/Corefile.template /etc/coredns/Corefile.template
 
 # Expose the default DNS, metrics, and health check ports
 EXPOSE 53/udp 53/tcp 9153/tcp 18080/tcp
@@ -30,8 +21,8 @@ HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=2 \
     CMD curl -f http://127.0.0.1:${COREDNS_HEALTH_CONTAINER_PORT}/health || exit 1
 
 # Copy entrypoint script
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+COPY assets/entrypoint-coredns.sh /entrypoint-coredns.sh
+RUN chmod +x /entrypoint-coredns.sh
 
 # Set entrypoint to expand env vars and start CoreDNS
-ENTRYPOINT ["/entrypoint.sh"]
+ENTRYPOINT ["/entrypoint-coredns.sh"]
