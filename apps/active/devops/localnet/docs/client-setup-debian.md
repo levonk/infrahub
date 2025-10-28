@@ -174,7 +174,7 @@ chronyc sources -v
 
 ```bash
 # 1. Create proxy configuration
-sudo tee /etc/profile.d/homelab-proxy.sh > /dev/null <<'EOF'
+sudo tee /etc/profile.d/localnet-proxy.sh > /dev/null <<'EOF'
 # Home Lab Proxy Configuration
 export HOMELAB_PROXY="192.168.1.100:3128"
 export http_proxy="http://${HOMELAB_PROXY}"
@@ -188,13 +188,13 @@ export NO_PROXY="${no_proxy}"
 EOF
 
 # 2. Make executable
-sudo chmod +x /etc/profile.d/homelab-proxy.sh
+sudo chmod +x /etc/profile.d/localnet-proxy.sh
 
 # 3. Apply to current session
-source /etc/profile.d/homelab-proxy.sh
+source /etc/profile.d/localnet-proxy.sh
 
 # 4. Configure APT to use proxy
-sudo tee /etc/apt/apt.conf.d/95homelab-proxy > /dev/null <<EOF
+sudo tee /etc/apt/apt.conf.d/95localnet-proxy > /dev/null <<EOF
 Acquire::http::Proxy "http://${HOMELAB_HOST}:3128";
 Acquire::https::Proxy "http://${HOMELAB_HOST}:3128";
 EOF
@@ -508,8 +508,8 @@ sudo systemctl disable chrony
 
 ```bash
 # Remove system-wide proxy
-sudo rm /etc/profile.d/homelab-proxy.sh
-sudo rm /etc/apt/apt.conf.d/95homelab-proxy
+sudo rm /etc/profile.d/localnet-proxy.sh
+sudo rm /etc/apt/apt.conf.d/95localnet-proxy
 
 # Unset environment variables
 unset http_proxy https_proxy ftp_proxy no_proxy

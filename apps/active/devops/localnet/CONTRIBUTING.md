@@ -45,8 +45,8 @@ Thank you for your interest in contributing! This document provides guidelines f
 
 ```bash
 # Clone your fork
-git clone https://github.com/YOUR_USERNAME/homelab-in-a-box.git
-cd homelab-in-a-box
+git clone https://github.com/YOUR_USERNAME/localnet-in-a-box.git
+cd localnet-in-a-box
 
 # Configure environment
 cp .env.example .env

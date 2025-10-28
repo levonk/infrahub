@@ -223,6 +223,36 @@ See [docs/quickstart.md](docs/quickstart.md) for detailed configuration options.
 | **WireGuard** | VPN | 51820/udp, 51821/udp |
 | **LocalStack** | AWS Local | 4566/tcp |
 
+## 🔌 Default Port Configuration
+
+All container ports are configured to be unique and non-overlapping. Each service has a corresponding host port binding for external access.
+
+| Service | Instance | Container Port | Host Port | Protocol | Notes |
+|---------|----------|-----------------|-----------|----------|-------|
+| DNSDist | Transparent | 5354 | 15352 | UDP/TCP | Primary DNS entry point |
+| DNSDist | Direct | 5355 | 15353 | UDP/TCP | Direct mode DNS |
+| CoreDNS | DNS | 15353 | 15354 | UDP/TCP | Caching resolver |
+| CoreDNS | Metrics | 9153 | 9153 | TCP | Prometheus metrics |
+| CoreDNS | Health | 18080 | 27493 | TCP | Health check endpoint |
+| DNSDist | Metrics | 8083 | 8083 | TCP | Metrics endpoint |
+| dnscrypt-proxy | ODOH | 5053 | 5360 | UDP/TCP | Primary (Oblivious DNS over HTTPS) |
+| dnscrypt-proxy | Anon | 5054 | 5361 | UDP/TCP | Fallback 1 (Anonymous) |
+| dnscrypt-proxy | Std | 5055 | 5362 | UDP/TCP | Fallback 2 (Standard) |
+| dnscrypt-proxy | DoH | 5056 | 5363 | UDP/TCP | Fallback 3 (DNS over HTTPS) |
+| dnscrypt-proxy | Encrypted | 5057 | 5364 | UDP/TCP | Fallback 4 (Encrypted) |
+| dnscrypt-proxy | Plaintext | 5058 | 5365 | UDP/TCP | Fallback 5 (Plaintext) |
+| NTP | Transparent | 123 | 123 | UDP/TCP | Primary NTP |
+| NTP | Direct | 1123 | 1123 | UDP/TCP | Direct mode NTP |
+| Claude Code | Intercept API | 3001 | 3001 | TCP | API endpoint |
+| Claude Code | Intercept UI | 5173 | 5173 | TCP | Web UI |
+
+**Key Points:**
+- ✅ All container ports are **unique** (no conflicts)
+- ✅ All services have **HOST_PORT** bindings for external access
+- ✅ **Port 53 is avoided** (WSL2 limitation on Windows)
+- ✅ **Fallback order honored**: ODOH → Anon → Std → DoH → Encrypted → Plaintext
+- ✅ Ports can be customized via environment variables in `.env`
+
 ## 🤝 Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.

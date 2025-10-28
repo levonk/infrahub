@@ -80,9 +80,9 @@ dnscrypt-proxy:
     context: .
     dockerfile: Dockerfile.dnscrypt-proxy
 <<<<<<< HEAD
-  image: homelab-dnscrypt-proxy:2.1.5
+  image: localnet-dnscrypt-proxy:2.1.5
 =======
-  image: homelab-dns-dnscrypt-proxy:2.1.5
+  image: localnet-dns-dnscrypt-proxy:2.1.5
 >>>>>>> 002-claude-code-integration
   networks:
     homelab:

@@ -3,9 +3,9 @@
 services:
   vector:
     image: timberio/vector:latest-alpine
-    container_name: homelab-logging-vector
+    container_name: localnet-logging-vector
     networks:
-      - homelab
+      - localnet
     ports:
       - "${VECTOR_METRICS_HOST_PORT:-9598}:9598/tcp"  # Metrics endpoint
     volumes:
@@ -23,9 +23,9 @@ services:
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
-    container_name: homelab-logging-elasticsearch
+    container_name: localnet-logging-elasticsearch
     networks:
-      - homelab
+      - localnet
     ports:
       - "${ELASTICSEARCH_HTTP_HOST_PORT:-9200}:9200/tcp"    # API
       - "${ELASTICSEARCH_TRANSPORT_HOST_PORT:-9300}:9300/tcp"  # Cluster
@@ -46,9 +46,9 @@ services:
 
   loki:
     image: grafana/loki:latest
-    container_name: homelab-logging-loki
+    container_name: localnet-logging-loki
     networks:
-      - homelab
+      - localnet
     ports:
       - "${LOKI_HOST_PORT:-3100}:3100/tcp"
     volumes:
@@ -64,9 +64,9 @@ services:
 
   promtail:
     image: grafana/promtail:latest
-    container_name: homelab-logging-promtail
+    container_name: localnet-logging-promtail
     networks:
-      - homelab
+      - localnet
     ports:
       - "${PROMTAIL_METRICS_HOST_PORT:-9080}:9080/tcp"  # Metrics
     volumes:

@@ -123,9 +123,9 @@ This prevents IP conflicts because:
 
 # Check actual container IPs
 <<<<<<< HEAD
-docker inspect homelab-coredns homelab-dnscrypt-proxy --format='{{.Name}}: {{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}'
+docker inspect localnet-coredns localnet-dnscrypt-proxy --format='{{.Name}}: {{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}'
 =======
-docker inspect homelab-dns-coredns homelab-dns-dnscrypt-proxy --format='{{.Name}}: {{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}'
+docker inspect localnet-dns-coredns localnet-dns-dnscrypt-proxy --format='{{.Name}}: {{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}'
 >>>>>>> 002-claude-code-integration
 
 # Check expected IPs in docker-compose.yml
@@ -422,7 +422,7 @@ docker compose restart dnsdist
 docker compose down dnsdist coredns dnscrypt-proxy
 
 # 2. Verify network is clean
-docker network inspect localnet_homelab
+docker network inspect localnet_localnet
 
 # 3. Start in correct order
 docker compose up -d dnscrypt-proxy
@@ -466,9 +466,9 @@ If configs are out of sync:
 ```bash
 # 1. Check what IPs are actually assigned
 <<<<<<< HEAD
-docker inspect homelab-coredns homelab-dnscrypt-proxy \
+docker inspect localnet-coredns localnet-dnscrypt-proxy \
 =======
-docker inspect homelab-dns-coredns homelab-dns-dnscrypt-proxy \
+docker inspect localnet-dns-coredns localnet-dns-dnscrypt-proxy \
 >>>>>>> 002-claude-code-integration
   --format='{{.Name}}: {{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}'
 

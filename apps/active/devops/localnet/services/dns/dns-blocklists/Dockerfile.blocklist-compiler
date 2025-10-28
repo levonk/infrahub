@@ -2,37 +2,26 @@
 # Purpose: Build and compile DNS/web blocklists to CDB format
 # Security: Non-root user, minimal dependencies, no shell access
 
-FROM base-alpine AS builder
+FROM base-debian
 
-# apk operations require root; base-alpine defaults to non-root appuser
+# apt operations require root; base-debian defaults to non-root appuser
 USER root
 
-# Install build dependencies and build tinycdb from source
-RUN apk add --no-cache \
+# Install tinycdb and runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    tinycdb \
     curl \
     bash \
     coreutils \
     grep \
     sed \
-    gawk \
-    gcc \
-    make \
-    musl-dev && \
-    # Build tinycdb from source
-    cd /tmp && \
-    curl -fsSL http://www.corpit.ru/mjt/tinycdb/tinycdb-0.78.tar.gz -o tinycdb.tar.gz && \
-    tar xzf tinycdb.tar.gz && \
-    cd tinycdb-0.78 && \
-    make && \
-    make install && \
-    cd / && \
-    rm -rf /tmp/tinycdb* && \
-    # Remove build dependencies
-    apk del gcc make musl-dev
+    gawk && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # Create non-root user for security
-RUN addgroup -g 1000 blocklist && \
-    adduser -D -u 1000 -G blocklist blocklist
+RUN groupadd -g 1000 blocklist && \
+    useradd -d /blocklists -u 1000 -g blocklist -s /usr/sbin/nologin blocklist
 
 # Create directories with proper permissions
 RUN mkdir -p /blocklists/sources /blocklists/compiled /tmp/blocklists && \

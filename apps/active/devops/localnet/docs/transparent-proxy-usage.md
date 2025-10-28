@@ -81,7 +81,7 @@ services:
   my-app:
     image: my-app:latest
     networks:
-      - homelab
+      - localnet
     dns:
       - transparent-gateway  # Use gateway as DNS server
     # That's it! DNS, NTP, HTTP/HTTPS automatically intercepted
@@ -118,7 +118,7 @@ services:
   my-nodejs-app:
     build: ./my-app
     networks:
-      - homelab
+      - localnet
     dns:
       - transparent-gateway
     environment:
@@ -136,7 +136,7 @@ services:
   my-python-app:
     image: python:3.11-slim
     networks:
-      - homelab
+      - localnet
     dns:
       - transparent-gateway
     command: python app.py
@@ -151,9 +151,9 @@ services:
   postgres:
     image: postgres:15
     networks:
-      - homelab
+      - localnet
     dns:
-      - transparent-gateway  # Gets DNS resolution through homelab
+      - transparent-gateway  # Gets DNS resolution through localnet
     environment:
       - POSTGRES_PASSWORD=secret
     depends_on:

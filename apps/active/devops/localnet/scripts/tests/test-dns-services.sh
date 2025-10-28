@@ -49,7 +49,7 @@ test_dns_query_direct() {
 test_dns_query_dnscrypt() {
     test_start "DNSCrypt-Proxy Query"
     
-    if docker exec homelab-dns-dnscrypt-proxy nc -zv localhost 5300 2>&1 | grep -q "succeeded"; then
+    if docker exec localnet-dns-dnscrypt-proxy nc -zv localhost 5300 2>&1 | grep -q "succeeded"; then
         test_pass "DNSCrypt-Proxy port 5300 listening"
     else
         test_fail "DNSCrypt-Proxy port 5300 not listening"

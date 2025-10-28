@@ -259,9 +259,9 @@ docker inspect my-app | jq '.[0].HostConfig.Dns'
 ```bash
 # Check iptables rules in gateway
 <<<<<<< HEAD
-docker exec homelab-transparent-gateway iptables -t nat -L -n -v
+docker exec localnet-transparent-gateway iptables -t nat -L -n -v
 =======
-docker exec homelab-proxy-transparent-gateway iptables -t nat -L -n -v
+docker exec localnet-proxy-transparent-gateway iptables -t nat -L -n -v
 >>>>>>> 002-claude-code-integration
 
 # Verify DNAT rules exist for DNS (53→5353), HTTP (80→3128), HTTPS (443→3128)

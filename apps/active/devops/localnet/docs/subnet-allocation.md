@@ -48,7 +48,7 @@ Follow these steps whenever `docker compose` reports `Pool overlaps with other o
 
 1. **Inspect current networks.**
    ```bash
-   docker network ls && docker network inspect homelab_homelab
+   docker network ls && docker network inspect homelab_localnet
    ```
 2. **Decide on a new subnet.** Choose a CIDR that does not overlap with existing Docker or LAN ranges (for example `172.20.0.0/16`).
 3. **Update environment variables.** Edit `apps/active/devops/localnet/.env` (or copy from `env.template`) and set:

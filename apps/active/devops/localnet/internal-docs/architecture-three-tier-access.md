@@ -277,7 +277,7 @@ services:
   my-app:
     image: node:18
     networks:
-      - homelab
+      - localnet
     dns:
       - transparent-gateway  # Enforces transparent interception
     environment:
@@ -329,7 +329,7 @@ services:
     # to query ODoH relays and DNS servers
     image: klutchell/dnscrypt-proxy
     networks:
-      - homelab
+      - localnet
     # No dns: [transparent-gateway] - uses default Docker DNS
 ```
 

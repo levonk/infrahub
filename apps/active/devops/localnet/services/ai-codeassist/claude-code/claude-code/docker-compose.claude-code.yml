@@ -45,7 +45,7 @@ services:
       - CLAUDE_CODE_AUTH_URL=http://claude-code-auth:8080
     networks:
       - claude-code
-      - homelab
+      - localnet
     depends_on:
       - claude-code
       - claude-code-auth

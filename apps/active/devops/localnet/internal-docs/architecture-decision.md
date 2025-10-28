@@ -67,13 +67,13 @@ services:
     cap_add:
       - NET_ADMIN
     networks:
-      - homelab
+      - localnet
     # iptables rules for transparent interception
     
   # App containers that want transparent proxying
   app:
     networks:
-      - homelab
+      - localnet
     dns:
       - transparent-gateway  # Use gateway as DNS
     # No other configuration needed!
@@ -81,7 +81,7 @@ services:
   # Services (DNS, NTP, Web Proxy)
   dnsdist:
     networks:
-      - homelab
+      - localnet
 ```
 
 ### Traffic Flow

@@ -1,0 +1,16 @@
+# /home/micro/p/gh/lrepo52/job-aide-wt01/apps/active/devops/localnet/services/base/docker-compose.base.yml
+---
+# Base images for the localnet stack
+services:
+  base-alpine:
+    build:
+      context: ./base-alpine
+      dockerfile: docker/Dockerfile.base-alpine
+    image: base-alpine:latest
+    container_name: base-alpine
+  base-debian:
+    build:
+      context: ./base-debian
+      dockerfile: docker/Dockerfile.base-debian
+    image: base-debian:latest
+    container_name: base-debian

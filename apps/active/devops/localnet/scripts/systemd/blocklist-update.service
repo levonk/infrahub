@@ -11,14 +11,14 @@ User=root
 Group=docker
 
 # Working directory
-WorkingDirectory=/opt/homelab/localnet
+WorkingDirectory=/opt/localnet/localnet
 
 # Security hardening
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/opt/homelab/localnet/blocklists
+ReadWritePaths=/opt/localnet/localnet/blocklists
 
 # Resource limits
 CPUQuota=50%
@@ -29,10 +29,10 @@ TasksMax=10
 TimeoutStartSec=600
 
 # Restart blocklist compiler container to update blocklists
-ExecStart=/usr/bin/docker compose -f /opt/homelab/localnet/docker-compose.yml up --build --force-recreate blocklist-compiler
+ExecStart=/usr/bin/docker compose -f /opt/localnet/localnet/docker-compose.yml up --build --force-recreate blocklist-compiler
 
 # Restart dnsdist to reload blocklists
-ExecStartPost=/usr/bin/docker compose -f /opt/homelab/localnet/docker-compose.yml restart dnsdist
+ExecStartPost=/usr/bin/docker compose -f /opt/localnet/localnet/docker-compose.yml restart dnsdist
 
 # Logging
 StandardOutput=journal

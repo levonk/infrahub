@@ -5,10 +5,10 @@ services:
     build:
       context: ./chronyd
       dockerfile: docker/Dockerfile.chronyd
-    image: homelab-ntp-chronyd:latest
-    container_name: homelab-ntp-chronyd
+    image: localnet-ntp-chronyd:latest
+    container_name: localnet-ntp-chronyd
     networks:
-      - homelab
+      - localnet
     ports:
       - "${NTP_TRANSPARENT_HOST_PORT:-123}:${NTP_TRANSPARENT_CONTAINER_PORT:-123}/udp"  # Transparent mode UDP
       - "${NTP_TRANSPARENT_HOST_PORT:-123}:${NTP_TRANSPARENT_CONTAINER_PORT:-123}/tcp"  # Transparent mode TCP
@@ -16,15 +16,12 @@ services:
       - "${NTP_DIRECT_HOST_PORT:-1123}:${NTP_DIRECT_CONTAINER_PORT:-1123}/tcp"     # Direct mode TCP (mapped from container port 123)
       - "${CHRONYD_NTS_HOST_PORT:-4460}:4460/tcp"          # NTS-KE (Network Time Security Key Exchange)
       - "${CHRONYD_METRICS_HOST_PORT:-9123}:9123/tcp"      # Metrics (if exporter added later)
-    volumes:
-      - ./services/ntp/chronyd/config:/etc/chrony:ro
-      - chronyd-data:/var/lib/chrony
     healthcheck:
       test: ["CMD", "chronyc", "tracking"]
-      interval: 30s
-      timeout: 5s
+      interval: 60s
+      timeout: 20s
       retries: 3
-      start_period: 30s
+      start_period: 60s
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true

@@ -79,7 +79,7 @@ mode = "bulk"
 auth.strategy = "basic"
 auth.user = "elastic"
 auth.password = "${ELASTICSEARCH_PASSWORD:-changeme}"
-bulk.index = "homelab-logs-%Y.%m.%d"
+bulk.index = "localnet-logs-%Y.%m.%d"
 
 [sinks.elasticsearch.encoding]
 codec = "json"

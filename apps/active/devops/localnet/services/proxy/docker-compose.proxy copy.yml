@@ -14,8 +14,6 @@ services:
       context: ./configs/transparent-gateway
       dockerfile: Dockerfile.transparent-gateway
     container_name: localnet-proxy-transparent-gateway
-    profiles:
-      - gateway  # Only start with: docker-compose up --profile gateway
     cap_add:
       - NET_ADMIN
     sysctls:
@@ -47,8 +45,6 @@ services:
   envoy:
     image: envoyproxy/envoy:v1.28-latest
     container_name: localnet-proxy-envoy
-    profiles:
-      - monitoring  # Only start with: docker-compose up --profile monitoring
     networks:
       - localnet
     ports:
@@ -83,8 +79,6 @@ services:
       - CACHE_SIZE_MB=${PROXY_CACHE_SIZE_MB:-10240}
     depends_on:
       - privoxy
-    profiles:
-      - proxy  # Core proxy chain
     healthcheck:
       test: ["CMD", "squidclient", "-h", "localhost", "mgr:info"]
       interval: 30s
@@ -102,8 +96,6 @@ services:
       - ./configs/web/privoxy:/etc/privoxy:ro
     depends_on:
       - tor
-    profiles:
-      - proxy  # Core proxy chain
     healthcheck:
       test: ["CMD", "nc", "-zv", "localhost", "8118"]
       interval: 30s
@@ -120,8 +112,6 @@ services:
     ports:
       - "${TOR_SOCKS_HOST_PORT:-9050}:9050/tcp"  # SOCKS5 proxy
       - "${TOR_CONTROL_HOST_PORT:-9051}:9051/tcp"  # Control port
-    profiles:
-      - proxy  # Core proxy chain
     healthcheck:
       test: ["CMD", "nc", "-zv", "localhost", "9050"]
       interval: 30s

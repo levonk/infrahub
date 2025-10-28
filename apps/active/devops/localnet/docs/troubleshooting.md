@@ -165,7 +165,7 @@ make up
 ```bash
 # Inspect container
 docker compose ps
-docker inspect homelab-dns-dnsdist
+docker inspect localnet-dns-dnsdist
 
 # Check exit code
 docker compose ps -a
@@ -224,7 +224,7 @@ your-app:
   dns:
     - transparent-gateway  # Must use gateway as DNS
   networks:
-    - homelab
+    - localnet
 ```
 
 **Test from inside app container:**
@@ -459,11 +459,11 @@ docker compose version
 docker compose ps
 
 # All logs
-docker compose logs > homelab-logs.txt
+docker compose logs > localnet-logs.txt
 
 # Network info
 docker network ls
-docker network inspect homelab_homelab
+docker network inspect homelab_localnet
 
 # Volume info
 docker volume ls

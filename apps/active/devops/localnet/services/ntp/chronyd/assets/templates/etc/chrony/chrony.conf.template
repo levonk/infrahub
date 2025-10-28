@@ -73,7 +73,8 @@ log measurements statistics tracking
 ##############################################
 
 # Allow queries from Docker network
-allow 172.20.0.0/16
+#allow 172.20.0.0/16
+allow all
 
 # Deny all other queries (security)
 deny all
@@ -87,7 +88,13 @@ bindaddress 0.0.0.0
 
 # Listen on standard NTP port 123
 # Docker will map this to both 123 (transparent) and 1123 (direct) on the host
-port 123
+port {NTP_TRANSPARENT_CONTAINER_PORT}
+
+## Enable NTS
+ntsserver
+ntsport 4460
+ntscert /etc/chrony/certs/chrony-nts.crt
+ntskey /etc/chrony/certs/chrony-nts.key
 
 ##############################################
 # Performance and accuracy

@@ -3,10 +3,10 @@
 
 services:
   # WireGuard Direct Mode (wg0) - Port 51820
-  # VPN clients have direct internet access, optional homelab services
+  # VPN clients have direct internet access, optional localnet services
   wireguard-direct:
     image: linuxserver/wireguard:latest
-    container_name: homelab-vpn-direct
+    container_name: localnet-vpn-direct
     cap_add:
       - NET_ADMIN
       - SYS_MODULE
@@ -32,7 +32,7 @@ services:
     networks:
       wireguard:
         ipv4_address: 172.21.0.2
-      homelab: {}
+      localnet: {}
     dns:
       - ${HOST_IP}
     healthcheck:
@@ -44,10 +44,10 @@ services:
     restart: unless-stopped
 
   # WireGuard Transparent Mode (wg1) - Port 51821
-  # VPN clients under observation, MUST use homelab services
+  # VPN clients under observation, MUST use localnet services
   wireguard-transparent:
     image: linuxserver/wireguard:latest
-    container_name: homelab-vpn-transparent
+    container_name: localnet-vpn-transparent
     cap_add:
       - NET_ADMIN
       - SYS_MODULE
@@ -73,7 +73,7 @@ services:
     networks:
       wireguard:
         ipv4_address: 172.21.0.3
-      homelab: {}
+      localnet: {}
     dns:
       - 172.20.0.254
     depends_on:

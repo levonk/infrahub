@@ -1,3 +1,38 @@
 # /home/micro/p/gh/lrepo52/job-aide-wt01/apps/active/devops/localnet/services/dns/dnscrypt/assets/etc/dnscrypt-proxy/dnscrypt-proxy-plaintext.toml.template
 
-listen_addresses = ['0.0.0.0:${DNS_DNSCRYPT_PLAINTEXT_CONTAINER_PORT}']
+listen_addresses = ['0.0.0.0:{DNS_DNSCRYPT_PLAINTEXT_CONTAINER_PORT}']
+
+# Use servers reachable over IPv4
+ipv4_servers = true
+
+# Use servers reachable over IPv6 -- Do not enable if you don't have IPv6 connectivity
+ipv6_servers = false
+
+# Use servers implementing the DNSCrypt protocol
+dnscrypt_servers = false
+
+# Use servers implementing the DNS-over-HTTPS protocol
+doh_servers = true
+
+# Do not use servers implementing the Oblivious DNS-over-HTTPS protocol
+odoh_servers = false
+
+# Server must support DNS security extensions (DNSSEC)
+require_dnssec = false
+
+# Server must not log user queries (declarative)
+require_nolog = true
+
+# Server must not enforce its own blacklist (for parental control, ads blocking...)
+require_nofilter = true
+
+server_names = []
+
+[sources]
+
+  [sources.'public-resolvers']
+    urls = ['https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/master/v3/public-resolvers.md', 'https://download.dnscrypt.info/resolvers-list/v3/public-resolvers.md']
+    cache_file = 'public-resolvers.md'
+    minisign_key = 'RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3'
+    refresh_delay = 72
+    prefix = ''

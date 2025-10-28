@@ -6,8 +6,19 @@ USER root
 # Install dnsutils for dig command (needed for health checks)
 RUN apt-get update && apt-get install -y dnsutils curl && rm -rf /var/lib/apt/lists/*
 
+# Copy dnsdist.conf as a Jinja2 template for the startup script
+# The base image's dnsdist-startup script looks for templates in /etc/dnsdist/templates.d/
+# and renders them to /etc/dnsdist/conf.d/ using environment variables
+# The startup script appends .j2 to TEMPLATE_FILES, so we name it dnsdist.j2
+# This will be rendered to /etc/dnsdist/conf.d/dnsdist.conf
+COPY configs/dnsdist.conf /etc/dnsdist/templates.d/dnsdist.j2
+
 # Set the healthcheck port as a variable
 ENV DNSDIST_HEALTHCHECK_PORT=5353
+
+# Tell the startup script to render the dnsdist template
+# This will create /etc/dnsdist/conf.d/dnsdist.conf from the template
+ENV TEMPLATE_FILES=dnsdist
 
 # Healthcheck to ensure dnsdist is responding
 HEALTHCHECK --interval=10s --timeout=5s --start-period=15s --retries=3 \

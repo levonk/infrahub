@@ -11,7 +11,7 @@ RED := \033[0;31m
 NC := \033[0m # No Color
 
 ENSURE_NETWORK := ./scripts/ensure-network.py
-NETWORK_NAME := localnet_homelab
+NETWORK_NAME := localnet_default
 
 help: ## Show this help message
 	@echo "$(BLUE)Home Lab In-a-Box - Available Commands$(NC)"
@@ -21,25 +21,29 @@ help: ## Show this help message
 
 build: ## Build all Docker images
 	@echo "$(BLUE)Building all Docker images...$(NC)"
-	docker compose build
+	docker compose --progress=plain build
 	@echo "$(GREEN)✓ Build complete$(NC)"
 
-up: ## Start all services
+build-base: ## Build base images
+	@echo "$(BLUE)Building base images...$(NC)"
+	docker compose --progress=plain -f services/base/docker-compose.base.yml build
+	@echo "$(GREEN)✓ Base images built$(NC)"
+
+up: build-base ## Start all services
 	@echo "$(BLUE)Starting all services...$(NC)"
-	@$(ENSURE_NETWORK) -f docker-compose.yml --label "com.docker.compose.network=homelab"
-	@sleep 1
-	docker compose up -d
+		@sleep 1
+	docker compose --progress=plain up -d
 	@echo "$(GREEN)✓ Services started$(NC)"
 	@echo "Run 'make health-check' to verify service health"
 
 down: ## Stop all services
 	@echo "$(YELLOW)Stopping all services...$(NC)"
-	docker compose down
+	docker compose --progress=plain down
 	@echo "$(GREEN)✓ Services stopped$(NC)"
 
 restart: ## Restart all services
 	@echo "$(YELLOW)Restarting all services...$(NC)"
-	docker compose restart
+	docker compose --progress=plain restart
 	@echo "$(GREEN)✓ Services restarted$(NC)"
 
 logs: ## View logs from all services (last 100 lines)
@@ -108,11 +112,17 @@ fix-configs: clean-configs ## Recreate all config files from templates
 
 clean: ## Remove all containers, volumes, and networks, then restart services
 	@echo "$(YELLOW)Cleaning up Docker resources and restarting...$(NC)"
-	@echo "$(BLUE)Force-removing stuck containers...$(NC)"
-	@docker ps -a --filter "name=homelab-" --format "{{.Names}}" | xargs -r docker rm -f 2>/dev/null || true
-	@docker ps -a --filter "name=localnet-" --format "{{.Names}}" | xargs -r docker rm -f 2>/dev/null || true
+	@echo "$(BLUE)Stopping and removing all containers...$(NC)"
 	docker compose down -v --remove-orphans 2>/dev/null || true
+	@echo "$(BLUE)Force-removing any stuck containers...$(NC)"
+	@docker ps -a --filter "name=localnet-" --format "{{.Names}}" | xargs -r docker rm -f 2>/dev/null || true
+	@docker ps -a --filter "name=localnet-" --format "{{.Names}}" | xargs -r docker rm -f 2>/dev/null || true
+	@docker ps -a --filter "name=base-" --format "{{.Names}}" | xargs -r docker rm -f 2>/dev/null || true
+	@echo "$(BLUE)Removing networks...$(NC)"
 	docker network rm $(NETWORK_NAME) 2>/dev/null || true
+	docker network rm localnet_default 2>/dev/null || true
+	@echo "$(BLUE)Pruning system...$(NC)"
+	docker system prune -f --volumes
 	@sleep 2
 	@echo "$(GREEN)✓ Cleanup complete, starting services...$(NC)"
 	@$(MAKE) up

@@ -22,11 +22,11 @@ echo ""
 
 # Get actual IPs from running containers
 <<<<<<< HEAD
-ACTUAL_COREDNS_IP=$(docker inspect homelab-coredns --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null || echo "NOT_RUNNING")
-ACTUAL_DNSCRYPT_IP=$(docker inspect homelab-dnscrypt-proxy --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null || echo "NOT_RUNNING")
+ACTUAL_COREDNS_IP=$(docker inspect localnet-coredns --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null || echo "NOT_RUNNING")
+ACTUAL_DNSCRYPT_IP=$(docker inspect localnet-dnscrypt-proxy --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null || echo "NOT_RUNNING")
 =======
-ACTUAL_COREDNS_IP=$(docker inspect homelab-dns-coredns --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null || echo "NOT_RUNNING")
-ACTUAL_DNSCRYPT_IP=$(docker inspect homelab-dns-dnscrypt-proxy --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null || echo "NOT_RUNNING")
+ACTUAL_COREDNS_IP=$(docker inspect localnet-dns-coredns --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null || echo "NOT_RUNNING")
+ACTUAL_DNSCRYPT_IP=$(docker inspect localnet-dns-dnscrypt-proxy --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null || echo "NOT_RUNNING")
 >>>>>>> 002-claude-code-integration
 
 # Validation flags

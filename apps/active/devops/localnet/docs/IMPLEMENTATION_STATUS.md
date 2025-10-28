@@ -1,7 +1,7 @@
 # Implementation Status: Home Lab In-a-Box
 
 **Last Updated**: 2025-01-21  
-**Feature Branch**: `001-homelab-in-a-box`  
+**Feature Branch**: `001-localnet-in-a-box`  
 **Target Path**: `apps/active/devops/localnet/`
 
 ## Overview

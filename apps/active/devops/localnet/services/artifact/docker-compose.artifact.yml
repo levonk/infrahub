@@ -11,10 +11,10 @@ services:
     build:
       context: ./nexus/docker
       dockerfile: Dockerfile
-    image: homelab-artifact-nexus:latest
-    container_name: homelab-artifact-nexus
+    image: localnet-artifact-nexus:latest
+    container_name: localnet-artifact-nexus
     networks:
-      - homelab
+      - localnet
     ports:
       - "${NEXUS_WEB_HOST_PORT:-8081}:8081/tcp"
       - "${NEXUS_DOCKER_HOST_PORT:-8082}:8082/tcp"
@@ -32,9 +32,9 @@ services:
 
   verdaccio:
     image: verdaccio/verdaccio:latest
-    container_name: homelab-artifact-verdaccio
+    container_name: localnet-artifact-verdaccio
     networks:
-      - homelab
+      - localnet
     ports:
       - "${VERDACCIO_HOST_PORT:-4873}:${VERDACCIO_PORT:-4873}/tcp"
     volumes:

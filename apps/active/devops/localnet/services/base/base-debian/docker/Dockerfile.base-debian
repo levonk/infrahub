@@ -1,5 +1,5 @@
 # Debian-based base image for services requiring Debian compatibility
-FROM debian:12-slim@sha256:3d5df92588469a4c503adbead0e4129ef3a087328075da80fff115c0af501ea52
+FROM debian:bookworm-slim
 
 # Labels for metadata and security scanning
 LABEL org.opencontainers.image.title="Base Debian Image" \
@@ -23,12 +23,10 @@ RUN apt-get update && \
         lsb-release \
         bash \
         && \
-    # Clean up to reduce image size and remove package manager
+    # Clean up to reduce image size
     apt-get clean && \
     apt-get autoremove -y && \
-    rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/* && \
-    # Remove package manager to prevent runtime package installs
-    rm -f /usr/bin/apt* /usr/bin/dpkg*
+    rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 
 # Create standard directories with proper permissions
 RUN mkdir -p /etc/service/config /healthcheck /tmp && \

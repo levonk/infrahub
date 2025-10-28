@@ -126,7 +126,61 @@ echo "DNS Leak Test"
 echo "========================================="
 echo ""
 
+# Port checking function
+check_container_ports() {
+    local container_name="$1"
+    echo ""
+    echo "Container: $container_name"
+    echo "---"
+    
+    # Get all exposed ports from docker-compose
+    local ports=$(docker compose -f "$PROJECT_ROOT/docker-compose.yml" port "$container_name" 2>/dev/null || echo "")
+    
+    if [[ -z "$ports" ]]; then
+        echo "  No ports exposed"
+        return
+    fi
+    
+    # Parse and test each port
+    while IFS= read -r port_mapping; do
+        if [[ -n "$port_mapping" ]]; then
+            local container_port=$(echo "$port_mapping" | cut -d' ' -f1)
+            local host_port=$(echo "$port_mapping" | cut -d' ' -f3)
+            local protocol=$(echo "$port_mapping" | grep -o 'tcp\|udp' || echo "tcp")
+            
+            echo "  Port: $container_port → localhost:$host_port ($protocol)"
+            
+            # Test connectivity
+            if [[ "$protocol" == "udp" ]]; then
+                if timeout 1 bash -c "echo '' > /dev/udp/127.0.0.1/$host_port" 2>/dev/null; then
+                    echo "    ✓ UDP port $host_port is accessible"
+                else
+                    echo "    ✗ UDP port $host_port is NOT accessible"
+                fi
+            else
+                if timeout 1 bash -c "cat < /dev/null > /dev/tcp/127.0.0.1/$host_port" 2>/dev/null; then
+                    echo "    ✓ TCP port $host_port is accessible"
+                else
+                    echo "    ✗ TCP port $host_port is NOT accessible"
+                fi
+            fi
+        fi
+    done <<< "$ports"
+}
+
+# Test 0: Port Exposure Check
+echo "Test 0: Container Port Exposure"
+echo "========================================="
+
+# Get all running containers
+CONTAINERS=$(docker compose -f "$PROJECT_ROOT/docker-compose.yml" ps --services 2>/dev/null || echo "")
+
+for container in $CONTAINERS; do
+    check_container_ports "$container"
+done
+
 # Test 1: Verify dnsdist is running and accessible
+echo ""
 echo "Test 1: DNS Service Availability"
 IFS='|' read -r DNSDIST_STATUS DNSDIST_UPTIME DNSDIST_HEALTH <<< "$(parse_container_status dnsdist)"
 if echo "$DNSDIST_STATUS" | grep -q "Up"; then

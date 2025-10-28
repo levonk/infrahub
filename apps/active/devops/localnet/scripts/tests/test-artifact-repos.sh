@@ -67,7 +67,7 @@ test_verdaccio_publish() {
 
     cat > "$test_dir/package.json" << 'EOF'
 {
-  "name": "@homelab/test-package",
+  "name": "@localnet/test-package",
   "version": "1.0.0",
   "description": "Test package for Verdaccio",
   "private": true
