@@ -34,9 +34,9 @@ server time.windows.com iburst
 
 # NOTE: NTS requires TCP port 4460 for key exchange
 # Currently blocked by network - these will timeout but won't prevent sync
-# server time.google.com iburst nts
-# server time2.google.com iburst nts
-# server time.nist.gov iburst nts
+server time.google.com iburst nts
+server time2.google.com iburst nts
+server time.nist.gov iburst nts
 
 ##############################################
 # Leap smearing configuration
@@ -116,7 +116,8 @@ minsources 2
 
 # Enable command socket for monitoring (chronyc)
 # Listen on localhost only for security
-bindcmdaddress 127.0.0.1
+#bindcmdaddress 127.0.0.1
+bindcmdaddress 0.0.0.0
 
 ##############################################
 # NTS configuration
