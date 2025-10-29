@@ -19,7 +19,7 @@ services:
       - "${NEXUS_WEB_HOST_PORT:-8081}:8081/tcp"
       - "${NEXUS_DOCKER_HOST_PORT:-8082}:8082/tcp"
     volumes:
-      - nexus-data:/nexus-data
+      - /mnt/d/p/personal/data/docker/volumes/hybrid/nexus-data:/nexus-data
     environment:
       - INSTALL4J_ADD_VM_PARAMS=-Xms2g -Xmx2g -XX:MaxDirectMemorySize=2g
     healthcheck:
@@ -38,7 +38,7 @@ services:
     ports:
       - "${VERDACCIO_HOST_PORT:-4873}:${VERDACCIO_PORT:-4873}/tcp"
     volumes:
-      - verdaccio-data:/verdaccio/storage
+      - /mnt/d/p/personal/data/docker/volumes/cache/verdaccio-data:/verdaccio-data
       - ../../configs/artifacts/verdaccio/config.yaml:/verdaccio/conf/config.yaml:ro
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:4873/-/ping"]

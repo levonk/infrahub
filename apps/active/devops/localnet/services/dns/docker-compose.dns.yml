@@ -39,20 +39,6 @@ services:
     depends_on:
       coredns:
         condition: service_healthy
-      dnscrypt-proxy:
-        condition: service_healthy
-      dnscrypt-odoh:
-        condition: service_started
-      dnscrypt-anon:
-        condition: service_started
-      dnscrypt-doh:
-        condition: service_started
-      dnscrypt-encrypted:
-        condition: service_started
-      dnscrypt-plaintext:
-        condition: service_started
-      dnscrypt-tor:
-        condition: service_started
     healthcheck:
       test: ["CMD", "dig", "+short", "example.com", "@127.0.0.1", "-p", "${DNS_DIRECT_CONTAINER_PORT:-5353}"]
       interval: 10s
@@ -91,7 +77,7 @@ services:
       - ./coredns/configs/Corefile:/etc/coredns/Corefile:ro
       - dns-cache:/var/lib/coredns
     depends_on:
-      dnscrypt-proxy:
+      dnscrypt-plaintext:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://127.0.0.1:${COREDNS_HEALTH_CONTAINER_PORT:-18080}/health"]
@@ -101,98 +87,100 @@ services:
       start_period: 10s
     restart: unless-stopped
 
-  dnscrypt-odoh:
-    build:
-      context: ./dnscrypt
-      dockerfile: docker/Dockerfile.dnscrypt-proxy
-    image: localnet-dns-dnscrypt-odoh:latest
-    container_name: localnet-dns-dnscrypt-odoh
-    networks:
-      - localnet
-    ports:
-      - "${DNS_DNSCRYPT_ODOH_HOST_PORT:-5360}:${DNS_DNSCRYPT_ODOH_CONTAINER_PORT:-5053}/udp"
-      - "${DNS_DNSCRYPT_ODOH_HOST_PORT:-5360}:${DNS_DNSCRYPT_ODOH_CONTAINER_PORT:-5053}/tcp"
-    environment:
-      - DNS_DNSCRYPT_ODOH_CONTAINER_PORT=${DNS_DNSCRYPT_ODOH_CONTAINER_PORT:-5053}
-      - PROXY_SOCKS5_TOR_IP=${PROXY_SOCKS5_TOR_IP:-172.20.255.70}
-      - PROXY_SOCKS5_TOR_CONTAINER_PORT=${PROXY_SOCKS5_TOR_CONTAINER_PORT:-9050}
-    # IMPORTANT: Pass ONLY the config name WITHOUT .toml extension to the entrypoint script.
-    # The script prepends /etc/dnscrypt-proxy/ and appends .toml.template automatically.
-    # Each service must specify its own config variant (odoh, anon, std, doh, encrypted, plaintext, tor)
-    command: ["dnscrypt-proxy-odoh"]
-    restart: unless-stopped
-
-  dnscrypt-anon:
-    build:
-      context: ./dnscrypt
-      dockerfile: docker/Dockerfile.dnscrypt-proxy
-    image: localnet-dns-dnscrypt-anon:latest
-    container_name: localnet-dns-dnscrypt-anon
-    networks:
-      - localnet
-    ports:
-      - "${DNS_DNSCRYPT_ANON_HOST_PORT:-5361}:${DNS_DNSCRYPT_ANON_CONTAINER_PORT:-5054}/udp"
-      - "${DNS_DNSCRYPT_ANON_HOST_PORT:-5361}:${DNS_DNSCRYPT_ANON_CONTAINER_PORT:-5054}/tcp"
-    environment:
-      - DNS_DNSCRYPT_ANON_CONTAINER_PORT=${DNS_DNSCRYPT_ANON_CONTAINER_PORT:-5054}
-      - PROXY_SOCKS5_TOR_IP=${PROXY_SOCKS5_TOR_IP:-172.20.255.70}
-      - PROXY_SOCKS5_TOR_CONTAINER_PORT=${PROXY_SOCKS5_TOR_CONTAINER_PORT:-9050}
-    command: ["dnscrypt-proxy-anon"]
-    restart: unless-stopped
-
-  dnscrypt-proxy:
-    build:
-      context: ./dnscrypt
-      dockerfile: docker/Dockerfile.dnscrypt-proxy
-    image: localnet-dns-dnscrypt-proxy:latest
-    container_name: localnet-dns-dnscrypt-proxy
-    networks:
-      - localnet
-    ports:
-      - "${DNS_DNSCRYPT_STD_HOST_PORT:-5362}:${DNS_DNSCRYPT_STD_CONTAINER_PORT:-5055}/udp"
-      - "${DNS_DNSCRYPT_STD_HOST_PORT:-5362}:${DNS_DNSCRYPT_STD_CONTAINER_PORT:-5055}/tcp"
-    environment:
-      - DNS_DNSCRYPT_STD_CONTAINER_PORT=${DNS_DNSCRYPT_STD_CONTAINER_PORT:-5055}
-      - PROXY_SOCKS5_TOR_IP=${PROXY_SOCKS5_TOR_IP:-172.20.255.70}
-      - PROXY_SOCKS5_TOR_CONTAINER_PORT=${PROXY_SOCKS5_TOR_CONTAINER_PORT:-9050}
-    command: ["dnscrypt-proxy-std"]
-    restart: unless-stopped
-
-  dnscrypt-doh:
-    build:
-      context: ./dnscrypt
-      dockerfile: docker/Dockerfile.dnscrypt-proxy
-    image: localnet-dns-dnscrypt-doh:latest
-    container_name: localnet-dns-dnscrypt-doh
-    networks:
-      - localnet
-    ports:
-      - "${DNS_DNSCRYPT_DOH_HOST_PORT:-5363}:${DNS_DNSCRYPT_DOH_CONTAINER_PORT:-5056}/udp"
-      - "${DNS_DNSCRYPT_DOH_HOST_PORT:-5363}:${DNS_DNSCRYPT_DOH_CONTAINER_PORT:-5056}/tcp"
-    environment:
-      - DNS_DNSCRYPT_DOH_CONTAINER_PORT=${DNS_DNSCRYPT_DOH_CONTAINER_PORT:-5056}
-      - PROXY_SOCKS5_TOR_IP=${PROXY_SOCKS5_TOR_IP:-172.20.255.70}
-      - PROXY_SOCKS5_TOR_CONTAINER_PORT=${PROXY_SOCKS5_TOR_CONTAINER_PORT:-9050}
-    command: ["dnscrypt-proxy-doh"]
-    restart: unless-stopped
-
-  dnscrypt-encrypted:
-    build:
-      context: ./dnscrypt
-      dockerfile: docker/Dockerfile.dnscrypt-proxy
-    image: localnet-dns-dnscrypt-encrypted:latest
-    container_name: localnet-dns-dnscrypt-encrypted
-    networks:
-      - localnet
-    ports:
-      - "${DNS_DNSCRYPT_ENCRYPTED_HOST_PORT:-5364}:${DNS_DNSCRYPT_ENCRYPTED_CONTAINER_PORT:-5057}/udp"
-      - "${DNS_DNSCRYPT_ENCRYPTED_HOST_PORT:-5364}:${DNS_DNSCRYPT_ENCRYPTED_CONTAINER_PORT:-5057}/tcp"
-    environment:
-      - DNS_DNSCRYPT_ENCRYPTED_CONTAINER_PORT=${DNS_DNSCRYPT_ENCRYPTED_CONTAINER_PORT:-5057}
-      - PROXY_SOCKS5_TOR_IP=${PROXY_SOCKS5_TOR_IP:-172.20.255.70}
-      - PROXY_SOCKS5_TOR_CONTAINER_PORT=${PROXY_SOCKS5_TOR_CONTAINER_PORT:-9050}
-    command: ["dnscrypt-proxy-encrypted"]
-    restart: unless-stopped
+#  dnscrypt-odoh:
+#    build:
+#      context: ./dnscrypt
+#      dockerfile: docker/Dockerfile.dnscrypt-proxy
+#    image: localnet-dns-dnscrypt-odoh:latest
+#    container_name: localnet-dns-dnscrypt-odoh
+#    networks:
+#      - localnet
+#    volumes:
+#      - ./dnscrypt/mounts/templates:/templates
+#    ports:
+#      - "${DNS_DNSCRYPT_ODOH_HOST_PORT:-5360}:${DNS_DNSCRYPT_ODOH_CONTAINER_PORT:-5053}/udp"
+#      - "${DNS_DNSCRYPT_ODOH_HOST_PORT:-5360}:${DNS_DNSCRYPT_ODOH_CONTAINER_PORT:-5053}/tcp"
+#    environment:
+#      - DNS_DNSCRYPT_ODOH_CONTAINER_PORT=${DNS_DNSCRYPT_ODOH_CONTAINER_PORT:-5053}
+#      - PROXY_SOCKS5_TOR_IP=${PROXY_SOCKS5_TOR_IP:-172.20.255.70}
+#      - PROXY_SOCKS5_TOR_CONTAINER_PORT=${PROXY_SOCKS5_TOR_CONTAINER_PORT:-9050}
+#    # IMPORTANT: Pass ONLY the config name WITHOUT .toml extension to the entrypoint script.
+#    # The script prepends /etc/dnscrypt-proxy/ and appends .toml.template automatically.
+#    # Each service must specify its own config variant (odoh, anon, std, doh, encrypted, plaintext, tor)
+#    command: ["dnscrypt-proxy-odoh"]
+#    restart: unless-stopped
+#
+#  dnscrypt-anon:
+#    build:
+#      context: ./dnscrypt
+#      dockerfile: docker/Dockerfile.dnscrypt-proxy
+#    image: localnet-dns-dnscrypt-anon:latest
+#    container_name: localnet-dns-dnscrypt-anon
+#    networks:
+#      - localnet
+#    ports:
+#      - "${DNS_DNSCRYPT_ANON_HOST_PORT:-5361}:${DNS_DNSCRYPT_ANON_CONTAINER_PORT:-5054}/udp"
+#      - "${DNS_DNSCRYPT_ANON_HOST_PORT:-5361}:${DNS_DNSCRYPT_ANON_CONTAINER_PORT:-5054}/tcp"
+#    environment:
+#      - DNS_DNSCRYPT_ANON_CONTAINER_PORT=${DNS_DNSCRYPT_ANON_CONTAINER_PORT:-5054}
+#      - PROXY_SOCKS5_TOR_IP=${PROXY_SOCKS5_TOR_IP:-172.20.255.70}
+#      - PROXY_SOCKS5_TOR_CONTAINER_PORT=${PROXY_SOCKS5_TOR_CONTAINER_PORT:-9050}
+#    command: ["dnscrypt-proxy-anon"]
+#    restart: unless-stopped
+#
+#  dnscrypt-proxy:
+#    build:
+#      context: ./dnscrypt
+#      dockerfile: docker/Dockerfile.dnscrypt-proxy
+#    image: localnet-dns-dnscrypt-proxy:latest
+#    container_name: localnet-dns-dnscrypt-proxy
+#    networks:
+#      - localnet
+#    ports:
+#      - "${DNS_DNSCRYPT_STD_HOST_PORT:-5362}:${DNS_DNSCRYPT_STD_CONTAINER_PORT:-5055}/udp"
+#      - "${DNS_DNSCRYPT_STD_HOST_PORT:-5362}:${DNS_DNSCRYPT_STD_CONTAINER_PORT:-5055}/tcp"
+#    environment:
+#      - DNS_DNSCRYPT_STD_CONTAINER_PORT=${DNS_DNSCRYPT_STD_CONTAINER_PORT:-5055}
+#      - PROXY_SOCKS5_TOR_IP=${PROXY_SOCKS5_TOR_IP:-172.20.255.70}
+#      - PROXY_SOCKS5_TOR_CONTAINER_PORT=${PROXY_SOCKS5_TOR_CONTAINER_PORT:-9050}
+#    command: ["dnscrypt-proxy-std"]
+#    restart: unless-stopped
+#
+#  dnscrypt-doh:
+#    build:
+#      context: ./dnscrypt
+#      dockerfile: docker/Dockerfile.dnscrypt-proxy
+#    image: localnet-dns-dnscrypt-doh:latest
+#    container_name: localnet-dns-dnscrypt-doh
+#    networks:
+#      - localnet
+#    ports:
+#      - "${DNS_DNSCRYPT_DOH_HOST_PORT:-5363}:${DNS_DNSCRYPT_DOH_CONTAINER_PORT:-5056}/udp"
+#      - "${DNS_DNSCRYPT_DOH_HOST_PORT:-5363}:${DNS_DNSCRYPT_DOH_CONTAINER_PORT:-5056}/tcp"
+#    environment:
+#      - DNS_DNSCRYPT_DOH_CONTAINER_PORT=${DNS_DNSCRYPT_DOH_CONTAINER_PORT:-5056}
+#      - PROXY_SOCKS5_TOR_IP=${PROXY_SOCKS5_TOR_IP:-172.20.255.70}
+#      - PROXY_SOCKS5_TOR_CONTAINER_PORT=${PROXY_SOCKS5_TOR_CONTAINER_PORT:-9050}
+#    command: ["dnscrypt-proxy-doh"]
+#    restart: unless-stopped
+#
+#  dnscrypt-encrypted:
+#    build:
+#      context: ./dnscrypt
+#      dockerfile: docker/Dockerfile.dnscrypt-proxy
+#    image: localnet-dns-dnscrypt-encrypted:latest
+#    container_name: localnet-dns-dnscrypt-encrypted
+#    networks:
+#      - localnet
+#    ports:
+#      - "${DNS_DNSCRYPT_ENCRYPTED_HOST_PORT:-5364}:${DNS_DNSCRYPT_ENCRYPTED_CONTAINER_PORT:-5057}/udp"
+#      - "${DNS_DNSCRYPT_ENCRYPTED_HOST_PORT:-5364}:${DNS_DNSCRYPT_ENCRYPTED_CONTAINER_PORT:-5057}/tcp"
+#    environment:
+#      - DNS_DNSCRYPT_ENCRYPTED_CONTAINER_PORT=${DNS_DNSCRYPT_ENCRYPTED_CONTAINER_PORT:-5057}
+#      - PROXY_SOCKS5_TOR_IP=${PROXY_SOCKS5_TOR_IP:-172.20.255.70}
+#      - PROXY_SOCKS5_TOR_CONTAINER_PORT=${PROXY_SOCKS5_TOR_CONTAINER_PORT:-9050}
+#    command: ["dnscrypt-proxy-encrypted"]
+#    restart: unless-stopped
 
   dnscrypt-plaintext:
     build:
@@ -202,36 +190,36 @@ services:
     container_name: localnet-dns-dnscrypt-plaintext
     networks:
       - localnet
+    volumes:
+      - ./dnscrypt/mounts/templates:/templates
     ports:
       - "${DNS_DNSCRYPT_PLAINTEXT_HOST_PORT:-5365}:${DNS_DNSCRYPT_PLAINTEXT_CONTAINER_PORT:-5058}/udp"
       - "${DNS_DNSCRYPT_PLAINTEXT_HOST_PORT:-5365}:${DNS_DNSCRYPT_PLAINTEXT_CONTAINER_PORT:-5058}/tcp"
     environment:
       - DNS_DNSCRYPT_PLAINTEXT_CONTAINER_PORT=${DNS_DNSCRYPT_PLAINTEXT_CONTAINER_PORT:-5058}
-      - PROXY_SOCKS5_TOR_IP=${PROXY_SOCKS5_TOR_IP:-172.20.255.70}
-      - PROXY_SOCKS5_TOR_CONTAINER_PORT=${PROXY_SOCKS5_TOR_CONTAINER_PORT:-9050}
-    command: ["dnscrypt-proxy-plaintext"]
+    command: ["/usr/local/bin/entrypoint-dnscrypt.sh", "dnscrypt-proxy-plaintext"]
     restart: unless-stopped
 
-  dnscrypt-tor:
-    build:
-      context: ./dnscrypt
-      dockerfile: docker/Dockerfile.dnscrypt-proxy
-    image: localnet-dns-dnscrypt-tor:latest
-    container_name: localnet-dns-dnscrypt-tor
-    networks:
-      - localnet
-    ports:
-      - "${DNS_DNSCRYPT_TOR_HOST_PORT:-5366}:${DNS_DNSCRYPT_TOR_CONTAINER_PORT:-5066}/udp"
-      - "${DNS_DNSCRYPT_TOR_HOST_PORT:-5366}:${DNS_DNSCRYPT_TOR_CONTAINER_PORT:-5066}/tcp"
-    environment:
-      - DNS_DNSCRYPT_TOR_CONTAINER_PORT=${DNS_DNSCRYPT_TOR_CONTAINER_PORT:-5066}
-      - PROXY_SOCKS5_TOR_IP=${PROXY_SOCKS5_TOR_IP:-172.20.255.70}
-      - PROXY_SOCKS5_TOR_CONTAINER_PORT=${PROXY_SOCKS5_TOR_CONTAINER_PORT:-9050}
-    command: ["dnscrypt-proxy-tor"]
-    depends_on:
-      tor-proxy:
-        condition: service_healthy
-    restart: unless-stopped
+#  dnscrypt-tor:
+#    build:
+#      context: ./dnscrypt
+#      dockerfile: docker/Dockerfile.dnscrypt-proxy
+#    image: localnet-dns-dnscrypt-tor:latest
+#    container_name: localnet-dns-dnscrypt-tor
+#    networks:
+#      - localnet
+#    ports:
+#      - "${DNS_DNSCRYPT_TOR_HOST_PORT:-5366}:${DNS_DNSCRYPT_TOR_CONTAINER_PORT:-5066}/udp"
+#      - "${DNS_DNSCRYPT_TOR_HOST_PORT:-5366}:${DNS_DNSCRYPT_TOR_CONTAINER_PORT:-5066}/tcp"
+#    environment:
+#      - DNS_DNSCRYPT_TOR_CONTAINER_PORT=${DNS_DNSCRYPT_TOR_CONTAINER_PORT:-5066}
+#      - PROXY_SOCKS5_TOR_IP=${PROXY_SOCKS5_TOR_IP:-172.20.255.70}
+#      - PROXY_SOCKS5_TOR_CONTAINER_PORT=${PROXY_SOCKS5_TOR_CONTAINER_PORT:-9050}
+#    command: ["dnscrypt-proxy-tor"]
+#    depends_on:
+#      tor-proxy:
+#        condition: service_healthy
+#    restart: unless-stopped
 
   tor-proxy:
     build:

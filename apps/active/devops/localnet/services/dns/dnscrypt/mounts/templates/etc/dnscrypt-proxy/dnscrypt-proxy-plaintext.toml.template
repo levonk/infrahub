@@ -12,7 +12,7 @@ ipv6_servers = false
 dnscrypt_servers = false
 
 # Use servers implementing the DNS-over-HTTPS protocol
-doh_servers = true
+doh_servers = false
 
 # Do not use servers implementing the Oblivious DNS-over-HTTPS protocol
 odoh_servers = false
@@ -36,3 +36,5 @@ server_names = []
     minisign_key = 'RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3'
     refresh_delay = 72
     prefix = ''
+
+# vim: set ft=toml

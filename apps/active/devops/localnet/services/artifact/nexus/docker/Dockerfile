@@ -26,7 +26,7 @@ ENV NEXUS_ADMIN_USERNAME=admin \
     NEXUS_DOCKER_V1_ENABLED=false \
     NEXUS_DOCKER_FORCE_BASIC_AUTH=true \
 	NEXUS_SKIP_DOCKER_SETUP=false \
-	NEXUS_WEB_CONTAINER_PORT=8081
+	NEXUS_WEB_CONTAINER_PORT=${NEXUS_WEB_CONTAINER_PORT:-8081}
 
 # Health check for Nexus service
 HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \

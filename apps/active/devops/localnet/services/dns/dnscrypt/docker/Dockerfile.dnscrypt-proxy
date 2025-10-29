@@ -4,22 +4,7 @@
 # The official releases fail to bind to IPv4 when running as non-root on Alpine Linux.
 # This Dockerfile uses a pre-built binary compiled from the development branch.
 
-# Stage 1: Builder
-# This stage gathers all necessary assets from the build context.
-FROM base-alpine AS builder
-
-USER root
-
-# Copy all assets into the builder stage
-COPY assets/ /assets/
-
-# Ensure the binary and entrypoint are executable
-RUN chmod +x /assets/usr/local/bin/dnscrypt-proxy /assets/entrypoint-dnscrypt.sh
-
-
-# Stage 2: Runtime
-# This stage builds the final, lean production image.
-FROM base-alpine AS runtime
+FROM base-alpine:latest
 
 USER root
 
@@ -28,32 +13,25 @@ RUN apk add --no-cache \
     bash \
     ca-certificates
 
-# Create required directories
-RUN mkdir -p /etc/dnscrypt-proxy /var/cache/dnscrypt-proxy /var/log/dnscrypt-proxy
 
 # Create non-root user and set initial ownership
 # The service runs as root to bind to port 5053, but we prepare the user for future hardening.
-RUN addgroup -g 1000 dnscrypt && \
-    adduser -D -u 1000 -G dnscrypt dnscrypt && \
-    chown -R dnscrypt:dnscrypt /var/cache/dnscrypt-proxy /var/log/dnscrypt-proxy
+RUN addgroup -g 1010 dnscrypt && \
+	adduser -D -u 1010 -G dnscrypt dnscrypt
 
-# Copy artifacts from the builder stage
-COPY --from=builder /assets/usr/local/bin/dnscrypt-proxy /usr/local/bin/dnscrypt-proxy
-COPY --from=builder /assets/entrypoint-dnscrypt.sh /entrypoint-dnscrypt.sh
-COPY --from=builder /assets/etc/dnscrypt-proxy/ /etc/dnscrypt-proxy/
+# Copy all assets into the builder stage
+COPY --chown=dnscrypt:dnscrypt assets/usr/local/bin/dnscrypt-proxy /usr/local/bin/dnscrypt-proxy
+COPY --chown=dnscrypt:dnscrypt assets/entrypoint-dnscrypt.sh /usr/local/bin/entrypoint-dnscrypt.sh
 
-# Create empty placeholder files for optional features and set permissions
-RUN touch /etc/dnscrypt-proxy/blocked-names.txt \
-          /etc/dnscrypt-proxy/cloaking-rules.txt && \
-    chown dnscrypt:dnscrypt /etc/dnscrypt-proxy/*.txt
+# Set ownership for the directories that will be used by the non-root user
+RUN mkdir -p /templates /etc/dnscrypt-proxy /var/cache/dnscrypt-proxy /var/log/dnscrypt-proxy && \
+	chown -R dnscrypt:dnscrypt /etc/dnscrypt-proxy /var/cache/dnscrypt-proxy /var/log/dnscrypt-proxy && \
+	chmod 755 /templates /etc/dnscrypt-proxy /var/cache/dnscrypt-proxy /var/log/dnscrypt-proxy /usr/local/bin/entrypoint-dnscrypt.sh /usr/local/bin/dnscrypt-proxy
 
-# Ensure entrypoint is executable
-RUN chmod +x /entrypoint-dnscrypt.sh
 
-# Run as root to allow binding to port 5053
 # TODO: Consider using capabilities (CAP_NET_BIND_SERVICE) to allow non-root binding to privileged ports
-USER root
 
+VOLUME ["/templates"]
 # Expose DNS port (will be overridden by docker-compose port mapping)
 EXPOSE 5053/udp 5053/tcp
 
@@ -62,4 +40,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
     CMD /usr/local/bin/dnscrypt-proxy -resolve cloudflare.com -config /etc/dnscrypt-proxy/dnscrypt-proxy-std.toml || exit 1
 
 # Run entrypoint script which substitutes the port and starts dnscrypt-proxy
-ENTRYPOINT ["/entrypoint-dnscrypt.sh"]
+ENTRYPOINT ["/usr/local/bin/entrypoint-dnscrypt.sh"]
