@@ -31,13 +31,15 @@ RUN mkdir -p /templates /etc/dnscrypt-proxy /var/cache/dnscrypt-proxy /var/log/d
 
 # TODO: Consider using capabilities (CAP_NET_BIND_SERVICE) to allow non-root binding to privileged ports
 
+# Volume reminder, templates containe the configuration
 VOLUME ["/templates"]
+
 # Expose DNS port (will be overridden by docker-compose port mapping)
 EXPOSE 5053/udp 5053/tcp
 
 # Health check (uses a default config path for validation)
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD /usr/local/bin/dnscrypt-proxy -resolve cloudflare.com -config /etc/dnscrypt-proxy/dnscrypt-proxy-std.toml || exit 1
+	CMD /usr/local/bin/dnscrypt-proxy -resolve cloudflare.com -config /etc/dnscrypt-proxy/dnscrypt-proxy.toml || exit 1
 
 # Run entrypoint script which substitutes the port and starts dnscrypt-proxy
 ENTRYPOINT ["/usr/local/bin/entrypoint-dnscrypt.sh"]

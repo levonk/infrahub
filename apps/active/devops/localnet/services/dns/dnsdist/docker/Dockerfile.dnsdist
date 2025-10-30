@@ -1,17 +1,20 @@
-FROM powerdns/dnsdist-21:latest
+FROM base-alpine:latest
 
 # Switch to root to install packages
 USER root
 
 # Install dnsutils for dig command (needed for health checks)
-RUN apt-get update && apt-get install -y dnsutils curl && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache dnsdist bind-tools bash curl tini
 
-# Copy dnsdist.conf as a Jinja2 template for the startup script
-# The base image's dnsdist-startup script looks for templates in /etc/dnsdist/templates.d/
-# and renders them to /etc/dnsdist/conf.d/ using environment variables
-# The startup script appends .j2 to TEMPLATE_FILES, so we name it dnsdist.j2
-# This will be rendered to /etc/dnsdist/conf.d/dnsdist.conf
-COPY configs/dnsdist.conf /etc/dnsdist/templates.d/dnsdist.j2
+# Create non-root user and set initial ownership
+# The service runs as root to bind to port 5053, but we prepare the user for future hardening.
+RUN addgroup -g 1010 dnsdist && \
+	adduser -D -u 1010 -G dnsdist dnsdist
+
+COPY --chown=dnsdist:dnsdist assets/entrypoint-dnsdist.sh /entrypoint-dnsdist.sh
+RUN chmod 755 /entrypoint-dnsdist.sh /templates
+
+VOLUME ["/templates"]
 
 # Set the healthcheck port as a variable
 ENV DNSDIST_HEALTHCHECK_PORT=5353
@@ -25,4 +28,5 @@ HEALTHCHECK --interval=10s --timeout=5s --start-period=15s --retries=3 \
     CMD dig +short example.com @127.0.0.1 -p ${DNSDIST_HEALTHCHECK_PORT} || exit 1
 
 # Use the same entrypoint as the base image
-ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/dnsdist-startup"]
+#ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/dnsdist-startup"]
+ENTRYPOINT ["/entrypoint-dnsdist.sh"]

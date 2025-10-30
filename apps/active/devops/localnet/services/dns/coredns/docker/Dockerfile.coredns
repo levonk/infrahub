@@ -8,14 +8,19 @@ USER root
 # gettext is not needed as the entrypoint uses sed for substitution.
 RUN apk add --no-cache coredns curl
 
-# Copy Corefile template for runtime expansion
-COPY configs/Corefile.template /etc/coredns/Corefile.template
+# Config Corefile template for runtime expansion & cache directory
+VOLUME ["/templates", "/var/lib/coredns"]
+
+# Environment variables
+ENV COREDNS_DNS_HOST_PORT=15354
+ENV COREDNS_DNS_CONTAINER_PORT=15353
+ENV COREDNS_METRICS_HOST_PORT=9153
+ENV COREDNS_HEALTH_HOST_PORT=27493
+# Set the default health check port. This can be overridden in docker-compose.yml.
+ENV COREDNS_HEALTH_CONTAINER_PORT=18080
 
 # Expose the default DNS, metrics, and health check ports
 EXPOSE 53/udp 53/tcp 9153/tcp 18080/tcp
-
-# Set the default health check port. This can be overridden in docker-compose.yml.
-ENV COREDNS_HEALTH_CONTAINER_PORT=18080
 
 HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=2 \
     CMD curl -f http://127.0.0.1:${COREDNS_HEALTH_CONTAINER_PORT}/health || exit 1

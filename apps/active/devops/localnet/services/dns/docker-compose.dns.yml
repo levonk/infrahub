@@ -24,8 +24,7 @@ services:
       # Metrics endpoint for monitoring DNSDist performance
       - "${DNSDIST_METRICS_HOST_PORT:-8083}:${DNSDIST_METRICS_CONTAINER_PORT:-8083}/tcp"  # Metrics
     volumes:
-      - ./dnsdist/configs/dnsdist.conf:/etc/dnsdist/dnsdist.conf:ro
-      - ./dns-blocklists/mounts/blocklists/compiled:/etc/dnsdist/blocklists:ro
+      - ./dnsdist/mounts/templates:/templates:ro
     environment:
       - HOST_IP=${HOST_IP}
       - TRANSPARENT_MODE=true
@@ -33,8 +32,6 @@ services:
       - DNS_DIRECT_CONTAINER_PORT=${DNS_DIRECT_CONTAINER_PORT:-5353}
       - COREDNS_IP=${DNS_COREDNS_IP:-172.20.255.53}
       - COREDNS_DNS_CONTAINER_PORT=${COREDNS_DNS_CONTAINER_PORT:-15353}
-      - DNSCRYPT_STD_IP=${DNS_DNSCRYPT_STD_IP:-172.20.255.50}
-      - DNS_DNSCRYPT_STD_CONTAINER_PORT=${DNS_DNSCRYPT_STD_CONTAINER_PORT:-5055}
       - TEMPLATE_FILES=dnsdist
     depends_on:
       coredns:
@@ -72,10 +69,28 @@ services:
       # Health check endpoint (default host port: 27493)
       - "${COREDNS_HEALTH_HOST_PORT:-27493}:${COREDNS_HEALTH_CONTAINER_PORT:-18080}/tcp"   # Health
     environment:
-      - COREDNS_HEALTH_PORT=${COREDNS_HEALTH_CONTAINER_PORT:-18080}
+      - COREDNS_DNS_HOST_PORT=${COREDNS_DNS_HOST_PORT:-15354}
+      - COREDNS_DNS_CONTAINER_PORT=${COREDNS_DNS_CONTAINER_PORT:-15353}
+      - COREDNS_METRICS_HOST_PORT=${COREDNS_METRICS_HOST_PORT:-9153}
+      - COREDNS_HEALTH_HOST_PORT=${COREDNS_HEALTH_HOST_PORT:-27493}
+      - COREDNS_HEALTH_CONTAINER_PORT=${COREDNS_HEALTH_CONTAINER_PORT:-18080}
+      - DNS_DNSCRYPT_ODOH_IP=${DNS_DNSCRYPT_ODOH_IP:-5058}
+      - DNS_DNSCRYPT_ANON_IP=${DNS_DNSCRYPT_ANON_IP:-5058}
+      - DNS_DNSCRYPT_STD_IP=${DNS_DNSCRYPT_STD_IP:-5058}
+      - DNS_DNSCRYPT_DOH_IP=${DNS_DNSCRYPT_DOH_IP:-5058}
+      - DNS_DNSCRYPT_ENCRYPTED_IP=${DNS_DNSCRYPT_ENCRYPTED_IP:-5058}
+      - DNS_DNSCRYPT_PLAINTEXT_IP=${DNS_DNSCRYPT_PLAINTEXT_IP:-5058}
+      - DNS_DNSCRYPT_TOR_IP=${DNS_DNSCRYPT_TOR_IP:-5058}
+      - DNS_DNSCRYPT_ODOH_CONTAINER_PORT=${DNS_DNSCRYPT_ODOH_CONTAINER_PORT:-5058}
+      - DNS_DNSCRYPT_ANON_CONTAINER_PORT=${DNS_DNSCRYPT_ANON_CONTAINER_PORT:-5058}
+      - DNS_DNSCRYPT_STD_CONTAINER_PORT=${DNS_DNSCRYPT_STD_CONTAINER_PORT:-5058}
+      - DNS_DNSCRYPT_DOH_CONTAINER_PORT=${DNS_DNSCRYPT_DOH_CONTAINER_PORT:-5058}
+      - DNS_DNSCRYPT_ENCRYPTED_CONTAINER_PORT=${DNS_DNSCRYPT_ENCRYPTED_CONTAINER_PORT:-5058}
+      - DNS_DNSCRYPT_PLAINTEXT_CONTAINER_PORT=${DNS_DNSCRYPT_PLAINTEXT_CONTAINER_PORT:-5058}
+      - DNS_DNSCRYPT_TOR_CONTAINER_PORT=${DNS_DNSCRYPT_TOR_CONTAINER_PORT:-5058}
     volumes:
-      - ./coredns/configs/Corefile:/etc/coredns/Corefile:ro
-      - dns-cache:/var/lib/coredns
+      - ./coredns/mounts/templates:/templates:ro
+      - ./coredns/mounts/coredns-cache:/var/lib/coredns
     depends_on:
       dnscrypt-plaintext:
         condition: service_healthy
@@ -191,7 +206,7 @@ services:
     networks:
       - localnet
     volumes:
-      - ./dnscrypt/mounts/templates:/templates
+      - ./dnscrypt/mounts/templates:/templates:ro
     ports:
       - "${DNS_DNSCRYPT_PLAINTEXT_HOST_PORT:-5365}:${DNS_DNSCRYPT_PLAINTEXT_CONTAINER_PORT:-5058}/udp"
       - "${DNS_DNSCRYPT_PLAINTEXT_HOST_PORT:-5365}:${DNS_DNSCRYPT_PLAINTEXT_CONTAINER_PORT:-5058}/tcp"
