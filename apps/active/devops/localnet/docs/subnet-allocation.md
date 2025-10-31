@@ -53,7 +53,7 @@ Follow these steps whenever `docker compose` reports `Pool overlaps with other o
 2. **Decide on a new subnet.** Choose a CIDR that does not overlap with existing Docker or LAN ranges (for example `172.20.0.0/16`).
 3. **Update environment variables.** Edit `apps/active/devops/localnet/.env` (or copy from `env.template`) and set:
    ```bash
-   DOCKER_NETWORK_SUBNET=172.20.0.0/16
+   LOCALNET_PEER_NETWORK_SUBNET=172.20.0.0/16
    ```
 4. **Restart cleanly.**
    ```bash

@@ -8,11 +8,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # Expected IPs from docker-compose.yml (high range, reserved for DNS)
-EXPECTED_COREDNS_IP="172.20.255.51"
+EXPECTED_DNS_COREDNS_MAIN_IP="172.20.255.51"
 EXPECTED_DNSCRYPT_IP="172.20.255.50"
 
 # Expected IPs from dnsdist.conf
-DNSDIST_COREDNS_IP=$(grep -oP 'address="\K[0-9.]+(?=:53".*name="coredns")' "$PROJECT_DIR/configs/dns/dnsdist.conf" || echo "")
+DNSDIST_DNS_COREDNS_MAIN_IP=$(grep -oP 'address="\K[0-9.]+(?=:53".*name="coredns")' "$PROJECT_DIR/configs/dns/dnsdist.conf" || echo "")
 DNSDIST_DNSCRYPT_IP=$(grep -oP 'address="\K[0-9.]+(?=:5300".*name="dnscrypt-proxy")' "$PROJECT_DIR/configs/dns/dnsdist.conf" || echo "")
 
 echo "========================================="
@@ -22,10 +22,10 @@ echo ""
 
 # Get actual IPs from running containers
 <<<<<<< HEAD
-ACTUAL_COREDNS_IP=$(docker inspect localnet-coredns --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null || echo "NOT_RUNNING")
+ACTUAL_DNS_COREDNS_MAIN_IP=$(docker inspect localnet-coredns --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null || echo "NOT_RUNNING")
 ACTUAL_DNSCRYPT_IP=$(docker inspect localnet-dnscrypt-proxy --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null || echo "NOT_RUNNING")
 =======
-ACTUAL_COREDNS_IP=$(docker inspect localnet-dns-coredns --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null || echo "NOT_RUNNING")
+ACTUAL_DNS_COREDNS_MAIN_IP=$(docker inspect localnet-dns-coredns --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null || echo "NOT_RUNNING")
 ACTUAL_DNSCRYPT_IP=$(docker inspect localnet-dns-dnscrypt-proxy --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null || echo "NOT_RUNNING")
 >>>>>>> 002-claude-code-integration
 
@@ -34,17 +34,17 @@ ALL_VALID=true
 
 # Check coredns
 echo "CoreDNS:"
-echo "  Expected (docker-compose.yml): $EXPECTED_COREDNS_IP"
-echo "  Expected (dnsdist.conf):       $DNSDIST_COREDNS_IP"
-echo "  Actual (running container):    $ACTUAL_COREDNS_IP"
+echo "  Expected (docker-compose.yml): $EXPECTED_DNS_COREDNS_MAIN_IP"
+echo "  Expected (dnsdist.conf):       $DNSDIST_DNS_COREDNS_MAIN_IP"
+echo "  Actual (running container):    $ACTUAL_DNS_COREDNS_MAIN_IP"
 
-if [ "$ACTUAL_COREDNS_IP" = "NOT_RUNNING" ]; then
+if [ "$ACTUAL_DNS_COREDNS_MAIN_IP" = "NOT_RUNNING" ]; then
     echo "  ❌ FAIL: Container not running"
     ALL_VALID=false
-elif [ "$ACTUAL_COREDNS_IP" != "$EXPECTED_COREDNS_IP" ]; then
+elif [ "$ACTUAL_DNS_COREDNS_MAIN_IP" != "$EXPECTED_DNS_COREDNS_MAIN_IP" ]; then
     echo "  ❌ FAIL: IP mismatch with docker-compose.yml"
     ALL_VALID=false
-elif [ "$ACTUAL_COREDNS_IP" != "$DNSDIST_COREDNS_IP" ]; then
+elif [ "$ACTUAL_DNS_COREDNS_MAIN_IP" != "$DNSDIST_DNS_COREDNS_MAIN_IP" ]; then
     echo "  ❌ FAIL: IP mismatch with dnsdist.conf"
     ALL_VALID=false
 else
@@ -91,12 +91,12 @@ else
     echo ""
     echo "Option 2: Update docker-compose.yml to match actual IPs"
     echo "  Edit: $PROJECT_DIR/docker-compose.yml"
-    echo "  Set coredns ipv4_address: $ACTUAL_COREDNS_IP"
+    echo "  Set coredns ipv4_address: $ACTUAL_DNS_COREDNS_MAIN_IP"
     echo "  Set dnscrypt-proxy ipv4_address: $ACTUAL_DNSCRYPT_IP"
     echo ""
     echo "Option 3: Update dnsdist.conf to match actual IPs"
     echo "  Edit: $PROJECT_DIR/configs/dns/dnsdist.conf"
-    echo "  Set coredns address: $ACTUAL_COREDNS_IP:53"
+    echo "  Set coredns address: $ACTUAL_DNS_COREDNS_MAIN_IP:53"
     echo "  Set dnscrypt-proxy address: $ACTUAL_DNSCRYPT_IP:5300"
     echo "  Then: docker compose restart dnsdist"
     echo ""

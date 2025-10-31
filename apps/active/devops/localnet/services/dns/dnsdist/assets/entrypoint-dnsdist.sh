@@ -18,8 +18,8 @@ echo "[ENTRYPOINT] Starting dnsdist entrypoint script" >&2
 # Export all environment variables that were passed in (docker-compose sets them but they need to be exported)
 # This ensures they're available to the sed substitution logic below
 # Defaults match env.template to ensure consistency across all configurations
-export DNSDIST_PORT="${DNSDIST_PORT:-53}"
-export DNSDIST_HEALTHCHECK_PORT="${DNSDIST_HEALTHCHECK_PORT:-5353}"
+export DNS_DNSDIST_CONTAINER_PORT="${DNS_DNSDIST_CONTAINER_PORT:-53}"
+export DNS_DNSDIST_HEALTHCHECK_CONTAINER_PORT="${DNS_DNSDIST_HEALTHCHECK_CONTAINER_PORT:-5353}"
 
 # Verify template file exists
 if [ ! -r "$TEMPLATE_FILE" ]; then
@@ -31,7 +31,7 @@ fi
 
 # Log all environment variables being used for substitution
 echo "[ENTRYPOINT] Environment variables for substitution:" >&2
-echo "[ENTRYPOINT]   DNSDIST_PORT=${DNSDIST_PORT}" >&2
+echo "[ENTRYPOINT]   DNS_DNSDIST_CONTAINER_PORT=${DNS_DNSDIST_CONTAINER_PORT}" >&2
 
 # Dynamically build sed expressions for all environment variables starting with 'DNS_', 'DNSDIST_'
 # Initialize sed_expressions as an empty array
@@ -40,7 +40,7 @@ sed_expressions=()
 # Enumerate env vars in a POSIX-compatible way and build sed expressions
 # Use 'env' (no -0) and read only on the first '=' to keep the full value
 while IFS='=' read -r name value; do
-  if [[ "$name" == DNSDIST_* ]] || [[ "$name" == DNS_* ]]; then
+  if [[ "$name" == DNS_* ]]; then
     # Escape for sed replacement: backslash, ampersand, and our '|' delimiter
     value_escaped=${value//\\/\\\\}
     value_escaped=${value_escaped//&/\\&}
@@ -69,5 +69,5 @@ if [ ! -r "$DEST_CONFIG_FILE" ]; then
 fi
 
 echo "[ENTRYPOINT] Config ready, starting dnscrypt-proxy..." >&2
-
-/usr/bin/tini -- /usr/local/bin/dnsdist-startup
+export TINI_SUBREAPER 1
+/sbin/tini -s -- /usr/local/bin/dnsdist-startup

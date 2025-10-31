@@ -3,6 +3,7 @@
 # DNS service stack for Local Network Infrastructure
 # The 'localnet' network is defined in the parent docker-compose.yml with proper subnet configuration
 services:
+  # First peer (not transparent) layer of DNS Services. Handles Blocklists.
   dnsdist:
     build:
       context: ./dnsdist
@@ -19,31 +20,32 @@ services:
       - "${DNS_TRANSPARENT_HOST_PORT:-5500}:${DNS_TRANSPARENT_CONTAINER_PORT:-5500}/tcp"  # Transparent mode TCP
       # Direct mode: DNSDist's secondary listener on container port, forwarded to host port
       # Used for testing/debugging the DNSDist service directly
-      - "${DNS_DIRECT_HOST_PORT:-5501}:${DNS_DIRECT_CONTAINER_PORT:-5501}/udp"    # Direct mode UDP
-      - "${DNS_DIRECT_HOST_PORT:-5501}:${DNS_DIRECT_CONTAINER_PORT:-5501}/tcp"    # Direct mode TCP
+      - "${DNS_DNSDIST_HOST_PORT:-5501}:${DNS_DNSDIST_CONTAINER_PORT:-5501}/udp"    # Direct mode UDP
+      - "${DNS_DNSDIST_HOST_PORT:-5501}:${DNS_DNSDIST_CONTAINER_PORT:-5501}/tcp"    # Direct mode TCP
       # Metrics endpoint for monitoring DNSDist performance
-      - "${DNSDIST_METRICS_HOST_PORT:-8083}:${DNSDIST_METRICS_CONTAINER_PORT:-8083}/tcp"  # Metrics
+      - "${DNS_DNSDIST_METRICS_HOST_PORT:-8083}:${DNS_DNSDIST_METRICS_CONTAINER_PORT:-8083}/tcp"  # Metrics
     volumes:
       - ./dnsdist/mounts/templates:/templates:ro
     environment:
       - HOST_IP=${HOST_IP}
       - TRANSPARENT_MODE=true
       - DNS_TRANSPARENT_CONTAINER_PORT=${DNS_TRANSPARENT_CONTAINER_PORT:-5353}
-      - DNS_DIRECT_CONTAINER_PORT=${DNS_DIRECT_CONTAINER_PORT:-5353}
-      - COREDNS_IP=${DNS_COREDNS_IP:-172.20.255.53}
-      - COREDNS_DNS_CONTAINER_PORT=${COREDNS_DNS_CONTAINER_PORT:-15353}
+      - DNS_DNSDIST_CONTAINER_PORT=${DNS_DNSDIST_CONTAINER_PORT:-5353}
+      - DNS_COREDNS_MAIN_IP=${DNS_DNS_COREDNS_MAIN_IP:-172.20.255.53}
+      - DNS_COREDNS_MAIN_CONTAINER_PORT=${DNS_COREDNS_MAIN_CONTAINER_PORT:-15353}
       - TEMPLATE_FILES=dnsdist
     depends_on:
       coredns:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "dig", "+short", "example.com", "@127.0.0.1", "-p", "${DNS_DIRECT_CONTAINER_PORT:-5353}"]
-      interval: 10s
-      timeout: 5s
+      test: ["CMD", "dig", "+short", "example.com", "@127.0.0.1", "-p", "${DNS_DNSDIST_CONTAINER_PORT:-5353}"]
+      interval: 30s
+      timeout: 10s
       retries: 3
-      start_period: 15s
+      start_period: 30s
     restart: unless-stopped
 
+  # second layer of DNS Services. Handles fallback, and normal caching
   coredns:
     # CoreDNS: Primary DNS resolver with caching and DNSSEC validation
     # Role: Serves as the primary upstream resolver for DNSDist
@@ -59,21 +61,21 @@ services:
         aliases:
           - coredns
     ports:
-      # Direct mode: CoreDNS listens on container :${COREDNS_DNS_CONTAINER_PORT}, forwarded to host
+      # Direct mode: CoreDNS listens on container :${DNS_COREDNS_MAIN_CONTAINER_PORT}, forwarded to host
       # Primary DNS resolver with caching and DNSSEC validation
       # DNSDist forwards queries to this service as the primary upstream
-      - "${COREDNS_DNS_HOST_PORT:-15354}:${COREDNS_DNS_CONTAINER_PORT:-15353}/udp"  # Direct mode UDP
-      - "${COREDNS_DNS_HOST_PORT:-15354}:${COREDNS_DNS_CONTAINER_PORT:-15353}/tcp"  # Direct mode TCP
+      - "${DNS_COREDNS_MAIN_HOST_PORT:-15354}:${DNS_COREDNS_MAIN_CONTAINER_PORT:-15353}/udp"  # Direct mode UDP
+      - "${DNS_COREDNS_MAIN_HOST_PORT:-15354}:${DNS_COREDNS_MAIN_CONTAINER_PORT:-15353}/tcp"  # Direct mode TCP
       # Metrics endpoint for monitoring CoreDNS performance
-      - "${COREDNS_METRICS_HOST_PORT:-9153}:9153/tcp"  # Metrics
+      - "${DNS_COREDNS_MAIN_METRICS_HOST_PORT:-9153}:9153/tcp"  # Metrics
       # Health check endpoint (default host port: 27493)
-      - "${COREDNS_HEALTH_HOST_PORT:-27493}:${COREDNS_HEALTH_CONTAINER_PORT:-18080}/tcp"   # Health
+      - "${DNS_COREDNS_MAIN_HEALTH_HOST_PORT:-27493}:${DNS_COREDNS_MAIN_HEALTH_CONTAINER_PORT:-18080}/tcp"   # Health
     environment:
-      - COREDNS_DNS_HOST_PORT=${COREDNS_DNS_HOST_PORT:-15354}
-      - COREDNS_DNS_CONTAINER_PORT=${COREDNS_DNS_CONTAINER_PORT:-15353}
-      - COREDNS_METRICS_HOST_PORT=${COREDNS_METRICS_HOST_PORT:-9153}
-      - COREDNS_HEALTH_HOST_PORT=${COREDNS_HEALTH_HOST_PORT:-27493}
-      - COREDNS_HEALTH_CONTAINER_PORT=${COREDNS_HEALTH_CONTAINER_PORT:-18080}
+      - DNS_COREDNS_MAIN_HOST_PORT=${DNS_COREDNS_MAIN_HOST_PORT:-15354}
+      - DNS_COREDNS_MAIN_CONTAINER_PORT=${DNS_COREDNS_MAIN_CONTAINER_PORT:-15353}
+      - DNS_COREDNS_MAIN_METRICS_HOST_PORT=${DNS_COREDNS_MAIN_METRICS_HOST_PORT:-9153}
+      - DNS_COREDNS_MAIN_HEALTH_HOST_PORT=${DNS_COREDNS_MAIN_HEALTH_HOST_PORT:-27493}
+      - DNS_COREDNS_MAIN_HEALTH_CONTAINER_PORT=${DNS_COREDNS_MAIN_HEALTH_CONTAINER_PORT:-18080}
       - DNS_DNSCRYPT_ODOH_IP=${DNS_DNSCRYPT_ODOH_IP:-5058}
       - DNS_DNSCRYPT_ANON_IP=${DNS_DNSCRYPT_ANON_IP:-5058}
       - DNS_DNSCRYPT_STD_IP=${DNS_DNSCRYPT_STD_IP:-5058}
@@ -81,13 +83,14 @@ services:
       - DNS_DNSCRYPT_ENCRYPTED_IP=${DNS_DNSCRYPT_ENCRYPTED_IP:-5058}
       - DNS_DNSCRYPT_PLAINTEXT_IP=${DNS_DNSCRYPT_PLAINTEXT_IP:-5058}
       - DNS_DNSCRYPT_TOR_IP=${DNS_DNSCRYPT_TOR_IP:-5058}
+      - DNS_DNSCRYPT_TOR_CONTAINER_PORT=${DNS_DNSCRYPT_TOR_CONTAINER_PORT:-5058}
+      - DNS_DNSCRYPT_TOR_HOST_PORT=${DNS_DNSCRYPT_TOR_HOST_PORT:-5058}
       - DNS_DNSCRYPT_ODOH_CONTAINER_PORT=${DNS_DNSCRYPT_ODOH_CONTAINER_PORT:-5058}
       - DNS_DNSCRYPT_ANON_CONTAINER_PORT=${DNS_DNSCRYPT_ANON_CONTAINER_PORT:-5058}
       - DNS_DNSCRYPT_STD_CONTAINER_PORT=${DNS_DNSCRYPT_STD_CONTAINER_PORT:-5058}
       - DNS_DNSCRYPT_DOH_CONTAINER_PORT=${DNS_DNSCRYPT_DOH_CONTAINER_PORT:-5058}
       - DNS_DNSCRYPT_ENCRYPTED_CONTAINER_PORT=${DNS_DNSCRYPT_ENCRYPTED_CONTAINER_PORT:-5058}
       - DNS_DNSCRYPT_PLAINTEXT_CONTAINER_PORT=${DNS_DNSCRYPT_PLAINTEXT_CONTAINER_PORT:-5058}
-      - DNS_DNSCRYPT_TOR_CONTAINER_PORT=${DNS_DNSCRYPT_TOR_CONTAINER_PORT:-5058}
     volumes:
       - ./coredns/mounts/templates:/templates:ro
       - ./coredns/mounts/coredns-cache:/var/lib/coredns
@@ -95,13 +98,14 @@ services:
       dnscrypt-plaintext:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://127.0.0.1:${COREDNS_HEALTH_CONTAINER_PORT:-18080}/health"]
-      interval: 10s
-      timeout: 3s
-      retries: 2
-      start_period: 10s
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:${DNS_COREDNS_MAIN_HEALTH_CONTAINER_PORT:-18080}/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     restart: unless-stopped
 
+  # third layer of DNS Services. Handles DNS native outbound communication
 #  dnscrypt-odoh:
 #    build:
 #      context: ./dnscrypt
@@ -118,7 +122,7 @@ services:
 #    environment:
 #      - DNS_DNSCRYPT_ODOH_CONTAINER_PORT=${DNS_DNSCRYPT_ODOH_CONTAINER_PORT:-5053}
 #      - PROXY_SOCKS5_TOR_IP=${PROXY_SOCKS5_TOR_IP:-172.20.255.70}
-#      - PROXY_SOCKS5_TOR_CONTAINER_PORT=${PROXY_SOCKS5_TOR_CONTAINER_PORT:-9050}
+#      - PROXY_TOR_SOCKS5_CONTAINER_PORT=${PROXY_TOR_SOCKS5_CONTAINER_PORT:-9050}
 #    # IMPORTANT: Pass ONLY the config name WITHOUT .toml extension to the entrypoint script.
 #    # The script prepends /etc/dnscrypt-proxy/ and appends .toml.template automatically.
 #    # Each service must specify its own config variant (odoh, anon, std, doh, encrypted, plaintext, tor)
@@ -139,10 +143,11 @@ services:
 #    environment:
 #      - DNS_DNSCRYPT_ANON_CONTAINER_PORT=${DNS_DNSCRYPT_ANON_CONTAINER_PORT:-5054}
 #      - PROXY_SOCKS5_TOR_IP=${PROXY_SOCKS5_TOR_IP:-172.20.255.70}
-#      - PROXY_SOCKS5_TOR_CONTAINER_PORT=${PROXY_SOCKS5_TOR_CONTAINER_PORT:-9050}
+#      - PROXY_TOR_SOCKS5_CONTAINER_PORT=${PROXY_TOR_SOCKS5_CONTAINER_PORT:-9050}
 #    command: ["dnscrypt-proxy-anon"]
 #    restart: unless-stopped
 #
+  # third layer of DNS Services. Handles DNS native outbound communication
 #  dnscrypt-proxy:
 #    build:
 #      context: ./dnscrypt
@@ -157,10 +162,11 @@ services:
 #    environment:
 #      - DNS_DNSCRYPT_STD_CONTAINER_PORT=${DNS_DNSCRYPT_STD_CONTAINER_PORT:-5055}
 #      - PROXY_SOCKS5_TOR_IP=${PROXY_SOCKS5_TOR_IP:-172.20.255.70}
-#      - PROXY_SOCKS5_TOR_CONTAINER_PORT=${PROXY_SOCKS5_TOR_CONTAINER_PORT:-9050}
+#      - PROXY_TOR_SOCKS5_CONTAINER_PORT=${PROXY_TOR_SOCKS5_CONTAINER_PORT:-9050}
 #    command: ["dnscrypt-proxy-std"]
 #    restart: unless-stopped
 #
+  # third layer of DNS Services. Handles DNS native outbound communication
 #  dnscrypt-doh:
 #    build:
 #      context: ./dnscrypt
@@ -175,10 +181,11 @@ services:
 #    environment:
 #      - DNS_DNSCRYPT_DOH_CONTAINER_PORT=${DNS_DNSCRYPT_DOH_CONTAINER_PORT:-5056}
 #      - PROXY_SOCKS5_TOR_IP=${PROXY_SOCKS5_TOR_IP:-172.20.255.70}
-#      - PROXY_SOCKS5_TOR_CONTAINER_PORT=${PROXY_SOCKS5_TOR_CONTAINER_PORT:-9050}
+#      - PROXY_TOR_SOCKS5_CONTAINER_PORT=${PROXY_TOR_SOCKS5_CONTAINER_PORT:-9050}
 #    command: ["dnscrypt-proxy-doh"]
 #    restart: unless-stopped
 #
+  # third layer of DNS Services. Handles DNS native outbound communication
 #  dnscrypt-encrypted:
 #    build:
 #      context: ./dnscrypt
@@ -193,10 +200,11 @@ services:
 #    environment:
 #      - DNS_DNSCRYPT_ENCRYPTED_CONTAINER_PORT=${DNS_DNSCRYPT_ENCRYPTED_CONTAINER_PORT:-5057}
 #      - PROXY_SOCKS5_TOR_IP=${PROXY_SOCKS5_TOR_IP:-172.20.255.70}
-#      - PROXY_SOCKS5_TOR_CONTAINER_PORT=${PROXY_SOCKS5_TOR_CONTAINER_PORT:-9050}
+#      - PROXY_TOR_SOCKS5_CONTAINER_PORT=${PROXY_TOR_SOCKS5_CONTAINER_PORT:-9050}
 #    command: ["dnscrypt-proxy-encrypted"]
 #    restart: unless-stopped
 
+  # third layer of DNS Services. Handles DNS native outbound communication
   dnscrypt-plaintext:
     build:
       context: ./dnscrypt
@@ -215,6 +223,7 @@ services:
     command: ["/usr/local/bin/entrypoint-dnscrypt.sh", "dnscrypt-proxy-plaintext"]
     restart: unless-stopped
 
+  # third layer of DNS Services. Handles DNS native outbound communication
 #  dnscrypt-tor:
 #    build:
 #      context: ./dnscrypt
@@ -229,13 +238,14 @@ services:
 #    environment:
 #      - DNS_DNSCRYPT_TOR_CONTAINER_PORT=${DNS_DNSCRYPT_TOR_CONTAINER_PORT:-5066}
 #      - PROXY_SOCKS5_TOR_IP=${PROXY_SOCKS5_TOR_IP:-172.20.255.70}
-#      - PROXY_SOCKS5_TOR_CONTAINER_PORT=${PROXY_SOCKS5_TOR_CONTAINER_PORT:-9050}
+#      - PROXY_TOR_SOCKS5_CONTAINER_PORT=${PROXY_TOR_SOCKS5_CONTAINER_PORT:-9050}
 #    command: ["dnscrypt-proxy-tor"]
 #    depends_on:
 #      tor-proxy:
 #        condition: service_healthy
 #    restart: unless-stopped
 
+  # Foundational Tor proxy services, used by other network services
   tor-proxy:
     build:
       context: ../proxy/tor
@@ -245,9 +255,10 @@ services:
     networks:
       - localnet
     ports:
-      - "${PROXY_SOCKS5_TOR_HOST_PORT:-9050}:${PROXY_SOCKS5_TOR_CONTAINER_PORT:-9050}/tcp"
+      - "${PROXY_TOR_SOCKS5_HOST_PORT:-9050}:${PROXY_TOR_SOCKS5_CONTAINER_PORT:-9050}/tcp"
     restart: unless-stopped
 
+  # Job container that creates DNSDIST cdb based blocklists
   blocklist-compiler:
     build:
       context: ./dns-blocklists
@@ -268,7 +279,3 @@ services:
       retries: 3
       start_period: 60s
     restart: "no"  # Run once on startup, use cron/systemd for updates
-
-volumes:
-  dns-cache:
-    driver: local

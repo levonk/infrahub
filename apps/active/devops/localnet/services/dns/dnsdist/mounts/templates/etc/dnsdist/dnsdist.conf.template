@@ -4,7 +4,7 @@
 -- Listen addresses - bind to all interfaces to accept queries from Docker network
 -- Using addLocal() to add to defaults rather than replace them
 addLocal("0.0.0.0:" .. os.getenv("DNS_TRANSPARENT_CONTAINER_PORT", "5353"))        -- Transparent mode
-addLocal("0.0.0.0:" .. os.getenv("DNS_DIRECT_CONTAINER_PORT", "5353"))      -- Direct access port
+addLocal("0.0.0.0:" .. os.getenv("DNS_DNSDIST_CONTAINER_PORT", "5353"))      -- Direct access port
 
 -- Server policy: least outstanding queries
 setServerPolicy(leastOutstanding)
@@ -49,7 +49,7 @@ addAction(MaxQPSIPRule(100), DropAction())
 -- When DNS services bind to :53, they intercept Docker's embedded DNS resolver (127.0.0.11:53)
 -- This breaks service discovery, so we must use static IPs assigned via ipv4_address in docker-compose
 -- CoreDNS now listens on port 15353 to avoid binding conflicts with host DNS
-newServer({address=os.getenv("COREDNS_IP", "172.21.255.51") .. ":" .. os.getenv("COREDNS_DNS_CONTAINER_PORT", "15353"), name="coredns", pool="primary", checkInterval=5, maxCheckFailures=3})
+newServer({address=os.getenv("DNS_COREDNS_MAIN_IP", "172.21.255.51") .. ":" .. os.getenv("DNS_COREDNS_MAIN_CONTAINER_PORT", "15353"), name="coredns", pool="primary", checkInterval=5, maxCheckFailures=3})
 
 -- Fallback: dnscrypt-proxy (encrypted DNS with ODoH)
 -- Using static IP for same reason as above

@@ -55,9 +55,9 @@ Update sources by editing files in `services/dns/dns-blocklists/mounts/blocklist
 
 ## 🔍 Observability
 
-- **dnsdist metrics**: `http://localhost:${DNSDIST_METRICS_HOST_PORT:-8083}`
-- **CoreDNS metrics**: `http://localhost:${COREDNS_METRICS_HOST_PORT:-9153}`
-- **CoreDNS health**:  `http://localhost:${COREDNS_HEALTH_HOST_PORT:-8080}`
+- **dnsdist metrics**: `http://localhost:${DNS_DNSDIST_METRICS_HOST_PORT:-8083}`
+- **CoreDNS metrics**: `http://localhost:${DNS_COREDNS_MAIN_METRICS_HOST_PORT:-9153}`
+- **CoreDNS health**:  `http://localhost:${DNS_COREDNS_MAIN_HEALTH_HOST_PORT:-8080}`
 - Standard Docker logs through `make logs-*` targets.
 
 Integrate these endpoints into Prometheus, Grafana, or preferred monitoring stack. Ensure metrics endpoints are firewalled when running outside local development.

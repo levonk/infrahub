@@ -132,24 +132,24 @@ check_container_ports() {
     echo ""
     echo "Container: $container_name"
     echo "---"
-    
+
     # Get all exposed ports from docker-compose
     local ports=$(docker compose -f "$PROJECT_ROOT/docker-compose.yml" port "$container_name" 2>/dev/null || echo "")
-    
+
     if [[ -z "$ports" ]]; then
         echo "  No ports exposed"
         return
     fi
-    
+
     # Parse and test each port
     while IFS= read -r port_mapping; do
         if [[ -n "$port_mapping" ]]; then
             local container_port=$(echo "$port_mapping" | cut -d' ' -f1)
             local host_port=$(echo "$port_mapping" | cut -d' ' -f3)
             local protocol=$(echo "$port_mapping" | grep -o 'tcp\|udp' || echo "tcp")
-            
+
             echo "  Port: $container_port → localhost:$host_port ($protocol)"
-            
+
             # Test connectivity
             if [[ "$protocol" == "udp" ]]; then
                 if timeout 1 bash -c "echo '' > /dev/udp/127.0.0.1/$host_port" 2>/dev/null; then
@@ -249,19 +249,19 @@ if command -v dig &> /dev/null; then
     fi
 
     # Test 2e: CoreDNS direct (UDP) - test from dnsdist container
-    COREDNS_IP=${DNS_COREDNS_IP:-172.20.255.51}
-    COREDNS_CONTAINER_PORT=${COREDNS_DNS_CONTAINER_PORT:-15353}
-    if docker compose -f "$PROJECT_ROOT/docker-compose.yml" exec -T dnsdist dig @${COREDNS_IP} -p ${COREDNS_CONTAINER_PORT} example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
-        test_result "CoreDNS UDP Direct" "PASS" "CoreDNS responding via UDP at ${COREDNS_IP}:${COREDNS_CONTAINER_PORT}"
+    DNS_COREDNS_MAIN_IP=${DNS_DNS_COREDNS_MAIN_IP:-172.20.255.51}
+    COREDNS_CONTAINER_PORT=${DNS_COREDNS_MAIN_CONTAINER_PORT:-15353}
+    if docker compose -f "$PROJECT_ROOT/docker-compose.yml" exec -T dnsdist dig @${DNS_COREDNS_MAIN_IP} -p ${COREDNS_CONTAINER_PORT} example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+        test_result "CoreDNS UDP Direct" "PASS" "CoreDNS responding via UDP at ${DNS_COREDNS_MAIN_IP}:${COREDNS_CONTAINER_PORT}"
     else
-        test_result "CoreDNS UDP Direct" "WARN" "CoreDNS not responding via UDP at ${COREDNS_IP}:${COREDNS_CONTAINER_PORT}"
+        test_result "CoreDNS UDP Direct" "WARN" "CoreDNS not responding via UDP at ${DNS_COREDNS_MAIN_IP}:${COREDNS_CONTAINER_PORT}"
     fi
 
     # Test 2f: CoreDNS direct (TCP)
-    if docker compose -f "$PROJECT_ROOT/docker-compose.yml" exec -T dnsdist dig @${COREDNS_IP} -p ${COREDNS_CONTAINER_PORT} +tcp example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
-        test_result "CoreDNS TCP Direct" "PASS" "CoreDNS responding via TCP at ${COREDNS_IP}:${COREDNS_CONTAINER_PORT}"
+    if docker compose -f "$PROJECT_ROOT/docker-compose.yml" exec -T dnsdist dig @${DNS_COREDNS_MAIN_IP} -p ${COREDNS_CONTAINER_PORT} +tcp example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+        test_result "CoreDNS TCP Direct" "PASS" "CoreDNS responding via TCP at ${DNS_COREDNS_MAIN_IP}:${COREDNS_CONTAINER_PORT}"
     else
-        test_result "CoreDNS TCP Direct" "WARN" "CoreDNS not responding via TCP at ${COREDNS_IP}:${COREDNS_CONTAINER_PORT}"
+        test_result "CoreDNS TCP Direct" "WARN" "CoreDNS not responding via TCP at ${DNS_COREDNS_MAIN_IP}:${COREDNS_CONTAINER_PORT}"
     fi
 
     # Test 2g: dnscrypt-proxy services direct (UDP and TCP)
@@ -291,7 +291,7 @@ if command -v dig &> /dev/null; then
 
     # Test 2h: Tor SOCKS proxy
     TOR_IP=${PROXY_SOCKS5_TOR_IP:-172.20.255.70}
-    TOR_PORT=${PROXY_SOCKS5_TOR_CONTAINER_PORT:-9050}
+    TOR_PORT=${PROXY_TOR_SOCKS5_CONTAINER_PORT:-9050}
     if docker compose -f "$PROJECT_ROOT/docker-compose.yml" exec -T dnsdist curl -s --socks5-hostname "${TOR_IP}:${TOR_PORT}" https://check.torproject.org/api/ip 2>/dev/null | grep -q '"IsTor":true'; then
         test_result "Tor SOCKS Proxy" "PASS" "Tor SOCKS proxy is routing traffic correctly at ${TOR_IP}:${TOR_PORT}"
     else
@@ -358,7 +358,7 @@ if command -v dig &> /dev/null; then
         fi
     fi
     # Test 3e: Host → CoreDNS direct UDP (port ${COREDNS_DIRECT_PORT})
-    COREDNS_DIRECT_PORT=${COREDNS_DNS_HOST_PORT:-15354}
+    COREDNS_DIRECT_PORT=${DNS_COREDNS_MAIN_HOST_PORT:-15354}
     IFS='|' read -r COREDNS_STATUS COREDNS_UPTIME COREDNS_HEALTH <<< "$(parse_container_status coredns)"
     coredns_uptime_seconds=$(uptime_to_seconds "${COREDNS_UPTIME:-}")
     if dig @localhost -p ${COREDNS_DIRECT_PORT} example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then

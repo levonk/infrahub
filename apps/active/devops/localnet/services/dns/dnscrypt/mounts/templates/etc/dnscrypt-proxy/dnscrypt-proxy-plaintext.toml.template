@@ -30,7 +30,12 @@ require_nofilter = true
 
 server_names = []
 
+#disabled_server_names = []
+
 [sources]
+
+# For public list of available sources: https://github.com/dnscrypt/dnscrypt-proxy/wiki/DNS-server-sources
+# Here are the included ones https://github.com/DNSCrypt/dnscrypt-resolvers/tree/master/
 
   [sources.'resolvers']
     urls = ['https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/master/v3/public-resolvers.md', 'https://download.dnscrypt.info/resolvers-list/v3/public-resolvers.md']

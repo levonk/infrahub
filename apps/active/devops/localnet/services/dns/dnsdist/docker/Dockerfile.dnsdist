@@ -8,11 +8,10 @@ RUN apk add --no-cache dnsdist bind-tools bash curl tini
 
 # Create non-root user and set initial ownership
 # The service runs as root to bind to port 5053, but we prepare the user for future hardening.
-RUN addgroup -g 1010 dnsdist && \
-	adduser -D -u 1010 -G dnsdist dnsdist
+#RUN addgroup -g 1010 dnsdist && adduser -D -u 1010 -G dnsdist dnsdist
 
 COPY --chown=dnsdist:dnsdist assets/entrypoint-dnsdist.sh /entrypoint-dnsdist.sh
-RUN chmod 755 /entrypoint-dnsdist.sh /templates
+RUN mkdir /templates /etc/dnsdist ; chmod 755 /entrypoint-dnsdist.sh /templates /etc/dnsdist
 
 VOLUME ["/templates"]
 

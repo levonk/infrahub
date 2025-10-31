@@ -8,7 +8,7 @@ TEMPLATE_FILE=/etc/tor/torrc.template
 CONFIG_FILE=/etc/tor/torrc
 
 # Expand environment variables in template
-sed -e "s|{PROXY_SOCKS5_TOR_CONTAINER_PORT}|$PROXY_SOCKS5_TOR_CONTAINER_PORT|g" \
+sed -e "s|{PROXY_TOR_SOCKS5_CONTAINER_PORT}|$PROXY_TOR_SOCKS5_CONTAINER_PORT|g" \
     "$TEMPLATE_FILE" > "$CONFIG_FILE"
 
 # Start Tor
