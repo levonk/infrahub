@@ -12,4 +12,7 @@
 		prefetch 5 10s 80%
 		serve_stale 8h verify
 	}
+	health :{DNS_COREDNS_MAIN_HEALTH_CONTAINER_PORT} {
+		lameduck 2s
+	}
 }

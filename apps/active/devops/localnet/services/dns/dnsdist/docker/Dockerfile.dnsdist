@@ -11,9 +11,9 @@ RUN apk add --no-cache dnsdist bind-tools bash curl tini
 #RUN addgroup -g 1010 dnsdist && adduser -D -u 1010 -G dnsdist dnsdist
 
 COPY --chown=dnsdist:dnsdist assets/entrypoint-dnsdist.sh /entrypoint-dnsdist.sh
-RUN mkdir /templates /etc/dnsdist ; chmod 755 /entrypoint-dnsdist.sh /templates /etc/dnsdist
+RUN mkdir -p /templates /etc/dnsdist/blocklists ; chmod 755 /entrypoint-dnsdist.sh /templates /etc/dnsdist /etc/dnsdist/blocklists
 
-VOLUME ["/templates"]
+VOLUME ["/templates", "/etc/dnsdist/blocklists"]
 
 # Set the healthcheck port as a variable
 ENV DNSDIST_HEALTHCHECK_PORT=5353
@@ -21,6 +21,13 @@ ENV DNSDIST_HEALTHCHECK_PORT=5353
 # Tell the startup script to render the dnsdist template
 # This will create /etc/dnsdist/conf.d/dnsdist.conf from the template
 ENV TEMPLATE_FILES=dnsdist
+ENV DNS_DNSDIST_WEB_PASSWORD=superSecretDnsdistWebKey
+ENV DNS_DNSDIST_API_PASSWORD=superSecretDnsdistApiKey
+ENV DNS_DNSDIST_MAIN_CONTAINER_PORT=5353
+ENV DNS_DNSDIST_CONTROL_CONTAINER_PORT=5353
+ENV DNS_DNSDIST_WEB_CONTAINER_PORT=8083
+ENV DNS_COREDNS_MAIN_CONTAINER_PORT=5353
+ENV DNS_COREDNS_MAIN_IP=172.21.255.51
 
 # Healthcheck to ensure dnsdist is responding
 HEALTHCHECK --interval=10s --timeout=5s --start-period=15s --retries=3 \

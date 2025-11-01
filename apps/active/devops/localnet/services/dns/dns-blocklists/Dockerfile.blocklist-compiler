@@ -2,7 +2,7 @@
 # Purpose: Build and compile DNS/web blocklists to CDB format
 # Security: Non-root user, minimal dependencies, no shell access
 
-FROM base-debian
+FROM base-debian:latest
 
 # apt operations require root; base-debian defaults to non-root appuser
 USER root
@@ -24,15 +24,16 @@ RUN groupadd -g 1000 blocklist && \
     useradd -d /blocklists -u 1000 -g blocklist -s /usr/sbin/nologin blocklist
 
 # Create directories with proper permissions
-RUN mkdir -p /blocklists/sources /blocklists/compiled /tmp/blocklists && \
-    chown -R blocklist:blocklist /blocklists /tmp/blocklists
+RUN mkdir -p /blocklists/sources /blocklists/compiled && \
+	chown -R blocklist:blocklist /blocklists && \
+	chmod 755 /blocklists /blocklists/compiled /blocklists/sources
 
 # Copy update script
 COPY --chown=blocklist:blocklist update-blocklists.sh /usr/local/bin/update-blocklists.sh
 RUN chmod +x /usr/local/bin/update-blocklists.sh
 
 # Switch to non-root user
-USER blocklist
+#USER blocklist
 
 # Set working directory
 WORKDIR /blocklists

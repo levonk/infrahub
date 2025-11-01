@@ -1,3 +1,35 @@
+# Use a minimal base image for the build stage
+FROM base-alpine:latest AS builder
+
+# Set the desired CoreDNS version (You will need to update this manually or via an external script)
+ARG COREDNS_VERSION="v1.13.1"
+
+# Determine architecture for downloading the correct binary
+# In Docker build, you can use 'dpkg --print-architecture' for Debian/Ubuntu-based,
+# or look at the platform argument if building via 'docker buildx build --platform ...'
+# For a standard multi-arch build, we'll use the build argument if available, otherwise default.
+ARG TARGET_ARCH=${TARGETARCH:-amd64}
+
+# Map standard architecture names to CoreDNS expected names
+RUN case "$TARGET_ARCH" in \
+	"amd64") ARCH_SUFFIX="amd64" ;; \
+	"arm64") ARCH_SUFFIX="arm64" ;; \
+	*) echo "Unsupported architecture: $TARGET_ARCH"; exit 1 ;; \
+	esac; \
+	\
+	COREDNS_FILE="coredns_${COREDNS_VERSION#v}_linux_${ARCH_SUFFIX}.tgz"; \
+	DOWNLOAD_URL="https://github.com/coredns/coredns/releases/download/${COREDNS_VERSION}/${COREDNS_FILE}"; \
+	\
+	echo "Downloading CoreDNS ${COREDNS_VERSION} for ${TARGET_ARCH} from ${DOWNLOAD_URL}"; \
+	apk add --no-cache curl tar; \
+	curl -L -o /tmp/${COREDNS_FILE} ${DOWNLOAD_URL}; \
+	tar -xzf /tmp/${COREDNS_FILE} -C /tmp; \
+	mv /tmp/coredns /tmp/coredns_binary; \
+	rm /tmp/${COREDNS_FILE};
+
+
+
+
 # Final stage: CoreDNS with runtime configuration
 FROM base-alpine:latest
 
@@ -7,6 +39,9 @@ USER root
 # Install CoreDNS for the service and curl for the healthcheck.
 # gettext is not needed as the entrypoint uses sed for substitution.
 RUN apk add --no-cache coredns curl bash gnu-libiconv
+
+## The current apk version of coredns has some weird behavior with the `health` plugin
+COPY --from=builder /tmp/coredns_binary /usr/local/bin/coredns
 
 # Config Corefile template for runtime expansion & cache directory
 VOLUME ["/templates", "/var/lib/coredns"]

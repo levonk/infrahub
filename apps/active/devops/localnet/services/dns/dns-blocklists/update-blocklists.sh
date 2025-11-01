@@ -2,12 +2,16 @@
 # Home Lab In-a-Box - Blocklist Update Script
 # Purpose: Download and compile blocklists to CDB format
 
-set -euo pipefail
+set -uo pipefail
 
 # Configuration
 SOURCES_DIR="/blocklists/sources"
 COMPILED_DIR="/blocklists/compiled"
 TEMP_DIR="/tmp/blocklists-$$"
+TEMP_COMBINED_TXT_FILE="$TEMP_DIR/combined.txt"
+TEMP_COMBINED_CDBINPUT_FILE="$TEMP_DIR/combined.cdb_input"
+TEMP_COMBINED_CDB_FILE="$TEMP_DIR/combined.cdb"
+FINAL_COMBINED_CDB_FILE="$COMPILED_DIR/blocklist.cdb"
 
 # Blocklist URLs
 STEVENBLACK_URL="https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts"
@@ -70,27 +74,26 @@ echo -e "${BLUE}Combining blocklists...${NC}"
 cat "$TEMP_DIR"/*.txt 2>/dev/null | \
     grep -v '^#' | \
     grep -v '^$' | \
-    awk '{print $2}' | \
     grep -E '^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$' | \
-    sort -u > "$TEMP_DIR/combined.txt"
+    sort -u > "$TEMP_COMBINED_TXT_FILE"
 
-TOTAL_DOMAINS=$(wc -l < "$TEMP_DIR/combined.txt")
+TOTAL_DOMAINS=$(wc -l < "$TEMP_COMBINED_TXT_FILE")
 echo -e "${GREEN}✓ Combined ${TOTAL_DOMAINS} unique domains${NC}"
 
 # Convert to CDB format
 echo -e "${BLUE}Converting to CDB format...${NC}"
 if command -v cdb &> /dev/null; then
     # Create CDB input format (key\tvalue)
-    awk '{print $1 "\t1"}' "$TEMP_DIR/combined.txt" | \
-        cdb -c "$TEMP_DIR/blocklist.cdb"
-    
+    awk '{print $1 "\t1"}' "$TEMP_COMBINED_TXT_FILE" | \
+        cdb -mc "$TEMP_COMBINED_CDB_FILE"
+
     # Verify CDB file
-    if [[ -f "$TEMP_DIR/blocklist.cdb" ]]; then
-        CDB_SIZE=$(stat -f%z "$TEMP_DIR/blocklist.cdb" 2>/dev/null || stat -c%s "$TEMP_DIR/blocklist.cdb")
+    if [[ -f "$TEMP_COMBINED_CDB_FILE" ]]; then
+        CDB_SIZE=$(stat -f%z "$TEMP_COMBINED_CDB_FILE" 2>/dev/null || stat -c%s "$TEMP_COMBINED_CDB_FILE")
         echo -e "${GREEN}✓ CDB file created (${CDB_SIZE} bytes)${NC}"
-        
+
         # Atomic replacement
-        mv "$TEMP_DIR/blocklist.cdb" "$COMPILED_DIR/blocklist.cdb"
+        mv "$TEMP_COMBINED_CDB_FILE" "$FINAL_COMBINED_CDB_FILE"
         echo -e "${GREEN}✓ Blocklist updated successfully${NC}"
     else
         echo -e "${RED}✗ Failed to create CDB file${NC}"
@@ -104,7 +107,7 @@ else
 fi
 
 # Save source files for reference
-cp "$TEMP_DIR/combined.txt" "$SOURCES_DIR/combined-$(date +%Y%m%d).txt"
+cp "$TEMP_COMBINED_TXT_FILE" "$SOURCES_DIR/combined-$(date +%Y%m%d).txt"
 
 # Cleanup
 rm -rf "$TEMP_DIR"
@@ -112,5 +115,5 @@ rm -rf "$TEMP_DIR"
 echo ""
 echo -e "${GREEN}=== Blocklist Update Complete ===${NC}"
 echo "Total domains: $TOTAL_DOMAINS"
-echo "CDB file: $COMPILED_DIR/blocklist.cdb"
+echo "CDB file: $FINAL_COMBINED_CDB_FILE"
 echo "$(date '+%Y-%m-%d %H:%M:%S')"

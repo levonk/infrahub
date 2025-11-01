@@ -3,8 +3,7 @@
 
 -- Listen addresses - bind to all interfaces to accept queries from Docker network
 -- Using addLocal() to add to defaults rather than replace them
-addLocal("0.0.0.0:" .. os.getenv("DNS_TRANSPARENT_CONTAINER_PORT", "5353"))        -- Transparent mode
-addLocal("0.0.0.0:" .. os.getenv("DNS_DNSDIST_CONTAINER_PORT", "5353"))      -- Direct access port
+addLocal("0.0.0.0:" .. os.getenv("DNS_DNSDIST_MAIN_CONTAINER_PORT", "53"))      -- Direct access port
 
 -- Server policy: least outstanding queries
 setServerPolicy(leastOutstanding)
@@ -51,11 +50,6 @@ addAction(MaxQPSIPRule(100), DropAction())
 -- CoreDNS now listens on port 15353 to avoid binding conflicts with host DNS
 newServer({address=os.getenv("DNS_COREDNS_MAIN_IP", "172.21.255.51") .. ":" .. os.getenv("DNS_COREDNS_MAIN_CONTAINER_PORT", "15353"), name="coredns", pool="primary", checkInterval=5, maxCheckFailures=3})
 
--- Fallback: dnscrypt-proxy (encrypted DNS with ODoH)
--- Using static IP for same reason as above
--- NOTE: Container listens on 5053 (image default), mapped to host 5300
-newServer({address=os.getenv("DNSCRYPT_STD_IP", "172.21.255.62") .. ":" .. os.getenv("DNS_DNSCRYPT_STD_CONTAINER_PORT", "5055"), name="dnscrypt-proxy", pool="fallback", checkInterval=5, maxCheckFailures=3})
-
 -- Server selection policy
 -- Try primary first, fallback if primary fails
 setPoolServerPolicy(leastOutstanding, "primary")
@@ -76,11 +70,12 @@ addAction(AllRule(), PoolAction("primary"))
 -- Console and API configuration
 -- Listen on localhost only for security
 setConsoleACL({"127.0.0.1/8", "::1/128"})
-controlSocket("0.0.0.0:5199")
+controlSocket("0.0.0.0:" .. os.getenv("DNS_DNSDIST_CONTROL_CONTAINER_PORT", "5199"))
 
 -- Webserver for metrics (Prometheus)
-webserver("0.0.0.0:8083")
+webserver("0.0.0.0:" .. os.getenv("DNS_DNSDIST_WEB_CONTAINER_PORT", "8053"))
 setWebserverConfig({password="changeme", apiKey="changeme"})
+setWebserverConfig({password=os.getenv("DNS_DNSDIST_WEB_PASSWORD", "supersecretpassword"), apiKey=os.getenv("DNS_DNSDIST_WEB_API_KEY", "supersecretAPIkey"), acl="192.0.2.0/24, !192.0.2.1"})
 
 -- Performance tuning
 -- Set cache size and number of worker threads

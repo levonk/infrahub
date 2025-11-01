@@ -20,17 +20,18 @@ services:
       - "${DNS_TRANSPARENT_HOST_PORT:-5500}:${DNS_TRANSPARENT_CONTAINER_PORT:-5500}/tcp"  # Transparent mode TCP
       # Direct mode: DNSDist's secondary listener on container port, forwarded to host port
       # Used for testing/debugging the DNSDist service directly
-      - "${DNS_DNSDIST_HOST_PORT:-5501}:${DNS_DNSDIST_CONTAINER_PORT:-5501}/udp"    # Direct mode UDP
-      - "${DNS_DNSDIST_HOST_PORT:-5501}:${DNS_DNSDIST_CONTAINER_PORT:-5501}/tcp"    # Direct mode TCP
+      - "${DNS_DNSDIST_MAIN_HOST_PORT:-5501}:${DNS_DNSDIST_MAIN_CONTAINER_PORT:-5501}/udp"    # Direct mode UDP
+      - "${DNS_DNSDIST_MAIN_HOST_PORT:-5501}:${DNS_DNSDIST_MAIN_CONTAINER_PORT:-5501}/tcp"    # Direct mode TCP
       # Metrics endpoint for monitoring DNSDist performance
       - "${DNS_DNSDIST_METRICS_HOST_PORT:-8083}:${DNS_DNSDIST_METRICS_CONTAINER_PORT:-8083}/tcp"  # Metrics
     volumes:
       - ./dnsdist/mounts/templates:/templates:ro
+      - ./dns-blocklists/mounts/blocklists/compiled:/etc/dnsdist/blocklists:ro
     environment:
       - HOST_IP=${HOST_IP}
       - TRANSPARENT_MODE=true
       - DNS_TRANSPARENT_CONTAINER_PORT=${DNS_TRANSPARENT_CONTAINER_PORT:-5353}
-      - DNS_DNSDIST_CONTAINER_PORT=${DNS_DNSDIST_CONTAINER_PORT:-5353}
+      - DNS_DNSDIST_MAIN_CONTAINER_PORT=${DNS_DNSDIST_MAIN_CONTAINER_PORT:-5353}
       - DNS_COREDNS_MAIN_IP=${DNS_DNS_COREDNS_MAIN_IP:-172.20.255.53}
       - DNS_COREDNS_MAIN_CONTAINER_PORT=${DNS_COREDNS_MAIN_CONTAINER_PORT:-15353}
       - TEMPLATE_FILES=dnsdist
@@ -38,7 +39,7 @@ services:
       coredns:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "dig", "+short", "example.com", "@127.0.0.1", "-p", "${DNS_DNSDIST_CONTAINER_PORT:-5353}"]
+      test: ["CMD", "dig", "+short", "example.com", "@127.0.0.1", "-p", "${DNS_DNSDIST_MAIN_CONTAINER_PORT:-5353}"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -267,11 +268,10 @@ services:
     networks:
       - localnet
     volumes:
-      - ./dns-blocklists/mounts/blocklists/sources:/blocklists/sources
-      - ./dns-blocklists/mounts/blocklists/compiled:/blocklists/compiled
-    read_only: true
+      - ./dns-blocklists/mounts/blocklists:/blocklists
+    #read_only: true
     tmpfs:
-      - /tmp/blocklists:mode=1777,size=512m
+      - /tmp:mode=1777,size=512m
     healthcheck:
       test: ["CMD", "test", "-f", "/blocklists/compiled/blocklist.cdb"]
       interval: 30s

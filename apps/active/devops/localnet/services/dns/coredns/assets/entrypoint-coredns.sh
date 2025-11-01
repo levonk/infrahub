@@ -61,10 +61,10 @@ if [ ! -r "$DEST_CONFIG_FILE" ]; then
 fi
 
 
-echo "CoreDNS configuration expanded successfully"
-echo "Config file: $DEST_CONFIG_FILE"
-echo "DNS container port: $DNS_COREDNS_MAIN_CONTAINER_PORT"
-echo "Health port: $DNS_COREDNS_MAIN_HEALTH_CONTAINER_PORT"
+echo "[ENTRYPOINT]INFO: CoreDNS configuration expanded successfully"
+echo "[ENTRYPOINT]INFO: Config file: $DEST_CONFIG_FILE"
+echo "[ENTRYPOINT]INFO: DNS container port: $DNS_COREDNS_MAIN_CONTAINER_PORT"
+echo "[ENTRYPOINT]INFO: Health port: $DNS_COREDNS_MAIN_HEALTH_CONTAINER_PORT"
 
 # Start CoreDNS with the expanded config
 export AUTOMAXPROCS_LOG_LEVEL=warn
