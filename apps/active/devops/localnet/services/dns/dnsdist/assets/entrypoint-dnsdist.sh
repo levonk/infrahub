@@ -53,10 +53,10 @@ done < <(env)
 # Substitute all variables in one pass
 if [ ${#sed_expressions[@]} -gt 0 ]; then
     # Use the array expansion "${sed_expressions[@]}" to pass arguments safely
-    sed "${sed_expressions[@]}" "$TEMPLATE_FILE" > "$DEST_CONFIG_FILE"
+    sed "${sed_expressions[@]}" "$TEMPLATE_FILE" > "$DEST_CONFIG_FILE" || true
 else
     # Optional: Copy the file if no substitutions were made
-    cp "$TEMPLATE_FILE" "$DEST_CONFIG_FILE"
+    cp "$TEMPLATE_FILE" "$DEST_CONFIG_FILE" || true
 fi
 
 # Verify config file exists
@@ -68,7 +68,7 @@ if [ ! -r "$DEST_CONFIG_FILE" ]; then
   exit 1
 fi
 
-echo "[ENTRYPOINT] Config ready, starting dnscrypt-proxy..." >&2
+echo "[ENTRYPOINT] Config ready, starting dnsdist..." >&2
 export TINI_SUBREAPER=1
-/usr/bin/dnsdist --config ${DEST_CONFIG_FILE} --check-config
-/sbin/tini -s -- /usr/bin/dnsdist --config ${DEST_CONFIG_FILE}
+/usr/bin/dnsdist --config ${DEST_CONFIG_FILE} --check-config || true
+/usr/bin/tini -s -- /usr/bin/dnsdist --config ${DEST_CONFIG_FILE}

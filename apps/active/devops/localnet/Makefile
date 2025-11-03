@@ -21,7 +21,7 @@ help: ## Show this help message
 
 build: ## Build all Docker images
 	@echo "$(BLUE)Building all Docker images...$(NC)"
-	docker compose --progress=plain build
+	docker compose --progress=plain build -f docker-compose.localnet.yml
 	@echo "$(GREEN)✓ Build complete$(NC)"
 
 build-base: ## Build base images
@@ -32,29 +32,29 @@ build-base: ## Build base images
 up: build-base ## Start all services
 	@echo "$(BLUE)Starting all services...$(NC)"
 		@sleep 1
-	docker compose --progress=plain up -d
+	docker compose --progress=plain -f docker-compose.localnet.yml up -d
 	@echo "$(GREEN)✓ Services started$(NC)"
 	@echo "Run 'make health-check' to verify service health"
 
 down: ## Stop all services
 	@echo "$(YELLOW)Stopping all services...$(NC)"
-	docker compose --progress=plain down
+	docker compose --progress=plain -f docker-compose.localnet.yml down
 	@echo "$(GREEN)✓ Services stopped$(NC)"
 
 restart: ## Restart all services
 	@echo "$(YELLOW)Restarting all services...$(NC)"
-	docker compose --progress=plain restart
+	docker compose --progress=plain -f docker-compose.localnet.yml restart
 	@echo "$(GREEN)✓ Services restarted$(NC)"
 
 logs: ## View logs from all services (last 100 lines)
-	docker compose logs --tail=100
+	docker compose logs -f docker-compose.localnet.yml --tail=100
 
 logs-follow: ## Follow logs from all services
-	docker compose logs -f
+	docker compose logs -f docker-compose.localnet.yml -f
 
 health-check: ## Check health status of all services
 	@echo "$(BLUE)Checking service health...$(NC)"
-	@docker compose ps
+	@docker compose -f docker-compose.localnet.yml ps
 	@echo ""
 	@echo "$(BLUE)Running health checks...$(NC)"
 	@./scripts/health-checks/nftables-check.sh || echo "$(YELLOW)⚠ nftables check failed$(NC)"
@@ -113,7 +113,7 @@ fix-configs: clean-configs ## Recreate all config files from templates
 clean: ## Remove all containers, volumes, and networks, then restart services
 	@echo "$(YELLOW)Cleaning up Docker resources and restarting...$(NC)"
 	@echo "$(BLUE)Stopping and removing all containers...$(NC)"
-	docker compose down -v --remove-orphans 2>/dev/null || true
+	docker compose down -f docker-compose.localnet.yml -v --remove-orphans 2>/dev/null || true
 	@echo "$(BLUE)Force-removing any stuck containers...$(NC)"
 	@docker ps -a --filter "name=localnet-" --format "{{.Names}}" | xargs -r docker rm -f 2>/dev/null || true
 	@docker ps -a --filter "name=localnet-" --format "{{.Names}}" | xargs -r docker rm -f 2>/dev/null || true
@@ -128,24 +128,24 @@ clean: ## Remove all containers, volumes, and networks, then restart services
 	@$(MAKE) up
 
 ps: ## Show running containers
-	docker compose ps
+	docker compose -f docker-compose.localnet.yml ps
 
 stats: ## Show container resource usage
 	docker stats --no-stream
 
 pull: ## Pull latest container images
 	@echo "$(BLUE)Pulling latest images...$(NC)"
-	docker compose pull
+	docker compose -f docker-compose.localnet.yml pull
 	@echo "$(GREEN)✓ Images updated$(NC)"
 
 config: ## Validate docker-compose.yml configuration
 	@echo "$(BLUE)Validating configuration...$(NC)"
-	docker compose config > /dev/null
+	docker compose config -f docker-compose.localnet.yml > /dev/null
 	@echo "$(GREEN)✓ Configuration valid$(NC)"
 
 lint: ## Lint docker-compose.yml and YAML files
 	@echo "$(BLUE)Linting configuration files...$(NC)"
-	@docker compose config > /dev/null && echo "$(GREEN)✓ docker-compose.yml syntax valid$(NC)" || (echo "$(RED)✗ docker-compose.yml syntax invalid$(NC)"; exit 1)
+	@docker compose config -f docker-compose.localnet.yml > /dev/null && echo "$(GREEN)✓ docker-compose.yml syntax valid$(NC)" || (echo "$(RED)✗ docker-compose.yml syntax invalid$(NC)"; exit 1)
 	@if command -v yamllint >/dev/null 2>&1; then \
 		find . -name "*.yml" -o -name "*.yaml" | xargs yamllint --no-warnings || echo "$(YELLOW)⚠ yamllint not configured$(NC)"; \
 	else \
@@ -157,9 +157,9 @@ test-claude: ## Run tests for Claude Code services
 	@echo "$(BLUE)Running Claude Code service tests...$(NC)"
 	@docker compose --profile claude-code ps | grep -q "claude-code" && echo "$(GREEN)✓ Claude Code services are running$(NC)" || (echo "$(RED)✗ Claude Code services not running$(NC)"; exit 1)
 	@echo "$(BLUE)Testing Claude Code API health...$(NC)"
-	@docker compose exec -T claude-code curl -f http://localhost:8081/health >/dev/null 2>&1 && echo "$(GREEN)✓ Claude Code API healthy$(NC)" || echo "$(YELLOW)⚠ Claude Code API not responding$(NC)"
-	@docker compose exec -T claude-code-ui curl -f http://localhost:3000/health >/dev/null 2>&1 && echo "$(GREEN)✓ Claude Code UI healthy$(NC)" || echo "$(YELLOW)⚠ Claude Code UI not responding$(NC)"
-	@docker compose exec -T claude-code-auth curl -f http://localhost:8080/health >/dev/null 2>&1 && echo "$(GREEN)✓ Claude Code Auth healthy$(NC)" || echo "$(YELLOW)⚠ Claude Code Auth not responding$(NC)"
+	@docker compose exec -f docker-compose.localnet.yml -T claude-code curl -f http://localhost:8081/health >/dev/null 2>&1 && echo "$(GREEN)✓ Claude Code API healthy$(NC)" || echo "$(YELLOW)⚠ Claude Code API not responding$(NC)"
+	@docker compose exec -f docker-compose.localnet.yml -T claude-code-ui curl -f http://localhost:3000/health >/dev/null 2>&1 && echo "$(GREEN)✓ Claude Code UI healthy$(NC)" || echo "$(YELLOW)⚠ Claude Code UI not responding$(NC)"
+	@docker compose exec -f docker-compose.localnet.yml -T claude-code-auth curl -f http://localhost:8080/health >/dev/null 2>&1 && echo "$(GREEN)✓ Claude Code Auth healthy$(NC)" || echo "$(YELLOW)⚠ Claude Code Auth not responding$(NC)"
 	@echo "$(GREEN)✓ Claude Code tests complete$(NC)"
 
 lint-claude: ## Lint Claude Code docker-compose configuration

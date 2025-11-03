@@ -125,10 +125,10 @@ chmod 600 "$WORKING_CONFIG"
 
 ```toml
 # Before
-listen_addresses = ['0.0.0.0:{DNSCRYPT_PROXY_CONTAINER_PORT}', '[::1]:{DNSCRYPT_PROXY_CONTAINER_PORT}']
+listen_addresses = ['0.0.0.0:{DNS_DNSCRYPT_PROXY_CONTAINER_PORT}', '[::1]:{DNS_DNSCRYPT_PROXY_CONTAINER_PORT}']
 
 # After
-listen_addresses = ['0.0.0.0:{DNSCRYPT_PROXY_CONTAINER_PORT}']
+listen_addresses = ['0.0.0.0:{DNS_DNSCRYPT_PROXY_CONTAINER_PORT}']
 ```
 
 This ensures the service binds only to IPv4, consistent with the custom binary fix and container networking setup.

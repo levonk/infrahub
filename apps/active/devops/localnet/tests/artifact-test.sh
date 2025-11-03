@@ -140,7 +140,7 @@ fi
 echo ""
 echo "Test 2: Nexus HTTP API Accessibility"
 NEXUS_HOST=${ARTIFACT_NEXUS_HOST:-localhost}
-NEXUS_PORT=${NEXUS_WEB_CONTAINER_PORT:-8081}
+NEXUS_PORT=${ARTIFACT_NEXUS_WEB_CONTAINER_PORT:-8081}
 nexus_uptime_seconds=$(uptime_to_seconds "${NEXUS_UPTIME:-}")
 
 if curl -sf "http://${NEXUS_HOST}:${NEXUS_PORT}/service/rest/v1/status" >/dev/null 2>&1; then

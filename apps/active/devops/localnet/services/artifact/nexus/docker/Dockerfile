@@ -26,11 +26,11 @@ ENV NEXUS_ADMIN_USERNAME=admin \
     NEXUS_DOCKER_V1_ENABLED=false \
     NEXUS_DOCKER_FORCE_BASIC_AUTH=true \
 	NEXUS_SKIP_DOCKER_SETUP=false \
-	NEXUS_WEB_CONTAINER_PORT=${NEXUS_WEB_CONTAINER_PORT:-8081}
+    ARTIFACT_NEXUS_WEB_CONTAINER_PORT=${ARTIFACT_NEXUS_WEB_CONTAINER_PORT:-8081}
 
 # Health check for Nexus service
 HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
-	CMD curl -f http://localhost:${NEXUS_WEB_CONTAINER_PORT}/service/rest/v1/status || exit 1
+    CMD curl -f http://localhost:${ARTIFACT_NEXUS_WEB_CONTAINER_PORT}/service/rest/v1/status || exit 1
 
 ENTRYPOINT ["/opt/sonatype/docker-entrypoint.sh"]
 CMD ["nexus", "run"]

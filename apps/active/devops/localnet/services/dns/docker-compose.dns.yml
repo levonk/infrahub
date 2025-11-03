@@ -32,7 +32,7 @@ services:
       - TRANSPARENT_MODE=true
       - DNS_TRANSPARENT_CONTAINER_PORT=${DNS_TRANSPARENT_CONTAINER_PORT:-5353}
       - DNS_DNSDIST_MAIN_CONTAINER_PORT=${DNS_DNSDIST_MAIN_CONTAINER_PORT:-5353}
-      - DNS_COREDNS_MAIN_IP=${DNS_DNS_COREDNS_MAIN_IP:-172.20.255.53}
+      - DNS_COREDNS_MAIN_IP=${DNS_DNS_COREDNS_MAIN_IP:-172.21.0.8}
       - DNS_COREDNS_MAIN_CONTAINER_PORT=${DNS_COREDNS_MAIN_CONTAINER_PORT:-15353}
       - TEMPLATE_FILES=dnsdist
     depends_on:
@@ -72,6 +72,7 @@ services:
       # Health check endpoint (default host port: 27493)
       - "${DNS_COREDNS_MAIN_HEALTH_HOST_PORT:-27493}:${DNS_COREDNS_MAIN_HEALTH_CONTAINER_PORT:-18080}/tcp"   # Health
     environment:
+      - DNS_COREDNS_MAIN_IP=${DNS_COREDNS_MAIN_IP:-172.21.0.8}
       - DNS_COREDNS_MAIN_HOST_PORT=${DNS_COREDNS_MAIN_HOST_PORT:-15354}
       - DNS_COREDNS_MAIN_CONTAINER_PORT=${DNS_COREDNS_MAIN_CONTAINER_PORT:-15353}
       - DNS_COREDNS_MAIN_METRICS_HOST_PORT=${DNS_COREDNS_MAIN_METRICS_HOST_PORT:-9153}
@@ -278,4 +279,4 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
-    restart: "no"  # Run once on startup, use cron/systemd for updates
+    restart: "no"  # Run once on startup, use n8n/cron/systemd for updates

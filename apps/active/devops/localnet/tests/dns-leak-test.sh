@@ -381,36 +381,36 @@ if command -v dig &> /dev/null; then
         fi
     fi
     # Test 3g: Host → dnscrypt-proxy UDP (read port from env, default 5300)
-    DNSCRYPT_PROXY_HOST_PORT=${DNSCRYPT_PROXY_HOST_PORT:-5300}
-    if dig @localhost -p ${DNSCRYPT_PROXY_HOST_PORT} example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
-        test_result "Host→dnscrypt-proxy UDP (${DNSCRYPT_PROXY_HOST_PORT})" "PASS" "Host can query dnscrypt-proxy via UDP on localhost:${DNSCRYPT_PROXY_HOST_PORT}"
+    DNS_DNSCRYPT_PROXY_HOST_PORT=${DNS_DNSCRYPT_PROXY_HOST_PORT:-5300}
+    if dig @localhost -p ${DNS_DNSCRYPT_PROXY_HOST_PORT} example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+        test_result "Host→dnscrypt-proxy UDP (${DNS_DNSCRYPT_PROXY_HOST_PORT})" "PASS" "Host can query dnscrypt-proxy via UDP on localhost:${DNS_DNSCRYPT_PROXY_HOST_PORT}"
     else
         IFS='|' read -r DNSCRYPT_STATUS DNSCRYPT_UPTIME DNSCRYPT_HEALTH <<< "$(parse_container_status dnscrypt-proxy)"
         dnscrypt_uptime_seconds=$(uptime_to_seconds "${DNSCRYPT_UPTIME:-}")
         if [[ ${dnscrypt_uptime_seconds:-0} -gt 300 ]]; then
-            test_result "Host→dnscrypt-proxy UDP (${DNSCRYPT_PROXY_HOST_PORT})" "FAIL" "dnscrypt-proxy running for ${DNSCRYPT_UPTIME} but host cannot query UDP port ${DNSCRYPT_PROXY_HOST_PORT}"
+            test_result "Host→dnscrypt-proxy UDP (${DNS_DNSCRYPT_PROXY_HOST_PORT})" "FAIL" "dnscrypt-proxy running for ${DNSCRYPT_UPTIME} but host cannot query UDP port ${DNS_DNSCRYPT_PROXY_HOST_PORT}"
             echo ""
             echo -e "${YELLOW}Recommended action:${NC}"
             echo "  docker compose -f \"$PROJECT_ROOT/docker-compose.yml\" ps dnscrypt-proxy"
             echo "  docker compose -f \"$PROJECT_ROOT/docker-compose.yml\" logs dnscrypt-proxy --tail=20"
             echo ""
-            echo "Check if port ${DNSCRYPT_PROXY_HOST_PORT} is properly mapped and dnscrypt-proxy is listening."
+            echo "Check if port ${DNS_DNSCRYPT_PROXY_HOST_PORT} is properly mapped and dnscrypt-proxy is listening."
         else
-            test_result "Host→dnscrypt-proxy UDP (${DNSCRYPT_PROXY_HOST_PORT})" "WARN" "Cannot query dnscrypt-proxy UDP from host yet (starting for ${DNSCRYPT_UPTIME:-unknown})"
+            test_result "Host→dnscrypt-proxy UDP (${DNS_DNSCRYPT_PROXY_HOST_PORT})" "WARN" "Cannot query dnscrypt-proxy UDP from host yet (starting for ${DNSCRYPT_UPTIME:-unknown})"
         fi
     fi
 
     # Test 3h: Host → dnscrypt-proxy TCP (read port from env, default 5300)
     # Note: dnscrypt-proxy only exposes UDP in docker-compose.yml, but we test TCP anyway
-    if dig @localhost -p ${DNSCRYPT_PROXY_HOST_PORT} +tcp example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
-        test_result "Host→dnscrypt-proxy TCP (${DNSCRYPT_PROXY_HOST_PORT})" "PASS" "Host can query dnscrypt-proxy via TCP on localhost:${DNSCRYPT_PROXY_HOST_PORT}"
+    if dig @localhost -p ${DNS_DNSCRYPT_PROXY_HOST_PORT} +tcp example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+        test_result "Host→dnscrypt-proxy TCP (${DNS_DNSCRYPT_PROXY_HOST_PORT})" "PASS" "Host can query dnscrypt-proxy via TCP on localhost:${DNS_DNSCRYPT_PROXY_HOST_PORT}"
     else
         IFS='|' read -r DNSCRYPT_STATUS DNSCRYPT_UPTIME DNSCRYPT_HEALTH <<< "$(parse_container_status dnscrypt-proxy)"
         dnscrypt_uptime_seconds=$(uptime_to_seconds "${DNSCRYPT_UPTIME:-}")
         if [[ ${dnscrypt_uptime_seconds:-0} -gt 300 ]]; then
-            test_result "Host→dnscrypt-proxy TCP (${DNSCRYPT_PROXY_HOST_PORT})" "WARN" "dnscrypt-proxy TCP not accessible from host (only UDP exposed in docker-compose)"
+            test_result "Host→dnscrypt-proxy TCP (${DNS_DNSCRYPT_PROXY_HOST_PORT})" "WARN" "dnscrypt-proxy TCP not accessible from host (only UDP exposed in docker-compose)"
         else
-            test_result "Host→dnscrypt-proxy TCP (${DNSCRYPT_PROXY_HOST_PORT})" "WARN" "Cannot query dnscrypt-proxy TCP from host yet (starting for ${DNSCRYPT_UPTIME:-unknown})"
+            test_result "Host→dnscrypt-proxy TCP (${DNS_DNSCRYPT_PROXY_HOST_PORT})" "WARN" "Cannot query dnscrypt-proxy TCP from host yet (starting for ${DNSCRYPT_UPTIME:-unknown})"
         fi
 IFS='|' read -r DNSCRYPT_STATUS DNSCRYPT_UPTIME DNSCRYPT_HEALTH <<< "$(parse_container_status dnscrypt-proxy)"
 

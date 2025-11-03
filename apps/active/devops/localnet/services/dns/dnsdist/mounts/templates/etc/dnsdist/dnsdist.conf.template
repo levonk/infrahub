@@ -48,7 +48,7 @@ addAction(MaxQPSIPRule(100), DropAction())
 -- When DNS services bind to :53, they intercept Docker's embedded DNS resolver (127.0.0.11:53)
 -- This breaks service discovery, so we must use static IPs assigned via ipv4_address in docker-compose
 -- CoreDNS now listens on port 15353 to avoid binding conflicts with host DNS
-newServer({address=os.getenv("DNS_COREDNS_MAIN_IP", "172.21.255.51") .. ":" .. os.getenv("DNS_COREDNS_MAIN_CONTAINER_PORT", "15353"), name="coredns", pool="primary", checkInterval=5, maxCheckFailures=3})
+newServer({address=os.getenv("DNS_COREDNS_MAIN_IP", "172.21.0.8") .. ":" .. os.getenv("DNS_COREDNS_MAIN_CONTAINER_PORT", "15353"), name="coredns", pool="primary", checkInterval=5, maxCheckFailures=3})
 
 -- Server selection policy
 -- Try primary first, fallback if primary fails
@@ -70,7 +70,8 @@ addAction(AllRule(), PoolAction("primary"))
 -- Console and API configuration
 -- Listen on localhost only for security
 setConsoleACL({"127.0.0.1/8", "::1/128"})
-controlSocket("0.0.0.0:" .. os.getenv("DNS_DNSDIST_CONTROL_CONTAINER_PORT", "5199"))
+-- controlSocket("0.0.0.0:" .. os.getenv("DNS_DNSDIST_CONTROL_CONTAINER_PORT", "5199"))
+-- setKey(os.getenv("DNS_DNSDIST_API_KEY", "supersecretAPIkey"))
 
 -- Webserver for metrics (Prometheus)
 webserver("0.0.0.0:" .. os.getenv("DNS_DNSDIST_WEB_CONTAINER_PORT", "8053"))

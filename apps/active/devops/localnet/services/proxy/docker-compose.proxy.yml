@@ -118,8 +118,8 @@ services:
     networks:
       - localnet
     ports:
-      - "${TOR_SOCKS_HOST_PORT:-9050}:9050/tcp"  # SOCKS5 proxy
-      - "${TOR_CONTROL_HOST_PORT:-9051}:9051/tcp"  # Control port
+      - "${PROXY_TOR_SOCKS_HOST_PORT:-9050}:9050/tcp"  # SOCKS5 proxy
+      - "${PROXY_TOR_CONTROL_HOST_PORT:-9051}:9051/tcp"  # Control port
     profiles:
       - proxy  # Core proxy chain
     healthcheck:
