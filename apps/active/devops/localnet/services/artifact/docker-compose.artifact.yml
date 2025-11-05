@@ -33,13 +33,16 @@ services:
   verdaccio:
     image: verdaccio/verdaccio:latest
     container_name: localnet-artifact-verdaccio
+    build:
+      context: ./verdaccio
+      dockerfile: docker/Dockerfile.verdaccio
     networks:
       - localnet
     ports:
-      - "${ARTIFACT_VERDACCIO_HOST_PORT:-4873}:${VERDACCIO_PORT:-4873}/tcp"
+      - "${ARTIFACT_VERDACCIO_HOST_PORT:-4873}:${ARTIFACT_VERDACCIO_CONTAINER_PORT:-4873}/tcp"
     volumes:
-      - /mnt/d/p/personal/data/docker/volumes/cache/verdaccio-data:/verdaccio-data
-      - ../../configs/artifacts/verdaccio/config.yaml:/verdaccio/conf/config.yaml:ro
+      - ${VERDACCIO_DATA_PATH}:/verdaccio-data
+      - verdaccio/mounts/templates:/templates:ro
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:4873/-/ping"]
       interval: 30s

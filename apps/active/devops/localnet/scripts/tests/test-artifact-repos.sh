@@ -7,7 +7,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/test-helpers.sh"
 
 # Test configuration
-VERDACCIO_PORT="${VERDACCIO_PORT:-14873}"
+ARTIFACT_VERDACCIO_CONTAINER_PORT="${ARTIFACT_VERDACCIO_CONTAINER_PORT:-14873}"
 ARTIFACT_NEXUS_WEB_HOST_PORT="${ARTIFACT_NEXUS_WEB_HOST_PORT:-8081}"
 <<<<<<< HEAD
 NEXUS_DOCKER_PORT="${NEXUS_DOCKER_PORT:-8082}"
@@ -18,7 +18,7 @@ ARTIFACT_NEXUS_DOCKER_HOST_PORT="${ARTIFACT_NEXUS_DOCKER_HOST_PORT:-8082}"
 test_verdaccio_health() {
     test_start "Verdaccio Health"
 
-    if curl -sf "http://localhost:$VERDACCIO_PORT/-/ping" | grep -q "pong"; then
+    if curl -sf "http://localhost:$ARTIFACT_VERDACCIO_CONTAINER_PORT/-/ping" | grep -q "pong"; then
         test_pass "Verdaccio health check passed"
     else
         test_fail "Verdaccio health check failed"
@@ -28,7 +28,7 @@ test_verdaccio_health() {
 test_verdaccio_web_ui() {
     test_start "Verdaccio Web UI"
 
-    if curl -sf "http://localhost:$VERDACCIO_PORT/" | grep -q "Verdaccio"; then
+    if curl -sf "http://localhost:$ARTIFACT_VERDACCIO_CONTAINER_PORT/" | grep -q "Verdaccio"; then
         test_pass "Verdaccio web UI accessible"
     else
         test_fail "Verdaccio web UI not accessible"
@@ -39,7 +39,7 @@ test_verdaccio_registry() {
     test_start "Verdaccio NPM Registry"
 
     # Test package search
-    if curl -sf "http://localhost:$VERDACCIO_PORT/-/v1/search?text=express" | grep -q "express"; then
+    if curl -sf "http://localhost:$ARTIFACT_VERDACCIO_CONTAINER_PORT/-/v1/search?text=express" | grep -q "express"; then
         test_pass "Verdaccio registry search working"
     else
         test_warn "Verdaccio registry search not working (may need upstream connection)"

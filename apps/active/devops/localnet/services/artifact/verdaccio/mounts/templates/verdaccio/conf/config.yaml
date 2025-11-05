@@ -1,18 +1,18 @@
 # Verdaccio Configuration
 # https://verdaccio.org/docs/configuration
 
-storage: /verdaccio/storage/data
+storage: /verdaccio-data
 plugins: /verdaccio/plugins
 
 # Web UI
 web:
-  title: Homelab NPM Registry
+  title: localnet NPM Registry
   enable: true
 
 # Authentication
 auth:
   htpasswd:
-    file: /verdaccio/storage/htpasswd
+    file: /verdaccio/conf/htpasswd
     max_users: -1
 
 # Uplinks (proxy to npmjs.org)
@@ -43,7 +43,7 @@ server:
 logs: { type: stdout, format: pretty, level: http }
 
 # Listen on all interfaces
-listen: 0.0.0.0:4873
+listen: 0.0.0.0:{ARTIFACT_VERDACCIO_CONTAINER_PORT}
 
 # Storage configuration with LRU eviction (T071a)
 # Eviction triggers when storage exceeds 80% of max_storage_size
