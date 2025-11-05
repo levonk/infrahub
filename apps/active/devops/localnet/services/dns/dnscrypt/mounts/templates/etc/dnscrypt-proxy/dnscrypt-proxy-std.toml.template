@@ -15,4 +15,4 @@ doh_servers = true
 odoh_servers = false
 
 # Route all traffic through the Tor SOCKS5 proxy to ensure connectivity
-proxy = 'socks5://{PROXY_SOCKS5_TOR_IP}:{PROXY_TOR_SOCKS5_CONTAINER_PORT}'
+proxy = 'socks5://{PROXY_TOR_SOCKS5_IP}:{PROXY_TOR_SOCKS5_CONTAINER_PORT}'

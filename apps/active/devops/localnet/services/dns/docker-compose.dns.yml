@@ -27,23 +27,19 @@ services:
     volumes:
       - ./dnsdist/mounts/templates:/templates:ro
       - ./dns-blocklists/mounts/blocklists/compiled:/etc/dnsdist/blocklists:ro
-    environment:
-      - HOST_IP=${HOST_IP}
-      - TRANSPARENT_MODE=true
-      - DNS_TRANSPARENT_CONTAINER_PORT=${DNS_TRANSPARENT_CONTAINER_PORT:-5353}
-      - DNS_DNSDIST_MAIN_CONTAINER_PORT=${DNS_DNSDIST_MAIN_CONTAINER_PORT:-5353}
-      - DNS_COREDNS_MAIN_IP=${DNS_DNS_COREDNS_MAIN_IP:-172.21.0.8}
-      - DNS_COREDNS_MAIN_CONTAINER_PORT=${DNS_COREDNS_MAIN_CONTAINER_PORT:-15353}
-      - TEMPLATE_FILES=dnsdist
+    env_file:
+      - ../../.env
     depends_on:
       coredns:
         condition: service_healthy
+      blocklist-compiler:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "dig", "+short", "example.com", "@127.0.0.1", "-p", "${DNS_DNSDIST_MAIN_CONTAINER_PORT:-5353}"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 30s
+      start_period: 170s
     restart: unless-stopped
 
   # second layer of DNS Services. Handles fallback, and normal caching
@@ -59,6 +55,7 @@ services:
     container_name: localnet-dns-coredns
     networks:
       localnet:
+        ipv4_address: ${DNS_COREDNS_MAIN_IP:-172.21.255.51}
         aliases:
           - coredns
     ports:
@@ -123,7 +120,7 @@ services:
 #      - "${DNS_DNSCRYPT_ODOH_HOST_PORT:-5360}:${DNS_DNSCRYPT_ODOH_CONTAINER_PORT:-5053}/tcp"
 #    environment:
 #      - DNS_DNSCRYPT_ODOH_CONTAINER_PORT=${DNS_DNSCRYPT_ODOH_CONTAINER_PORT:-5053}
-#      - PROXY_SOCKS5_TOR_IP=${PROXY_SOCKS5_TOR_IP:-172.20.255.70}
+#      - PROXY_TOR_SOCKS5_IP=${PROXY_TOR_SOCKS5_IP:-172.20.255.70}
 #      - PROXY_TOR_SOCKS5_CONTAINER_PORT=${PROXY_TOR_SOCKS5_CONTAINER_PORT:-9050}
 #    # IMPORTANT: Pass ONLY the config name WITHOUT .toml extension to the entrypoint script.
 #    # The script prepends /etc/dnscrypt-proxy/ and appends .toml.template automatically.
@@ -144,7 +141,7 @@ services:
 #      - "${DNS_DNSCRYPT_ANON_HOST_PORT:-5361}:${DNS_DNSCRYPT_ANON_CONTAINER_PORT:-5054}/tcp"
 #    environment:
 #      - DNS_DNSCRYPT_ANON_CONTAINER_PORT=${DNS_DNSCRYPT_ANON_CONTAINER_PORT:-5054}
-#      - PROXY_SOCKS5_TOR_IP=${PROXY_SOCKS5_TOR_IP:-172.20.255.70}
+#      - PROXY_TOR_SOCKS5_IP=${PROXY_TOR_SOCKS5_IP:-172.20.255.70}
 #      - PROXY_TOR_SOCKS5_CONTAINER_PORT=${PROXY_TOR_SOCKS5_CONTAINER_PORT:-9050}
 #    command: ["dnscrypt-proxy-anon"]
 #    restart: unless-stopped
@@ -163,7 +160,7 @@ services:
 #      - "${DNS_DNSCRYPT_STD_HOST_PORT:-5362}:${DNS_DNSCRYPT_STD_CONTAINER_PORT:-5055}/tcp"
 #    environment:
 #      - DNS_DNSCRYPT_STD_CONTAINER_PORT=${DNS_DNSCRYPT_STD_CONTAINER_PORT:-5055}
-#      - PROXY_SOCKS5_TOR_IP=${PROXY_SOCKS5_TOR_IP:-172.20.255.70}
+#      - PROXY_TOR_SOCKS5_IP=${PROXY_TOR_SOCKS5_IP:-172.20.255.70}
 #      - PROXY_TOR_SOCKS5_CONTAINER_PORT=${PROXY_TOR_SOCKS5_CONTAINER_PORT:-9050}
 #    command: ["dnscrypt-proxy-std"]
 #    restart: unless-stopped
@@ -182,7 +179,7 @@ services:
 #      - "${DNS_DNSCRYPT_DOH_HOST_PORT:-5363}:${DNS_DNSCRYPT_DOH_CONTAINER_PORT:-5056}/tcp"
 #    environment:
 #      - DNS_DNSCRYPT_DOH_CONTAINER_PORT=${DNS_DNSCRYPT_DOH_CONTAINER_PORT:-5056}
-#      - PROXY_SOCKS5_TOR_IP=${PROXY_SOCKS5_TOR_IP:-172.20.255.70}
+#      - PROXY_TOR_SOCKS5_IP=${PROXY_TOR_SOCKS5_IP:-172.20.255.70}
 #      - PROXY_TOR_SOCKS5_CONTAINER_PORT=${PROXY_TOR_SOCKS5_CONTAINER_PORT:-9050}
 #    command: ["dnscrypt-proxy-doh"]
 #    restart: unless-stopped
@@ -201,7 +198,7 @@ services:
 #      - "${DNS_DNSCRYPT_ENCRYPTED_HOST_PORT:-5364}:${DNS_DNSCRYPT_ENCRYPTED_CONTAINER_PORT:-5057}/tcp"
 #    environment:
 #      - DNS_DNSCRYPT_ENCRYPTED_CONTAINER_PORT=${DNS_DNSCRYPT_ENCRYPTED_CONTAINER_PORT:-5057}
-#      - PROXY_SOCKS5_TOR_IP=${PROXY_SOCKS5_TOR_IP:-172.20.255.70}
+#      - PROXY_TOR_SOCKS5_IP=${PROXY_TOR_SOCKS5_IP:-172.20.255.70}
 #      - PROXY_TOR_SOCKS5_CONTAINER_PORT=${PROXY_TOR_SOCKS5_CONTAINER_PORT:-9050}
 #    command: ["dnscrypt-proxy-encrypted"]
 #    restart: unless-stopped
@@ -214,7 +211,8 @@ services:
     image: localnet-dns-dnscrypt-plaintext:latest
     container_name: localnet-dns-dnscrypt-plaintext
     networks:
-      - localnet
+      localnet:
+        ipv4_address: ${DNS_DNSCRYPT_PLAINTEXT_CONTAINER_IP:-172.21.255.65}
     volumes:
       - ./dnscrypt/mounts/templates:/templates:ro
     ports:
@@ -239,7 +237,7 @@ services:
 #      - "${DNS_DNSCRYPT_TOR_HOST_PORT:-5366}:${DNS_DNSCRYPT_TOR_CONTAINER_PORT:-5066}/tcp"
 #    environment:
 #      - DNS_DNSCRYPT_TOR_CONTAINER_PORT=${DNS_DNSCRYPT_TOR_CONTAINER_PORT:-5066}
-#      - PROXY_SOCKS5_TOR_IP=${PROXY_SOCKS5_TOR_IP:-172.20.255.70}
+#      - PROXY_TOR_SOCKS5_IP=${PROXY_TOR_SOCKS5_IP:-172.20.255.70}
 #      - PROXY_TOR_SOCKS5_CONTAINER_PORT=${PROXY_TOR_SOCKS5_CONTAINER_PORT:-9050}
 #    command: ["dnscrypt-proxy-tor"]
 #    depends_on:
@@ -255,9 +253,12 @@ services:
     image: localnet-proxy-tor:latest
     container_name: localnet-proxy-tor
     networks:
-      - localnet
+      localnet:
+        ipv4_address: 172.21.255.70
     ports:
       - "${PROXY_TOR_SOCKS5_HOST_PORT:-9050}:${PROXY_TOR_SOCKS5_CONTAINER_PORT:-9050}/tcp"
+    environment:
+      - PROXY_TOR_SOCKS5_CONTAINER_PORT=${PROXY_TOR_SOCKS5_CONTAINER_PORT:-9050}
     restart: unless-stopped
 
   # Job container that creates DNSDIST cdb based blocklists

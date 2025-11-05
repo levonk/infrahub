@@ -290,7 +290,7 @@ if command -v dig &> /dev/null; then
     done
 
     # Test 2h: Tor SOCKS proxy
-    TOR_IP=${PROXY_SOCKS5_TOR_IP:-172.20.255.70}
+    TOR_IP=${PROXY_TOR_SOCKS5_IP:-172.20.255.70}
     TOR_PORT=${PROXY_TOR_SOCKS5_CONTAINER_PORT:-9050}
     if docker compose -f "$PROJECT_ROOT/docker-compose.yml" exec -T dnsdist curl -s --socks5-hostname "${TOR_IP}:${TOR_PORT}" https://check.torproject.org/api/ip 2>/dev/null | grep -q '"IsTor":true'; then
         test_result "Tor SOCKS Proxy" "PASS" "Tor SOCKS proxy is routing traffic correctly at ${TOR_IP}:${TOR_PORT}"

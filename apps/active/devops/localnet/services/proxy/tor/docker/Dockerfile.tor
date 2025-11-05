@@ -5,6 +5,8 @@ FROM base-alpine:latest
 
 USER root
 
+ENV PROXY_TOR_SOCKS5_CONTAINER_PORT=${PROXY_TOR_SOCKS5_CONTAINER_PORT:-9050}
+
 RUN apk add --no-cache tor netcat-openbsd
 
 COPY assets/ /

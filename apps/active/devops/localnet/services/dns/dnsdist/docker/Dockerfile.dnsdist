@@ -40,7 +40,7 @@ FROM base-debian:latest
 USER root
 
 # Install dnsutils for dig command (needed for health checks)
-RUN apt-get update && apt-get install -y --no-install-recommends bind9-dnsutils bash curl tini dnsdist && \
+RUN apt-get update && apt-get install -y --no-install-recommends bind9-dnsutils bash curl gettext-base dnsdist && \
 	rm -rf /var/lib/apt/lists/*
 
 # Create non-root user and set initial ownership
@@ -54,18 +54,6 @@ RUN mkdir -p /templates /etc/dnsdist/blocklists ; chmod 755 /entrypoint-dnsdist.
 
 
 VOLUME ["/templates", "/etc/dnsdist/blocklists"]
-
-# Set the healthcheck port as a variable
-ENV DNSDIST_HEALTHCHECK_PORT=5353
-
-# Tell the startup script to render the dnsdist template
-# This will create /etc/dnsdist/conf.d/dnsdist.conf from the template
-ENV TEMPLATE_FILES=dnsdist
-ENV DNS_DNSDIST_MAIN_CONTAINER_PORT=5353
-ENV DNS_DNSDIST_CONTROL_CONTAINER_PORT=5353
-ENV DNS_DNSDIST_WEB_CONTAINER_PORT=8083
-ENV DNS_COREDNS_MAIN_CONTAINER_PORT=5353
-ENV DNS_COREDNS_MAIN_IP=172.21.255.51
 
 # Healthcheck to ensure dnsdist is responding
 HEALTHCHECK --interval=10s --timeout=5s --start-period=15s --retries=3 \

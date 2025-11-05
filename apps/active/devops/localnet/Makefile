@@ -21,29 +21,24 @@ help: ## Show this help message
 
 build: ## Build all Docker images
 	@echo "$(BLUE)Building all Docker images...$(NC)"
-	docker compose --progress=plain build -f docker-compose.localnet.yml
+	docker compose -f docker-compose.localnet.yml --progress=plain build
 	@echo "$(GREEN)✓ Build complete$(NC)"
 
-build-base: ## Build base images
-	@echo "$(BLUE)Building base images...$(NC)"
-	docker compose --progress=plain -f services/base/docker-compose.base.yml build
-	@echo "$(GREEN)✓ Base images built$(NC)"
-
-up: build-base ## Start all services
+up: build ## Start all services
 	@echo "$(BLUE)Starting all services...$(NC)"
 		@sleep 1
-	docker compose --progress=plain -f docker-compose.localnet.yml up -d
+	docker compose -f docker-compose.localnet.yml --progress=plain up -d
 	@echo "$(GREEN)✓ Services started$(NC)"
 	@echo "Run 'make health-check' to verify service health"
 
 down: ## Stop all services
 	@echo "$(YELLOW)Stopping all services...$(NC)"
-	docker compose --progress=plain -f docker-compose.localnet.yml down
+	docker compose -f docker-compose.localnet.yml --progress=plain down
 	@echo "$(GREEN)✓ Services stopped$(NC)"
 
 restart: ## Restart all services
 	@echo "$(YELLOW)Restarting all services...$(NC)"
-	docker compose --progress=plain -f docker-compose.localnet.yml restart
+	docker compose -f docker-compose.localnet.yml --progress=plain restart
 	@echo "$(GREEN)✓ Services restarted$(NC)"
 
 logs: ## View logs from all services (last 100 lines)

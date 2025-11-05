@@ -22,7 +22,6 @@ services:
       - net.ipv4.ip_forward=1
     networks:
       localnet:
-        ipv4_address: 172.20.0.254
     ports:
       - "${TRANSPARENT_GATEWAY_METRICS_HOST_PORT:-9099}:${TRANSPARENT_GATEWAY_METRICS_PORT:-9099}/tcp"  # Metrics endpoint
     environment:
