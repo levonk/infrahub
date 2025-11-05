@@ -8,46 +8,49 @@ x-logging: &default-logging
     tag: "{{.Name}}"
     labels: "service"
 
-services:
-  transparent-gateway:
-    build:
-      context: ./configs/transparent-gateway
-      dockerfile: Dockerfile.transparent-gateway
-    container_name: localnet-proxy-transparent-gateway
-    profiles:
-      - gateway  # Only start with: docker-compose up --profile gateway
-    cap_add:
-      - NET_ADMIN
-    sysctls:
-      - net.ipv4.ip_forward=1
-    networks:
-      localnet:
-    ports:
-      - "${TRANSPARENT_GATEWAY_METRICS_HOST_PORT:-9099}:${TRANSPARENT_GATEWAY_METRICS_PORT:-9099}/tcp"  # Metrics endpoint
-    environment:
-      - DNS_SERVER=dnsdist
-      - DNS_PORT=5353
-      - NTP_SERVER=chronyd
-      - NTP_PORT=123
-      - WEB_PROXY=squid
-      - WEB_PROXY_PORT=3128
-      - GATEWAY_FAILURE_MODE=${GATEWAY_FAILURE_MODE:-fallback-direct}
-      - GATEWAY_TIMEOUT=${GATEWAY_TIMEOUT:-30}
-      - METRICS_PORT=${TRANSPARENT_GATEWAY_METRICS_PORT:-9099}
-    healthcheck:
-      test: ["CMD", "sh", "-c", "iptables -t nat -L -n && nc -zv localhost ${TRANSPARENT_GATEWAY_METRICS_PORT:-9099}"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
-    restart: unless-stopped
-    logging: *default-logging
+#services:
+#  transparent-gateway:
+#    build:
+#      context: ./configs/transparent-gateway
+#      dockerfile: Dockerfile.transparent-gateway
+#    container_name: localnet-proxy-transparent-gateway
+#    profiles:
+#      - gateway  # Only start with: docker-compose up --profile gateway
+#    cap_add:
+#      - NET_ADMIN
+#    sysctls:
+#      - net.ipv4.ip_forward=1
+#    networks:
+#      localnet:
+#    ports:
+#      - "${TRANSPARENT_GATEWAY_METRICS_HOST_PORT:-9099}:${TRANSPARENT_GATEWAY_METRICS_PORT:-9099}/tcp"  # Metrics endpoint
+#    environment:
+#      - DNS_SERVER=dnsdist
+#      - DNS_PORT=5353
+#      - NTP_SERVER=chronyd
+#      - NTP_PORT=123
+#      - WEB_PROXY=squid
+#      - WEB_PROXY_PORT=3128
+#      - GATEWAY_FAILURE_MODE=${GATEWAY_FAILURE_MODE:-fallback-direct}
+#      - GATEWAY_TIMEOUT=${GATEWAY_TIMEOUT:-30}
+#      - METRICS_PORT=${TRANSPARENT_GATEWAY_METRICS_PORT:-9099}
+#    healthcheck:
+#      test: ["CMD", "sh", "-c", "iptables -t nat -L -n && nc -zv localhost ${TRANSPARENT_GATEWAY_METRICS_PORT:-9099}"]
+#      interval: 30s
+#      timeout: 5s
+#      retries: 3
+#      start_period: 10s
+#    restart: unless-stopped
+#    logging: *default-logging
 
   envoy:
     image: envoyproxy/envoy:v1.28-latest
     container_name: localnet-proxy-envoy
-    profiles:
-      - monitoring  # Only start with: docker-compose up --profile monitoring
+    build:
+      context: ./proxy/envoy
+      dockerfile: docker/Dockerfile.envoy
+#    profiles:
+#      - monitoring  # Only start with: docker-compose up --profile monitoring
     networks:
       - localnet
     ports:
@@ -59,7 +62,6 @@ services:
       - ./configs/web/envoy:/etc/envoy/conf.d:ro
     depends_on:
       - squid
-      - jaeger
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:9901/ready"]
       interval: 30s
@@ -71,6 +73,9 @@ services:
   squid:
     image: ubuntu/squid:latest
     container_name: localnet-proxy-squid
+    build:
+      context: ./proxy/squid
+      dockerfile: docker/Dockerfile.squid
     networks:
       - localnet
     ports:
@@ -82,8 +87,8 @@ services:
       - CACHE_SIZE_MB=${PROXY_CACHE_SIZE_MB:-10240}
     depends_on:
       - privoxy
-    profiles:
-      - proxy  # Core proxy chain
+#    profiles:
+#      - proxy  # Core proxy chain
     healthcheck:
       test: ["CMD", "squidclient", "-h", "localhost", "mgr:info"]
       interval: 30s
@@ -95,14 +100,17 @@ services:
   privoxy:
     image: vimagick/privoxy:latest
     container_name: localnet-proxy-privoxy
+    build:
+      context: ./proxy/privoxy
+      dockerfile: docker/Dockerfile.privoxy
     networks:
       - localnet
     volumes:
       - ./configs/web/privoxy:/etc/privoxy:ro
     depends_on:
-      - tor
-    profiles:
-      - proxy  # Core proxy chain
+      - proxy-tor
+#    profiles:
+#      - proxy  # Core proxy chain
     healthcheck:
       test: ["CMD", "nc", "-zv", "localhost", "8118"]
       interval: 30s
@@ -111,28 +119,24 @@ services:
       start_period: 10s
     restart: unless-stopped
 
-  tor:
-    image: dperson/torproxy:latest
-    container_name: localnet-proxy-tor
-    networks:
-      - localnet
-    ports:
-      - "${PROXY_TOR_SOCKS_HOST_PORT:-9050}:9050/tcp"  # SOCKS5 proxy
-      - "${PROXY_TOR_CONTROL_HOST_PORT:-9051}:9051/tcp"  # Control port
-    profiles:
-      - proxy  # Core proxy chain
-    healthcheck:
-      test: ["CMD", "nc", "-zv", "localhost", "9050"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 30s
-    restart: unless-stopped
+#  tor:
+#    image: dperson/torproxy:latest
+#    container_name: localnet-proxy-tor
+#    networks:
+#      - localnet
+#    ports:
+#      - "${PROXY_TOR_SOCKS_HOST_PORT:-9050}:9050/tcp"  # SOCKS5 proxy
+#      - "${PROXY_TOR_CONTROL_HOST_PORT:-9051}:9051/tcp"  # Control port
+#    profiles:
+#      - proxy  # Core proxy chain
+#    healthcheck:
+#      test: ["CMD", "nc", "-zv", "localhost", "9050"]
+#      interval: 30s
+#      timeout: 5s
+#      retries: 3
+#      start_period: 30s
+#    restart: unless-stopped
 
 volumes:
   web-cache:
     driver: local
-
-networks:
-  localnet:
-    external: true

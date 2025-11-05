@@ -1,0 +1,58 @@
+graph TD
+    subgraph "Client Layer"
+        Client[Client Device]
+    end
+
+    subgraph "Entrypoints (Policy Selection)"
+        Transparent["Transparent Policy<br/>(Malware Protection Only)<br/>Port 3127"]
+        AdBlocking["Ad-Blocking Policy<br/>(Malware + Ads)<br/>Port 3128"]
+    end
+
+    subgraph "Proxy Chain"
+        MITM[L1: MITM Proxy<br/>Decrypts HTTPS]
+        Filtering[L2: Content Filtering<br/>Applies Selected Policy]
+        Caching[L3: Varnish Cache<br/>Caches Responses]
+        Gost[L4: Egress Multiplexer<br/>Routes to Internet]
+    end
+
+    subgraph "Egress Backends"
+        Direct[Direct]
+        Tor[Tor]
+        WARP[WARP]
+    end
+
+    subgraph "External"
+        Internet[Internet]
+    end
+
+    %% Connections
+    Client --> Transparent
+    Client --> AdBlocking
+    Transparent --> MITM
+    AdBlocking --> MITM
+    
+    MITM --> Filtering
+    Filtering --> Caching
+    Caching --> Gost
+    
+    Gost --> Direct
+    Gost --> Tor
+    Gost --> WARP
+    
+    Direct --> Internet
+    Tor --> Internet
+    WARP --> Internet
+
+    %% Management & DNS
+    Traefik[Traefik UI<br/>Certs & Dashboards]
+    Client -.-> Traefik
+    DNS[Localnet DNS]
+    Gost --> DNS
+
+    %% Styling
+    style Transparent fill:#cde4ff
+    style AdBlocking fill:#ffcdd2
+    style MITM fill:#e1bee7
+    style Filtering fill:#dcedc8
+    style Caching fill:#fff9c4
+    style Gost fill:#f8bbd0

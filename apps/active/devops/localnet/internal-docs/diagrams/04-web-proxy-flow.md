@@ -1,273 +1,190 @@
-# Web Proxy Chain Flow
+# Web Proxy Architecture (V2)
 
-## Complete Web Proxy Chain
+This document outlines the modular, layered architecture of the `localnet` web proxy system. The design provides flexibility, allowing clients to select their desired level of filtering and privacy by choosing different entry points into the proxy chain.
+
+## High-Level Architecture
+
+The following diagram illustrates the complete proxy chain, from client entry to internet egress.
 
 ```mermaid
-graph TB
+graph TD
     subgraph "Client Layer"
         Client[Client Device]
     end
-    
-    subgraph "Layer 0: Traffic Interception"
-        nftables[nftables TPROXY<br/>Port 80/443 → 3129]
+
+    subgraph "Entrypoints (Policy Selection)"
+        Transparent["Transparent Policy<br/>(Malware Protection Only)<br/>Port 3127"]
+        AdBlocking["Ad-Blocking Policy<br/>(Malware + Ads)<br/>Port 3128"]
     end
-    
-    subgraph "Layer 1: Routing & Rate Limiting"
-        Envoy[Envoy Proxy<br/>Port 3129]
-        RateLimit[Rate Limiter]
-        AccessLog[Access Logging<br/>Mode Detection]
-        Tracing[Jaeger Tracing]
+
+    subgraph "Proxy Chain"
+        MITM[L1: MITM Proxy<br/>Decrypts HTTPS]
+        Filtering[L2: Content Filtering<br/>Applies Selected Policy]
+        Caching[L3: Varnish Cache<br/>Caches Responses]
+        Gost[L4: Egress Multiplexer<br/>Routes to Internet]
     end
-    
-    subgraph "Layer 2: Caching"
-        Squid[Squid Cache<br/>Port 3128]
-        DiskCache[Disk Cache<br/>10GB]
-        MemCache[Memory Cache<br/>256MB]
+
+    subgraph "Egress Backends"
+        Direct[Direct]
+        Tor[Tor]
+        WARP[WARP]
     end
-    
-    subgraph "Layer 3: Content Filtering"
-        Privoxy[Privoxy<br/>Port 8118]
-        AdBlock[Ad Blocking]
-        Privacy[Privacy Filters]
-    end
-    
-    subgraph "Layer 4: Anonymization"
-        Tor[Tor SOCKS5<br/>Port 9050]
-        Circuit[Tor Circuit]
-    end
-    
+
     subgraph "External"
         Internet[Internet]
     end
+
+    %% Connections
+    Client --> Transparent
+    Client --> AdBlocking
+    Transparent --> MITM
+    AdBlocking --> MITM
     
-    Client -->|HTTP/HTTPS| nftables
-    nftables -->|Transparent| Envoy
-    Client -.->|Direct Port 3128| Squid
+    MITM --> Filtering
+    Filtering --> Caching
+    Caching --> Gost
     
-    Envoy --> RateLimit
-    Envoy --> AccessLog
-    Envoy --> Tracing
-    RateLimit --> Squid
+    Gost --> Direct
+    Gost --> Tor
+    Gost --> WARP
     
-    Squid --> DiskCache
-    Squid --> MemCache
-    DiskCache -->|Cache Hit| Client
-    MemCache -->|Cache Hit| Client
-    
-    Squid -->|Cache Miss| Privoxy
-    
-    Privoxy --> AdBlock
-    Privoxy --> Privacy
-    AdBlock --> Tor
-    
-    Tor --> Circuit
-    Circuit --> Internet
-    
-    Internet -->|Response| Tor
-    Tor -->|Anonymized| Privoxy
-    Privoxy -->|Filtered| Squid
-    Squid -->|Cached| Envoy
-    Envoy -->|Final Response| Client
-    
-    style nftables fill:#ff9999
-    style Envoy fill:#99ff99
-    style Squid fill:#99ff99
-    style Privoxy fill:#99ccff
-    style Tor fill:#cc99ff
-    style DiskCache fill:#ffcc99
+    Direct --> Internet
+    Tor --> Internet
+    WARP --> Internet
+
+    %% Management & DNS
+    Traefik[Traefik UI<br/>Certs & Dashboards]
+    Client -.-> Traefik
+    DNS[Localnet DNS]
+    Gost --> DNS
+
+    %% Styling
+    style Transparent fill:#cde4ff
+    style AdBlocking fill:#ffcdd2
+    style MITM fill:#e1bee7
+    style Filtering fill:#dcedc8
+    style Caching fill:#fff9c4
+    style Gost fill:#f8bbd0
 ```
 
-## Web Proxy Access Modes
+## Core Concepts
 
-```mermaid
-graph LR
-    subgraph "Transparent Mode"
-        T1[Client] -->|Port 80/443| T2[nftables]
-        T2 -->|TPROXY| T3[Envoy:3129]
-    end
-    
-    subgraph "Direct Mode"
-        D1[Client] -->|Port 3128| D2[Squid:3128]
-    end
-    
-    subgraph "VPN Mode"
-        V1[VPN Client] -->|WireGuard Tunnel| V2[Host Proxy]
-        V2 -->|Port 3128| V3[Squid:3128]
-    end
-    
-    style T2 fill:#ff9999
-    style D2 fill:#99ff99
-    style V2 fill:#99ccff
-```
+### 1. Linear Proxy Chain
 
-## Cache Decision Flow
+The proxy is a single, sequential chain of services. All traffic flows through the layers in a specific order. This ensures that essential steps like decryption happen before content-dependent steps like filtering.
+
+1.  **L1: MITM Proxy**: All traffic first enters the MITM (Man-in-the-Middle) proxy to be decrypted from HTTPS into plaintext HTTP.
+2.  **L2: Content Filtering**: The plaintext traffic is passed to the filtering layer. This layer inspects the request and applies the security policy chosen by the client at the entrypoint.
+3.  **L3: Caching**: If the request is allowed, it moves to the caching layer (Varnish) to check for a stored response.
+4.  **L4: Egress**: If the request is not cached, it is sent to the egress multiplexer (`Gost`), which forwards it to the internet via the selected backend.
+
+### 2. Entrypoints as Policy Selectors
+
+The two entrypoints do not represent different process flows; they are simply a way for the client to signal which **security policy** should be applied at the Content Filtering layer.
+
+- **Transparent Policy (Port 3127):** This policy instructs the filtering layer to *only* scan for and block known malware and tracking domains.
+- **Ad-Blocking Policy (Port 3128):** This is a stricter policy that instructs the filtering layer to block malware, trackers, *and* advertisements.
+
+### 3. Egress Routing with Gost
+
+The `Gost` proxy acts as a flexible egress router. It can be configured to forward traffic to one of several backends based on the credentials the client uses to connect to the proxy.
+
+- **`user: direct`** -> Forwards directly to the internet (highest performance).
+- **`user: tor`** -> Forwards through the Tor network (highest privacy).
+- **`user: warp`** -> Forwards through Cloudflare WARP (balanced performance and security).
+
+## Service Management with Traefik
+
+Traefik serves as the central management plane for the proxy services.
+
+- **Web Dashboards:** It exposes the web UIs for services like Varnish, Privoxy, etc., under a single, unified dashboard, secured with authentication.
+- **Certificate Management:** The root CA certificate required for the MITM proxy to decrypt HTTPS traffic is available for download directly from the Traefik dashboard. This makes it easy to provision new client devices.
+
+## DNS Integration
+
+All services within the proxy chain are configured to use the `localnet` DNS services. This ensures that all DNS resolution is handled internally, benefiting from the same filtering, caching, and security policies defined in the DNS architecture.
+
+## Advanced Caching Strategies
+
+To enhance performance and resilience, the caching layer employs two advanced strategies:
+
+1. **Stale-While-Revalidate**: For content that has just expired, the cache will serve the stale version to the client immediately for a fast response, while simultaneously sending a request to the origin server to fetch the fresh version in the background. This makes the user experience feel significantly faster.
+
+2. **Stale-If-Error**: If the origin server is down or returns an error (e.g., a `5xx` status code), the cache is configured to serve a stale version of the content instead of returning an error to the client. This dramatically improves resilience and ensures that sites remain accessible even when their servers are temporarily unavailable.
+
+The flow is illustrated below:
 
 ```mermaid
 graph TB
     Request[HTTP Request]
-    
+
     subgraph "Cache Lookup"
         MemCheck[Check Memory Cache]
         DiskCheck[Check Disk Cache]
     end
-    
+
     subgraph "Cache Decision"
         Fresh[Cache Fresh?]
         Stale[Cache Stale?]
+        SWR{Stale-While-Revalidate?}
+        SIE{Stale-If-Error?}
     end
-    
+
     subgraph "Actions"
         Hit[Return Cached]
         Revalidate[Revalidate with Origin]
+        BackgroundRevalidate[Background Revalidation]
         Miss[Fetch from Origin]
+        ReturnError[Return Origin Error]
     end
-    
+
     Request --> MemCheck
     MemCheck -->|Hit| Fresh
     MemCheck -->|Miss| DiskCheck
     DiskCheck -->|Hit| Fresh
     DiskCheck -->|Miss| Miss
-    
+
     Fresh -->|Yes| Hit
     Fresh -->|No| Stale
-    
-    Stale -->|Within Grace| Hit
-    Stale -->|Expired| Revalidate
-    
+
+    Stale -->|Within Grace Period| Hit
+    Stale -->|Expired| SWR
+
+    SWR -->|Yes| Hit
+    SWR -->|Yes| BackgroundRevalidate
+    SWR -->|No| Revalidate
+
+    BackgroundRevalidate --> Revalidate
     Revalidate -->|304 Not Modified| Hit
     Revalidate -->|200 OK| Miss
-    
+    Revalidate -->|5xx Error| SIE
+
+    SIE -->|Yes| Hit
+    SIE -->|No| ReturnError
+
     Miss --> Store[Store in Cache]
     Store --> Return[Return to Client]
-    
+    Hit --> Return
+
     style Hit fill:#99ff99
     style Miss fill:#ffcc99
     style Store fill:#99ccff
+    style ReturnError fill:#ff9999
+    style BackgroundRevalidate fill:#d1c4e9
 ```
 
-## Tor Circuit Management
+## Architectural Decision: Caching Layer
 
-```mermaid
-graph TB
-    subgraph "Tor Network"
-        Entry[Entry Guard]
-        Middle[Middle Relay]
-        Exit[Exit Node]
-    end
-    
-    subgraph "Circuit Lifecycle"
-        Create[Create Circuit]
-        Use[Use Circuit]
-        Rotate[Rotate Circuit<br/>Every 10 min]
-    end
-    
-    Client[Privoxy] --> Create
-    Create --> Entry
-    Entry -->|Encrypted| Middle
-    Middle -->|Encrypted| Exit
-    Exit -->|Cleartext| Internet[Internet]
-    
-    Create --> Use
-    Use --> Rotate
-    Rotate --> Create
-    
-    Internet -->|Response| Exit
-    Exit -->|Encrypted| Middle
-    Middle -->|Encrypted| Entry
-    Entry --> Client
-    
-    style Entry fill:#cc99ff
-    style Middle fill:#cc99ff
-    style Exit fill:#cc99ff
-```
+During the design phase, **Squid** was initially chosen as the caching layer. However, an investigation into its capabilities revealed a critical limitation: modern versions of Squid do not support the `stale-while-revalidate` Cache-Control directive. This feature is essential for providing a highly performant user experience by serving stale content immediately while refreshing it in the background.
 
-## Content Filtering Pipeline
+While Squid does support a `stale-if-error` equivalent via its proprietary `max-stale` directive, the lack of `stale-while-revalidate` was considered a significant drawback for a modern caching service.
 
-```mermaid
-graph TB
-    Request[HTTP Request]
-    
-    subgraph "Privoxy Filters"
-        AdFilter[Ad Blocking<br/>EasyList Rules]
-        TrackerFilter[Tracker Blocking<br/>Disconnect.me]
-        ScriptFilter[Script Filtering<br/>Optional]
-        CookieFilter[Cookie Management<br/>Privacy]
-    end
-    
-    subgraph "Header Manipulation"
-        RemoveRef[Remove Referrer]
-        RemoveUA[Sanitize User-Agent]
-        RemoveCookie[Strip Tracking Cookies]
-    end
-    
-    subgraph "Result"
-        Filtered[Filtered Request]
-    end
-    
-    Request --> AdFilter
-    AdFilter --> TrackerFilter
-    TrackerFilter --> ScriptFilter
-    ScriptFilter --> CookieFilter
-    
-    CookieFilter --> RemoveRef
-    RemoveRef --> RemoveUA
-    RemoveUA --> RemoveCookie
-    
-    RemoveCookie --> Filtered
-    
-    style AdFilter fill:#99ccff
-    style TrackerFilter fill:#99ccff
-    style Filtered fill:#99ff99
-```
+Therefore, a decision was made to pivot to **Varnish Cache**.
 
-## Performance Optimization
+### Rationale for Choosing Varnish
 
-```mermaid
-graph TB
-    subgraph "Request Path"
-        R1[Client Request]
-        R2[Envoy Routing]
-        R3[Squid Lookup]
-    end
-    
-    subgraph "Fast Path - Cache Hit"
-        F1[Memory Cache Hit]
-        F2[Return Immediately]
-    end
-    
-    subgraph "Medium Path - Disk Cache"
-        M1[Disk Cache Hit]
-        M2[Load from Disk]
-        M3[Return]
-    end
-    
-    subgraph "Slow Path - Origin"
-        S1[Cache Miss]
-        S2[Filter with Privoxy]
-        S3[Anonymize with Tor]
-        S4[Fetch from Internet]
-        S5[Cache Response]
-        S6[Return]
-    end
-    
-    R1 --> R2
-    R2 --> R3
-    
-    R3 -->|Hit| F1
-    F1 --> F2
-    
-    R3 -->|Disk| M1
-    M1 --> M2
-    M2 --> M3
-    
-    R3 -->|Miss| S1
-    S1 --> S2
-    S2 --> S3
-    S3 --> S4
-    S4 --> S5
-    S5 --> S6
-    
-    style F1 fill:#99ff99
-    style M1 fill:#ffcc99
-    style S1 fill:#ff9999
-```
+1. **Full Support for Modern Caching**: Varnish provides first-class, native support for both `stale-while-revalidate` and `stale-if-error`, allowing the implementation of the ideal caching logic without compromise.
+2. **Specialization**: Varnish is a purpose-built HTTP accelerator. It is designed specifically for high-performance reverse proxy caching, making it a specialist tool for this layer of the proxy chain.
+3. **Configuration Flexibility**: The Varnish Configuration Language (VCL) offers unparalleled control over the caching logic, enabling fine-grained manipulation of requests and responses.
+
+By choosing Varnish, the architecture prioritizes performance and modern standards compliance over the legacy features of Squid, which are better suited to traditional forward proxy deployments.
