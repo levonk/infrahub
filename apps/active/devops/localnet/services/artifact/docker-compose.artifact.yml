@@ -31,7 +31,7 @@ services:
     restart: unless-stopped
 
   verdaccio:
-    image: verdaccio/verdaccio:latest
+    image: localnet-artifact-verdaccio:latest
     container_name: localnet-artifact-verdaccio
     build:
       context: ./verdaccio
@@ -41,8 +41,10 @@ services:
     ports:
       - "${ARTIFACT_VERDACCIO_HOST_PORT:-4873}:${ARTIFACT_VERDACCIO_CONTAINER_PORT:-4873}/tcp"
     volumes:
-      - ${VERDACCIO_DATA_PATH}:/verdaccio-data
-      - verdaccio/mounts/templates:/templates:ro
+      - ${ARTIFACT_VERDACCIO_HOST_DATA_PATH}:/verdaccio-data
+      - ./verdaccio/mounts/templates:/templates:ro
+    env_file:
+      - ../../.env
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:4873/-/ping"]
       interval: 30s

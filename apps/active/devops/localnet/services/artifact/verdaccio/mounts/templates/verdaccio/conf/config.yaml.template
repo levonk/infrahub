@@ -1,3 +1,4 @@
+---
 # Verdaccio Configuration
 # https://verdaccio.org/docs/configuration
 
@@ -10,9 +11,15 @@ web:
   enable: true
 
 # Authentication
+# Use pnpm dlx htpasswd-generator to generate htpasswd file via
+# `openssl rand -base64 16` to generate a random password
+# `pnpm dlx htpasswd-generator --algorithm bcrypt \
+#	 -u <username> -p <password> > htpasswd.template`
 auth:
   htpasswd:
     file: /verdaccio/conf/htpasswd
+    algorithm: bcrypt
+    rounds: 10
     max_users: -1
 
 # Uplinks (proxy to npmjs.org)
@@ -40,7 +47,7 @@ server:
   keepAliveTimeout: 60
 
 # Logs
-logs: { type: stdout, format: pretty, level: http }
+log: {type: stdout, format: pretty, level: http}
 
 # Listen on all interfaces
 listen: 0.0.0.0:{ARTIFACT_VERDACCIO_CONTAINER_PORT}
@@ -53,3 +60,5 @@ storage_eviction:
   threshold: 0.8  # Trigger eviction at 80% capacity
   policy: lru     # Least Recently Used eviction
   check_interval: 3600  # Check every hour (seconds)
+
+# vim: set ft=yaml :
