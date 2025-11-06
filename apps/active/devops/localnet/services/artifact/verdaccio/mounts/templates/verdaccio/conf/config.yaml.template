@@ -13,8 +13,7 @@ web:
 # Authentication
 # Use pnpm dlx htpasswd-generator to generate htpasswd file via
 # `openssl rand -base64 16` to generate a random password
-# `pnpm dlx htpasswd-generator --algorithm bcrypt \
-#	 -u <username> -p <password> > htpasswd.template`
+# `pnpm dlx htpasswd-generator --algorithm bcrypt -u <username> -p <password> > htpasswd.template`
 auth:
   htpasswd:
     file: /verdaccio/conf/htpasswd
