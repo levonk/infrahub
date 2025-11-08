@@ -12,7 +12,7 @@
 
 The issue stems from socket binding behavior when running with limited privileges. The non-root user context causes the application to prefer IPv6 binding even when IPv4 is explicitly configured.
 
-**Solution**: 
+**Solution**:
 
 This repository uses a **custom-built binary** compiled from a specific commit that fixes the IPv4 binding issue. The binary is located at:
 
@@ -125,10 +125,10 @@ chmod 600 "$WORKING_CONFIG"
 
 ```toml
 # Before
-listen_addresses = ['0.0.0.0:{DNSCRYPT_PROXY_CONTAINER_PORT}', '[::1]:{DNSCRYPT_PROXY_CONTAINER_PORT}']
+listen_addresses = ['0.0.0.0:{DNS_DNSCRYPT_STD_CONTAINER_PORT}', '[::1]:{DNS_DNSCRYPT_STD_CONTAINER_PORT}']
 
 # After
-listen_addresses = ['0.0.0.0:{DNSCRYPT_PROXY_CONTAINER_PORT}']
+listen_addresses = ['0.0.0.0:{DNS_DNSCRYPT_STD_CONTAINER_PORT}']
 ```
 
 This ensures the service binds only to IPv4, consistent with the custom binary fix and container networking setup.

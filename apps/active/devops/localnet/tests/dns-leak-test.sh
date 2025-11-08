@@ -225,7 +225,7 @@ if command -v dig &> /dev/null; then
     fi
 
     # Test 2g: dnscrypt-proxy direct (UDP) - test from dnsdist container
-    DNSCRYPT_IP=${DNS_DNSCRYPT_IP:-172.20.255.50}
+    DNSCRYPT_IP=${DNS_DNSCRYPT_STD_IP:-172.20.255.50}
     if docker compose -f "$PROJECT_ROOT/docker-compose.yml" exec -T dnsdist dig @${DNSCRYPT_IP} -p 5053 example.com +short +tries=1 +time=2 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
         test_result "dnscrypt-proxy UDP" "PASS" "dnscrypt-proxy responding via UDP at ${DNSCRYPT_IP}:5053"
     else

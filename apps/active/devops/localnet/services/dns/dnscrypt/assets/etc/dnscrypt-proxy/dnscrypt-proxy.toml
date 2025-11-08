@@ -21,7 +21,7 @@ server_names = []
 
 # Listen addresses
 # Container listens on 5053 (image default), mapped to host 5300
-listen_addresses = ['0.0.0.0:{DNSCRYPT_PROXY_CONTAINER_PORT}']
+listen_addresses = ['0.0.0.0:{DNS_DNSCRYPT_STD_CONTAINER_PORT}']
 
 # Maximum number of active connections
 max_clients = 250

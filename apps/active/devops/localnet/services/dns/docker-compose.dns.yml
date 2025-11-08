@@ -72,6 +72,8 @@ services:
     depends_on:
       dnscrypt-proxy:
         condition: service_healthy
+      dnscrypt-tor:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://127.0.0.1:${COREDNS_HEALTH_CONTAINER_PORT:-18080}/health"]
       interval: 10s
@@ -93,20 +95,20 @@ services:
     container_name: homelab-dns-dnscrypt-proxy
     networks:
       homelab:
-        ipv4_address: ${DNS_DNSCRYPT_IP:-172.20.255.50}
+        ipv4_address: ${DNS_DNSCRYPT_STD_IP:-172.20.255.50}
         aliases:
           - dnscrypt-proxy
     ports:
       # Encrypted DNS proxy: dnscrypt-proxy listens on container port (configurable), forwarded to host port
       # Provides DNS-over-HTTPS/DNS-over-TLS encryption and ODoH (Oblivious DoH) privacy
       # Serves as fallback upstream for DNSDist if CoreDNS becomes unavailable
-      # Port is configurable via DNSCRYPT_PROXY_CONTAINER_PORT and DNSCRYPT_PROXY_HOST_PORT in .env
-      - "${DNSCRYPT_PROXY_HOST_PORT:-5300}:${DNSCRYPT_PROXY_CONTAINER_PORT:-5053}/udp"  # UDP
-      - "${DNSCRYPT_PROXY_HOST_PORT:-5300}:${DNSCRYPT_PROXY_CONTAINER_PORT:-5053}/tcp"  # TCP
+      # Port is configurable via DNS_DNSCRYPT_STD_CONTAINER_PORT and DNSCRYPT_PROXY_HOST_PORT in .env
+      - "${DNSCRYPT_PROXY_HOST_PORT:-5300}:${DNS_DNSCRYPT_STD_CONTAINER_PORT:-5053}/udp"  # UDP
+      - "${DNSCRYPT_PROXY_HOST_PORT:-5300}:${DNS_DNSCRYPT_STD_CONTAINER_PORT:-5053}/tcp"  # TCP
     volumes:
       - ../../configs/dns/dnscrypt-proxy/dnscrypt-proxy.toml:/etc/dnscrypt-proxy/dnscrypt-proxy.toml:ro
     environment:
-      - DNSCRYPT_PROXY_CONTAINER_PORT=${DNSCRYPT_PROXY_CONTAINER_PORT:-5053}
+      - DNS_DNSCRYPT_STD_CONTAINER_PORT=${DNS_DNSCRYPT_STD_CONTAINER_PORT:-5053}
       - DNSCRYPT_PROXY_LISTEN_ADDRESS=${DNSCRYPT_PROXY_LISTEN_ADDRESS:-0.0.0.0:5053}
     healthcheck:
       test: ["CMD", "dnscrypt-proxy", "-resolve", "cloudflare.com", "-config", "/var/cache/dnscrypt-proxy/dnscrypt-proxy.toml"]
@@ -114,6 +116,36 @@ services:
       timeout: 5s
       retries: 3
       start_period: 45s  # Allow time for ODoH server/relay list downloads
+    restart: unless-stopped
+
+  dnscrypt-tor:
+    # dnscrypt-proxy (Tor): Encrypted DNS proxy routed through Tor
+    # Role: Provides an additional layer of anonymity by routing DNS queries through the Tor network.
+    # Used by CoreDNS as a forwarder for specific privacy-sensitive domains.
+    build:
+      context: ./dnscrypt-tor
+      dockerfile: docker/Dockerfile.dnscrypt-proxy
+    image: homelab-dns-dnscrypt-tor:2.1.5
+    container_name: homelab-dns-dnscrypt-tor
+    networks:
+      homelab:
+        ipv4_address: ${DNS_DNSCRYPT_TOR_IP:-172.20.255.52}
+        aliases:
+          - dnscrypt-tor
+    ports:
+      # Port for dnscrypt-proxy over Tor
+      - "${DNSCRYPT_PROXY_TOR_HOST_PORT:-5301}:${DNS_DNSCRYPT_TOR_CONTAINER_PORT:-5054}/udp"
+      - "${DNSCRYPT_PROXY_TOR_HOST_PORT:-5301}:${DNS_DNSCRYPT_TOR_CONTAINER_PORT:-5054}/tcp"
+    volumes:
+      - ./dnscrypt-tor/dnscrypt-proxy.toml:/etc/dnscrypt-proxy/dnscrypt-proxy.toml:ro
+    environment:
+      - DNS_DNSCRYPT_TOR_CONTAINER_PORT=${DNS_DNSCRYPT_TOR_CONTAINER_PORT:-5054}
+    healthcheck:
+      test: ["CMD", "dnscrypt-proxy", "-resolve", "google.com", "-config", "/etc/dnscrypt-proxy/dnscrypt-proxy.toml"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     restart: unless-stopped
 
   blocklist-compiler:

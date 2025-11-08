@@ -17,7 +17,7 @@ services:
       - "${CHRONYD_NTS_HOST_PORT:-4460}:4460/tcp"          # NTS-KE (Network Time Security Key Exchange)
       - "${CHRONYD_METRICS_HOST_PORT:-9123}:9123/tcp"      # Metrics (if exporter added later)
     volumes:
-      - ./services/ntp/chronyd/config:/etc/chrony:ro
+      - ./chronyd/config:/etc/chrony:ro
       - chronyd-data:/var/lib/chrony
     healthcheck:
       test: ["CMD", "chronyc", "tracking"]

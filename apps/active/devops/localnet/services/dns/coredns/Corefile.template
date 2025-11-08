@@ -16,8 +16,8 @@
     # Error handling
     errors
 
-    # Forward to dnscrypt-proxy for encrypted DNS (ODoH)
-    forward . {DNS_DNSCRYPT_IP}:{DNSCRYPT_PROXY_CONTAINER_PORT}
+    # Forward to dnscrypt-tor for encrypted DNS over Tor
+    forward . ${DNS_DNSCRYPT_TOR_IP}:${DNS_DNSCRYPT_TOR_CONTAINER_PORT}
 
     # Caching
     cache 30
