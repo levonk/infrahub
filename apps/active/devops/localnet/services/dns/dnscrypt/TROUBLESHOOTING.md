@@ -13,6 +13,7 @@
 The issue stems from socket binding behavior when running with limited privileges. The non-root user context causes the application to prefer IPv6 binding even when IPv4 is explicitly configured.
 
 **Solution**:
+**Solution**:
 
 This repository uses a **custom-built binary** compiled from a specific commit that fixes the IPv4 binding issue. The binary is located at:
 

@@ -23,16 +23,16 @@ networks:
           gateway: ${DOCKER_NETWORK_GATEWAY:-172.21.0.1}
           # Reserve high IP range (*.255.x) for DNS infrastructure per ADR
           # These auxiliary addresses prevent DHCP from assigning IPs in this range
-#          aux_addresses:
-#            dns-coredns: ${DNS_COREDNS_MAIN_IP:-172.21.255.51}
-#            dns-dnscrypt-odoh: ${DNS_DNSCRYPT_ODOH_IP:-172.21.255.60}
-#            dns-dnscrypt-anon: ${DNS_DNSCRYPT_ANON_IP:-172.21.255.61}
-#            dns-dnscrypt-std: ${DNS_DNSCRYPT_STD_IP:-172.21.255.62}
-#            dns-dnscrypt-doh: ${DNS_DNSCRYPT_DOH_IP:-172.21.255.63}
-#            dns-dnscrypt-encrypted: ${DNS_DNSCRYPT_ENCRYPTED_IP:-172.21.255.64}
-#            dns-dnscrypt-plaintext: ${DNS_DNSCRYPT_PLAINTEXT_IP:-172.21.255.65}
-#            dns-dnscrypt-tor: ${DNS_DNSCRYPT_TOR_IP:-172.21.255.66}
-#            proxy-socks5-tor: ${PROXY_TOR_SOCKS5_IP:-172.21.255.70}
+  #          aux_addresses:
+  #            dns-coredns: ${DNS_COREDNS_MAIN_IP:-172.21.255.51}
+  #            dns-dnscrypt-odoh: ${DNS_DNSCRYPT_ODOH_IP:-172.21.255.60}
+  #            dns-dnscrypt-anon: ${DNS_DNSCRYPT_ANON_IP:-172.21.255.61}
+  #            dns-dnscrypt-std: ${DNS_DNSCRYPT_STD_IP:-172.21.255.62}
+  #            dns-dnscrypt-doh: ${DNS_DNSCRYPT_DOH_IP:-172.21.255.63}
+  #            dns-dnscrypt-encrypted: ${DNS_DNSCRYPT_ENCRYPTED_IP:-172.21.255.64}
+  #            dns-dnscrypt-plaintext: ${DNS_DNSCRYPT_PLAINTEXT_IP:-172.21.255.65}
+  #            dns-dnscrypt-tor: ${DNS_DNSCRYPT_TOR_IP:-172.21.255.66}
+  #            proxy-socks5-tor: ${PROXY_TOR_SOCKS5_IP:-172.21.255.70}
 
   wireguard:
     driver: bridge
