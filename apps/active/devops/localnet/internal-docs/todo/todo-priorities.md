@@ -1,0 +1,21 @@
+- livekit self-hosted
+- browser agent: skyvern
+- compute agent: agentsea
+- VLESS+XTLS proxy: 3x-ui
+- github.com/block/goose
+- Code agent: github.com/HKUDS/DeepCode
+- easy private file exchange: https://github.com/tonyantony300/alt-sendme
+- Writing Agent: https://github.com/Doriandarko/kimi-writer
+- Agent Runner:
+  - https://github.com/AgnetLabs/Laddr
+- video file workflow:
+  - https://github.com/askreeves/ffmpeg-interface
+  - https://github.com/JMS1717/8mb.local
+- Tutoring: https://github.com/sheepbox8646/ChatTutor
+- evaluate OCR
+  - https://github.com/datalab-to/chandra
+  - https://github.com/pkulium/DeepOCR
+- evaluate AI security
+  - https://github.com/openpcc/openpcc?tab=readme-ov-file
+- cert authority
+- investigate only github.com/get-convex/chef github.com/GeeeekExplorer/nano-vllm
