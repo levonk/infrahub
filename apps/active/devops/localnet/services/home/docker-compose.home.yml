@@ -1,0 +1,59 @@
+# Home services: Home Assistant + Mosquitto + ring-mqtt
+
+networks:
+  localnet:
+    external: true
+
+volumes:
+  homeassistant-config:
+  mosquitto-data:
+  mosquitto-log:
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: localnet-mosquitto
+    networks:
+      - localnet
+    volumes:
+      - ./services/home/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto-data:/mosquitto/data
+      - mosquitto-log:/mosquitto/log
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto -h >/dev/null 2>&1 || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    container_name: localnet-homeassistant
+    networks:
+      - localnet
+    depends_on:
+      - mosquitto
+    ports:
+      - "8123:8123"
+    environment:
+      - TZ=${TZ:-UTC}
+    volumes:
+      - homeassistant-config:/config
+    restart: unless-stopped
+
+  ring-mqtt:
+    image: tsightler/ring-mqtt:latest
+    container_name: localnet-ring-mqtt
+    networks:
+      - localnet
+    depends_on:
+      - mosquitto
+    environment:
+      - RINGTOKEN=${LOCALNET_RING_REFRESH_TOKEN}
+      - MQTT_HOST=${LOCALNET_MQTT_BROKER_HOST:-mosquitto}
+      - MQTT_PORT=${LOCALNET_MQTT_BROKER_PORT:-1883}
+      - MQTT_USERNAME=${LOCALNET_MQTT_USERNAME_RING:-}
+      - MQTT_PASSWORD=${LOCALNET_MQTT_PASSWORD_RING:-}
+      - ENABLE_STREAMING=${LOCALNET_RING_ENABLE_LIVESTREAM:-true}
+      - HASS_DISCOVERY=true
+    restart: unless-stopped
