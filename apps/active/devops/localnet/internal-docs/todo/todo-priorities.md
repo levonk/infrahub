@@ -4,6 +4,7 @@
 - VLESS+XTLS proxy: 3x-ui
 - github.com/block/goose
 - Code agent: github.com/HKUDS/DeepCode
+- Video Manager: https://github.com/getmydia/mydia
 - easy private file exchange: https://github.com/tonyantony300/alt-sendme
 - Writing Agent: https://github.com/Doriandarko/kimi-writer
 - Agent Runner:
