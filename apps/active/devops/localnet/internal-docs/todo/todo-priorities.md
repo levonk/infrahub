@@ -18,5 +18,6 @@
   - https://github.com/pkulium/DeepOCR
 - evaluate AI security
   - https://github.com/openpcc/openpcc?tab=readme-ov-file
+- Authentication https://github.com/ory/kratos
 - cert authority
 - investigate only github.com/get-convex/chef github.com/GeeeekExplorer/nano-vllm
