@@ -27,31 +27,3 @@ services:
             retries: 3
             start_period: 20s
         restart: unless-stopped
-
-    ring-mqtt:
-        image: tsightler/ring-mqtt:latest
-        container_name: localnet-iot-ring-mqtt
-        networks:
-            - localnet
-        depends_on:
-            iot-mosquitto:
-                condition: service_healthy
-        env_file:
-            - ../../.env
-        environment:
-            - RING_MQTT_REFRESH_TOKEN=${RING_MQTT_REFRESH_TOKEN:-}
-            - MQTT_HOST=${RING_MQTT_MQTT_HOST:-iot-mosquitto}
-            - MQTT_PORT=${IOT_MQTT_CONTAINER_PORT:-1883}
-            - MQTT_USERNAME=${IOT_MQTT_USERNAME:-}
-            - MQTT_PASSWORD=${IOT_MQTT_PASSWORD:-}
-            - ENABLE_MQTT_SSL=${RING_MQTT_ENABLE_SSL:-false}
-            - LIVESTREAM_USER_AGENT=${RING_MQTT_LIVESTREAM_USER_AGENT:-}
-            - LIVESTREAM_SNAPSHOT=${RING_MQTT_LIVESTREAM_SNAPSHOT:-true}
-            - LIVESTREAM_PREBUFFER=${RING_MQTT_LIVESTREAM_PREBUFFER_SECS:-2}
-        healthcheck:
-            test: ["CMD", "sh", "-c", 'echo "health" >/dev/null']
-            interval: 30s
-            timeout: 10s
-            retries: 3
-            start_period: 20s
-        restart: unless-stopped

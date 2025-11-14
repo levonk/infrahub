@@ -1,10 +1,6 @@
+---
 # AI Services stack
 # Includes: Ollama (GPU), OpenWebUI, n8n, Postgres (pgvector), Neo4j, Langfuse, Airflow (K8s-ready)
-
-networks:
-  localnet:
-    external: true
-
 volumes:
   ai-ollama-models:
     driver: local
