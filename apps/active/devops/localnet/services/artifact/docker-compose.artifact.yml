@@ -38,10 +38,11 @@ services:
       dockerfile: docker/Dockerfile.verdaccio
     networks:
       - localnet
+    user: "0:0"
     ports:
       - "${ARTIFACT_VERDACCIO_HOST_PORT:-4873}:${ARTIFACT_VERDACCIO_CONTAINER_PORT:-4873}/tcp"
     volumes:
-      - ${ARTIFACT_VERDACCIO_HOST_DATA_PATH}:/verdaccio-data
+      - ${ARTIFACT_VERDACCIO_HOST_DATA_PATH}:/verdaccio-data:rw
       - ./verdaccio/mounts/templates:/templates:ro
     env_file:
       - ../../.env

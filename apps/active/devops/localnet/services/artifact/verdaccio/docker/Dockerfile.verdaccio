@@ -2,14 +2,14 @@ FROM verdaccio/verdaccio:latest
 
 # Add curl for healthcheck (stock image doesn't include it)
 USER root
-RUN apk add --no-cache curl gettext yamllint bash
+RUN apk add --no-cache curl gettext yamllint bash su-exec
 
 # Health check for Verdaccio npm registry
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
 	CMD curl -f http://localhost:${ARTIFACT_VERDACCIO_CONTAINER_PORT}/-/ping || exit 1
 
 COPY --chown=verdaccio:node assets/entrypoint-verdaccio.sh /entrypoint-verdaccio.sh
-RUN chmod 755 /entrypoint-verdaccio.sh && chown verdaccio:node /verdaccio-data && chmod 755 /verdaccio-data
+RUN chmod 755 /entrypoint-verdaccio.sh && chmod 777 /verdaccio-data && chown verdaccio:node /verdaccio-data && chmod 755 /verdaccio-data
 
 USER verdaccio
 ENTRYPOINT ["/entrypoint-verdaccio.sh"]

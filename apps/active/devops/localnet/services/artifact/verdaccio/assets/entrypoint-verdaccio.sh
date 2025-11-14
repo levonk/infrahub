@@ -100,10 +100,27 @@ fi
 echo "[ENTRYPOINT] Config ready, checking syntax and starting verdaccio..." >&2
 # Check config syntax first.
 yamllint --config-data "{rules: {line-length: disable}}" ${DEST_CONFIG_FILE}
-# Wiat for a few secons to ensure upstream is ready
-#sleep 30
-# Start verdaccio
-/opt/verdaccio/docker-bin/uid_entrypoint /usr/local/bin/verdaccio --config ${DEST_CONFIG_FILE}
-retCode=$?
-echo "[ENTRYPOINT] verdaccio exit code: |${retCode}|" >&2
-exit "${retCode}"
+
+# If running as root, fix ownership on bind-mounted data dir, then drop privileges.
+if [ "$(id -u)" -eq 0 ]; then
+  echo "[ENTRYPOINT] Running as root; ensuring /verdaccio-data ownership and permissions" >&2
+  if [ -d "/verdaccio-data" ]; then
+    chown -R verdaccio:node /verdaccio-data || true
+    chmod -R 775 /verdaccio-data || true
+  else
+    echo "[ENTRYPOINT] WARN: /verdaccio-data does not exist yet; skipping chown" >&2
+  fi
+
+  # Prefer su-exec or gosu to drop privileges cleanly; fallback to runuser
+  if command -v su-exec >/dev/null 2>&1; then
+    exec su-exec verdaccio:node /opt/verdaccio/docker-bin/uid_entrypoint /usr/local/bin/verdaccio --config ${DEST_CONFIG_FILE}
+  elif command -v gosu >/dev/null 2>&1; then
+    exec gosu verdaccio:node /opt/verdaccio/docker-bin/uid_entrypoint /usr/local/bin/verdaccio --config ${DEST_CONFIG_FILE}
+  else
+    # Fallback: runuser (may require util-linux)
+    exec runuser -u verdaccio -- /opt/verdaccio/docker-bin/uid_entrypoint /usr/local/bin/verdaccio --config ${DEST_CONFIG_FILE}
+  fi
+fi
+
+# Non-root: just exec directly (uid_entrypoint will respect current user)
+exec /opt/verdaccio/docker-bin/uid_entrypoint /usr/local/bin/verdaccio --config ${DEST_CONFIG_FILE}
