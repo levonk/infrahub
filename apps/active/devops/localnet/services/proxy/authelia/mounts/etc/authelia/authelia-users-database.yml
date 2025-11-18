@@ -1,0 +1,8 @@
+users:
+  ${PROXY_AUTH_ADMIN_USERNAME}:
+    disabled: false
+    displayname: 'Admin'
+    password: ${PROXY_AUTH_ADMIN_PASSOWRD} # docker run -it authelia/authelia:latest authelia crypto hash generate argon2
+    email: ${PROXY_AUTH_ADMIN_EMAIL}
+    groups:
+      - admins

@@ -1,0 +1,47 @@
+jwt_secret: ${PROXY_AUTH_JWT_SECRET} # openssl rand -base64 32
+
+log:
+  level: debug
+
+totp:
+  issuer: ${LOCALNET_HOSTNAME}
+
+authentication_backend:
+  file:
+    path: /etc/authelia/authelia-users-database.yml
+
+access_control:
+  rules:
+    - domain: ${APP_FILES_HOSTNAME}
+      resources:
+        - '^/share([/?].*)?$'
+        - '^/static([/?].*)?$'
+        - '^/api/public([/?].*)?$'
+      policy: bypass
+    - domain: ${PROXY_AUTH_HOSTNAME}
+      policy: bypass
+    - domain: '*.${LOCALNET_HOSTNAME}'
+      policy: two_factor
+
+session:
+  secret: ${PROXY_AUTH_SESSION_SECRET} # openssl rand -base64 32
+  cookies:
+    - domain: ${LOCALNET_HOSTNAME}
+      authelia_url: https://${PROXY_AUTH_HOSTNAME}
+  redis:
+    host: authelia-db
+    port: 6379
+
+regulation:
+  max_retries: 3
+  find_time: 120
+  ban_time: 300
+
+storage:
+  encryption_key: ${PROXY_AUTH_ENCRYPTION_KEY} # openssl rand -base64 32
+  local:
+    path: /config/db.sqlite3
+
+notifier:
+  filesystem:
+    filename: /config/notification.txt

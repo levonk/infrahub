@@ -1,0 +1,117 @@
+http:
+  routers:
+    claude-code-ui:
+      rule: 'PathPrefix(`/claude-code-ui`)'
+      service: claude-code-ui
+      entryPoints:
+        - internal
+      middlewares:
+        - strip-claude-code-ui
+    pluggedin-app:
+      rule: 'PathPrefix(`/pluggedin-app`)'
+      service: pluggedin-app
+      entryPoints:
+        - internal
+      middlewares:
+        - strip-pluggedin-app
+    claude-code-auth:
+      rule: 'PathPrefix(`/claude-code-auth`)'
+      service: claude-code-auth
+      entryPoints:
+        - internal
+      middlewares:
+        - strip-claude-code-auth
+    claude-code-intercept-proxy:
+      rule: 'PathPrefix(`/claude-code-intercept/api`)'
+      service: claude-code-intercept-proxy
+      entryPoints:
+        - internal
+      middlewares:
+        - strip-claude-code-intercept-api
+    claude-code-intercept-ui:
+      rule: 'PathPrefix(`/claude-code-intercept/ui`)'
+      service: claude-code-intercept-ui
+      entryPoints:
+        - internal
+      middlewares:
+        - strip-claude-code-intercept-ui
+  services:
+    claude-code-ui:
+      loadBalancer:
+        servers:
+          - url: 'http://claude-code-ui:3000'
+    pluggedin-app:
+      loadBalancer:
+        servers:
+          - url: 'http://pluggedin-app:8086'
+    claude-code-auth:
+      loadBalancer:
+        servers:
+          - url: 'http://claude-code-auth:8080'
+    claude-code-intercept-proxy:
+      loadBalancer:
+        servers:
+          - url: 'http://claude-code-intercept:3001'
+    claude-code-intercept-ui:
+      loadBalancer:
+        servers:
+          - url: 'http://claude-code-intercept:5173'
+  middlewares:
+    strip-claude-code-ui:
+      stripPrefix:
+        prefixes:
+          - '/claude-code-ui'
+    strip-pluggedin-app:
+      stripPrefix:
+        prefixes:
+          - '/pluggedin-app'
+    strip-claude-code-auth:
+      stripPrefix:
+        prefixes:
+          - '/claude-code-auth'
+    strip-claude-code-intercept-api:
+      stripPrefix:
+        prefixes:
+          - '/claude-code-intercept/api'
+    strip-claude-code-intercept-ui:
+      stripPrefix:
+        prefixes:
+          - '/claude-code-intercept/ui'
+
+    # Plugin middlewares (configured via Traefik experimental plugins in compose)
+    geoblock:
+      plugin:
+        geoblock:
+          silentStartUp: false
+          allowLocalRequests: true
+          logLocalRequests: false
+          logAllowedRequests: true
+          logApiRequests: true
+          api: 'https://get.geojs.io/v1/ip/country/{ip}'
+          apiTimeoutMs: 750
+          cacheSize: 15
+          forceMonthlyUpdate: true
+          allowUnknownCountries: false
+          unknownCountryApiResponse: 'nil'
+          blackListMode: false
+          countries:
+            - US
+
+    crowdsec:
+      plugin:
+        crowdsec:
+          # Do not put secrets here; supply via env/Traefik static config if required
+          # Example (uncomment and set through env expansion if needed):
+          # crowdsecLapiUrl: "http://crowdsec:8080"
+          # crowdsecLapiKey: "${CROWDSEC_BOUNCER_KEY}"
+    crowdsec-bouncer:
+      forwardauth:
+        address: http://crowdsec-bouncer:8080/api/v1/forwardAuth
+        trustForwardHeader: true
+
+    # Compose plugins into a single chain for easy reuse
+    security-chain:
+      chain:
+        middlewares:
+          - geoblock
+          - crowdsec-bouncer

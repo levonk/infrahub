@@ -1,8 +1,33 @@
+- All
+	- container updates
+	  - watchtower https://github.com/containrrr/watchtower
+	  - wud https://github.com/getwud/wud
+	- etckeeper
+	- fail2ban
+	- crowdsec https://github.com/crowdsecurity/crowdsec
+	- SSO (see below)
+	- for high security mTLS (mutal TLS)
+- FRP cloud server can proxy to home based client https://github.com/fatedier/frp
+- traefik - https://github.com/traefik/traefik
+	- crowdsec plugin https://github.com/crowdsecurity/crowdsec
+	- geoblock plugin https://github.com/PascalMinder/geoblock
 - livekit self-hosted
 - browser agent: skyvern
 - compute agent: agentsea
+- Notifications - https://github.com/binwiederhier/ntfy
+- Status Monitoring - https://github.com/louislam/uptime-kuma
+- log notifier: https://github.com/ImranR98/Logtfy
+- Server monitoring: https://github.com/henrygd/beszel
 - VLESS+XTLS proxy: 3x-ui
 - github.com/block/goose
+- file-browser:
+	- https://github.com/filebrowser/filebrowser
+- SSO
+	- Authentik
+	- Authelia
+- Home Automation https://github.com/home-assistant/
+- Honeypot - https://github.com/thinkst/opencanary
+- Media - Jellyfin https://github.com/jellyfin/jellyfin
 - Code agent: github.com/HKUDS/DeepCode
 - Video Manager: https://github.com/getmydia/mydia
 - easy private file exchange: https://github.com/tonyantony300/alt-sendme

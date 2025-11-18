@@ -41,7 +41,198 @@ x-logging: &default-logging
 #      retries: 3
 #      start_period: 10s
 #    restart: unless-stopped
+
+  watchtower: # https://github.com/containrrr/watchtower
+    container_name: localnet-watchtower
+    privileged: true
+    restart: unless-stopped
+    image: containrrr/watchtower
+    enviornment:
+      WATCHTOWER_CLEANUP: "true"
+      WATCHTOWER_POLL_INTERVAL: 7200
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  crowdsec:  # https://github.com/crowdsecurity/crowdsec
+    image: crowdsecurity/crowdsec:latest
+    container_name: localnet-crowdsec
+    networks:
+      - localnet
+    volumes:
+      - crowdsec-data:/var/lib/crowdsec/data
+      - crowdsec-config:/etc/crowdsec
+      - traefik-access-logs:/var/log/traefik/:ro
+      - ./crowdsec/mounts/templates:/templates:ro
+    environment:
+      - TZ: "${TZ:-UTC}"
+      - GID: "${GID-1000}"
+      - COLLECTIONS: "crowdsecurity/linux crowdsecurity/traefik"
+    depends_on:
+      - traefik
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 #    logging: *default-logging
+  crowdsec-bouncer:
+    image: docker.io/fbonalair/traefik-crowdsec-bouncer:latest
+    container_name: localnet-crowdsec-bouncer
+    environment:
+      CROWDSEC_BOUNCER_API_KEY: "" # cscli bouncers add crowdsecBouncer
+      CROWDSEC_AGENT_HOST: crowdsec:8080
+    networks:
+      - localnet
+    depends_on:
+      - crowdsec
+    restart: unless-stopped
+  crowdsec-dashboard:
+    image: crowdsecurity/crowdsec-dashboard:latest
+    container_name: localnet-crowdsec-dashboard
+    environment:
+      TZ: "${TZ:-UTC}"
+      GID: "${GID-1000}"
+    networks:
+      - localnet
+    depends_on:
+      - crowdsec
+    restart: unless-stopped
+  crowdsec-dashboard2:
+    image: metabase/metabase # crowdsec@crowdsec.net !!Cr0wdS3c_M3t4b4s3??
+    container_name: localnet-crowdsec-dashboard2
+    environment:
+      MB_DB_FILE: /data/metabase.db
+      MGID: "${GID-1000}"
+    volumes:
+      - ./crowdsec/mounts/crowdsec-dash-db:/data # Bootstrap dashboard DB from https://crowdsec-statics-assets.s3-eu-west-1.amazonaws.com/metabase_sqlite.zip
+      - crowdsec-db:/metabase-data/
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.crowdsec-dashboard.rule=Host(`${PROXY_CROWDSEC_DASHBOARD2_HOSTNAME}`)"
+      - "traefik.http.routers.crowdsec-dashboard.entrypoints=websecure"
+      - "traefik.http.routers.crowdsec-dashboard.tls.certresolver=le"
+      - "traefik.http.routers.crowdsec-dashboard.tls=true"
+      - "traefik.http.routers.crowdsec-dashboard.middlewares=authelia@docker"
+      - "traefik.http.routers.crowdsec-dashboard.loadbalancer.server.port=3000"
+    networks:
+      - localnet
+    depends_on:
+      - crowdsec
+    restart: unless-stopped
+
+  frpc: # https://github.com/fatedier/frp
+    image: fatedier/frpc:v0.65.0
+    container_name: localnet-proxy-frp
+    restart: unless-stopped
+    volumes:
+      - ./frpc/mounts/etc/frpc:/etc/frpc
+    network_mode: host
+    command: "-c /etc/frpc/frpc.toml"
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
+
+  authelia: # https://github.com/authelia/authelia
+    image: authelia/authelia
+    container_name: localnet-authelia
+    user: "1000:1000"
+    depends_on:
+      - authelia-db
+    volumes:
+      - ./authelia/mounts/etc/authelia:/etc/authelia
+    networks:
+      - localnet
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.authelia.rule=Host(`${LOCALNET_AUTH_HOSTNAME}`)"
+      - "traefik.http.routers.authelia.entryPoints=websecure"
+      - "traefik.http.routers.authelia.tls.certresolver=le"
+      - "traefik.http.routers.authelia.tls=true"
+      - "traefik.http.routers.authelia.middlewares=authelia@docker"
+      - "traefik.http.middlewares.authelia.forwardAuth.address=http://authelia:9091/api/verify?rd=https%3A%2F%2F${LOCALNET_AUTH_HOSTNAME}%2F"
+      - "traefik.http.middlewares.authelia.fowardAuth.truestForwardHeader=true"
+      - "traefik.http.middlewares.authelia.fowardAuth.authResponseHeaders=Remote-User,Remote-Groups,Remote-Name,Remote-Email"
+      - "traefik.http.middlewares.authelia-basic.forwardAuth.address=http://authelia:9091/api/verify?auth=basic"
+      - "traefik.http.middlewares.authelia-basic.forwardAuth.trustForwardheader=true"
+      - "traefik.http.middlewares.authelia-basic.fowardAuth.authResponseHeaders=Remote-User,Remote-Groups,Remote-Name,Remote-Email"
+    expose:
+      - 9091
+    restart: unless-stopped
+  authelia-db:
+    image: redis:alpine
+    container_name: authelia-db
+    user: "1000:1000"
+    volumes:
+      - authelia_db:/data
+    networks:
+      - localnet
+    expose:
+      - 6379
+    restart: unless-stopped
+
+  traefik: # https://github.com/traefik/traefik
+    image: traefik:latest
+    container_name: localnet-proxy-traefik
+    command:
+      - "--api=true"
+      - "--api.dashboard=true"
+      - "--api.insecure=false"
+      - "--global.sendAnonymousUsage=false"
+      - "--global.checkNewVersion=true"
+      - "--log.level=DEBUG"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedByDefault=false"
+      - "--providers.file.filename=/etc/traefik/dynamic.yml"
+      - "--entrypoints.web=true"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+      - "--entrypoints.web.http.redirections.entryPoint.permanent=true"
+      - "--entrypoints.websecure=true"
+      - "--entrypoints.websecure.address=:443"
+      - "--entryPoints.websecure.proxyProtocol.trustedIPs=${DOCKER_NETWORK_GATEWAY}/32"
+      - "--entrypoints.health=true"
+      - "--entrypoints.health.address=:8882"
+      - "--ping=true"
+      - "--ping.entrypoint=health"
+      - "--certificatesresolvers.le.acme.email=letsencrypt@levonk.com"
+      - "--certificatesresolvers.le.acme.storage=./acme/acme.json"
+      - "--certificatesresolvers.le.acme.tlschallenge=true"
+      - "--accesslog=true"
+      - "--accesslog.filePath=/var/log/traefik/access.log"
+      - "--entryPoints.websecure.http.middlewares=crowdsec-bouncer@file"
+      - "--experimental.plugins.geoblock.modulename=github.com/PascalMinder/geoblock"
+      - "--experimental.plugins.geoblock.version=v0.3.3"
+    ports:
+      - "80:80"
+      - "443:443"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.api.rule=Host(`traefik.levonk.com`)"
+      - "traefik.http.routers.api.entryPoints=websecure"
+      - "traefik.http.routers.api.service=api@internal"
+      - "traefik.http.routers.api.tls=true"
+      - "traefik.http.routers.api.tls.certresolver=le"
+    networks:
+      - localnet
+    volumes:
+      - ./traefik/mounts/etc/traefik:/etc/traefik:ro
+      - traefik-acme:/acme
+      - traefik-access-logs:/var/log/traefik/
+    environment:
+      # Traefik experimental plugin declarations (versions can be overridden via env)
+      - TRAEFIK_EXPERIMENTAL_PLUGINS_GEOBLOCK_MODULENAME=github.com/PascalMinder/geoblock
+      - TRAEFIK_EXPERIMENTAL_PLUGINS_GEOBLOCK_VERSION=${TRAEFIK_PLUGIN_GEO_VERSION:-v0.2.9}
+      - TRAEFIK_EXPERIMENTAL_PLUGINS_CROWDSEC_MODULENAME=github.com/crowdsecurity/traefik-plugin-crowdsec
+      - TRAEFIK_EXPERIMENTAL_PLUGINS_CROWDSEC_VERSION=${TRAEFIK_PLUGIN_CROWDSEC_VERSION:-v1.4.4}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8882/ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   envoy:
     image: envoyproxy/envoy:v1.28-latest
@@ -139,4 +330,16 @@ x-logging: &default-logging
 
 volumes:
   web-cache:
+    driver: local
+  crowdsec-data:
+    driver: local
+  crowdsec-config:
+    driver: local
+  crowdsec-db:
+    driver: local
+  traefik-acme:
+    driver: local
+  traefik-access-logs:
+    driver: local
+  authelia-db:
     driver: local
