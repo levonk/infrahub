@@ -11,9 +11,9 @@ services:
         env_file:
             - ../../.env
         volumes:
-            - ./mosquitto/mounts/config:/mosquitto/config
-            - ./mosquitto/mounts/data:/mosquitto/data
-            - ./mosquitto/mounts/log:/mosquitto/log
+            - ./mosquitto/mounts/config:/mosquitto/config:ro
+            - ./mosquitto/mounts/data:/mosquitto/data:rw
+            - ./mosquitto/mounts/log:/mosquitto/log:rw
         healthcheck:
             test:
                 [
