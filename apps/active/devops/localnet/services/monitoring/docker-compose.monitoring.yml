@@ -1,4 +1,14 @@
 ---
+
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "5"
+    tag: "{{.Name}}"
+    labels: "service"
+
+
 # Monitoring services stack for Home Lab In-a-Box
 volumes:
   prometheus-data:
@@ -10,6 +20,7 @@ services:
   prometheus:
     image: prom/prometheus:latest
     container_name: localnet-monitoring-prometheus
+    logging: *default-logging
     networks:
       - localnet
     ports:
@@ -34,6 +45,7 @@ services:
   grafana:
     image: grafana/grafana:latest
     container_name: localnet-monitoring-grafana
+    logging: *default-logging
     networks:
       - localnet
     ports:
@@ -61,6 +73,7 @@ services:
   jaeger:
     image: jaegertracing/all-in-one:latest
     container_name: localnet-monitoring-jaeger
+    logging: *default-logging
     networks:
       - localnet
     ports:
@@ -83,6 +96,7 @@ services:
   blackbox-exporter:
     image: prom/blackbox-exporter:latest
     container_name: localnet-monitoring-blackbox-exporter
+    logging: *default-logging
     networks:
       - localnet
     ports:

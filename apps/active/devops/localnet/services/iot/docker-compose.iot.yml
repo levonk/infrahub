@@ -1,8 +1,19 @@
 ---
+
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "5"
+    tag: "{{.Name}}"
+    labels: "service"
+
+
 services:
     iot-mosquitto:
         image: eclipse-mosquitto:2
         container_name: localnet-iot-mosquitto
+    logging: *default-logging
         networks:
             - localnet
         ports:

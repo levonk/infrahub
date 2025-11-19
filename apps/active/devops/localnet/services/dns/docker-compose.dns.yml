@@ -1,5 +1,19 @@
 # /home/micro/p/gh/lrepo52/job-aide-wt01/apps/active/devops/localnet/services/dns/docker-compose.dns.yml
 ---
+
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "5"
+    tag: "{{.Name}}"
+    labels: "service"
+
+
+
+
+
+
 # DNS service stack for Local Network Infrastructure
 # The 'localnet' network is defined in the parent docker-compose.yml with proper subnet configuration
 services:
@@ -10,6 +24,7 @@ services:
       dockerfile: docker/Dockerfile.dnsdist
     image: localnet-dns-dnsdist:latest
     container_name: localnet-dns-dnsdist
+    logging: *default-logging
     networks:
       - localnet
     ports:
@@ -62,6 +77,7 @@ services:
       dockerfile: docker/Dockerfile.coredns
     image: localnet-dns-coredns:latest
     container_name: localnet-dns-coredns
+    logging: *default-logging
     networks:
       localnet:
         ipv4_address: ${DNS_COREDNS_MAIN_IP:-172.21.255.51}
@@ -225,6 +241,7 @@ services:
       dockerfile: docker/Dockerfile.dnscrypt-proxy
     image: localnet-dns-dnscrypt-plaintext:latest
     container_name: localnet-dns-dnscrypt-plaintext
+    logging: *default-logging
     networks:
       localnet:
         ipv4_address: ${DNS_DNSCRYPT_PLAINTEXT_CONTAINER_IP:-172.21.255.65}
@@ -268,6 +285,7 @@ services:
       dockerfile: docker/Dockerfile.tor
     image: localnet-proxy-tor:latest
     container_name: localnet-proxy-tor
+    logging: *default-logging
     networks:
       localnet:
         ipv4_address: 172.21.255.70
@@ -283,6 +301,7 @@ services:
       context: ./dns-blocklists
       dockerfile: Dockerfile.blocklist-compiler
     container_name: localnet-dns-blocklist-compiler
+    logging: *default-logging
     networks:
       - localnet
     volumes:

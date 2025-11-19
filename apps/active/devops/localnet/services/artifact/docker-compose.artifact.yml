@@ -1,4 +1,14 @@
 ---
+
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "5"
+    tag: "{{.Name}}"
+    labels: "service"
+
+
 # Artifact repository services (Nexus & Verdaccio)
 volumes:
   nexus-data:
@@ -13,6 +23,7 @@ services:
       dockerfile: Dockerfile
     image: localnet-artifact-nexus:latest
     container_name: localnet-artifact-nexus
+    logging: *default-logging
     networks:
       - localnet
     ports:
@@ -33,6 +44,7 @@ services:
   verdaccio:
     image: localnet-artifact-verdaccio:latest
     container_name: localnet-artifact-verdaccio
+    logging: *default-logging
     build:
       context: ./verdaccio
       dockerfile: docker/Dockerfile.verdaccio

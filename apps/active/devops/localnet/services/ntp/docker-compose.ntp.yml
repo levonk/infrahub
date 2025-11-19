@@ -1,4 +1,12 @@
----
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "5"
+    tag: "{{.Name}}"
+    labels: "service"
+
+
 # NTP service stack for Home Lab In-a-Box
 services:
   chronyd:
@@ -7,6 +15,7 @@ services:
       dockerfile: docker/Dockerfile.chronyd
     image: localnet-ntp-chronyd:latest
     container_name: localnet-ntp-chronyd
+    logging: *default-logging
     networks:
       - localnet
     ports:

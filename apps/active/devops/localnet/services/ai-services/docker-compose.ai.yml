@@ -1,4 +1,14 @@
 ---
+
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "5"
+    tag: "{{.Name}}"
+    labels: "service"
+
+
 # AI Services stack
 # Includes: Ollama (GPU), OpenWebUI, n8n, Postgres (pgvector), Neo4j, Langfuse, Airflow (K8s-ready)
 volumes:
@@ -19,6 +29,7 @@ services:
   ollama:
     image: ollama/ollama:latest
     container_name: localnet-ai-ollama
+    logging: *default-logging
     restart: unless-stopped
     networks:
       - localnet
@@ -48,6 +59,7 @@ services:
   openwebui:
     image: ghcr.io/open-webui/open-webui:latest
     container_name: localnet-ai-openwebui
+    logging: *default-logging
     restart: unless-stopped
     depends_on:
       - ollama
@@ -55,6 +67,18 @@ services:
       - localnet
     environment:
       - OLLAMA_BASE_URL=http://ollama:${AI_OLLAMA_CONTAINER_PORT:-11434}
+      - WEBUI_URL=https://${AI_SERVICES_OPENWEBUI_HOST_NAME:-openwebui.levonk.com}/
+      - ENABLE_OAUTH_SIGNUP=true
+      - OAUTH_MERGE_ACCOUNTS_BY_EMAIL=true
+      - OAUTH_CLIENT_ID=open-webui
+      - OAUTH_CLIENT_SECRET=${AI_SERVICES_OPENWEBUI_CLIENT_SECRET:-changeme} # Corresponds to 'client_secret' in configuration.yml
+      - OPENID_PROVIDER_URL=https://${LOCALNET_AUTH_HOSTNAME:-auth.levonk.com}/.well-known/openid-configuration
+      - OAUTH_PROVIDER_NAME=${LOCALNET_AUTH_PROVIDER_NAME:-Authelia}
+      - OAUTH_SCOPES=openid email profile groups
+      - ENABLE_OAUTH_ROLE_MANAGEMENT=true
+      - OAUTH_ADMIN_ROLES=admins
+      - OAUTH_ALLOWED_ROLES=admins,dev,family
+      - OAUTH_ROLES_CLAIM=groups
     ports:
       - "${AI_OPENWEBUI_HOST_PORT:-30080}:8080"
     volumes:
@@ -65,10 +89,25 @@ services:
       interval: 30s
       timeout: 5s
       retries: 20
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.open-webui.rule=Host(`${AI_SERVICES_OPENWEBUI_HOST_NAME:-openwebui.levonk.com}`)"
+      - "traefik.http.routers.open-webui.entryPoints=websecure"
+      - "traefik.http.routers.open-webui.tls.certresolver=le"
+      - "traefik.http.routers.open-webui.tls=true"
+      - "traefik.http.routers.open-webui.middlewares=authelia@docker,geoblock@file"
+      - "traefik.http.middlewares.authelia.forwardAuth.address=http://authelia:9091/api/verify?rd=https%3A%2F%2F${LOCALNET_AUTH_HOSTNAME}%2F"
+      - "traefik.http.middlewares.authelia.fowardAuth.truestForwardHeader=true"
+      - "traefik.http.middlewares.authelia.fowardAuth.authResponseHeaders=Remote-User,Remote-Groups,Remote-Name,Remote-Email"
+      - "traefik.http.middlewares.authelia-basic.forwardAuth.address=http://authelia:9091/api/verify?auth=basic"
+      - "traefik.http.middlewares.authelia-basic.forwardAuth.trustForwardheader=true"
+      - "traefik.http.middlewares.authelia-basic.fowardAuth.authResponseHeaders=Remote-User,Remote-Groups,Remote-Name,Remote-Email"
+
 
   n8n:
     image: n8nio/n8n:latest
     container_name: localnet-ai-n8n
+    logging: *default-logging
     restart: unless-stopped
     networks:
       - localnet
@@ -95,6 +134,7 @@ services:
   postgres:
     image: pgvector/pgvector:pg16
     container_name: localnet-ai-postgres
+    logging: *default-logging
     restart: unless-stopped
     networks:
       - localnet
@@ -115,6 +155,7 @@ services:
   neo4j:
     image: neo4j:5-community
     container_name: localnet-ai-neo4j
+    logging: *default-logging
     restart: unless-stopped
     networks:
       - localnet
@@ -136,6 +177,7 @@ services:
   langfuse:
     image: langfuse/langfuse:latest
     container_name: localnet-ai-langfuse
+    logging: *default-logging
     restart: unless-stopped
     networks:
       - localnet
@@ -166,6 +208,7 @@ services:
   unstructured:
     image: quay.io/unstructured-io/unstructured-api:latest
     container_name: localnet-ai-unstructured
+    logging: *default-logging
     restart: unless-stopped
     networks:
       - localnet

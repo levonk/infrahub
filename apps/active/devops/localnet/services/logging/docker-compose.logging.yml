@@ -4,6 +4,7 @@ services:
   vector:
     image: timberio/vector:latest-alpine
     container_name: localnet-logging-vector
+    logging: *default-logging
     networks:
       - localnet
     ports:
@@ -24,6 +25,7 @@ services:
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
     container_name: localnet-logging-elasticsearch
+    logging: *default-logging
     networks:
       - localnet
     ports:
@@ -47,6 +49,7 @@ services:
   loki:
     image: grafana/loki:latest
     container_name: localnet-logging-loki
+    logging: *default-logging
     networks:
       - localnet
     ports:
@@ -65,6 +68,7 @@ services:
   promtail:
     image: grafana/promtail:latest
     container_name: localnet-logging-promtail
+    logging: *default-logging
     networks:
       - localnet
     ports:

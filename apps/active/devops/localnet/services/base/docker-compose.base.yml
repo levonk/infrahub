@@ -1,5 +1,15 @@
 # /home/micro/p/gh/lrepo52/job-aide-wt01/apps/active/devops/localnet/services/base/docker-compose.base.yml
 ---
+
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "5"
+    tag: "{{.Name}}"
+    labels: "service"
+
+
 # Base images for the localnet stack
 services:
   base-alpine:
@@ -8,9 +18,11 @@ services:
       dockerfile: docker/Dockerfile.base-alpine
     image: base-alpine:latest
     container_name: base-alpine
+    logging: *default-logging
   base-debian:
     build:
       context: ./base-debian
       dockerfile: docker/Dockerfile.base-debian
     image: base-debian:latest
     container_name: base-debian
+    logging: *default-logging

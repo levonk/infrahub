@@ -1,4 +1,13 @@
 ---
+
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "5"
+    tag: "{{.Name}}"
+    labels: "service"
+
 services:
   ## For Traefik and other read-only uses
   dockerproxy-ro: # https://github.com/wollomatic/socket-proxy
@@ -6,7 +15,7 @@ services:
     container_name: localnet-security-dockerproxy-ro
     command:
       - "-loglevel=debug"
-      - "-allowGET=(/v1/\\..{1,2})?/(version|containers/.*|events.*)"
+      - '-allowGET=(/v1/\..{1,2})?/(version|containers/.*|events.*)'
       - "-allowHEAD=/_ping"
       - "-shutdowngracetime=5"
       - "-watchdoginterval=600"
@@ -42,9 +51,9 @@ services:
     container_name: localnet-security-dockerproxy-rw
     command:
       - "-loglevel=debug"
-      - "-allowGET=(/v1/\\..{2})??/(containers/.*|images/.*)"
-      - "-allowPOST=(/v1/\\..{2})??/(containers/.*|images/.*|networks/.*)"
-      - "-allowDELETE=(/v1/\\..{2})??/(containers/.*|images/.*)"
+      - '-allowGET=(/v1/\\..{2})??/(containers/.*|images/.*)'
+      - '-allowPOST=(/v1/\\..{2})??/(containers/.*|images/.*|networks/.*)'
+      - '-allowDELETE=(/v1/\\..{2})??/(containers/.*|images/.*)'
       - "-allowHEAD=/_ping"
       - "-shutdowngracetime=5"
       - "-watchdoginterval=600"
@@ -84,7 +93,7 @@ services:
     privileged: true
     restart: unless-stopped
     image: containrrr/watchtower
-    enviornment:
+    environment:
       WATCHTOWER_CLEANUP: "true"
       WATCHTOWER_POLL_INTERVAL: 7200
       DOCKER_HOST: "unix:///socket/docker.sock"
@@ -106,9 +115,9 @@ services:
       - traefik-access-logs:/var/log/traefik/:ro
       - ./crowdsec/mounts/templates:/templates:ro
     environment:
-      - TZ: "${TZ:-UTC}"
-      - GID: "${GID-1000}"
-      - COLLECTIONS: "crowdsecurity/linux crowdsecurity/traefik"
+      - "TZ=${TZ:-UTC}"
+      - "GID=${GID-1000}"
+      - "COLLECTIONS=crowdsecurity/linux crowdsecurity/traefik"
     depends_on:
       - traefik
     restart: unless-stopped

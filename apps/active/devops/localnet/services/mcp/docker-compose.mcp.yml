@@ -6,6 +6,7 @@ services:
   archon-mcp:
     image: otakulabz/archon:latest
     container_name: localnet-mcp-archon
+    logging: *default-logging
     networks:
       - localnet
     ports:
@@ -34,6 +35,7 @@ services:
       dockerfile: docker/Dockerfile.serena
     image: localnet-mcp-serena:latest
     container_name: localnet-mcp-serena
+    logging: *default-logging
     networks:
       localnet:
         aliases:

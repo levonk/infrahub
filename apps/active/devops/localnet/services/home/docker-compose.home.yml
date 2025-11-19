@@ -1,3 +1,13 @@
+---
+
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "5"
+    tag: "{{.Name}}"
+    labels: "service"
+
 # Home services: Home Assistant + Mosquitto + ring-mqtt
 
 volumes:
@@ -7,6 +17,7 @@ services:
   homeassistant:
     image: ghcr.io/home-assistant/home-assistant:stable
     container_name: localnet-homeassistant
+    logging: *default-logging
     networks:
       - localnet
     depends_on:
@@ -22,6 +33,7 @@ services:
   ring-mqtt:
     image: tsightler/ring-mqtt:latest
     container_name: localnet-ring-mqtt
+    logging: *default-logging
     networks:
       - localnet
     depends_on:

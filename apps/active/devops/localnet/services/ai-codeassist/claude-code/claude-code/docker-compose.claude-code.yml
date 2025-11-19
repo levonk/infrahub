@@ -6,6 +6,7 @@ services:
       context: ./docker
       dockerfile: Dockerfile.claude-code
     container_name: claude-code
+    logging: *default-logging
     restart: unless-stopped
     environment:
       - CLAUDE_API_KEY=${CLAUDE_API_KEY}
@@ -37,6 +38,7 @@ services:
   claude-code-ui:
     image: siteboon/claudecodeui:latest
     container_name: claude-code-ui
+    logging: *default-logging
     restart: unless-stopped
     ports:
       - "3000:3000"
@@ -69,6 +71,7 @@ services:
       context: ./docker
       dockerfile: Dockerfile.auth
     container_name: claude-code-auth
+    logging: *default-logging
     restart: unless-stopped
     environment:
       - JWT_SECRET=${CLAUDE_CODE_JWT_SECRET}
@@ -94,6 +97,7 @@ services:
   claude-code-mcp:
     image: steipete/claude-code-mcp:latest
     container_name: claude-code-mcp
+    logging: *default-logging
     restart: unless-stopped
     environment:
       - MCP_CONFIG_FILE=/app/config/mcp-config.json
@@ -118,6 +122,7 @@ services:
   pluggedin-mcp-proxy:
     image: veritexnik/pluggedin-mcp-proxy:latest
     container_name: pluggedin-mcp-proxy
+    logging: *default-logging
     restart: unless-stopped
     environment:
       - MCP_TARGET_URL=http://claude-code-mcp:8082
@@ -143,6 +148,7 @@ services:
   pluggedin-app:
     image: veritexnik/pluggedin-app:latest
     container_name: pluggedin-app
+    logging: *default-logging
     restart: unless-stopped
     environment:
       - CLAUDE_CODE_URL=http://claude-code:8081
@@ -169,6 +175,7 @@ services:
       context: ../../claude-code-intercept
       dockerfile: Dockerfile.claude-code-intercept
     container_name: claude-code-intercept
+    logging: *default-logging
     restart: unless-stopped
     ports:
       - "${CLAUDE_CODE_INTERCEPT_API_HOST_PORT:-3001}:${CLAUDE_CODE_INTERCEPT_API_PORT:-3001}"
@@ -204,6 +211,7 @@ services:
   claude-code-router:
     image: nginx:alpine
     container_name: claude-code-router
+    logging: *default-logging
     restart: unless-stopped
     ports:
       - "8084:8084"
@@ -232,6 +240,7 @@ services:
   traefik:
     image: traefik:v3.0
     container_name: traefik
+    logging: *default-logging
     restart: unless-stopped
     command:
       - --entrypoints.webui.address=:8087
@@ -254,6 +263,7 @@ services:
   claude-code-db:
     image: postgres:15-alpine
     container_name: claude-code-db
+    logging: *default-logging
     restart: unless-stopped
     profiles:
       - postgresql  # Activate with: docker compose --profile postgresql up

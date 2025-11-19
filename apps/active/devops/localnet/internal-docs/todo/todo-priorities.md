@@ -20,6 +20,7 @@
 - Server monitoring: https://github.com/henrygd/beszel
 - VLESS+XTLS proxy: 3x-ui
 - github.com/block/goose
+- Social Sentiment Monitor: https://github.com/666ghj/BettaFish/blob/main/README-EN.md
 - file-browser:
 	- https://github.com/filebrowser/filebrowser
 - SSO
