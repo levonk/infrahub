@@ -23,9 +23,6 @@
 - Social Sentiment Monitor: https://github.com/666ghj/BettaFish/blob/main/README-EN.md
 - file-browser:
 	- https://github.com/filebrowser/filebrowser
-- SSO
-	- Authentik
-	- Authelia
 - Home Automation https://github.com/home-assistant/
 - Honeypot - https://github.com/thinkst/opencanary
 - Media - Jellyfin https://github.com/jellyfin/jellyfin
@@ -44,6 +41,12 @@
   - https://github.com/pkulium/DeepOCR
 - evaluate AI security
   - https://github.com/openpcc/openpcc?tab=readme-ov-file
-- Authentication https://github.com/ory/kratos
+- Authentication to build our applications against
+  - https://github.com/ory/kratos
+- SSO - for internal network access
+ 	- Authentik general IdP
+ 	- Authelia proxy companion
+- Netboot: <https://netboot.xyz/docs/docker/usage>
+- content management
 - cert authority
 - investigate only github.com/get-convex/chef github.com/GeeeekExplorer/nano-vllm
