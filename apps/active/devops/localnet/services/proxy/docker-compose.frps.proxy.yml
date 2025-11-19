@@ -3,6 +3,7 @@ services:
   frps: # https://github.com/fatedier/frp
     image: fatedier/frps:v0.65.0
     container_name: localnet-proxy-frps
+    logging: *default-logging
     restart: always
     volumes:
       - ./frps/mounts/etc/frps:/etc/frps

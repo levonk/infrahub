@@ -8,7 +8,7 @@ x-logging: &default-logging
   driver: "json-file"
   options:
     max-size: "10m"
-    max-file: "3"
+    max-file: "5"
     tag: "{{.Name}}"
     labels: "service"
 
@@ -78,6 +78,20 @@ volumes:
   localstack-data:
     driver: local
 
+  # Dockerproxy
+  dockerproxy-ro:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: size=1k,uid=65534,gid=0,mode=0700,noexec
+  dockerproxy-rw:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: size=1k,uid=65534,gid=0,mode=0700,noexec
+
 services: {}
 
 # ============================================================================
@@ -87,13 +101,14 @@ services: {}
 include:
   ## you have to run the base before running localnet. running it again causes problems
   # - services/base/docker-compose.base.yml
-  - services/artifact/docker-compose.artifact.yml
-  - services/ntp/docker-compose.ntp.yml
+  - services/security/docker-compose.security.yml
   - services/dns/docker-compose.dns.yml
+  - services/ntp/docker-compose.ntp.yml
+  - services/artifact/docker-compose.artifact.yml
   - services/proxy/docker-compose.proxy.yml
   # - services/vpn/docker-compose.vpn.yml
   # - services/logging/docker-compose.logging.yml
   # - services/ai-codeassist/claude-code/claude-code/docker-compose.claude-code.yml
-  #- services/ai-services/docker-compose.ai.yml
+  # - services/ai-services/docker-compose.ai.yml
   - services/home/docker-compose.home.yml
   - services/iot/docker-compose.iot.yml

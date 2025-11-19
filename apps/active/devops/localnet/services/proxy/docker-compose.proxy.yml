@@ -1,13 +1,4 @@
 ---
-# Proxy chain stack for Home Lab In-a-Box
-x-logging: &default-logging
-  driver: "json-file"
-  options:
-    max-size: "10m"
-    max-file: "3"
-    tag: "{{.Name}}"
-    labels: "service"
-
 #services:
 #  transparent-gateway:
 #    build:
@@ -42,138 +33,10 @@ x-logging: &default-logging
 #      start_period: 10s
 #    restart: unless-stopped
 
-  watchtower: # https://github.com/containrrr/watchtower
-    container_name: localnet-watchtower
-    privileged: true
-    restart: unless-stopped
-    image: containrrr/watchtower
-    enviornment:
-      WATCHTOWER_CLEANUP: "true"
-      WATCHTOWER_POLL_INTERVAL: 7200
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-
-  crowdsec:  # https://github.com/crowdsecurity/crowdsec
-    image: crowdsecurity/crowdsec:latest
-    container_name: localnet-crowdsec
-    networks:
-      - localnet
-    volumes:
-      - crowdsec-data:/var/lib/crowdsec/data
-      - crowdsec-config:/etc/crowdsec
-      - traefik-access-logs:/var/log/traefik/:ro
-      - ./crowdsec/mounts/templates:/templates:ro
-    environment:
-      - TZ: "${TZ:-UTC}"
-      - GID: "${GID-1000}"
-      - COLLECTIONS: "crowdsecurity/linux crowdsecurity/traefik"
-    depends_on:
-      - traefik
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
-      start_period: 20s
-#    logging: *default-logging
-  crowdsec-bouncer:
-    image: docker.io/fbonalair/traefik-crowdsec-bouncer:latest
-    container_name: localnet-crowdsec-bouncer
-    environment:
-      CROWDSEC_BOUNCER_API_KEY: "" # cscli bouncers add crowdsecBouncer
-      CROWDSEC_AGENT_HOST: crowdsec:8080
-    networks:
-      - localnet
-    depends_on:
-      - crowdsec
-    restart: unless-stopped
-  crowdsec-dashboard:
-    image: crowdsecurity/crowdsec-dashboard:latest
-    container_name: localnet-crowdsec-dashboard
-    environment:
-      TZ: "${TZ:-UTC}"
-      GID: "${GID-1000}"
-    networks:
-      - localnet
-    depends_on:
-      - crowdsec
-    restart: unless-stopped
-  crowdsec-dashboard2:
-    image: metabase/metabase # crowdsec@crowdsec.net !!Cr0wdS3c_M3t4b4s3??
-    container_name: localnet-crowdsec-dashboard2
-    environment:
-      MB_DB_FILE: /data/metabase.db
-      MGID: "${GID-1000}"
-    volumes:
-      - ./crowdsec/mounts/crowdsec-dash-db:/data # Bootstrap dashboard DB from https://crowdsec-statics-assets.s3-eu-west-1.amazonaws.com/metabase_sqlite.zip
-      - crowdsec-db:/metabase-data/
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.crowdsec-dashboard.rule=Host(`${PROXY_CROWDSEC_DASHBOARD2_HOSTNAME}`)"
-      - "traefik.http.routers.crowdsec-dashboard.entrypoints=websecure"
-      - "traefik.http.routers.crowdsec-dashboard.tls.certresolver=le"
-      - "traefik.http.routers.crowdsec-dashboard.tls=true"
-      - "traefik.http.routers.crowdsec-dashboard.middlewares=authelia@docker"
-      - "traefik.http.routers.crowdsec-dashboard.loadbalancer.server.port=3000"
-    networks:
-      - localnet
-    depends_on:
-      - crowdsec
-    restart: unless-stopped
-
-  frpc: # https://github.com/fatedier/frp
-    image: fatedier/frpc:v0.65.0
-    container_name: localnet-proxy-frp
-    restart: unless-stopped
-    volumes:
-      - ./frpc/mounts/etc/frpc:/etc/frpc
-    network_mode: host
-    command: "-c /etc/frpc/frpc.toml"
-    labels:
-      - "com.centurylinklabs.watchtower.enable=false"
-
-  authelia: # https://github.com/authelia/authelia
-    image: authelia/authelia
-    container_name: localnet-authelia
-    user: "1000:1000"
-    depends_on:
-      - authelia-db
-    volumes:
-      - ./authelia/mounts/etc/authelia:/etc/authelia
-    networks:
-      - localnet
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.authelia.rule=Host(`${LOCALNET_AUTH_HOSTNAME}`)"
-      - "traefik.http.routers.authelia.entryPoints=websecure"
-      - "traefik.http.routers.authelia.tls.certresolver=le"
-      - "traefik.http.routers.authelia.tls=true"
-      - "traefik.http.routers.authelia.middlewares=authelia@docker"
-      - "traefik.http.middlewares.authelia.forwardAuth.address=http://authelia:9091/api/verify?rd=https%3A%2F%2F${LOCALNET_AUTH_HOSTNAME}%2F"
-      - "traefik.http.middlewares.authelia.fowardAuth.truestForwardHeader=true"
-      - "traefik.http.middlewares.authelia.fowardAuth.authResponseHeaders=Remote-User,Remote-Groups,Remote-Name,Remote-Email"
-      - "traefik.http.middlewares.authelia-basic.forwardAuth.address=http://authelia:9091/api/verify?auth=basic"
-      - "traefik.http.middlewares.authelia-basic.forwardAuth.trustForwardheader=true"
-      - "traefik.http.middlewares.authelia-basic.fowardAuth.authResponseHeaders=Remote-User,Remote-Groups,Remote-Name,Remote-Email"
-    expose:
-      - 9091
-    restart: unless-stopped
-  authelia-db:
-    image: redis:alpine
-    container_name: authelia-db
-    user: "1000:1000"
-    volumes:
-      - authelia_db:/data
-    networks:
-      - localnet
-    expose:
-      - 6379
-    restart: unless-stopped
-
   traefik: # https://github.com/traefik/traefik
     image: traefik:latest
     container_name: localnet-proxy-traefik
+    logging: *default-logging
     command:
       - "--api=true"
       - "--api.dashboard=true"
@@ -204,6 +67,7 @@ x-logging: &default-logging
       - "--entryPoints.websecure.http.middlewares=crowdsec-bouncer@file"
       - "--experimental.plugins.geoblock.modulename=github.com/PascalMinder/geoblock"
       - "--experimental.plugins.geoblock.version=v0.3.3"
+      - "--providers.docker.endpoint=unix:///socket/docker.sock"
     ports:
       - "80:80"
       - "443:443"
@@ -220,6 +84,11 @@ x-logging: &default-logging
       - ./traefik/mounts/etc/traefik:/etc/traefik:ro
       - traefik-acme:/acme
       - traefik-access-logs:/var/log/traefik/
+      #- /var/run/docker.sock:/var/run/docker.sock
+      - dockerproxy-ro:/socket/:ro
+    depends_on:
+      - authelia
+      - dockerproxy-ro
     environment:
       # Traefik experimental plugin declarations (versions can be overridden via env)
       - TRAEFIK_EXPERIMENTAL_PLUGINS_GEOBLOCK_MODULENAME=github.com/PascalMinder/geoblock
@@ -237,6 +106,7 @@ x-logging: &default-logging
   envoy:
     image: envoyproxy/envoy:v1.28-latest
     container_name: localnet-proxy-envoy
+    logging: *default-logging
     build:
       context: ./proxy/envoy
       dockerfile: docker/Dockerfile.envoy
@@ -264,6 +134,7 @@ x-logging: &default-logging
   squid:
     image: ubuntu/squid:latest
     container_name: localnet-proxy-squid
+    logging: *default-logging
     build:
       context: ./proxy/squid
       dockerfile: docker/Dockerfile.squid
@@ -291,6 +162,7 @@ x-logging: &default-logging
   privoxy:
     image: vimagick/privoxy:latest
     container_name: localnet-proxy-privoxy
+    logging: *default-logging
     build:
       context: ./proxy/privoxy
       dockerfile: docker/Dockerfile.privoxy
