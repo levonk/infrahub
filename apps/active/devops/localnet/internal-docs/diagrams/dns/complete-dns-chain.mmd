@@ -5,10 +5,15 @@ graph TD
 
     subgraph "Layer 0: Traffic Interception (Host)"
         direction LR
-        nftables[nftables TPROXY<br>Host Port 53 → 15353]
+        nftables[nftables TPROXY<br>Host Port 53 → AdGuard]
     end
 
-    subgraph "Layer 1: Load Balancing & Filtering"
+    subgraph "Layer 1: AdGuard Policy & Content Filtering"
+        direction LR
+        adguard["AdGuard<br>Policy / Content Filtering"]
+    end
+
+    subgraph "Layer 2: Load Balancing & Filtering"
         direction LR
         dnsdist["dnsdist<br>172.20.255.49:15353<br>(Entrypoint)"]
         dnsdist --> Blocklist[CDB Blocklist]
@@ -16,14 +21,14 @@ graph TD
         dnsdist --> ECSStrip[ECS Stripper]
     end
 
-    subgraph "Layer 2: Caching & Forwarding Orchestration"
+    subgraph "Layer 3: Caching & Forwarding Orchestration"
         direction LR
         coredns["CoreDNS<br>172.20.255.51:15353<br>Orchestrator"]
         coredns --> Cache[Cache]
         coredns --> DNSSEC[DNSSEC Validator]
     end
 
-    subgraph "Layer 3: DNSCrypt Forwarding Services (Protocol Fallback Chain)"
+    subgraph "Layer 4: DNS Forwarding Services (Protocol Fallback Chain)"
         direction TB
         subgraph "Tier 1: Oblivious DoH"
             dnscrypt_odoh["dnscrypt-proxy ODoH<br>172.20.255.52:5053"]
@@ -31,43 +36,49 @@ graph TD
         subgraph "Tier 2: Anonymized DNSCrypt"
             dnscrypt_anon["dnscrypt-proxy Anon<br>172.20.255.53:5053"]
         end
-        subgraph "Tier 3: DNS-over-Tor"
-			direction TB
+        subgraph "Tier 3: Unbound over Tor to Root"
+            unbound_tor["Unbound over Tor<br>Recursive → Root NS"]
+        end
+        subgraph "Tier 4: DNS-over-Tor"
+            direction TB
             dnscrypt_tor["dnscrypt-proxy Tor<br>172.20.255.58:5053"]
             tor_proxy["Tor SOCKS Proxy<br>172.20.255.60:9050"]
             dnscrypt_tor -- "Forwards through" --> tor_proxy
+            unbound_tor -- "Recursive via" --> tor_proxy
         end
-        subgraph "Tier 4: Standard DNSCrypt"
+        subgraph "Tier 5: Standard DNSCrypt"
             dnscrypt_std["dnscrypt-proxy STD<br>172.20.255.54:5053"]
         end
-        subgraph "Tier 5: DoH"
+        subgraph "Tier 6: DoH"
             dnscrypt_doh["dnscrypt-proxy DoH<br>172.20.255.55:5053"]
         end
-        subgraph "Tier 6: Encrypted (TLS)"
+        subgraph "Tier 7: Encrypted (TLS)"
             dnscrypt_encrypted["dnscrypt-proxy Encrypted<br>172.20.255.56:5053"]
         end
-        subgraph "Tier 7: Plaintext"
-            dnscrypt_plaintext["dnscrypt-proxy Plaintext<br>172.20.255.57:5053"]
+        subgraph "Tier 8: Unbound to Root"
+            unbound_root["Unbound<br>Recursive → Root NS"]
         end
     end
 
-    subgraph "Layer 4: External Resolvers"
+    subgraph "Layer 5: External Resolvers"
         direction LR
-        Resolvers(Cloudflare, Google, Quad9, etc.)
+        Resolvers(Cloudflare, Google, Quad9, Root NS, etc.)
     end
 
     %% Connections
     Client -- "DNS Query<br>(port 53)" --> nftables
-    nftables -- "Redirect to 15353" --> dnsdist
+    nftables -- "Redirect to AdGuard" --> adguard
+    adguard -- "Filtered DNS" --> dnsdist
     dnsdist -- "Forward" --> coredns
 
     coredns -- "Fallback 1" --> dnscrypt_odoh
     coredns -- "Fallback 2" --> dnscrypt_anon
-    coredns -- "Fallback 3" --> dnscrypt_tor
-    coredns -- "Fallback 4" --> dnscrypt_std
-    coredns -- "Fallback 5" --> dnscrypt_doh
-    coredns -- "Fallback 6" --> dnscrypt_encrypted
-    coredns -- "Fallback 7" --> dnscrypt_plaintext
+    coredns -- "Fallback 3" --> unbound_tor
+    coredns -- "Fallback 4" --> dnscrypt_tor
+    coredns -- "Fallback 5" --> dnscrypt_std
+    coredns -- "Fallback 6" --> dnscrypt_doh
+    coredns -- "Fallback 7" --> dnscrypt_encrypted
+    coredns -- "Fallback 8" --> unbound_root
 
     dnscrypt_odoh -- "Encrypted Query" --> Resolvers
     dnscrypt_anon -- "Encrypted Query" --> Resolvers
@@ -75,26 +86,29 @@ graph TD
     dnscrypt_std -- "Encrypted Query" --> Resolvers
     dnscrypt_doh -- "Encrypted Query" --> Resolvers
     dnscrypt_encrypted -- "Encrypted Query" --> Resolvers
-    dnscrypt_plaintext -- "Plaintext Query" --> Resolvers
+    unbound_root -- "Recursive Query" --> Resolvers
 
     Resolvers -- "Response" --> dnscrypt_odoh
     Resolvers -- "Response" --> dnscrypt_anon
+    Resolvers -- "Response" --> unbound_tor
     Resolvers -- "Response" --> dnscrypt_tor
     Resolvers -- "Response" --> dnscrypt_std
     Resolvers -- "Response" --> dnscrypt_doh
     Resolvers -- "Response" --> dnscrypt_encrypted
-    Resolvers -- "Response" --> dnscrypt_plaintext
+    Resolvers -- "Response" --> unbound_root
 
     dnscrypt_odoh -- "Response" --> coredns
     dnscrypt_anon -- "Response" --> coredns
+    unbound_tor -- "Response" --> coredns
     dnscrypt_tor -- "Response" --> coredns
     dnscrypt_std -- "Response" --> coredns
     dnscrypt_doh -- "Response" --> coredns
     dnscrypt_encrypted -- "Response" --> coredns
-    dnscrypt_plaintext -- "Response" --> coredns
+    unbound_root -- "Response" --> coredns
 
     coredns -- "Final Response" --> dnsdist
-    dnsdist -- "Final Response" --> Client
+    dnsdist -- "Final Response" --> adguard
+	adguard -- "Final Response" --> Client
 
     %% Styling
     style nftables fill:#D5A6BD
@@ -105,5 +119,7 @@ graph TD
     style dnscrypt_std fill:#D5A6A6
     style dnscrypt_doh fill:#C4A6D5
     style dnscrypt_encrypted fill:#A6A6D5
-    style dnscrypt_plaintext fill:#A6D5D5
+    style unbound_root fill:#A6D5D5
     style tor_proxy fill:#E6B8AF
+    style adguard fill:#F4CCCC
+    style unbound_tor fill:#C9DAF8

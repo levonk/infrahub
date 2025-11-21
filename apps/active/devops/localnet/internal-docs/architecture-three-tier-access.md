@@ -95,15 +95,15 @@ Service Containers
 ```
 Application Container (e.g., Node.js app)
     ↓ (automatic interception)
-    ├─→ DNS:53 → transparent-gateway → dnsdist:5353
+    ├─→ DNS:53 → transparent-gateway → AdGuard → dnsdist:5353
     ├─→ NTP:123 → transparent-gateway → chronyd:123
     ├─→ HTTP:80 → transparent-gateway → Squid:3128
     └─→ HTTPS:443 → transparent-gateway → Squid:3128
-        ↓ (service processing)
-        ├─→ DNS filtering (blocklists)
-        ├─→ Web caching
-        ├─→ Privacy protection (Tor)
-        └─→ Internet (if allowed)
+    ↓ (service processing)
+    ├─→ DNS filtering (blocklists)
+    ├─→ Web caching
+    ├─→ Privacy protection (Tor)
+    └─→ Internet (if allowed)
 ```
 
 **Characteristics:**
@@ -112,6 +112,8 @@ Application Container (e.g., Node.js app)
 - ✅ Apps are **under observation** (all traffic logged)
 - ✅ Apps get **automatic benefits** (ad blocking, caching, privacy)
 - ⚠️ Apps **must use transparent-gateway** as DNS
+
+In the DNS path, AdGuard is the first policy and content-filtering layer in front of dnsdist and CoreDNS, ensuring that intercepted DNS queries receive host-level filtering before they enter the internal DNS chain.
 
 ### Flow 4a: VPN Clients → Services (Direct Mode)
 
@@ -358,7 +360,7 @@ graph TB
     subgraph "Tier 1: Host"
         Host[Windows 11 Host]
     end
-    
+
     subgraph "Tier 2: Service Containers"
         DNS[DNS Services]
         Proxy[Web Proxy]
@@ -367,35 +369,35 @@ graph TB
         Artifacts[Artifacts]
         VPN[WireGuard]
     end
-    
+
     subgraph "Tier 3: App Containers"
         App1[App Container 1]
         App2[App Container 2]
         Gateway[Transparent Gateway]
     end
-    
+
     Internet[Internet]
-    
+
     Host -->|Explicit Config| DNS
     Host -->|Explicit Config| Proxy
     Host -->|Explicit Config| Monitor
     Host -->|Explicit Config| Artifacts
     Host -->|Explicit Config| VPN
     Host -->|Direct| Internet
-    
+
     DNS -->|Upstream Queries| Internet
     Proxy -->|Upstream Requests| Internet
     NTP -->|NTS| Internet
     Artifacts -->|Package Fetch| Internet
-    
+
     App1 -->|DNS:53| Gateway
     App2 -->|HTTP:80| Gateway
     Gateway -->|Enforced| DNS
     Gateway -->|Enforced| Proxy
     Gateway -->|Enforced| NTP
-    
+
     Gateway -.->|BLOCKED| Internet
-    
+
     style Host fill:#99ccff
     style Gateway fill:#ffcc99
     style Internet fill:#ff9999
