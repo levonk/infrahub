@@ -47,6 +47,7 @@
  	- Authentik general IdP
  	- Authelia proxy companion
 - Netboot: <https://netboot.xyz/docs/docker/usage>
+- https://github.com/TAK-Product-Center/Server
 - content management
 - cert authority
 - investigate only github.com/get-convex/chef github.com/GeeeekExplorer/nano-vllm
