@@ -10,12 +10,12 @@ graph TD
 
     subgraph "Layer 1: AdGuard Policy & Content Filtering"
         direction LR
-        adguard["AdGuard<br>Policy / Content Filtering"]
+        keepalived_adguard[Virtual IP Resilience] --> adguard["AdGuard<br>Policy / Content Filtering"]
     end
 
     subgraph "Layer 2: Load Balancing & Filtering"
         direction LR
-        dnsdist["dnsdist<br>172.20.255.49:15353<br>(Entrypoint)"]
+        keepalived_dnsdist[Virtual IP Resilience] --> dnsdist["dnsdist<br>172.20.255.49:15353<br>(Entrypoint)"]
         dnsdist --> Blocklist[CDB Blocklist]
         dnsdist --> RateLimit[Rate Limiter]
         dnsdist --> ECSStrip[ECS Stripper]
@@ -23,58 +23,78 @@ graph TD
 
     subgraph "Layer 3: Caching & Forwarding Orchestration"
         direction LR
-        coredns["CoreDNS<br>172.20.255.51:15353<br>Orchestrator"]
+        keepalived_coredns[Virtual IP Resilience] --> coredns["CoreDNS<br>172.20.255.51:15353<br>Orchestrator"]
         coredns --> Cache[Cache]
         coredns --> DNSSEC[DNSSEC Validator]
     end
 
     subgraph "Layer 4: DNS Forwarding Services (Protocol Fallback Chain)"
-        direction TB
+        direction LR
         subgraph "Tier 1: Oblivious DoH"
             dnscrypt_odoh["dnscrypt-proxy ODoH<br>172.20.255.52:5053"]
         end
         subgraph "Tier 2: Anonymized DNSCrypt"
-            dnscrypt_anon["dnscrypt-proxy Anon<br>172.20.255.53:5053"]
+            keepalived_dnscrypt_anon[Virtual IP Resilience] --> dnscrypt_anon["dnscrypt-proxy Anon<br>172.20.255.53:5053"]
         end
         subgraph "Tier 3: Unbound over Tor to Root"
-            unbound_tor["Unbound over Tor<br>Recursive → Root NS"]
-        end
-        subgraph "Tier 4: DNS-over-Tor"
-            direction TB
-            dnscrypt_tor["dnscrypt-proxy Tor<br>172.20.255.58:5053"]
-            tor_proxy["Tor SOCKS Proxy<br>172.20.255.60:9050"]
-            dnscrypt_tor -- "Forwards through" --> tor_proxy
-            unbound_tor -- "Recursive via" --> tor_proxy
-        end
-        subgraph "Tier 5: Standard DNSCrypt"
-            dnscrypt_std["dnscrypt-proxy STD<br>172.20.255.54:5053"]
-        end
-        subgraph "Tier 6: DoH"
-            dnscrypt_doh["dnscrypt-proxy DoH<br>172.20.255.55:5053"]
-        end
-        subgraph "Tier 7: Encrypted (TLS)"
-            dnscrypt_encrypted["dnscrypt-proxy Encrypted<br>172.20.255.56:5053"]
-        end
-        subgraph "Tier 8: Unbound to Root"
-            unbound_root["Unbound<br>Recursive → Root NS"]
+            keepalived_unbound[Virtual IP Resilience] --> unbound_tor["Unbound over Tor<br>Recursive → Root NS"]
         end
     end
 
+    subgraph "Layer 4b: DNS Forwarding Services (Crazy Resilient Fallback Chain)"
+        direction LR
+        subgraph "Tier 4: DNS-over-Tor"
+            direction TB
+            dnscrypt_dnscrypt_tor["dnscrypt-proxy Tor<br>172.20.255.58:5053"]
+        end
+        subgraph "Tier 5: DoH over Tor"
+            dnscrypt_doh_tor["dnscrypt-proxy DoH<br>172.20.255.55:5053"]
+        end
+        subgraph "Tier 6: TLS over Tor"
+            dnscrypt_tls_tor["dnscrypt-proxy DoH<br>172.20.255.55:5053"]
+        end
+        subgraph "Tier 7: Standard DNSCrypt"
+            dnscrypt_std["dnscrypt-proxy STD<br>172.20.255.54:5053"]
+        end
+        subgraph "Tier 8: DoH"
+            dnscrypt_doh["dnscrypt-proxy DoH<br>172.20.255.55:5053"]
+        end
+        subgraph "Tier 9: Encrypted (TLS)"
+            dnscrypt_encrypted["dnscrypt-proxy Encrypted<br>172.20.255.56:5053"]
+        end
+        subgraph "Tier 10: Unbound to Root"
+            unbound_root["Unbound<br>Recursive → Root NS"]
+        end
+        subgraph "Tier 11: Plaintext over Tor"
+            dnscrypt_plaintext_tor["dnscrypt-proxy Plaintext<br>172.20.255.57:5053"]
+        end
+        subgraph "Tier 12: Plaintext"
+            dnscrypt_plaintext["dnscrypt-proxy Plaintext<br>172.20.255.59:5053"]
+        end
+    end
+
+
     subgraph "Layer 5: External Resolvers"
         direction LR
+        unbound_tor -- "Forwards through" --> tor_proxy
+        dnscrypt_dnscrypt_tor -- "Forwards through" --> tor_proxy
+        dnscrypt_doh_tor -- "Forwards through" --> tor_proxy
+        dnscrypt_tls_tor -- "Forwards through" --> tor_proxy
+        dnscrypt_plaintext_tor -- "Forwards through" --> tor_proxy
+        tor_proxy["Tor SOCKS Proxy<br>172.20.255.60:9050"]
         Resolvers(Cloudflare, Google, Quad9, Root NS, etc.)
     end
 
     %% Connections
     Client -- "DNS Query<br>(port 53)" --> nftables
-    nftables -- "Redirect to AdGuard" --> adguard
-    adguard -- "Filtered DNS" --> dnsdist
-    dnsdist -- "Forward" --> coredns
+    nftables -- "Redirect to AdGuard" --> keepalived_adguard
+    adguard -- "Filtered DNS" --> keepalived_dnsdist
+    dnsdist -- "Forward" --> keepalived_coredns
 
     coredns -- "Fallback 1" --> dnscrypt_odoh
-    coredns -- "Fallback 2" --> dnscrypt_anon
-    coredns -- "Fallback 3" --> unbound_tor
-    coredns -- "Fallback 4" --> dnscrypt_tor
+    coredns -- "Fallback 2" --> keepalived_dnscrypt_anon
+    coredns -- "Fallback 3" --> keepalived_unbound_tor
+    coredns -- "Fallback 4" --> dnscrypt_dnscrypt_tor
     coredns -- "Fallback 5" --> dnscrypt_std
     coredns -- "Fallback 6" --> dnscrypt_doh
     coredns -- "Fallback 7" --> dnscrypt_encrypted
@@ -91,7 +111,7 @@ graph TD
     Resolvers -- "Response" --> dnscrypt_odoh
     Resolvers -- "Response" --> dnscrypt_anon
     Resolvers -- "Response" --> unbound_tor
-    Resolvers -- "Response" --> dnscrypt_tor
+    Resolvers -- "Response" --> dnscrypt_dnscrypt_tor
     Resolvers -- "Response" --> dnscrypt_std
     Resolvers -- "Response" --> dnscrypt_doh
     Resolvers -- "Response" --> dnscrypt_encrypted
@@ -100,7 +120,7 @@ graph TD
     dnscrypt_odoh -- "Response" --> coredns
     dnscrypt_anon -- "Response" --> coredns
     unbound_tor -- "Response" --> coredns
-    dnscrypt_tor -- "Response" --> coredns
+    dnscrypt_dnscrypt_tor -- "Response" --> coredns
     dnscrypt_std -- "Response" --> coredns
     dnscrypt_doh -- "Response" --> coredns
     dnscrypt_encrypted -- "Response" --> coredns

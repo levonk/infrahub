@@ -47,3 +47,18 @@ services:
       - ENABLE_STREAMING=${LOCALNET_RING_ENABLE_LIVESTREAM:-true}
       - HASS_DISCOVERY=true
     restart: unless-stopped
+
+services:
+  homer:
+    build:
+      context: ./homer
+    image: b4bz/homer
+    container_name: localnet-home-homer
+    volumes:
+      - ./homer/mounts/www/assets:/www/assets # Make sure your local config directory exists
+    ports:
+      - 8888:8080
+    user: 1000:1000 # default
+    environment:
+      - INIT_ASSETS=1 # default, requires the config directory to be writable for the container user (see user option)
+    restart: unless-stopped
