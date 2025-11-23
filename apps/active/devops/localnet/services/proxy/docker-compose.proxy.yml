@@ -1,5 +1,14 @@
 ---
-#services:
+# Default logging configuration for proxy services - use json-file with rotation
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "5"
+    tag: "{{.Name}}"
+    labels: "service"
+
+services:
 #  transparent-gateway:
 #    build:
 #      context: ./configs/transparent-gateway
@@ -171,7 +180,7 @@
     volumes:
       - ./configs/web/privoxy:/etc/privoxy:ro
     depends_on:
-      - proxy-tor
+      - tor-proxy
 #    profiles:
 #      - proxy  # Core proxy chain
     healthcheck:

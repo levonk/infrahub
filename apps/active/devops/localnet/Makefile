@@ -21,7 +21,7 @@ help: ## Show this help message
 
 build: ## Build all Docker images
 	@echo "$(BLUE)Building all Docker images...$(NC)"
-	docker compose -f docker-compose.localnet.yml --progress=plain build
+	docker compose -f docker-compose.localnet.yml --env-file ./.env.local.localnet --progress=plain build
 	@echo "$(GREEN)✓ Build complete$(NC)"
 
 up: build ## Start all services

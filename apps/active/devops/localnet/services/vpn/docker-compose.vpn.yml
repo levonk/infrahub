@@ -2,6 +2,47 @@
 # VPN service stack for Home Lab In-a-Box
 
 services:
+
+  gluetun:
+    # See https://github.com/qdm12/gluetun-wiki/blob/main/setup/connect-a-container-to-gluetun.md#external-container
+    image: qmcgaw/gluetun
+    container_name: localnet-vpn-gluetun
+    logging: *default-logging
+    cap_add:
+      - NET_ADMIN
+    devices:
+      /dev/net/tun:/dev/net/tun
+    networks:
+      - localnet
+    volumes:
+      - ./gluetun/mounts/etc/gluetun:/etc/gluetun
+    ports:
+      - "8888:8888/tcp" # HTTP Proxy
+      - "8388:8388/tcp" # Shadowsocks TCP
+      - "8388:8388/udp" # Shadowsocks UDP
+      - "8701:8701" # qBittorrent Web UI
+      - "6881:6881" # torrent port
+      - "6881:6881/udp" # torrent port
+      - "7878:7878" # Radarr
+      - "8989:8989" # Sonarr
+      - "8685:8685" # Lidarr
+      - "6767:6767" # Bazarr
+      - "9696:9696" # Prowlarr
+      - "8191:8191" # FlareSolverr
+    environment:
+      # See https://github.com/qdm12/gluetun-wiki/tree/main/setup#setup
+      - TZ=${TIMEZONE}
+      - VPN_SERVICE_PROVIDER=private internet access
+      - VPN_TYPE=wireguard
+      - WIREGUARD_PRIVATE_KEY=
+      - WIREGUARD_PRESHARED_KEY=
+      #- VPN_TYPE=openvpn
+      #- OPENVPN_USER=${OPENVPN_USER:-}
+      #- OPENVPN_PASSWORD=${OPENVPN_PASSWORD:-}
+      - WIREGUARD_ADDRESSES=10.14.14.2/32
+      - VPN_PORT_FORWARDING=on
+    restart: unless-stopped
+
   # WireGuard Direct Mode (wg0) - Port 51820
   # VPN clients have direct internet access, optional localnet services
   wireguard-direct:
@@ -87,4 +128,3 @@ services:
       retries: 3
       start_period: 10s
     restart: unless-stopped
-

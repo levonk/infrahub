@@ -1,5 +1,8 @@
 ---
 
+# Home services: Home Assistant + Mosquitto + ring-mqtt
+
+# Default logging configuration - use json-file with rotation
 x-logging: &default-logging
   driver: "json-file"
   options:
@@ -7,8 +10,6 @@ x-logging: &default-logging
     max-file: "5"
     tag: "{{.Name}}"
     labels: "service"
-
-# Home services: Home Assistant + Mosquitto + ring-mqtt
 
 volumes:
   homeassistant-config:
@@ -48,7 +49,6 @@ services:
       - HASS_DISCOVERY=true
     restart: unless-stopped
 
-services:
   homer:
     build:
       context: ./homer
@@ -61,4 +61,25 @@ services:
     user: 1000:1000 # default
     environment:
       - INIT_ASSETS=1 # default, requires the config directory to be writable for the container user (see user option)
+    restart: unless-stopped
+
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: localnet-home-qbittorrent
+    depends_on:
+      - gluetun
+    network_mode: "service:gluetun"
+    ports:
+      - "8701:8701"
+      - "6881:6881"
+      - "6881:6881/udp"
+    volumes:
+      - ./qbittorrent/mounts/etc/qbittorrent/config:/config
+      - ${TORN_DATA_LOCATION}:/data/torn
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TIMEZONE:-UTC}
+      - WEBUI_PORT=8701
+      - TORRENTING_PORT=6881
     restart: unless-stopped

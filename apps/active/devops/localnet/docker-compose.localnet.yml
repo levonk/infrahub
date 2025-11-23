@@ -1,4 +1,4 @@
-# /home/micro/p/gh/lrepo52/job-aide-wt01/apps/active/devops/localnet/docker-compose.yml
+# apps/active/devops/localnet/docker-compose.yml
 
 # Home Lab In-a-Box - Docker Compose Configuration
 # Complete infrastructure stack with transparent proxying, monitoring, and artifact repositories
@@ -106,6 +106,7 @@ include:
   - services/ntp/docker-compose.ntp.yml
   - services/artifact/docker-compose.artifact.yml
   - services/proxy/docker-compose.proxy.yml
+  - services/media/docker-compose.media.yml
   # - services/vpn/docker-compose.vpn.yml
   # - services/logging/docker-compose.logging.yml
   # - services/ai-codeassist/claude-code/claude-code/docker-compose.claude-code.yml
