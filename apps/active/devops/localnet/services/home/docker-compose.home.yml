@@ -83,3 +83,10 @@ services:
       - WEBUI_PORT=8701
       - TORRENTING_PORT=6881
     restart: unless-stopped
+
+  it-tools:
+    image: corentinth/it-tools:latest
+    container_name: localnet-home-it-tools
+    ports:
+      - "7080:80"
+    restart: unless-stopped

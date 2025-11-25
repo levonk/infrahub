@@ -274,7 +274,7 @@ title: Home Network Architecture
       - https://github.com/oznu/docker-cloudflare-ddns
       - https://github.com/timothymiller/cloudflare-ddns
     - https://github.com/opslane/opslane
-    - [ ] VLESS+XTLS proxy: 3x-ui
+    - [ ] VLESS+XTLS proxy vpn: 3x-ui
 
   - Monitoring
     - Certificate Transparency

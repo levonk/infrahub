@@ -37,7 +37,7 @@ services:
     command: "-c /etc/frps/frps.toml"
 
 ## Maybe add other lightweight filtering services in the cloud too
-## traefik, crowdsec, GeoBlock, http->https
+## TODO: traefik, crowdsec, GeoBlock, http->https
 
 ## TODO: Authelia, Traefik, postgres HA, and Redis HA - Sentinal, keepalived, Wireguard
 
@@ -48,3 +48,7 @@ services:
 ## TODO: VPN to use when outside to go outside or inside
 
 ## TODO: Tor to use when going outside not Tor from home
+
+## TODO: bitcoin miner or folding@home
+include:
+  - services/shared/docker-compose.shared.yml
