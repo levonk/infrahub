@@ -4,305 +4,219 @@ Date-updated: 2025-03-16T17:26
 Time-updated: 17:31
 Title: Home Network Architecture
 Template: 00 Fleeting Thought Template
-tags:
+tags: [homelab, architecture, todo]
 Date-Created: 2024-07-06T22:09
-Date-Updated: 2024-07-06T22:09
-Date-created: 2025-03-08T14:49
-title: Home Network Architecture
+Date-Updated: 2025-03-08T14:49
 ---
 
-# Home Network Architecture
+# Home Network Architecture & Implementation Plan
 
-- [ ] Reference stacks / inspiration
-  - [ ] TechHutTV homelab apps: https://github.com/TechHutTV/homelab/tree/main/apps
-  - [ ] https://Github.com/Awesome-selfhosted/awesome-selfhosted
+A prioritized roadmap for building a secure, resilient, and privacy-focused homelab.
 
-## Hardware
+## 📚 References & Inspiration
+- [ ] **TechHutTV Homelab Apps**: https://github.com/TechHutTV/homelab/tree/main/apps
+- [ ] **Awesome Selfhosted**: https://github.com/Awesome-selfhosted/awesome-selfhosted
+- [ ] **Awesome-arr**: https://github.com/Ravencentric/awesome-arr
 
-- Productivity PC
-  - QubeOS
-- Can These be combined into 1 Server?
-  - Gaming PC
-    - Windows
-    - Graphics Card
-  - Virtualization Server
-    - Proxmox
-  - Storage Server
-    - TrueNAS Scale
-- Firewall
-  - Options
-  - OpenSense > Pfsense
-  - Sophos
-- PiHole/Unbound Raspberry Pi (backup to server)
-- PiKVM
-- Ubiquity WIFI
-- SATA card passthrough
-- Graphics card
-  - Transcode
-  - Card gaming
-  - AI
+---
 
-## Platform & Security Baseline (Global TODOs)
+## 🖥️ Hardware & Virtualization Strategy
 
-- [ ] Container lifecycle & updates
-  - [ ] watchtower https://github.com/containrrr/watchtower
-  - [ ] wud https://github.com/getwud/wud
-- [ ] Config history & drift protection
-  - [ ] etckeeper
-- [ ] Host/network hardening
-  - [ ] fail2ban
-  - [ ] crowdsec https://github.com/crowdsecurity/crowdsec
-  - [ ] Honeypot: https://github.com/thinkst/opencanary
-- [ ] Authentication / SSO / identity
-  - [ ] SSO (see detailed services below)
-  - [ ] High‑security mTLS (mutual TLS) for internal apps
-  - [ ] Authentication backend: https://github.com/ory/kratos
-  - [ ] Internal SSO IdP / proxies (Authentik / Authelia)
-- [ ] Edge access, tunnels, and DDNS
-  - [ ] FRP cloud server can proxy to home based client https://github.com/fatedier/frp
-  - [ ] Cloudflare DDNS
-- [ ] Certificates / PKI
-  - [ ] cert authority (internal CA for services)
+### Compute & Storage (Convergence Goal: 1 Server?)
+- **Virtualization Server**: Proxmox VE (Containers/VMs)
+  - [ ] **Productivity**: QubeOS VM
+  - [ ] **Gaming**: Windows VM + GPU Passthrough
+- **Storage Server**: TrueNAS Scale (ZFS)
+  - [ ] **SATA Passthrough**: For direct disk access
+- **Graphics / Acceleration**:
+  - [ ] Transcoding (Plex/Jellyfin)
+  - [ ] AI Inference (Local LLMs/Stable Diffusion)
+  - [ ] Cloud Gaming
 
-## VLAN
+### Network Hardware
+- **Firewall**: OPNsense (preferred) > pfSense > Sophos
+- **Wi-Fi**: Ubiquiti Unifi
+- **OOB Management**: PiKVM
+- **Redundancy**: Raspberry Pi (Pi-hole/Unbound backup)
 
-1. Main
-2. Guest
-3. Camera
-4. IOT
-5. Test LAN
-6. DMZ
-7. Ceph.io longhorn?
+### Operating Systems & Config
+- **Hypervisors**: Proxmox, TrueNAS Scale
+- **Configuration Management**: Ansible
+- **Orchestration**: Docker Compose, Kubernetes (k3s/k0s/Talos)
 
-## DNS Architecture (Tiered Fallback)
+---
 
-- [ ] keepalived for DNS Critical services
-- [ ] DNS services (behind keepalived)
-  - [ ] Layer 1 AdGuard + keepalived
-  - [ ] Layer 2 DNSDist + keepalived
-  - [ ] Layer 3 CoreDNS https://github.com/coredns/coredns + keepalived
-- [ ] Layer 4 DNS Tiered Fallback (from most private/resilient to least):
-  1. [ ] DNSCrypt: ODoH
-  2. [ ] DNSCrypt: DNSCrypt protocol exclusively non-logging servers + keepalived
-  3. [ ] Tor Service to be used later + keepalived
-  4. [ ] Unbound over Tor + keepalived
-  5. [ ] Ultra Resilient chain
-     6. [ ] DNSCrypt: DNSCrypt protocol (not limited to anon servers) over Tor
-     7. [ ] DNSCrypt: DNSCrypt protocol (not limited to anon servers)
-     8. [ ] DNSCrypt: DoH protocol over Tor
-     9. [ ] DNSCrypt: TLS protocol over Tor
-     10. [ ] DNSCrypt: DoH protocol
-     11. [ ] DNSCrypt: TLS protocol
-     12. [ ] Unbound
-     13. [ ] DNSCrypt: Plaintext over Tor
-     13. [ ] DNSCrypt: Plaintext
+## 🛡️ Platform Security & Core Infrastructure
 
-### Services
+### Network Segmentation (VLANs)
+1. **Main**: Trusted devices
+2. **Guest**: Isolated internet access
+3. **Camera**: NVR/CCTV (No internet)
+4. **IoT**: Untrusted smart devices (No internet/Limited)
+5. **Test LAN**: Lab/Sandbox
+6. **DMZ**: Public-facing services
+7. **Storage**: Ceph/Longhorn traffic
 
-- http://github.com/bastienwirtz/homer
+### Identity & Access Management (IAM)
+- [ ] **SSO & IdP**:
+  - [ ] **Authentik** (General IdP): https://docs.goauthentik.io/
+  - [ ] **Authelia** (Proxy Companion): https://www.authelia.com/
+  - [ ] **Ory Kratos** (Auth Backend): https://github.com/ory/kratos
+- [ ] **Secrets Management**: Vaultwarden: https://github.com/dani-garcia/vaultwarden
+- [ ] **PKI / Certificates**:
+  - [ ] Internal Certificate Authority (CA)
+  - [ ] **Cert-Manager**: Automated cert lifecycle
+  - [ ] **mTLS**: High-security internal app communication
 
-  - Media
-    - github.com/jellyfin/jellyfin  - media server to watch all your content, better than plex
-    - Plex, may need it to access others repository or if Jellyfin falls short
-    - GitHub.com/binhex/arch-delugevpn - Linux ISO
-    - GitHub.com/Radarr/Radarr
-    - https://github.com/Sonarr/Sonarr
-    - https://github.com/evan-buss/openbooks
-    - [ ] Video Manager: https://github.com/getmydia/mydia
-    - [ ] easy private file exchange: https://github.com/tonyantony300/alt-sendme
-    - [ ] video file workflow:
-      - [ ] https://github.com/askreeves/ffmpeg-interface
-      - [ ] https://github.com/JMS1717/8mb.local
+### Networking & Edge Access
+- [ ] **Reverse Proxy**: Traefik https://github.com/traefik/traefik
+  - [ ] Plugins: Crowdsec, Geoblock
+- [ ] **VPN / Mesh**:
+  - [ ] **Netbird**: https://github.com/netbirdio/netbird
+  - [ ] **Tailscale**: https://tailscale.com/
+  - [ ] **VLESS+XTLS**: 3x-ui (Proxy/VPN)
+- [ ] **Tunnels & DDNS**:
+  - [ ] **Cloudflare Tunnel**: `cloudflared` (Zero Trust)
+  - [ ] **FRP**: Fast Reverse Proxy https://github.com/fatedier/frp
+  - [ ] **DDNS**: Cloudflare DDNS (oznu/docker-cloudflare-ddns)
 
-  - Dev
-    - https://github.com/explorerhq/django-sql-explorer?tab=readme-ov-file
-    - Development environments (Proxmox / containers / Kubernetes)
+### Hardening & Security Monitoring
+- [ ] **Intrusion Detection**:
+  - [ ] **Fail2ban**: Log parsing & banning
+  - [ ] **Crowdsec**: Collaborative IPS https://github.com/crowdsecurity/crowdsec
+- [ ] **Honeypot**: OpenCanary https://github.com/thinkst/opencanary
+- [ ] **Drift Detection**: Etckeeper (Git for /etc)
+- [ ] **AI Security Evaluation**: OpenPCC https://github.com/openpcc/openpcc
 
-  - Services
+### DNS Architecture (Tiered Fallback)
+*Goal: Privacy, Resilience, Ad-blocking*
+- [ ] **High Availability**: `keepalived` for critical DNS endpoints
+- [ ] **Layer 1 (Filtering)**: AdGuard Home + keepalived
+- [ ] **Layer 2 (Routing)**: DNSDist + keepalived
+- [ ] **Layer 3 (Internal)**: CoreDNS https://github.com/coredns/coredns + keepalived
+- [ ] **Layer 4 (Resolution & Anonymity Chain)**:
+  1. [ ] DNSCrypt: ODoH (Oblivious DoH)
+  2. [ ] DNSCrypt: Non-logging servers
+  3. [ ] Tor Service (Future)
+  4. [ ] Unbound over Tor
+  5. [ ] **Ultra Resilient Chain**:
+     - DNSCrypt over Tor -> DoH over Tor -> TLS over Tor -> Plaintext
 
-    - Share
-      - File Share Services
-        - https://github.com/nextcloud/server
-        - https://github.com/syncthing/syncthing
-        - [ ] file-browser: https://github.com/filebrowser/filebrowser
-        - [ ] content management (self‑hosted CMS / knowledge base TBD)
-		- https://github.com/opencloud-eu/
-      - Document Share Services
-        - https://github.com/mfts/papermark
-      - Media Share Services
-        - https://github.com/photoprism/photoprism
-        - https://github.com/sabnzbd/sabnzbd Usenet download tool https://sabnzbd.org/
-        - Owncast - streamyboi
-        - NextJS or Hugo or Jekyll static site generator
-        - Plex Media Server
-      - Comms
-        - OSS Discord Alternative: https://github.com/revoltchat/
-        - Personal News Podcast: https://github.com/iliane5/meridian
-        - [ ] livekit self-hosted (realtime audio/video)
-        - [ ] TAK server: https://github.com/TAK-Product-Center/Server
-        - Mastadon https://github.com/mastodon/mastodon
-        - IRC
-		- Slack Alternative
-		- Asterisk?
+---
 
-    - Security
-      - https://gitHub.com/dani-garcia/vaultwarden
-      - Single sign on https://docs.goauthentik.io/
-      - [ ] SSO - for internal network access
-        - [ ] Authentik general IdP
-        - [ ] Authelia proxy companion
-      - [ ] Authentication to build our applications against
-        - [ ] https://github.com/ory/kratos
-      - [ ] mTLS everywhere for high‑security internal apps
-      - [ ] AI security evaluation:
-        - [ ] https://github.com/openpcc/openpcc?tab=readme-ov-file
-      - [ ] cert authority (internal CA)
+## 🛠️ DevOps, Observability & Automation
 
-    - Development
-      - [Mosh Bastian Host](https://superuser.com/questions/816382/mosh-into-bastion-server-ssh-into-internal-hosts)
-      - https://github.com/iib0011/omni-tools
-      - Trello Local: https://github.com/mattermost-community/focalboard
-      - [ ] Code agent: https://github.com/HKUDS/DeepCode
+### CI/CD & Lifecycle
+- [ ] **Updates**:
+  - [ ] **Watchtower**: https://github.com/containrrr/watchtower
+  - [ ] **WUD** (What's Up Docker): https://github.com/getwud/wud
+- [ ] **Automation Platforms**:
+  - [ ] **n8n**: Workflow automation https://n8n.io
+  - [ ] **Rundeck**: Job scheduler https://github.com/rundeck/rundeck
+  - [ ] **Kestrel**: Automation platform
+  - [ ] **ChangeDetection.io**: Web change monitor https://github.com/dgtlmoon/changedetection.io
 
-    - Bookmarking
-      - LinksPage
-      - LinkShortner - Schlink
-      - ReadItLater Alternative https://github.com/omnivore-app/omnivore
-      - Bookmarking Server: https://brainsteam.co.uk/2025/2/15/personal-archive-hoarder/
+### Observability & Monitoring
+- [ ] **Stack**: Prometheus (Metrics) + Grafana (Viz) + Loki (Logs) + OpenTelemetry
+- [ ] **Status**: Uptime Kuma https://github.com/louislam/uptime-kuma
+- [ ] **Server Metrics**: Beszel https://github.com/henrygd/beszel
+- [ ] **Speedtest**: Speedtest Tracker https://github.com/linuxserver/docker-speedtest-tracker
+- [ ] **Transparency**: Certificate Transparency Monitor https://github.com/google/certificate-transparency-go
+- [ ] **Notifications**:
+  - [ ] **Ntfy**: Push notifications https://github.com/binwiederhier/ntfy
+  - [ ] **Logtfy**: Log notifier https://github.com/ImranR98/Logtfy
 
-    - AI
-      - LocalAI
-      - Ollama
-        - `https://ollama.com/download` or  https://github.com/ollama/ollama
-          - - Unfiltered Model: https://ollama.com/library/dolphin-mixtral
-          - `ollama pull llama2`
-          - Strong model: https://github.com/zai-org/GLM-4.5
-      - AI Agent Browser Service https://github.com/browser-use/browser-use
-      - Image generation [[Stable Diffusion Web UI]]
-      - [[N8N]] AI Integration as a Service (IaaS) https://github.com/n8n-io/self-hosted-ai-starter-kit
-      - AI Proxy https://github.com/katanemo/archgw
-      - AI Webhooks https://github.com/stephengpope/no-code-architects-toolkit
-      - [[Open WebUI]] + LiteLLM
-        - https://www.youtube.com/watch?v=Wjrdr0NU4Sk
-        - https://github.com/BerriAI/litellm
-        - https://github.com/open-webui/open-webui
-      - Prompt Playground: https://github.com/coze-dev/coze-loop
-      - Browser Web Automation https://github.com/trymeka/agent
-      - [ ] browser agent: skyvern
-      - [ ] compute agent: agentsea
-      - [ ] Agent Runner:
-        - [ ] https://github.com/AgnetLabs/Laddr
-      - [ ] Writing Agent: https://github.com/Doriandarko/kimi-writer
-      - [ ] Tutoring: https://github.com/sheepbox8646/ChatTutor
-      - [ ] evaluate OCR
-        - [ ] https://github.com/deepseek/DeepSeek-OCR
-        - [ ] https://github.com/datalab-to/chandra
-        - [ ] https://github.com/pkulium/DeepOCR
+### Development Tools
+- [ ] **Code / Git**: Gitea or Forgejo
+- [ ] **IDE**: VS Code Server / Coder
+- [ ] **Database Tools**: Django SQL Explorer https://github.com/explorerhq/django-sql-explorer
+- [ ] **Data Tooling**: Goose https://github.com/block/goose
+- [ ] **Notebooks**: JupyterLab
+- [ ] **Project Mgmt**: Focalboard (Trello alt) https://github.com/mattermost-community/focalboard
+- [ ] **API / App Building**: NocoDB (Airtable alt) https://github.com/nocodb/nocodb
 
-    - Network Admin
+---
 
-      - Monitoring
-        - Loki
-        - Grafana
-        - Promethus
-        - OpenTelemetry
-        - Uptime Kuma https://github.com/louislam/uptime-kuma
-        - [ ] Notifications / push:
-          - [ ] https://github.com/binwiederhier/ntfy
-        - [ ] log notifier:
-          - [ ] https://github.com/ImranR98/Logtfy
-        - [ ] Server monitoring:
-          - [ ] https://github.com/henrygd/beszel
-        - [ ] Social Sentiment Monitor:
-          - [ ] https://github.com/666ghj/BettaFish/blob/main/README-EN.md
+## 🚀 Application Services
 
-      - Management
-        - Rancher
-        - Kubernetes
+### Media & Entertainment
+- [ ] **Dashboard**: Homer (Startpage) https://github.com/bastienwirtz/homer
+- [ ] **Streaming**:
+  - [ ] **Jellyfin**: Primary media server https://github.com/jellyfin/jellyfin
+  - [ ] **Plex**: Backup / External sharing
+  - [ ] **Owncast**: Self-hosted streaming https://owncast.online/
+- [ ] **Acquisition (*arr Stack)**:
+  - [ ] **Radarr** (Movies)
+  - [ ] **Sonarr** (TV)
+  - [ ] **Jackett/Prowlarr** (Indexers)
+  - [ ] **SABnzbd** (Usenet) https://github.com/sabnzbd/sabnzbd
+  - [ ] **DelugeVPN** (Torrents)
+- [ ] **Management**:
+  - [ ] **Mydia**: Video Manager https://github.com/getmydia/mydia
+  - [ ] **Alt-SendMe**: Private file exchange https://github.com/tonyantony300/alt-sendme
+  - [ ] **OpenBooks**: eBook downloader https://github.com/evan-buss/openbooks
 
-      - Proxys
-        - Docker/k8s repo: https://github.com/goharbor/harbor
-        - Deb/RPM repo: https://github.com/openkilt/openrepo
-        - Node.JS NPM proxy: https://github.com/verdaccio/verdaccio
-        - Maven Proxy: https://github.com/sonatype/nexus-public
+### File & Content Sharing
+- [ ] **Storage/Sync**:
+  - [ ] **Nextcloud**: Cloud suite https://github.com/nextcloud/server
+  - [ ] **Syncthing**: P2P Sync https://github.com/syncthing/syncthing
+  - [ ] **FileBrowser**: Web file manager https://github.com/filebrowser/filebrowser
+  - [ ] **FileCloud**: Enterprise file share
+- [ ] **Photos**
+  - [ ] Immich
+  - [ ] PhotoPrism https://github.com/photoprism/photoprism
+- [ ] **Documents**: Papermark https://github.com/mfts/papermark
+- [ ] **Knowledge Base**: Outline / BookStack / CMS
 
-      - Backups?
-        - Offsite + local snapshot strategy
-        - Object storage / versioned backups
+### Communication & Social
+- [ ] **Chat**:
+  - [ ] **Revolt**: Discord Alternative https://github.com/revoltchat/
+  - [ ] **Mattermost / Rocket.Chat**: Slack Alternatives
+  - [ ] **Matrix / Synapse**: Federated chat
+- [ ] **Social**: Mastodon https://github.com/mastodon/mastodon
+- [ ] **Video/Voice**: LiveKit (Realtime A/V)
+- [ ] **News**: Meridian (Personal Podcast) https://github.com/iliane5/meridian
 
-    - Automation
-      - https://github.com/dgtlmoon/changedetection.io https://ghcr.io/dgtlmoon/changedetection.io:latest
+### Artificial Intelligence (Local & Private)
+- [ ] **Inference Engines**:
+  - [ ] **Ollama**: LLM Runner https://github.com/ollama/ollama
+  - [ ] **LocalAI**: OpenAI compatible API
+  - [ ] **Nano-VLLM**: https://github.com/GeeeekExplorer/nano-vllm
+- [ ] **UI & Agents**:
+  - [ ] **Open WebUI**: Chat Interface https://github.com/open-webui/open-webui
+  - [ ] **Browser Use**: Web automation agent https://github.com/browser-use/browser-use
+  - [ ] **DeepCode**: Code agent https://github.com/HKUDS/DeepCode
+  - [ ] **Skyvern**: Browser agent
+  - [ ] **AgentSea**: Compute agent
+- [ ] **Integration**:
+  - [ ] **LiteLLM**: LLM Proxy/Router https://github.com/BerriAI/litellm
+  - [ ] **ArchGW**: AI Gateway https://github.com/katanemo/archgw
+  - [ ] **n8n AI**: AI workflows
 
-    - 3D Printing
-      - https://github.com/OctoPrint/OctoPrint http://octoprint.org/
+### Proxies & Registries (Caching/Mirroring)
+- [ ] **Container Registry**: Harbor https://github.com/goharbor/harbor
+- [ ] **Package Proxies**:
+  - [ ] **Verdaccio**: NPM Proxy
+  - [ ] **Nexus**: Maven Proxy
+  - [ ] **OpenRepo**: Deb/RPM Repo https://github.com/openkilt/openrepo
+- [ ] **Generic Proxies**:
+  - [ ] **Gost**: Tunnel/Proxy https://gost.run/
+  - [ ] **Squid / Varnish**: Web caching
+  - [ ] **Envoy**: Web Routing
 
-    - Development
-      - Jupytr Lab
+---
 
-    - Tools
-      - AirTable Alternative https://github.com/nocodb/nocodb
-      - [ ] github.com/block/goose (data tooling / experimentation)
-      - [ ] investigate only:
-        - [ ] github.com/get-convex/chef
-        - [ ] github.com/GeeeekExplorer/nano-vllm
-
-  - System
-    - https://github.com/traefik/traefik
-      - [ ] crowdsec plugin https://github.com/crowdsecurity/crowdsec
-      - [ ] geoblock plugin https://github.com/PascalMinder/geoblock
-    - https://github.com/linuxserver/docker-unifi-controller
-    - https://github.com/jacket/jackett torrent tracker used by radar and sonar
-    - fritzbox for home router?
-    - https://github.com/pikemen/pikvm remote keyboard
-    - https://github.com/chriscrowe/docker/docker-pihole-unbound - recursive DNS adblocker DNS over TLS
-    - Automation Software
-      - Kestrel Automation Platform (logged commands, cron)
-      - https://github.com/rundeck/rundeck
-    - https://github.com/netbirdio/netbird VPN
-      - https://tailscale.com/
-    - Certmanager
-    - FileCloud
-    - NTPd https://github.com/pendulum-project/ntpd-rs
-    - PTPd https://github.com/pendulum-project/statime
-    - Mastodon?
-    - https://netboot.xyz/docs/docker/
-    - https://github.com/linuxserver/docker-speedtest-tracker
-    - Zero Trust Tunnel
-      - https://github.com/cloudflare/cloudflared/blob/master/Dockerfile#L29C6-L29C13
-      - https://github.com/octelium/octelium
-    - DDNS
-      - https://github.com/oznu/docker-cloudflare-ddns
-      - https://github.com/timothymiller/cloudflare-ddns
-    - https://github.com/opslane/opslane
-    - [ ] VLESS+XTLS proxy vpn: 3x-ui
-
-  - Monitoring
-    - Certificate Transparency
-      - https://github.com/google/certificate-transparency-go
-
-  - Home Automation
-    - https://github.com/home-assistant/docker
-    - https://github.com/deacons-community/deconz-docker
-    - [ ] Home Automation https://github.com/home-assistant/
-    - -
-
-### Bare Metal Operating System
-
-- Bare Metal Virtualization
-  - Proxmox.com
-    - Containers
-    - VMs
-  - TrueNAS.com
-    - Storage
-    - Containers
-    - NAS
-    - VMs
-    - Kubernetes
-
-- Config
-  - Ansible
-  - docker-compose or k8s
-
-## Related
-
-[[Cross Platform To Install]]
+## 📝 Backlog / To Evaluate
+- [ ] **Hosting**:
+  - [ ] Talos Proxmox GitOps: https://github.com/jamilshaikh07/talos-proxmox-gitops
+  - [ ] Dockerage
+- [ ] **OCR Tools**:
+  - [ ] DeepSeek-OCR
+  - [ ] Chandra: https://github.com/datalab-to/chandra
+- [ ] **Agents**:
+  - [ ] Laddr (Agent Runner): https://github.com/AgnetLabs/Laddr
+  - [ ] Kimi-Writer
+  - [ ] ChatTutor
+- [ ] **Misc**:
+  - [ ] TAK Server: https://github.com/TAK-Product-Center/Server
+  - [ ] Chef (Convex): https://github.com/get-convex/chef
