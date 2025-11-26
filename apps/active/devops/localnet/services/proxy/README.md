@@ -1,0 +1,4 @@
+Todo:
+
+- Netbird
+- Tailscale

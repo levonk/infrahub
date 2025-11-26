@@ -71,10 +71,14 @@ A prioritized roadmap for building a secure, resilient, and privacy-focused home
 ### Networking & Edge Access
 - [ ] **Reverse Proxy**: Traefik https://github.com/traefik/traefik
   - [ ] Plugins: Crowdsec, Geoblock
-- [ ] **VPN / Mesh**:
+- [ ] **VPN Inbound / Mesh**:
   - [ ] **Netbird**: https://github.com/netbirdio/netbird
   - [ ] **Tailscale**: https://tailscale.com/
+- [ ] **VPN Outbound**:
   - [ ] **VLESS+XTLS**: 3x-ui (Proxy/VPN)
+  - [ ] **Tor**
+  - [ ] **Cloudflare WARP**
+  - [ ] **WireGuard**
 - [ ] **Tunnels & DDNS**:
   - [ ] **Cloudflare Tunnel**: `cloudflared` (Zero Trust)
   - [ ] **FRP**: Fast Reverse Proxy https://github.com/fatedier/frp

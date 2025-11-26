@@ -1,19 +1,19 @@
 graph TD
     subgraph "Client Layer"
-        Client[Client Device]
-        ContainerA[Container A]
-        ContainerB[Container B]
+        Client["Client Device"]
+        ContainerA["Container A"]
+        ContainerB["Container B"]
     end
 
     subgraph "Entrypoints"
-        Transparent["User (Port 3127/3128)"]
+        Transparent["User Port 3127/3128"]
         Container_Net_Input["Container Network Input"]
     end
 
     subgraph "Proxy Chain"
-        MITM[L1: MITM Proxy<br/>Decrypts/Re-encrypts]
+        MITM["L1: MITM Proxy<br/>Decrypts/Re-encrypts"]
         PolicyEnforcer[L2: Identity Router / ExtAuth Hub<br/>Source IP maps to Policy ID]
-        AuthServer[ExtAuth Server (Decision Logic)]
+        AuthServer[ExtAuth Server Decision Logic]
         Caching[L3: Varnish Cache]
         Gost[L4: Egress Multiplexer]
     end

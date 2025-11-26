@@ -46,6 +46,7 @@ services:
 
 
   ## For Watchtower and other read-write uses
+  ## Evaluate https://github.com/nestybox/sysbox for better security Depending on use case
   dockerproxy-rw: # https://github.com/wollomatic/socket-proxy
     image: wollomatic/socket-proxy:latest
     container_name: localnet-security-dockerproxy-rw
@@ -82,13 +83,14 @@ services:
       timeout: 5s
       retries: 3
 
+  ## Watchtower needs rw access to docker socket, can't use sysbox
   watchtower: # https://github.com/containrrr/watchtower
     container_name: localnet-watchtower
     logging: *default-logging
     healthcheck:
       test: ["CMD","true"]
       interval: 30s
-      timeout: 5s
+      timeout: 10s
       retries: 3
     privileged: true
     restart: unless-stopped
