@@ -388,6 +388,24 @@ A prioritized roadmap for building a secure, resilient, and privacy-focused home
 		- [ ] https://github.com/fosrl/pangolin --- Pangolin reverse proxy/tunneling service
 		- [ ] https://github.com/cloudflare/cloudflared/blob/master/Dockerfile#L29C6-L29C13 --- Cloudflared Docker reference (Zero‑Trust tunnel)
 		- [ ] https://netboot.xyz/docs/docker/ --- Netboot.xyz PXE boot via Docker
+			- [ ] Ubuntu desktop
+			- [ ] Ubuntu server
+			- [ ] Ubuntu live-server
+			- [ ] Mt86plus
+			- [ ] Debian netinst
+			- [ ] Debian DVD-1
+			- [ ] Debian live
+			- [ ] Tails
+			- [ ] Proxmox
+			- [ ] Talos
+			- [ ] Parrot
+			- [ ] Win11
+			- [ ] netboot
+			- [ ] alpine-virt
+			- [ ] alpine-standard
+			- [ ] alpine-extended
+			- [ ] QubesOS
+
 		- [ ] https://github.com/octelium/octelium --- Zero‑trust / tunnel‑related tool (Octelium)
 		- [ ] https://www.libhunt.com/compare-pangolin-vs-frp --- Comparison article: Pangolin vs FRP
 		- [ ] https://www.xda-developers.com/cloudflare-tunnels-easier-to-manage-free-open-source-self-hosted-tool/ --- Article: Cloudflare Tunnels overview
