@@ -40,6 +40,7 @@ A prioritized roadmap for building a secure, resilient, and privacy-focused home
   - [ ] **docker** (pick portainer)
 	  - [ ] **Portainer**: https://github.com/portainer/portainer
 	  - [ ] **Dockge**: https://github.com/louislam/dockge
+	  - [ ] **Semaphore**: https://github.com/semaphoreui/semaphore
   - [ ] **Talos**
 	  - [ ] **K8s** https://github.com/kubernetes/kubernetes
 - **Storage Server**: TrueNAS Scale (ZFS + Ceph)
@@ -101,7 +102,9 @@ A prioritized roadmap for building a secure, resilient, and privacy-focused home
   - [ ] **Authentik** (General IdP): https://docs.goauthentik.io/
   - [ ] **Authelia** (Proxy Companion): https://www.authelia.com/
   - [ ] **Ory Kratos** (Auth Backend): https://github.com/ory/kratos
-- [ ] **Secrets Management**: Vaultwarden: https://github.com/dani-garcia/vaultwarden
+- [ ] **Secrets Management**:
+	- [ ] **Vaultwarden**: https://github.com/dani-garcia/vaultwarden
+	- [ ] **Hashicorp Vault**: https://github.com/hashicorp/vault
 - [ ] **PKI / Certificates**:
   - [ ] Internal Certificate Authority (CA)
   - [ ] **Cert-Manager**: Automated cert lifecycle
@@ -136,6 +139,8 @@ A prioritized roadmap for building a secure, resilient, and privacy-focused home
   - [ ] **DDNS**: Cloudflare DDNS (oznu/docker-cloudflare-ddns)
 	  - [ ] https://github.com/timothymiller/cloudflare-ddns
 	  - [ ] https://github.com/oznu/docker-cloudflare-ddns
+- [ ] **VM**
+	- [ ] **Kasm**: https://github.com/kasmtech/terraform/blob/develop/digitalocean/single_server/README.md
 
 ### Remote Access
 - [ ] **Guacamole**: https://github.com/apache/guacamole-server https://github.com/apache/guacamole-client
@@ -169,10 +174,12 @@ A prioritized roadmap for building a secure, resilient, and privacy-focused home
   5. [ ] **Ultra Resilient Chain**:
      - DNSCrypt over Tor -> DoH over Tor -> TLS over Tor -> Plaintext
 
-### Web Proxy Architecture (Tiered Fallback)
-- [ ] Privoxy https://www.privoxy.org/
-- [ ] Envoy https://github.com/envoyproxy/envoy
-- [ ] Varnish https://github.com/varnishcache/varnish-cache
+### Web Proxy
+- [ ] **Marreta** (Special purpose de-annoyer) https://github.com/manualdousuario/marreta/blob/main/README.en.md
+- Tiered Fallback
+	- [ ] Privoxy https://www.privoxy.org/
+	- [ ] Envoy https://github.com/envoyproxy/envoy
+	- [ ] Varnish https://github.com/varnishcache/varnish-cache
 
 ---
 
@@ -198,25 +205,26 @@ A prioritized roadmap for building a secure, resilient, and privacy-focused home
   - [ ] **Ntfy**: Push notifications https://github.com/binwiederhier/ntfy
   - [ ] **Logtfy**: Log notifier https://github.com/ImranR98/Logtfy
  - [ ] **Logging & Metrics (logging/monitoring)**:
-	- [ ] Prometheus https://github.com/prometheus/prometheus
-	- [ ] Grafana https://github.com/grafana/grafana
-	- [ ] Loki https://github.com/grafana/loki
-	- [ ] Elasticsearch https://github.com/elastic/elasticsearch
-	- [ ] Vector https://github.com/vectordotdev/vector
-	- [ ] Promtail https://github.com/grafana/loki
-	- [ ] Jaeger https://github.com/jaegertracing/jaeger
+	- [ ] **Prometheus**: https://github.com/prometheus/prometheus
+	- [ ] **Grafana**: https://github.com/grafana/grafana
+	- [ ] **Loki**: https://github.com/grafana/loki
+	- [ ] **Elasticsearch**: https://github.com/elastic/elasticsearch
+	- [ ] **Vector**: https://github.com/vectordotdev/vector
+	- [ ] **Promtail**: https://github.com/grafana/loki
+	- [ ] **Jaeger**: https://github.com/jaegertracing/jaeger
 
 ### Development Tools
 - [ ] **Code / Git**:
-	- [ ] Gitea https://github.com/search?q=gitea&type=repositories
-	- [ ] Forgejo  https://forgejo.org/download/#container-image
+	- [ ] **Gitea**: https://github.com/search?q=gitea&type=repositories
+	- [ ] **Forgejo**:  https://forgejo.org/download/#container-image
+	- [ ] **GitVex**: https://github.com/mdhruvil/gitvex
 - [ ] **IDE**: VS Code Server / Coder
 - [ ] **AI Code Assist (ai-codeassist)**:
-	- [ ] Claude Code core service (cc-tools) https://github.com/Veraticus/cc-tools
-	- [ ] Claude Code UI (claudecodeui) https://github.com/siteboon/claudecodeui
-	- [ ] Claude Code MCP server https://github.com/steipete/claude-code-mcp
-	- [ ] PluggedIn MCP proxy https://github.com/VeriTeknik/pluggedin-mcp-proxy
-	- [ ] PluggedIn app https://github.com/VeriTeknik/pluggedin-app
+	- [ ] **Claude Code core service (cc-tools)**: https://github.com/Veraticus/cc-tools
+	- [ ] **Claude Code UI (claudecodeui)**: https://github.com/siteboon/claudecodeui
+	- [ ] **Claude Code MCP server**: https://github.com/steipete/claude-code-mcp
+	- [ ] **PluggedIn MCP proxy**: https://github.com/VeriTeknik/pluggedin-mcp-proxy
+	- [ ] **PluggedIn app**: https://github.com/VeriTeknik/pluggedin-app
 - [ ] **Database Tools**: Django SQL Explorer https://github.com/explorerhq/django-sql-explorer
 - [ ] **Data Tooling**: Goose https://github.com/block/goose
 - [ ] **Notebooks**: JupyterLab https://github.com/jupyterlab/jupyterlab
@@ -235,6 +243,7 @@ A prioritized roadmap for building a secure, resilient, and privacy-focused home
 
 ### Media & Entertainment
 - [ ] **Dashboard**: Homer (Startpage) https://github.com/bastienwirtz/homer
+- Info: https://github.com/search?q=arr-stack&type=repositories
 - [ ] **Streaming**:
   - [ ] **Jellyfin**: Primary media server https://github.com/jellyfin/jellyfin
   - [ ] **Plex**: Backup / External sharing https://www.plex.tv/media-server-downloads/?cat=computer&plat=windows#plex-media-servertwingate
@@ -243,6 +252,13 @@ A prioritized roadmap for building a secure, resilient, and privacy-focused home
 - [ ] **Acquisition (*arr Stack)**:
   - [ ] **Radarr** (Movies) https://github.com/Radarr/Radarr
   - [ ] **Sonarr** (TV) https://github.com/Sonarr/Sonarr
+  - [ ] **Bazarr** (Subtitles) https://github.com/morpheus65535/bazarr
+  - [ ] **Medusa** (TV Downloader) https://pymedusa.com/
+  - [ ] **Lidarr** (Music) https://lidarr.audio/
+  - [ ] **Whisparr** (Video) https://whisparr.com/
+  - [ ] **Flexget**: Misc https://github.com/Flexget/Flexget
+  - [ ] **Kapowarr**: (Comics) https://github.com/Casvt/Kapowarr
+  - [ ] **Deduparr** https://github.com/deduparr-dev/deduparr (Dedupe with video duplicates considering quality)
   - [ ] Indexers
 	  - [ ] https://github.com/Prowlarr/Prowlarr
 	  - [ ] https://github.com/Jackett/Jackett
@@ -292,6 +308,9 @@ A prioritized roadmap for building a secure, resilient, and privacy-focused home
 - [ ] **Social**: Mastodon https://github.com/mastodon/mastodon
 - [ ] **Video/Voice**: LiveKit (Realtime A/V) https://github.com/livekit
 - [ ] **News**: Meridian (Personal Podcast) https://github.com/iliane5/meridian
+- [ ] **Linkstack.org**: (Linktree alternative) https://linkstack.org/
+- [ ] **Postiz-app**: (multi-social poster) https://github.com/gitroomhq/postiz-app
+- [ ] **Fider**: (Feedback collector) https://github.com/getfider/fider
 
 ### Artificial Intelligence (Local & Private)
 - [ ] **Inference Engines**:
@@ -388,23 +407,28 @@ A prioritized roadmap for building a secure, resilient, and privacy-focused home
 		- [ ] https://github.com/fosrl/pangolin --- Pangolin reverse proxy/tunneling service
 		- [ ] https://github.com/cloudflare/cloudflared/blob/master/Dockerfile#L29C6-L29C13 --- Cloudflared Docker reference (Zero‑Trust tunnel)
 		- [ ] https://netboot.xyz/docs/docker/ --- Netboot.xyz PXE boot via Docker
-			- [ ] Ubuntu desktop
-			- [ ] Ubuntu server
-			- [ ] Ubuntu live-server
-			- [ ] Mt86plus
-			- [ ] Debian netinst
-			- [ ] Debian DVD-1
-			- [ ] Debian live
-			- [ ] Tails
-			- [ ] Proxmox
-			- [ ] Talos
-			- [ ] Parrot
-			- [ ] Win11
-			- [ ] netboot
-			- [ ] alpine-virt
-			- [ ] alpine-standard
-			- [ ] alpine-extended
-			- [ ] QubesOS
+			- [ ] Desktop
+				- [ ] Win11 (Gaming)
+				- [ ] Linux
+					- [ ] Ubuntu desktop
+					- [ ] Debian DVD-1
+					- [ ] Debian live
+					- [ ] Parrot
+					- [ ] QubesOS (Daily Driver)
+			- [ ] Service
+				- [ ] Proxmox
+				- [ ] netboot
+				- [ ] Linux
+					- [ ] Ubuntu server
+					- [ ] Ubuntu live-server
+					- [ ] Debian netinst
+					- [ ] Talos
+					- [ ] alpine-virt
+					- [ ] alpine-standard
+					- [ ] alpine-extended
+			- [ ] Both
+				- [ ] Mt86plus
+				- [ ] Tails
 
 		- [ ] https://github.com/octelium/octelium --- Zero‑trust / tunnel‑related tool (Octelium)
 		- [ ] https://www.libhunt.com/compare-pangolin-vs-frp --- Comparison article: Pangolin vs FRP
