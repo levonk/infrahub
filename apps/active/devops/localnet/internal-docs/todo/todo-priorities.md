@@ -81,6 +81,8 @@ A prioritized roadmap for building a secure, resilient, and privacy-focused home
 - Cert Authority
 
 ### Android
+- GrapheneOS 
+- Quickscan 
 - (Remote access stream based Apollo) https://github.com/MobinYengejehi/Artemis
 - (Remote access SPICE/VNC/RDP based)
 
@@ -242,13 +244,18 @@ A prioritized roadmap for building a secure, resilient, and privacy-focused home
 ## 🚀 Application Services
 
 ### Media & Entertainment
-- [ ] **Dashboard**: Homer (Startpage) https://github.com/bastienwirtz/homer
+- [ ] **Dashboard**:
+	- [ ] Homer (Startpage) https://github.com/bastienwirtz/homer
+	- [ ] **Homepage**: Homepage (Startpage)
 - Info: https://github.com/search?q=arr-stack&type=repositories
 - [ ] **Streaming**:
   - [ ] **Jellyfin**: Primary media server https://github.com/jellyfin/jellyfin
+	- [ ] **Skip Intro**: https://github.com/ClassicOldSong/SkipIntro plugin a must
   - [ ] **Plex**: Backup / External sharing https://www.plex.tv/media-server-downloads/?cat=computer&plat=windows#plex-media-servertwingate
   - [ ] **Owncast**: Self-hosted streaming https://owncast.online/
   - [ ] **Apollo**: Gaming Remote Play Streaming https://github.com/ClassicOldSong/Apollo
+  - [ ] **Audiobookshelf**: audiobook and podcast player https://github.com/audiobookshelf/audiobookshelf
+  - [ ] **Miniflux**: Opinionated minimal feed reader https://github.com/miniflux/miniflux
 - [ ] **Acquisition (*arr Stack)**:
   - [ ] **Radarr** (Movies) https://github.com/Radarr/Radarr
   - [ ] **Sonarr** (TV) https://github.com/Sonarr/Sonarr
@@ -267,6 +274,7 @@ A prioritized roadmap for building a secure, resilient, and privacy-focused home
   - [ ] **Mydia**: Video Manager https://github.com/getmydia/mydia
   - [ ] **Alt-SendMe**: Private file exchange https://github.com/tonyantony300/alt-sendme
   - [ ] **Enclosed**: Private Note exchange https://github.com/CorentinTh/enclosed
+  - [ ] **MicroBin**: Private PasteBin https://github.com/microbin/microbin
   - [ ] **OpenBooks**: eBook downloader https://github.com/evan-buss/openbooks
 - [ ] Conversion
 	- [ ] https://github.com/VERT-sh/VERT
@@ -277,12 +285,15 @@ A prioritized roadmap for building a secure, resilient, and privacy-focused home
   - [ ] **Nextcloud**: Cloud suite https://github.com/nextcloud/server
   - [ ] **Syncthing**: P2P Sync https://github.com/syncthing/syncthing
   - [ ] **FileBrowser**: Web file manager https://github.com/filebrowser/filebrowser
-  - [ ] **FileCloud**: Enterprise file share
+  - [ ] **FileCloud**: Enterprise file share https://github.com/filecloud/filecloud
+  - [ ] **Paperless-ngx**: Document Management System https://github.com/paperless-ngx/paperless-ngx
 - [ ] **File Transfer**
 	- [ ] https://github.com/fatedier/fft
 	- [ ] Torrents
-		- [ ] **Qbittorrent** https://github.com/qbittorrent/qBittorrent
-		- [ ] **DelugeVPN** https://github.com/deluge-torrent/deluge
+		- [ ] **Qbittorrent**: Torrent Client https://github.com/qbittorrent/qBittorrent
+		- [ ] **Deluge**: Torrent Client https://github.com/deluge-torrent/deluge
+- [ ] **Calendar**
+	- [ ] **Radicale**: FOSS CalDAV and CardDAV server https://github.com/radicale/radicale
 - [ ] **Photos**
   - [ ] Immich https://github.com/immich-app/immich
   - [ ] PhotoPrism https://github.com/photoprism/photoprism
