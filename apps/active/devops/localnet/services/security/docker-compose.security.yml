@@ -11,7 +11,8 @@ x-logging: &default-logging
 services:
   ## For Traefik and other read-only uses
   dockerproxy-ro: # https://github.com/wollomatic/socket-proxy
-    image: wollomatic/socket-proxy:latest
+    image: ghcr.io/wollomatic/socket-proxy:1.10.1
+    #image: wollomatic/socket-proxy:latest
     container_name: localnet-security-dockerproxy-ro
     command:
       - "-loglevel=debug"
@@ -48,7 +49,8 @@ services:
   ## For Watchtower and other read-write uses
   ## Evaluate https://github.com/nestybox/sysbox for better security Depending on use case
   dockerproxy-rw: # https://github.com/wollomatic/socket-proxy
-    image: wollomatic/socket-proxy:latest
+    image: ghcr.io/wollomatic/socket-proxy:1.10.1
+    #image: wollomatic/socket-proxy:latest
     container_name: localnet-security-dockerproxy-rw
     command:
       - "-loglevel=debug"
@@ -105,6 +107,15 @@ services:
     depends_on:
       - dockerproxy-ro
 
+  sysbox-test:
+    image: base-alpine:latest
+    container_name: localnet-security-sysbox-test
+    runtime: sysbox-runc
+    command: tail -f /dev/null
+    networks:
+      - localnet
+    restart: unless-stopped
+
   crowdsec:  # https://github.com/crowdsecurity/crowdsec
     image: crowdsecurity/crowdsec:latest
     container_name: localnet-crowdsec
@@ -120,8 +131,8 @@ services:
       - "TZ=${TZ:-UTC}"
       - "GID=${GID-1000}"
       - "COLLECTIONS=crowdsecurity/linux crowdsecurity/traefik"
-    depends_on:
-      - traefik
+    #depends_on:
+      #- traefik
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
@@ -261,3 +272,8 @@ services:
     expose:
       - 6379
     restart: unless-stopped
+
+volumes:
+  authelia_db:
+
+
