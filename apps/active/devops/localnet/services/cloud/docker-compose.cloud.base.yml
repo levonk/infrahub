@@ -1,0 +1,37 @@
+---
+# Base configuration for LocalStack
+# Platform-specific overrides are in docker-compose.cloud.linux.yml and docker-compose.cloud.wsl.yml
+
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "5"
+    tag: "{{.Name}}"
+    labels: "service"
+
+volumes:
+  localstack-config:
+
+services:
+  localstack:
+    image: localstack/localstack
+    container_name: localnet-localstack
+    logging: *default-logging
+    ports:
+      - "4566:4566"            # LocalStack Gateway
+    networks:
+      - localnet
+    environment:
+      - SERVICES=${SERVICES:-}  # specific services or all
+      - DEBUG=${DEBUG:-0}
+      - PUID=${PUID:-1000}
+      - GUID=${GUID:-1000}
+      - TZ=${TZ:-UTC}
+    volumes:
+      - "localstack-config:/var/lib/localstack"
+    restart: unless-stopped
+
+networks:
+  localnet:
+    external: true

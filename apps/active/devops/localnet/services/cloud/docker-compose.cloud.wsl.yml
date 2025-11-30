@@ -1,0 +1,14 @@
+---
+# WSL2/Windows overrides using socket proxy
+
+volumes:
+  dockerproxy-rw:
+    external: true
+    name: security_dockerproxy-rw
+
+services:
+  localstack:
+    environment:
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    volumes:
+      - dockerproxy-rw:/var/run/docker.sock

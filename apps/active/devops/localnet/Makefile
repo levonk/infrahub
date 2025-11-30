@@ -19,19 +19,19 @@ help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(GREEN)%-20s$(NC) %s\n", $$1, $$2}'
 	@echo ""
 
-build: ## Build all Docker images
+build: cloud-build ## Build all Docker images
 	@echo "$(BLUE)Building all Docker images...$(NC)"
 	docker compose -f docker-compose.localnet.yml --env-file ./.env.local.localnet --progress=plain build
 	@echo "$(GREEN)✓ Build complete$(NC)"
 
-up: build ## Start all services
+up: build cloud-up ## Start all services
 	@echo "$(BLUE)Starting all services...$(NC)"
 		@sleep 1
 	docker compose -f docker-compose.localnet.yml --progress=plain up -d
 	@echo "$(GREEN)✓ Services started$(NC)"
 	@echo "Run 'make health-check' to verify service health"
 
-down: ## Stop all services
+down: cloud-down ## Stop all services
 	@echo "$(YELLOW)Stopping all services...$(NC)"
 	docker compose -f docker-compose.localnet.yml --progress=plain down
 	@echo "$(GREEN)✓ Services stopped$(NC)"
@@ -166,3 +166,16 @@ lint-claude: ## Lint Claude Code docker-compose configuration
 		echo "$(YELLOW)⚠ yamllint not installed$(NC)"; \
 	fi
 	@echo "$(GREEN)✓ Claude Code lint complete$(NC)"
+
+cloud-up: ## Start LocalStack cloud services (auto-detects platform)
+	@echo "$(BLUE)Starting cloud services...$(NC)"
+	@cd services/cloud && ./up.sh
+	@echo "$(GREEN)✓ Cloud services started$(NC)"
+
+cloud-down: ## Stop LocalStack cloud services
+	@echo "$(YELLOW)Stopping cloud services...$(NC)"
+	@cd services/cloud && docker compose -f docker-compose.cloud.base.yml down
+cloud-build: ## Build/Pull LocalStack cloud services
+	@echo "$(BLUE)Building/Pulling cloud services...$(NC)"
+	@cd services/cloud && docker compose -f docker-compose.cloud.base.yml pull
+	@echo "$(GREEN)✓ Cloud services built/pulled$(NC)"
