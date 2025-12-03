@@ -115,6 +115,9 @@ A prioritized roadmap for building a secure, resilient, and privacy-focused home
   - [ ] **Authentik** (General IdP): https://docs.goauthentik.io/
   - [ ] **Authelia** (Proxy Companion): https://www.authelia.com/
   - [ ] **Ory Kratos** (Auth Backend): https://github.com/ory/kratos
+  - [ ] PocketID
+  - [ ] Tinyauth
+  - [ ] VoidAuth
 - [ ] **Secrets Management**:
   - [ ] **Vaultwarden**: https://github.com/dani-garcia/vaultwarden
   - [ ] **Hashicorp Vault**: https://github.com/hashicorp/vault
@@ -267,12 +270,17 @@ _Goal: Privacy, Resilience, Ad-blocking_
 
 - [ ] **Dashboard**:
   - [ ] Homer (Startpage) https://github.com/bastienwirtz/homer
+  - [ ] **Glance**: https://github.com/glanceapp/glance
+  - [ ] **Glances**: System monitoring dashboard https://github.com/nicolargo/glances
+    - [ ] **Example config**: https://gist.github.com/PiiiRKO/8d879b2bcf9366ab3843326b3655a40b?raw=true
   - [ ] **Homepage**: Homepage (Startpage)
 - Info: https://github.com/search?q=arr-stack&type=repositories
 - [ ] **Streaming**:
   - [ ] **Jellyfin**: Primary media server https://github.com/jellyfin/jellyfin
-  - [ ] **Skip Intro**: https://github.com/ClassicOldSong/SkipIntro plugin a must
+    - [ ] **Skip Intro**: https://github.com/ClassicOldSong/SkipIntro plugin a must
+  - [ ] **JellyfinTV**: TV channels for Jellyfin https://github.com/DrewThomasson/JellyfinTV
   - [ ] **Plex**: Backup / External sharing https://www.plex.tv/media-server-downloads/?cat=computer&plat=windows#plex-media-servertwingate
+  - [ ] **Emby**: alternative for Plex
   - [ ] **Owncast**: Self-hosted streaming https://owncast.online/
   - [ ] **Apollo**: Gaming Remote Play Streaming https://github.com/ClassicOldSong/Apollo
   - [ ] **Audiobookshelf**: audiobook and podcast player https://github.com/audiobookshelf/audiobookshelf
@@ -280,6 +288,10 @@ _Goal: Privacy, Resilience, Ad-blocking_
 - [ ] **Acquisition (\*arr Stack)**:
   - [ ] **Radarr** (Movies) https://github.com/Radarr/Radarr
   - [ ] **Sonarr** (TV) https://github.com/Sonarr/Sonarr
+  - [ ] **Tdarr** (video processing) https://docs.tdarr.io/docs/installation/docker/run-compose https://github.com/HaveAGitGat/Tdarr
+  - [ ] **Unpackarr** (download archive unpacker) https://github.com/Unpackerr/unpackerr
+  - [ ] **Recyclarr** (CLI tool to sync TRaSH Guides for quality profiles, formats, naming into Sonarr/Radarr)
+  - [ ] **FlareSolverr** (proxy to bypass Cloudflare/DDoS-GUARD protections for scrapers and indexers)
   - [ ] **Bazarr** (Subtitles) https://github.com/morpheus65535/bazarr
   - [ ] **Medusa** (TV Downloader) https://pymedusa.com/
   - [ ] **Lidarr** (Music) https://lidarr.audio/
@@ -320,7 +332,12 @@ _Goal: Privacy, Resilience, Ad-blocking_
 - [ ] **Photos**
   - [ ] Immich https://github.com/immich-app/immich
   - [ ] PhotoPrism https://github.com/photoprism/photoprism
-- [ ] **Documents**: Papermark https://github.com/mfts/papermark
+- [ ] **Document Specifics**:
+  - [ ] PDF: https://github.com/alam00000/bentopdf
+- [ ] **Documents Management**:
+  - [ ] **Papermark AI**:
+  - [ ] **Papermark-ngx**:
+  - [ ] **Papermark**: https://github.com/mfts/papermark
 - [ ] **Knowledge Base**:
   - [ ] Outline / BookStack / CMS
   - [ ] AirTable alternative https://github.com/baserow/baserow https://baserow.io/
@@ -349,6 +366,10 @@ _Goal: Privacy, Resilience, Ad-blocking_
 - [ ] **Linkstack.org**: (Linktree alternative) https://linkstack.org/
 - [ ] **Postiz-app**: (multi-social poster) https://github.com/gitroomhq/postiz-app
 - [ ] **Fider**: (Feedback collector) https://github.com/getfider/fider
+- [ ] **CRM**: Self-hosted customer relationship management
+  - [ ] **https://twenty.com/**: https://github.com/twentyhq/twenty https://docs.twenty.com/developers/self-hosting/docker-compose
+  - [ ] **SuiteCRM**: https://suitecrm.com/
+  - [ ] **Vtiger**: https://www.vtiger.com/
 
 ### Artificial Intelligence (Local & Private)
 
@@ -403,6 +424,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
 - [ ] **Misc**:
   - [ ] TAK Server: https://github.com/TAK-Product-Center/Server
   - [ ] Chef (Convex): https://github.com/get-convex/chef
+  - [ ] SparkyFitness: https://github.com/CodeWithCJ/SparkyFitness
 
 - [ ] **From OLD Architecture Doc (additional tools & references)**:
   - [ ] **Media, Downloading & Dashboards**
@@ -417,7 +439,8 @@ _Goal: Privacy, Resilience, Ad-blocking_
     - [ ] https://github.com/duplicati/duplicati --- Encrypted, versioned backup system
   - [ ] **Bookmarks, Reading & Knowledge**
     - [ ] https://github.com/FreshRSS/FreshRSS --- Self‑hosted RSS/news aggregator
-    - [ ] https://github.com/karakeep-app/karakeep --- Personal knowledge / bookmark manager
+    - [ ] https://github.com/karakeep-app/karakeep --- Personal knowledge / bookmark manager previously Hoarder
+    - [ ] https://github.com/asciimoo/omnom --- Simple bookmark manager with screenshots
     - [ ] https://github.com/linkwarden/linkwarden --- Bookmark archiver and organizer
     - [ ] https://github.com/linkwarden/browser-extension --- Browser extension companion for Linkwarden
     - [ ] https://github.com/rtuszik/starwarden --- Star/bookmark sync utility for Linkwarden
@@ -448,6 +471,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
     - [ ] https://docs.pangolin.net/ --- Pangolin docs (reverse proxy / tunnel)
     - [ ] https://github.com/fosrl/pangolin --- Pangolin reverse proxy/tunneling service
     - [ ] https://github.com/cloudflare/cloudflared/blob/master/Dockerfile#L29C6-L29C13 --- Cloudflared Docker reference (Zero‑Trust tunnel)
+    - [ ] Cloud Init https://www.raspberrypi.com/news/cloud-init-on-raspberry-pi-os/
     - [ ] https://netboot.xyz/docs/docker/ --- Netboot.xyz PXE boot via Docker
       - [ ] Desktop
         - [ ] Win11 (Gaming)
@@ -491,12 +515,15 @@ _Goal: Privacy, Resilience, Ad-blocking_
     - [ ] https://github.com/666ghj/BettaFish/blob/main/README-EN.md --- Social sentiment monitoring tool (BettaFish)
     - [ ] https://github.com/rtuszik/starwarden --- Extra tooling around Linkwarden/Star management
     - [ ] https://github.com/trymeka/agent --- Browser automation agent (duplicate reference, kept for visibility)
+    - [ ] WebMin server maangement web interface
+	- [ ] Postiz Social media management https://github.com/gitroomhq/postiz-app
   - [ ] **References & Articles**
     - [ ] https://brainsteam.co.uk/2025/2/15/personal-archive-hoarder/ --- Personal archive/hoarder architecture write‑up
     - [ ] https://www.xda-developers.com/how-build-google-drive-alternative-nextcloud/ --- Guide: Nextcloud as Google Drive alternative
     - [ ] https://www.xda-developers.com/how-built-google-photos-alternative-nas-photoprism/ --- Guide: PhotoPrism as Google Photos alternative
     - [ ] https://www.xda-developers.com/how-i-replaced-all-these-streaming-services-with-one-self-hosted-app/ --- Jellyfin streaming replacement story
     - [ ] https://www.youtube.com/watch?v=Wjrdr0NU4Sk --- Video walkthrough of Open-WebUI + LiteLLM setup
+	- [ ] https://www.reddit.com/r/selfhosted/comments/1p4g508/theres_no_place_like_127001_my_complete_setup/ Nice writeup
 
 ## References
 
