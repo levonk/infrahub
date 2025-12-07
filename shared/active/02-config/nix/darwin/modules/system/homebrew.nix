@@ -16,12 +16,11 @@
 
     casks = [
       # GUI Apps not available in Nix or better managed by Brew
-      "1password"
-      "firefox"
-      "google-chrome"
-      "visual-studio-code" # Often better via brew for auto-updates on mac
-      "iterm2"
-      "docker" # Docker Desktop
+      "firefox"            # Firefox browser (managed via Homebrew)
+      "google-chrome"      # Google Chrome browser
+      "visual-studio-code" # VS Code editor (auto-updating on macOS)
+      "iterm2"             # iTerm2 terminal emulator
+      "docker"             # Docker Desktop for macOS
     ];
   };
 }
