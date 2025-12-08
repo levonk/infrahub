@@ -299,6 +299,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] **Flexget**: Misc https://github.com/Flexget/Flexget
   - [ ] **Kapowarr**: (Comics) https://github.com/Casvt/Kapowarr
   - [ ] **Deduparr** https://github.com/deduparr-dev/deduparr (Dedupe with video duplicates considering quality)
+  - [ ] **Romm** Games and Roms https://romm.app/ https://github.com/rommapp/romm
   - [ ] Indexers
     - [ ] https://github.com/Prowlarr/Prowlarr
     - [ ] https://github.com/Jackett/Jackett
@@ -401,6 +402,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] **Verdaccio**: NPM Proxy https://github.com/verdaccio/verdaccio
   - [ ] **Nexus**: Maven Proxy https://github.com/sonatype/nexus-public
   - [ ] **OpenRepo**: Deb/RPM Repo https://github.com/openkilt/openrepo
+  - [ ] **Garnix-Yensid**: Nix Repo https://github.com/garnix-io/yensid
 - [ ] **Generic Proxies**:
   - [ ] **Gost**: Tunnel/Proxy https://gost.run/
   - [ ] **Squid / Varnish**: Web caching
@@ -426,6 +428,19 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] Chef (Convex): https://github.com/get-convex/chef
   - [ ] SparkyFitness: https://github.com/CodeWithCJ/SparkyFitness
 
+- [ ] **Investigate**:
+	- [ ] WunderTech - Task management and productivity
+	- [ ] Heimdall - Dashboard and link organizer
+	- [ ] Genmon - System monitoring and status dashboard
+	- [ ] Hubitat - Home automation platform
+	- [ ] Grocy - Grocery management and recipe organizer
+	- [ ] Logger - Log aggregation and analysis
+	- [ ] CodeProject.AI - AI platform with local inference capabilities
+	- [ ] NPM - Node Package Manager for JavaScript applications
+	- [ ] TeraMaster - File sharing and synchronization platform
+	- [ ] NUT Server - Network UPS Tools for power management
+	- [ ] DSM - Disk Station Manager for Synology devices
+	- [ ] Blue Iris - Security camera management and recording
 - [ ] **From OLD Architecture Doc (additional tools & references)**:
   - [ ] **Media, Downloading & Dashboards**
     - [ ] http://github.com/bastienwirtz/homer --- Homelab / service dashboard
@@ -524,6 +539,98 @@ _Goal: Privacy, Resilience, Ad-blocking_
     - [ ] https://www.xda-developers.com/how-i-replaced-all-these-streaming-services-with-one-self-hosted-app/ --- Jellyfin streaming replacement story
     - [ ] https://www.youtube.com/watch?v=Wjrdr0NU4Sk --- Video walkthrough of Open-WebUI + LiteLLM setup
 	- [ ] https://www.reddit.com/r/selfhosted/comments/1p4g508/theres_no_place_like_127001_my_complete_setup/ Nice writeup
+
+## Standards
+- Philosophy:
+	- Community First
+	- License Clarity
+	- Reproducibility
+	- Simplicity
+- Instead of
+	- Services
+		- Redis: use Valkey unless you NEED enterprise support
+		- MySQL: use Postgres unless you NEED MySQL-specific features
+		- Linux: prefer NixOS
+			- CentOS/RHEL clones use Rocky Linux or AlmaLinux
+		- Elasticsearch: use OpenSearch
+		- Kafka: use Redpanda
+		- Kubernetes with Docker runtime, use containerd or CRI-I
+		- Jenkins use GitHub Actions or GitLab CI
+		- Terraform use OpenTofu
+		- Prometheus + Grafana Cloud use self-hosted Prometheus + Frafana OSS
+		- MongoDB use Postgres with JSONB
+		- RabbitMQ use NATS
+- Tools
+	- zsh with oh-my-zsh
+	-
+	- Instead of
+		- Docker: use podman
+
+## Nix Strategy
+Nix robust "waterfall" of caches that prioritizes **speed first** (local LAN), then **reliability** (regional proxy), and finally **completeness** (internet/cloud).
+
+Here is the breakdown of why this works and how to configure the priorities (lower number = higher priority) to achieve exactly what you described.
+
+### The Logic Flow
+
+1.  **Garnix (The Builder):**
+    *   **Action:** Compiles code $\rightarrow$ **Pushes** to Attic (and/or Cachix).
+    *   *Note:* Garnix also has its own cache URL (`cache.garnix.io`), which you can use as a backup.
+
+2.  **Client Request (e.g., K8s Node/Nix Snapshotter):**
+    *   **Priority 30: Harmonia** (Regional "Smart" Store)
+        *   *Check:* "Does the regional server *already have this running/installed*?"
+        *   *Hit:* Instant LAN transfer. **Zero duplication** on the regional server.
+    *   **Priority 40: ncps** (Regional Proxy)
+        *   *Check:* "Has anyone on my LAN downloaded this recently?"
+        *   *Hit:* Fast LAN transfer.
+        *   *Miss:* `ncps` goes out to download it from Attic/Garnix, caches it, and serves it to you.
+    *   **Priority 50+: Cloud Sources** (Attic / Cachix / Garnix)
+        *   *Check:* "I'm desperate, go to the internet."
+        *   *Role:* Final fallback if your regional server is down or broken.
+
+### How to Configure It
+
+#### 1. On the Regional Server (The "Hub")
+You run **both** Harmonia and `ncps` here.
+*   **Harmonia:** Expose on port `5000`. No upstream config needed (it just reads `/nix/store`).
+*   **ncps:** Expose on port `5001`. Configure its **upstreams** to be your cloud sources.
+    ```toml
+    # ncps config.toml
+    [upstream]
+    # This allows ncps to fetch from your cloud sources when local clients ask
+    substituters = [
+      "https://attic.your-domain.com",
+      "https://cache.garnix.io",
+      "https://cache.nixos.org"
+    ]
+    ```
+
+#### 2. On the Client (K8s Node / Laptop)
+You configure the `nix.conf` (or Nix Operator) with the priority order.
+
+```nix
+# /etc/nix/nix.conf or NixOS config
+substituters = [
+  # 1. Check Regional "Active" Store (Fastest, deduplicated)
+  "http://regional-server:5000?priority=30"
+
+  # 2. Check Regional Proxy (Fast, cached from previous fetches)
+  "http://regional-server:5001?priority=40"
+
+  # 3. Fallback: Go direct to Cloud (Slow, internet bandwidth)
+  "https://attic.your-domain.com?priority=50"
+  "https://cache.garnix.io?priority=60"
+  "https://cache.nixos.org?priority=80"
+]
+```
+
+### Why this is the "Gold Standard"
+*   **Harmonia First:** Ensures that if your Regional Server is running a `postgres` database, your K8s nodes pull *that exact binary* from the server's store without making the server download a second copy into a cache folder.
+*   **ncps Second:** Handles the "long tail" of packages. If a K8s node needs a weird library that the Regional Server *isn't* using itself, `ncps` fetches and caches it so the *next* K8s node gets it fast.
+*   **Cloud Last:** Resilience. If your office/regional internet is flaky or the server crashes, your builds/deployments still work (just slower).
+
+
 
 ## References
 
