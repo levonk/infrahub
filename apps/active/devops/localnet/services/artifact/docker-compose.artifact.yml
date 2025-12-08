@@ -15,6 +15,14 @@ volumes:
     driver: local
   verdaccio-data:
     driver: local
+  attic-data:
+    driver: local
+  nix-snapshotter-data:
+    driver: local
+  harmonia-data:
+    driver: local
+  ncps-data:
+    driver: local
 
 services:
   nexus:
@@ -65,3 +73,57 @@ services:
       retries: 3
       start_period: 30s
     restart: unless-stopped
+
+  nix-attic:
+    image: attic-server:latest
+    container_name: localnet-artifact-attic
+    restart: unless-stopped
+    ports:
+      - "8083:8080"
+    volumes:
+      - ./nix-attic/mounts/config.toml:/data/config.toml
+      - attic-data:/data
+    command: ["-f", "/data/config.toml"]
+    networks:
+      - localnet
+    logging: *default-logging
+
+  nix-harmonia:
+    image: harmonia:latest
+    container_name: localnet-artifact-harmonia
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - HARMONIA_SIGN_KEY_PATH=/data/secret-key.sec
+    volumes:
+      - /nix/store:/nix/store:ro
+      - harmonia-data:/data
+    networks:
+      - localnet
+    logging: *default-logging
+
+  nix-ncps:
+    image: ncps:latest
+    container_name: localnet-artifact-ncps
+    restart: unless-stopped
+    ports:
+      - "5001:8080"
+    volumes:
+      - ncps-data:/data
+    networks:
+      - localnet
+    logging: *default-logging
+
+  nix-snapshotter:
+    image: nix-snapshotter:latest
+    container_name: localnet-artifact-nix-snapshotter
+    restart: unless-stopped
+    ports:
+      - "8989:8989"
+    volumes:
+      - nix-snapshotter-data:/var/lib/nix-snapshotter
+      - /nix/store:/nix/store
+    networks:
+      - localnet
+    logging: *default-logging

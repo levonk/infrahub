@@ -6,6 +6,10 @@ This service domain groups the on-premise artifact repositories that ship with t
 
 - **nexus** — [Sonatype Nexus Repository Manager](https://www.sonatype.com/products/nexus-repository) for Docker, Maven, npm, and more.
 - **verdaccio** — [Verdaccio](https://verdaccio.org/) as a local npm-compatible proxy and private registry.
+- **nix-attic** — [Attic](https://github.com/zhaofengli/attic) for multi-tenant Nix binary caching.
+- **nix-snapshotter** — [Nix Snapshotter](https://github.com/pdtpartners/nix-snapshotter) for lazy-loading container images from Nix stores.
+- **nix-harmonia** — [Harmonia](https://github.com/nix-community/harmonia) as a Nix binary cache.
+- **nix-ncps** — [NCPS](https://github.com/kalbasit/ncps) as a Nix Cache Proxy Server.
 
 Each package directory provides a consistent scaffold:
 
