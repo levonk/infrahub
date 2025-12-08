@@ -50,7 +50,7 @@ cd localnet-in-a-box
 
 # Configure environment
 cp .env.example .env
-nano .env
+vi .env
 
 # Start services
 make up
