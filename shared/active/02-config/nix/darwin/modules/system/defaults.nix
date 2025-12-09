@@ -4,6 +4,15 @@
     dock.mru-spaces = false;
     finder.AppleShowAllExtensions = true;
     finder.FXPreferredViewStyle = "clmv";
+    finder.NewWindowTarget = "Home";
+    finder.NewWindowTargetPath = "file://\${HOME}/";
+    finder.FinderSpawnTab = true;
+    finder.ShowPathbar = true;
+    finder.ShowStatusBar = true;
+    finder.FXDefaultSearchScope = "SCcf";
+    finder.FXEnableExtensionChangeWarning = false;
+    # finder.WarnOnEmptyTrash = false; # Not supported in standard nix-darwin finder module yet, checking alternatives or custom defaults
+    finder._FXSortFoldersFirst = false;
     loginwindow.LoginwindowText = "Managed by Nix";
     screencapture.location = "~/Pictures/screenshots";
     screensaver.askForPassword = true;
