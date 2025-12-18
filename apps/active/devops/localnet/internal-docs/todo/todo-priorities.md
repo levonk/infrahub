@@ -37,10 +37,12 @@ A prioritized roadmap for building a secure, resilient, and privacy-focused home
 
 ### ProxMox1 Compute & Storage (Convergence Goal: 1 Server?)
 
+- [ ] **Productivity**: QubeOS VM
+- [ ] **Gaming**: Windows VM + GPU Passthrough
 - **Virtualization Server**: Proxmox VE (Containers/VMs)
-  - [ ] **Productivity**: QubeOS VM
-  - [ ] **Gaming**: Windows VM + GPU Passthrough
   - [ ] **docker** (pick portainer)
+    - [ ] **PhotonOS**: Pick this for container workloads
+    - [ ] **Flatpack**: Use PhotonOS over Flatpack
     - [ ] **Portainer**: https://github.com/portainer/portainer
     - [ ] **Rancher**: https://github.com/rancher/rancher
     - [ ] **Dockge**: https://github.com/louislam/dockge
@@ -136,7 +138,11 @@ A prioritized roadmap for building a secure, resilient, and privacy-focused home
     - [ ] Geoblock https://github.com/PascalMinder/geoblock
 - [ ] **VPN Inbound / Mesh**:
   - [ ] **Netbird**: https://github.com/netbirdio/netbird
+  - [ ] **Nebula**: https://github.com/
+  - [ ] **Netmaker**: https://github.com/
+  - [ ] **Headscale**: https://github.com/
   - [ ] **Tailscale**: https://tailscale.com/
+  - [ ] **Zerotier**: https://github.com/
   - [ ] **Twingate**: https://www.twingate.com/pricing
 - [ ] **VPN inter-container**
   - [ ] **GlueTun**: https://github.com/qdm12/gluetun
@@ -158,6 +164,10 @@ A prioritized roadmap for building a secure, resilient, and privacy-focused home
     - [ ] https://github.com/oznu/docker-cloudflare-ddns
 - [ ] **VM**
   - [ ] **Kasm**: https://github.com/kasmtech/terraform/blob/develop/digitalocean/single_server/README.md
+- [ ] Monitoring
+  - [ ] internal networking layout scan https://github.com/netvisor-io/netvisor
+  - [ ] internal uptime monitoring https://github.com/louislam/uptime-kuma
+  - [ ] external uptime monitoring https://github.com/upptime/upptime
 
 ### Remote Access
 
@@ -178,6 +188,8 @@ A prioritized roadmap for building a secure, resilient, and privacy-focused home
   - [ ] vaultwarden
   - [ ] pass
   - [ ] Hashicorp Vault https://github.com/hashicorp/vault
+- [ ] Security Monitoring
+  - [ ] How others see your device activity https://github.com/gommzystudio/device-activity-tracker
 
 ### DNS Architecture (Tiered Fallback)
 
@@ -189,6 +201,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
 - [ ] **Layer 3 (Internal)**: CoreDNS https://github.com/coredns/coredns + keepalived
 - [ ] **Layer 4 (Resolution & Anonymity Chain)**:
   1. [ ] DNSCrypt: ODoH (Oblivious DoH) https://github.com/DNSCrypt/dnscrypt-proxy
+	- [ ] ODoH Relay maybe via cloudflare workers https://github.com/serverless-dns/odoh-proxy/blob/main/index.js
   2. [ ] DNSCrypt: Non-logging servers
   3. [ ] Tor Service (Future)
   4. [ ] Unbound over Tor https://github.com/NLnetLabs/unbound
@@ -197,6 +210,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
 
 ### Web Proxy
 
+- [ ] **Search** (self-hosted meta-search to route through Tor) https://docs.searxng.org/
 - [ ] **Marreta** (Special purpose de-annoyer) https://github.com/manualdousuario/marreta/blob/main/README.en.md
 - Tiered Fallback
   - [ ] Privoxy https://www.privoxy.org/
@@ -281,11 +295,13 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] **JellyfinTV**: TV channels for Jellyfin https://github.com/DrewThomasson/JellyfinTV
   - [ ] **Plex**: Backup / External sharing https://www.plex.tv/media-server-downloads/?cat=computer&plat=windows#plex-media-servertwingate
   - [ ] **Emby**: alternative for Plex
+  - [ ] **Notifiarr**: notifications https://github.com/Notifiarr/notifiarr
   - [ ] **Owncast**: Self-hosted streaming https://owncast.online/
   - [ ] **Apollo**: Gaming Remote Play Streaming https://github.com/ClassicOldSong/Apollo
   - [ ] **Audiobookshelf**: audiobook and podcast player https://github.com/audiobookshelf/audiobookshelf
   - [ ] **Miniflux**: Opinionated minimal feed reader https://github.com/miniflux/miniflux
 - [ ] **Acquisition (\*arr Stack)**:
+  - [ ] **MediaManager** (Unified Movies & TV alpha software) https://github.com/maxdorninger/MediaManager
   - [ ] **Radarr** (Movies) https://github.com/Radarr/Radarr
   - [ ] **Sonarr** (TV) https://github.com/Sonarr/Sonarr
   - [ ] **Tdarr** (video processing) https://docs.tdarr.io/docs/installation/docker/run-compose https://github.com/HaveAGitGat/Tdarr
@@ -299,6 +315,9 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] **Flexget**: Misc https://github.com/Flexget/Flexget
   - [ ] **Kapowarr**: (Comics) https://github.com/Casvt/Kapowarr
   - [ ] **Deduparr** https://github.com/deduparr-dev/deduparr (Dedupe with video duplicates considering quality)
+  - [ ] **Notifiarr** https://github.com/Notifiarr/notifiarr
+  - [ ] **Huntarr** https://github.com/plexguide/Huntarr.io
+  - [ ] **Swaparr** https://github.com/ThijmenGThN/swaparr
   - [ ] **Romm** Games and Roms https://romm.app/ https://github.com/rommapp/romm
   - [ ] Indexers
     - [ ] https://github.com/Prowlarr/Prowlarr
@@ -326,7 +345,8 @@ _Goal: Privacy, Resilience, Ad-blocking_
 - [ ] **File Transfer**
   - [ ] https://github.com/fatedier/fft
   - [ ] Torrents
-    - [ ] **Qbittorrent**: Torrent Client https://github.com/qbittorrent/qBittorrent
+    - [ ] **Qbittorrent**: Torrent Client https://github.com/c0re100/qBittorrent-Enhanced-Edition https://github.com/qbittorrent/qBittorrent
+    - [ ] **AutoBrr**: Torrent seeding boost manager https://github.com/autobrr/autobrr
     - [ ] **Deluge**: Torrent Client https://github.com/deluge-torrent/deluge
 - [ ] **Calendar**
   - [ ] **Radicale**: FOSS CalDAV and CardDAV server https://github.com/radicale/radicale
@@ -363,6 +383,9 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] LiveKit (Realtime A/V) https://github.com/livekit
   - [ ] Video Meet: https://jitsi.org/jitsi-meet/
   - [ ] Video Meetings: https://github.com/miroslavpejic85/mirotalk https://p2p.mirotalk.com/
+  - [ ] Voice to Text:
+  	- https://github.com/argilla-io/distil-whisper (speech-to-text)
+  	- https://github.com/remsky/Kokoro-FastAPI
 - [ ] **News**: Meridian (Personal Podcast) https://github.com/iliane5/meridian
 - [ ] **Linkstack.org**: (Linktree alternative) https://linkstack.org/
 - [ ] **Postiz-app**: (multi-social poster) https://github.com/gitroomhq/postiz-app
@@ -386,6 +409,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] **DeepCode**: Code agent https://github.com/HKUDS/DeepCode
   - [ ] **Skyvern**: Browser agent https://github.com/Skyvern-AI/skyvern
   - [ ] **AgentSea**: Compute agent https://github.com/agentsea/surfkit https://www.agentsea.ai/
+  - [ ] **OpenScouts**: Web AI Notifier https://github.com/firecrawl/open-scouts
 - [ ] **Stable Diffusion**
   - [ ] **ComfyUI**: https://github.com/comfyanonymous/ComfyUI https://www.comfy.org/
 - [ ] **Text to Speech**
@@ -437,7 +461,6 @@ _Goal: Privacy, Resilience, Ad-blocking_
 	- [ ] Logger - Log aggregation and analysis
 	- [ ] CodeProject.AI - AI platform with local inference capabilities
 	- [ ] NPM - Node Package Manager for JavaScript applications
-	- [ ] TeraMaster - File sharing and synchronization platform
 	- [ ] NUT Server - Network UPS Tools for power management
 	- [ ] DSM - Disk Station Manager for Synology devices
 	- [ ] Blue Iris - Security camera management and recording
