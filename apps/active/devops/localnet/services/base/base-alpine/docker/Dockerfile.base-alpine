@@ -1,5 +1,5 @@
 # Alpine-based base image for services requiring minimal size and security
-FROM alpine:latest
+FROM dhi.io/alpine-base:latest
 
 # Labels for metadata and security scanning
 LABEL org.opencontainers.image.title="Base Alpine Image" \

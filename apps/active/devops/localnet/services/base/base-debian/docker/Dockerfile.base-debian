@@ -1,5 +1,5 @@
 # Debian-based base image for services requiring Debian compatibility
-FROM debian:bookworm-slim
+FROM dhi.io/debian-base:bookworm
 
 # Labels for metadata and security scanning
 LABEL org.opencontainers.image.title="Base Debian Image" \
