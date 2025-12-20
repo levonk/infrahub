@@ -1,0 +1,55 @@
+flowchart TB
+    subgraph LocalNet["LocalNet / Test Environment"]
+        direction TB
+        
+        Client["Client Container / IoT Device"]:::client
+        
+        subgraph SecurityStack["Egress Security Stack"]
+            style SecurityStack fill:#e6fffa,stroke:#005500
+            
+            Firewall["Egress Firewall Container"]:::firewall
+            MitmProxy["mitmproxy (Transparent)"]:::mitm
+            Iptables["iptables / Routing"]
+            
+            Firewall -- contains --> Iptables
+            Firewall -- optional --> MitmProxy
+        end
+        
+        subgraph Observability["Observability Sidecars"]
+            style Observability fill:#fff5f5,stroke:#c53030
+            PCAP["Packet Capture"]
+            Ntop["ntopng"]
+            Zeek["Zeek IDS"]
+        end
+        
+        subgraph DNS["DNS Services"]
+            style DNS fill:#ebf8ff,stroke:#3182ce
+            AdGuard["AdGuard Home"]:::dns
+        end
+    end
+    
+    WAN["WAN / Internet"]:::wan
+    
+    %% Flows
+    Client -- "Default Gateway" --> Iptables
+    
+    %% Traffic Path
+    Iptables -- "Allowed Traffic" --> WAN
+    Iptables -- "Intercepted (80/443)" --> MitmProxy
+    MitmProxy -- "Proxy Requests" --> WAN
+    
+    %% DNS Path
+    Client -- "DNS Query (53)" --> Iptables
+    Iptables -- "DNAT" --> AdGuard
+    AdGuard -- "Recursive Query" --> WAN
+    
+    %% Observability
+    Client -.- Observability
+    SecurityStack -.- Observability
+
+    %% Classes
+    classDef client fill:#d6bcfa,stroke:#553c9a
+    classDef firewall fill:#9ae6b4,stroke:#22543d
+    classDef mitm fill:#ffdddd,stroke:#c53030
+    classDef dns fill:#63b3ed,stroke:#2a4365
+    classDef wan fill:#cbd5e0,stroke:#2d3748

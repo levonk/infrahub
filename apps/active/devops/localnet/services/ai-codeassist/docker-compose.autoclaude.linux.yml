@@ -1,0 +1,10 @@
+services:
+  autoclaude-runner:
+    <<: *runner-linux-sysbox-dind
+
+  ai-codeassist-dind:
+    <<: *runner-dind-service
+
+networks:
+  localnet:
+    external: true

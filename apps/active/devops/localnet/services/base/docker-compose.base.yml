@@ -17,12 +17,12 @@ services:
       context: ./base-alpine
       dockerfile: docker/Dockerfile.base-alpine
     image: base-alpine:latest
-    container_name: base-alpine
+    container_name: localnet-base-alpine
     logging: *default-logging
   base-debian:
     build:
       context: ./base-debian
       dockerfile: docker/Dockerfile.base-debian
     image: base-debian:latest
-    container_name: base-debian
+    container_name: localnet-base-debian
     logging: *default-logging

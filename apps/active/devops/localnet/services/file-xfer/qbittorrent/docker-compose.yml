@@ -1,0 +1,27 @@
+---
+services:
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: localnet-file-xfer-qbittorrent
+    restart: unless-stopped
+    networks:
+      - localnet
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TIMEZONE}
+      - WEBUI_PORT=${QBIT_WEB_CONTAINER_PORT:-8701}
+    ports:
+      - "${QBIT_WEB_HOST_PORT:-8701}:${QBIT_WEB_CONTAINER_PORT:-8701}"
+      - "${QBIT_TORRENT_HOST_PORT_TCP:-6881}:${QBIT_TORRENT_CONTAINER_PORT:-6881}/tcp"
+      - "${QBIT_TORRENT_HOST_PORT_UDP:-6881}:${QBIT_TORRENT_CONTAINER_PORT:-6881}/udp"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:${QBIT_WEB_CONTAINER_PORT:-8701} || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+networks:
+  localnet:
+    external: true

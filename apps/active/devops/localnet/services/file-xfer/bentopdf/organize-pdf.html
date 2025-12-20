@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Duplicate and Organize PDF Pages - BentoPDF</title>
+    <meta name="description" content="Reorder, duplicate, and organize PDF pages. Free and secure.">
+    <link rel="icon" type="image/png" href="/images/favicon.svg" />
+    <link rel="alternate" hreflang="en" href="/en/organize-pdf.html" />
+    <link rel="alternate" hreflang="de" href="/de/organize-pdf.html" />
+	<link rel="alternate" hreflang="vi" href="/vi/organize-pdf.html" />
+    <link rel="alternate" hreflang="x-default" href="/en/organize-pdf.html" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+  <script type="module" crossorigin src="/assets/organize-pdf-Cn_3NfkH.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/main-Dzxg2eZZ.js">
+  <link rel="modulepreload" crossorigin href="/assets/mobileMenu-CQFcDk7p.js">
+  <link rel="modulepreload" crossorigin href="/assets/full-width-CrKHpSp0.js">
+  <link rel="modulepreload" crossorigin href="/assets/index-DMQTJy3b.js">
+  <link rel="modulepreload" crossorigin href="/assets/PDFButton-_8Cap8jz.js">
+  <link rel="stylesheet" crossorigin href="/assets/main-DveUFXPi.css">
+</head>
+
+<body class="antialiased bg-gray-900">
+    <nav class="bg-gray-800 border-b border-gray-700 sticky top-0 z-30">
+        <div class="container mx-auto px-4">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex-shrink-0 flex items-center cursor-pointer" id="home-logo">
+                    <img src="data:image/svg+xml,%3csvg%20width='166'%20height='166'%20viewBox='0%200%20166%20166'%20fill='none'%20xmlns='http://www.w3.org/2000/svg'%3e%3cg%20transform='translate(40,%200)'%3e%3cpath%20d='M56.7848%2080.9116L0%2025.6211L24.8434%201.43151C26.8037%20-0.47717%2029.9814%20-0.47717%2031.9414%201.43151L85.177%2053.2662L56.7848%2080.9116Z'%20fill='%23A5B4FC'/%3e%3cpath%20d='M-1.30805e-05%2080.7335L21.2939%20101.467L42.5878%2080.7335L21.2939%2060L-1.30805e-05%2080.7335Z'%20fill='%23E0E7FF'/%3e%3cpath%20d='M56.7848%2083L81.6279%20107.19C83.5881%20109.098%2083.5881%20112.192%2081.6279%20114.101L28.3925%20165.936L0%20138.29L56.7848%2083Z'%20fill='%236366F1'/%3e%3c/g%3e%3c/svg%3e" alt="Bento PDF Logo" class="h-8 w-8" />
+                    <span class="text-white font-bold text-xl ml-2"><a href="/">BentoPDF</a></span>
+                </div>
+                <div class="hidden md:flex items-center space-x-8 text-white">
+                    <a href="/" class="nav-link" data-i18n="nav.home">Home</a>
+                    <a href="./about.html" class="nav-link">About</a>
+                    <a href="/" class="nav-link" data-i18n="nav.allTools">All Tools</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div id="uploader" class="min-h-screen flex flex-col items-center justify-start py-12 p-4 bg-gray-900">
+        <div id="tool-uploader"
+            class="bg-gray-800 rounded-xl shadow-xl px-4 py-8 md:p-8 max-w-2xl w-full text-gray-200 border border-gray-700">
+            <button id="back-to-tools"
+                class="flex items-center gap-2 text-indigo-400 hover:text-indigo-300 mb-6 font-semibold">
+                <i data-lucide="arrow-left" class="cursor-pointer"></i>
+                <span class="cursor-pointer">Back to Tools</span>
+            </button>
+            <h1 class="text-2xl font-bold text-white mb-2" data-i18n="tools:duplicateOrganize.name">Duplicate and Organize PDF</h1>
+            <p class="text-gray-400 mb-6" data-i18n="tools:duplicateOrganize.subtitle">
+                Drag pages to reorder them. Use the <i data-lucide="copy-plus"
+                    class="inline-block w-4 h-4 mx-1 align-text-bottom text-green-500"></i> icon to duplicate a page or
+                the <i data-lucide="x-circle" class="inline-block w-4 h-4 mx-1 align-text-bottom text-red-400"></i> icon
+                to
+                delete it.
+            </p>
+
+            <!-- Drop Zone -->
+            <div id="drop-zone"
+                class="relative flex flex-col items-center justify-center w-full h-48 md:h-64 border-2 border-dashed border-gray-600 rounded-xl cursor-pointer bg-gray-900 hover:bg-gray-700 transition-colors duration-300">
+                <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                    <i data-lucide="upload-cloud" class="w-10 h-10 mb-3 text-gray-400"></i>
+                    <p class="mb-2 text-sm text-gray-400"><span class="font-semibold" data-i18n="upload.clickToSelect">Click to select a file</span> <span data-i18n="upload.orDragAndDrop">or drag and drop</span></p>
+                    <p class="text-xs text-gray-500">PDF Documents</p>
+                    <p class="text-xs text-gray-500" data-i18n="upload.filesNeverLeave">Your files never leave your device.</p>
+                </div>
+                <input id="file-input" type="file" class="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer"
+                    accept="application/pdf">
+            </div>
+
+            <!-- File Display -->
+            <div id="file-display-area" class="mt-4 space-y-2"></div>
+
+            <!-- Page Grid (shown after file upload) -->
+            <div id="page-grid" class="hidden grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-4 my-6"></div>
+
+            <button id="process-btn" class="hidden btn-gradient w-full mt-6">Save Changes</button>
+        </div>
+    </div>
+    <div id="loader-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+        <div class="bg-gray-800 p-8 rounded-lg flex flex-col items-center gap-4 border border-gray-700 shadow-xl">
+            <div class="solid-spinner"></div>
+            <p id="loader-text" class="text-white text-lg font-medium" data-i18n="loader.processing" data-i18n="loader.processing">Processing...</p>
+        </div>
+    </div>
+    <div id="alert-modal" class="fixed inset-0 bg-gray-900 bg-opacity-90 flex items-center justify-center z-50 hidden">
+        <div class="bg-gray-800 rounded-lg shadow-xl p-6 max-w-sm w-full border border-gray-700">
+            <h3 id="alert-title" class="text-xl font-bold text-white mb-2" data-i18n="alert.title" data-i18n="alert.title">Alert</h3>
+            <p id="alert-message" class="text-gray-300 mb-6"></p>
+            <button id="alert-ok"
+                class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg" data-i18n="alert.ok" data-i18n="alert.ok">OK</button>
+        </div>
+    </div>
+</body>
+
+</html>

@@ -1,56 +1,20 @@
 # Egress Firewall Sidecar
 
-A minimal, Nix-built container designed to act as a network sidecar to restrict outbound traffic for other containers.
+A minimal, Nix-built container acting as a secure gateway for other containers or networks. It provides outbound traffic restriction, transparent MITM proxying, and DNS routing.
 
 ## Features
-- **Minimal Footprint**: Built with Nix `dockerTools.buildLayeredImage` (no full OS overhead).
-- **Configurable**: Define allowed outbound destinations via Environment Variables.
-- **Sidecar Ready**: Designed to share network namespace with other services.
-- **Secure**: Default DENY policy for egress.
+- **Minimal Footprint**: Built with Nix `dockerTools.buildLayeredImage`.
+- **Egress Filtering**: Define allowed destinations via environment variables.
+- **Transparent MITM**: Optional `mitmproxy` interception for HTTP/HTTPS (port 80/443).
+- **DNS Routing**: Transparently route DNS queries to a specific upstream (e.g., AdGuard).
+- **Sidecar & Gateway Mode**: Works via `network_mode: service:...` or as a gateway for a subnet.
 
 ## Building the Image
 
-This project uses Nix Flakes.
-
 ```bash
-# Build the Docker image tarball
 nix build .#
-
-# Load into Docker
 docker load < result
-```
-
-The image will be tagged `egress-firewall:latest`.
-
-## Usage with Docker Compose
-
-To protect another service (e.g., `my-app`), run this container and make `my-app` use its network.
-
-### `docker-compose.yml` Example
-
-```yaml
-services:
-  # The Firewall Sidecar
-  firewall:
-    image: egress-firewall:latest
-    container_name: egress-firewall
-    cap_add:
-      - NET_ADMIN # Required for iptables
-    environment:
-      # Format: host:port, host (all ports), ip:port
-      - ALLOW_DESTINATIONS=api.github.com:443, 1.1.1.1:53
-      - ENABLE_DNS=true # Defaults to true, allows outbound UDP/TCP 53 to system nameservers
-      - DEBUG=true
-    sysctls:
-      - net.ipv4.ip_forward=1 # Often helpful if routing, but strictly sidecar might not need it
-
-  # The Protected Application
-  my-app:
-    image: alpine:latest
-    command: sh -c "apk add curl && curl -v https://api.github.com"
-    network_mode: service:firewall # Share network stack with firewall
-    depends_on:
-      - firewall
+# Tag: egress-firewall:latest
 ```
 
 ## Configuration
@@ -58,16 +22,52 @@ services:
 | Environment Variable | Description | Default |
 |----------------------|-------------|---------|
 | `ALLOW_DESTINATIONS` | Comma-separated list of `host:port` or `host`. | (empty) |
-| `ENABLE_DNS` | `true` or `false`. Automatically allows outbound traffic to nameservers listed in `/etc/resolv.conf`. | `true` |
-| `DEBUG` | `true` or `false`. Enables verbose logging. | `false` |
+| `ENABLE_DNS` | `true` or `false`. Allow outbound DNS (53). | `true` |
+| `DNS_SERVER` | IP address of upstream DNS. **Forces** DNAT of all port 53 traffic to this IP. | (empty) |
+| `ENABLE_MITM` | `true` or `false`. Enable transparent HTTP/HTTPS interception. | `false` |
+| `MITM_OPTS` | Additional arguments for `mitmdump`. | (empty) |
+| `DEBUG` | `true` or `false`. Verbose logging. | `false` |
 
-## Custom Rules
+## Usage Examples
 
-If you need complex rules not covered by the environment variables, you can mount a script to `/etc/firewall/custom-rules.sh`.
+### 1. Locked-down Sidecar
+Protect a single container (e.g., test runner) and inspect its traffic.
 
 ```yaml
-    volumes:
-      - ./my-custom-rules.sh:/etc/firewall/custom-rules.sh
+services:
+  firewall:
+    image: egress-firewall:latest
+    cap_add: [NET_ADMIN]
+    environment:
+      - ALLOW_DESTINATIONS=api.github.com:443
+      - ENABLE_MITM=true
+      - DNS_SERVER=10.0.0.53 # Point to AdGuard
+
+  app:
+    image: my-app
+    network_mode: service:firewall
 ```
 
-This script will be executed *before* the default DROP policy is applied.
+### 2. Network Gateway
+Act as a gateway for a subnet or physical machines.
+
+```yaml
+services:
+  gateway:
+    image: egress-firewall:latest
+    cap_add: [NET_ADMIN]
+    sysctls:
+      - net.ipv4.ip_forward=1
+    networks:
+      testing_net:
+        ipv4_address: 172.20.0.1
+    environment:
+      - ALLOW_DESTINATIONS=google.com:443
+      - ENABLE_MITM=true
+```
+
+## Logs & Observability
+- **Firewall Logs**: Iptables drops are not logged by default in this minimal setup unless `LOG` target is added via custom scripts.
+- **MITM Logs**: `mitmdump` logs request/response metadata to stdout when enabled.
+- **Custom Rules**: Mount a script to `/etc/firewall/custom-rules.sh` for advanced iptables logic.
+

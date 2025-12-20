@@ -82,6 +82,8 @@ A prioritized roadmap for building a secure, resilient, and privacy-focused home
 - Outside -> VPN + Tor -> Outside
 - Inside -> VPN -> Outside
 - Cert Authority
+- RustDeskDocker - Remote Help
+- ZeroTrust VPN
 
 ### Local Rasberry Pi
 
@@ -264,6 +266,22 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] **Claude Code MCP server**: https://github.com/steipete/claude-code-mcp
   - [ ] **PluggedIn MCP proxy**: https://github.com/VeriTeknik/pluggedin-mcp-proxy
   - [ ] **PluggedIn app**: https://github.com/VeriTeknik/pluggedin-app
+  - [ ] **Vibe Kanban / Auto-Claude rollout checklist**
+    - [x] Hostname: `kanban.levonk.com`, Traefik router with Authelia + geoblock (LAN-only) — confirmed 2025-12-19.
+    - [x] Runtime shape: Vibe Kanban container (Node + pnpm) per `services/ai-codeassist/vibe-kanban/`, Linux uses Sysbox+DIND, WSL uses dockerproxy; `/p` repo mount required.
+    - [x] Opencode agent: runs as a separate container (`services/ai-codeassist/opencode-runner/`) to allow multiple instances per project; expose control API to Kanban.
+    - [x] Auto-Claude runner: track upstream latest release (pin tag/digest once pulled) in `autoclaude-runner` image; integrate FastAPI shim + FalkorDB bolt URL.
+    - [ ] Secrets & env required (provide before deploy):
+      - `CLAUDE_CODE_OAUTH_TOKEN` (Anthropic/Claude Code OAuth for Auto-Claude CLI).
+      - `AUTOCLAUDE_OPENAI_API_KEY` (or equivalent provider key if using OpenCode/GPT-based automations).
+      - `KANBAN_SESSION_SECRET`, `KANBAN_AUTH_PASSWORD` (bootstrap admin for Vibe Kanban UI).
+      - `OPENCODE_GITHUB_TOKEN` (repo automation), optional `GIT_SSH_PRIVATE_KEY` for multi-repo mounts.
+      - `AUTHELIA_POLICY` update granting `kanban.levonk.com`.
+    - [ ] Tasks:
+      - Add compose fragments (base/linux/wsl) for Vibe Kanban + Opencode with Traefik labels and healthchecks.
+      - Update Traefik `dynamic.yml` with `kanban.levonk.com` router/service and Authelia middleware link.
+      - Extend `.env.localnet` / `env.template` with new env vars above (flag sensitive).
+      - Write smoke test doc covering agent launch via Vibe Kanban -> Opencode -> Auto-Claude pipeline.
 - [ ] **Database Tools**: Django SQL Explorer https://github.com/explorerhq/django-sql-explorer
 - [ ] **Data Tooling**: Goose https://github.com/block/goose
 - [ ] **Notebooks**: JupyterLab https://github.com/jupyterlab/jupyterlab
@@ -441,7 +459,9 @@ _Goal: Privacy, Resilience, Ad-blocking_
 ## 📝 Backlog
 
 - [ ] **OCR Tools**:
-  - [ ] DeepSeek-OCR: https://github.com/deepseek-ai/DeepSeek-OCR
+  - [ ] Mistral OCR3: https://mistral.ai/news/mistral-ocr-3
+  - Alternatives
+    - [ ] DeepSeek-OCR: https://github.com/deepseek-ai/DeepSeek-OCR
   - [ ] Chandra: https://github.com/datalab-to/chandra
 - [ ] **Agents**:
   - [ ] Laddr (Agent Runner): https://github.com/AgnetLabs/Laddr
@@ -475,6 +495,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
     - [ ] https://sabnzbd.org/ --- Official SABnzbd site (Usenet downloader)
   - [ ] **Backups & Sync**
     - [ ] https://github.com/duplicati/duplicati --- Encrypted, versioned backup system
+    - [ ] ZeroByte Backup --- Encrypted, versioned backup system
   - [ ] **Bookmarks, Reading & Knowledge**
     - [ ] https://github.com/FreshRSS/FreshRSS --- Self‑hosted RSS/news aggregator
     - [ ] https://github.com/karakeep-app/karakeep --- Personal knowledge / bookmark manager previously Hoarder

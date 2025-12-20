@@ -19,7 +19,7 @@ if [ ! -f /etc/chrony/certs/chrony-nts.crt ] || [ ! -f /etc/chrony/certs/chrony-
 else
 	echo "[ENTRYPOINT] NTS certificates /etc/chrony/certs/chrony-nts.{crt,key} already exist, skipping generation" >&2
 fi
-chown chrony:chrony /etc/chrony/certs/chrony-nts.crt /etc/chrony/certs/chrony-nts.key || true
+#chown chrony:chrony /etc/chrony/certs/chrony-nts.crt /etc/chrony/certs/chrony-nts.key || true
 chmod 644 /etc/chrony/certs/chrony-nts.crt || true
 chmod 600 /etc/chrony/certs/chrony-nts.key || true
 if [ "$(stat -c %U /etc/chrony/certs/chrony-nts.key)" != "chrony" ]; then
@@ -58,7 +58,7 @@ if [ -n "$sed_expressions" ]; then
     eval sed "$sed_expressions" "$TEMPLATE_CONFIG" > "$WORKING_CONFIG"
 fi
 
-echo '[ENTRYPOINT] First boot error of "Could not read valid frequency and skew from driftfile /var/lib/chrony/chrony.drift" is expected and can be ignored.' >&2
+echo '[ENTRYPOINT] First boot error of "Could not read valid frequency and skew from driftfile /var/lib/chrony/chrony.drift" is expected and can be ignored.' >&2 || true
 
 # Start chronyd as root so it can bind to low ports, then drop to 'chrony'
 exec /usr/sbin/chronyd -u chrony -d -x -s "$@"

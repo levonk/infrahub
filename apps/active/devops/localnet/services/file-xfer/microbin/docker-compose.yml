@@ -1,0 +1,34 @@
+---
+# Microbin Docker Compose Configuration
+# Generated secure docker-compose configuration for 
+
+services:
+  :
+    image: :latest
+    container_name: 
+    restart: unless-stopped
+    ports:
+      - ":"
+    environment:
+      - NODE_ENV=production
+      - SERVICE_NAME=
+      - SERVICE_PORT=
+    # Healthcheck assumes curl is available.
+    # NOTE: In the 'prod' image, curl might NOT be available if it's truly minimal.
+    # You might need to use a different healthcheck strategy for prod (e.g., built-in language features)
+    # or ensure the minimal image has a basic http client.
+    # For now, we assume the user might want to use the debug image for initial testing.
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost: || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - -network
+
+
+
+networks:
+  -network:
+    driver: bridge

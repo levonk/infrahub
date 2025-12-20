@@ -1,5 +1,13 @@
 http:
   routers:
+    vibe-kanban:
+      rule: 'Host(`kanban.levonk.com`)'
+      service: vibe-kanban
+      entryPoints:
+        - websecure
+      middlewares:
+        - authelia
+        - local-ip-whitelist
     claude-code-ui:
       rule: 'PathPrefix(`/claude-code-ui`)'
       service: claude-code-ui
@@ -36,6 +44,10 @@ http:
       middlewares:
         - strip-claude-code-intercept-ui
   services:
+    vibe-kanban:
+      loadBalancer:
+        servers:
+          - url: 'http://vibe-kanban:3000'
     claude-code-ui:
       loadBalancer:
         servers:

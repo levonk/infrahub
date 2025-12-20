@@ -24,7 +24,7 @@ services:
       - "-proxysocketendpoint=/socket/docker.sock"
       - "-proxysocketendpointfilemode=0400"
     ports:
-      - "127.0.0.1:12345:12345"
+      - "127.0.0.1:${SECURITY_DOCKERPROXY_RO_HOST_PORT:-12345}:${SECURITY_DOCKERPROXY_RO_CONTAINER_PORT:-12345}"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - dockerproxy-ro:/socket/
@@ -64,7 +64,7 @@ services:
       - "-proxysocketendpoint=/socket/docker.sock"
       - "-proxysocketendpointfilemode=0600"
     ports:
-      - "127.0.0.1:12346:12346"
+      - "127.0.0.1:${SECURITY_DOCKERPROXY_RW_HOST_PORT:-12346}:${SECURITY_DOCKERPROXY_RW_CONTAINER_PORT:-12346}"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - dockerproxy-rw:/socket/
@@ -86,6 +86,7 @@ services:
       retries: 3
 
   ## Watchtower needs rw access to docker socket, can't use sysbox
+  ## Should we swap this with Tugtainer which combines the functionality of watchtower + WUD?
   watchtower: # https://github.com/containrrr/watchtower
     container_name: localnet-watchtower
     logging: *default-logging
@@ -100,12 +101,39 @@ services:
     environment:
       WATCHTOWER_CLEANUP: "true"
       WATCHTOWER_POLL_INTERVAL: 7200
+      WATCHTOWER_LABEL_ENABLE: "true"
       DOCKER_HOST: "unix:///socket/docker.sock"
     volumes:
       #- /var/run/docker.sock:/var/run/docker.sock
-      - dockerproxy-ro:/socket/:ro
+      - dockerproxy-rw:/socket/:rw
     depends_on:
-      - dockerproxy-ro
+      - dockerproxy-rw
+
+  tugtainer: # https://github.com/Quenary/tugtainer
+    image: quenary/tugtainer:latest
+    container_name: localnet-security-tugtainer
+    logging: *default-logging
+    restart: unless-stopped
+    environment:
+      - DOCKER_HOST=tcp://dockerproxy-rw:2375
+      - LOG_LEVEL=warning
+    volumes:
+      - tugtainer_data:/tugtainer
+    depends_on:
+      - dockerproxy-rw
+    networks:
+      - localnet
+    ports:
+      - "${SECURITY_TUGTAINER_HOST_PORT:-9412}:${SECURITY_TUGTAINER_CONTAINER_PORT:-80}"
+    healthcheck:
+      test: ["CMD","true"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
+      - "dev.quenary.tugtainer.protected=false"
 
   sysbox-test:
     image: base-alpine:latest
@@ -199,7 +227,7 @@ services:
       - "traefik.http.routers.crowdsec-dashboard.tls.certresolver=le"
       - "traefik.http.routers.crowdsec-dashboard.tls=true"
       - "traefik.http.routers.crowdsec-dashboard.middlewares=authelia@docker"
-      - "traefik.http.routers.crowdsec-dashboard.loadbalancer.server.port=3000"
+      - "traefik.http.routers.crowdsec-dashboard.loadbalancer.server.port=${SECURITY_CROWDSEC_DASHBOARD_HOST_PORT:-3000}"
     networks:
       - localnet
     depends_on:
@@ -270,7 +298,7 @@ services:
       - 9091
     restart: unless-stopped
   authelia-db:
-    image: redis:alpine
+    image: valkey/valkey:alpine
     container_name: authelia-db
     logging: *default-logging
     healthcheck:
@@ -287,7 +315,40 @@ services:
       - 6379
     restart: unless-stopped
 
+  ## Should we swap this with Tugtainer which combines the functionality of watchtower + WUD?
+  wud:
+    image: getwud/wud:latest
+    container_name: localnet-security-wud
+    restart: unless-stopped
+    ports:
+      - "${SECURITY_WUD_HOST_PORT:-3000}:${SECURITY_WUD_CONTAINER_PORT:-3000}"
+    environment:
+      - TZ=UTC
+      - LOG_LEVEL=info
+      - DOCKER_HOST=tcp://dockerproxy-ro:2375
+      - WUD_SERVER_PORT=${SECURITY_WUD_CONTAINER_PORT:-3000}
+    volumes:
+      - wud_store:/store
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:${SECURITY_WUD_CONTAINER_PORT:-3000}/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - localnet
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+      - "traefik.enable=true"
+      - "traefik.http.routers.wud.rule=Host(`wud.local`)"
+      - "traefik.http.routers.wud.entrypoints=websecure"
+      - "traefik.http.routers.wud.tls=true"
+      - "traefik.http.services.wud.loadbalancer.server.port=${SECURITY_WUD_CONTAINER_PORT:-3000}"
 volumes:
   authelia_db:
-
-
+  wud_store:
+  tugtainer_data:
+  crowdsec-data:
+  crowdsec-config:
+  crowdsec-db:
+  traefik-access-logs:

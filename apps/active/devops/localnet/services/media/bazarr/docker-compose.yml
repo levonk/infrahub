@@ -1,0 +1,32 @@
+---
+# Bazarr Docker Compose Configuration
+# Generated secure docker-compose configuration for bazarr
+
+services:
+  bazarr:
+    image: lscr.io/linuxserver/bazarr:latest
+    container_name: localnet-media-bazarr-standalone
+    restart: unless-stopped
+    ports:
+      - "6767:6767"
+    environment:
+      - PUID=${_PUID:-1000}
+      - PGID=${_PGID:-1000}
+      - TZ=${_TZ:-America/Los_Angeles}
+    volumes:
+      - ./mounts/config:/config
+      - ./mounts/movies:/movies # Remap these as needed in production or bind to actual media paths
+      - ./mounts/tv:/tv # Remap these as needed in production or bind to actual media paths
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6767/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - bazarr-network
+
+networks:
+  bazarr-network:
+    driver: bridge
+

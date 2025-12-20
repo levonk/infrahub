@@ -11,6 +11,7 @@ A comprehensive, containerized home lab environment providing transparent proxyi
 - **WireGuard VPN**: Secure remote access with network isolation and split-tunnel support
 
 ### 🔒 Privacy & Security
+- **Egress Firewall**: Strict allowlist-based outbound traffic control
 - Oblivious DNS over HTTPS (ODoH) for DNS privacy
 - Network Time Security (NTS) for NTP
 - Tor integration for web traffic anonymization (optional for direct mode, automatic for transparent mode)
@@ -21,6 +22,11 @@ A comprehensive, containerized home lab environment providing transparent proxyi
 ### 📦 Artifact Repositories & Development Tools
 - **Sonatype Nexus**: Multi-format repository (Maven, npm, Docker, PyPI)
 - **Verdaccio**: Lightweight npm package caching and private registry
+- **Nix Cache & Artifacts**:
+  - **Attic**: Multi-tenant Nix binary cache
+  - **Harmonia**: Nix binary cache
+  - **NCPS**: Nix Cache Proxy Server
+  - **Nix Snapshotter**: Lazy-loading for container images
 - **LocalStack**: Local AWS cloud stack (S3, DynamoDB, Lambda, SQS, SNS, etc.)
 
 ### 📊 Observability
@@ -61,7 +67,7 @@ See [Three-Tier Access Model](internal-docs/architecture-three-tier-access.md) f
 2. **Configure environment**:
    ```bash
    cp .env.example .env
-   nano .env  # Set your HOST_IP and other preferences
+   vi .env  # Set your HOST_IP and other preferences
    ```
 
 3. **Start services** (no host setup needed!):
@@ -214,6 +220,11 @@ See [docs/quickstart.md](docs/quickstart.md) for detailed configuration options.
 | **Tor** | Anonymization | 9050/tcp |
 | **Nexus** | Artifact repository | 8081/tcp, 8082/tcp |
 | **Verdaccio** | npm registry | 4873/tcp |
+| **Nix Attic** | Nix binary cache | 8083/tcp |
+| **Nix Snapshotter** | Container image lazy-loading | 8989/tcp |
+| **Nix NCPS** | Nix cache proxy | 5001/tcp |
+| **Nix Harmonia** | Nix cache server | 5000/tcp |
+| **Egress Firewall** | Outbound traffic control | - |
 | **Vector** | Log pipeline | 9598/tcp |
 | **Elasticsearch** | Log storage | 9200/tcp, 9300/tcp |
 | **Loki** | Log aggregation | 3100/tcp |

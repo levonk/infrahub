@@ -85,6 +85,60 @@ services:
       start_period: 10s
     restart: unless-stopped
 
+  # Netbird VPN client (Nix-based image)
+  netbird-vpn:
+    image: vpn-netbird:latest
+    container_name: localnet-vpn-netbird
+    logging: *default-logging
+    networks:
+      - localnet
+    environment:
+      - SERVICE_NAME=vpn-netbird
+      - SERVICE_PORT=${VPN_NETBIRD_HTTP_CONTAINER_PORT:-8084}
+    labels:
+      - "traefik.enable=true"
+      - 'traefik.http.routers.netbird.rule=Host(`netbird.localnet`)'
+      - "traefik.http.routers.netbird.entryPoints=websecure"
+      - "traefik.http.routers.netbird.tls=true"
+      - "traefik.http.routers.netbird.tls.certresolver=le"
+      - "traefik.http.services.netbird.loadbalancer.server.port=${VPN_NETBIRD_HTTP_CONTAINER_PORT:-8084}"
+    restart: unless-stopped
+
+  # Tailscale VPN client (Nix-based image)
+  tailscale-vpn:
+    image: vpn-tailscale:latest
+    container_name: localnet-vpn-tailscale
+    logging: *default-logging
+    networks:
+      - localnet
+    environment:
+      - SERVICE_NAME=vpn-tailscale
+      - SERVICE_PORT=${VPN_TAILSCALE_HTTP_CONTAINER_PORT:-8085}
+    labels:
+      - "traefik.enable=true"
+      - 'traefik.http.routers.tailscale.rule=Host(`tailscale.localnet`)'
+      - "traefik.http.routers.tailscale.entryPoints=websecure"
+      - "traefik.http.routers.tailscale.tls=true"
+      - "traefik.http.routers.tailscale.tls.certresolver=le"
+      - "traefik.http.services.tailscale.loadbalancer.server.port=${VPN_TAILSCALE_HTTP_CONTAINER_PORT:-8085}"
+    restart: unless-stopped
+
+  # Twingate VPN connector
+  twingate-vpn:
+    image: twingate/connector:latest
+    container_name: localnet-vpn-twingate
+    logging: *default-logging
+    networks:
+      - localnet
+    sysctls:
+      - net.ipv4.ping_group_range=0 2147483647
+    environment:
+      - TENANT_URL=${TWINGATE_TENANT_URL}
+      - ACCESS_TOKEN=${TWINGATE_ACCESS_TOKEN}
+      - REFRESH_TOKEN=${TWINGATE_REFRESH_TOKEN}
+      - TWINGATE_LABEL_HOSTNAME=${TWINGATE_LABEL_HOSTNAME:-localnet-connector}
+    restart: unless-stopped
+
   # WireGuard Transparent Mode (wg1) - Port 51821
   # VPN clients under observation, MUST use localnet services
   wireguard-transparent:

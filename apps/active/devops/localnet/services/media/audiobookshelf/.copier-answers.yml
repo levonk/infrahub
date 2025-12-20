@@ -1,0 +1,22 @@
+# Changes applied to this service
+_commit: 8ae9a492
+_src_path: boilerplate/apps/infrastructure/docker/docker-linux
+
+# Service Identity
+_service_name: Audiobookshelf
+_service_description: Self-hosted audiobook and podcast server
+_service_name_slug: audiobookshelf
+_domain: localnet
+
+# Container & Network
+_service_port: 13378
+_service_health_endpoint: /health
+_use_traefik: true
+_enable_monitoring: true
+
+# Features
+_include_ui: false
+_ui_port: 13378
+
+# Nix Configuration
+_nix_system: x86_64-linux

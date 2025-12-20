@@ -32,6 +32,9 @@
           gawk
           iproute2
           procps
+          mitmproxy
+          shadow
+          util-linux
           entrypointScript
         ];
 

@@ -1,0 +1,32 @@
+---
+# Lidarr Docker Compose Configuration
+# Generated secure docker-compose configuration for lidarr
+
+services:
+  lidarr:
+    image: lscr.io/linuxserver/lidarr:latest
+    container_name: localnet-media-lidarr-standalone
+    restart: unless-stopped
+    ports:
+      - "8686:8686"
+    environment:
+      - PUID=${_PUID:-1000}
+      - PGID=${_PGID:-1000}
+      - TZ=${_TZ:-America/Los_Angeles}
+    volumes:
+      - ./mounts/config:/config
+      - ./mounts/music:/music # Remap these as needed in production or bind to actual media paths
+      - ./mounts/downloads:/downloads # Remap these as needed in production or bind to actual media paths
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8686/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - lidarr-network
+
+networks:
+  lidarr-network:
+    driver: bridge
+

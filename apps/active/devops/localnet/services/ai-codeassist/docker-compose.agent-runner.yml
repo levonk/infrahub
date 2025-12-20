@@ -1,0 +1,55 @@
+x-runner-base: &runner-base
+  networks:
+    - localnet
+  volumes:
+    - /home/micro/p:/p:rw
+    - autoclaude-logs:/var/log/autoclaude
+  restart: unless-stopped
+  labels:
+    - "traefik.enable=false"
+  healthcheck:
+    test: ["CMD", "curl", "-sf", "http://localhost:8080/healthz"]
+    interval: 30s
+    timeout: 5s
+    retries: 5
+    start_period: 20s
+
+x-runner-linux-sysbox-dind: &runner-linux-sysbox-dind
+  runtime: sysbox-runc
+  environment:
+    DOCKER_HOST: tcp://ai-codeassist-dind:2376
+  depends_on:
+    - ai-codeassist-dind
+
+x-runner-wsl-dockerproxy: &runner-wsl-dockerproxy
+  environment:
+    DOCKER_HOST: unix:///var/run/docker.sock
+  volumes:
+    - dockerproxy-rw:/var/run/docker.sock
+
+x-runner-dind-service: &runner-dind-service
+  image: docker:24.0-dind-rootless
+  container_name: localnet-ai-codeassist-dind
+  networks:
+    - localnet
+  environment:
+    - DOCKER_TLS_CERTDIR=/certs
+  volumes:
+    - dind-data:/var/lib/docker
+  restart: unless-stopped
+  healthcheck:
+    test: ["CMD-SHELL", "docker info >/dev/null 2>&1"]
+    interval: 30s
+    timeout: 5s
+    retries: 5
+    start_period: 30s
+
+services: {}
+
+volumes:
+  autoclaude-logs:
+  dind-data:
+
+networks:
+  localnet:
+    external: true
