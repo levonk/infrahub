@@ -120,6 +120,22 @@ The integration consists of multiple Docker containers working together:
   - Core tooling for Claude Code integration
   - Provides command-line interface and utilities
   - Includes Python dependencies and shell scripts
+- **`elevator-music` plugin** (`https://github.com/Sevii/agent-marketplace/tree/main/plugins/elevator-music`)
+  - Plays soothing elevator music inside Claude Code while waiting for user input
+  - Ships with hook definitions for Stop/UserPromptSubmit/Notification/SessionEnd events
+  - Bundled directly into the claude-code container at `/home/claude/.claude/plugins/elevator-music`
+  - Requires an audio backend (ffmpeg/ffplay is installed in the container)
+  - Refer to the upstream [README](https://github.com/Sevii/agent-marketplace/blob/main/plugins/elevator-music/README.md) for behavior details
+- **`elevator-notifications` plugin** (`https://github.com/Sevii/agent-marketplace/tree/main/plugins/elevator-notifications`)
+  - Sends OS desktop notifications when Claude needs user attention (idle, permission, stop, processing)
+  - Uses `notify-send` on Linux, AppleScript on macOS, and PowerShell on Windows/WSL
+  - Installed at `/home/claude/.claude/plugins/elevator-notifications`
+  - Refer to the upstream [README](https://github.com/Sevii/agent-marketplace/blob/main/plugins/elevator-notifications/README.md) for platform-specific requirements
+- **`hook-logger` plugin** (`https://github.com/Sevii/agent-marketplace/tree/main/plugins/hook-logger`)
+  - Logs Claude Code hook events (Stop, Notifications, etc.) for debugging and auditing
+  - Writes structured logs under `/home/claude/.claude/plugins/hook-logger/logs/`
+  - Installed at `/home/claude/.claude/plugins/hook-logger`
+  - Refer to the upstream [README](https://github.com/Sevii/agent-marketplace/blob/main/plugins/hook-logger/README.md) for configuration flags
 
 - **`claude-code-mcp`** (`https://github.com/steipete/claude-code-mcp`)
   - MCP server implementation
@@ -291,6 +307,35 @@ The MCP (Model Context Protocol) provides tool integration capabilities:
 - **Tool Discovery**: Automatic discovery and registration of available MCP tools
 - **Secure Execution**: Tools run in isolated containers with proper security boundaries
 - **Protocol Compliance**: Full MCP v1.0 protocol implementation for tool communication
+
+### Elevator Music Plugin Usage
+
+The elevator-music plugin is pre-installed and enabled via Claude Code's hook system:
+
+1. The plugin files live at `/home/claude/.claude/plugins/elevator-music` inside the claude-code container.
+2. Hooks defined in `hooks/hooks.json` automatically invoke `elevator-music.py` on `Stop`, `UserPromptSubmit`, `Notification` (`idle_prompt`/`permission_prompt`), and `SessionEnd` events.
+3. Audio playback relies on `ffplay` (from `ffmpeg`) which is included in the container build. If running the binary outside the container, ensure an audio backend is available.
+4. To tweak behavior, shell into the container (`make shell`) and edit the plugin files or swap out the MP3 tracks located in `sounds/`.
+
+For local Claude Code installs (outside this container), follow the upstream README to add the plugin via `/plugin marketplace add sevii/agent-marketplace`.
+
+### Hook Logger Plugin Usage
+
+Hook Logger captures every Claude Code hook invocation for observability:
+
+1. Files are available at `/home/claude/.claude/plugins/hook-logger`.
+2. Logs default to `/home/claude/.claude/plugins/hook-logger/logs/` and can be tailed via `make shell`.
+3. Environment variables in `hook-logger.sh` allow customizing log format, minimal severity, and rotation (see upstream README).
+4. Useful for auditing plugin execution order or diagnosing hook latency when multiple plugins run simultaneously.
+
+### Elevator Notifications Plugin Usage
+
+The elevator-notifications plugin complements the music plugin with desktop notifications:
+
+1. Files reside at `/home/claude/.claude/plugins/elevator-notifications`.
+2. Hook definitions mirror the music plugin to publish OS notifications for Stop, idle, permission, and processing events.
+3. Linux containers include `notify-send` via `ffmpeg` dependency chain; macOS/Windows users should ensure notification permissions are granted if running outside the container.
+4. To test manually, shell into the container and run `~/.claude/plugins/elevator-notifications/elevator-notifications.py test`.
 
 ### Database Schema
 

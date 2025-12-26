@@ -85,11 +85,9 @@ async def _launch_opencode(session_id: str, session: RunnerSession) -> None:
     env.setdefault("DOCKER_HOST", os.getenv("DOCKER_HOST", "unix:///var/run/docker.sock"))
 
     # Opencode command - strictly non-interactive mode if available, or just standard start
-    # Assuming 'npx -y opencode-ai' is the entry point.
-    # Vibe Kanban docs say 'npx -y opencode-ai'.
+    # Using bunx to align with oh-my-opencode tooling
     cmd = [
-        "npx",
-        "-y",
+        "bunx",
         "opencode-ai",
     ]
 

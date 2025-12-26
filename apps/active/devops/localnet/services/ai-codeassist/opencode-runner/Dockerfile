@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y \
     python3-venv \
     git \
     curl \
+    unzip \
     docker.io \
     procps \
     && rm -rf /var/lib/apt/lists/*
@@ -35,6 +36,15 @@ USER nodejs
 # Configure npm
 ENV NPM_CONFIG_PREFIX=/home/nodejs/.npm-global
 ENV PATH=$PATH:/home/nodejs/.npm-global/bin
+
+# Install bun
+RUN curl -fsSL https://bun.sh/install | bash
+ENV PATH="/home/nodejs/.bun/bin:$PATH"
+
+# Install oh-my-opencode
+RUN bunx oh-my-opencode install --no-tui --claude=no --chatgpt=no --gemini=no \
+    && cd /home/nodejs/.config/opencode \
+    && bun install
 
 # Copy app code
 COPY --chown=nodejs:nodejs app /app/app
