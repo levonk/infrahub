@@ -124,6 +124,7 @@ A prioritized roadmap for building a secure, resilient, and privacy-focused home
   - [ ] VoidAuth
 - [ ] **Secrets Management**:
   - [ ] **Vaultwarden**: https://github.com/dani-garcia/vaultwarden
+  - [ ] **BackVault**: Backup for passwords from vaultwarden
   - [ ] **Hashicorp Vault**: https://github.com/hashicorp/vault
 - [ ] **PKI / Certificates**:
   - [ ] Internal Certificate Authority (CA)
@@ -288,7 +289,10 @@ _Goal: Privacy, Resilience, Ad-blocking_
 - [ ] **Project Mgmt**: Focalboard (Trello alt) https://github.com/mattermost-community/focalboard
 - [ ] **API / App Building**: NocoDB (Airtable alt) https://github.com/nocodb/nocodb
 - [ ] Local Cloud
-  - [ ] https://github.com/localstack/localstack
+  - [ ] K3s - Kubernetes dev environment
+  - [ ] Dokploy.com - self hosted VPS
+  - [ ] https://github.com/localstack/localstack - Self hosted Dev AWS
+  - [ ] openstack - Self hosted full scale AWS
   - [ ] Blob Storage
     - [ ] https://github.com/rustfs/rustfs
     - [ ] https://github.com/minio/minio
@@ -370,6 +374,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] **Radicale**: FOSS CalDAV and CardDAV server https://github.com/radicale/radicale
 - [ ] **Photos**
   - [ ] Immich https://github.com/immich-app/immich
+  - [ ] Immichframe 
   - [ ] PhotoPrism https://github.com/photoprism/photoprism
 - [ ] **Document Specifics**:
   - [ ] PDF: https://github.com/alam00000/bentopdf
@@ -458,6 +463,8 @@ _Goal: Privacy, Resilience, Ad-blocking_
 
 ## 📝 Backlog
 
+- [ ] **CLI Tools**:
+  - [ ] YouTube downloader https://github.com/yt-dlp/yt-dlp
 - [ ] **OCR Tools**:
   - [ ] Mistral OCR3: https://mistral.ai/news/mistral-ocr-3
   - Alternatives
@@ -494,7 +501,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
     - [ ] https://github.com/librespeed/speedtest-rust --- Self‑hosted internet speed test (Rust)
     - [ ] https://sabnzbd.org/ --- Official SABnzbd site (Usenet downloader)
   - [ ] **Backups & Sync**
-    - [ ] https://github.com/duplicati/duplicati --- Encrypted, versioned backup system
+    - [ ] https://github.com/duplicati/duplicati --- Encrypted, versioned backup system with deduplication
     - [ ] ZeroByte Backup --- Encrypted, versioned backup system
   - [ ] **Bookmarks, Reading & Knowledge**
     - [ ] https://github.com/FreshRSS/FreshRSS --- Self‑hosted RSS/news aggregator
