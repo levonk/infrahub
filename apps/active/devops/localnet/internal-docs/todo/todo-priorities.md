@@ -176,6 +176,7 @@ A prioritized roadmap for building a secure, resilient, and privacy-focused home
 
 - [ ] **Guacamole**: https://github.com/apache/guacamole-server https://github.com/apache/guacamole-client
 - [ ] **RustDesk**: https://github.com/rustdesk/rustdesk
+- [ ] **ClipCascade**: Cross Device Clipboard sharing tool
 
 ### Hardening & Security Monitoring
 
@@ -183,10 +184,12 @@ A prioritized roadmap for building a secure, resilient, and privacy-focused home
   - [ ] **Lynis**: Security Audit https://github.com/CISOfy/lynis
   - [ ] **Fail2ban**: Log parsing & banning https://github.com/fail2ban/fail2ban
   - [ ] **Crowdsec**: Collaborative IPS https://github.com/crowdsecurity/crowdsec
+  - [ ] **Container Census**:
 - [ ] **Honeypot**: OpenCanary https://github.com/thinkst/opencanary
 - [ ] **Drift Detection**: Etckeeper (Git for /etc) https://github.com/expansible/etckeeper
 - [ ] **AI Security Evaluation**: OpenPCC https://github.com/openpcc/openpcc
 - [ ] **Docker Slim**: https://github.com/slimtoolkit/slim (Container Minify)
+- [ ] **PruneMate**: Docker pruning for old containers
 - [ ] **Secrets Management**:
   - [ ] vaultwarden
   - [ ] pass
@@ -239,6 +242,8 @@ _Goal: Privacy, Resilience, Ad-blocking_
 
 - [ ] **Stack**: Prometheus (Metrics) + Grafana (Viz) + Loki (Logs) + Elasticsearch + OpenTelemetry
 - [ ] **Status**: Uptime Kuma https://github.com/louislam/uptime-kuma
+- [ ] **GPU Hot**: Gpu Monitoring
+- [ ] **Portracker**: Monitor all the ports being used on a system
 - [ ] **Server Metrics**: Beszel https://github.com/henrygd/beszel
 - [ ] **Speedtest**: Speedtest Tracker https://github.com/linuxserver/docker-speedtest-tracker
 - [ ] **Transparency**: Certificate Transparency Monitor https://github.com/google/certificate-transparency-go
@@ -314,6 +319,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
 - [ ] **Streaming**:
   - [ ] **Jellyfin**: Primary media server https://github.com/jellyfin/jellyfin
     - [ ] **Skip Intro**: https://github.com/ClassicOldSong/SkipIntro plugin a must
+  - [ ] **Jellyfin Swarm**: link friends servers in
   - [ ] **JellyfinTV**: TV channels for Jellyfin https://github.com/DrewThomasson/JellyfinTV
   - [ ] **Plex**: Backup / External sharing https://www.plex.tv/media-server-downloads/?cat=computer&plat=windows#plex-media-servertwingate
   - [ ] **Emby**: alternative for Plex
@@ -333,6 +339,8 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] **Bazarr** (Subtitles) https://github.com/morpheus65535/bazarr
   - [ ] **Medusa** (TV Downloader) https://pymedusa.com/
   - [ ] **Lidarr** (Music) https://lidarr.audio/
+  - [ ] **Releasarr** (Music)
+  - [ ] **Suggesterr** Make Movie and TV recomendations of what to watch based on history
   - [ ] **Whisparr** (Video) https://whisparr.com/
   - [ ] **Flexget**: Misc https://github.com/Flexget/Flexget
   - [ ] **Kapowarr**: (Comics) https://github.com/Casvt/Kapowarr
@@ -341,6 +349,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] **Huntarr** https://github.com/plexguide/Huntarr.io
   - [ ] **Swaparr** https://github.com/ThijmenGThN/swaparr
   - [ ] **Romm** Games and Roms https://romm.app/ https://github.com/rommapp/romm
+  - [ ] **Posterizarr** Arr-stack artwork manager https://github.com/Posterizarr/Posterizarr
   - [ ] Indexers
     - [ ] https://github.com/Prowlarr/Prowlarr
     - [ ] https://github.com/Jackett/Jackett
@@ -368,13 +377,14 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] https://github.com/fatedier/fft
   - [ ] Torrents
     - [ ] **Qbittorrent**: Torrent Client https://github.com/c0re100/qBittorrent-Enhanced-Edition https://github.com/qbittorrent/qBittorrent
+    - [ ] **QUI**: qbittorrent wrapper that allows multiple torrents (different networks)
     - [ ] **AutoBrr**: Torrent seeding boost manager https://github.com/autobrr/autobrr
     - [ ] **Deluge**: Torrent Client https://github.com/deluge-torrent/deluge
 - [ ] **Calendar**
   - [ ] **Radicale**: FOSS CalDAV and CardDAV server https://github.com/radicale/radicale
 - [ ] **Photos**
   - [ ] Immich https://github.com/immich-app/immich
-  - [ ] Immichframe 
+  - [ ] Immichframe
   - [ ] PhotoPrism https://github.com/photoprism/photoprism
 - [ ] **Document Specifics**:
   - [ ] PDF: https://github.com/alam00000/bentopdf
@@ -406,8 +416,10 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] LiveKit (Realtime A/V) https://github.com/livekit
   - [ ] Video Meet: https://jitsi.org/jitsi-meet/
   - [ ] Video Meetings: https://github.com/miroslavpejic85/mirotalk https://p2p.mirotalk.com/
+  - [ ] Text to Voice:
+    - [ ] Text to Voice: https://github.com/resemble-ai/chatterbox
   - [ ] Voice to Text:
-  	- https://github.com/argilla-io/distil-whisper (speech-to-text)
+  	- https://github.com/huggingface/distil-whisper
   	- https://github.com/remsky/Kokoro-FastAPI
 - [ ] **News**: Meridian (Personal Podcast) https://github.com/iliane5/meridian
 - [ ] **Linkstack.org**: (Linktree alternative) https://linkstack.org/
@@ -465,6 +477,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
 
 - [ ] **CLI Tools**:
   - [ ] YouTube downloader https://github.com/yt-dlp/yt-dlp
+  - [ ] Why is this Running? https://github.com/pranshuparmar/witr
 - [ ] **OCR Tools**:
   - [ ] Mistral OCR3: https://mistral.ai/news/mistral-ocr-3
   - Alternatives
@@ -503,6 +516,8 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] **Backups & Sync**
     - [ ] https://github.com/duplicati/duplicati --- Encrypted, versioned backup system with deduplication
     - [ ] ZeroByte Backup --- Encrypted, versioned backup system
+    - [ ] Velld Database backups
+    - [ ] Bichon Email backups
   - [ ] **Bookmarks, Reading & Knowledge**
     - [ ] https://github.com/FreshRSS/FreshRSS --- Self‑hosted RSS/news aggregator
     - [ ] https://github.com/karakeep-app/karakeep --- Personal knowledge / bookmark manager previously Hoarder
