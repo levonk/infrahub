@@ -1,5 +1,5 @@
-# /home/micro/p/gh/lrepo52/job-aide-wt01/apps/active/devops/localnet/services/base/docker-compose.base.yml
 ---
+# /home/micro/p/gh/lrepo52/job-aide-wt01/apps/active/devops/localnet/services/base/docker-compose.base.yml
 
 x-logging: &default-logging
   driver: "json-file"
@@ -13,16 +13,92 @@ x-logging: &default-logging
 # Base images for the localnet stack
 services:
   base-alpine:
+    image: base-alpine:latest
+    container_name: localnet-base-alpine
     build:
       context: ./base-alpine
       dockerfile: docker/Dockerfile.base-alpine
-    image: base-alpine:latest
-    container_name: localnet-base-alpine
+    volumes:
+      - nix_store:/nix
+      - nix_config:/etc/nix
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=UTC
     logging: *default-logging
+
   base-debian:
+    image: base-debian:latest
+    container_name: localnet-base-debian
     build:
       context: ./base-debian
       dockerfile: docker/Dockerfile.base-debian
-    image: base-debian:latest
-    container_name: localnet-base-debian
+    volumes:
+      - nix_store:/nix
+      - nix_config:/etc/nix
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=UTC
     logging: *default-logging
+
+  # Nix sidecar service - manages the Nix store and caching
+  nix:
+    container_name: localnet-base-nix-sidecar
+    image: base-nix-sidecar
+    build:
+      context: ./nix-sidecar
+      dockerfile: Dockerfile
+    privileged: true
+    restart: unless-stopped
+    volumes:
+      - nix_store:/nix
+      - nix_config:/etc/nix
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=UTC
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging: *default-logging
+    command: sleep infinity
+
+
+  # Dev-Base service - provides essential development tools and Nix environment
+  base-dev:
+    container_name: localnet-base-dev
+    image: base-dev:latest
+    build:
+      context: ./dev-base
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    # Mount the shared named volumes.
+    volumes:
+      - nix_store:/nix
+      - nix_config:/etc/nix
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=UTC
+    # Ensure sidecars are started and healthy.
+    depends_on:
+      nix:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck.sh"]
+      interval: 60s
+      timeout: 30s
+      retries: 3
+      start_period: 30s
+    logging: *default-logging
+
+# Shared persistent volumes
+volumes:
+  nix_config:
+    name: localnet-base-nix-config
+  nix_store:
+    name: localnet-base-nix-store

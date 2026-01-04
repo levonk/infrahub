@@ -1,5 +1,5 @@
 # Alpine-based base image for services requiring minimal size and security
-FROM dhi.io/alpine-base:latest
+FROM dhi.io/alpine-base:3.23-alpine3.23-dev
 
 # Labels for metadata and security scanning
 LABEL org.opencontainers.image.title="Base Alpine Image" \
@@ -20,6 +20,7 @@ RUN apk update && \
     apk add --no-cache \
         curl \
 	su-exec \
+        shadow \
         ca-certificates \
         gnupg \
         bash \
@@ -43,8 +44,8 @@ RUN find / -type f \( -name "*.pyc" -o -name "*.pyo" -o -name "*.orig" \) -delet
     # Remove suid/sgid bits from files (except necessary ones)
     find / -type f \( -perm /4000 -o -perm /2000 \) ! -path "/bin/su" ! -path "/usr/bin/su" -exec chmod ug-s {} \; 2>/dev/null || true
 
-# Switch to non-root user by default
-USER appuser
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # Set working directory
 WORKDIR /etc/service
@@ -52,3 +53,6 @@ WORKDIR /etc/service
 # Default health check (services should override this)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD echo "Base image healthy"
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["sleep", "infinity"]

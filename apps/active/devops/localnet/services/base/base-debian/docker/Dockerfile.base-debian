@@ -1,5 +1,5 @@
 # Debian-based base image for services requiring Debian compatibility
-FROM dhi.io/debian-base:bookworm
+FROM dhi.io/debian-base:trixie
 
 # Labels for metadata and security scanning
 LABEL org.opencontainers.image.title="Base Debian Image" \
@@ -22,6 +22,7 @@ RUN apt-get update && \
         gnupg \
         lsb-release \
         bash \
+        gosu \
         && \
     # Clean up to reduce image size
     apt-get clean && \
@@ -42,8 +43,8 @@ RUN groupadd -r -g 1001 appuser && \
 RUN find / -type f \( -name "*.pyc" -o -name "*.pyo" \) -delete 2>/dev/null || true && \
     find / -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 
-# Switch to non-root user by default
-USER appuser
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # Set working directory
 WORKDIR /etc/service
@@ -51,3 +52,6 @@ WORKDIR /etc/service
 # Default health check (services should override this)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD echo "Base image healthy"
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["sleep", "infinity"]

@@ -25,6 +25,7 @@ ENV_ARGS += --env-file ../../.env
 endif
 
 COMPOSE := docker compose -f $(COMPOSE_FILE) $(ENV_ARGS)
+export CACHE_BASE_PATH=/opt/localnet/volumes/cache
 
 help: ## Show available targets
 	@echo "$(BLUE)LocalNet Base Images$(NC)"
