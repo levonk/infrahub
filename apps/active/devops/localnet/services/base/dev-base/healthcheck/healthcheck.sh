@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Set the correct PATH manually to override host PATH interference
-export PATH="/nix/var/nix/profiles/default/bin:/home/developer/.local/bin:/home/developer/.nix-profile/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+export PATH="/nix/var/nix/profiles/default/bin:/home/cuser/.local/bin:/home/cuser/.nix-profile/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 # Verify Nix command exists
 if ! nix --version &> /dev/null; then

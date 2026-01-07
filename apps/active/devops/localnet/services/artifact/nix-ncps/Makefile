@@ -1,6 +1,7 @@
 # Makefile for NCPS
 # Handles building Nix images and managing Docker services
 
+PROJECT_DIR := ../../..
 .PHONY: build build-debug up down logs health-check clean help
 
 help:
@@ -26,13 +27,13 @@ build-debug:
 	docker load < result
 
 up:
-	docker-compose up -d
+	docker-compose --project-directory $(PROJECT_DIR) up -d
 
 down:
-	docker-compose down
+	docker-compose --project-directory $(PROJECT_DIR) down
 
 logs:
-	docker-compose logs -f ncps
+	docker-compose --project-directory $(PROJECT_DIR) logs -f ncps
 
 health-check:
 	@echo "Checking health of ncps..."
@@ -40,4 +41,4 @@ health-check:
 
 clean:
 	rm -f result
-	docker-compose down -v
+	docker-compose --project-directory $(PROJECT_DIR) down -v

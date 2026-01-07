@@ -4,7 +4,7 @@
 # The official releases fail to bind to IPv4 when running as non-root on Alpine Linux.
 # This Dockerfile uses a pre-built binary compiled from the development branch.
 
-FROM base-alpine:latest
+FROM localnet-base-alpine:latest
 
 USER root
 

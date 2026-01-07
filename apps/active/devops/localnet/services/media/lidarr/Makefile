@@ -1,6 +1,7 @@
 # Makefile for Lidarr
 # Handles managing Docker services
 
+PROJECT_DIR := ../../..
 .PHONY: up down logs health-check clean help
 
 # Default target
@@ -14,15 +15,15 @@ help:
 
 # Start Services
 up:
-	docker-compose up -d
+	docker-compose --project-directory $(PROJECT_DIR) up -d
 
 # Stop Services
 down:
-	docker-compose down
+	docker-compose --project-directory $(PROJECT_DIR) down
 
 # View Logs
 logs:
-	docker-compose logs -f lidarr
+	docker-compose --project-directory $(PROJECT_DIR) logs -f lidarr
 
 # Health Check
 health-check:
@@ -31,4 +32,4 @@ health-check:
 
 # Clean
 clean:
-	docker-compose down -v
+	docker-compose --project-directory $(PROJECT_DIR) down -v

@@ -1,3 +1,4 @@
+PROJECT_DIR := ../..
 .PHONY: help build up down restart logs logs-follow lint clean clean-all shell shell-alpine shell-debian health-check quality
 
 .DEFAULT_GOAL := help
@@ -24,7 +25,7 @@ else
 ENV_ARGS += --env-file ../../.env
 endif
 
-COMPOSE := docker compose -f $(COMPOSE_FILE) $(ENV_ARGS)
+COMPOSE := docker compose --project-directory $(PROJECT_DIR) -f $(COMPOSE_FILE) $(ENV_ARGS)
 export CACHE_BASE_PATH=/opt/localnet/volumes/cache
 
 help: ## Show available targets
@@ -39,15 +40,15 @@ build: ## Build both base images
 	@$(COMPOSE) build
 	@echo "$(GREEN)✓ base images built$(NC)"
 
-up: ## Run docker-compose.base.yml (detached)
-	@$(ENSURE_NETWORK) -f $(COMPOSE_FILE)
+up: ## Run docker-compose (detached)
+	@$(ENSURE_NETWORK) --project-directory $(PROJECT_DIR) -f $(COMPOSE_FILE)
 	@$(COMPOSE) up -d
 
 down: ## Stop and remove base containers
 	@$(COMPOSE) down
 
 restart: ## Restart base containers
-	@$(ENSURE_NETWORK) -f $(COMPOSE_FILE)
+	@$(ENSURE_NETWORK) --project-directory $(PROJECT_DIR) -f $(COMPOSE_FILE)
 	@$(COMPOSE) restart
 
 logs: ## Tail last 200 lines for both containers

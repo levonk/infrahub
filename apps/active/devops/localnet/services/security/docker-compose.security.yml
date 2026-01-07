@@ -8,6 +8,9 @@ x-logging: &default-logging
     tag: "{{.Name}}"
     labels: "service"
 
+include:
+  - ../../docker-compose.include.yml
+
 services:
   ## For Traefik and other read-only uses
   dockerproxy-ro: # https://github.com/wollomatic/socket-proxy
@@ -44,7 +47,6 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-
 
   ## For Watchtower and other read-write uses
   ## Evaluate https://github.com/nestybox/sysbox for better security Depending on use case
@@ -297,6 +299,7 @@ services:
     expose:
       - 9091
     restart: unless-stopped
+
   authelia-db:
     image: valkey/valkey:alpine
     container_name: authelia-db
@@ -308,7 +311,7 @@ services:
       retries: 3
     user: "1000:1000"
     volumes:
-      - authelia_db:/data
+      - authelia-db:/data
     networks:
       - localnet
     expose:
@@ -328,7 +331,7 @@ services:
       - DOCKER_HOST=tcp://dockerproxy-ro:2375
       - WUD_SERVER_PORT=${SECURITY_WUD_CONTAINER_PORT:-3000}
     volumes:
-      - wud_store:/store
+      - wud-store:/store
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:${SECURITY_WUD_CONTAINER_PORT:-3000}/health"]
       interval: 30s
@@ -344,11 +347,3 @@ services:
       - "traefik.http.routers.wud.entrypoints=websecure"
       - "traefik.http.routers.wud.tls=true"
       - "traefik.http.services.wud.loadbalancer.server.port=${SECURITY_WUD_CONTAINER_PORT:-3000}"
-volumes:
-  authelia_db:
-  wud_store:
-  tugtainer_data:
-  crowdsec-data:
-  crowdsec-config:
-  crowdsec-db:
-  traefik-access-logs:

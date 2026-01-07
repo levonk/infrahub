@@ -1,3 +1,4 @@
+PROJECT_DIR := ../..
 .PHONY: help build up down restart status logs logs-follow health-check lint clean clean-all shell-nexus shell-verdaccio
 
 .DEFAULT_GOAL := help
@@ -21,12 +22,12 @@ ifneq (,$(wildcard ../../.env))
 ENV_ARGS += --env-file ../../.env
 endif
 
-COMPOSE := docker compose -f $(COMPOSE_FILE) $(ENV_ARGS)
+COMPOSE := docker compose --project-directory $(PROJECT_DIR) -f $(COMPOSE_FILE) $(ENV_ARGS)
 
 help: ## Show available targets and descriptions
 	@echo "$(BLUE)Artifact Repository Services$(NC)"
 	@echo ""
-	@echo "This Makefile wraps docker-compose.artifact.yml so you can manage Sonatype"
+	@echo "This Makefile wraps docker-compose --project-directory $(PROJECT_DIR) so you can manage Sonatype"
 	@echo "Nexus and Verdaccio in the localnet environment without typing long commands."
 	@echo ""
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(GREEN)%-18s$(NC) %s\n", $$1, $$2}'
@@ -39,7 +40,7 @@ build: ## Build local Docker images (if any) for the artifact stack
 
 up: ## Start Nexus and Verdaccio in detached mode
 	@echo "$(BLUE)Starting artifact services...$(NC)"
-	@$(ENSURE_NETWORK) -f $(COMPOSE_FILE)
+	@$(ENSURE_NETWORK) --project-directory $(PROJECT_DIR) -f $(COMPOSE_FILE)
 	@$(COMPOSE) up -d
 	@echo "$(GREEN)✓ Services started$(NC)"
 	@echo "Run 'make health-check' once containers finish booting."
@@ -51,7 +52,7 @@ down: ## Stop artifact services and remove containers
 
 restart: ## Restart artifact services without recreating volumes
 	@echo "$(YELLOW)Restarting artifact services...$(NC)"
-	@$(ENSURE_NETWORK) -f $(COMPOSE_FILE)
+	@$(ENSURE_NETWORK) --project-directory $(PROJECT_DIR) -f $(COMPOSE_FILE)
 	@$(COMPOSE) restart
 	@echo "$(GREEN)✓ Services restarted$(NC)"
 
@@ -76,8 +77,8 @@ health-check: ## Probe HTTP health endpoints for Nexus and Verdaccio
 		echo "$(GREEN)✓ Verdaccio ping reachable$(NC)" || echo "$(RED)✗ Verdaccio ping failed$(NC)"
 
 lint: ## Validate docker-compose syntax (and yamllint if present)
-	@echo "$(BLUE)Linting docker-compose.artifact.yml...$(NC)"
-	@$(COMPOSE) config >/dev/null && echo "$(GREEN)✓ docker-compose configuration valid$(NC)"
+	@echo "$(BLUE)Linting docker-compose --project-directory $(PROJECT_DIR) 
+	@$(COMPOSE) config >/dev/null && echo "$(GREEN)✓ docker-compose --project-directory $(PROJECT_DIR) configuration valid$(NC)"
 	@if command -v yamllint >/dev/null 2>&1; then \
 		yamllint $(COMPOSE_FILE); \
 	else \

@@ -1,5 +1,5 @@
 # Use secure alpine base image with Python support for session management API
-FROM base-alpine
+FROM localnet-base-alpine:latest
 
 # Install required packages
 RUN apk add --no-cache \

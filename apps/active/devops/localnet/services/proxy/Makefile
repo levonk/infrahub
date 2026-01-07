@@ -1,3 +1,4 @@
+PROJECT_DIR := ../..
 .PHONY: help build up down restart status logs logs-follow health-check lint clean clean-all
 
 .DEFAULT_GOAL := help
@@ -21,7 +22,7 @@ ifneq (,$(wildcard ../../.env))
 ENV_ARGS += --env-file ../../.env
 endif
 
-COMPOSE := docker compose -f $(COMPOSE_FILE) $(ENV_ARGS)
+COMPOSE := docker compose --project-directory $(PROJECT_DIR) -f $(COMPOSE_FILE) $(ENV_ARGS)
 
 help: ## Show available targets for the proxy stack
 	@echo "$(BLUE)Proxy Stack - Command Reference$(NC)"
@@ -38,7 +39,7 @@ build: ## Build local images (if any) for proxy services
 
 up: ## Start proxy services in detached mode
 	@echo "$(BLUE)Starting proxy services...$(NC)"
-	@$(ENSURE_NETWORK) -f $(COMPOSE_FILE)
+	@$(ENSURE_NETWORK) --project-directory $(PROJECT_DIR) -f $(COMPOSE_FILE)
 	@$(COMPOSE) up -d
 	@echo "$(GREEN)✓ Services started$(NC)"
 	@echo "Run 'make health-check' after containers finish booting."
@@ -50,7 +51,7 @@ down: ## Stop proxy services and remove containers
 
 restart: ## Restart proxy services without recreating volumes
 	@echo "$(YELLOW)Restarting proxy services...$(NC)"
-	@$(ENSURE_NETWORK) -f $(COMPOSE_FILE)
+	@$(ENSURE_NETWORK) --project-directory $(PROJECT_DIR) -f $(COMPOSE_FILE)
 	@$(COMPOSE) restart
 	@echo "$(GREEN)✓ Services restarted$(NC)"
 
@@ -67,9 +68,9 @@ health-check: ## Inspect container status for proxy stack
 	@echo "$(BLUE)Inspecting proxy containers...$(NC)"
 	@$(COMPOSE) ps
 
-lint: ## Validate docker-compose.proxy.yml syntax (and yamllint when available)
-	@echo "$(BLUE)Linting docker-compose.proxy.yml...$(NC)"
-	@$(COMPOSE) config >/dev/null && echo "$(GREEN)✓ docker-compose configuration valid$(NC)"
+lint: ## Validate docker-compose syntax (and yamllint when available)
+	@echo "$(BLUE)Linting docker-compose --project-directory $(PROJECT_DIR) 
+	@$(COMPOSE) config >/dev/null && echo "$(GREEN)✓ docker-compose --project-directory $(PROJECT_DIR) configuration valid$(NC)"
 	@if command -v yamllint >/dev/null 2>&1; then \
 		yamllint $(COMPOSE_FILE); \
 	else \

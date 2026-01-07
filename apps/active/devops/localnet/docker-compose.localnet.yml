@@ -12,86 +12,6 @@ x-logging: &default-logging
     tag: "{{.Name}}"
     labels: "service"
 
-networks:
-  localnet:
-    driver: bridge
-    external: false
-    ipam:
-      driver: default
-      config:
-        - subnet: 172.21.0.0/16
-          gateway: ${DOCKER_NETWORK_GATEWAY:-172.21.0.1}
-          # Reserve high IP range (*.255.x) for DNS infrastructure per ADR
-          # These auxiliary addresses prevent DHCP from assigning IPs in this range
-  #          aux_addresses:
-  #            dns-coredns: ${DNS_COREDNS_MAIN_IP:-172.21.255.51}
-  #            dns-dnscrypt-odoh: ${DNS_DNSCRYPT_ODOH_IP:-172.21.255.60}
-  #            dns-dnscrypt-anon: ${DNS_DNSCRYPT_ANON_IP:-172.21.255.61}
-  #            dns-dnscrypt-std: ${DNS_DNSCRYPT_STD_IP:-172.21.255.62}
-  #            dns-dnscrypt-doh: ${DNS_DNSCRYPT_DOH_IP:-172.21.255.63}
-  #            dns-dnscrypt-encrypted: ${DNS_DNSCRYPT_ENCRYPTED_IP:-172.21.255.64}
-  #            dns-dnscrypt-plaintext: ${DNS_DNSCRYPT_PLAINTEXT_IP:-172.21.255.65}
-  #            dns-dnscrypt-tor: ${DNS_DNSCRYPT_TOR_IP:-172.21.255.66}
-  #            proxy-socks5-tor: ${PROXY_TOR_SOCKS5_IP:-172.21.255.70}
-
-  wireguard:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 172.22.0.0/16
-
-  claude-code:
-    driver: bridge
-    internal: true
-    ipam:
-      config:
-        - subnet: 172.23.0.0/16
-
-volumes:
-  # DNS Services
-  dns-cache:
-    driver: local
-
-  # NTP Services
-  chronyd-data:
-    driver: local
-
-  # Web Proxy Services
-  web-cache:
-    driver: local
-
-  # Artifact Repositories
-  nexus-data:
-    driver: local
-
-  verdaccio-data:
-    driver: local
-
-  # WireGuard
-  wireguard-direct-config:
-    driver: local
-
-  wireguard-transparent-config:
-    driver: local
-
-  # LocalStack
-  localstack-data:
-    driver: local
-
-  # Dockerproxy
-  dockerproxy-ro:
-    driver: local
-    driver_opts:
-      type: tmpfs
-      device: tmpfs
-      o: size=1k,uid=65534,gid=0,mode=0700,noexec
-  dockerproxy-rw:
-    driver: local
-    driver_opts:
-      type: tmpfs
-      device: tmpfs
-      o: size=1k,uid=65534,gid=0,mode=0700,noexec
-
 services: {}
 
 # ============================================================================
@@ -99,27 +19,28 @@ services: {}
 # ============================================================================
 
 include:
-  # - services/base/docker-compose.base.yml
+  - docker-compose.include.yml
+  - services/base/docker-compose.base.yml
   - services/security/docker-compose.security.yml
   - services/dns/docker-compose.dns.yml
   - services/ntp/docker-compose.ntp.yml
   - services/artifact/docker-compose.artifact.yml
   # - services/proxy/docker-compose.proxy.yml
-  - services/media/docker-compose.media.yml
-  - services/data/docker-compose.data.yml
-  - services/ai-codeassist/docker-compose.agent-runner.yml
+  #- services/media/docker-compose.media.yml
+  #- services/data/docker-compose.data.yml
+  #- services/ai-codeassist/docker-compose.agent-runner.yml
   #- services/shared/docker-compose.shared.yml # folding@home
   # - services/vpn/docker-compose.vpn.yml
   # - services/logging/docker-compose.logging.yml
   # - services/ai-codeassist/claude-code/claude-code/docker-compose.claude-code.yml
-  - services/ai-codeassist/docker-compose.autoclaude.base.yml
-  - services/ai-codeassist/docker-compose.autoclaude.linux.yml
-  - services/ai-codeassist/docker-compose.autoclaude.wsl.yml
-  - services/ai-codeassist/docker-compose.vibe-kanban.base.yml
-  - services/ai-codeassist/docker-compose.vibe-kanban.linux.yml
-  - services/ai-codeassist/docker-compose.vibe-kanban.wsl.yml
-  - services/ai-codeassist/docker-compose.opencode-runner.base.yml
-  - services/ai-codeassist/docker-compose.opencode-runner.linux.yml
-  - services/ai-codeassist/docker-compose.opencode-runner.wsl.yml
+  #- services/ai-codeassist/docker-compose.autoclaude.base.yml
+  #- services/ai-codeassist/docker-compose.autoclaude.linux.yml
+  #- services/ai-codeassist/docker-compose.autoclaude.wsl.yml
+  #- services/ai-codeassist/docker-compose.vibe-kanban.base.yml
+  #- services/ai-codeassist/docker-compose.vibe-kanban.linux.yml
+  #- services/ai-codeassist/docker-compose.vibe-kanban.wsl.yml
+  #- services/ai-codeassist/docker-compose.opencode-runner.base.yml
+  #- services/ai-codeassist/docker-compose.opencode-runner.linux.yml
+  #- services/ai-codeassist/docker-compose.opencode-runner.wsl.yml
   # - services/home/docker-compose.home.yml
   # - services/iot/docker-compose.iot.yml

@@ -1,5 +1,5 @@
 # Use secure alpine base image
-FROM base-alpine
+FROM localnet-base-alpine:latest
 
 # Install required packages
 RUN apk add --no-cache \

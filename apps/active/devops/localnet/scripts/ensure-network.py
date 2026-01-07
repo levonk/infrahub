@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -57,11 +58,31 @@ def docker_compose_config(compose_args: List[str], compose_file: Path) -> dict:
     if not compose_file.exists():
         raise FileNotFoundError(f"compose file '{compose_file}' not found")
 
+    # Inherit current environment and pass it to docker compose
+    env = os.environ.copy()
+
+    # Load .env file from three levels up (from services/artifact to localnet root)
+    # Handle both absolute and relative paths
+    compose_path = Path(compose_file).resolve()
+    env_file = compose_path.parent.parent.parent / ".env"
+    if env_file.exists():
+        with open(env_file, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    env[key] = value
+
+    # Debug: Print environment variables to see what's available
+    print(f"Environment variables: {env.get('CACHE_BASE_PATH', 'NOT_SET')}")
+    print(f"ARTIFACT_VERDACCIO_HOST_DATA_PATH: {env.get('ARTIFACT_VERDACCIO_HOST_DATA_PATH', 'NOT_SET')}")
+
     result = subprocess.run(
         ["docker", "compose", *compose_args, "-f", str(compose_file), "config", "--format", "json"],
         capture_output=True,
         text=True,
         check=False,
+        env=env,
     )
     if result.returncode != 0:
         raise RuntimeError(

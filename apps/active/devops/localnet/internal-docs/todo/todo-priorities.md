@@ -99,6 +99,17 @@ A prioritized roadmap for building a secure, resilient, and privacy-focused home
 - (Remote access stream based Apollo) https://github.com/MobinYengejehi/Artemis
 - (Remote access SPICE/VNC/RDP based)
 
+### Secure Desktop
+- Dual Boot
+	- [ ] QubesOS
+	- [ ] Proxmox
+
+### Local Desktop
+- Triple Boot
+	- [ ] QubesOS
+	- [ ] Proxmox
+	- [ ] Win 11
+
 ---
 
 ## 🛡️ Platform Security & Core Infrastructure
@@ -250,6 +261,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
 - [ ] **Notifications**:
   - [ ] **Ntfy**: Push notifications https://github.com/binwiederhier/ntfy
   - [ ] **Logtfy**: Log notifier https://github.com/ImranR98/Logtfy
+  - [ ] **Mailrise**: SMTP to Apprise Notifications https://github.com/YoRyan/mailrise
 - [ ] **Logging & Metrics (logging/monitoring)**:
   - [ ] **Prometheus**: https://github.com/prometheus/prometheus
   - [ ] **Grafana**: https://github.com/grafana/grafana
@@ -293,6 +305,8 @@ _Goal: Privacy, Resilience, Ad-blocking_
 - [ ] **Notebooks**: JupyterLab https://github.com/jupyterlab/jupyterlab
 - [ ] **Project Mgmt**: Focalboard (Trello alt) https://github.com/mattermost-community/focalboard
 - [ ] **API / App Building**: NocoDB (Airtable alt) https://github.com/nocodb/nocodb
+- [ ] Understanding
+  - [ ] **repo-swarm**: https://github.com/royosherove/repo-swarm
 - [ ] Local Cloud
   - [ ] K3s - Kubernetes dev environment
   - [ ] Dokploy.com - self hosted VPS
@@ -401,7 +415,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
 - [ ] **Chat**:
   - [ ] **Revolt**: Discord Alternative https://github.com/revoltchat/
   - [ ] Slack Alternative
-    - [ ] **Mattermost**: https://github.com/mattermost/mattermost
+    - [ ] **Mattermost without limits**: https://framagit.org/framasoft/framateam/mostlymatter https://github.com/mattermost/mattermost
     - [ ] **Rocket.Chat**: https://github.com/RocketChat/Rocket.Chat
   - [ ] **Matrix**: Federated chat https://github.com/matrix-org
     - [ ] Catalog of Matrix Servers: https://matrix.org/ecosystem/servers/
@@ -413,7 +427,6 @@ _Goal: Privacy, Resilience, Ad-blocking_
     - [ ] https://git.telodendria.io/Telodendria/Telodendria
 - [ ] **Social**: Mastodon https://github.com/mastodon/mastodon
 - [ ] **Video/Voice**:
-  - [ ] LiveKit (Realtime A/V) https://github.com/livekit
   - [ ] Video Meet: https://jitsi.org/jitsi-meet/
   - [ ] Video Meetings: https://github.com/miroslavpejic85/mirotalk https://p2p.mirotalk.com/
   - [ ] Text to Voice:
@@ -421,6 +434,9 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] Voice to Text:
   	- https://github.com/huggingface/distil-whisper
   	- https://github.com/remsky/Kokoro-FastAPI
+  - Interactive Voice Chat Telephony capable
+	- [ ] Asterisk Voice (Realtime A) https://github.com/hkjarral/Asterisk-AI-Voice-Agent
+	- [ ] LiveKit (Realtime A/V) https://github.com/livekit
 - [ ] **News**: Meridian (Personal Podcast) https://github.com/iliane5/meridian
 - [ ] **Linkstack.org**: (Linktree alternative) https://linkstack.org/
 - [ ] **Postiz-app**: (multi-social poster) https://github.com/gitroomhq/postiz-app
@@ -470,6 +486,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
 ### Content Creation
 
 - [ ] NCA Toolkit API https://github.com/stephengpope/no-code-architects-toolkit
+- [ ] Udemy learning: https://github.com/heliomarpm/udemy-downloader-gui/
 
 ---
 
@@ -491,7 +508,11 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] TAK Server: https://github.com/TAK-Product-Center/Server
   - [ ] Chef (Convex): https://github.com/get-convex/chef
   - [ ] SparkyFitness: https://github.com/CodeWithCJ/SparkyFitness
+  - [ ] Web VSCode: https://search.nixos.org/packages?channel=25.11&show=openvscode-server&query=vscode-server
 
+- [ ] **Finance**:
+	- [ ] Personal Finance Tracker https://github.com/we-promise/sure/
+	- [ ] Actual Budget: https://github.com/actualbudget/actual
 - [ ] **Investigate**:
 	- [ ] WunderTech - Task management and productivity
 	- [ ] Heimdall - Dashboard and link organizer
@@ -509,6 +530,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
     - [ ] http://github.com/bastienwirtz/homer --- Homelab / service dashboard
     - [ ] https://github.com/theMK2k/Media-Hoarder --- Media library management / hoarding helper
     - [ ] https://github.com/alexta69/metube --- Self-hosted YouTube/media downloader
+    - [ ] https://github.com/jdepoix/youtube-transcript-api - Youtube transcripts MCP
     - [ ] https://github.com/JMS1717/8mb.local --- Video size reduction / 8MB-style sharing helper
     - [ ] https://github.com/askreeves/ffmpeg-interface --- Web UI / interface around ffmpeg
     - [ ] https://github.com/librespeed/speedtest-rust --- Self‑hosted internet speed test (Rust)

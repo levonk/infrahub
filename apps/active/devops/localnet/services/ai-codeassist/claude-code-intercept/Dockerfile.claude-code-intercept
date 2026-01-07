@@ -5,7 +5,7 @@ ARG CLAUDE_CODE_PROXY_REPO=https://github.com/seifghazi/claude-code-proxy.git
 ARG CLAUDE_CODE_PROXY_REF=dd812ab15e87e787f47d93d5330ff24ed2d03629
 
 # Stage 1: fetch source once so subsequent stages reuse it.
-FROM base-alpine AS source
+FROM localnet-base-alpine:latest AS source
 USER root
 ARG CLAUDE_CODE_PROXY_REPO
 ARG CLAUDE_CODE_PROXY_REF
@@ -32,7 +32,7 @@ RUN npm run build
 RUN npm prune --omit=dev && npm cache clean --force
 
 # Stage 4: runtime on hardened base-alpine image.
-FROM base-alpine
+FROM localnet-base-alpine:latest
 USER root
 
 ARG CLAUDE_CODE_PROXY_REF

@@ -1,5 +1,4 @@
 ---
-
 x-logging: &default-logging
   driver: "json-file"
   options:
@@ -8,21 +7,8 @@ x-logging: &default-logging
     tag: "{{.Name}}"
     labels: "service"
 
-
-# Artifact repository services (Nexus & Verdaccio)
-volumes:
-  nexus-data:
-    driver: local
-  verdaccio-data:
-    driver: local
-  attic-data:
-    driver: local
-  nix-snapshotter-data:
-    driver: local
-  harmonia-data:
-    driver: local
-  ncps-data:
-    driver: local
+include:
+  - ../../docker-compose.include.yml
 
 services:
   nexus:
@@ -126,4 +112,728 @@ services:
       - /nix/store:/nix/store
     networks:
       - localnet
+    logging: *default-logging
+
+  # Nix sidecar service - manages the Nix store and caching
+  # Rust sidecar for Rust toolchain
+  rust:
+    image: localnet-sidecar-rust:latest
+    container_name: localnet-artifact-sidecar-rust
+    build:
+      context: ./rust-sidecar
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      nix:
+        condition: service_healthy
+    volumes:
+      - nix-store:/nix
+      - nix-config:/etc/nix
+      - rust-cargo-cache:/home/developer/.cargo
+      - rust-rustup-cache:/home/developer/.rustup
+    environment:
+      - TZ=UTC
+      - PUID=1000
+      - PGID=1000
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    command: sleep infinity
+    logging: *default-logging
+
+  # PHP sidecar for PHP tooling
+  php:
+    image: localnet-sidecar-php:latest
+    container_name: localnet-artifact-sidecar-php
+    build:
+      context: ./php-sidecar
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      nix:
+        condition: service_healthy
+    volumes:
+      - nix-store:/nix
+      - nix-config:/etc/nix
+      - php-cache:/home/developer/.composer
+    environment:
+      - TZ=UTC
+      - PUID=1000
+      - PGID=1000
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    command: sleep infinity
+    logging: *default-logging
+
+  # Haskell sidecar (cabal and stack in same image)
+  haskell:
+    image: localnet-sidecar-haskell:latest
+    container_name: localnet-artifact-sidecar-haskell
+    build:
+      context: ./haskell-sidecar
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      nix:
+        condition: service_healthy
+    volumes:
+      - nix-store:/nix
+      - nix-config:/etc/nix
+      - haskell-cabal-cache:/home/developer/.cabal
+      - haskell-stack-cache:/home/developer/.stack
+    environment:
+      - TZ=UTC
+      - PUID=1000
+      - PGID=1000
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    command: sleep infinity
+    logging: *default-logging
+
+  # Go sidecar
+  go:
+    image: localnet-sidecar-go:latest
+    container_name: localnet-artifact-sidecar-go
+    build:
+      context: ./go-sidecar
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      nix:
+        condition: service_healthy
+    volumes:
+      - nix-store:/nix
+      - nix-config:/etc/nix
+      - go-cache:/home/developer/go
+    environment:
+      - TZ=UTC
+      - PUID=1000
+      - PGID=1000
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    command: sleep infinity
+    logging: *default-logging
+
+  # Java sidecar
+  java:
+    image: localnet-sidecar-java:latest
+    container_name: localnet-artifact-sidecar-java
+    build:
+      context: ./java-sidecar
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      nix:
+        condition: service_healthy
+    volumes:
+      - nix-store:/nix
+      - nix-config:/etc/nix
+      - java-m2-cache:/home/developer/.m2/repository
+    environment:
+      - TZ=UTC
+      - PUID=1000
+      - PGID=1000
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    command: sleep infinity
+    logging: *default-logging
+
+  # Python sidecar
+  python:
+    image: localnet-sidecar-nix:latest
+    container_name: localnet-artifact-sidecar-nix
+    build:
+      context: ./python-sidecar
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      nix:
+        condition: service_healthy
+    volumes:
+      - nix-store:/nix
+      - nix-config:/etc/nix
+      - python-cache:/home/developer/.cache/pip
+    environment:
+      - TZ=UTC
+      - PUID=1000
+      - PGID=1000
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    command: sleep infinity
+    logging: *default-logging
+
+  # Dart sidecar for Dart SDK tooling
+  dart:
+    image: localnet-sidecar-dart:latest
+    container_name: localnet-artifact-sidecar-dart
+    build:
+      context: ./dart-sidecar
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      nix:
+        condition: service_healthy
+    volumes:
+      - nix-store:/nix
+      - nix-config:/etc/nix
+      - dart-cache:/home/developer/.pub-cache
+    environment:
+      - TZ=UTC
+      - PUID=1000
+      - PGID=1000
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    command: sleep infinity
+    logging: *default-logging
+
+  # .NET sidecar for dotnet SDK tooling
+  dotnet:
+    image: localnet-sidecar-dotnet:latest
+    container_name: localnet-artifact-sidecar-dotnet
+    build:
+      context: ./dotnet-sidecar
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      nix:
+        condition: service_healthy
+    volumes:
+      - nix-store:/nix
+      - nix-config:/etc/nix
+      - dotnet-cache:/home/developer/.nuget/packages
+    environment:
+      - TZ=UTC
+      - PUID=1000
+      - PGID=1000
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    command: sleep infinity
+    logging: *default-logging
+
+  # PNPM sidecar service - manages the pnpm store and caching
+  pnpm:
+    image: localnet-sidecar-pnpm:latest
+    container_name: localnet-artifact-sidecar-pnpm
+    build:
+      context: ./pnpm-sidecar
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      nix:
+        condition: service_healthy
+    volumes:
+      - pnpm-store:/home/developer/.pnpm-store
+      - nix-store:/nix
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=UTC
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    command: sleep infinity
+    logging: *default-logging
+
+  elixir:
+    image: localnet-sidecar-elixir:latest
+    container_name: localnet-artifact-sidecar-elixir
+    build:
+      context: ./elixir-sidecar
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      nix:
+        condition: service_healthy
+    volumes:
+      - nix-store:/nix
+      - nix-config:/etc/nix
+      - elixir-cache:/home/developer/.mix
+    environment:
+      - TZ=UTC
+      - PUID=1000
+      - PGID=1000
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    command: sleep infinity
+    logging: *default-logging
+
+  ruby:
+    image: localnet-sidecar-ruby:latest
+    container_name: localnet-artifact-sidecar-ruby
+    build:
+      context: ./ruby-sidecar
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      nix:
+        condition: service_healthy
+    volumes:
+      - nix-store:/nix
+      - nix-config:/etc/nix
+      - ruby-cache:/home/developer/.gem
+    environment:
+      - TZ=UTC
+      - PUID=1000
+      - PGID=1000
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    command: sleep infinity
+    logging: *default-logging
+
+  conda:
+    image: localnet-sidecar-conda:latest
+    container_name: localnet-artifact-sidecar-conda
+    build:
+      context: ./conda-sidecar
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      nix:
+        condition: service_healthy
+    volumes:
+      - nix-store:/nix
+      - nix-config:/etc/nix
+      - conda-cache:/root/.conda
+    environment:
+      - TZ=UTC
+      - PUID=1000
+      - PGID=1000
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    command: sleep infinity
+    logging: *default-logging
+
+  poetry:
+    image: localnet-sidecar-poetry:latest
+    container_name: localnet-artifact-sidecar-poetry
+    build:
+      context: ./poetry-sidecar
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      nix:
+        condition: service_healthy
+    volumes:
+      - nix-store:/nix
+      - nix-config:/etc/nix
+      - poetry-cache:/home/developer/.cache/pypoetry
+    environment:
+      - TZ=UTC
+      - PUID=1000
+      - PGID=1000
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    command: sleep infinity
+    logging: *default-logging
+
+  sdkman:
+    image: localnet-sidecar-sdkman:latest
+    container_name: localnet-artifact-sidecar-sdkman
+    build:
+      context: ./sdkman-sidecar
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      nix:
+        condition: service_healthy
+    volumes:
+      - nix-store:/nix
+      - nix-config:/etc/nix
+      - sdkman-cache:/root/.sdkman
+    environment:
+      - TZ=UTC
+      - PUID=1000
+      - PGID=1000
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    command: sleep infinity
+    logging: *default-logging
+
+  nvm:
+    image: localnet-sidecar-nvm:latest
+    container_name: localnet-artifact-sidecar-nvm
+    build:
+      context: ./nvm-sidecar
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      nix:
+        condition: service_healthy
+    volumes:
+      - nix-store:/nix
+      - nix-config:/etc/nix
+      - nvm-cache:/root/.nvm
+    environment:
+      - TZ=UTC
+      - PUID=1000
+      - PGID=1000
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    command: sleep infinity
+    logging: *default-logging
+
+  pyenv:
+    image: localnet-sidecar-pyenv:latest
+    container_name: localnet-artifact-sidecar-pyenv
+    build:
+      context: ./pyenv-sidecar
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      nix:
+        condition: service_healthy
+    volumes:
+      - nix-store:/nix
+      - nix-config:/etc/nix
+      - pyenv-cache:/root/.pyenv
+    environment:
+      - TZ=UTC
+      - PUID=1000
+      - PGID=1000
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    command: sleep infinity
+    logging: *default-logging
+
+  bazel:
+    image: localnet-sidecar-bazel:latest
+    container_name: localnet-artifact-sidecar-bazel
+    build:
+      context: ./bazel-sidecar
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      nix:
+        condition: service_healthy
+    volumes:
+      - nix-store:/nix
+      - nix-config:/etc/nix
+      - bazel-cache:/root/.cache/bazel
+    environment:
+      - TZ=UTC
+      - PUID=1000
+      - PGID=1000
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    command: sleep infinity
+    logging: *default-logging
+
+  gradle:
+    image: localnet-sidecar-gradle:latest
+    container_name: localnet-artifact-sidecar-gradle
+    build:
+      context: ./gradle-sidecar
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      nix:
+        condition: service_healthy
+    volumes:
+      - nix-store:/nix
+      - nix-config:/etc/nix
+      - gradle-cache:/home/developer/.gradle
+    environment:
+      - TZ=UTC
+      - PUID=1000
+      - PGID=1000
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    command: sleep infinity
+    logging: *default-logging
+
+  turborepo:
+    image: localnet-sidecar-turborepo:latest
+    container_name: localnet-artifact-sidecar-turborepo
+    build:
+      context: ./turborepo-sidecar
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      nix:
+        condition: service_healthy
+      pnpm:
+        condition: service_healthy
+    volumes:
+      - nix-store:/nix
+      - nix-config:/etc/nix
+      - pnpm-store:/home/developer/.pnpm-store
+      - turbo-cache:/home/developer/.turbo/cache
+    environment:
+      - TZ=UTC
+      - PUID=1000
+      - PGID=1000
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    command: sleep infinity
+    logging: *default-logging
+
+  asdf:
+    image: localnet-sidecar-asdf:latest
+    container_name: localnet-artifact-sidecar-asdf
+    build:
+      context: ./asdf-sidecar
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      nix:
+        condition: service_healthy
+    volumes:
+      - nix-store:/nix
+      - nix-config:/etc/nix
+      - asdf-cache:/root/.asdf
+    environment:
+      - TZ=UTC
+      - PUID=1000
+      - PGID=1000
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    command: sleep infinity
+    logging: *default-logging
+
+  mise:
+    image: localnet-sidecar-mise:latest
+    container_name: localnet-artifact-sidecar-mise
+    build:
+      context: ./mise-sidecar
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      nix:
+        condition: service_healthy
+    volumes:
+      - nix-store:/nix
+      - nix-config:/etc/nix
+      - mise-cache:/root/.local/share/mise
+      - mise-cache:/root/.cache/mise
+    environment:
+      - TZ=UTC
+      - PUID=1000
+      - PGID=1000
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    command: sleep infinity
+    logging: *default-logging
+
+  vscode:
+    image: localnet-sidecar-vscode:latest
+    container_name: localnet-artifact-sidecar-vscode
+    build:
+      context: ./vscode-sidecar
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      nix:
+        condition: service_healthy
+    volumes:
+      - nix-store:/nix
+      - nix-config:/etc/nix
+      - vscode-cache:/root/.vscode-server
+    environment:
+      - TZ=UTC
+      - PUID=1000
+      - PGID=1000
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    command: sleep infinity
+    logging: *default-logging
+
+  unity:
+    image: localnet-sidecar-unity:latest
+    container_name: localnet-artifact-sidecar-unity
+    build:
+      context: ./unity-sidecar
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      nix:
+        condition: service_healthy
+    volumes:
+      - nix-store:/nix
+      - nix-config:/etc/nix
+      - unity-cache:/home/developer/.cache/unity
+    environment:
+      - TZ=UTC
+      - PUID=1000
+      - PGID=1000
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    command: sleep infinity
     logging: *default-logging

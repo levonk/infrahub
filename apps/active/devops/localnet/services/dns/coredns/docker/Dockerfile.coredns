@@ -1,5 +1,5 @@
 # Use a minimal base image for the build stage
-FROM base-alpine:latest AS builder
+FROM localnet-base-alpine:latest AS builder
 
 # Set the desired CoreDNS version (You will need to update this manually or via an external script)
 ARG COREDNS_VERSION="v1.13.1"
@@ -31,7 +31,7 @@ RUN case "$TARGET_ARCH" in \
 
 
 # Final stage: CoreDNS with runtime configuration
-FROM base-alpine:latest
+FROM localnet-base-alpine:latest
 
 # Switch to root for package installation
 USER root

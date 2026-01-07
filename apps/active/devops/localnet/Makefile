@@ -19,7 +19,15 @@ help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(GREEN)%-20s$(NC) %s\n", $$1, $$2}'
 	@echo ""
 
-build: cloud-build ## Build all Docker images
+base-up: # create base images (must run in order before other containers)
+	@echo "$(BLUE)Creating base containers...$(NC)"
+	docker compose -f docker-compose.shared.yml --env-file ./.env.local.localnet --progress=plain up -d
+	docker-compose -f services/base/docker-compose.base.yml --profile base01 --env-file ./.env.local.localnet --progress=plain up -d && \
+	docker-compose -f services/base/docker-compose.base.yml --profile base02 --env-file ./.env.local.localnet --progress=plain up -d && \
+	docker-compose -f services/base/docker-compose.base.yml --profile base03 --env-file ./.env.local.localnet --progress=plain up -d
+	@echo "$(GREEN)✓ base containers created$(NC)"
+
+build: cloud-build base-up ## Build all Docker images
 	@echo "$(BLUE)Building all Docker images...$(NC)"
 	docker compose -f docker-compose.localnet.yml --env-file ./.env.local.localnet --progress=plain build
 	@echo "$(GREEN)✓ Build complete$(NC)"
@@ -175,6 +183,7 @@ cloud-up: ## Start LocalStack cloud services (auto-detects platform)
 cloud-down: ## Stop LocalStack cloud services
 	@echo "$(YELLOW)Stopping cloud services...$(NC)"
 	@cd services/cloud && docker compose -f docker-compose.cloud.base.yml down
+
 cloud-build: ## Build/Pull LocalStack cloud services
 	@echo "$(BLUE)Building/Pulling cloud services...$(NC)"
 	@cd services/cloud && docker compose -f docker-compose.cloud.base.yml pull

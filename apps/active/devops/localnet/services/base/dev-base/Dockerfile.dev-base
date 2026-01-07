@@ -99,22 +99,23 @@ RUN . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh \
     nixpkgs.findutils \
     nixpkgs.procps \
     nixpkgs.shadow \
+    nixpkgs.gosu \
     nixpkgs.su-exec
 
 # Set up the non-root user using Docker Compose environment variables
-ARG USERNAME=developer
+ARG USERNAME=cuser
 ARG USER_UID=${PUID:-1000}
 ARG USER_GID=${PGID:-1000}
 RUN mkdir -p /etc/sudoers.d \
 	&& groupadd --gid $USER_GID $USERNAME \
-	&& useradd --uid $USER_UID --gid $USER_GID -m $USERNAME \
+	&& useradd --uid $USER_UID --gid $USER_GID -m -d /home/$USERNAME $USERNAME \
 	&& echo "${USERNAME} ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/${USERNAME}
 
 # Set up working directory
 WORKDIR /home/${USERNAME}/project
 
 # Set up Nix environment for the user (must be set after switching user)
-ENV PATH="/nix/var/nix/profiles/default/bin:/home/developer/.local/bin:/home/developer/.nix-profile/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+ENV PATH="/nix/var/nix/profiles/default/bin:/home/cuser/.local/bin:/home/cuser/.nix-profile/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 # Healthcheck setup
 RUN sudo mkdir -p /usr/local/bin/healthcheck

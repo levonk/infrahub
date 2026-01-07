@@ -6,7 +6,7 @@
 # - Need full control over chronyd configuration for NTS, leap smearing, and access control
 # - Need to ensure chronyd listens on UDP port 123 for NTP queries
 
-FROM base-alpine
+FROM localnet-base-alpine:latest
 
 # Switch to root for package installation
 USER root

@@ -1,4 +1,5 @@
 # Debian-based base image for services requiring Debian compatibility
+# DO NOT CHANGE THIS LINE!!!
 FROM dhi.io/debian-base:trixie
 
 # Labels for metadata and security scanning
@@ -35,9 +36,9 @@ RUN mkdir -p /etc/service/config /healthcheck /tmp && \
     chmod 1777 /tmp
 
 # Create non-root user for services (matches Alpine base image UID/GID)
-RUN groupadd -r -g 1001 appuser && \
-    useradd -r -u 1001 -g appuser -s /bin/bash -c "Application User" appuser && \
-    chown -R appuser:appuser /etc/service /healthcheck /tmp
+RUN groupadd -r -g 1000 cuser && \
+    useradd -r -u 1000 -g cuser -s /bin/bash -c "Application User" cuser && \
+    chown -R cuser:cuser /etc/service /healthcheck /tmp
 
 # Security hardening: remove unnecessary files and set restrictive umask
 RUN find / -type f \( -name "*.pyc" -o -name "*.pyo" \) -delete 2>/dev/null || true && \

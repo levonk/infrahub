@@ -1,4 +1,4 @@
-FROM base-alpine
+FROM localnet-base-alpine:latest
 
 ARG GOST_VERSION=3.0.0-rc8
 ARG TARGETPLATFORM

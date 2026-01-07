@@ -1,3 +1,4 @@
+PROJECT_DIR := ../..
 .PHONY: help build up down restart status logs logs-follow logs-dnsdist logs-coredns logs-dnscrypt health-check lint clean clean-all shell shell-dnsdist shell-coredns shell-dnscrypt blocklists-refresh blocklists-view
 
 .DEFAULT_GOAL := help
@@ -25,7 +26,7 @@ else
 ENV_ARGS += --env-file ../../.env
 endif
 
-COMPOSE := docker compose -f $(COMPOSE_FILE) $(ENV_ARGS)
+COMPOSE := docker compose --project-directory $(PROJECT_DIR) -f $(COMPOSE_FILE) $(ENV_ARGS)
 
 help: ## Show available targets
 	@echo "$(BLUE)DNS Service Stack - Build System$(NC)"
@@ -42,7 +43,7 @@ build: ## Build local Docker images for the DNS stack
 
 up: ## Start DNS services in detached mode
 	@echo "$(BLUE)Starting DNS services...$(NC)"
-	@$(ENSURE_NETWORK) -f $(COMPOSE_FILE)
+	@$(ENSURE_NETWORK) --project-directory $(PROJECT_DIR) -f $(COMPOSE_FILE)
 	@$(COMPOSE) up -d
 	@echo "$(GREEN)✓ Services started$(NC)"
 	@echo "Run 'make health-check' once the containers have finished booting."
@@ -54,7 +55,7 @@ down: ## Stop DNS services and remove containers
 
 restart: ## Restart DNS services
 	@echo "$(YELLOW)Restarting DNS services...$(NC)"
-	@$(ENSURE_NETWORK) -f $(COMPOSE_FILE)
+	@$(ENSURE_NETWORK) --project-directory $(PROJECT_DIR) -f $(COMPOSE_FILE)
 	@$(COMPOSE) restart dnsdist coredns dnscrypt-proxy
 	@echo "$(GREEN)✓ Services restarted$(NC)"
 
@@ -98,8 +99,8 @@ health-check: ## Run DNS health probes inside the stack
 		echo "$(RED)✗ Compiled blocklist missing$(NC)"
 
 lint: ## Validate docker-compose configuration
-	@echo "$(BLUE)Linting docker-compose.dns.yml...$(NC)"
-	@$(COMPOSE) config >/dev/null && echo "$(GREEN)✓ docker-compose configuration valid$(NC)"
+	@echo "$(BLUE)Linting docker-compose --project-directory $(PROJECT_DIR) 
+	@$(COMPOSE) config >/dev/null && echo "$(GREEN)✓ docker-compose --project-directory $(PROJECT_DIR) configuration valid$(NC)"
 	@if command -v yamllint >/dev/null 2>&1; then \
 		yamllint $(COMPOSE_FILE); \
 	else \

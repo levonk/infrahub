@@ -1,0 +1,5 @@
+- Decision Making MCP https://github.com/m0n0x41d/quint-code
+- https://github.com/mistralai/mistral-vibe
+- https://github.com/AutoMaker-Org/automaker
+- https://github.com/SawyerHood/dev-browser
+- https://github.com/EveryInc/compound-engineering-plugin

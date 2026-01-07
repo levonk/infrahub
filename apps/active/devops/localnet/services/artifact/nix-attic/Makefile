@@ -1,6 +1,7 @@
 # Makefile for Attic Server
 # Handles building Nix images and managing Docker services
 
+PROJECT_DIR := ../../..
 .PHONY: build build-debug up down logs health-check clean help
 
 # Default target
@@ -30,15 +31,15 @@ build-debug:
 
 # Start Services
 up:
-	docker-compose up -d
+	docker-compose --project-directory $(PROJECT_DIR) up -d
 
 # Stop Services
 down:
-	docker-compose down
+	docker-compose --project-directory $(PROJECT_DIR) down
 
 # View Logs
 logs:
-	docker-compose logs -f attic
+	docker-compose --project-directory $(PROJECT_DIR) logs -f attic
 
 # Health Check
 health-check:
@@ -48,4 +49,4 @@ health-check:
 # Clean
 clean:
 	rm -f result
-	docker-compose down -v
+	docker-compose --project-directory $(PROJECT_DIR) down -v

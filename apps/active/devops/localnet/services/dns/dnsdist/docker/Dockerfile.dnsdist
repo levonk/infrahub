@@ -1,4 +1,4 @@
-FROM base-debian:latest AS builder
+FROM localnet-base-debian:latest AS builder
 
 USER root
 
@@ -34,7 +34,7 @@ RUN git clone https://github.com/PowerDNS/pdns.git && \
 	dnsdist --version
 
 
-FROM base-debian:latest
+FROM localnet-base-debian:latest
 
 # Switch to root to install packages
 USER root

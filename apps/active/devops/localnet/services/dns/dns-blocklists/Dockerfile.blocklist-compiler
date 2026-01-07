@@ -2,7 +2,7 @@
 # Purpose: Build and compile DNS/web blocklists to CDB format
 # Security: Non-root user, minimal dependencies, no shell access
 
-FROM base-debian:latest
+FROM localnet-base-debian:latest
 
 # apt operations require root; base-debian defaults to non-root appuser
 USER root
