@@ -197,6 +197,24 @@ cd tests/integration && bats .
             └──────────────────────┘
 ```
 
+## 🆕 Creating New Containers
+
+New containers can be easily created using the `copier` template located at `boilerplate/apps/infrastructure/docker/docker-linux`. This template provides a standardized structure for Docker-based services.
+
+**Usage**:
+
+```bash
+copier copy /home/micro/p/gh/lrepo52/job-aide/boilerplate/apps/infrastructure/docker/docker-linux ./new-service-directory
+```
+
+Then, follow the prompts to configure your new service. The template includes:
+- Pre-configured Dockerfile
+- Docker Compose integration
+- Standardized directory structure
+- Makefile with common operations
+- Health check setup
+- Documentation templates
+
 ## 🔧 Configuration
 
 All services are configured via:
@@ -280,5 +298,5 @@ Built with official container images from:
 
 ---
 
-**Version**: 1.0.0  
+**Version**: 1.0.0
 **Last Updated**: 2025-01-20

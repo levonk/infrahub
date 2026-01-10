@@ -10,6 +10,7 @@ TEMPLATE_CONFIG_NAME="Corefile"
 # e.g., coredns → /etc/coredns/coredns.conf.template
 TEMPLATE_FILE="/templates${BASE_CONFIG_PATH}/${TEMPLATE_CONFIG_NAME}.template"
 DEST_CONFIG_FILE="${BASE_CONFIG_PATH}/${TEMPLATE_CONFIG_NAME}"
+export PATH="/usr/bin:/usr/local/bin:$PATH"
 
 echo "[ENTRYPOINT] Starting coredns entrypoint script" >&2
 

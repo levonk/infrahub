@@ -21,7 +21,7 @@ services:
     ports:
       - "4566:4566"            # LocalStack Gateway
     networks:
-      - localnet
+      - localnet-network
     environment:
       - SERVICES=${SERVICES:-}  # specific services or all
       - DEBUG=${DEBUG:-0}
@@ -33,5 +33,5 @@ services:
     restart: unless-stopped
 
 networks:
-  localnet:
+  localnet-network:
     external: true

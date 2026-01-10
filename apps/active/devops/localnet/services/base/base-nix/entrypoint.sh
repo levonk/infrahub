@@ -102,5 +102,5 @@ if [ "$#" -gt 0 ]; then
     fi
 else
     echo "🤖 Base Nix: Entering wait loop."
-    exec sleep infinity
+    exec sleep 60
 fi

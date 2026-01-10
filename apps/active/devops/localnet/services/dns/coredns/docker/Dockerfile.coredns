@@ -21,7 +21,7 @@ RUN case "$TARGET_ARCH" in \
 	DOWNLOAD_URL="https://github.com/coredns/coredns/releases/download/${COREDNS_VERSION}/${COREDNS_FILE}"; \
 	\
 	echo "Downloading CoreDNS ${COREDNS_VERSION} for ${TARGET_ARCH} from ${DOWNLOAD_URL}"; \
-	apk add --no-cache curl tar; \
+	apk add --no-cache curl tar musl-utils; \
 	curl -L -o /tmp/${COREDNS_FILE} ${DOWNLOAD_URL}; \
 	tar -xzf /tmp/${COREDNS_FILE} -C /tmp; \
 	mv /tmp/coredns /tmp/coredns_binary; \
@@ -38,7 +38,7 @@ USER root
 
 # Install CoreDNS for the service and curl for the healthcheck.
 # gettext is not needed as the entrypoint uses sed for substitution.
-RUN apk add --no-cache coredns curl bash gnu-libiconv
+RUN apk add --no-cache coredns curl bash gnu-libiconv musl-utils
 
 ## The current apk version of coredns has some weird behavior with the `health` plugin
 COPY --from=builder /tmp/coredns_binary /usr/local/bin/coredns

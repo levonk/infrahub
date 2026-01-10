@@ -90,7 +90,7 @@ services:
   ## Watchtower needs rw access to docker socket, can't use sysbox
   ## Should we swap this with Tugtainer which combines the functionality of watchtower + WUD?
   watchtower: # https://github.com/containrrr/watchtower
-    container_name: localnet-watchtower
+    container_name: localnet-security-watchtower
     logging: *default-logging
     healthcheck:
       test: ["CMD","true"]
@@ -145,10 +145,11 @@ services:
     networks:
       - localnet
     restart: unless-stopped
+    profiles: ["sysbox"]
 
   crowdsec:  # https://github.com/crowdsecurity/crowdsec
     image: crowdsecurity/crowdsec:latest
-    container_name: localnet-crowdsec
+    container_name: localnet-security-crowdsec
     logging: *default-logging
     networks:
       - localnet
@@ -173,7 +174,7 @@ services:
 
   crowdsec-bouncer:
     image: docker.io/fbonalair/traefik-crowdsec-bouncer:latest
-    container_name: localnet-crowdsec-bouncer
+    container_name: localnet-security-crowdsec-bouncer
     logging: *default-logging
     healthcheck:
       test: ["CMD","true"]
@@ -191,7 +192,7 @@ services:
 
   crowdsec-dashboard:
     image: crowdsecurity/crowdsec-dashboard:latest
-    container_name: localnet-crowdsec-dashboard
+    container_name: localnet-security-crowdsec-dashboard
     logging: *default-logging
     healthcheck:
       test: ["CMD","true"]
@@ -206,10 +207,11 @@ services:
     depends_on:
       - crowdsec
     restart: unless-stopped
+    profiles: ["broken"]
 
   crowdsec-dashboard2:
     image: metabase/metabase # crowdsec@crowdsec.net !!Cr0wdS3c_M3t4b4s3??
-    container_name: localnet-crowdsec-dashboard2
+    container_name: localnet-security-crowdsec-dashboard2
     logging: *default-logging
     healthcheck:
       test: ["CMD","true"]
@@ -249,6 +251,8 @@ services:
       - net.ipv4.ip_forward=1
     restart: unless-stopped
     logging: *default-logging
+    profiles:
+      - broken
 
   frpc: # https://github.com/fatedier/frp
     image: fatedier/frpc:v0.65.0
@@ -269,7 +273,7 @@ services:
 
   authelia: # https://github.com/authelia/authelia
     image: authelia/authelia
-    container_name: localnet-authelia
+    container_name: localnet-security-authelia
     logging: *default-logging
     healthcheck:
       test: ["CMD","true"]
@@ -302,7 +306,7 @@ services:
 
   authelia-db:
     image: valkey/valkey:alpine
-    container_name: authelia-db
+    container_name: localnet-security-authelia-db
     logging: *default-logging
     healthcheck:
       test: ["CMD","true"]

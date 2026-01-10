@@ -1,21 +1,17 @@
 FROM nixpkgs/nix:latest
 # Minimal base - just Nix and essential tools
+
 RUN mkdir -p /etc/nix
 COPY nix.conf /etc/nix/nix.conf
 
-ENV PATH=/root/.nix-profile/bin:/usr/bin:/bin
+# Copy flake for reproducible environment
+COPY flake.nix /app/flake.nix
 
-# Configure Nix channel and install base tools
-# Using nix-env -iA with explicit nixpkgs attribute for robustness
-RUN nix-channel --add https://nixos.org/channels/nixpkgs-unstable nixpkgs && nix-channel --update
-RUN nix-env -iA nixpkgs.bash nixpkgs.shadow nixpkgs.gosu nixpkgs.coreutils
-
-# Create non-root user
+# Create non-root user using nix develop environment
 ARG USERNAME=cuser
 ARG USER_UID=1000
 ARG USER_GID=1000
-# Ensure shadow tools are in PATH for the build
-RUN export PATH="/root/.nix-profile/bin:$PATH" &&     groupadd --gid $USER_GID $USERNAME &&     useradd --uid $USER_UID --gid $USER_GID -m -d /home/$USERNAME $USERNAME
+RUN nix develop /app#default --command bash -c "groupadd --gid $USER_GID $USERNAME && useradd --uid $USER_UID --gid $USER_GID -m -d /home/$USERNAME $USERNAME"
 
 # Copy entrypoint and healthcheck
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh

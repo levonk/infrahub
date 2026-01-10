@@ -6,18 +6,22 @@ x-logging: &default-logging
     tag: "{{.Name}}"
     labels: "service"
 
+include:
+  - ../../docker-compose.include.yml
 
 # NTP service stack for Home Lab In-a-Box
 services:
   chronyd:
     build:
       context: ./chronyd
-      dockerfile: docker/Dockerfile.chronyd
+      dockerfile: ./Dockerfile.chronyd
     image: localnet-ntp-chronyd:latest
     container_name: localnet-ntp-chronyd
     logging: *default-logging
     networks:
       - localnet
+    volumes:
+      - chronyd-data:/var/lib/chrony:rw
     ports:
       - "${NTP_TRANSPARENT_HOST_PORT:-123}:${NTP_TRANSPARENT_CONTAINER_PORT:-123}/udp" # Transparent mode UDP
       - "${NTP_TRANSPARENT_HOST_PORT:-123}:${NTP_TRANSPARENT_CONTAINER_PORT:-123}/tcp" # Transparent mode TCP

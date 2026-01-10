@@ -1,14 +1,16 @@
 FROM localnet-base-sidecar:latest
 
-# Install pnpm/node via nix into shared profile
-RUN nix-env -p /nix/var/nix/profiles/default -iA nixpkgs.nodePackages.pnpm
+# Copy flake.nix for reproducible environment
+COPY flake.nix /app/flake.nix
 
+# Create healthcheck directory
 RUN mkdir -p /usr/local/bin/healthcheck
 COPY healthcheck/healthcheck.sh /usr/local/bin/healthcheck.sh
 RUN chmod +x /usr/local/bin/healthcheck.sh
 
+# Use nix develop for reproducible environment
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-  CMD ["/usr/local/bin/healthcheck.sh"]
+  CMD ["nix", "develop", "/app#default", "--command", "/usr/local/bin/healthcheck.sh"]
 
 USER $USERNAME
 ENTRYPOINT ["/usr/bin/env"]

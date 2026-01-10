@@ -1,5 +1,10 @@
 FROM verdaccio/verdaccio:latest
 
+# Build arguments for runtime configuration
+ARG ARTIFACT_VERDACCIO_CONTAINER_PORT=4873
+ARG PUID=1000
+ARG PGID=1000
+
 # Add curl for healthcheck (stock image doesn't include it)
 USER root
 RUN apk add --no-cache curl gettext yamllint bash su-exec
@@ -8,8 +13,9 @@ RUN apk add --no-cache curl gettext yamllint bash su-exec
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
 	CMD curl -f http://localhost:${ARTIFACT_VERDACCIO_CONTAINER_PORT}/-/ping || exit 1
 
-COPY --chown=verdaccio:node assets/entrypoint-verdaccio.sh /entrypoint-verdaccio.sh
-RUN chmod 755 /entrypoint-verdaccio.sh && chmod 777 /verdaccio-data && chown verdaccio:node /verdaccio-data && chmod 755 /verdaccio-data
+COPY --chown=${PUID}:${PGID} assets/entrypoint-verdaccio.sh /entrypoint-verdaccio.sh
+RUN chmod 755 /entrypoint-verdaccio.sh
+#RUN chmod 755 /entrypoint-verdaccio.sh && chmod 777 /verdaccio-data && chown ${PUID}:${PGID} /verdaccio-data && chmod 755 /verdaccio-data
 
-USER verdaccio
+USER ${PUID}
 ENTRYPOINT ["/entrypoint-verdaccio.sh"]

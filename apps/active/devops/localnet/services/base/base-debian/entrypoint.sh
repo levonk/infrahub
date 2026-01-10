@@ -31,13 +31,13 @@ find_tool() {
     return 1
 }
 
-SU_EXEC=$(find_tool su-exec)
-GOSU=$(find_tool gosu)
-SU=$(find_tool su)
-ID=$(find_tool id)
-GROUPMOD=$(find_tool groupmod)
-USERMOD=$(find_tool usermod)
-CHOWN=$(find_tool chown)
+SU_EXEC=$(find_tool su-exec || true)
+GOSU=$(find_tool gosu || true)
+SU=$(find_tool su || true)
+ID=$(find_tool id || true)
+GROUPMOD=$(find_tool groupmod || true)
+USERMOD=$(find_tool usermod || true)
+CHOWN=$(find_tool chown || true)
 
 # Check if user exists
 if [ -n "$ID" ] && "$ID" "$USERNAME" >/dev/null 2>&1; then
