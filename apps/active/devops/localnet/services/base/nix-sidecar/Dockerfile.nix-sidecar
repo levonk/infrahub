@@ -1,41 +1,25 @@
 FROM nixpkgs/nix:latest
 
-# Configure Nix channel and install base tools
-# Using nix-env -iA with explicit nixpkgs attribute for robustness
-RUN nix-channel --add https://nixos.org/channels/nixpkgs-unstable nixpkgs && nix-channel --update
-RUN nix-env -iA nixpkgs.shadow nixpkgs.gosu nixpkgs.busybox
-
-# Set up the non-root user
-ARG USERNAME=cuser
-ARG USER_UID=1000
-ARG USER_GID=1000
-# Ensure shadow tools are in PATH for the build
-RUN export PATH="/root/.nix-profile/bin:$PATH" && groupadd --gid $USER_GID $USERNAME && useradd --uid $USER_UID --gid $USER_GID -m -d /home/$USERNAME $USERNAME
-
+# Copy static assets to mirror container filesystem
+COPY assets/static/ /
 
 # Backup the internal Nix environment so it can be restored when an empty volume is mounted
-RUN mkdir -p /nix-init && \
-    tar -C / -cf /nix-init/bootstrap.tar nix bin etc/profile.d
+RUN mkdir -p /app/tmp /etc/nix && \
+    tar -C / -cf /app/tmp/bootstrap-slash-nix.tar nix bin etc/profile.d
 
 # Configure Nix
-RUN mkdir -p /etc/nix
-COPY nix.conf /etc/nix/nix.conf
+COPY assets/static/etc/nix/nix.conf /etc/nix/nix.conf
 
 # Set up environment for the sidecar
 ENV PATH=/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 ENV NIX_PATH=nixpkgs=/nix/var/nix/profiles/per-user/root/channels/nixpkgs:/nix/var/nix/profiles/per-user/root/channels
 ENV SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt
 
-RUN mkdir -p /usr/local/bin/healthcheck
-COPY healthcheck/healthcheck.sh /usr/local/bin/healthcheck.sh
-RUN chmod +x /usr/local/bin/healthcheck.sh
+# Make scripts executable
+RUN chmod +x /app/healthcheck.sh /app/entrypoint.sh
 
-COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
-
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-  CMD ["/bin/sh", "/usr/local/bin/healthcheck.sh"]
+HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
+  CMD /bin/sh -c '/app/healthcheck.sh > /dev/null 2>&1'
 
 # Use the static busybox shell for bootstrapping
-ENTRYPOINT ["/bin/sh", "/usr/local/bin/entrypoint.sh"]
-CMD ["sleep", "infinity"]
+ENTRYPOINT ["/bin/sh", "/app/entrypoint.sh"]

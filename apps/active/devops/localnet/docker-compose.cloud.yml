@@ -51,4 +51,4 @@ services:
 
 ## TODO: bitcoin miner or folding@home
 include:
-  - services/shared/docker-compose.shared.yml
+  - ./docker-compose.include.yml

@@ -57,8 +57,27 @@ volumes:
     external: false
 
   # DNS Services
+  dns-adguard-conf:
+    driver: local
+    name: localnet-dns-adguard-conf
+  dns-adguard-work:
+    driver: local
+    name: localnet-dns-adguard-work
+
   dns-cache:
     name: localnet-dns-cache-volume
+    external: false
+
+  dns-blocklist-archive:
+    name: localnet-dns-blocklist-archive-volume
+    external: false
+
+  dns-blocklist-cdbs:
+    name: localnet-dns-blocklist-cdbs-volume
+    external: false
+
+  dns-coredns-cache:
+    name: localnet-dns-coredns-cache-volume
     external: false
 
   # NTP Services
@@ -231,51 +250,56 @@ services:
       - wireguard
       - codeassist
     volumes:
-      - nix-config:/nix/config
-      - nix-store:/nix/store
-      - dns-cache:/etc/dns
-      - chronyd-data:/var/lib/chrony
-      - web-cache:/var/cache/web
-      - wireguard-direct-config:/etc/wireguard/direct
-      - wireguard-transparent-config:/etc/wireguard/transparent
-      - localstack-data:/var/lib/localstack
-      - dockerproxy-ro:/var/lib/dockerproxy-ro
-      - dockerproxy-rw:/var/lib/dockerproxy-rw
-      - authelia-db:/var/lib/authelia
-      - wud-store:/var/lib/wud
-      - tugtainer_data:/var/lib/tugtainer
-      - crowdsec-data:/var/lib/crowdsec
-      - crowdsec-config:/etc/crowdsec
-      - crowdsec-db:/var/lib/crowdsec-db
-      - traefik-access-logs:/var/log/traefik
-      - nexus-data:/var/lib/nexus
-      - verdaccio-data:/var/lib/verdaccio
-      - attic-data:/var/lib/attic
-      - nix-snapshotter-data:/var/lib/nix-snapshotter
-      - harmonia-data:/var/lib/harmonia
-      - ncps-data:/var/lib/ncps
-      - asdf-cache:/var/lib/asdf
-      - bazel-cache:/var/lib/bazel
-      - conda-cache:/var/lib/conda
-      - dart-cache:/var/lib/dart
-      - dotnet-cache:/var/lib/dotnet
-      - elixir-cache:/var/lib/elixir
-      - go-cache:/var/lib/go
-      - gradle-cache:/var/lib/gradle
-      - haskell-cabal-cache:/var/lib/cabal
-      - haskell-stack-cache:/var/lib/stack
-      - java-m2-cache:/var/lib/m2
-      - mise-cache:/var/lib/mise
-      - nvm-cache:/var/lib/nvm
-      - php-cache:/var/lib/php
-      - poetry-cache:/var/lib/poetry
-      - pnpm-store:/var/lib/pnpm
-      - pyenv-cache:/var/lib/pyenv
-      - python-cache:/var/lib/python
-      - ruby-cache:/var/lib/ruby
-      - rust-cargo-cache:/var/lib/cargo
-      - rust-rustup-cache:/var/lib/rustup
-      - sdkman-cache:/var/lib/sdkman
-      - turbo-cache:/var/lib/turbo
-      - unity-cache:/var/lib/unity
-      - vscode-cache:/var/lib/vscode
+      - nix-config:/nix/config:ro
+      - nix-store:/nix/store:ro
+      - dns-adguard-conf:/etc/dns/adguard/conf:ro
+      - dns-adguard-work:/etc/dns/adguard/work:ro
+      - dns-cache:/etc/dns/cache:ro
+      - dns-blocklist-archive:/etc/dns/blocklists-archive:ro
+      - dns-blocklist-cdbs:/etc/dns/blocklists-cdbs:ro
+      - dns-coredns-cache:/etc/dns/coredns/cache:ro
+      - chronyd-data:/var/lib/chrony:ro
+      - web-cache:/var/cache/web:ro
+      - wireguard-direct-config:/etc/wireguard/direct:ro
+      - wireguard-transparent-config:/etc/wireguard/transparent:ro
+      - localstack-data:/var/lib/localstack:ro
+      - dockerproxy-ro:/var/lib/dockerproxy-ro:ro
+      - dockerproxy-rw:/var/lib/dockerproxy-rw:ro
+      - authelia-db:/var/lib/authelia:ro
+      - wud-store:/var/lib/wud:ro
+      - tugtainer_data:/var/lib/tugtainer:ro
+      - crowdsec-data:/var/lib/crowdsec:ro
+      - crowdsec-config:/etc/crowdsec:ro
+      - crowdsec-db:/var/lib/crowdsec-db:ro
+      - traefik-access-logs:/var/log/traefik:ro
+      - nexus-data:/var/lib/nexus:ro
+      - verdaccio-data:/var/lib/verdaccio:ro
+      - attic-data:/var/lib/attic:ro
+      - nix-snapshotter-data:/var/lib/nix-snapshotter:ro
+      - harmonia-data:/var/lib/harmonia:ro
+      - ncps-data:/var/lib/ncps:ro
+      - asdf-cache:/var/lib/asdf:ro
+      - bazel-cache:/var/lib/bazel:ro
+      - conda-cache:/var/lib/conda:ro
+      - dart-cache:/var/lib/dart:ro
+      - dotnet-cache:/var/lib/dotnet:ro
+      - elixir-cache:/var/lib/elixir:ro
+      - go-cache:/var/lib/go:ro
+      - gradle-cache:/var/lib/gradle:ro
+      - haskell-cabal-cache:/var/lib/cabal:ro
+      - haskell-stack-cache:/var/lib/stack:ro
+      - java-m2-cache:/var/lib/m2:ro
+      - mise-cache:/var/lib/mise:ro
+      - nvm-cache:/var/lib/nvm:ro
+      - php-cache:/var/lib/php:ro
+      - poetry-cache:/var/lib/poetry:ro
+      - pnpm-store:/var/lib/pnpm:ro
+      - pyenv-cache:/var/lib/pyenv:ro
+      - python-cache:/var/lib/python:ro
+      - ruby-cache:/var/lib/ruby:ro
+      - rust-cargo-cache:/var/lib/cargo:ro
+      - rust-rustup-cache:/var/lib/rustup:ro
+      - sdkman-cache:/var/lib/sdkman:ro
+      - turbo-cache:/var/lib/turbo:ro
+      - unity-cache:/var/lib/unity:ro
+      - vscode-cache:/var/lib/vscode:ro

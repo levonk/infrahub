@@ -1,0 +1,24 @@
+# Nix Sidecar Scheduled Tasks
+# Run with: supercronic supercronic.crond
+
+# Nix Store Optimization - Daily at 4 AM Pacific (12 PM UTC)
+# Optimizes nix store by deduplicating identical files
+0 12 * * * nix store optimise --verbose
+
+## Use docker native healthcheck
+## Health Check - Every 15 minutes
+## Verify nix environment is healthy
+#*/15 * * * * /usr/local/bin/healthcheck.sh
+
+## Disk Space Check - Hourly
+## Alert if disk usage is high (outputs to container logs)
+#0 * * * * df -h /nix | awk 'NR==2 && $5+0 > 90 { print "WARNING: NIX STORE DISK USAGE CRITICAL: " $5; fflush() }'
+
+# Nix Store Verification - Daily at 4 AM Pacific (12 PM UTC)
+# Verify store integrity without modifying anything
+0 12 * * * nix store verify --all --verbose
+
+## Not worth the risk for now
+## Profile Cleanup (Safe) - Weekly on Sunday at 1 AM
+## Only remove old profiles older than 90 days (safer for multi-container)
+#0 9 * * 0 nix profile wipe-history --profile /nix/var/nix/profiles/default --older-than 90d 2>&1 || echo "Profile cleanup failed - continuing"

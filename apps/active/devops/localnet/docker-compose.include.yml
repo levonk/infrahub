@@ -14,8 +14,28 @@ volumes:
     external: true
 
   # DNS Services
+  dns-adguard-conf:
+    name: localnet-dns-adguard-conf
+    external: true
+
+  dns-adguard-work:
+    name: localnet-dns-adguard-work
+    external: true
+
   dns-cache:
     name: localnet-dns-cache-volume
+    external: true
+
+  dns-blocklist-archive:
+    name: localnet-dns-blocklist-archive-volume
+    external: true
+
+  dns-blocklist-cdbs:
+    name: localnet-dns-blocklist-cdbs-volume
+    external: true
+
+  dns-coredns-cache:
+    name: localnet-dns-coredns-cache-volume
     external: true
 
   # NTP Services
@@ -52,7 +72,7 @@ volumes:
     external: true
 
   authelia-db:
-    name: localnet-security-authelia-db-volume-volume
+    name: localnet-security-authelia-db-volume
     external: true
   wud-store:
     name: localnet-security-wud-store-volume

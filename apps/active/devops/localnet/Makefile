@@ -22,42 +22,42 @@ help: ## Show this help message
 base-up: # create base images (must run in order before other containers)
 	@echo "$(BLUE)Creating base containers...$(NC)"
 	docker compose -f docker-compose.shared.yml --env-file ./.env.local.localnet --progress=plain up -d
-	docker-compose -f services/base/docker-compose.base.yml --profile base01 --env-file ./.env.local.localnet --progress=plain up -d && \
-	docker-compose -f services/base/docker-compose.base.yml --profile base02 --env-file ./.env.local.localnet --progress=plain up -d && \
-	docker-compose -f services/base/docker-compose.base.yml --profile base03 --env-file ./.env.local.localnet --progress=plain up -d
+	docker compose -f docker-compose.localnet.yml --profile base01 --env-file ./.env.local.localnet --progress=plain up -d && \
+	docker compose -f docker-compose.localnet.yml --profile base02 --env-file ./.env.local.localnet --progress=plain up -d && \
+	docker compose -f docker-compose.localnet.yml --profile base03 --env-file ./.env.local.localnet --progress=plain up -d
 	@echo "$(GREEN)✓ base containers created$(NC)"
 
 build: cloud-build base-up ## Build all Docker images
 	@echo "$(BLUE)Building all Docker images...$(NC)"
-	docker compose -f docker-compose.localnet.yml --env-file ./.env.local.localnet --progress=plain build
+	docker compose -f docker-compose.localnet.yml --profile all --env-file ./.env.local.localnet --progress=plain build
 	@echo "$(GREEN)✓ Build complete$(NC)"
 
 up: build cloud-up ## Start all services
 	@echo "$(BLUE)Starting all services...$(NC)"
-		@sleep 1
-	docker compose -f docker-compose.localnet.yml --progress=plain up -d
+	@sleep 1
+	docker compose -f docker-compose.localnet.yml --profile all --env-file ./.env.local.localnet --progress=plain up -d
 	@echo "$(GREEN)✓ Services started$(NC)"
 	@echo "Run 'make health-check' to verify service health"
 
 down: cloud-down ## Stop all services
 	@echo "$(YELLOW)Stopping all services...$(NC)"
-	docker compose -f docker-compose.localnet.yml --progress=plain down
+	docker compose -f docker-compose.cloud.yml --progress=plain down
 	@echo "$(GREEN)✓ Services stopped$(NC)"
 
 restart: ## Restart all services
 	@echo "$(YELLOW)Restarting all services...$(NC)"
-	docker compose -f docker-compose.localnet.yml --progress=plain restart
+	docker compose -f docker-compose.localnet.yml --profile all --progress=plain restart
 	@echo "$(GREEN)✓ Services restarted$(NC)"
 
 logs: ## View logs from all services (last 100 lines)
-	docker compose logs -f docker-compose.localnet.yml --tail=100
+	docker compose logs -f docker-compose.localnet.yml --profile all --tail=100
 
 logs-follow: ## Follow logs from all services
-	docker compose logs -f docker-compose.localnet.yml -f
+	docker compose logs -f docker-compose.localnet.yml --profile all -f
 
 health-check: ## Check health status of all services
 	@echo "$(BLUE)Checking service health...$(NC)"
-	@docker compose -f docker-compose.localnet.yml ps
+	@docker compose -f docker-compose.localnet.yml --profile all ps
 	@echo ""
 	@echo "$(BLUE)Running health checks...$(NC)"
 	@./scripts/health-checks/nftables-check.sh || echo "$(YELLOW)⚠ nftables check failed$(NC)"
@@ -116,7 +116,7 @@ fix-configs: clean-configs ## Recreate all config files from templates
 clean: ## Remove all containers, volumes, and networks, then restart services
 	@echo "$(YELLOW)Cleaning up Docker resources and restarting...$(NC)"
 	@echo "$(BLUE)Stopping and removing all containers...$(NC)"
-	docker compose down -f docker-compose.localnet.yml -v --remove-orphans 2>/dev/null || true
+	docker compose down -f docker-compose.localnet.yml --profile all -v --remove-orphans 2>/dev/null || true
 	@echo "$(BLUE)Force-removing any stuck containers...$(NC)"
 	@docker ps -a --filter "name=localnet-" --format "{{.Names}}" | xargs -r docker rm -f 2>/dev/null || true
 	@docker ps -a --filter "name=localnet-" --format "{{.Names}}" | xargs -r docker rm -f 2>/dev/null || true
@@ -131,24 +131,24 @@ clean: ## Remove all containers, volumes, and networks, then restart services
 	@$(MAKE) up
 
 ps: ## Show running containers
-	docker compose -f docker-compose.localnet.yml ps
+	docker compose -f docker-compose.localnet.yml --profile all ps
 
 stats: ## Show container resource usage
 	docker stats --no-stream
 
 pull: ## Pull latest container images
 	@echo "$(BLUE)Pulling latest images...$(NC)"
-	docker compose -f docker-compose.localnet.yml pull
+	docker compose -f docker-compose.localnet.yml --profile all pull
 	@echo "$(GREEN)✓ Images updated$(NC)"
 
 config: ## Validate docker-compose.yml configuration
 	@echo "$(BLUE)Validating configuration...$(NC)"
-	docker compose config -f docker-compose.localnet.yml > /dev/null
+	docker compose config -f docker-compose.localnet.yml --profile all > /dev/null
 	@echo "$(GREEN)✓ Configuration valid$(NC)"
 
 lint: ## Lint docker-compose.yml and YAML files
 	@echo "$(BLUE)Linting configuration files...$(NC)"
-	@docker compose config -f docker-compose.localnet.yml > /dev/null && echo "$(GREEN)✓ docker-compose.yml syntax valid$(NC)" || (echo "$(RED)✗ docker-compose.yml syntax invalid$(NC)"; exit 1)
+	@docker compose config -f docker-compose.localnet.yml --profile all > /dev/null && echo "$(GREEN)✓ docker-compose.yml syntax valid$(NC)" || (echo "$(RED)✗ docker-compose.yml syntax invalid$(NC)"; exit 1)
 	@if command -v yamllint >/dev/null 2>&1; then \
 		find . -name "*.yml" -o -name "*.yaml" | xargs yamllint --no-warnings || echo "$(YELLOW)⚠ yamllint not configured$(NC)"; \
 	else \
