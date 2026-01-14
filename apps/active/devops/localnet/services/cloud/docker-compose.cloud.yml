@@ -33,6 +33,7 @@ services:
       - "localstack-config:/var/lib/localstack"
     runtime: sysbox-runc
     restart: unless-stopped
+    profiles: ["all"]
 
 networks:
   localnet:

@@ -1,12 +1,22 @@
 FROM localnet-base-sidecar:latest
 
-RUN nix-env -p /nix/var/nix/profiles/default -iA nixpkgs.bazel nixpkgs.bazelisk || true
-RUN mkdir -p /home/developer/.cache/bazel /usr/local/bin/healthcheck
-COPY healthcheck/healthcheck.sh /usr/local/bin/healthcheck.sh
-RUN chmod +x /usr/local/bin/healthcheck.sh
+# Set healthcheck script path variable
+ENV HEALTHCHECK_SCRIPT="/bazel-sidecar/healthcheck-bazel.sh"
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD ["/usr/local/bin/healthcheck.sh"]
+# Install packages with Alpine and clean up
+RUN apk update && apk upgrade && \
+    if [ -n "bazel" ]; then apk add bazel; fi && \
+    rm -rf /var/cache/apk/* /tmp/*
+
+# Create necessary directories
+RUN mkdir -p /home/developer/.cache/bazel bazel-sidecar
+
+# Copy healthcheck script using variable
+COPY assets/static/bazel-sidecar/healthcheck-bazel.sh ${HEALTHCHECK_SCRIPT}
+RUN chmod +x ${HEALTHCHECK_SCRIPT}
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+  CMD ["${HEALTHCHECK_SCRIPT}"]
 
 ENTRYPOINT ["/usr/bin/env"]
-CMD ["sleep", "infinity"]
+CMD ["sleep", "30"]

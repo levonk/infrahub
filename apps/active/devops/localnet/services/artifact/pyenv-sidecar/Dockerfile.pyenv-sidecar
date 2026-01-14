@@ -1,12 +1,22 @@
 FROM localnet-base-sidecar:latest
 
-RUN nix-env -p /nix/var/nix/profiles/default -iA nixpkgs.pyenv \
-  && mkdir -p /root/.pyenv /usr/local/bin/healthcheck /home/developer/.pyenv
-COPY healthcheck/healthcheck.sh /usr/local/bin/healthcheck.sh
-RUN chmod +x /usr/local/bin/healthcheck.sh
+# Set healthcheck script path variable
+ENV HEALTHCHECK_SCRIPT="/pyenv-sidecar/healthcheck-pyenv.sh"
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD ["/usr/local/bin/healthcheck.sh"]
+# Install packages with Alpine and clean up
+RUN apk update && apk upgrade && \
+    if [ -n "python3" ]; then apk add python3; fi && \
+    rm -rf /var/cache/apk/*
+
+# Create necessary directories
+RUN mkdir -p /home/developer/.cache/pyenv pyenv-sidecar
+
+# Copy healthcheck script using variable
+COPY assets/static/pyenv-sidecar/healthcheck-pyenv.sh ${HEALTHCHECK_SCRIPT}
+RUN chmod +x ${HEALTHCHECK_SCRIPT}
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+  CMD ["${HEALTHCHECK_SCRIPT}"]
 
 ENTRYPOINT ["/usr/bin/env"]
-CMD ["sleep", "infinity"]
+CMD ["sleep", "30"]

@@ -55,6 +55,7 @@ services:
       interval: 30s
       timeout: 5s
       retries: 10
+    profiles: ["all"]
 
   openwebui:
     image: ghcr.io/open-webui/open-webui:latest
@@ -89,6 +90,7 @@ services:
       interval: 30s
       timeout: 5s
       retries: 20
+    profiles: ["all"]
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.open-webui.rule=Host(`${AI_SERVICES_OPENWEBUI_HOST_NAME:-openwebui.levonk.com}`)"
@@ -130,6 +132,7 @@ services:
       interval: 30s
       timeout: 5s
       retries: 10
+    profiles: ["all"]
 
   postgres:
     image: pgvector/pgvector:pg16
@@ -149,8 +152,9 @@ services:
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "${AI_POSTGRES_USER:-ai}"]
       interval: 10s
-      timeout: 5s
-      retries: 10
+      retries: 5
+      start_period: 5s
+    profiles: ["all"]
 
   neo4j:
     image: neo4j:5-community
@@ -171,8 +175,9 @@ services:
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:7474"]
       interval: 30s
-      timeout: 5s
-      retries: 20
+      retries: 5
+      start_period: 10s
+    profiles: ["all"]
 
   langfuse:
     image: langfuse/langfuse:latest

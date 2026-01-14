@@ -40,7 +40,7 @@ COPY entrypoint-blocklist.sh /usr/local/bin/entrypoint-blocklist.sh
 RUN chmod +x /usr/local/bin/entrypoint-blocklist.sh
 
 # Health check: verify CDB file exists and is readable
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD [ -f /blocklists/compiled/blocklist.cdb ] || exit 1
 
 # Run as root so entrypoint can chown volumes and drop privileges

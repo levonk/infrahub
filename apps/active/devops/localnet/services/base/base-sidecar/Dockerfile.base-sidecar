@@ -1,13 +1,75 @@
-FROM localnet-base-nix:latest
+# =============================================================================
+# Base Sidecar Dockerfile
+# =============================================================================
+# Purpose: Extends base-nix to provide additional sidecar functionality
+# Inheritance: Inherits /base-app and /base-nix directories from base-nix
+# Provides: /base-sidecar directory with its own flake.nix and scripts
+# Usage: Base image for other services that need both Nix and additional tools
+# =============================================================================
 
-# Use the existing cuser from the base image
-# Standardize environment
-ENV PATH=/root/.nix-profile/bin:/usr/bin:/bin
-ENV PUID=1000
-ENV PGID=1000
+# =============================================================================
+# Inheritance from Base Nix
+# =============================================================================
+# Inherits from localnet-base-nix:latest instead of directly from nixpkgs/nix:latest
+# This provides:
+# - /base-app/ directory with Nix environment and bootstrap tarball
+# - /base-nix/ directory with additional Nix utilities
+# - Pre-configured Nix environment with channels and SSL certificates
+# - Bootstrap tarball for volume restoration
+FROM localnet-base-alpine:latest
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD ["/usr/local/bin/healthcheck.sh"]
+# =============================================================================
+# Additional Assets
+# =============================================================================
+# Copy static assets to mirror container filesystem
+# This creates /base-sidecar/ directory with:
+# - entrypoint.sh: Custom entrypoint that extends base-nix functionality
+# - healthcheck.sh: Health check specific to sidecar requirements
+# - flake.nix: Additional packages needed by sidecar services
+# Note: This does NOT overwrite /base-app/ inherited from base-nix
+COPY assets/static/ /
 
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
-CMD ["sleep", "infinity"]
+# =============================================================================
+# Environment Configuration
+# =============================================================================
+# Set up environment for the base-sidecar
+# Extends the environment inherited from base-nix with additional paths
+# - PATH: Ensures all standard binaries are available (inherits from base-nix)
+# - NIX_PATH: Points to Nix channels for package resolution (inherits from base-nix)
+# - SSL_CERT_FILE: Points to CA certificates for HTTPS downloads (inherits from base-nix)
+ENV PATH=/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ENV NIX_PATH=nixpkgs=/nix/var/nix/profiles/per-user/root/channels/nixpkgs:/nix/var/nix/profiles/per-user/root/channels
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt
+
+# =============================================================================
+# Script Permissions
+# =============================================================================
+# Make scripts executable so they can be run as entrypoints
+# - /base-sidecar/healthcheck.sh: Used by Docker for container health checks
+# - /base-sidecar/entrypoint.sh: Main script that extends base-nix functionality
+# Note: /base-app/ scripts from base-nix are already executable
+RUN chmod +x /base-sidecar/healthcheck.sh /base-sidecar/entrypoint.sh
+
+# =============================================================================
+# Health Check Configuration
+# =============================================================================
+# Docker will run this command every 30s to check if the container is healthy
+# Uses sidecar-specific healthcheck.sh that validates both Nix and sidecar functionality
+# - interval: Check every 30 seconds
+# - timeout: Fail if check takes longer than 10 seconds
+# - start-period: Give container 20s to start before checking
+# - retries: Allow 3 consecutive failures before marking unhealthy
+HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
+  CMD /bin/sh -c '/base-sidecar/healthcheck.sh > /dev/null 2>&1'
+
+# =============================================================================
+# Container Entry Point
+# =============================================================================
+# Use the static busybox shell for bootstrapping
+# The /base-sidecar/entrypoint.sh script will:
+# 1. Verify /base-app/ directory exists (inherited from base-nix)
+# 2. Optionally execute /base-app/entrypoint.sh for base Nix setup
+# 3. Set up additional sidecar-specific packages from /base-sidecar/flake.nix
+# 4. Configure user management with proper UID/GID
+# 5. Execute the requested command or sleep by default
+ENTRYPOINT ["/bin/sh", "/base-sidecar/entrypoint.sh"]

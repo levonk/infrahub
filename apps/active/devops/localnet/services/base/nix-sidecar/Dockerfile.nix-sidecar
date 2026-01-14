@@ -4,8 +4,8 @@ FROM nixpkgs/nix:latest
 COPY assets/static/ /
 
 # Backup the internal Nix environment so it can be restored when an empty volume is mounted
-RUN mkdir -p /app/tmp /etc/nix && \
-    tar -C / -cf /app/tmp/bootstrap-slash-nix.tar nix bin etc/profile.d
+RUN mkdir -p /nix-sidecar/tmp /etc/nix && \
+    tar -C / -cf /nix-sidecar/tmp/bootstrap-slash-nix.tar nix bin etc/profile.d
 
 # Configure Nix
 COPY assets/static/etc/nix/nix.conf /etc/nix/nix.conf
@@ -16,10 +16,10 @@ ENV NIX_PATH=nixpkgs=/nix/var/nix/profiles/per-user/root/channels/nixpkgs:/nix/v
 ENV SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt
 
 # Make scripts executable
-RUN chmod +x /app/healthcheck.sh /app/entrypoint.sh
+RUN chmod +x /nix-sidecar/healthcheck-nix-sidecar.sh /nix-sidecar/entrypoint-nix-sidecar.sh
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
-  CMD /bin/sh -c '/app/healthcheck.sh > /dev/null 2>&1'
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD /bin/sh -c '/nix-sidecar/healthcheck-nix-sidecar.sh > /dev/null 2>&1'
 
 # Use the static busybox shell for bootstrapping
-ENTRYPOINT ["/bin/sh", "/app/entrypoint.sh"]
+ENTRYPOINT ["/bin/sh", "/nix-sidecar/entrypoint-nix-sidecar.sh"]

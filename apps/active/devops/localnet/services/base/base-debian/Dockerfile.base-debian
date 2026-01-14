@@ -9,10 +9,18 @@ LABEL org.opencontainers.image.title="Base Debian Image" \
       org.opencontainers.image.vendor="LocalNet" \
       maintainer="devops@localnet"
 
+# Build-time arguments for user configuration
+ARG PUID=1000
+ARG PGID=1000
+ARG TZ=UTC
+
 # Security hardening: prevent privilege escalation
 ENV DEBIAN_FRONTEND=noninteractive \
     LANG=C.UTF-8 \
-    LC_ALL=C.UTF-8
+    LC_ALL=C.UTF-8 \
+    PUID=${PUID} \
+    PGID=${PGID} \
+    TZ=${TZ}
 
 # Install essential packages with security updates
 RUN apt-get update && \
@@ -35,9 +43,9 @@ RUN mkdir -p /etc/service/config /healthcheck /tmp && \
     chmod 755 /etc/service /healthcheck && \
     chmod 1777 /tmp
 
-# Create non-root user for services (matches Alpine base image UID/GID)
-RUN groupadd -r -g 1000 cuser && \
-    useradd -r -u 1000 -g cuser -s /bin/bash -c "Application User" cuser && \
+# Create non-root user for services using build-time arguments
+RUN groupadd -r -g ${PGID} cuser && \
+    useradd -r -u ${PUID} -g cuser -s /bin/bash -c "Application User" cuser && \
     chown -R cuser:cuser /etc/service /healthcheck /tmp
 
 # Security hardening: remove unnecessary files and set restrictive umask
@@ -51,7 +59,7 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 WORKDIR /etc/service
 
 # Default health check (services should override this)
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD echo "Base image healthy"
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

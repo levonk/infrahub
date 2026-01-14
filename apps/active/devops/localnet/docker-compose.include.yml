@@ -134,6 +134,9 @@ volumes:
   go-cache:
     name: localnet-artifact-go-cache-volume
     external: true
+  go-build-cache:
+    name: localnet-artifact-go-build-cache-volume
+    external: true
   gradle-cache:
     name: localnet-artifact-gradle-cache-volume
     external: true
@@ -172,6 +175,9 @@ volumes:
     external: true
   rust-cargo-cache:
     name: localnet-artifact-rust-cargo-cache-volume
+    external: true
+  rust-cargo-git-cache:
+    name: localnet-artifact-rust-cargo-git-cache-volume
     external: true
   rust-rustup-cache:
     name: localnet-artifact-rust-rustup-cache-volume

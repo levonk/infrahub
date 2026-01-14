@@ -90,7 +90,7 @@ services:
     networks:
       - localnet
     logging: *default-logging
-    profiles: ["broken"]
+    profiles: ["broken", "all"]
 
   nix-harmonia:
     image: harmonia:latest
@@ -109,7 +109,7 @@ services:
     networks:
       - localnet
     logging: *default-logging
-    profiles: ["broken"]
+    profiles: ["broken", "all"]
 
   nix-ncps:
     image: ncps:latest
@@ -126,7 +126,7 @@ services:
     networks:
       - localnet
     logging: *default-logging
-    profiles: ["broken"]
+    profiles: ["broken", "all"]
 
   nix-snapshotter:
     image: nix-snapshotter:latest
@@ -144,7 +144,7 @@ services:
     networks:
       - localnet
     logging: *default-logging
-    profiles: ["broken"]
+    profiles: ["broken", "all"]
 
   # Nix sidecar service - manages the Nix store and caching
   # Rust sidecar for Rust toolchain
@@ -159,25 +159,24 @@ services:
       nix-sidecar:
         condition: service_healthy
     volumes:
-      - nix-store:/nix
-      - nix-config:/etc/nix
-      - rust-cargo-cache:/home/cuser/.cargo
-      - rust-rustup-cache:/home/cuser/.rustup
+      - rust-cargo-cache:/home/${USERNAME:-cuser}/.cargo/registry
+      - rust-cargo-git-cache:/home/${USERNAME:-cuser}/.cargo/git
+      - rust-rustup-cache:/home/${USERNAME:-cuser}/.rustup
     environment:
       - TZ=UTC
       - PUID=1000
       - PGID=1000
     healthcheck:
-      test: ["CMD", "nix", "develop", "/app#default", "--command", "/usr/local/bin/healthcheck.sh"]
+      test: ["CMD", "/rust-sidecar/healthcheck-rust.sh"]
       interval: 30s
       timeout: 30s
       retries: 3
-      start_period: 60s
+      start_period: 30s
     cap_drop:
       - ALL
     security_opt:
       - no-new-privileges:true
-    command: sleep infinity
+    command: sleep 30
     logging: *default-logging
     profiles: ["all"]
 
@@ -195,22 +194,22 @@ services:
     volumes:
       - nix-store:/nix
       - nix-config:/etc/nix
-      - php-cache:/home/cuser/.composer
+      - php-cache:/home/${USERNAME:-cuser}/.composer
     environment:
       - TZ=UTC
       - PUID=1000
       - PGID=1000
     healthcheck:
-      test: ["CMD", "nix", "develop", "/app#default", "--command", "/usr/local/bin/healthcheck.sh"]
+      test: ["CMD", "/rust-sidecar/healthcheck-rust.sh"]
       interval: 30s
       timeout: 30s
       retries: 3
-      start_period: 60s
+      start_period: 30s
     cap_drop:
       - ALL
     security_opt:
       - no-new-privileges:true
-    command: sleep infinity
+    command: sleep 30
     logging: *default-logging
     profiles: ["all"]
 
@@ -228,23 +227,23 @@ services:
     volumes:
       - nix-store:/nix
       - nix-config:/etc/nix
-      - haskell-cabal-cache:/home/cuser/.cabal
-      - haskell-stack-cache:/home/cuser/.stack
+      - haskell-cabal-cache:/home/${USERNAME:-cuser}/.cabal
+      - haskell-stack-cache:/home/${USERNAME:-cuser}/.stack
     environment:
       - TZ=UTC
       - PUID=1000
       - PGID=1000
     healthcheck:
-      test: ["CMD", "nix", "develop", "/app#default", "--command", "/usr/local/bin/healthcheck.sh"]
+      test: ["CMD", "/rust-sidecar/healthcheck-rust.sh"]
       interval: 30s
       timeout: 30s
       retries: 3
-      start_period: 60s
+      start_period: 30s
     cap_drop:
       - ALL
     security_opt:
       - no-new-privileges:true
-    command: sleep infinity
+    command: sleep 30
     logging: *default-logging
     profiles: ["all"]
 
@@ -260,24 +259,23 @@ services:
       nix-sidecar:
         condition: service_healthy
     volumes:
-      - nix-store:/nix
-      - nix-config:/etc/nix
-      - go-cache:/home/cuser/go
+      - go-cache:/home/${USERNAME:-cuser}/go/pkg/mod
+      - go-build-cache:/home/${USERNAME:-cuser}/.cache/go-build
     environment:
       - TZ=UTC
       - PUID=1000
       - PGID=1000
     healthcheck:
-      test: ["CMD", "nix", "develop", "/app#default", "--command", "/usr/local/bin/healthcheck.sh"]
+      test: ["CMD", "/rust-sidecar/healthcheck-rust.sh"]
       interval: 30s
       timeout: 30s
       retries: 3
-      start_period: 60s
+      start_period: 30s
     cap_drop:
       - ALL
     security_opt:
       - no-new-privileges:true
-    command: sleep infinity
+    command: sleep 30
     logging: *default-logging
     profiles: ["all"]
 
@@ -295,22 +293,22 @@ services:
     volumes:
       - nix-store:/nix
       - nix-config:/etc/nix
-      - java-m2-cache:/home/cuser/.m2/repository
+      - java-m2-cache:/home/${USERNAME:-cuser}/.m2/repository
     environment:
       - TZ=UTC
       - PUID=1000
       - PGID=1000
     healthcheck:
-      test: ["CMD", "nix", "develop", "/app#default", "--command", "/usr/local/bin/healthcheck.sh"]
+      test: ["CMD", "/rust-sidecar/healthcheck-rust.sh"]
       interval: 30s
       timeout: 30s
       retries: 3
-      start_period: 60s
+      start_period: 30s
     cap_drop:
       - ALL
     security_opt:
       - no-new-privileges:true
-    command: sleep infinity
+    command: sleep 30
     logging: *default-logging
     profiles: ["all"]
 
@@ -328,22 +326,22 @@ services:
     volumes:
       - nix-store:/nix
       - nix-config:/etc/nix
-      - python-cache:/home/cuser/.cache/pip
+      - python-cache:/home/${USERNAME:-cuser}/.cache/pip
     environment:
       - TZ=UTC
       - PUID=1000
       - PGID=1000
     healthcheck:
-      test: ["CMD", "nix", "develop", "/app#default", "--command", "/usr/local/bin/healthcheck.sh"]
+      test: ["CMD", "/rust-sidecar/healthcheck-rust.sh"]
       interval: 30s
       timeout: 30s
       retries: 3
-      start_period: 60s
+      start_period: 30s
     cap_drop:
       - ALL
     security_opt:
       - no-new-privileges:true
-    command: sleep infinity
+    command: sleep 30
     logging: *default-logging
     profiles: ["all"]
 
@@ -361,22 +359,22 @@ services:
     volumes:
       - nix-store:/nix
       - nix-config:/etc/nix
-      - dart-cache:/home/cuser/.pub-cache
+      - dart-cache:/home/${USERNAME:-cuser}/.dart-cache
     environment:
       - TZ=UTC
       - PUID=1000
       - PGID=1000
     healthcheck:
-      test: ["CMD", "nix", "develop", "/app#default", "--command", "/usr/local/bin/healthcheck.sh"]
+      test: ["CMD", "/rust-sidecar/healthcheck-rust.sh"]
       interval: 30s
       timeout: 30s
       retries: 3
-      start_period: 60s
+      start_period: 30s
     cap_drop:
       - ALL
     security_opt:
       - no-new-privileges:true
-    command: sleep infinity
+    command: sleep 30
     logging: *default-logging
     profiles: ["all"]
 
@@ -394,22 +392,22 @@ services:
     volumes:
       - nix-store:/nix
       - nix-config:/etc/nix
-      - dotnet-cache:/home/cuser/.nuget/packages
+      - dotnet-cache:/home/${USERNAME:-cuser}/.nuget/packages
     environment:
       - TZ=UTC
       - PUID=1000
       - PGID=1000
     healthcheck:
-      test: ["CMD", "nix", "develop", "/app#default", "--command", "/usr/local/bin/healthcheck.sh"]
+      test: ["CMD", "/rust-sidecar/healthcheck-rust.sh"]
       interval: 30s
       timeout: 30s
       retries: 3
-      start_period: 60s
+      start_period: 30s
     cap_drop:
       - ALL
     security_opt:
       - no-new-privileges:true
-    command: sleep infinity
+    command: sleep 30
     logging: *default-logging
     profiles: ["all"]
 
@@ -425,19 +423,19 @@ services:
       nix-sidecar:
         condition: service_healthy
     volumes:
-      - pnpm-store:/home/cuser/.pnpm-store
+      - pnpm-store:/home/${USERNAME:-cuser}/.local/share/pnpm
       - nix-store:/nix
     environment:
       - PUID=1000
       - PGID=1000
       - TZ=UTC
     healthcheck:
-      test: ["CMD", "nix", "develop", "/app#default", "--command", "/usr/local/bin/healthcheck.sh"]
+      test: ["CMD", "/rust-sidecar/healthcheck-rust.sh"]
       interval: 30s
       timeout: 30s
       retries: 3
       start_period: 30s
-    command: sleep infinity
+    command: sleep 30
     logging: *default-logging
     profiles: ["all"]
 
@@ -454,22 +452,22 @@ services:
     volumes:
       - nix-store:/nix
       - nix-config:/etc/nix
-      - elixir-cache:/home/cuser/.mix
+      - elixir-cache:/home/${USERNAME:-cuser}/.mix/archives
     environment:
       - TZ=UTC
       - PUID=1000
       - PGID=1000
     healthcheck:
-      test: ["CMD", "nix", "develop", "/app#default", "--command", "/usr/local/bin/healthcheck.sh"]
+      test: ["CMD", "/rust-sidecar/healthcheck-rust.sh"]
       interval: 30s
       timeout: 30s
       retries: 3
-      start_period: 60s
+      start_period: 30s
     cap_drop:
       - ALL
     security_opt:
       - no-new-privileges:true
-    command: sleep infinity
+    command: sleep 30
     logging: *default-logging
     profiles: ["all"]
 
@@ -486,22 +484,22 @@ services:
     volumes:
       - nix-store:/nix
       - nix-config:/etc/nix
-      - ruby-cache:/home/cuser/.gem
+      - ruby-cache:/home/${USERNAME:-cuser}/.gem
     environment:
       - TZ=UTC
       - PUID=1000
       - PGID=1000
     healthcheck:
-      test: ["CMD", "nix", "develop", "/app#default", "--command", "/usr/local/bin/healthcheck.sh"]
+      test: ["CMD", "/rust-sidecar/healthcheck-rust.sh"]
       interval: 30s
       timeout: 30s
       retries: 3
-      start_period: 60s
+      start_period: 30s
     cap_drop:
       - ALL
     security_opt:
       - no-new-privileges:true
-    command: sleep infinity
+    command: sleep 30
     logging: *default-logging
     profiles: ["all"]
 
@@ -518,22 +516,22 @@ services:
     volumes:
       - nix-store:/nix
       - nix-config:/etc/nix
-      - conda-cache:/root/.conda
+      - conda-cache:/home/${USERNAME:-cuser}/.conda
     environment:
       - TZ=UTC
       - PUID=1000
       - PGID=1000
     healthcheck:
-      test: ["CMD", "nix", "develop", "/app#default", "--command", "/usr/local/bin/healthcheck.sh"]
+      test: ["CMD", "/rust-sidecar/healthcheck-rust.sh"]
       interval: 30s
       timeout: 30s
       retries: 3
-      start_period: 60s
+      start_period: 30s
     cap_drop:
       - ALL
     security_opt:
       - no-new-privileges:true
-    command: sleep infinity
+    command: sleep 30
     logging: *default-logging
     profiles: ["all"]
 
@@ -550,22 +548,22 @@ services:
     volumes:
       - nix-store:/nix
       - nix-config:/etc/nix
-      - poetry-cache:/home/cuser/.cache/pypoetry
+      - poetry-cache:/home/${USERNAME:-cuser}/.cache/pypoetry
     environment:
       - TZ=UTC
       - PUID=1000
       - PGID=1000
     healthcheck:
-      test: ["CMD", "nix", "develop", "/app#default", "--command", "/usr/local/bin/healthcheck.sh"]
+      test: ["CMD", "/rust-sidecar/healthcheck-rust.sh"]
       interval: 30s
       timeout: 30s
       retries: 3
-      start_period: 60s
+      start_period: 30s
     cap_drop:
       - ALL
     security_opt:
       - no-new-privileges:true
-    command: sleep infinity
+    command: sleep 30
     logging: *default-logging
     profiles: ["all"]
 
@@ -582,22 +580,22 @@ services:
     volumes:
       - nix-store:/nix
       - nix-config:/etc/nix
-      - sdkman-cache:/root/.sdkman
+      - sdkman-cache:/home/${USERNAME:-cuser}/.sdkman/candidates
     environment:
       - TZ=UTC
       - PUID=1000
       - PGID=1000
     healthcheck:
-      test: ["CMD", "nix", "develop", "/app#default", "--command", "/usr/local/bin/healthcheck.sh"]
+      test: ["CMD", "/rust-sidecar/healthcheck-rust.sh"]
       interval: 30s
       timeout: 30s
       retries: 3
-      start_period: 60s
+      start_period: 30s
     cap_drop:
       - ALL
     security_opt:
       - no-new-privileges:true
-    command: sleep infinity
+    command: sleep 30
     logging: *default-logging
     profiles: ["all"]
 
@@ -614,22 +612,22 @@ services:
     volumes:
       - nix-store:/nix
       - nix-config:/etc/nix
-      - nvm-cache:/root/.nvm
+      - nvm-cache:/home/${USERNAME:-cuser}/.nvm
     environment:
       - TZ=UTC
       - PUID=1000
       - PGID=1000
     healthcheck:
-      test: ["CMD", "nix", "develop", "/app#default", "--command", "/usr/local/bin/healthcheck.sh"]
+      test: ["CMD", "/rust-sidecar/healthcheck-rust.sh"]
       interval: 30s
       timeout: 30s
       retries: 3
-      start_period: 60s
+      start_period: 30s
     cap_drop:
       - ALL
     security_opt:
       - no-new-privileges:true
-    command: sleep infinity
+    command: sleep 30
     logging: *default-logging
     profiles: ["all"]
 
@@ -646,22 +644,22 @@ services:
     volumes:
       - nix-store:/nix
       - nix-config:/etc/nix
-      - pyenv-cache:/root/.pyenv
+      - pyenv-cache:/home/${USERNAME:-cuser}/.pyenv
     environment:
       - TZ=UTC
       - PUID=1000
       - PGID=1000
     healthcheck:
-      test: ["CMD", "nix", "develop", "/app#default", "--command", "/usr/local/bin/healthcheck.sh"]
+      test: ["CMD", "/rust-sidecar/healthcheck-rust.sh"]
       interval: 30s
       timeout: 30s
       retries: 3
-      start_period: 60s
+      start_period: 30s
     cap_drop:
       - ALL
     security_opt:
       - no-new-privileges:true
-    command: sleep infinity
+    command: sleep 30
     logging: *default-logging
     profiles: ["all"]
 
@@ -678,22 +676,22 @@ services:
     volumes:
       - nix-store:/nix
       - nix-config:/etc/nix
-      - bazel-cache:/root/.cache/bazel
+      - bazel-cache:/home/${USERNAME:-cuser}/.cache/bazel
     environment:
       - TZ=UTC
       - PUID=1000
       - PGID=1000
     healthcheck:
-      test: ["CMD", "nix", "develop", "/app#default", "--command", "/usr/local/bin/healthcheck.sh"]
+      test: ["CMD", "/rust-sidecar/healthcheck-rust.sh"]
       interval: 30s
       timeout: 30s
       retries: 3
-      start_period: 60s
+      start_period: 30s
     cap_drop:
       - ALL
     security_opt:
       - no-new-privileges:true
-    command: sleep infinity
+    command: sleep 30
     logging: *default-logging
     profiles: ["all"]
 
@@ -710,22 +708,22 @@ services:
     volumes:
       - nix-store:/nix
       - nix-config:/etc/nix
-      - gradle-cache:/home/cuser/.gradle
+      - gradle-cache:/home/${USERNAME:-cuser}/.gradle
     environment:
       - TZ=UTC
       - PUID=1000
       - PGID=1000
     healthcheck:
-      test: ["CMD", "nix", "develop", "/app#default", "--command", "/usr/local/bin/healthcheck.sh"]
+      test: ["CMD", "/rust-sidecar/healthcheck-rust.sh"]
       interval: 30s
       timeout: 30s
       retries: 3
-      start_period: 60s
+      start_period: 30s
     cap_drop:
       - ALL
     security_opt:
       - no-new-privileges:true
-    command: sleep infinity
+    command: sleep 30
     logging: *default-logging
     profiles: ["all"]
 
@@ -744,23 +742,23 @@ services:
     volumes:
       - nix-store:/nix
       - nix-config:/etc/nix
-      - pnpm-store:/home/cuser/.pnpm-store
-      - turbo-cache:/home/cuser/.turbo/cache
+      - pnpm-store:/home/${USERNAME:-cuser}/.local/share/pnpm
+      - turbo-cache:/home/${USERNAME:-cuser}/.cache/turbo
     environment:
       - TZ=UTC
       - PUID=1000
       - PGID=1000
     healthcheck:
-      test: ["CMD", "nix", "develop", "/app#default", "--command", "/usr/local/bin/healthcheck.sh"]
+      test: ["CMD", "/rust-sidecar/healthcheck-rust.sh"]
       interval: 30s
       timeout: 30s
       retries: 3
-      start_period: 60s
+      start_period: 30s
     cap_drop:
       - ALL
     security_opt:
       - no-new-privileges:true
-    command: sleep infinity
+    command: sleep 30
     logging: *default-logging
     profiles: ["all"]
 
@@ -777,22 +775,22 @@ services:
     volumes:
       - nix-store:/nix
       - nix-config:/etc/nix
-      - asdf-cache:/root/.asdf
+      - asdf-cache:/home/${USERNAME:-cuser}/.asdf
     environment:
       - TZ=UTC
       - PUID=1000
       - PGID=1000
     healthcheck:
-      test: ["CMD", "nix", "develop", "/app#default", "--command", "/usr/local/bin/healthcheck.sh"]
+      test: ["CMD", "/rust-sidecar/healthcheck-rust.sh"]
       interval: 30s
       timeout: 30s
       retries: 3
-      start_period: 60s
+      start_period: 30s
     cap_drop:
       - ALL
     security_opt:
       - no-new-privileges:true
-    command: sleep infinity
+    command: sleep 30
     logging: *default-logging
     profiles: ["all"]
 
@@ -809,23 +807,23 @@ services:
     volumes:
       - nix-store:/nix
       - nix-config:/etc/nix
-      - mise-cache:/root/.local/share/mise
-      - mise-cache:/root/.cache/mise
+      - mise-cache:/home/${USERNAME:-cuser}/.local/share/mise
+      - mise-cache:/home/${USERNAME:-cuser}/.cache/mise
     environment:
       - TZ=UTC
       - PUID=1000
       - PGID=1000
     healthcheck:
-      test: ["CMD", "nix", "develop", "/app#default", "--command", "/usr/local/bin/healthcheck.sh"]
+      test: ["CMD", "/rust-sidecar/healthcheck-rust.sh"]
       interval: 30s
       timeout: 30s
       retries: 3
-      start_period: 60s
+      start_period: 30s
     cap_drop:
       - ALL
     security_opt:
       - no-new-privileges:true
-    command: sleep infinity
+    command: sleep 30
     logging: *default-logging
     profiles: ["all"]
 
@@ -842,22 +840,22 @@ services:
     volumes:
       - nix-store:/nix
       - nix-config:/etc/nix
-      - vscode-cache:/root/.vscode-server
+      - vscode-cache:/home/${USERNAME:-cuser}/.vscode-server/extensions
     environment:
       - TZ=UTC
       - PUID=1000
       - PGID=1000
     healthcheck:
-      test: ["CMD", "nix", "develop", "/app#default", "--command", "/usr/local/bin/healthcheck.sh"]
+      test: ["CMD", "/rust-sidecar/healthcheck-rust.sh"]
       interval: 30s
       timeout: 30s
       retries: 3
-      start_period: 60s
+      start_period: 30s
     cap_drop:
       - ALL
     security_opt:
       - no-new-privileges:true
-    command: sleep infinity
+    command: sleep 30
     logging: *default-logging
     profiles: ["all"]
 
@@ -874,21 +872,21 @@ services:
     volumes:
       - nix-store:/nix
       - nix-config:/etc/nix
-      - unity-cache:/home/cuser/.cache/unity
+      - unity-cache:/home/${USERNAME:-cuser}/.cache/unity
     environment:
       - TZ=UTC
       - PUID=1000
       - PGID=1000
     healthcheck:
-      test: ["CMD", "nix", "develop", "/app#default", "--command", "/usr/local/bin/healthcheck.sh"]
+      test: ["CMD", "/rust-sidecar/healthcheck-rust.sh"]
       interval: 30s
       timeout: 30s
       retries: 3
-      start_period: 60s
+      start_period: 30s
     cap_drop:
       - ALL
     security_opt:
       - no-new-privileges:true
-    command: sleep infinity
+    command: sleep 30
     logging: *default-logging
     profiles: ["all"]

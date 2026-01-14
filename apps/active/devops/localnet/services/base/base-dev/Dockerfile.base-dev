@@ -1,0 +1,109 @@
+# =============================================================================
+# DEV-BASE: Base development environment with Nix and essential tools
+# =============================================================================
+FROM localnet-base-debnix:latest
+
+# Set up the non-root user using Docker Compose environment variables
+ARG USERNAME=cuser
+ARG USER_UID=${PUID:-1000}
+ARG USER_GID=${PGID:-1000}
+
+# Copy static assets to mirror container filesystem
+COPY assets/static/ /
+
+# Ensure scripts are executable
+USER root
+RUN chmod +x /base-dev/healthcheck-base-dev.sh /base-dev/entrypoint-base-dev.sh
+
+# Create user and sudo setup
+RUN mkdir -p /etc/sudoers.d && \
+    # Check if user exists, if not create it (fallback), otherwise ensure home dir
+    if ! id -u ${USERNAME} > /dev/null 2>&1; then \
+        groupadd --gid $USER_GID $USERNAME && \
+        useradd --uid $USER_UID --gid $USER_GID -m -d /home/$USERNAME $USERNAME; \
+    else \
+        # Ensure home directory exists for existing user
+        if [ ! -d "/home/${USERNAME}" ]; then \
+            mkdir -p "/home/${USERNAME}"; \
+            chown ${USER_UID}:${USER_GID} "/home/${USERNAME}"; \
+        fi; \
+    fi && \
+    echo "${USERNAME} ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/${USERNAME}
+
+# Switch to user to setup project
+USER ${USERNAME}
+
+# Create the project directory
+RUN mkdir -p /home/${USERNAME}/project && \
+	# Create a simple .envrc file for direnv
+	echo 'use nix' > /home/${USERNAME}/project/.envrc && \
+	# Create a flake.nix for modern Nix development environment
+	printf '%s\n' \
+    '{' \
+    '  description = "Development environment";' \
+    '' \
+    '  inputs = {' \
+    '    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";' \
+    '    flake-utils.url = "github:numtide/flake-utils";' \
+    '  };' \
+    '' \
+    '  outputs = { nixpkgs, flake-utils, ... }:' \
+    '    flake-utils.lib.eachDefaultSystem (system:' \
+    '      let pkgs = nixpkgs.legacyPackages.${system}; in {' \
+    '        devShells.default = pkgs.mkShell {' \
+    '          buildInputs = with pkgs; [' \
+    '            # Core Development Tools' \
+    '            nix nodejs devbox jq git' \
+    '            # Shell & Navigation' \
+    '            fzf ripgrep fd bat eza zoxide zsh' \
+    '            # Terminal Multiplexer & Shell Environment' \
+    '            zellij direnv' \
+    '            # Image & Document Processing' \
+    '            poppler-utils chafa jp2a imagemagick' \
+    '            # Advanced Diff & Comparison Tools' \
+    '            difftastic delta mergiraf odiff' \
+    '            # Development Infrastructure' \
+    '            chezmoi universal-ctags sqlite' \
+    '            # Diagramming & Visualization' \
+    '            graphviz plantuml mermaid-cli' \
+    '            # System Utilities' \
+    '            htop btop bottom procs dust duf' \
+    '            # File Management' \
+    '            yazi trash-cli p7zip unzip zip rsync' \
+    '            # Text Processing & Data' \
+    '            vim neovim yq-go gron fx tokei' \
+    '            # Network Tools' \
+    '            nmap tcpdump mtr whois rhash' \
+    '            # Terminal Enhancement' \
+    '            nerd-fonts.jetbrains-mono tlrc pay-respects atuin sd' \
+    '            # Version Control' \
+    '            gh glab lazygit git-extras git-lfs fzf-git-sh' \
+    '            # System Essentials' \
+    '            file findutils procps shadow gosu' \
+    '            # code enviornment' \
+    '            opencode vimPlugins.opencode-nvim' \
+    '          ];' \
+    '        };' \
+    '      });' \
+    '    }' > /home/${USERNAME}/project/flake.nix
+
+# Note: We do NOT run `nix develop` here because the Nix store volume will be mounted at runtime,
+# potentially obscuring any store paths built here. The development environment should be
+# hydrated at runtime or via the sidecar.
+
+# Set up working directory
+WORKDIR /home/${USERNAME}/project
+
+# Switch back to root to allow entrypoint to handle UID/GID fixing
+USER root
+
+# Set up Nix environment for the user (must be set after switching user)
+ENV PATH="/nix/var/nix/profiles/default/bin:/home/${USERNAME}/.local/bin:/home/${USERNAME}/.nix-profile/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+ENV NIX_PATH="nixpkgs=/nix/var/nix/profiles/per-user/root/channels/nixpkgs:/nix/var/nix/profiles/per-user/root/channels"
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD ["/base-dev/healthcheck-base-dev.sh"]
+
+# Override PATH in entrypoint to ensure Nix binaries are available
+ENTRYPOINT ["/base-dev/entrypoint-base-dev.sh"]
+CMD ["/usr/bin/sleep", "infinity"]

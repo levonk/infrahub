@@ -1,12 +1,22 @@
 FROM localnet-base-sidecar:latest
 
-RUN npm install -g turbo || true
-RUN mkdir -p /home/developer/.turbo/cache /usr/local/bin/healthcheck
-COPY healthcheck/healthcheck.sh /usr/local/bin/healthcheck.sh
-RUN chmod +x /usr/local/bin/healthcheck.sh
+# Set healthcheck script path variable
+ENV HEALTHCHECK_SCRIPT="/turborepo-sidecar/healthcheck-turborepo.sh"
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD ["/usr/local/bin/healthcheck.sh"]
+# Install packages with Alpine and clean up
+RUN apk update && apk upgrade && \
+    if [ -n "nodejs npm" ]; then apk add nodejs npm; fi && \
+    rm -rf /var/cache/apk/*
+
+# Create necessary directories
+RUN mkdir -p /home/developer/.cache/turborepo turborepo-sidecar
+
+# Copy healthcheck script using variable
+COPY assets/static/turborepo-sidecar/healthcheck-turborepo.sh ${HEALTHCHECK_SCRIPT}
+RUN chmod +x ${HEALTHCHECK_SCRIPT}
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+  CMD ["${HEALTHCHECK_SCRIPT}"]
 
 ENTRYPOINT ["/usr/bin/env"]
-CMD ["sleep", "infinity"]
+CMD ["sleep", "30"]

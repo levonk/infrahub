@@ -63,7 +63,9 @@ services:
       retries: 3
       start_period: 170s
     restart: unless-stopped
-
+    profiles:
+      - todo
+      - all
   # AdGuard Home: DNS-based ad blocker and network-wide tracking protection
   # Role: Provides DNS filtering, ad blocking, and DNS query logging
   # Can be used as an alternative to blocklists or as an additional filtering layer
@@ -108,6 +110,7 @@ services:
     restart: unless-stopped
     profiles:
       - "broken"
+      - all
 
   # second layer of DNS Services. Handles fallback, and normal caching
   coredns:
@@ -177,6 +180,9 @@ services:
       retries: 3
       start_period: 30s
     restart: unless-stopped
+    profiles:
+      - todo
+      - all
 
   # third layer of DNS Services. Handles DNS native outbound communication
   #  dnscrypt-odoh:
@@ -298,6 +304,9 @@ services:
     command:
       ["/usr/local/bin/entrypoint-dnscrypt.sh", "dnscrypt-proxy-plaintext"]
     restart: unless-stopped
+    profiles:
+      - todo
+      - all
 
   # third layer of DNS Services. Handles DNS native outbound communication
   #  dnscrypt-tor:
@@ -337,6 +346,9 @@ services:
     environment:
       - PROXY_TOR_SOCKS5_CONTAINER_PORT=${PROXY_TOR_SOCKS5_CONTAINER_PORT:-9050}
     restart: unless-stopped
+    profiles:
+      - todo
+      - all
 
   # Job container that creates DNSDIST cdb based blocklists
   blocklist-compiler:
@@ -365,5 +377,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 60s
+    profiles:
+      - todo
+      - all
     restart: "no" # Run once on startup, use n8n/cron/systemd for updates

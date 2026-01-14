@@ -184,6 +184,9 @@ volumes:
   go-cache:
     name: localnet-artifact-go-cache-volume
     external: false
+  go-build-cache:
+    name: localnet-artifact-go-build-cache-volume
+    external: false
   gradle-cache:
     name: localnet-artifact-gradle-cache-volume
     external: false
@@ -222,6 +225,9 @@ volumes:
     external: false
   rust-cargo-cache:
     name: localnet-artifact-rust-cargo-cache-volume
+    external: false
+  rust-cargo-git-cache:
+    name: localnet-artifact-rust-cargo-git-cache-volume
     external: false
   rust-rustup-cache:
     name: localnet-artifact-rust-rustup-cache-volume
@@ -285,6 +291,7 @@ services:
       - dotnet-cache:/var/lib/dotnet:ro
       - elixir-cache:/var/lib/elixir:ro
       - go-cache:/var/lib/go:ro
+      - go-build-cache:/home/${USERNAME:-cuser}/.cache/go-build:ro
       - gradle-cache:/var/lib/gradle:ro
       - haskell-cabal-cache:/var/lib/cabal:ro
       - haskell-stack-cache:/var/lib/stack:ro
@@ -299,6 +306,9 @@ services:
       - ruby-cache:/var/lib/ruby:ro
       - rust-cargo-cache:/var/lib/cargo:ro
       - rust-rustup-cache:/var/lib/rustup:ro
+      - rust-cargo-cache:/home/${USERNAME:-cuser}/.cargo/registry:ro
+      - rust-cargo-git-cache:/home/${USERNAME:-cuser}/.cargo/git:ro
+      - rust-rustup-cache:/home/${USERNAME:-cuser}/.rustup:ro
       - sdkman-cache:/var/lib/sdkman:ro
       - turbo-cache:/var/lib/turbo:ro
       - unity-cache:/var/lib/unity:ro

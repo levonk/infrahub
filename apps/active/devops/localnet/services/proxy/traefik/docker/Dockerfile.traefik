@@ -12,7 +12,7 @@ RUN chmod +x /usr/local/bin/check-health.sh
 EXPOSE 80 443 8080
 
 # Healthcheck
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=3s --start-period=30s --retries=3 \
 	CMD ["/usr/local/bin/check-health.sh"]
 
 # The entrypoint is already defined in the base image

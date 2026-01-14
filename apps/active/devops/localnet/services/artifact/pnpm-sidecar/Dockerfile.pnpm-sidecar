@@ -1,17 +1,22 @@
 FROM localnet-base-sidecar:latest
 
-# Copy flake.nix for reproducible environment
-COPY flake.nix /app/flake.nix
+# Set healthcheck script path variable
+ENV HEALTHCHECK_SCRIPT="/pnpm-sidecar/healthcheck-pnpm.sh"
 
-# Create healthcheck directory
-RUN mkdir -p /usr/local/bin/healthcheck
-COPY healthcheck/healthcheck.sh /usr/local/bin/healthcheck.sh
-RUN chmod +x /usr/local/bin/healthcheck.sh
+# Install packages with Alpine and clean up
+RUN apk update && apk upgrade && \
+    if [ -n "nodejs npm" ]; then apk add nodejs npm; fi && \
+    rm -rf /var/cache/apk/*
 
-# Use nix develop for reproducible environment
+# Create necessary directories
+RUN mkdir -p /home/developer/.cache/pnpm pnpm-sidecar
+
+# Copy healthcheck script using variable
+COPY assets/static/pnpm-sidecar/healthcheck-pnpm.sh ${HEALTHCHECK_SCRIPT}
+RUN chmod +x ${HEALTHCHECK_SCRIPT}
+
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-  CMD ["nix", "develop", "/app#default", "--command", "/usr/local/bin/healthcheck.sh"]
+  CMD ["${HEALTHCHECK_SCRIPT}"]
 
-USER $USERNAME
 ENTRYPOINT ["/usr/bin/env"]
-CMD ["sleep", "infinity"]
+CMD ["sleep", "30"]

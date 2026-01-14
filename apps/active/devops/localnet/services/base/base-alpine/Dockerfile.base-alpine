@@ -8,18 +8,26 @@ LABEL org.opencontainers.image.title="Base Alpine Image" \
       org.opencontainers.image.vendor="LocalNet" \
       maintainer="devops@localnet"
 
+# Build-time arguments for user configuration
+ARG PUID=1000
+ARG PGID=1000
+ARG TZ=UTC
+
 # Security hardening: prevent privilege escalation and set secure defaults
 ENV LANG=C.UTF-8 \
     LC_ALL=C.UTF-8 \
     PAGER=cat \
-    EDITOR=/bin/vi
+    EDITOR=/bin/vi \
+    PUID=${PUID} \
+    PGID=${PGID} \
+    TZ=${TZ}
 
 # Install essential packages with security updates and minimal dependencies
 RUN apk update && \
     apk upgrade && \
     apk add --no-cache \
         curl \
-	su-exec \
+        su-exec \
         shadow \
         ca-certificates \
         gnupg \
@@ -32,11 +40,11 @@ RUN apk update && \
     chmod 755 /etc/service /healthcheck && \
     chmod 1777 /tmp
 
-# Create non-root user for services (matches Debian base image UID/GID)
-RUN addgroup -g 1001 -S appuser && \
-    adduser -u 1001 -S appuser -G appuser -s /bin/bash -h /home/appuser && \
+# Create non-root user for services using build-time arguments
+RUN addgroup -g ${PGID} -S cuser && \
+    adduser -u ${PUID} -S cuser -G cuser -s /bin/bash -h /home/cuser && \
     # Set proper ownership
-    chown -R appuser:appuser /etc/service /healthcheck /tmp /home/appuser
+    chown -R cuser:cuser /etc/service /healthcheck /tmp /home/cuser
 
 # Security hardening: remove potentially dangerous files and set restrictive permissions
 RUN find / -type f \( -name "*.pyc" -o -name "*.pyo" -o -name "*.orig" \) -delete 2>/dev/null || true && \
@@ -51,8 +59,8 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 WORKDIR /etc/service
 
 # Default health check (services should override this)
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD echo "Base image healthy"
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
-CMD ["sleep", "infinity"]
+CMD ["sleep", "30"]

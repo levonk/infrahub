@@ -2,6 +2,12 @@
 
 Secure Debian and Alpine base images derived from the hardened `dhi.io` OS series. Every service image in LocalNet is built on top of these layers so the same security posture, user model, and filesystem layout propagate across the stack.
 
+It also includes `nix-sidecar` image for managing the Nix store, caching and nix configuration.
+
+Based off of standard debian slim is `base-debnix` this is Debian with the nix package manager loaded which uses the volumes that `nix-sidecar` manages.
+
+Based off of `base-debnix` we have `base-dev` which is a package for a developer to use for development. `base-dev` also mounts the volumes from `nix-sidecar` so that the developer can use the nix package manager.
+
 ## ⭐ Highlights
 
 - ☑️ **Immutable baseline**: Debian (Bookworm) and Alpine (3.19) variants published as `base-debian` and `base-alpine` images.

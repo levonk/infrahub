@@ -12,6 +12,8 @@ NC := \033[0m
 COMPOSE_FILE := docker-compose.base.yml
 ENSURE_NETWORK := ../../scripts/ensure-network.py
 ROOT_DIR := $(CURDIR)
+PROJECT_DIR := $(abspath $(ROOT_DIR)/../..)
+export LOCALNET_DIR := $(PROJECT_DIR)
 
 ifeq (,$(wildcard .env))
 ENV_ARGS :=
@@ -40,9 +42,18 @@ build: ## Build both base images
 	@$(COMPOSE) build
 	@echo "$(GREEN)✓ base images built$(NC)"
 
-up: ## Run docker-compose (detached)
+base-up: ## Build and run base-dev and dependencies
 	@$(ENSURE_NETWORK) --project-directory $(PROJECT_DIR) -f $(COMPOSE_FILE)
-	@$(COMPOSE) up -d
+	@echo "$(BLUE)Building base01 (debian/alpine/sidecar)...$(NC)"
+	@$(COMPOSE) --profile base01 build
+	@echo "$(BLUE)Building base02 (debnix)...$(NC)"
+	@$(COMPOSE) --profile base02 build
+	@echo "$(BLUE)Building base03 (dev)...$(NC)"
+	@$(COMPOSE) --profile base03 build
+	@echo "$(BLUE)Recreating nix-sidecar...$(NC)"
+	@$(COMPOSE) up -d --force-recreate nix-sidecar
+	@echo "$(BLUE)Starting base-dev...$(NC)"
+	@$(COMPOSE) --profile base03 up -d base-dev
 
 down: ## Stop and remove base containers
 	@$(COMPOSE) down

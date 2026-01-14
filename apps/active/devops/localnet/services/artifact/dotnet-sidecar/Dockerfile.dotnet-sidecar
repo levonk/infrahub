@@ -1,14 +1,22 @@
 FROM localnet-base-sidecar:latest
 
-RUN nix-env -p /nix/var/nix/profiles/default -iA nixpkgs.dotnet-sdk_8 nixpkgs.cacert
+# Set healthcheck script path variable
+ENV HEALTHCHECK_SCRIPT="/dotnet-sidecar/healthcheck-dotnet.sh"
 
-RUN mkdir -p /usr/local/bin/healthcheck
+# Install packages with Alpine and clean up
+RUN apk update && apk upgrade && \
+    if [ -n "dotnet-sdk" ]; then apk add dotnet-sdk; fi && \
+    rm -rf /var/cache/apk/*
 
-COPY healthcheck/healthcheck.sh /usr/local/bin/healthcheck.sh
-RUN chmod +x /usr/local/bin/healthcheck.sh
+# Create necessary directories
+RUN mkdir -p /home/developer/.cache/dotnet dotnet-sidecar
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-  CMD ["/usr/local/bin/healthcheck.sh"]
+# Copy healthcheck script using variable
+COPY assets/static/dotnet-sidecar/healthcheck-dotnet.sh ${HEALTHCHECK_SCRIPT}
+RUN chmod +x ${HEALTHCHECK_SCRIPT}
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+  CMD ["${HEALTHCHECK_SCRIPT}"]
 
 ENTRYPOINT ["/usr/bin/env"]
-CMD ["sleep", "infinity"]
+CMD ["sleep", "30"]

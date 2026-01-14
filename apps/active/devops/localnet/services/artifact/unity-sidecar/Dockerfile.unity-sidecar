@@ -1,12 +1,22 @@
 FROM localnet-base-sidecar:latest
 
-# Placeholder cache directories only; no Unity installation.
-RUN mkdir -p /home/developer/.cache/unity /usr/local/bin/healthcheck
-COPY healthcheck/healthcheck.sh /usr/local/bin/healthcheck.sh
-RUN chmod +x /usr/local/bin/healthcheck.sh
+# Set healthcheck script path variable
+ENV HEALTHCHECK_SCRIPT="/unity-sidecar/healthcheck-unity.sh"
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD ["/usr/local/bin/healthcheck.sh"]
+# Install packages with Alpine and clean up
+RUN apk update && apk upgrade && \
+    if [ -n "unity" ]; then apk add unity; fi && \
+    rm -rf /var/cache/apk/*
+
+# Create necessary directories
+RUN mkdir -p /home/developer/.cache/unity unity-sidecar
+
+# Copy healthcheck script using variable
+COPY assets/static/unity-sidecar/healthcheck-unity.sh ${HEALTHCHECK_SCRIPT}
+RUN chmod +x ${HEALTHCHECK_SCRIPT}
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+  CMD ["${HEALTHCHECK_SCRIPT}"]
 
 ENTRYPOINT ["/usr/bin/env"]
-CMD ["sleep", "infinity"]
+CMD ["sleep", "30"]

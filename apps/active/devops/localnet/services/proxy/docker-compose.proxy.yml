@@ -41,6 +41,8 @@ services:
 #      retries: 3
 #      start_period: 10s
 #    restart: unless-stopped
+#    profiles:
+#      - gateway
 
   traefik: # https://github.com/traefik/traefik
     image: traefik:latest
@@ -111,6 +113,8 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+    profiles:
+      - all
 
   envoy:
     image: envoyproxy/envoy:v1.28-latest
@@ -139,6 +143,8 @@ services:
       retries: 3
       start_period: 10s
     restart: unless-stopped
+    profiles:
+      - all
 
   squid:
     image: ubuntu/squid:latest
@@ -167,6 +173,8 @@ services:
       retries: 3
       start_period: 10s
     restart: unless-stopped
+    profiles:
+      - all
 
   privoxy:
     image: vimagick/privoxy:latest
@@ -190,6 +198,8 @@ services:
       retries: 3
       start_period: 10s
     restart: unless-stopped
+    profiles:
+      - all
 
 #  tor:
 #    image: dperson/torproxy:latest
@@ -208,6 +218,8 @@ services:
 #      retries: 3
 #      start_period: 30s
 #    restart: unless-stopped
+#    profiles:
+#      - all
 
 volumes:
   web-cache:

@@ -1,13 +1,22 @@
 FROM localnet-base-sidecar:latest
 
-RUN mkdir -p /root/.asdf
+# Set healthcheck script path variable
+ENV HEALTHCHECK_SCRIPT="/asdf-sidecar/healthcheck-asdf.sh"
 
-RUN mkdir -p /usr/local/bin/healthcheck
-COPY healthcheck/healthcheck.sh /usr/local/bin/healthcheck.sh
-RUN chmod +x /usr/local/bin/healthcheck.sh
+# Install packages with Alpine and clean up
+RUN apk update && apk upgrade && \
+    if [ -n "asdf" ]; then apk add asdf; fi && \
+    rm -rf /var/cache/apk/* /tmp/*
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD ["/usr/local/bin/healthcheck.sh"]
+# Create necessary directories
+RUN mkdir -p /home/developer/.cache/asdf asdf-sidecar
+
+# Copy healthcheck script using variable
+COPY assets/static/asdf-sidecar/healthcheck-asdf.sh ${HEALTHCHECK_SCRIPT}
+RUN chmod +x ${HEALTHCHECK_SCRIPT}
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+  CMD ["${HEALTHCHECK_SCRIPT}"]
 
 ENTRYPOINT ["/usr/bin/env"]
-CMD ["sleep", "infinity"]
+CMD ["sleep", "30"]
