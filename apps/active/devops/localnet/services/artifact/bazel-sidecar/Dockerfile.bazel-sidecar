@@ -1,22 +1,34 @@
+# Build stage for Bazel
+FROM localnet-base-sidecar:latest as bazel-builder
+RUN apk update && apk upgrade && \
+    mkdir -p /opt/bazel; \
+    SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt \
+    curl -L "https://github.com/bazelbuild/bazel/releases/latest/download/bazel-linux-x86_64" -o /opt/bazel/bazel; \
+    chmod +x /opt/bazel/bazel;
+
+# Runtime stage
 FROM localnet-base-sidecar:latest
 
 # Set healthcheck script path variable
 ENV HEALTHCHECK_SCRIPT="/bazel-sidecar/healthcheck-bazel.sh"
 
-# Install packages with Alpine and clean up
+# Install only runtime dependencies
 RUN apk update && apk upgrade && \
-    if [ -n "bazel" ]; then apk add bazel; fi && \
     rm -rf /var/cache/apk/* /tmp/*
+
+# Copy Bazel from builder stage
+COPY --from=bazel-builder /opt/bazel /opt/bazel
+RUN ln -sf /opt/bazel/bazel /usr/local/bin/bazel
 
 # Create necessary directories
 RUN mkdir -p /home/developer/.cache/bazel bazel-sidecar
 
 # Copy healthcheck script using variable
-COPY assets/static/bazel-sidecar/healthcheck-bazel.sh ${HEALTHCHECK_SCRIPT}
-RUN chmod +x ${HEALTHCHECK_SCRIPT}
+COPY assets/static/ /
+RUN chmod +x /bazel-sidecar/healthcheck-bazel.sh
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-  CMD ["${HEALTHCHECK_SCRIPT}"]
+  CMD ["/bazel-sidecar/healthcheck-bazel.sh"]
 
 ENTRYPOINT ["/usr/bin/env"]
 CMD ["sleep", "30"]

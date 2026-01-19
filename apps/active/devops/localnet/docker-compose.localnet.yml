@@ -1,4 +1,4 @@
-# apps/active/devops/localnet/docker-compose.yml
+# apps/active/devops/localnet/docker-compose.localnet.yml
 
 # Home Lab In-a-Box - Docker Compose Configuration
 # Complete infrastructure stack with transparent proxying, monitoring, and artifact repositories
@@ -21,10 +21,11 @@ services: {}
 include:
   - docker-compose.include.yml
   - services/base/docker-compose.base.yml
+  - services/artifact/docker-compose.artifact.yml
   - services/security/docker-compose.security.yml
   - services/dns/docker-compose.dns.yml
   - services/ntp/docker-compose.ntp.yml
-  - services/artifact/docker-compose.artifact.yml
+  #- services/apps/docker-compose.apps.yml
   # - services/proxy/docker-compose.proxy.yml
   #- services/media/docker-compose.media.yml
   #- services/data/docker-compose.data.yml

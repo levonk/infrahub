@@ -10,6 +10,14 @@ PUID=${PUID:-1000}
 PGID=${PGID:-1000}
 USERNAME=${USERNAME:-cuser}
 
+# Align git committer identity with author if committer overrides are absent
+if [ -z "${GIT_COMMITTER_NAME:-}" ] && [ -n "${GIT_AUTHOR_NAME:-}" ]; then
+    export GIT_COMMITTER_NAME="$GIT_AUTHOR_NAME"
+fi
+if [ -z "${GIT_COMMITTER_EMAIL:-}" ] && [ -n "${GIT_AUTHOR_EMAIL:-}" ]; then
+    export GIT_COMMITTER_EMAIL="$GIT_AUTHOR_EMAIL"
+fi
+
 echo "🤖 Dev Base: Starting entrypoint..."
 
 # Function to find a tool in multiple locations
@@ -76,16 +84,54 @@ if [ -n "$ID" ] && "$ID" "$USERNAME" &>/dev/null; then
     fi
 fi
 
-# Execute command as user
-echo "🤖 Dev Base: Executing as $USERNAME: $@"
-echo "🤖 Dev Base: PATH is $PATH"
-if [ -n "$GOSU" ]; then
-    # Verify command availability for user
-    "$GOSU" "$USERNAME" which "$(echo "$@" | awk '{print $1}')" || echo "⚠️ Command not found in user PATH"
-    exec "$GOSU" "$USERNAME" "$@"
-elif [ -n "$SU_EXEC" ]; then
-    exec "$SU_EXEC" "$USERNAME" "$@"
+# Function to execute command as user
+execute_as_user() {
+    echo "🤖 Dev Base: Executing as $USERNAME: $@"
+    echo "🤖 Dev Base: PATH is $PATH"
+    if [ -n "$GOSU" ]; then
+        # Verify command availability for user
+        if ! "$GOSU" "$USERNAME" which "$(echo "$@" | awk '{print $1}')" 2>/dev/null; then
+            echo "⚠️ Command not found in user PATH, skipping..."
+            return 0
+        fi
+        exec "$GOSU" "$USERNAME" "$@"
+    elif [ -n "$SU_EXEC" ]; then
+        exec "$SU_EXEC" "$USERNAME" "$@"
+    else
+        echo "❌ Dev Base: Error: No gosu or su-exec found. Cannot drop privileges."
+        exit 1
+    fi
+}
+
+# Optional setup commands - these may fail if tools aren't available
+echo "🤖 Dev Base: Running optional setup commands..."
+if command -v curl >/dev/null 2>&1; then
+    execute_as_user "curl -fsSL https://app.factory.ai/cli | sh" || echo "⚠️ Failed to install app.factory.ai CLI"
 else
-    echo "❌ Dev Base: Error: No gosu or su-exec found. Cannot drop privileges."
-    exit 1
+    echo "⚠️ curl not available, skipping app.factory.ai CLI installation"
 fi
+
+if command -v uv >/dev/null 2>&1; then
+    execute_as_user "uv install llm-tldr"
+    execute_as_user "cd /home/$USERNAME/work; tldr warm . && tldr context main --project ." || echo "⚠️ Failed to run llm-tldr commands"
+else
+    echo "⚠️ uv not available, skipping llm-tldr commands"
+fi
+
+if command -v pnpm >/dev/null 2>&1; then
+    execute_as_user "pnpm install -g @beads/bd" || echo "⚠️ Failed to run pnpm install -g @beads/bd"
+    execute_as_user "pnpm install -g openskills" || echo "⚠️ Failed to run pnpm install -g openskills"
+    execute_as_user "pnpm install -g agent-browser" || echo "⚠️ Failed to run pnpm install -g agent-browser"
+else
+    echo "⚠️ pnpm not available, skipping pnpm commands"
+fi
+
+
+if command -v npx >/dev/null 2>&1; then
+    execute_as_user "npx vibe-kanban" || echo "⚠️ Failed to run vibe-kanban"
+else
+    echo "⚠️ npx not available, skipping vibe-kanban"
+fi
+
+# Execute command as user
+execute_as_user "$@"

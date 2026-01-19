@@ -110,7 +110,6 @@ services:
     restart: unless-stopped
     profiles:
       - "broken"
-      - all
 
   # second layer of DNS Services. Handles fallback, and normal caching
   coredns:

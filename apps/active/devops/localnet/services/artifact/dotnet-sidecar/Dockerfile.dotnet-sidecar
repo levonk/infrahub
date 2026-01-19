@@ -1,22 +1,35 @@
+# Build stage for .NET SDK (requires Debian/Ubuntu)
+FROM localnet-base-debian:latest as dotnet-builder
+RUN apt-get update && apt-get install -y wget gpg && \
+    wget https://packages.microsoft.com/config/debian/12/packages-microsoft-prod.deb -O packages-microsoft-prod.deb && \
+    dpkg -i packages-microsoft-prod.deb && \
+    rm packages-microsoft-prod.deb && \
+    apt-get update && \
+    apt-get install -y dotnet-sdk-8.0 && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Runtime stage
 FROM localnet-base-sidecar:latest
 
-# Set healthcheck script path variable
-ENV HEALTHCHECK_SCRIPT="/dotnet-sidecar/healthcheck-dotnet.sh"
-
 # Install packages with Alpine and clean up
+# Copy .NET SDK from build stage
 RUN apk update && apk upgrade && \
-    if [ -n "dotnet-sdk" ]; then apk add dotnet-sdk; fi && \
+    apk add curl wget bash libc6-compat libgcc libstdc++ libintl libicu; \
     rm -rf /var/cache/apk/*
+
+# Copy .NET from builder stage
+COPY --from=dotnet-builder /usr/share/dotnet /usr/share/dotnet
+RUN ln -sf /usr/share/dotnet/dotnet /usr/local/bin/dotnet
 
 # Create necessary directories
 RUN mkdir -p /home/developer/.cache/dotnet dotnet-sidecar
 
 # Copy healthcheck script using variable
-COPY assets/static/dotnet-sidecar/healthcheck-dotnet.sh ${HEALTHCHECK_SCRIPT}
-RUN chmod +x ${HEALTHCHECK_SCRIPT}
+COPY assets/static/ /
+RUN chmod +x /dotnet-sidecar/healthcheck-dotnet.sh
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-  CMD ["${HEALTHCHECK_SCRIPT}"]
+  CMD ["/dotnet-sidecar/healthcheck-dotnet.sh"]
 
 ENTRYPOINT ["/usr/bin/env"]
 CMD ["sleep", "30"]

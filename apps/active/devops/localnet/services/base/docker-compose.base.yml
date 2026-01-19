@@ -131,7 +131,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 60s
+      start_period: 1200s
     logging: *default-logging
     profiles:
       - base01
@@ -252,10 +252,28 @@ services:
       - turbo-cache:/home/${USERNAME:-cuser}/.cache/turbo
       - unity-cache:/home/${USERNAME:-cuser}/.cache/unity
       - vscode-cache:/home/${USERNAME:-cuser}/.vscode-server/extensions
+      ## Saved State
+      - vibe-kanban-data:/home/${USERNAME:-cuser}/.local/share/vibe-kanban
+      - ai-codeassist-codex-data:/home/${USERNAME:-cuser}/.codex
+      - ai-codeassist-gh-config:/home/${USERNAME:-cuser}/.config/gh
+      - ai-codeassist-cache:/home/${USERNAME:-cuser}/.cache/ai-codeassist
+      - ai-codeassist-worktrees:/var/tmp/worktrees
+      # - ai-codeassist-workdir:/work
+      # - projects-data:/home/${USERNAME:-cuser}/p
+      # - dockerproxy-ro:/socket:ro
     environment:
       - PUID=1000
       - PGID=1000
       - TZ=UTC
+      - HOST=${AI_CODEASSIST_DEV_HOST:-0.0.0.0}
+      - PORT=${AI_CODEASSIST_DEV_PORT:-3000}
+      - GIT_AUTHOR_NAME=${AI_CODEASSIST_GIT_AUTHOR_NAME:-Local Dev User}
+      - GIT_AUTHOR_EMAIL=${AI_CODEASSIST_GIT_AUTHOR_EMAIL:-local.dev@example.com}
+      - GIT_COMMITTER_NAME=${AI_CODEASSIST_GIT_COMMITTER_NAME:-${AI_CODEASSIST_GIT_AUTHOR_NAME:-Local Dev User}}
+      - GIT_COMMITTER_EMAIL=${AI_CODEASSIST_GIT_COMMITTER_EMAIL:-${AI_CODEASSIST_GIT_AUTHOR_EMAIL:-local.dev@example.com}}
+      - GH_TOKEN=${AI_CODEASSIST_GH_TOKEN:-}
+      - OPENAI_API_KEY=${AI_CODEASSIST_OPENAI_API_KEY:-}
+      - DOCKER_HOST=${BASE_DEV_DOCKER_HOST:-unix:///socket/docker.sock}
     depends_on:
       nix-sidecar:
         condition: service_healthy
@@ -266,5 +284,8 @@ services:
       retries: 3
       start_period: 120s
     logging: *default-logging
+    ports:
+      - "${AI_CODEASSIST_VIBEKANBAN_APP_HOST_PORT:-33000}:${AI_CODEASSIST_VIBEKANBAN_APP_CONTAINER_PORT:-3000}"
+      - "${AI_CODEASSIST_VIBEKANBAN_ALT_HOST_PORT:-33080}:${AI_CODEASSIST_VIBEKANBAN_ALT_CONTAINER_PORT:-8080}"
     profiles:
       - base03

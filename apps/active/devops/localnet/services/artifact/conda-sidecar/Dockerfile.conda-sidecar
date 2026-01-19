@@ -1,12 +1,26 @@
+# Build stage for Conda
+FROM localnet-base-sidecar:latest as conda-builder
+RUN apk update && apk upgrade && \
+    apk add curl bash; \
+    mkdir -p /opt/conda; \
+    curl -L "https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh" -o /tmp/miniconda.sh; \
+    bash /tmp/miniconda.sh -b -p /opt/conda; \
+    rm -rf /tmp/miniconda.sh;
+
+# Runtime stage
 FROM localnet-base-sidecar:latest
 
 # Set healthcheck script path variable
 ENV HEALTHCHECK_SCRIPT="/conda-sidecar/healthcheck-conda.sh"
 
-# Install packages with Alpine and clean up
+# Install only runtime dependencies
 RUN apk update && apk upgrade && \
-    if [ -n "conda" ]; then apk add conda; fi && \
     rm -rf /var/cache/apk/*
+
+# Copy Conda from builder stage
+COPY --from=conda-builder /opt/conda /opt/conda
+RUN ln -sf /opt/conda/bin/conda /usr/local/bin/conda && \
+    ln -sf /opt/conda/bin/python /usr/local/bin/python-conda
 
 # Create necessary directories
 RUN mkdir -p /home/developer/.cache/conda conda-sidecar

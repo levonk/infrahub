@@ -53,7 +53,9 @@ RUN mkdir -p /home/${USERNAME}/project && \
     '        devShells.default = pkgs.mkShell {' \
     '          buildInputs = with pkgs; [' \
     '            # Core Development Tools' \
-    '            nix nodejs devbox jq git' \
+    '            nix nodejs' \
+    '            python315 uv' \
+	'            devbox jq git' \
     '            # Shell & Navigation' \
     '            fzf ripgrep fd bat eza zoxide zsh' \
     '            # Terminal Multiplexer & Shell Environment' \
@@ -63,7 +65,8 @@ RUN mkdir -p /home/${USERNAME}/project && \
     '            # Advanced Diff & Comparison Tools' \
     '            difftastic delta mergiraf odiff' \
     '            # Development Infrastructure' \
-    '            chezmoi universal-ctags sqlite' \
+    '            chezmoi universal-ctags' \
+	'            duckdb sqlite' \
     '            # Diagramming & Visualization' \
     '            graphviz plantuml mermaid-cli' \
     '            # System Utilities' \
@@ -81,7 +84,16 @@ RUN mkdir -p /home/${USERNAME}/project && \
     '            # System Essentials' \
     '            file findutils procps shadow gosu' \
     '            # code enviornment' \
-    '            opencode vimPlugins.opencode-nvim' \
+    '            opencode gemini-cli github-copilot-cli' \
+    '            cursor-cli qwen-code amp-cli' \
+    '            claude-code-router claude-code claude-monitor' \
+    '            vimPlugins.opencode-nvim vimPlugins.copilot-vim' \
+    '            vimPlugins.claudecode-nvim' \
+    '            ungoogled-chromium' \
+    '            python313Packages.playwright python313Packages.playwright-stealth' \
+	'            playwright-test' \
+	'            python312Packages.copier' \
+	'            tailwindcss_4 vimPlugins.tailwind-tools-nvim vscode-extensions.bradlc.vscode-tailwindcss tailwindcss-language-server' \
     '          ];' \
     '        };' \
     '      });' \

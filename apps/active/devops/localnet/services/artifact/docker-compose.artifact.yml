@@ -90,7 +90,7 @@ services:
     networks:
       - localnet
     logging: *default-logging
-    profiles: ["broken", "all"]
+    profiles: ["broken"]
 
   nix-harmonia:
     image: harmonia:latest
@@ -109,7 +109,7 @@ services:
     networks:
       - localnet
     logging: *default-logging
-    profiles: ["broken", "all"]
+    profiles: ["broken"]
 
   nix-ncps:
     image: ncps:latest
@@ -126,7 +126,7 @@ services:
     networks:
       - localnet
     logging: *default-logging
-    profiles: ["broken", "all"]
+    profiles: ["broken"]
 
   nix-snapshotter:
     image: nix-snapshotter:latest
@@ -144,7 +144,7 @@ services:
     networks:
       - localnet
     logging: *default-logging
-    profiles: ["broken", "all"]
+    profiles: ["broken"]
 
   # Nix sidecar service - manages the Nix store and caching
   # Rust sidecar for Rust toolchain
@@ -200,7 +200,7 @@ services:
       - PUID=1000
       - PGID=1000
     healthcheck:
-      test: ["CMD", "/rust-sidecar/healthcheck-rust.sh"]
+      test: ["CMD", "/php-sidecar/healthcheck-php.sh"]
       interval: 30s
       timeout: 30s
       retries: 3
@@ -234,7 +234,7 @@ services:
       - PUID=1000
       - PGID=1000
     healthcheck:
-      test: ["CMD", "/rust-sidecar/healthcheck-rust.sh"]
+      test: ["CMD", "/haskell-sidecar/healthcheck-haskell.sh"]
       interval: 30s
       timeout: 30s
       retries: 3
@@ -266,7 +266,7 @@ services:
       - PUID=1000
       - PGID=1000
     healthcheck:
-      test: ["CMD", "/rust-sidecar/healthcheck-rust.sh"]
+      test: ["CMD", "/go-sidecar/healthcheck-go.sh"]
       interval: 30s
       timeout: 30s
       retries: 3
@@ -299,7 +299,7 @@ services:
       - PUID=1000
       - PGID=1000
     healthcheck:
-      test: ["CMD", "/rust-sidecar/healthcheck-rust.sh"]
+      test: ["CMD", "/java-sidecar/healthcheck-java.sh"]
       interval: 30s
       timeout: 30s
       retries: 3
@@ -332,7 +332,7 @@ services:
       - PUID=1000
       - PGID=1000
     healthcheck:
-      test: ["CMD", "/rust-sidecar/healthcheck-rust.sh"]
+      test: ["CMD", "/python-sidecar/healthcheck-python.sh"]
       interval: 30s
       timeout: 30s
       retries: 3
@@ -365,7 +365,7 @@ services:
       - PUID=1000
       - PGID=1000
     healthcheck:
-      test: ["CMD", "/rust-sidecar/healthcheck-rust.sh"]
+      test: ["CMD", "/dart-sidecar/healthcheck-dart.sh"]
       interval: 30s
       timeout: 30s
       retries: 3
@@ -398,7 +398,7 @@ services:
       - PUID=1000
       - PGID=1000
     healthcheck:
-      test: ["CMD", "/rust-sidecar/healthcheck-rust.sh"]
+      test: ["CMD", "/dotnet-sidecar/healthcheck-dotnet.sh"]
       interval: 30s
       timeout: 30s
       retries: 3
@@ -430,7 +430,7 @@ services:
       - PGID=1000
       - TZ=UTC
     healthcheck:
-      test: ["CMD", "/rust-sidecar/healthcheck-rust.sh"]
+      test: ["CMD", "/pnpm-sidecar/healthcheck-pnpm.sh"]
       interval: 30s
       timeout: 30s
       retries: 3
@@ -458,7 +458,7 @@ services:
       - PUID=1000
       - PGID=1000
     healthcheck:
-      test: ["CMD", "/rust-sidecar/healthcheck-rust.sh"]
+      test: ["CMD", "/elixir-sidecar/healthcheck-elixir.sh"]
       interval: 30s
       timeout: 30s
       retries: 3
@@ -490,7 +490,7 @@ services:
       - PUID=1000
       - PGID=1000
     healthcheck:
-      test: ["CMD", "/rust-sidecar/healthcheck-rust.sh"]
+      test: ["CMD", "/ruby-sidecar/healthcheck-ruby.sh"]
       interval: 30s
       timeout: 30s
       retries: 3
@@ -522,7 +522,7 @@ services:
       - PUID=1000
       - PGID=1000
     healthcheck:
-      test: ["CMD", "/rust-sidecar/healthcheck-rust.sh"]
+      test: ["CMD", "/conda-sidecar/healthcheck-conda.sh"]
       interval: 30s
       timeout: 30s
       retries: 3
@@ -554,7 +554,7 @@ services:
       - PUID=1000
       - PGID=1000
     healthcheck:
-      test: ["CMD", "/rust-sidecar/healthcheck-rust.sh"]
+      test: ["CMD", "/poetry-sidecar/healthcheck-poetry.sh"]
       interval: 30s
       timeout: 30s
       retries: 3
@@ -586,7 +586,7 @@ services:
       - PUID=1000
       - PGID=1000
     healthcheck:
-      test: ["CMD", "/rust-sidecar/healthcheck-rust.sh"]
+      test: ["CMD", "/sdkman-sidecar/healthcheck-sdkman.sh"]
       interval: 30s
       timeout: 30s
       retries: 3
@@ -618,7 +618,7 @@ services:
       - PUID=1000
       - PGID=1000
     healthcheck:
-      test: ["CMD", "/rust-sidecar/healthcheck-rust.sh"]
+      test: ["CMD", "/nvm-sidecar/healthcheck-nvm.sh"]
       interval: 30s
       timeout: 30s
       retries: 3
@@ -650,7 +650,7 @@ services:
       - PUID=1000
       - PGID=1000
     healthcheck:
-      test: ["CMD", "/rust-sidecar/healthcheck-rust.sh"]
+      test: ["CMD", "/pyenv-sidecar/healthcheck-pyenv.sh"]
       interval: 30s
       timeout: 30s
       retries: 3
@@ -682,7 +682,7 @@ services:
       - PUID=1000
       - PGID=1000
     healthcheck:
-      test: ["CMD", "/rust-sidecar/healthcheck-rust.sh"]
+      test: ["CMD", "/bazel-sidecar/healthcheck-bazel.sh"]
       interval: 30s
       timeout: 30s
       retries: 3
@@ -714,7 +714,7 @@ services:
       - PUID=1000
       - PGID=1000
     healthcheck:
-      test: ["CMD", "/rust-sidecar/healthcheck-rust.sh"]
+      test: ["CMD", "/gradle-sidecar/healthcheck-gradle.sh"]
       interval: 30s
       timeout: 30s
       retries: 3
@@ -749,7 +749,7 @@ services:
       - PUID=1000
       - PGID=1000
     healthcheck:
-      test: ["CMD", "/rust-sidecar/healthcheck-rust.sh"]
+      test: ["CMD", "/turborepo-sidecar/healthcheck-turborepo.sh"]
       interval: 30s
       timeout: 30s
       retries: 3
@@ -781,7 +781,7 @@ services:
       - PUID=1000
       - PGID=1000
     healthcheck:
-      test: ["CMD", "/rust-sidecar/healthcheck-rust.sh"]
+      test: ["CMD", "/asdf-sidecar/healthcheck-asdf.sh"]
       interval: 30s
       timeout: 30s
       retries: 3
@@ -814,7 +814,7 @@ services:
       - PUID=1000
       - PGID=1000
     healthcheck:
-      test: ["CMD", "/rust-sidecar/healthcheck-rust.sh"]
+      test: ["CMD", "/mise-sidecar/healthcheck-mise.sh"]
       interval: 30s
       timeout: 30s
       retries: 3
@@ -846,7 +846,7 @@ services:
       - PUID=1000
       - PGID=1000
     healthcheck:
-      test: ["CMD", "/rust-sidecar/healthcheck-rust.sh"]
+      test: ["CMD", "/vscode-sidecar/healthcheck-vscode.sh"]
       interval: 30s
       timeout: 30s
       retries: 3
@@ -878,7 +878,7 @@ services:
       - PUID=1000
       - PGID=1000
     healthcheck:
-      test: ["CMD", "/rust-sidecar/healthcheck-rust.sh"]
+      test: ["CMD", "/unity-sidecar/healthcheck-unity.sh"]
       interval: 30s
       timeout: 30s
       retries: 3

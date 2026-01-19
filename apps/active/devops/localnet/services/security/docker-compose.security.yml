@@ -212,7 +212,7 @@ services:
       timeout: 5s
       retries: 3
     profiles:
-      - all
+      - broken
     environment:
       TZ: "${TZ:-UTC}"
       GID: "${GID-1000}"

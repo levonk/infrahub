@@ -195,6 +195,29 @@ volumes:
     name: localnet-artifact-vscode-cache-volume
     external: true
 
+  vibe-kanban-data:
+    name: localnet-artifact-vibe-kanban-data-volume
+    external: true
+  projects-data:
+    name: localnet-artifact-projects-data-volume
+    external: true
+  ai-codeassist-codex-data:
+    name: localnet-ai-codeassist-codex-data-volume
+    external: true
+  ai-codeassist-gh-config:
+    name: localnet-ai-codeassist-gh-config-volume
+    external: true
+  ai-codeassist-cache:
+    name: localnet-ai-codeassist-cache-volume
+    external: true
+  ai-codeassist-worktrees:
+    name: localnet-ai-codeassist-worktrees-volume
+    external: true
+  ai-codeassist-workdir:
+    name: localnet-ai-codeassist-workdir-volume
+    external: true
+
+
 networks:
   localnet:
     name: localnet-network

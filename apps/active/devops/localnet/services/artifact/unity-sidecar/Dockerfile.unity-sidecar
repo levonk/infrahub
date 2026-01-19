@@ -1,12 +1,26 @@
+# Build stage for Unity Hub
+FROM localnet-base-sidecar:latest as unity-builder
+RUN apk update && apk upgrade && \
+    apk add curl wget fuse; \
+    mkdir -p /opt/unity; \
+	SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt \
+    curl -L "https://download.unity3d.com/download_unity/UnityHubSetup.AppImage" -o /opt/unity/UnityHub.AppImage; \
+    chmod +x /opt/unity/UnityHub.AppImage;
+
+# Runtime stage
 FROM localnet-base-sidecar:latest
 
 # Set healthcheck script path variable
 ENV HEALTHCHECK_SCRIPT="/unity-sidecar/healthcheck-unity.sh"
 
-# Install packages with Alpine and clean up
+# Install only runtime dependencies
 RUN apk update && apk upgrade && \
-    if [ -n "unity" ]; then apk add unity; fi && \
+    apk add libc6-compat libgcc libstdc++ libx11 libxrandr libgl1-mesa-glx libgconf-2-4 fuse; \
     rm -rf /var/cache/apk/*
+
+# Copy Unity from builder stage
+COPY --from=unity-builder /opt/unity /opt/unity
+RUN ln -sf /opt/unity/UnityHub.AppImage /usr/local/bin/unity-hub
 
 # Create necessary directories
 RUN mkdir -p /home/developer/.cache/unity unity-sidecar

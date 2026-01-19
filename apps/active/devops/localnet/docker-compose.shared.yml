@@ -104,6 +104,7 @@ volumes:
     name: localnet-localstack-data-volume
     external: false
 
+## Caches
   # Security
   ## Dockerproxy
   dockerproxy-ro:
@@ -245,6 +246,31 @@ volumes:
     name: localnet-artifact-vscode-cache-volume
     external: false
 
+## Data Volumes
+  projects-data:
+    name: localnet-artifact-projects-data-volume
+    external: false
+  vibe-kanban-data:
+    name: localnet-artifact-vibe-kanban-data-volume
+    external: false
+
+  ai-codeassist-codex-data:
+    name: localnet-ai-codeassist-codex-data-volume
+    external: false
+  ai-codeassist-gh-config:
+    name: localnet-ai-codeassist-gh-config-volume
+    external: false
+  ai-codeassist-cache:
+    name: localnet-ai-codeassist-cache-volume
+    external: false
+  ai-codeassist-worktrees:
+    name: localnet-ai-codeassist-worktrees-volume
+    external: false
+  ai-codeassist-workdir:
+    name: localnet-ai-codeassist-workdir-volume
+    external: false
+
+
 services:
   # Dummy service to allow docker compose up to work
   # This service does nothing but allows networks/volumes to be created
@@ -313,3 +339,10 @@ services:
       - turbo-cache:/var/lib/turbo:ro
       - unity-cache:/var/lib/unity:ro
       - vscode-cache:/var/lib/vscode:ro
+      - vibe-kanban-data:/home/${USERNAME:-cuser}/.local/share/vibe-kanban:ro
+      - projects-data:/home/${USERNAME:-cuser}/projects:ro
+      - ai-codeassist-codex-data:/home/${USERNAME:-cuser}/.local/share/ai-codeassist/codex:ro
+      - ai-codeassist-gh-config:/home/${USERNAME:-cuser}/.config/ai-codeassist/gh:ro
+      - ai-codeassist-cache:/home/${USERNAME:-cuser}/.cache/ai-codeassist:ro
+      - ai-codeassist-worktrees:/home/${USERNAME:-cuser}/.local/share/ai-codeassist/worktrees:ro
+      - ai-codeassist-workdir:/home/${USERNAME:-cuser}/.local/share/ai-codeassist/workdir:ro

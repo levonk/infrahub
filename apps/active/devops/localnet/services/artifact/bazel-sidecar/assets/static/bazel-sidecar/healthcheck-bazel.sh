@@ -1,9 +1,17 @@
 #!/bin/bash
 set -euo pipefail
 
-if ! command -v bazel >/dev/null 2>&1 && ! command -v bazelisk >/dev/null 2>&1; then
-  echo "bazel/bazelisk not available"
+# Check if Bazel binary exists at expected location
+if [ ! -f "/opt/bazel/bazel" ]; then
+  echo "Bazel binary not found at /opt/bazel/bazel"
   exit 1
 fi
 
-bazel --version >/dev/null 2>&1 || bazelisk --version >/dev/null 2>&1 || true
+# Check if Bazel is executable
+if [ ! -x "/opt/bazel/bazel" ]; then
+  echo "Bazel binary is not executable"
+  exit 1
+fi
+
+# Run Bazel version check
+/opt/bazel/bazel version >/dev/null 2>&1 || true

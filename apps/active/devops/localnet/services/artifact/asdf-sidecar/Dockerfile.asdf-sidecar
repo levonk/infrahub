@@ -5,7 +5,10 @@ ENV HEALTHCHECK_SCRIPT="/asdf-sidecar/healthcheck-asdf.sh"
 
 # Install packages with Alpine and clean up
 RUN apk update && apk upgrade && \
-    if [ -n "asdf" ]; then apk add asdf; fi && \
+    if [ -n "asdf" ]; then \
+        apk add git curl bash; \
+        git clone https://github.com/asdf-vm/asdf.git /home/developer/.asdf --depth 1; \
+    fi && \
     rm -rf /var/cache/apk/* /tmp/*
 
 # Create necessary directories

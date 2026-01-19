@@ -4,8 +4,16 @@ FROM localnet-base-sidecar:latest
 ENV HEALTHCHECK_SCRIPT="/vscode-sidecar/healthcheck-vscode.sh"
 
 # Install packages with Alpine and clean up
+# VS Code Server from pre-compiled binary
 RUN apk update && apk upgrade && \
-    if [ -n "code" ]; then apk add code; fi && \
+    if [ -n "code" ]; then \
+        apk add curl wget bash libc6-compat libgcc libstdc++; \
+        mkdir -p /opt/vscode; \
+        curl -L "https://update.code.visualstudio.com/latest/linux-server-x64/stable" -o /tmp/vscode-server.tar.gz; \
+        tar -xzf /tmp/vscode-server.tar.gz -C /opt/vscode --strip-components=1; \
+        ln -sf /opt/vscode/bin/code-server /usr/local/bin/code-server; \
+        rm -rf /tmp/vscode-server.tar.gz; \
+    fi && \
     rm -rf /var/cache/apk/*
 
 # Create necessary directories

@@ -22,6 +22,8 @@ ENV LANG=C.UTF-8 \
     PGID=${PGID} \
     TZ=${TZ}
 
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+
 # Install essential packages with security updates and minimal dependencies
 RUN apk update && \
     apk upgrade && \
@@ -33,8 +35,6 @@ RUN apk update && \
         gnupg \
         bash \
         && \
-    # Clean up package manager cache and temporary files
-    rm -rf /var/cache/apk/* /tmp/* && \
     # Remove unnecessary files and create essential directories
     mkdir -p /etc/service/config /healthcheck /tmp && \
     chmod 755 /etc/service /healthcheck && \
@@ -50,10 +50,19 @@ RUN addgroup -g ${PGID} -S cuser && \
 RUN find / -type f \( -name "*.pyc" -o -name "*.pyo" -o -name "*.orig" \) -delete 2>/dev/null || true && \
     find / -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true && \
     # Remove suid/sgid bits from files (except necessary ones)
-    find / -type f \( -perm /4000 -o -perm /2000 \) ! -path "/bin/su" ! -path "/usr/bin/su" -exec chmod ug-s {} \; 2>/dev/null || true
+    find / -type f \( -perm /4000 -o -perm /2000 \) ! -path "/bin/su" ! -path "/usr/bin/su" -exec chmod ug-s {} \; 2>/dev/null || true && \
+	# =============================================================================
+	# SSL Certificate Setup
+	# =============================================================================
+	# Ensure SSL certificates are properly installed and updated
+	# This fixes HTTPS downloads in Alpine containers
+	update-ca-certificates || true && \
+	chmod +x /usr/local/bin/entrypoint.sh && \
+	# Clean up package manager cache and temporary files
+    rm -rf /var/cache/apk/* /tmp/* || true
 
-COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
+
+
 
 # Set working directory
 WORKDIR /etc/service
