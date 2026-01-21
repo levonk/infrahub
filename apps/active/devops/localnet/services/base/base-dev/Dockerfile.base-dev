@@ -51,7 +51,10 @@ RUN mkdir -p /home/${USERNAME}/project && \
     '    flake-utils.lib.eachDefaultSystem (system:' \
     '      let pkgs = nixpkgs.legacyPackages.${system}; in {' \
     '        devShells.default = pkgs.mkShell {' \
+    '          NIXPKGS_ALLOW_UNFREE = "1";' \
     '          buildInputs = with pkgs; [' \
+    '            # SSL/TLS Certificates for HTTPS' \
+    '            cacert' \
     '            # Core Development Tools' \
     '            nix nodejs' \
     '            python315 uv' \
@@ -112,6 +115,11 @@ USER root
 # Set up Nix environment for the user (must be set after switching user)
 ENV PATH="/nix/var/nix/profiles/default/bin:/home/${USERNAME}/.local/bin:/home/${USERNAME}/.nix-profile/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 ENV NIX_PATH="nixpkgs=/nix/var/nix/profiles/per-user/root/channels/nixpkgs:/nix/var/nix/profiles/per-user/root/channels"
+# SSL Certificate settings for HTTPS to work with Nix (will be set dynamically in entrypoint)
+# ENV NIX_SSL_CERT_FILE="/nix/store/.../etc/ssl/certs/ca-bundle.crt"
+# ENV SSL_CERT_FILE="/nix/store/.../etc/ssl/certs/ca-bundle.crt"
+# ENV CURL_CA_BUNDLE="/nix/store/.../etc/ssl/certs/ca-bundle.crt"
+# ENV GIT_SSL_CAINFO="/nix/store/.../etc/ssl/certs/ca-bundle.crt"
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
   CMD ["/base-dev/healthcheck-base-dev.sh"]

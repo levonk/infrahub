@@ -66,6 +66,8 @@ RUN echo 'use nix' > /home/${USERNAME}/project/.envrc && \
     '            nix jq git' \
     '            # System Essentials' \
     '            shadow gosu' \
+    '            # SSL/TLS Certificates for HTTPS' \
+    '            cacert' \
     '          ];' \
     '        };' \
     '      });' \

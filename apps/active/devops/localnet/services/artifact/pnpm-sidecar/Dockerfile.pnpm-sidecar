@@ -15,7 +15,7 @@ RUN apk update && apk upgrade ; \
     rm -rf /var/cache/apk/* /tmp/*
 
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
   CMD ["/pnpm-sidecar/healthcheck-pnpm.sh"]
 
 USER 1000

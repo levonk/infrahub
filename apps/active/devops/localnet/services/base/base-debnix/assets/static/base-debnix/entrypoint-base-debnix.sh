@@ -5,6 +5,20 @@ set -e
 # Include user's nix profile in PATH
 export PATH="/nix/var/nix/profiles/default/bin:/nix/var/nix/profiles/per-user/root/profile/bin:/home/${USERNAME}/.nix-profile/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
+# Find and set SSL certificate paths for HTTPS to work with Nix
+echo "🤖 base-debnix: Setting up SSL certificates..."
+CACERT_PATH=$(find /nix/store -name "ca-bundle.crt" -path "*/etc/ssl/certs/*" 2>/dev/null | head -1)
+if [ -n "$CACERT_PATH" ] && [ -f "$CACERT_PATH" ]; then
+    echo "🤖 base-debnix: Found CA certificates at $CACERT_PATH"
+    export NIX_SSL_CERT_FILE="$CACERT_PATH"
+    export SSL_CERT_FILE="$CACERT_PATH"
+    export CURL_CA_BUNDLE="$CACERT_PATH"
+    export GIT_SSL_CAINFO="$CACERT_PATH"
+    echo "✅ SSL certificate environment variables set"
+else
+    echo "⚠️ Warning: Could not find CA certificates, HTTPS may not work properly"
+fi
+
 # Default values
 PUID=${PUID:-1000}
 PGID=${PGID:-1000}

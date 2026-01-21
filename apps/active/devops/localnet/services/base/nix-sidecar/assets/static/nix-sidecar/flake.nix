@@ -16,6 +16,7 @@
           gosu
           busybox
           supercronic
+          cacert
         ];
 
         shellHook = ''
@@ -34,6 +35,7 @@
           gosu
           busybox
           supercronic
+          cacert
         ];
       };
 

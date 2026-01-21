@@ -44,6 +44,20 @@ echo "🤖 Nix Sidecar: Installing required packages from flake.nix..."
 # Clear any invalid Nix settings that might cause warnings
 unset NIX_CONFIG 2>/dev/null || true
 if [ -f "/nix-sidecar/flake.nix" ]; then
+    # Find and set SSL certificate paths for HTTPS to work with Nix
+    echo "🤖 Nix Sidecar: Setting up SSL certificates..."
+    CACERT_PATH=$(nix develop /nix-sidecar --command find /nix/store -name "ca-bundle.crt" -path "*/etc/ssl/certs/*" 2>/dev/null | head -1)
+    if [ -n "$CACERT_PATH" ] && [ -f "$CACERT_PATH" ]; then
+        echo "🤖 Nix Sidecar: Found CA certificates at $CACERT_PATH"
+        export NIX_SSL_CERT_FILE="$CACERT_PATH"
+        export SSL_CERT_FILE="$CACERT_PATH"
+        export CURL_CA_BUNDLE="$CACERT_PATH"
+        export GIT_SSL_CAINFO="$CACERT_PATH"
+        echo "✅ SSL certificate environment variables set"
+    else
+        echo "⚠️ Warning: Could not find CA certificates, HTTPS may not work properly"
+    fi
+
     nix develop /nix-sidecar --command echo "Packages installed successfully" || {
         echo "❌ Nix Sidecar: Failed to install packages from flake.nix"
         exit 1

@@ -25,7 +25,7 @@ if [ -f /nix-sidecar/flake.nix ]; then
         echo "❌ healthcheck: nix develop failed - core functionality broken"
         exit 1
     fi
-    echo "✅ nix develop is working"
+    echo "✅ healthcheck: nix develop is working"
 else
     echo "❌ healthcheck: /nix-sidecar/flake.nix not found"
     exit 1
@@ -39,11 +39,11 @@ if [ -f /nix-sidecar/supercronic.crond ]; then
         echo "❌ healthcheck: supercronic scheduler not running"
         exit 1
     fi
-    echo "✅ supercronic scheduler is running"
+    echo "✅ healthcheck: supercronic scheduler is running"
 fi
 
 # Basic nix version check as additional verification
 nix --version > /dev/null || { echo "❌ healthcheck: nix --version failed"; exit 1; }
 
-echo "✅ Nix sidecar is healthy"
+echo "✅ healthcheck: Nix sidecar is healthy"
 exit 0
