@@ -19,6 +19,7 @@ A prioritized roadmap for building a secure, resilient, and privacy-focused home
 - [ ] **Awesome Selfhosted**: https://github.com/Awesome-selfhosted/awesome-selfhosted
 - [ ] **Awesome-arr**: https://github.com/Ravencentric/awesome-arr
 - [ ] Talos Proxmox GitOps: https://github.com/jamilshaikh07/talos-proxmox-gitops
+- [ ] https://github.com/runtipi/runtipi
 
 ---
 
@@ -149,6 +150,7 @@ A prioritized roadmap for building a secure, resilient, and privacy-focused home
   - [ ] FRP https://github.com/fatedier/frp (from internet to cloud to local Traefik)
   - [ ] Traefik https://github.com/traefik/traefik
     - [ ] Crowdsec https://github.com/crowdsecurity/crowdsec
+		- [ ] SafeLine https://github.com/chaitin/SafeLine instead?
     - [ ] Geoblock https://github.com/PascalMinder/geoblock
 - [ ] **VPN Inbound / Mesh**:
   - [ ] **Netbird**: https://github.com/netbirdio/netbird
@@ -182,6 +184,9 @@ A prioritized roadmap for building a secure, resilient, and privacy-focused home
   - [ ] internal networking layout scan https://github.com/netvisor-io/netvisor
   - [ ] internal uptime monitoring https://github.com/louislam/uptime-kuma
   - [ ] external uptime monitoring https://github.com/upptime/upptime
+  - [ ] status monitoring
+    - [ ] https://github.com/operacle/checkcle
+    - [ ] https://github.com/cachethq/cachet
 
 ### Remote Access
 
@@ -207,6 +212,10 @@ A prioritized roadmap for building a secure, resilient, and privacy-focused home
   - [ ] Hashicorp Vault https://github.com/hashicorp/vault
 - [ ] Security Monitoring
   - [ ] How others see your device activity https://github.com/gommzystudio/device-activity-tracker
+  - [ ] Project Time Tracking https://github.com/solidtime-io/solidtime
+  - [ ] Geo Tracking https://github.com/Freika/dawarich
+  - [ ] Time Tracking (automated) https://github.com/ActivityWatch
+  - [ ] Activity Tracking (excersize) https://github.com/myfear/open-pace
 
 ### DNS Architecture (Tiered Fallback)
 
@@ -224,6 +233,8 @@ _Goal: Privacy, Resilience, Ad-blocking_
   4. [ ] Unbound over Tor https://github.com/NLnetLabs/unbound
   5. [ ] **Ultra Resilient Chain**:
      - DNSCrypt over Tor -> DoH over Tor -> TLS over Tor -> Plaintext
+- Other
+  - [ ] Go based fast blocker https://github.com/0xERR0R/blocky
 
 ### Web Proxy
 
@@ -233,6 +244,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] Privoxy https://www.privoxy.org/
   - [ ] Envoy https://github.com/envoyproxy/envoy
   - [ ] Varnish https://github.com/varnishcache/varnish-cache
+- [ ] Proxy https://github.com/MorDavid/FlareTunnel
 
 ---
 
@@ -353,6 +365,10 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] **Bazarr** (Subtitles) https://github.com/morpheus65535/bazarr
   - [ ] **Medusa** (TV Downloader) https://pymedusa.com/
   - [ ] **Lidarr** (Music) https://lidarr.audio/
+  - [ ] Lidarr Request Manager https://github.com/lklynet/aurral
+  - [ ] **Lidify** (Music Favs) https://github.com/Chevron7Locked/lidify
+  - [ ] **Your Spotify** (Music) https://github.com/Yooooomi/your_spotify
+  - [ ] **Your LastFM** (Music) https://github.com/Gomaink/your_lastfm
   - [ ] **Agregarr** Movie & TV Aggregator for collections
   - [ ] **Boxarr** Movie charts
   - [ ] **Releasarr** (Music)
@@ -371,12 +387,14 @@ _Goal: Privacy, Resilience, Ad-blocking_
     - [ ] https://github.com/Jackett/Jackett
   - [ ] **SABnzbd** (Usenet) https://github.com/sabnzbd/sabnzbd
 - [ ] **Management**:
+  - [ ] **XPipte**: Connection Manager https://github.com/xpipe-io/xpipe
   - [ ] **Mydia**: Video Manager https://github.com/getmydia/mydia
   - [ ] **Alt-SendMe**: Private file exchange https://github.com/tonyantony300/alt-sendme
   - [ ] **Rclone Gui**: https://rclone.org/gui/ https://github.com/rclone/rclone
   - [ ] **Enclosed**: Private Note exchange https://github.com/CorentinTh/enclosed
   - [ ] **MicroBin**: Private PasteBin https://github.com/microbin/microbin
   - [ ] **OpenBooks**: eBook downloader https://github.com/evan-buss/openbooks
+  - [ ] **Stash**: https://github.com/stashapp/stash
 - [ ] Conversion
   - [ ] https://github.com/VERT-sh/VERT
   - [ ] ffmpeg
@@ -527,6 +545,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
 	- [ ] NUT Server - Network UPS Tools for power management
 	- [ ] DSM - Disk Station Manager for Synology devices
 	- [ ] Blue Iris - Security camera management and recording
+	- [ ] Code Security Analyzer - https://github.com/SecurityCrux/secrux
 - [ ] **From OLD Architecture Doc (additional tools & references)**:
   - [ ] **Media, Downloading & Dashboards**
     - [ ] http://github.com/bastienwirtz/homer --- Homelab / service dashboard
@@ -542,15 +561,19 @@ _Goal: Privacy, Resilience, Ad-blocking_
     - [ ] ZeroByte Backup --- Encrypted, versioned backup system
     - [ ] Velld Database backups
     - [ ] Bichon Email backups
+	- [ ] Map / Trip / POI Planner https://github.com/itskovacs/trip
   - [ ] **Bookmarks, Reading & Knowledge**
     - [ ] https://github.com/FreshRSS/FreshRSS --- Self‑hosted RSS/news aggregator
     - [ ] https://github.com/karakeep-app/karakeep --- Personal knowledge / bookmark manager previously Hoarder
     - [ ] https://github.com/asciimoo/omnom --- Simple bookmark manager with screenshots
     - [ ] https://github.com/linkwarden/linkwarden --- Bookmark archiver and organizer
     - [ ] https://github.com/linkwarden/browser-extension --- Browser extension companion for Linkwarden
+	- [ ] https://github.com/lyqht/mini-qr --- Mini Privacy First QR Code Generator
     - [ ] https://github.com/rtuszik/starwarden --- Star/bookmark sync utility for Linkwarden
     - [ ] https://github.com/omnivore-app/omnivore --- Read‑it‑later service (Instapaper/Pocket alternative)
+	- [ ] https://anytype.io/ --- Open Source Notion for collaboration
     - [ ] https://brainsteam.co.uk/2025/2/15/personal-archive-hoarder/ --- Article on building a personal bookmark/archive server
+    - [ ] https://github.com/grishy/any-sync-bundle - sync everything locally
   - [ ] **Automation, Agents & AI Utilities**
     - [ ] https://github.com/coze-dev/coze-loop --- Prompt playground for iterating on prompts
     - [ ] https://github.com/trymeka/agent --- Browser automation / web agent framework
@@ -613,13 +636,17 @@ _Goal: Privacy, Resilience, Ad-blocking_
     - [ ] https://github.com/OctoPrint/OctoPrint --- OctoPrint GitHub repo
     - [ ] https://github.com/home-assistant/ --- Home Assistant (home automation platform)
   - [ ] **Other Services & Utilities**
+    - [ ] https://github.com/DaKheera47/job-ops
     - [ ] https://github.com/gchq/CyberChef --- CyberChef (web-based data transform toolkit)
     - [ ] https://github.com/kasmtech/KasmVNC --- Web-based VNC viewer (browser VNC)
     - [ ] https://github.com/Elbullazul/LinkGuardian --- Bookmark/link guardian / archiving helper
     - [ ] https://github.com/pkulium/DeepOCR --- OCR library/tool
+	- [ ] https://github.com/majcheradam/ocrbase --- OCR library/tool
     - [ ] https://github.com/666ghj/BettaFish/blob/main/README-EN.md --- Social sentiment monitoring tool (BettaFish)
     - [ ] https://github.com/rtuszik/starwarden --- Extra tooling around Linkwarden/Star management
     - [ ] https://github.com/trymeka/agent --- Browser automation agent (duplicate reference, kept for visibility)
+	- [ ] https://github.com/ellite/Wallos --- OSS Personal Finance Subscription Tracker Tool
+	- [ ] https://github.com/madalinpopa/gocost-web --- OSS Personal Finance Subscription Tracker Tool
     - [ ] WebMin server maangement web interface
 	- [ ] Postiz Social media management https://github.com/gitroomhq/postiz-app
   - [ ] **References & Articles**

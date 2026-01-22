@@ -1,11 +1,11 @@
 
 
-I'm interested in creating a full featured home lab in-a-box setup. The idea is that it would be a docker-compose setup with a transparent gateway. Almost every service has a transparent interception (for legacy non-configurable systems), and also the ports exposed to allow applications to opt-int that may not even be on the transparent intercept network. The tools I'm thinking about are: nftables, dnsdist, iproute2, eBPF, Envoy, Squid, Tproxy, logging pipeline, grafana, prometheus, chrony, tor daemon, logstash, elasticsearch, and other modern best featured tools as necessary.   The DNS chain might look like 
+I'm interested in creating a full featured home lab in-a-box setup. The idea is that it would be a docker-compose setup with a transparent gateway. Almost every service has a transparent interception (for legacy non-configurable systems), and also the ports exposed to allow applications to opt-int that may not even be on the transparent intercept network. The tools I'm thinking about are: nftables, dnsdist, iproute2, eBPF, Envoy, Squid, Tproxy, logging pipeline, grafana, prometheus, chrony, tor daemon, logstash, elasticsearch, and other modern best featured tools as necessary.   The DNS chain might look like
 
 1. dnsdist, 2. CoreDNS, stubby, European Union lookup
 
 ## All Services
-- expose a 
+- expose a
 	- **direct connection**,
 	- There will be a a gateway that does **transparent proxying** if used as a gateway, but upstream is not configured to access these services directly
 	- Fully Transparent (no responsive headers) proxying if there is a service that can't be configured otherwise
@@ -18,8 +18,8 @@ I'm interested in creating a full featured home lab in-a-box setup. The idea is 
 - **Project Isolation**: Dedicated project container with automatic monitoring
 - **Heartbeat Monitoring**: Built-in health checks and external connectivity testing
 - **Detailed Documentation**: Document Purpose, Getting Started, Stacks, Links to services and documentation
-- 
-- All services should log the details of all connections to an ElasticSearch stack making clear if it is the transparent stack, vs. those of other users/apps 
+-
+- All services should log the details of all connections to an ElasticSearch stack making clear if it is the transparent stack, vs. those of other users/apps
 - All services should instrument metrics to Grafana, and make it obvious if it's transparent or another user
 - All services should have health-check monitoring
 - If there is caching, then cache as long as reasonable, and provide a way to flush caches
@@ -142,8 +142,8 @@ I'm interested in creating a full featured home lab in-a-box setup. The idea is 
 ### Domain Endpoints
 1. ODoH
 	1. 1.1.1.1 - [Cloudflare](https://developers.cloudflare.com/1.1.1.1/privacy/public-dns-resolver/)
-	2. 8.8.8.8 - 
-	3. 9.9.9.9 - 
+	2. 8.8.8.8 -
+	3. 9.9.9.9 -
 ---
 
 ## Web
@@ -165,6 +165,9 @@ I'm interested in creating a full featured home lab in-a-box setup. The idea is 
 | 8         | Remote HTTP server                  | Queried by OHoH target if domain resolution requires root zone traversal                                 |
 | 9         | Final Web Server                    | Authoritative web server for the requested content                                                      |
 | 10        | Fallbacks                           | OHoH, Direct Proxy, or VPN upstreams if OHoH fails                                                      |
+
+-- Look into https://github.com/MorDavid/FlareTunnel
+-- Fast block https://github.com/0xERR0R/blocky
 
 ### Configuration Considerations
 
@@ -206,7 +209,7 @@ I'm interested in creating a full featured home lab in-a-box setup. The idea is 
 
 ## TFTP
 
---- 
+---
 
 ## Email
 
