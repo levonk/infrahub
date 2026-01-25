@@ -450,8 +450,9 @@ services:
       nix-sidecar:
         condition: service_healthy
     volumes:
-      - nix-store:/nix
+      - nix-cache:/root/.cache/nix
       - nix-config:/etc/nix
+      - nix-store:/nix
       - elixir-cache:/home/${USERNAME:-cuser}/.mix/archives
     environment:
       - TZ=UTC

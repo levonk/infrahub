@@ -22,6 +22,29 @@ PUID=${PUID:-1000}
 PGID=${PGID:-1000}
 USERNAME=${USERNAME:-cuser}
 
+# Configure trusted users for Nix builds
+echo "🤖 Base Nix: Configuring trusted users..."
+if [ -f /etc/nix/nix.conf ]; then
+    # Build trusted-users list - use only shell built-ins (no external commands)
+    TRUSTED_USERS="root"
+
+    # Add current USERNAME if set (this is the most common case)
+    if [ -n "$USERNAME" ]; then
+        TRUSTED_USERS="$TRUSTED_USERS $USERNAME"
+    fi
+
+    # Add other common container users that might be used
+    # We'll add them statically since we can't check /etc/passwd without external commands
+    TRUSTED_USERS="$TRUSTED_USERS cuser devuser debuser nixuser"
+
+    # Simply append to nix.conf - we can't check if it already exists without grep
+    echo "trusted-users = $TRUSTED_USERS" >> /etc/nix/nix.conf
+
+    echo "✅ Configured trusted-users dynamically: $TRUSTED_USERS"
+else
+    echo "❌ nix.conf not found"
+fi
+
 echo "🤖 Base Nix: Starting entrypoint..."
 
 # =============================================================================

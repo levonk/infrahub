@@ -185,3 +185,7 @@ make up
 ## Remember
 
 **Always use `make up`** - it handles the complex orchestration that Docker Compose alone cannot manage due to the multi-environment, multi-dependency nature of this development environment.
+
+## Example Request
+The end goal is that there are no errors and preferably no warnings.  The following errors are from the in docker container supercronic cron job or from the docker system calling the healtcheck. `...` is surfacing when /home/micro/p/gh/lrepo52/job-aide/apps/active/devops/localnet/services/base/nix-sidecar/assets/static/nix-sidecar/healthcheck-nix-sidecar.sh is running. let's make sure that it's dropping permissions to $USERNAME preferably the id instead of the explicit name $PUID both set from the compose file which in turn grabs it from the .env, and then the running account is dropped asap.  reference /home/micro/p/gh/lrepo52/job-aide/apps/active/devops/localnet/services/base/nix-sidecar/assets/static/nix-sidecar/entrypoint-nix-sidecar.sh and /home/micro/p/gh/lrepo52/job-aide/apps/active/devops/localnet/services/base/nix-sidecar/Dockerfile.nix-sidecar to see how everything is created.  to make the project do the following command
+- cd /home/micro/p/gh/lrepo52/job-aide/apps/active/devops/localnet ; then make base-up this uses the proper order of operations to prepare the environment.  DO NOT run docker-compose directly inside of the /home/micro/p/gh/lrepo52/job-aide/apps/active/devops/localnet/services/base directory!!!

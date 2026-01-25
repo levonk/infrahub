@@ -10,7 +10,23 @@
   outputs = { self, nixpkgs, harmonia }:
     let
       system = "x86_64-linux";
-      pkgs = nixpkgs.legacyPackages.${system};
+      pkgs = import nixpkgs {
+        inherit system;
+        # Add binary cache for faster downloads
+        config = {
+          allowUnfree = false;
+          substituters = [
+            "https://cache.nixos.org"
+            "https://nix-community.cachix.org"
+            "https://cache.garnix.io"
+          ];
+          trusted-public-keys = [
+            "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPSQZNGZfdL7Q="
+            "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CXHQrkxhLww6X236k="
+            "cache.garnix.io:CTFPyKSLcx5RMJKfLo5EEPUObbA78b0YQ2DTCJXqr3g="
+          ];
+        };
+      };
       harmoniaPkg = harmonia.packages.${system}.default;
 
       commonConfig = {

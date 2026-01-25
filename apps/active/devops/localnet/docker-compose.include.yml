@@ -6,6 +6,9 @@
 
 volumes:
   # Base volumes
+  nix-cache:
+    name: localnet-base-nix-cache-volume
+    external: true
   nix-config:
     name: localnet-base-nix-config-volume
     external: true

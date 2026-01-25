@@ -2,13 +2,13 @@ FROM nixpkgs/nix:latest
 
 # Copy static assets to mirror container filesystem
 COPY assets/static/ /
+COPY assets/templates/ /templates/
 
 # Backup the internal Nix environment so it can be restored when an empty volume is mounted
 RUN mkdir -p /nix-sidecar/tmp /etc/nix && \
     tar -C / -cf /nix-sidecar/tmp/bootstrap-slash-nix.tar nix bin etc/profile.d
 
-# Configure Nix
-COPY assets/static/etc/nix/nix.conf /etc/nix/nix.conf
+COPY assets/templates/etc/nix/nix.conf /etc/nix/nix.conf
 
 # Set up environment for the sidecar
 ENV PATH=/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin

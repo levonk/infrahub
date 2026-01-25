@@ -649,6 +649,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
 	- [ ] https://github.com/madalinpopa/gocost-web --- OSS Personal Finance Subscription Tracker Tool
     - [ ] WebMin server maangement web interface
 	- [ ] Postiz Social media management https://github.com/gitroomhq/postiz-app
+	- [ ] Software Defined Radio https://github.com/smittix/intercept
   - [ ] **References & Articles**
     - [ ] https://brainsteam.co.uk/2025/2/15/personal-archive-hoarder/ --- Personal archive/hoarder architecture write‑up
     - [ ] https://www.xda-developers.com/how-build-google-drive-alternative-nextcloud/ --- Guide: Nextcloud as Google Drive alternative

@@ -3,20 +3,38 @@
 
 # Nix Store Optimization - Daily at 4 AM Pacific (12 PM UTC)
 # Optimizes nix store by deduplicating identical files
-0 12 * * * nix store optimise --verbose
+# Run as root to have proper permissions for store operations
+0 12 * * * /nix/var/nix/profiles/per-user/root/profile/bin/nix store optimise --verbose
 
 ## Use docker native healthcheck
 ## Health Check - Every 15 minutes
 ## Verify nix environment is healthy
 #*/15 * * * * /usr/local/bin/healthcheck.sh
 
-## Disk Space Check - Hourly
-## Alert if disk usage is high (outputs to container logs)
-#0 * * * * df -h /nix | awk 'NR==2 && $5+0 > 90 { print "WARNING: NIX STORE DISK USAGE CRITICAL: " $5; fflush() }'
+# Disk Space Check - Every 6 hours
+# Alert if disk usage is high (outputs to container logs)
+0 */6 * * * df -h /nix | awk 'NR==2 && $5+0 > 90 { print "WARNING: NIX STORE DISK USAGE CRITICAL: " $5; fflush() }'
+
+# Cache Health Check - Daily at 2 AM Pacific (10 AM UTC)
+# Check for partial downloads and cache corruption
+0 10 * * * if find /root/.cache/nix -name "*.partial" 2>/dev/null | head -1 >/dev/null; then echo "❌ CRON: Found partial downloads in cache"; fi
+
+# Cache Size Check - Daily at 2:30 AM Pacific (10:30 UTC)
+# Alert if cache is unusually large (>5GB)
+30 10 * * * CACHE_SIZE=$(du -s /root/.cache/nix 2>/dev/null | cut -f1 || echo 0); if [ "$CACHE_SIZE" -gt 5242880 ]; then echo "⚠️ CRON: Cache unusually large: $((CACHE_SIZE/1024/1024))MB"; fi
+
+# Store Integrity Check - Daily at 3 AM Pacific (11 AM UTC)
+# Quick verification of store integrity
+0 11 * * * if ! nix store verify --all >/dev/null 2>&1; then echo "❌ CRON: Store verification failed - corruption detected"; fi
+
+# Store Statistics Check - Daily at 3:30 AM Pacific (11:30 UTC)
+# Check for orphaned paths and store health
+30 11 * * * nix store gc --print-dead 2>/dev/null | head -5
 
 # Nix Store Verification - Daily at 4 AM Pacific (12 PM UTC)
 # Verify store integrity without modifying anything
-0 12 * * * nix store verify --all --verbose
+# Run as root to have proper permissions for store operations
+0 12 * * * /nix/var/nix/profiles/per-user/root/profile/bin/nix store verify --all --verbose
 
 ## Not worth the risk for now
 ## Profile Cleanup (Safe) - Weekly on Sunday at 1 AM

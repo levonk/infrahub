@@ -27,8 +27,9 @@ services:
     networks:
       - null-network
     volumes:
-      - nix-store:/nix
+      - nix-cache:/root/.cache/nix
       - nix-config:/etc/nix
+      - nix-store:/nix
     environment:
       - PUID=1000
       - PGID=1000
@@ -56,8 +57,9 @@ services:
     networks:
       - null-network
     volumes:
-      - nix-store:/nix
+      - nix-cache:/root/.cache/nix
       - nix-config:/etc/nix
+      - nix-store:/nix
     environment:
       - PUID=1000
       - PGID=1000
@@ -85,8 +87,9 @@ services:
       - null-network
     restart: no
     volumes:
-      - nix-store:/nix
+      - nix-cache:/root/.cache/nix
       - nix-config:/etc/nix
+      - nix-store:/nix
     environment:
       - PUID=1000
       - PGID=1000
@@ -120,8 +123,9 @@ services:
     privileged: true
     restart: unless-stopped
     volumes:
-      - nix-store:/nix
+      - nix-cache:/root/.cache/nix
       - nix-config:/etc/nix
+      - nix-store:/nix
     environment:
       - PUID=1000
       - PGID=1000
@@ -151,8 +155,9 @@ services:
     restart: no
     # Mount the shared named volumes.
     volumes:
-      - nix-store:/nix
+      - nix-cache:/root/.cache/nix
       - nix-config:/etc/nix
+      - nix-store:/nix
     environment:
       - PUID=1000
       - PGID=1000
@@ -188,8 +193,9 @@ services:
     restart: no
     # Mount the shared named volumes.
     volumes:
-      - nix-store:/nix
+      - nix-cache:/root/.cache/nix
       - nix-config:/etc/nix
+      - nix-store:/nix
     environment:
       - PUID=1000
       - PGID=1000
@@ -198,7 +204,7 @@ services:
       nix-sidecar:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "/base-dev/healthcheck-base-dev.sh"]
+      test: ["CMD", "/base-dev/bin/healthcheck-base-dev.sh"]
       interval: 60s
       timeout: 60s
       retries: 3
@@ -223,8 +229,9 @@ services:
     restart: no
     # Mount the shared named volumes.
     volumes:
-      - nix-store:/nix
+      - nix-cache:/root/.cache/nix
       - nix-config:/etc/nix
+      - nix-store:/nix
       - asdf-cache:/home/${USERNAME:-cuser}/.asdf
       - bazel-cache:/home/${USERNAME:-cuser}/.cache/bazel
       - conda-cache:/home/${USERNAME:-cuser}/.conda
@@ -277,12 +284,12 @@ services:
     depends_on:
       nix-sidecar:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD", "/base-dev/healthcheck-base-dev.sh"]
-      interval: 60s
-      timeout: 60s
-      retries: 3
-      start_period: 120s
+#    healthcheck:
+#      test: ["CMD", "/base-dev/bin/healthcheck-base-dev.sh"]
+#      interval: 60s
+#      timeout: 60s
+#      retries: 3
+#      start_period: 120s
     logging: *default-logging
     ports:
       - "${AI_CODEASSIST_VIBEKANBAN_APP_HOST_PORT:-33000}:${AI_CODEASSIST_VIBEKANBAN_APP_CONTAINER_PORT:-3000}"

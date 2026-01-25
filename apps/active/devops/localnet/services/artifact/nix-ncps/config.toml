@@ -1,0 +1,40 @@
+# NCPS Configuration for LocalNet
+# Regional proxy that caches from cloud sources and serves to LAN clients
+
+# Upstream binary caches - these are the cloud sources NCPS will fetch from
+# when local clients request packages not in the local cache
+[upstream]
+substituters = [
+    "https://cache.garnix.io",
+    "https://cache.nixos.org"
+]
+
+# Server configuration
+[server]
+# Listen address inside the container
+host = "0.0.0.0"
+# Port that clients connect to (mapped to 5001 in docker-compose)
+port = 8080
+
+# Cache configuration
+[cache]
+# Directory to store cached packages
+data_dir = "/data"
+# Maximum cache size (optional - uncomment to set limit)
+# max_size = "100GB"
+
+# Logging configuration
+[logging]
+# Log level: trace, debug, info, warn, error
+level = "info"
+# Log format: json, text
+format = "json"
+
+# Performance tuning
+[performance]
+# Maximum concurrent downloads
+max_concurrent_downloads = 10
+# Connection timeout in seconds
+connect_timeout = 30
+# Request timeout in seconds
+request_timeout = 300

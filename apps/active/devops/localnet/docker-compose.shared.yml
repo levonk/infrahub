@@ -49,6 +49,9 @@ networks:
 
 volumes:
   # Base volumes
+  nix-cache:
+    name: localnet-base-nix-cache-volume
+    external: false
   nix-config:
     name: localnet-base-nix-config-volume
     external: false
@@ -282,6 +285,7 @@ services:
       - wireguard
       - codeassist
     volumes:
+      - nix-cache:/root/.cache/nix:ro
       - nix-config:/nix/config:ro
       - nix-store:/nix/store:ro
       - dns-adguard-conf:/etc/dns/adguard/conf:ro

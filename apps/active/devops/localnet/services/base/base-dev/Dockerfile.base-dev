@@ -13,7 +13,7 @@ COPY assets/static/ /
 
 # Ensure scripts are executable
 USER root
-RUN chmod +x /base-dev/healthcheck-base-dev.sh /base-dev/entrypoint-base-dev.sh
+RUN chmod +x /base-dev/bin/healthcheck-base-dev.sh /base-dev/bin/entrypoint-base-dev.sh
 
 # Create user and sudo setup
 RUN mkdir -p /etc/sudoers.d && \
@@ -39,68 +39,89 @@ RUN mkdir -p /home/${USERNAME}/project && \
 	echo 'use nix' > /home/${USERNAME}/project/.envrc && \
 	# Create a flake.nix for modern Nix development environment
 	printf '%s\n' \
-    '{' \
-    '  description = "Development environment";' \
-    '' \
-    '  inputs = {' \
-    '    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";' \
-    '    flake-utils.url = "github:numtide/flake-utils";' \
-    '  };' \
-    '' \
-    '  outputs = { nixpkgs, flake-utils, ... }:' \
-    '    flake-utils.lib.eachDefaultSystem (system:' \
-    '      let pkgs = nixpkgs.legacyPackages.${system}; in {' \
-    '        devShells.default = pkgs.mkShell {' \
-    '          NIXPKGS_ALLOW_UNFREE = "1";' \
-    '          buildInputs = with pkgs; [' \
-    '            # SSL/TLS Certificates for HTTPS' \
-    '            cacert' \
-    '            # Core Development Tools' \
-    '            nix nodejs' \
-    '            python315 uv' \
-	'            devbox jq git' \
-    '            # Shell & Navigation' \
-    '            fzf ripgrep fd bat eza zoxide zsh' \
-    '            # Terminal Multiplexer & Shell Environment' \
-    '            zellij direnv' \
-    '            # Image & Document Processing' \
-    '            poppler-utils chafa jp2a imagemagick' \
-    '            # Advanced Diff & Comparison Tools' \
-    '            difftastic delta mergiraf odiff' \
-    '            # Development Infrastructure' \
-    '            chezmoi universal-ctags' \
-	'            duckdb sqlite' \
-    '            # Diagramming & Visualization' \
-    '            graphviz plantuml mermaid-cli' \
-    '            # System Utilities' \
-    '            htop btop bottom procs dust duf' \
-    '            # File Management' \
-    '            yazi trash-cli p7zip unzip zip rsync' \
-    '            # Text Processing & Data' \
-    '            vim neovim yq-go gron fx tokei' \
-    '            # Network Tools' \
-    '            nmap tcpdump mtr whois rhash' \
-    '            # Terminal Enhancement' \
-    '            nerd-fonts.jetbrains-mono tlrc pay-respects atuin sd' \
-    '            # Version Control' \
-    '            gh glab lazygit git-extras git-lfs fzf-git-sh' \
-    '            # System Essentials' \
-    '            file findutils procps shadow gosu' \
-    '            # code enviornment' \
-    '            opencode gemini-cli github-copilot-cli' \
-    '            cursor-cli qwen-code amp-cli' \
-    '            claude-code-router claude-code claude-monitor' \
-    '            vimPlugins.opencode-nvim vimPlugins.copilot-vim' \
-    '            vimPlugins.claudecode-nvim' \
-    '            ungoogled-chromium' \
-    '            python313Packages.playwright python313Packages.playwright-stealth' \
-	'            playwright-test' \
-	'            python312Packages.copier' \
-	'            tailwindcss_4 vimPlugins.tailwind-tools-nvim vscode-extensions.bradlc.vscode-tailwindcss tailwindcss-language-server' \
-    '          ];' \
-    '        };' \
-    '      });' \
-    '    }' > /home/${USERNAME}/project/flake.nix
+      '{' \
+      '  description = "Development environment";' \
+      '' \
+      '  inputs = {' \
+      '    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";' \
+      '    flake-utils.url = "github:numtide/flake-utils";' \
+      '    rip.url = "github:cesarferreira/rip";' \
+      '    rip.inputs.nixpkgs.follows = "nixpkgs";' \
+      '  };' \
+      '' \
+      '  outputs = { nixpkgs, flake-utils, rip, ... }:' \
+      '    flake-utils.lib.eachDefaultSystem (system:' \
+      '      let' \
+      '        pkgs = import nixpkgs {' \
+      '          inherit system;' \
+      '          config.allowUnfree = true;' \
+      '          # Add binary cache for faster downloads' \
+      '          # Add binary cache for faster downloads' \
+      '          substituters = [' \
+      '            "https://cache.nixos.org"' \
+      '            "https://nix-community.cachix.org"' \
+      '            "https://cache.garnix.io"' \
+      '          ];' \
+      '          trusted-public-keys = [' \
+      '            "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPSQZNGZfdL7Q="' \
+      '            "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CXHQrkxhLww6X236k="' \
+      '            "cache.garnix.io:CTFPyKSLcx5RMJKfLo5EEPUObbA78b0YQ2DTCJXqr3g="' \
+      '          ];' \
+      '        };' \
+      '      in' \
+      '      {' \
+      '        devShells.default = pkgs.mkShell {' \
+      '          buildInputs = with pkgs; [' \
+      '            # SSL/TLS Certificates for HTTPS' \
+      '            cacert' \
+      '            # Core Development Tools' \
+      '            nix nodejs' \
+      '            python315FreeThreading uv' \
+      '            devbox jq git' \
+      '            # Shell & Navigation' \
+      '            fzf ripgrep fd bat eza zoxide zsh' \
+      '            # Terminal Multiplexer & Shell Environment' \
+      '            zellij direnv' \
+      '            # Image & Document Processing' \
+      '            poppler-utils chafa jp2a imagemagick' \
+      '            # Advanced Diff & Comparison Tools' \
+      '            difftastic delta mergiraf odiff' \
+      '            # Development Infrastructure' \
+      '            chezmoi universal-ctags' \
+      '            duckdb sqlite' \
+      '            # Diagramming & Visualization' \
+      '            graphviz plantuml mermaid-cli' \
+      '            # System Utilities' \
+      '            htop btop bottom procs dust duf' \
+      '            # File Management' \
+      '            yazi trash-cli p7zip unzip zip rsync' \
+      '            # Text Processing & Data' \
+      '            vim neovim yq-go gron fx tokei' \
+      '            # Network Tools' \
+      '            nmap tcpdump mtr whois rhash' \
+      '            # Terminal Enhancement' \
+      '            nerd-fonts.jetbrains-mono tlrc pay-respects atuin' \
+      '            sd' \
+      '            # Version Control' \
+      '            gh glab lazygit git-extras git-lfs fzf-git-sh' \
+      '            # System Essentials' \
+      '            file findutils procps shadow gosu' \
+      '            # code enviornment' \
+      '            opencode gemini-cli github-copilot-cli' \
+      '            cursor-cli qwen-code amp-cli' \
+      '            claude-code-router claude-code claude-monitor' \
+      '            vimPlugins.opencode-nvim vimPlugins.copilot-vim' \
+      '            vimPlugins.claudecode-nvim' \
+      '            ungoogled-chromium' \
+      '            python314Packages.playwright python314Packages.playwright-stealth' \
+      '            playwright-test' \
+      '            python312Packages.copier' \
+      '            tailwindcss_4 vimPlugins.tailwind-tools-nvim vscode-extensions.bradlc.vscode-tailwindcss tailwindcss-language-server' \
+      '          ];' \
+      '        };' \
+      '      });' \
+      '    }' \
+    > "/home/$USERNAME/project/flake.nix"
 
 # Note: We do NOT run `nix develop` here because the Nix store volume will be mounted at runtime,
 # potentially obscuring any store paths built here. The development environment should be
@@ -122,8 +143,8 @@ ENV NIX_PATH="nixpkgs=/nix/var/nix/profiles/per-user/root/channels/nixpkgs:/nix/
 # ENV GIT_SSL_CAINFO="/nix/store/.../etc/ssl/certs/ca-bundle.crt"
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-  CMD ["/base-dev/healthcheck-base-dev.sh"]
+  CMD ["/base-dev/bin/healthcheck-base-dev.sh"]
 
 # Override PATH in entrypoint to ensure Nix binaries are available
-ENTRYPOINT ["/base-dev/entrypoint-base-dev.sh"]
+ENTRYPOINT ["/base-dev/bin/entrypoint-base-dev.sh"]
 CMD ["/usr/bin/sleep", "infinity"]

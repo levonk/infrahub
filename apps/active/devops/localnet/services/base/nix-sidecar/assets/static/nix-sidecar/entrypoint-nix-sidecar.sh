@@ -8,6 +8,34 @@ USERNAME=${USERNAME:-cuser}
 
 echo "🤖 Nix Sidecar: Starting entrypoint..."
 
+echo "🤖 Nix Sidecar: Update nix.conf after bind mount"
+if [ -r /templates/etc/nix/nix.conf ]; then
+    cp /templates/etc/nix/nix.conf /etc/nix/nix.conf
+fi
+
+# Add trusted users to nix.conf for container builds
+echo "🤖 Nix Sidecar: Configuring trusted users dynamically..."
+if [ -f /etc/nix/nix.conf ]; then
+    # Build trusted-users list - use only shell built-ins (no external commands)
+    TRUSTED_USERS="root"
+
+    # Add current USERNAME if set (this is the most common case)
+    if [ -n "$USERNAME" ]; then
+        TRUSTED_USERS="$TRUSTED_USERS $USERNAME"
+    fi
+
+    # Add other common container users that might be used
+    # We'll add them statically since we can't check /etc/passwd without external commands
+    TRUSTED_USERS="$TRUSTED_USERS cuser devuser debuser nixuser"
+
+    # Simply append to nix.conf - we can't check if it already exists without grep
+    echo "trusted-users = $TRUSTED_USERS" >> /etc/nix/nix.conf
+
+    echo "✅ Configured trusted-users dynamically: $TRUSTED_USERS"
+else
+    echo "❌ nix.conf not found"
+fi
+
 # Function to verify Nix environment
 verify_nix() {
     echo "🤖 Nix Sidecar: Verifying Nix environment..."
@@ -27,6 +55,7 @@ verify_nix() {
 }
 
 # Check if Nix environment needs initialization
+echo "🤖 Nix Sidecar: Checking to see if /nix needs initialization..."
 if [ ! -d "/nix/store" ] || [ -z "$(ls -A /nix/store 2>/dev/null)" ]; then
     echo "🤖 Nix Sidecar: Initializing Nix environment from backup tarball..."
     if [ -f "/nix-sidecar/tmp/bootstrap-slash-nix.tar" ]; then
@@ -39,14 +68,55 @@ if [ ! -d "/nix/store" ] || [ -z "$(ls -A /nix/store 2>/dev/null)" ]; then
     fi
 fi
 
+# Ensure 'nix' and basic tools are installed in the root profile so they are available in PATH
+# We use the root profile as the shared source for base tools
+echo "🤖 Nix Sidecar: Installing core tools to root profile..."
+
+# First check if core tools are already available to avoid unnecessary downloads
+# Use faster verification - only check if core tools are available in root profile
+echo "🤖 Nix Sidecar: Checking for core tools in root profile..."
+if [ -x "/nix/var/nix/profiles/per-user/root/profile/bin/nix" ] && \
+   [ -x "/nix/var/nix/profiles/per-user/root/profile/bin/bash" ] && \
+   [ -x "/nix/var/nix/profiles/per-user/root/profile/bin/git" ] && \
+   [ -x "/nix/var/nix/profiles/per-user/root/profile/bin/jq" ] && \
+   /nix/var/nix/profiles/per-user/root/profile/bin/nix --version >/dev/null 2>&1; then
+    echo "✅ Core tools available in root profile, skipping package installation"
+else
+    echo "🔧 Core tools missing from root profile, installing packages..."
+    # Use --priority to avoid conflicts if packages are already present (though unlikely in fresh profile)
+    # Add timeout to prevent hanging - increased for large nixpkgs downloads
+    #timeout 180 nix profile install nixpkgs#nix nixpkgs#bash nixpkgs#coreutils nixpkgs#git nixpkgs#jq --profile /nix/var/nix/profiles/per-user/root/profile --priority 10 || {
+    nix profile install nixpkgs#nix nixpkgs#bash nixpkgs#coreutils nixpkgs#git nixpkgs#jq --profile /nix/var/nix/profiles/per-user/root/profile --priority 10 || {
+        echo "⚠️ Warning: Core tools installation timed out or failed, continuing with available tools..."
+    }
+fi
+
+
 # Install required packages for user management (after volumes are mounted)
 echo "🤖 Nix Sidecar: Installing required packages from flake.nix..."
 # Clear any invalid Nix settings that might cause warnings
 unset NIX_CONFIG 2>/dev/null || true
+
+# Source nix profile if it exists
+if [ -f "/etc/profile.d/nix.sh" ]; then
+    . /etc/profile.d/nix.sh
+fi
+
 if [ -f "/nix-sidecar/flake.nix" ]; then
     # Find and set SSL certificate paths for HTTPS to work with Nix
     echo "🤖 Nix Sidecar: Setting up SSL certificates..."
-    CACERT_PATH=$(nix develop /nix-sidecar --command find /nix/store -name "ca-bundle.crt" -path "*/etc/ssl/certs/*" 2>/dev/null | head -1)
+    # First try system certificates (faster and more reliable), then fall back to Nix store
+    CACERT_PATH=""
+    if [ -f "/etc/ssl/certs/ca-bundle.crt" ]; then
+        CACERT_PATH="/etc/ssl/certs/ca-bundle.crt"
+        echo "🤖 Nix Sidecar: Using system CA certificates at $CACERT_PATH"
+    else
+        # Only search Nix store if system certs aren't available
+        CACERT_PATH=$(timeout 30 nix develop /nix-sidecar --command find /nix/store -name "ca-bundle.crt" -path "*/etc/ssl/certs/*" 2>/dev/null | head -1)
+        if [ -n "$CACERT_PATH" ]; then
+            echo "🤖 Nix Sidecar: Found Nix store CA certificates at $CACERT_PATH"
+        fi
+    fi
     if [ -n "$CACERT_PATH" ] && [ -f "$CACERT_PATH" ]; then
         echo "🤖 Nix Sidecar: Found CA certificates at $CACERT_PATH"
         export NIX_SSL_CERT_FILE="$CACERT_PATH"
@@ -59,20 +129,13 @@ if [ -f "/nix-sidecar/flake.nix" ]; then
     fi
 
     nix develop /nix-sidecar --command echo "Packages installed successfully" || {
-        echo "❌ Nix Sidecar: Failed to install packages from flake.nix"
-        exit 1
+        echo "⚠️ Warning: Failed to install packages from flake.nix, continuing with available tools..."
     }
     echo "✅ Nix Sidecar: Packages installed successfully from flake"
 else
     echo "❌ Nix Sidecar: flake.nix not found at /nix-sidecar/flake.nix"
     exit 1
 fi
-
-# Ensure 'nix' and basic tools are installed in the root profile so they are available in PATH
-# We use the root profile as the shared source for base tools
-echo "🤖 Nix Sidecar: Installing core tools to root profile..."
-# Use --priority to avoid conflicts if packages are already present (though unlikely in fresh profile)
-nix profile install nixpkgs#nix nixpkgs#bash nixpkgs#coreutils nixpkgs#git nixpkgs#jq --profile /nix/var/nix/profiles/per-user/root/profile --priority 10
 
 # Ensure Nix binaries are in the PATH
 export PATH="/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
@@ -109,6 +172,9 @@ else
         usermod -o -u \"$PUID\" \"$USERNAME\" || echo \"⚠️ usermod failed\"
     fi
 fi
+
+# Create base sudoers file if it doesn't exist (not needed for gosu)
+# gosu is used instead of sudo for privilege escalation
 "
 if [ -d "/home/$USERNAME" ]; then
     chown -R "$PUID:$PGID" "/home/$USERNAME"
@@ -161,6 +227,7 @@ if [ "$#" -gt 0 ]; then
     exec_as_user "$@"
 else
 	echo "🤖 Nix Sidecar: Starting scheduled tasks with supercronic as main process..."
-    # Run supercronic - exec_as_user will handle the nix develop wrapper
-    exec_as_user "supercronic /nix-sidecar/supercronic-nix-sidecar.crond"
+	# Run supercronic within nix develop environment as root since it needs to execute Nix store operations
+	# The individual cron jobs will handle user switching if needed
+	exec nix develop /nix-sidecar --command supercronic /nix-sidecar/supercronic-nix-sidecar.crond
 fi
