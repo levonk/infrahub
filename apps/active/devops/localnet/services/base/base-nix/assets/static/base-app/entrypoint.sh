@@ -133,6 +133,36 @@ if [ ! -L "/nix/var/nix/profiles/default" ]; then
 fi
 
 # =============================================================================
+# Nix Build Users Setup
+# =============================================================================
+# Purpose: Create nixbld group and build users for multi-user Nix builds
+# Security: Build users are isolated and cannot login (nologin shell)
+# Compliance: Required for multi-user Nix sandboxed builds
+# =============================================================================
+echo "🤖 Base Nix: Setting up Nix build users..."
+nix develop /base-app --command bash -c "
+# Create nixbld group with GID 30000 (standard Nix convention)
+if ! getent group nixbld > /dev/null 2>&1; then
+    echo \"🤖 Base Nix: Creating nixbld group (GID: 30000)\"
+    groupadd -g 30000 nixbld || echo \"⚠️ nixbld group creation failed\"
+else
+    echo \"✅ nixbld group already exists\"
+fi
+
+# Create nixbld build users (nixbld1 through nixbld32)
+# These users perform sandboxed builds with minimal privileges
+for i in \$(seq 1 32); do
+    if ! getent passwd \"nixbld\$i\" > /dev/null 2>&1; then
+        echo \"🤖 Base Nix: Creating nixbld\$i user\"
+        useradd -M -g nixbld -G nixbld -s /usr/sbin/nologin \"nixbld\$i\" || echo \"⚠️ nixbld\$i user creation failed\"
+    else
+        echo \"✅ nixbld\$i user already exists\"
+    fi
+done
+echo \"✅ Nix build users (nixbld1-32) setup complete\"
+"
+
+# =============================================================================
 # User Management Setup
 # =============================================================================
 # Purpose: Create and configure non-root user with proper UID/GID
