@@ -2,6 +2,14 @@
 ## This is the file intended to be incldued by NO other compose files, That's what the docker-compose.include.yml is for
 ## If you're having a problem with networks or volumes not existing, did you run `make up`?
 
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "5"
+    tag: "{{.Name}}"
+    labels: "service"
+
 networks:
   localnet:
     name: localnet-network
@@ -277,6 +285,18 @@ volumes:
 services:
   # Dummy service to allow docker compose up to work
   # This service does nothing but allows networks/volumes to be created
+  common-base:
+    logging: *default-logging
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+      - 9.9.9.9
+    restart: unless-stopped
+    environment:
+      TZ: UTC
+      PUID: 1000
+      PGID: 1000
+
   shared-resources:
     image: nixpkgs/nix:latest
     networks:
