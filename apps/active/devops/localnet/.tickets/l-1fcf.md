@@ -1,6 +1,6 @@
 ---
 id: l-1fcf
-status: open
+status: closed
 deps: []
 links: []
 created: 2026-01-27T07:37:33Z

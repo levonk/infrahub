@@ -17,7 +17,11 @@ A prioritized roadmap for building a secure, resilient, and privacy-focused home
 
 - [ ] **TechHutTV Homelab Apps**: https://github.com/TechHutTV/homelab/tree/main/apps
 - [ ] **Awesome Selfhosted**: https://github.com/Awesome-selfhosted/awesome-selfhosted
-- [ ] **Awesome-arr**: https://github.com/Ravencentric/awesome-arr
+- Arr Stack
+	- [ ] **Automation Ave Arr**: https://github.com/automation-avenue/arr-new/blob/main/docker-compose.yml
+	- [ ] **Automation Ave Gluetun Arr**: https://github.com/automation-avenue/arr-gluetun
+	- [ ] **Awesome-arr**: https://github.com/automation-avenue/arr-new/blob/main/docker-compose.yml
+	- [ ] **Awesome-arr**: https://github.com/Ravencentric/awesome-arr
 - [ ] Talos Proxmox GitOps: https://github.com/jamilshaikh07/talos-proxmox-gitops
 - [ ] https://github.com/runtipi/runtipi
 
@@ -137,6 +141,7 @@ A prioritized roadmap for building a secure, resilient, and privacy-focused home
 - [ ] **Secrets Management**:
   - [ ] **Vaultwarden**: https://github.com/dani-garcia/vaultwarden
   - [ ] **BackVault**: Backup for passwords from vaultwarden
+  - [ ] **Vault**: centralized service passwords management https://github.com/hashicorp/vault
   - [ ] **Hashicorp Vault**: https://github.com/hashicorp/vault
 - [ ] **PKI / Certificates**:
   - [ ] Internal Certificate Authority (CA)
@@ -148,6 +153,7 @@ A prioritized roadmap for building a secure, resilient, and privacy-focused home
 - [ ] **High Availability** https://github.com/acassen/keepalived
 - [ ] **Reverse Proxy**:
   - [ ] FRP https://github.com/fatedier/frp (from internet to cloud to local Traefik)
+  - [ ] Self-hosters https://github.com/yusing/godoxy
   - [ ] Traefik https://github.com/traefik/traefik
     - [ ] Crowdsec https://github.com/crowdsecurity/crowdsec
 		- [ ] SafeLine https://github.com/chaitin/SafeLine instead?
@@ -255,9 +261,18 @@ _Goal: Privacy, Resilience, Ad-blocking_
 - [ ] **Updates**:
   - [ ] **Watchtower**: https://github.com/containrrr/watchtower
   - [ ] **WUD** (What's Up Docker): https://github.com/getwud/wud
+- [ ] **Feature Flags & Remote Configuration**:
+  - [ ] **Flags SDK**: Ultra-lightweight feature flags (~5KB, file-based) https://github.com/flags-sdk/flags-sdk
+  - [ ] **Unleash**: Enterprise feature management platform https://github.com/Unleash/unleash
+  - [ ] **PostHog**: Analytics + feature flags combined https://github.com/PostHog/posthog
+  - [ ] **Flagsmith**: Remote configuration focus https://github.com/Flagsmith/flagsmith
+  - [ ] **Featurevisor**: Datafile-based architecture https://github.com/featurevisor/featurevisor
 - [ ] **Automation Platforms**:
   - [ ] **n8n**: Workflow automation https://n8n.io
-  - [ ] **Rundeck**: Job scheduler https://github.com/rundeck/rundeck
+  - Job Scheduler
+    - [ ] **Rundeck**: Job scheduler https://github.com/rundeck/rundeck
+    - [ ] **Ofelia**: Job scheduler https://github.com/mcuadros/ofelia
+    - [ ] **Airflow**: Job scheduler
   - [ ] **Kestra.io**: Automation platform https://github.com/kestra-io/kestra
   - [ ] **ChangeDetection.io**: Web change monitor https://github.com/dgtlmoon/changedetection.io
 
@@ -296,6 +311,11 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] **Claude Code MCP server**: https://github.com/steipete/claude-code-mcp
   - [ ] **PluggedIn MCP proxy**: https://github.com/VeriTeknik/pluggedin-mcp-proxy
   - [ ] **PluggedIn app**: https://github.com/VeriTeknik/pluggedin-app
+  - [ ] **MoltBot**: AI-powered automation and task management https://github.com/moltbot/moltbot
+  - Desktop Control
+	- [ ] **OpenClaudeCowork**: https://github.com/ComposioHQ/open-claude-cowork/
+  - [ ] **OpenCode**:
+  - [ ] **SuperMemory**: https://supermemory.ai/docs/deployment/self-hosting#self-hosting https://github.com/supermemoryai/supermemory
   - [ ] **Vibe Kanban / Auto-Claude rollout checklist**
     - [x] Hostname: `kanban.levonk.com`, Traefik router with Authelia + geoblock (LAN-only) — confirmed 2025-12-19.
     - [x] Runtime shape: Vibe Kanban container (Node + pnpm) per `services/ai-codeassist/vibe-kanban/`, Linux uses Sysbox+DIND, WSL uses dockerproxy; `/p` repo mount required.
@@ -407,6 +427,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] **FileBrowser**: Web file manager https://github.com/filebrowser/filebrowser
   - [ ] **FileCloud**: Enterprise file share https://github.com/filecloud/filecloud
   - [ ] **Paperless-ngx**: Document Management System https://github.com/paperless-ngx/paperless-ngx
+  - [ ] **PageIndex**: Document Analysis System https://github.com/VectifyAI/PageIndex
 - [ ] **File Transfer**
   - [ ] https://github.com/fatedier/fft
   - [ ] Torrents
@@ -459,6 +480,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
 	- [ ] LiveKit (Realtime A/V) https://github.com/livekit
 - [ ] **News**: Meridian (Personal Podcast) https://github.com/iliane5/meridian
 - [ ] **Linkstack.org**: (Linktree alternative) https://linkstack.org/
+- [ ] **Family Tree**: https://github.com/smestern/treepilot
 - [ ] **Postiz-app**: (multi-social poster) https://github.com/gitroomhq/postiz-app
 - [ ] **Fider**: (Feedback collector) https://github.com/getfider/fider
 - [ ] **CRM**: Self-hosted customer relationship management
@@ -476,7 +498,11 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] **Chat Interface**
     - [ ] **Onyx**: Chat Interface https://github.com/onyx-dot-app/onyx
     - [ ] **Open WebUI**: Chat Interface https://github.com/open-webui/open-webui
-  - [ ] **Browser Use**: Web automation agent https://github.com/browser-use/browser-use
+  - [ ] **Browser Automation**
+    - [ ] **Agent Browser**: https://github.com/vercel-labs/agent-browser
+    - [ ] **Stagehand**: https://github.com/browserbase/stagehand
+      - [ ] **Browser Base**:
+    - [ ] **Browser Use**: Web automation agent https://github.com/browser-use/browser-use
   - [ ] **DeepCode**: Code agent https://github.com/HKUDS/DeepCode
   - [ ] **Skyvern**: Browser agent https://github.com/Skyvern-AI/skyvern
   - [ ] **AgentSea**: Compute agent https://github.com/agentsea/surfkit https://www.agentsea.ai/
@@ -484,6 +510,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
 - [ ] **Stable Diffusion**
   - [ ] **ComfyUI**: https://github.com/comfyanonymous/ComfyUI https://www.comfy.org/
 - [ ] **Text to Speech**
+  - [ ] **Qwesn3-TTS**: https://huggingface.co/spaces/Qwen/Qwen3-TTS
   - [ ] **Kokorotts**: https://kokorotts.net/
 - [ ] **Integration**:
   - [ ] **LiteLLM**: LLM Proxy/Router https://github.com/BerriAI/litellm
@@ -503,10 +530,22 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] **Squid / Varnish**: Web caching
   - [ ] **Envoy**: Web Routing
 
+### Code Creation
+- [ ] CodeAssist AI Stats https://github.com/git-ai-project/git-ai
+- [ ] TUI for Git diff changes https://github.com/remorses/critique
+- [ ] OpenCode
+- [ ] Claude Code https://github.com/anthropics/claude-code
+- [x] **Update Swift Boilerplate Template**: Updated to comply with Rust template standards
+  - [ ] **Test Swift Implementation**: Materialize and test Swift template on Mac system
+    - **BLOCKED**: Requires macOS system with Swift installed
+    - **Notes**: Swift not available on current Linux system, need Mac for testing
+
 ### Content Creation
 
 - [ ] NCA Toolkit API https://github.com/stephengpope/no-code-architects-toolkit
+- [ ] Web->Vieo https://github.com/trycua/launchpad
 - [ ] Udemy learning: https://github.com/heliomarpm/udemy-downloader-gui/
+- [ ] video creation https://github.com/Godzilla675/clip-js-copilot
 
 ---
 
