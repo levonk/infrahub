@@ -13,7 +13,7 @@ If you're working on Nix containers, see the documetnation at:
 make up
 
 # Start specific service group
-make up-base
+make base-up
 make up-dns
 make up-artifact
 

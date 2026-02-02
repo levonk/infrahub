@@ -285,18 +285,6 @@ volumes:
 services:
   # Dummy service to allow docker compose up to work
   # This service does nothing but allows networks/volumes to be created
-  common-base:
-    logging: *default-logging
-    dns:
-      - 1.1.1.1
-      - 8.8.8.8
-      - 9.9.9.9
-    restart: unless-stopped
-    environment:
-      TZ: UTC
-      PUID: 1000
-      PGID: 1000
-
   shared-resources:
     image: nixpkgs/nix:latest
     networks:

@@ -151,34 +151,33 @@ execute_as_user() {
     fi
 }
 
-# Activate Nix development environment if available
-if [ -f "/home/$USERNAME/project/flake.nix" ] && command -v nix >/dev/null 2>&1; then
-    echo "🤖 Dev Base: Activating Nix development environment..."
-    cd "/home/$USERNAME/project"
+# Activate Devbox development environment if available
+if [ -f "/home/$USERNAME/devbox.json" ] && command -v devbox >/dev/null 2>&1; then
+    echo "🤖 Dev Base: Activating Devbox development environment..."
+    cd "/home/$USERNAME"
 
-    # Source the Nix profile to make nix command available
+    # Source the Nix profile to make devbox command available
     if [ -f "/home/$USERNAME/.nix-profile/etc/profile.d/nix.sh" ]; then
         source "/home/$USERNAME/.nix-profile/etc/profile.d/nix.sh"
     fi
 
-    # Use nix print-dev-env to activate the environment with all packages
-    echo "🤖 Dev Base: Activating nix develop environment..."
-    # Ensure SSL certificate variables are passed to nix develop
-    eval "$(NIX_SSL_CERT_FILE="$NIX_SSL_CERT_FILE" SSL_CERT_FILE="$SSL_CERT_FILE" CURL_CA_BUNDLE="$CURL_CA_BUNDLE" GIT_SSL_CAINFO="$GIT_SSL_CAINFO" NIXPKGS_ALLOW_UNFREE=1 nix --extra-experimental-features nix-command --extra-experimental-features flakes print-dev-env --impure)"
+    # Install Devbox packages
+    echo "🤖 Dev Base: Installing Devbox packages..."
+    eval "$(NIX_SSL_CERT_FILE="$NIX_SSL_CERT_FILE" SSL_CERT_FILE="$SSL_CERT_FILE" CURL_CA_BUNDLE="$CURL_CA_BUNDLE" GIT_SSL_CAINFO="$GIT_SSL_CAINFO" devbox shell --print-env)"
 
-    # Update PATH to include nix environment
+    # Update PATH to include devbox environment
     export PATH="/home/$USERNAME/.nix-profile/bin:$PATH"
 fi
 
-# Function to execute commands inside Nix environment
-execute_as_user_in_nix() {
-    echo "🤖 Executing in Nix environment as $USERNAME: $@"
+# Function to execute commands inside Devbox environment
+execute_as_user_in_devbox() {
+    echo "🤖 Executing in Devbox environment as $USERNAME: $@"
     if [ -n "$GOSU" ]; then
         # Use shell -c to properly handle pipes and shell syntax
         # Pass SSL certificate environment variables to the user environment
-        "$GOSU" "$USERNAME" /bin/sh -c "NIX_SSL_CERT_FILE=\"$NIX_SSL_CERT_FILE\" SSL_CERT_FILE=\"$SSL_CERT_FILE\" CURL_CA_BUNDLE=\"$CURL_CA_BUNDLE\" GIT_SSL_CAINFO=\"$GIT_SSL_CAINFO\" nix develop /home/cuser/project/ --command $*"
+        "$GOSU" "$USERNAME" /bin/sh -c "NIX_SSL_CERT_FILE=\"$NIX_SSL_CERT_FILE\" SSL_CERT_FILE=\"$SSL_CERT_FILE\" CURL_CA_BUNDLE=\"$CURL_CA_BUNDLE\" GIT_SSL_CAINFO=\"$GIT_SSL_CAINFO\" devbox run -- $*"
     elif [ -n "$SU_EXEC" ]; then
-        "$SU_EXEC" "$USERNAME" /bin/sh -c "NIX_SSL_CERT_FILE=\"$NIX_SSL_CERT_FILE\" SSL_CERT_FILE=\"$SSL_CERT_FILE\" CURL_CA_BUNDLE=\"$CURL_CA_BUNDLE\" GIT_SSL_CAINFO=\"$GIT_SSL_CAINFO\" nix develop /home/cuser/project/ --command $*"
+        "$SU_EXEC" "$USERNAME" /bin/sh -c "NIX_SSL_CERT_FILE=\"$NIX_SSL_CERT_FILE\" SSL_CERT_FILE=\"$SSL_CERT_FILE\" CURL_CA_BUNDLE=\"$CURL_CA_BUNDLE\" GIT_SSL_CAINFO=\"$GIT_SSL_CAINFO\" devbox run -- $*"
     else
         echo "❌ Dev Base: Error: No gosu or su-exec found. Cannot drop privileges."
         exit 1
@@ -187,53 +186,52 @@ execute_as_user_in_nix() {
 
 # Optional setup commands - these may fail if tools aren't available
 echo "🤖 Dev Base: Running optional setup commands..."
-# Check for curl inside Nix development shell
-execute_as_user_in_nix "which curl" >/dev/null 2>&1 || { echo "❌ curl not available in Nix development environment"; exit 1; }
+# Check for curl inside Devbox development shell
+execute_as_user_in_devbox "which curl" >/dev/null 2>&1 || { echo "❌ curl not available in Devbox development environment"; exit 1; }
 # Try with SSL verification first, fallback to insecure if needed
-if execute_as_user_in_nix "curl --connect-timeout 10 -fsSL https://app.factory.ai/cli | sh" 2>/dev/null; then
+if execute_as_user_in_devbox "curl --connect-timeout 10 -fsSL https://app.factory.ai/cli | sh" 2>/dev/null; then
     echo "✅ app.factory.ai CLI installed successfully"
 else
     echo "⚠️ SSL verification failed, trying with --insecure flag..."
-    execute_as_user_in_nix "curl --connect-timeout 10 --insecure -fsSL https://app.factory.ai/cli | sh" || { echo "❌ Failed to install app.factory.ai CLI in Nix development environment"; exit 1; }
+    execute_as_user_in_devbox "curl --connect-timeout 10 --insecure -fsSL https://app.factory.ai/cli | sh" || { echo "❌ Failed to install app.factory.ai CLI in Devbox development environment"; exit 1; }
 fi
 
 
 
 
-# Install flake.nix development environment
-echo "🤖 Installing flake.nix development environment..."
-execute_as_user_in_nix "echo 'Nix development environment ready'" || { echo "❌ Failed to install flake environment"; exit 1; }
+# Devbox environment is already ready
+echo "🤖 Devbox development environment ready"
 
-# Check and install pnpm packages inside Nix development shell
-echo "🤖 Checking for pnpm in Nix development environment..."
-execute_as_user_in_nix "which pnpm" >/dev/null 2>&1 || { echo "❌ pnpm not available in Nix development environment"; exit 1; }
-echo "🤖 Installing pnpm packages in Nix development environment..."
-execute_as_user_in_nix "pnpm setup" || { echo "❌ Failed to run pnpm setup in Nix development environment"; exit 1; }
-execute_as_user_in_nix "pnpm install -g @beads/bd" || { echo "❌ Failed to install @beads/bd in Nix development environment"; exit 1; }
-execute_as_user_in_nix "pnpm install -g openskills" || { echo "❌ Failed to install openskills in Nix development environment"; exit 1; }
-execute_as_user_in_nix "pnpm install -g agent-browser" || { echo "❌ Failed to install agent-browser in Nix development environment"; exit 1; }
-execute_as_user_in_nix "pnpm install -g @twsxtd/hapi" || { echo "❌ Failed to install @twsxtd/hapi in Nix development environment"; exit 1; }
+# Check and install pnpm packages inside Devbox development shell
+echo "🤖 Checking for pnpm in Devbox development environment..."
+execute_as_user_in_devbox "which pnpm" >/dev/null 2>&1 || { echo "❌ pnpm not available in Devbox development environment"; exit 1; }
+echo "🤖 Installing pnpm packages in Devbox development environment..."
+execute_as_user_in_devbox "pnpm setup" || { echo "❌ Failed to run pnpm setup in Devbox development environment"; exit 1; }
+execute_as_user_in_devbox "pnpm install -g @beads/bd" || { echo "❌ Failed to install @beads/bd in Devbox development environment"; exit 1; }
+execute_as_user_in_devbox "pnpm install -g openskills" || { echo "❌ Failed to install openskills in Devbox development environment"; exit 1; }
+execute_as_user_in_devbox "pnpm install -g agent-browser" || { echo "❌ Failed to install agent-browser in Devbox development environment"; exit 1; }
+execute_as_user_in_devbox "pnpm install -g @twsxtd/hapi" || { echo "❌ Failed to install @twsxtd/hapi in Devbox development environment"; exit 1; }
 
-# Check and install uv packages inside Nix development shell
-echo "🤖 Checking for uv in Nix development environment..."
-execute_as_user_in_nix "which uv" >/dev/null 2>&1 || { echo "❌ uv not available in Nix development environment"; exit 1; }
-echo "🤖 Installing uv packages in Nix development environment..."
-# Check for Python inside Nix development shell
-if execute_as_user_in_nix "which python3" >/dev/null 2>&1; then
-    execute_as_user_in_nix "uv pip install --python \$(which python3) --system llm-tldr" || { echo "❌ Failed to install llm-tldr in Nix development environment"; exit 1; }
-elif execute_as_user_in_nix "which python" >/dev/null 2>&1; then
-    execute_as_user_in_nix "uv pip install --python \$(which python) --system llm-tldr" || { echo "❌ Failed to install llm-tldr in Nix development environment"; exit 1; }
+# Check and install uv packages inside Devbox development shell
+echo "🤖 Checking for uv in Devbox development environment..."
+execute_as_user_in_devbox "which uv" >/dev/null 2>&1 || { echo "❌ uv not available in Devbox development environment"; exit 1; }
+echo "🤖 Installing uv packages in Devbox development environment..."
+# Check for Python inside Devbox development shell
+if execute_as_user_in_devbox "which python3" >/dev/null 2>&1; then
+    execute_as_user_in_devbox "uv pip install --python \$(which python3) --system llm-tldr" || { echo "❌ Failed to install llm-tldr in Devbox development environment"; exit 1; }
+elif execute_as_user_in_devbox "which python" >/dev/null 2>&1; then
+    execute_as_user_in_devbox "uv pip install --python \$(which python) --system llm-tldr" || { echo "❌ Failed to install llm-tldr in Devbox development environment"; exit 1; }
 else
-    echo "❌ No Python interpreter found in Nix development environment"
+    echo "❌ No Python interpreter found in Devbox development environment"
     exit 1
 fi
-execute_as_user_in_nix "cd /home/$USERNAME/work; tldr warm . && tldr context main --project ." || { echo "❌ Failed to run llm-tldr commands in Nix development environment"; exit 1; }
+execute_as_user_in_devbox "cd /home/$USERNAME/work; tldr warm . && tldr context main --project ." || { echo "❌ Failed to run llm-tldr commands in Devbox development environment"; exit 1; }
 
-# Check and run vibe-kanban inside Nix development shell
-echo "🤖 Checking for npx in Nix development environment..."
-execute_as_user_in_nix "which npx" >/dev/null 2>&1 || { echo "❌ npx not available in Nix development environment"; exit 1; }
-echo "🤖 Starting vibe-kanban inside Nix development environment..."
-execute_as_user_in_nix "npx vibe-kanban"
+# Check and run vibe-kanban inside Devbox development shell
+echo "🤖 Checking for npx in Devbox development environment..."
+execute_as_user_in_devbox "which npx" >/dev/null 2>&1 || { echo "❌ npx not available in Devbox development environment"; exit 1; }
+echo "🤖 Starting vibe-kanban inside Devbox development environment..."
+execute_as_user_in_devbox "npx vibe-kanban"
 
 # Execute command as user (fallback for manual commands)
 execute_as_user "$@"

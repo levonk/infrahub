@@ -557,7 +557,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
 - [ ] **OCR Tools**:
   - [ ] Mistral OCR3: https://mistral.ai/news/mistral-ocr-3
   - Alternatives
-    - [ ] DeepSeek-OCR: https://github.com/deepseek-ai/DeepSeek-OCR
+    - [ ] DeepSeek-OCR2: https://github.com/deepseek-ai/DeepSeek-OCR-2
   - [ ] Chandra: https://github.com/datalab-to/chandra
 - [ ] **Agents**:
   - [ ] Laddr (Agent Runner): https://github.com/AgnetLabs/Laddr

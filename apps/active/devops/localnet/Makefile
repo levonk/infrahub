@@ -19,12 +19,12 @@ help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(GREEN)%-20s$(NC) %s\n", $$1, $$2}'
 	@echo ""
 
-base-up: # create base images (must run in order before other containers)
+base-up: ## Build and run base-dev and dependencies
 	@echo "$(BLUE)Creating base containers...$(NC)"
-	docker compose -f docker-compose.shared.yml --env-file ./.env.local.localnet --progress=plain up -d
-	docker compose -f docker-compose.localnet.yml --profile base01 --env-file ./.env.local.localnet --progress=plain up -d && \
-	docker compose -f docker-compose.localnet.yml --profile base02 --env-file ./.env.local.localnet --progress=plain up -d && \
-	docker compose -f docker-compose.localnet.yml --profile base03 --env-file ./.env.local.localnet --progress=plain up -d
+	docker compose -f docker-compose.shared.yml --env-file .env.localnet --progress=plain up -d
+	docker compose -f docker-compose.localnet.yml --profile base01 --env-file .env.localnet --progress=plain up -d && \
+	docker compose -f docker-compose.localnet.yml --profile base02 --env-file .env.localnet --progress=plain up -d && \
+	docker compose -f docker-compose.localnet.yml --profile base03 --env-file .env.localnet --progress=plain up -d
 	@echo "$(GREEN)✓ base containers created$(NC)"
 
 build: cloud-build base-up ## Build all Docker images

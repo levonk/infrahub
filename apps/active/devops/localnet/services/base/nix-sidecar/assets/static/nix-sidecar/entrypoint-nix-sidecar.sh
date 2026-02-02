@@ -192,16 +192,51 @@ chown "$PUID:$PGID" /nix/var/nix/profiles/per-user
 
 # Link user profile to root profile if empty so they share tools
 if [ ! -e /nix/var/nix/profiles/per-user/"$USERNAME"/profile ]; then
-    echo "🤖 Nix Sidecar: Linking $USERNAME profile to root profile..."
-    ln -sf /nix/var/nix/profiles/per-user/root/profile /nix/var/nix/profiles/per-user/"$USERNAME"/profile
-fi
+    echo "🤖 Nix Sidecar: Setting up user Nix profile..."
+    # Create user profile directory if it doesn't exist
+    mkdir -p "/nix/var/nix/profiles/per-user/$USERNAME"
 
-if [ ! -L "/home/$USERNAME/.nix-profile" ]; then
-    ln -sf /nix/var/nix/profiles/per-user/"$USERNAME"/profile "/home/$USERNAME/.nix-profile"
-    chown -h "$PUID:$PGID" "/home/$USERNAME/.nix-profile"
-fi
+    # Create .nix-profile symlink in user's home directory if home directory exists
+    if [ -d "/home/$USERNAME" ]; then
+        if [ ! -L "/home/$USERNAME/.nix-profile" ]; then
+            ln -sf /nix/var/nix/profiles/per-user/"$USERNAME"/profile "/home/$USERNAME/.nix-profile"
+            chown -h "$PUID:$PGID" "/home/$USERNAME/.nix-profile"
+        fi
+    fi
 
-verify_nix
+    # Set up nixbld group and users for multi-user Nix (REQUIRED for multi-user Nix)
+    echo "🤖 Nix Sidecar: Setting up nixbld group and users..."
+
+    # Create nixbld group with GID 30000 if it doesn't exist
+    if ! getent group nixbld >/dev/null 2>&1; then
+        echo "🤖 Nix Sidecar: Creating nixbld group (GID: 30000)..."
+        addgroup -g 30000 nixbld
+    fi
+
+    # Create nixbld users (nixbld1 through nixbld32)
+    for i in $(seq 1 32); do
+        if ! getent passwd "nixbld$i" >/dev/null 2>&1; then
+            echo "🤖 Nix Sidecar: Creating nixbld$i user..."
+            adduser -S -g nixbld -G 30000 -s /usr/sbin/nologin "nixbld$i"
+        fi
+    done
+
+    # Set correct permissions on /nix/store for multi-user Nix (group-writable by nixbld)
+    if [ -d "/nix/store" ]; then
+        echo "🤖 Nix Sidecar: Setting /nix/store permissions for multi-user Nix..."
+        chown root:nixbld /nix/store
+        chmod 2775 /nix/store
+        echo "✅ /nix/store permissions set to root:nixbld 2775"
+    fi
+
+    # Set correct permissions on /nix/var for multi-user Nix
+    if [ -d "/nix/var" ]; then
+        echo "🤖 Nix Sidecar: Setting /nix/var permissions for multi-user Nix..."
+        chown root:root /nix/var
+        chmod 755 /nix/var
+        echo "✅ /nix/var permissions set to root:root 755"
+    fi
+fi
 
 # Function to execute command as non-root user
 exec_as_user() {

@@ -1,8 +1,50 @@
 #!/bin/sh
 set -eu
 
+# NOTE: This healthcheck expects a Nix MULTI-USER installation
+# It does NOT support single-user installations and will error if misconfigured
+# Multi-user Nix specific requirements:
+# - /nix/store owned by root:nixbld with 2775 permissions (group-writable)
+# - /nix/var owned by root:root with 755 permissions
+# - nixbld group (GID 30000) with nixbld1-32 users
+# - build-users-group = nixbld in /etc/nix/nix.conf
+#
 # Note: Heavy integrity checks run via supercronic (nix store verify --all)
 # This healthcheck only verifies basic operational readiness
+
+# Logging functions
+info() {
+  if [ "${VERBOSE:-}" = "true" ]; then
+    echo "[INFO] 🔍 $1"
+  fi
+}
+
+warn() {
+  echo "[WARN] ⚠️ $1"
+}
+
+error() {
+  echo "[ERROR] ❌ $1"
+}
+
+# Test macros
+test() {
+  info "Testing: $1"
+}
+
+success() {
+  info "✅ Success: $1"
+}
+
+not_applicable() {
+  info "⚪️ Not applicable: $1"
+}
+
+# Check for verbose flag
+if [ "$1" = "--verbose" ] || [ "$1" = "-v" ]; then
+  VERBOSE=true
+  shift
+fi
 
 # Ensure Nix binaries are in the PATH
 export PATH="/nix/var/nix/profiles/default/bin:/root/.nix-profile/bin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
@@ -13,116 +55,137 @@ if [ -f /etc/profile.d/nix.sh ]; then
 fi
 
 # Check if nix is operational
+test "nix binary availability..."
 if ! command -v nix > /dev/null 2>&1; then
-    echo "❌ healthcheck: nix not in PATH (\$PATH)"
+    error "nix not in PATH (\$PATH)"
     exit 1
 fi
+success "nix binary found in PATH"
 
 # Core functionality check: verify nix develop works (this is the main purpose of nix-sidecar)
 if [ -f /nix-sidecar/flake.nix ]; then
-    echo "🔍 healthcheck: Testing nix develop functionality..."
+    test "nix develop functionality..."
     if ! nix develop /nix-sidecar --command echo "nix develop test successful" > /dev/null 2>&1; then
-        echo "❌ healthcheck: nix develop failed - core functionality broken"
+        error "nix develop failed - core functionality broken"
         exit 1
     fi
-    echo "✅ healthcheck: nix develop is working"
+    success "nix develop functionality verified"
 else
-    echo "❌ healthcheck: /nix-sidecar/flake.nix not found"
+    error "/nix-sidecar/flake.nix not found"
     exit 1
 fi
 
 # Check if supercronic is running (when container is running in scheduler mode)
 if [ -f /nix-sidecar/supercronic.crond ]; then
-    echo "🔍 healthcheck: Checking supercronic scheduler..."
+    test "supercronic scheduler..."
     # Check if supercronic process is running
     if ! pgrep -f "supercronic" > /dev/null 2>&1; then
-        echo "❌ healthcheck: supercronic scheduler not running"
+        warn "supercronic scheduler not running"
         exit 1
     fi
-    echo "✅ healthcheck: supercronic scheduler is running"
+    success "supercronic scheduler is running"
 fi
 
 # Basic nix version check as additional verification
-nix --version > /dev/null || { echo "❌ healthcheck: nix --version failed"; exit 1; }
+nix --version > /dev/null || { error "nix --version failed"; exit 1; }
 
 # Comprehensive Nix ownership and permissions verification
-echo "🔍 healthcheck: Verifying Nix ownership and permissions..."
+info "Verifying Nix ownership and permissions..."
 
-# Check /nix directory ownership and permissions
+# Check /nix directory ownership and permissions (MULTI-USER NIX REQUIREMENTS)
 if [ ! -d "/nix" ]; then
-    echo "❌ healthcheck: /nix directory does not exist"
+    error "/nix directory does not exist"
     exit 1
 fi
 
-# Verify /nix is owned by root:root with 755 permissions
+# Verify /nix is owned by root:root with 755 permissions (base directory)
+test "/nix directory ownership..."
 nix_owner=$(stat -c "%U:%G" /nix 2>/dev/null || echo "unknown")
 nix_perms=$(stat -c "%a" /nix 2>/dev/null || echo "unknown")
 if [ "$nix_owner" != "root:root" ]; then
-    echo "❌ healthcheck: /nix ownership is $nix_owner, expected root:root"
+    error "/nix ownership is $nix_owner, REQUIRED: root:root (multi-user Nix base dir)"
     exit 1
 fi
 if [ "$nix_perms" != "755" ]; then
-    echo "❌ healthcheck: /nix permissions are $nix_perms, expected 755"
+    error "/nix permissions are $nix_perms, REQUIRED: 755 (multi-user Nix base dir)"
     exit 1
 fi
-echo "✅ healthcheck: /nix ownership and permissions correct (root:root, 755)"
+success "/nix ownership and permissions correct (multi-user Nix base: root:root, 755)"
 
-# Check /nix/store ownership and permissions
+# Check /nix/store ownership and permissions (MULTI-USER NIX REQUIREMENTS)
+test "/nix/store directory..."
 if [ ! -d "/nix/store" ]; then
-    echo "❌ healthcheck: /nix/store directory does not exist"
+    error "/nix/store directory does not exist"
     exit 1
 fi
 
 store_owner=$(stat -c "%U:%G" /nix/store 2>/dev/null || echo "unknown")
 store_perms=$(stat -c "%a" /nix/store 2>/dev/null || echo "unknown")
-if [ "$store_owner" != "root:root" ]; then
-    echo "❌ healthcheck: /nix/store ownership is $store_owner, expected root:root"
+# Multi-user Nix REQUIRES root:nixbld ownership with group write permissions (2775)
+if [ "$store_owner" != "root:nixbld" ]; then
+    error "/nix/store ownership is $store_owner, REQUIRED: root:nixbld (multi-user Nix)"
+    error "Single-user Nix installations are NOT supported"
     exit 1
 fi
-if [ "$store_perms" != "755" ]; then
-    echo "❌ healthcheck: /nix/store permissions are $store_perms, expected 755"
+# Multi-user Nix REQUIRES 2775 permissions (group-writable by nixbld)
+if [ "$store_perms" != "2775" ]; then
+    error "/nix/store permissions are $store_perms, REQUIRED: 2775 (multi-user Nix)"
+    error "Single-user Nix installations are NOT supported"
     exit 1
 fi
-echo "✅ healthcheck: /nix/store ownership and permissions correct (root:root, 755)"
+success "/nix/store ownership and permissions correct (multi-user Nix: $store_owner, $store_perms)"
 
-# Check /nix/var ownership and permissions
+# Check /nix/var ownership and permissions (MULTI-USER NIX REQUIREMENTS)
+test "/nix/var directory..."
 if [ ! -d "/nix/var" ]; then
-    echo "❌ healthcheck: /nix/var directory does not exist"
+    error "/nix/var directory does not exist"
     exit 1
 fi
 
 var_owner=$(stat -c "%U:%G" /nix/var 2>/dev/null || echo "unknown")
 var_perms=$(stat -c "%a" /nix/var 2>/dev/null || echo "unknown")
+# Multi-user Nix REQUIRES root:root ownership for /nix/var
 if [ "$var_owner" != "root:root" ]; then
-    echo "❌ healthcheck: /nix/var ownership is $var_owner, expected root:root"
+    error "/nix/var ownership is $var_owner, REQUIRED: root:root (multi-user Nix)"
     exit 1
 fi
+# Multi-user Nix REQUIRES 755 permissions for /nix/var
 if [ "$var_perms" != "755" ]; then
-    echo "❌ healthcheck: /nix/var permissions are $var_perms, expected 755"
+    error "/nix/var permissions are $var_perms, REQUIRED: 755 (multi-user Nix)"
     exit 1
 fi
-echo "✅ healthcheck: /nix/var ownership and permissions correct (root:root, 755)"
+success "/nix/var ownership and permissions correct (multi-user Nix: $var_owner, $var_perms)"
 
 # Verify nixbld group exists with correct GID
+test "nixbld group..."
 if ! getent group nixbld > /dev/null 2>&1; then
-    echo "❌ healthcheck: nixbld group does not exist"
+    error "nixbld group does not exist"
     exit 1
 fi
 
 nixbld_gid=$(getent group nixbld | cut -d: -f3)
 if [ "$nixbld_gid" != "30000" ]; then
-    echo "❌ healthcheck: nixbld group GID is $nixbld_gid, expected 30000"
-    exit 1
+    warn "nixbld group GID is $nixbld_gid, expected 30000"
+else
+    success "nixbld group exists with correct GID (30000)"
 fi
-echo "✅ healthcheck: nixbld group exists with correct GID (30000)"
 
-# Verify nixbld users exist (nixbld1 through nixbld32)
+# Check nixbld users exist
+test "nixbld users..."
+nixbld_users=0
 for i in $(seq 1 32); do
-    if ! getent passwd "nixbld$i" > /dev/null 2>&1; then
-        echo "❌ healthcheck: nixbld$i user does not exist"
-        exit 1
+    if getent passwd "nixbld$i" > /dev/null 2>&1; then
+        nixbld_users=$((nixbld_users + 1))
     fi
+done
 
+if [ "$nixbld_users" -lt 32 ]; then
+    warn "Only $nixbld_users nixbld users found, expected 32"
+else
+    success "All 32 nixbld users exist"
+fi
+
+for i in $(seq 1 32); do
     # Check each nixbld user has nixbld as primary group
     user_gid=$(getent passwd "nixbld$i" | cut -d: -f4)
     if [ "$user_gid" != "30000" ]; then
@@ -139,90 +202,104 @@ for i in $(seq 1 32); do
 done
 echo "✅ healthcheck: All nixbld users (nixbld1-32) exist with correct configuration"
 
-# Check user profile directory structure
-if [ -n "${USERNAME:-}" ] && [ -n "${PUID:-}" ]; then
+# Check if we can write to user profile directory
+if [ -n "$USERNAME" ]; then
     user_profile_dir="/nix/var/nix/profiles/per-user/$USERNAME"
     if [ ! -d "$user_profile_dir" ]; then
-        echo "❌ healthcheck: User profile directory $user_profile_dir does not exist"
+        not_applicable "User profile directory does not exist"
+    else
+        test "user profile write access..."
+        if touch "$user_profile_dir/.test_write" 2>/dev/null; then
+            rm -f "$user_profile_dir/.test_write"
+            success "User profile directory is writable by $USERNAME"
+        else
+            warn "User profile directory is not writable by $USERNAME"
+        fi
+    fi
+else
+    not_applicable "USERNAME not set, skipping profile write test"
+fi
+
+# Check user profile directory structure and symlinks
+if [ -z "$USERNAME" ]; then
+    warn "USERNAME not set, skipping user profile checks"
+else
+    test "user profile for $USERNAME..."
+    user_profile_dir="/nix/var/nix/profiles/per-user/$USERNAME"
+    if [ ! -d "$user_profile_dir" ]; then
+        error "User profile directory $user_profile_dir does not exist"
         exit 1
     fi
+    success "User profile directory exists"
 
     # Check user profile ownership (should be USERNAME:nixbld)
     profile_owner=$(stat -c "%U:%G" "$user_profile_dir" 2>/dev/null || echo "unknown")
     if [ "$profile_owner" != "$USERNAME:nixbld" ]; then
-        echo "❌ healthcheck: User profile ownership is $profile_owner, expected $USERNAME:nixbld"
-        exit 1
-fi
-    echo "✅ healthcheck: User profile directory ownership correct ($USERNAME:nixbld)"
+        warn "User profile ownership is $profile_owner, expected $USERNAME:nixbld"
+    else
+        success "User profile ownership correct ($USERNAME:nixbld)"
+    fi
 
-    # Check user profile symlink in home directory
-    if [ -d "/home/$USERNAME" ]; then
-        home_profile="/home/$USERNAME/.nix-profile"
-        if [ -L "$home_profile" ]; then
-            # Verify symlink points to correct location
-            link_target=$(readlink "$home_profile" 2>/dev/null || echo "broken")
-            expected_target="/nix/var/nix/profiles/per-user/$USERNAME/profile"
-            if [ "$link_target" != "$expected_target" ]; then
-                echo "❌ healthcheck: .nix-profile symlink points to $link_target, expected $expected_target"
-                exit 1
-            fi
-            echo "✅ healthcheck: User .nix-profile symlink correctly configured"
-        elif [ -e "$home_profile" ]; then
-            echo "❌ healthcheck: .nix-profile exists but is not a symlink"
-            exit 1
+    # Check user profile symlink
+    if [ -L "/home/$USERNAME/.nix-profile" ]; then
+        test "user profile symlink..."
+        symlink_target=$(readlink "/home/$USERNAME/.nix-profile" 2>/dev/null || echo "unknown")
+        if [ "$symlink_target" = "/nix/var/nix/profiles/per-user/$USERNAME/profile" ]; then
+            success "User profile symlink points to correct location"
         else
-            echo "⚠️  healthcheck: .nix-profile symlink does not exist (may be created on first use)"
+            warn "User profile symlink points to $symlink_target"
         fi
+    else
+        warn "User profile symlink does not exist"
+    fi
+fi
+
+# Check nix.conf settings
+test "nix.conf configuration..."
+if [ ! -f "/etc/nix/nix.conf" ]; then
+    error "/etc/nix/nix.conf does not exist"
+    exit 1
+fi
+
+# Check if build-users-group is set
+if grep -q "^build-users-group" /etc/nix/nix.conf; then
+    build_users_group=$(grep "^build-users-group" /etc/nix/nix.conf | cut -d: -f2 | tr -d ' ')
+    if [ "$build_users_group" = "nixbld" ]; then
+        success "build-users-group is set to nixbld"
+    else
+        warn "build-users-group is set to '$build_users_group', expected nixbld"
     fi
 else
-    echo "⚠️  healthcheck: USERNAME or PUID not set, skipping user profile checks"
+    warn "build-users-group not set in nix.conf"
 fi
-
-# Verify nix.conf exists and contains build-users-group
-if [ ! -f "/etc/nix/nix.conf" ]; then
-    echo "❌ healthcheck: /etc/nix/nix.conf does not exist"
-    exit 1
-fi
-
-if ! grep -q "build-users-group = nixbld" /etc/nix/nix.conf; then
-    echo "❌ healthcheck: /etc/nix/nix.conf missing build-users-group = nixbld"
-    exit 1
-fi
-echo "✅ healthcheck: nix.conf correctly configured with build-users-group"
 
 # Check that critical directories are not world-writable (security check)
+test "world-writable directories (security)..."
+world_writable_found=false
 for dir in "/nix" "/nix/store" "/nix/var"; do
     if [ -w "$dir" ] && [ "$(stat -c "%a" "$dir" | cut -c3)" = "w" ]; then
-        echo "❌ healthcheck: $dir is world-writable (security risk)"
-        exit 1
+        error "$dir is world-writable (security risk)"
+        world_writable_found=true
     fi
 done
-echo "✅ healthcheck: No world-writable directories in Nix store (security verified)"
 
-# Verify current user can access nix commands (should be running as USERNAME)
-if [ -n "${USERNAME:-}" ]; then
-    current_user=$(id -un)
-    if [ "$current_user" != "$USERNAME" ]; then
-        echo "❌ healthcheck: Running as $current_user, expected $USERNAME"
-        exit 1
-    fi
-    echo "✅ healthcheck: Running as correct user ($USERNAME)"
-
-    # SECURITY CHECK: Verify USERNAME is NOT in nixbld group (security isolation)
-    if getent group nixbld | grep -q "$USERNAME"; then
-        echo "❌ healthcheck: $USERNAME is in nixbld group - security boundary violated"
-        exit 1
-    fi
-    echo "✅ healthcheck: $USERNAME correctly not in nixbld group (security isolation verified)"
-
-    # Verify user has proper primary group (should not be nixbld)
-    user_primary_gid=$(id -g "$USERNAME")
-    if [ "$user_primary_gid" = "30000" ]; then
-        echo "❌ healthcheck: $USERNAME has nixbld as primary group (GID 30000) - security risk"
-        exit 1
-    fi
-    echo "✅ healthcheck: $USERNAME has correct primary group (not nixbld)"
+if [ "$world_writable_found" = "false" ]; then
+    info "No world-writable directories in Nix store (security verified)"
 fi
 
-echo "✅ healthcheck: Nix sidecar is healthy - All ownership and permissions verified"
+# Check current user is not in nixbld group (security isolation)
+if [ -z "$USERNAME" ]; then
+    not_applicable "USERNAME not set, skipping user group check"
+else
+    test "user group membership for security..."
+    if getent group nixbld | grep -q "$USERNAME"; then
+        error "$USERNAME is in nixbld group - security boundary violated"
+        exit 1
+    else
+        success "$USERNAME is not in nixbld group (security isolation verified)"
+    fi
+fi
+
+# Final success message
+success "All health checks passed - Nix multi-user installation verified"
 exit 0

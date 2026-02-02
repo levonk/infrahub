@@ -4,6 +4,30 @@
 
 ## If you're having a problem with networks or volumes not existing, did you run `make up`?
 
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "5"
+    tag: "{{.Name}}"
+    labels: "service"
+
+services:
+  # Base service that can be extended by other containers
+  common-base:
+    image: localnet-base-alpine:latest
+    command: ["sleep", "90"]
+    logging: *default-logging
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+      - 9.9.9.9
+    restart: unless-stopped
+    environment:
+      TZ: UTC
+      PUID: 1000
+      PGID: 1000
+
 volumes:
   # Base volumes
   nix-cache:
