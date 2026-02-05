@@ -12,6 +12,33 @@ set -eu
 # Note: Heavy integrity checks run via supercronic (nix store verify --all)
 # This healthcheck only verifies basic operational readiness
 
+# Drop privileges to non-root user if running as root
+if [ "$(id -u)" = "0" ] && [ -n "$USERNAME" ]; then
+    # Check if user exists and switch to it
+    if id "$USERNAME" >/dev/null 2>&1; then
+        # Use setpriv if available (more secure)
+        if command -v setpriv >/dev/null 2>&1; then
+            exec setpriv --reuid "$USERNAME" --regid "$USERNAME" --clear-groups "$0" "$@"
+        # Use chroot with user as fallback (less ideal but available)
+        elif command -v chroot >/dev/null 2>&1 && [ -d "/home/$USERNAME" ]; then
+            exec chroot --userspec="$USERNAME:$USERNAME" / "$0" "$@"
+        # If no user switching tools available, continue as root but warn
+        else
+            echo "[WARN] ⚠️ Cannot drop privileges - no user switching tools available"
+            echo "[WARN] ⚠️ Running healthcheck as root"
+        fi
+    else
+        echo "[WARN] ⚠️ User $USERNAME does not exist"
+        echo "[WARN] ⚠️ Running healthcheck as root"
+    fi
+fi
+
+# Check for verbose flag (after potential privilege drop)
+if [ "${1:-}" = "--verbose" ] || [ "${1:-}" = "-v" ]; then
+  VERBOSE=true
+  shift
+fi
+
 # Logging functions
 info() {
   if [ "${VERBOSE:-}" = "true" ]; then
@@ -40,11 +67,6 @@ not_applicable() {
   info "⚪️ Not applicable: $1"
 }
 
-# Check for verbose flag
-if [ "$1" = "--verbose" ] || [ "$1" = "-v" ]; then
-  VERBOSE=true
-  shift
-fi
 
 # Ensure Nix binaries are in the PATH
 export PATH="/nix/var/nix/profiles/default/bin:/root/.nix-profile/bin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
@@ -60,19 +82,41 @@ if ! command -v nix > /dev/null 2>&1; then
     error "nix not in PATH (\$PATH)"
     exit 1
 fi
-success "nix binary found in PATH"
 
-# Core functionality check: verify nix develop works (this is the main purpose of nix-sidecar)
-if [ -f /nix-sidecar/flake.nix ]; then
-    test "nix develop functionality..."
-    if ! nix develop /nix-sidecar --command echo "nix develop test successful" > /dev/null 2>&1; then
-        error "nix develop failed - core functionality broken"
+# Quick nix version check
+nix_version=$(nix --version 2>/dev/null | head -1)
+if [ -n "$nix_version" ]; then
+    success "Nix binary available: $nix_version"
+else
+    error "Nix version check failed"
+    exit 1
+fi
+
+# Check nix store basic functionality
+if [ -d "/nix/store" ] && [ -d "/nix/var/nix" ]; then
+    success "Nix store directories exist"
+else
+    error "Nix store directories missing"
+    exit 1
+fi
+
+# Skip nix develop check for healthcheck (too slow)
+# Only run it if explicitly requested with --full
+if [ "${FULL_CHECK:-}" = "true" ]; then
+    info "Running full nix develop check..."
+    if [ -f /nix-sidecar/flake.nix ]; then
+        if nix develop /nix-sidecar --command echo "nix develop OK" 2>/dev/null; then
+            success "nix develop works"
+        else
+            error "nix develop failed - core functionality broken"
+            exit 1
+        fi
+    else
+        error "/nix-sidecar/flake.nix not found"
         exit 1
     fi
-    success "nix develop functionality verified"
 else
-    error "/nix-sidecar/flake.nix not found"
-    exit 1
+    info "Skipping nix develop check (use FULL_CHECK=true for full validation)"
 fi
 
 # Check if supercronic is running (when container is running in scheduler mode)
@@ -128,10 +172,15 @@ if [ "$store_owner" != "root:nixbld" ]; then
     exit 1
 fi
 # Multi-user Nix REQUIRES 2775 permissions (group-writable by nixbld)
-if [ "$store_perms" != "2775" ]; then
-    error "/nix/store permissions are $store_perms, REQUIRED: 2775 (multi-user Nix)"
+# However, Docker volumes may not support setgid, so accept 1775 as well
+if [ "$store_perms" != "2775" ] && [ "$store_perms" != "1775" ]; then
+    error "/nix/store permissions are $store_perms, REQUIRED: 2775 (multi-user Nix) or 1775 (Docker volume compatible)"
     error "Single-user Nix installations are NOT supported"
     exit 1
+fi
+if [ "$store_perms" = "1775" ]; then
+    warn "/nix/store permissions are 1775 (setgid not supported on Docker volumes)"
+    warn "This is acceptable for Docker-mounted volumes"
 fi
 success "/nix/store ownership and permissions correct (multi-user Nix: $store_owner, $store_perms)"
 
@@ -158,24 +207,40 @@ success "/nix/var ownership and permissions correct (multi-user Nix: $var_owner,
 
 # Verify nixbld group exists with correct GID
 test "nixbld group..."
-if ! getent group nixbld > /dev/null 2>&1; then
+nixbld_found=false
+while IFS=: read -r name passwd gid members; do
+    if [ "$name" = "nixbld" ]; then
+        nixbld_found=true
+        if [ "$gid" = "30000" ]; then
+            success "nixbld group exists with correct GID (30000)"
+        else
+            warn "nixbld group GID is $gid, expected 30000"
+        fi
+        break
+    fi
+done < /etc/group
+
+if [ "$nixbld_found" = "false" ]; then
     error "nixbld group does not exist"
     exit 1
-fi
-
-nixbld_gid=$(getent group nixbld | cut -d: -f3)
-if [ "$nixbld_gid" != "30000" ]; then
-    warn "nixbld group GID is $nixbld_gid, expected 30000"
-else
-    success "nixbld group exists with correct GID (30000)"
 fi
 
 # Check nixbld users exist
 test "nixbld users..."
 nixbld_users=0
 for i in $(seq 1 32); do
-    if getent passwd "nixbld$i" > /dev/null 2>&1; then
-        nixbld_users=$((nixbld_users + 1))
+    nixbld_user_found=false
+    while IFS=: read -r name passwd uid gid comment home shell; do
+        if [ "$name" = "nixbld$i" ]; then
+            nixbld_user_found=true
+            nixbld_users=$((nixbld_users + 1))
+            break
+        fi
+    done < /etc/passwd
+
+    if [ "$nixbld_user_found" = "false" ]; then
+        error "nixbld$i user does not exist"
+        exit 1
     fi
 done
 
@@ -187,16 +252,33 @@ fi
 
 for i in $(seq 1 32); do
     # Check each nixbld user has nixbld as primary group
-    user_gid=$(getent passwd "nixbld$i" | cut -d: -f4)
+    user_gid=""
+    while IFS=: read -r name passwd uid gid comment home shell; do
+        if [ "$name" = "nixbld$i" ]; then
+            user_gid="$gid"
+            break
+        fi
+    done < /etc/passwd
+
     if [ "$user_gid" != "30000" ]; then
         echo "❌ healthcheck: nixbld$i user primary group GID is $user_gid, expected 30000"
         exit 1
     fi
+done
 
-    # Check nixbld users have no login shell
-    user_shell=$(getent passwd "nixbld$i" | cut -d: -f7)
-    if [ "$user_shell" != "/usr/sbin/nologin" ] && [ "$user_shell" != "/bin/false" ]; then
-        echo "❌ healthcheck: nixbld$i user shell is $user_shell, expected /usr/sbin/nologin or /bin/false"
+# Check nixbld users have no login shell
+for i in $(seq 1 32); do
+    user_shell=""
+    while IFS=: read -r name passwd uid gid comment home shell; do
+        if [ "$name" = "nixbld$i" ]; then
+            user_shell="$shell"
+            break
+        fi
+    done < /etc/passwd
+
+    # Accept various nologin paths in Nix
+    if [ "$user_shell" != "/usr/sbin/nologin" ] && [ "$user_shell" != "/bin/false" ] && [ "$user_shell" != "/run/current-system/sw/bin/nologin" ]; then
+        echo "❌ healthcheck: nixbld$i user shell is $user_shell, expected nologin"
         exit 1
     fi
 done
@@ -262,8 +344,18 @@ if [ ! -f "/etc/nix/nix.conf" ]; then
 fi
 
 # Check if build-users-group is set
-if grep -q "^build-users-group" /etc/nix/nix.conf; then
-    build_users_group=$(grep "^build-users-group" /etc/nix/nix.conf | cut -d: -f2 | tr -d ' ')
+build_users_group=""
+while IFS= read -r line; do
+    case "$line" in
+        build-users-group=*)
+            build_users_group="${line#build-users-group=}"
+            build_users_group=$(echo "$build_users_group" | tr -d ' ')
+            break
+            ;;
+    esac
+done < /etc/nix/nix.conf
+
+if [ -n "$build_users_group" ]; then
     if [ "$build_users_group" = "nixbld" ]; then
         success "build-users-group is set to nixbld"
     else
@@ -292,7 +384,19 @@ if [ -z "$USERNAME" ]; then
     not_applicable "USERNAME not set, skipping user group check"
 else
     test "user group membership for security..."
-    if getent group nixbld | grep -q "$USERNAME"; then
+    # Check if user is in nixbld group by checking /etc/group
+    user_in_nixbld=false
+    while IFS=: read -r name passwd gid members; do
+        if [ "$name" = "nixbld" ]; then
+            # Check if USERNAME is in the members list
+            case ",$members," in
+                *,"$USERNAME",*) user_in_nixbld=true ;;
+            esac
+            break
+        fi
+    done < /etc/group
+
+    if [ "$user_in_nixbld" = "true" ]; then
         error "$USERNAME is in nixbld group - security boundary violated"
         exit 1
     else

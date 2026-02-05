@@ -208,16 +208,20 @@ if [ ! -e /nix/var/nix/profiles/per-user/"$USERNAME"/profile ]; then
     echo "🤖 Nix Sidecar: Setting up nixbld group and users..."
 
     # Create nixbld group with GID 30000 if it doesn't exist
-    if ! getent group nixbld >/dev/null 2>&1; then
+    if ! grep -q "^nixbld:" /etc/group 2>/dev/null; then
         echo "🤖 Nix Sidecar: Creating nixbld group (GID: 30000)..."
-        addgroup -g 30000 nixbld
+        echo "nixbld:x:30000:" >> /etc/group
+        echo "✅ nixbld group created with GID 30000"
+    else
+        echo "✅ nixbld group already exists"
     fi
 
     # Create nixbld users (nixbld1 through nixbld32)
     for i in $(seq 1 32); do
-        if ! getent passwd "nixbld$i" >/dev/null 2>&1; then
+        if ! grep -q "^nixbld$i:" /etc/passwd 2>/dev/null; then
             echo "🤖 Nix Sidecar: Creating nixbld$i user..."
-            adduser -S -g nixbld -G 30000 -s /usr/sbin/nologin "nixbld$i"
+            echo "nixbld$i:x:$i:30000:30000::/usr/sbin/nologin:nixbld$i" >> /etc/passwd
+            echo "✅ nixbld$i user created"
         fi
     done
 

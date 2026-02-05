@@ -309,12 +309,19 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] **Claude Code core service (cc-tools)**: https://github.com/Veraticus/cc-tools
   - [ ] **Claude Code UI (claudecodeui)**: https://github.com/siteboon/claudecodeui
   - [ ] **Claude Code MCP server**: https://github.com/steipete/claude-code-mcp
+  - [ ] **Agent Trace**: https://agent-trace.dev/#8-reference-implementation
+  - [ ] https://github.com/Th0rgal/open-ralph-wiggum
+  - [ ] **LLM Proxy**: https://github.com/Fast-Editor/Lynkr
   - [ ] **PluggedIn MCP proxy**: https://github.com/VeriTeknik/pluggedin-mcp-proxy
   - [ ] **PluggedIn app**: https://github.com/VeriTeknik/pluggedin-app
-  - [ ] **MoltBot**: AI-powered automation and task management https://github.com/moltbot/moltbot
+  - [ ] **OpenClaw**: AI-powered automation and task management https://github.com/openclaw/openclaw (ClawdBot, MoltBot, OpenClaw)
+    - [ ] **ClawHub**: https://github.com/openclaw/clawhub
+	- Alternatives
+	  - [ ] https://github.com/gavrielc/nanoclaw
   - Desktop Control
 	- [ ] **OpenClaudeCowork**: https://github.com/ComposioHQ/open-claude-cowork/
   - [ ] **OpenCode**:
+  - [ ] https://github.com/nrslib/takt
   - [ ] **SuperMemory**: https://supermemory.ai/docs/deployment/self-hosting#self-hosting https://github.com/supermemoryai/supermemory
   - [ ] **Vibe Kanban / Auto-Claude rollout checklist**
     - [x] Hostname: `kanban.levonk.com`, Traefik router with Authelia + geoblock (LAN-only) — confirmed 2025-12-19.
@@ -332,7 +339,9 @@ _Goal: Privacy, Resilience, Ad-blocking_
       - Update Traefik `dynamic.yml` with `kanban.levonk.com` router/service and Authelia middleware link.
       - Extend `.env.localnet` / `env.template` with new env vars above (flag sensitive).
       - Write smoke test doc covering agent launch via Vibe Kanban -> Opencode -> Auto-Claude pipeline.
-- [ ] **Database Tools**: Django SQL Explorer https://github.com/explorerhq/django-sql-explorer
+- [ ] **Database Tools**:
+  - [ ] Django SQL Explorer https://github.com/explorerhq/django-sql-explorer
+  - [ ] AI Agent into Databases https://github.com/agno-agi/dash
 - [ ] **Data Tooling**: Goose https://github.com/block/goose
 - [ ] **Notebooks**: JupyterLab https://github.com/jupyterlab/jupyterlab
 - [ ] **Project Mgmt**: Focalboard (Trello alt) https://github.com/mattermost-community/focalboard
@@ -341,6 +350,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] **repo-swarm**: https://github.com/royosherove/repo-swarm
 - [ ] Local Cloud
   - [ ] K3s - Kubernetes dev environment
+    - [ ] k8s monitoring - https://github.com/skyhook-io/radar
   - [ ] Dokploy.com - self hosted VPS
   - [ ] https://github.com/localstack/localstack - Self hosted Dev AWS
   - [ ] openstack - Self hosted full scale AWS
@@ -442,7 +452,9 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] Immichframe
   - [ ] PhotoPrism https://github.com/photoprism/photoprism
 - [ ] **Document Specifics**:
-  - [ ] PDF: https://github.com/alam00000/bentopdf
+  - [ ] PDF:
+    - [ ] https://github.com/alam00000/bentopdf
+    - [ ] https://github.com/libpdf-js/core
 - [ ] **Documents Management**:
   - [ ] **Papermark AI**:
   - [ ] **Papermark-ngx**:
@@ -558,6 +570,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] Mistral OCR3: https://mistral.ai/news/mistral-ocr-3
   - Alternatives
     - [ ] DeepSeek-OCR2: https://github.com/deepseek-ai/DeepSeek-OCR-2
+	- [ ] https://github.com/zai-org/GLM-OCR
   - [ ] Chandra: https://github.com/datalab-to/chandra
 - [ ] **Agents**:
   - [ ] Laddr (Agent Runner): https://github.com/AgnetLabs/Laddr
@@ -572,6 +585,8 @@ _Goal: Privacy, Resilience, Ad-blocking_
 - [ ] **Finance**:
 	- [ ] Personal Finance Tracker https://github.com/we-promise/sure/
 	- [ ] Actual Budget: https://github.com/actualbudget/actual
+	- [ ] AI Investors
+	  - [ ] https://github.com/ygwyg/MAHORAGA
 - [ ] **Investigate**:
 	- [ ] WunderTech - Task management and productivity
 	- [ ] Heimdall - Dashboard and link organizer
@@ -601,6 +616,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
     - [ ] Velld Database backups
     - [ ] Bichon Email backups
 	- [ ] Map / Trip / POI Planner https://github.com/itskovacs/trip
+	- [ ] Email https://github.com/wesm/msgvault
   - [ ] **Bookmarks, Reading & Knowledge**
     - [ ] https://github.com/FreshRSS/FreshRSS --- Self‑hosted RSS/news aggregator
     - [ ] https://github.com/karakeep-app/karakeep --- Personal knowledge / bookmark manager previously Hoarder

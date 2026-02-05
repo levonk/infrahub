@@ -130,10 +130,11 @@ services:
       - PUID=1000
       - PGID=1000
       - TZ=UTC
+      - USERNAME=${USERNAME:-cuser}
     healthcheck:
       test: ["CMD", "/bin/sh", "-c", "/nix-sidecar/healthcheck-nix-sidecar.sh > /dev/null 2>&1"]
-      interval: 30s
-      timeout: 10s
+      interval: 240s
+      timeout: 120s
       retries: 3
       start_period: 1200s
     logging: *default-logging

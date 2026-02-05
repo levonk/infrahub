@@ -1,0 +1,222 @@
+# Justfile for LocalNet Development Environment
+# Migrated from Makefile for better cross-platform compatibility
+
+# Environment variables
+set export
+
+# Configuration
+ENSURE_NETWORK := "./scripts/ensure-network.py"
+NETWORK_NAME := "localnet_default"
+ENV_FILE := ".env.local.localnet"
+
+# Default recipe when just is run without arguments
+default:
+    @just --list
+
+# Show this help message
+help:
+    @./scripts/echo-colors.sh blue "Home Lab In-a-Box - Available Commands"
+    @echo ""
+    @just --list --unsorted
+
+# Build and run base-dev and dependencies
+base-up:
+    @./scripts/echo-colors.sh blue "Creating base containers..."
+    @docker compose -f docker-compose.shared.yml --env-file {{ENV_FILE}} --progress=plain up -d
+    @docker compose -f docker-compose.localnet.yml --profile base01 --env-file {{ENV_FILE}} --progress=plain up -d && \
+    docker compose -f docker-compose.localnet.yml --profile base02 --env-file {{ENV_FILE}} --progress=plain up -d && \
+    docker compose -f docker-compose.localnet.yml --profile base03 --env-file {{ENV_FILE}} --progress=plain up -d
+    @./scripts/echo-colors.sh green "✓ base containers created"
+
+# Build all Docker images
+build: cloud-build base-up
+    @./scripts/echo-colors.sh blue "Building all Docker images..."
+    @docker compose -f docker-compose.localnet.yml --profile all --env-file {{ENV_FILE}} --progress=plain build
+    @./scripts/echo-colors.sh green "✓ Build complete"
+
+# Start all services
+up: build cloud-up
+    @./scripts/echo-colors.sh blue "Starting all services..."
+    @sleep 1
+    @docker compose -f docker-compose.localnet.yml --profile all --env-file {{ENV_FILE}} --progress=plain up -d
+    @./scripts/echo-colors.sh green "✓ Services started"
+    @echo "Run 'just health-check' to verify service health"
+
+# Stop all services
+down: cloud-down
+    @./scripts/echo-colors.sh yellow "Stopping all services..."
+    @docker compose -f docker-compose.cloud.yml --progress=plain down
+    @./scripts/echo-colors.sh green "✓ Services stopped"
+
+# Restart all services
+restart:
+    @./scripts/echo-colors.sh yellow "Restarting all services..."
+    @docker compose -f docker-compose.localnet.yml --profile all --progress=plain restart
+    @./scripts/echo-colors.sh green "✓ Services restarted"
+
+# View logs from all services (last 100 lines)
+logs:
+    docker compose logs -f docker-compose.localnet.yml --profile all --tail=100
+
+# Follow logs from all services
+logs-follow:
+    docker compose logs -f docker-compose.localnet.yml --profile all -f
+
+# Check health status of all services
+health-check:
+    @./scripts/echo-colors.sh blue "Checking service health..."
+    docker compose -f docker-compose.localnet.yml --profile all ps
+    @echo ""
+    @./scripts/echo-colors.sh blue "Running health checks..."
+    ./scripts/health-checks/nftables-check.sh || @./scripts/echo-colors.sh yellow "⚠ nftables check failed"
+    @./scripts/echo-colors.sh green "✓ Health check complete"
+
+# Flush all caches (DNS, Web)
+flush-cache:
+    @./scripts/echo-colors.sh yellow "Flushing DNS cache..."
+    docker compose exec coredns kill -SIGUSR1 1 || @echo "CoreDNS not running"
+    @./scripts/echo-colors.sh yellow "Flushing web cache..."
+    docker compose restart squid
+    @./scripts/echo-colors.sh green "✓ Caches flushed"
+
+# Backup all persistent volumes
+backup:
+    @./scripts/echo-colors.sh blue "Backing up volumes..."
+    ./scripts/backup-volumes.sh
+    @./scripts/echo-colors.sh green "✓ Backup complete"
+
+# Restore volumes from backup
+restore:
+    @./scripts/echo-colors.sh yellow "Restoring volumes..."
+    ./scripts/restore-volumes.sh
+    @./scripts/echo-colors.sh green "✓ Restore complete"
+
+# Run E2E tests (quick subset)
+test:
+    @./scripts/echo-colors.sh blue "Running E2E tests..."
+    ./scripts/tests/test-dns-services.sh
+    ./scripts/tests/test-monitoring.sh
+    @./scripts/echo-colors.sh green "✓ Tests complete"
+
+# Run all E2E tests (comprehensive)
+test-all:
+    @./scripts/echo-colors.sh blue "Running all E2E tests..."
+    ./scripts/tests/run-all-tests.sh
+
+# Update DNS/web blocklists
+update-blocklists:
+    @./scripts/echo-colors.sh blue "Updating blocklists..."
+    docker compose exec dnsdist /blocklists/update-blocklists.sh
+    @./scripts/echo-colors.sh green "✓ Blocklists updated"
+
+# Remove Docker-created config directories (safe, no data loss)
+clean-configs:
+    @./scripts/echo-colors.sh blue "Cleaning up Docker-created config directories..."
+    docker run --rm -v "{{justfile_directory()}}/configs:/configs" alpine sh -c '\
+        find /configs -type d \( \
+            -name "*.conf" -o \
+            -name "*.yaml" -o \
+            -name "*.yml" -o \
+            -name "config" -o \
+            -name "config.yaml" \
+        \) -exec rm -rf {} + 2>/dev/null || true'
+    @./scripts/echo-colors.sh green "✓ Config directories removed"
+    @echo "Run .just fix-configs. to recreate config files"
+
+# Recreate all config files from templates
+fix-configs: clean-configs
+    @./scripts/echo-colors.sh blue "Recreating config files..."
+    ./scripts/create-configs.sh
+    @./scripts/echo-colors.sh green "✓ Config files created"
+
+# Remove all containers, volumes, and networks, then restart services
+clean:
+    @./scripts/echo-colors.sh yellow "Cleaning up Docker resources and restarting..."
+    @./scripts/echo-colors.sh blue "Stopping and removing all containers..."
+    docker compose down -f docker-compose.localnet.yml --profile all -v --remove-orphans 2>/dev/null || true
+    @./scripts/echo-colors.sh blue "Force-removing any stuck containers..."
+    ./scripts/cleanup-containers.sh
+    @./scripts/echo-colors.sh blue "Removing networks..."
+    docker network rm {{NETWORK_NAME}} 2>/dev/null || true
+    docker network rm localnet_default 2>/dev/null || true
+    @./scripts/echo-colors.sh blue "Pruning system..."
+    docker system prune -f --volumes
+    sleep 2
+    @./scripts/echo-colors.sh green "✓ Cleanup complete, starting services..."
+    just up
+
+# Show running containers
+ps:
+    docker compose -f docker-compose.localnet.yml --profile all ps
+
+# Show container resource usage
+stats:
+    docker stats --no-stream
+
+# Pull latest container images
+pull:
+    @./scripts/echo-colors.sh blue "Pulling latest images..."
+    docker compose -f docker-compose.localnet.yml --profile all pull
+    @./scripts/echo-colors.sh green "✓ Images updated"
+
+# Validate docker-compose.yml configuration
+config:
+    @./scripts/echo-colors.sh blue "Validating configuration..."
+    docker compose config -f docker-compose.localnet.yml --profile all > /dev/null
+    @./scripts/echo-colors.sh green "✓ Configuration valid"
+
+# Lint docker-compose.yml and YAML files
+lint:
+    @./scripts/echo-colors.sh blue "Linting configuration files..."
+    docker compose config -f docker-compose.localnet.yml --profile all > /dev/null && @./scripts/echo-colors.sh green "✓ docker-compose.yml syntax valid" || (@./scripts/echo-colors.sh red "✗ docker-compose.yml syntax invalid"; exit 1)
+    if command -v yamllint >/dev/null 2>&1; then \
+        find . -name "*.yml" -o -name "*.yaml" | xargs yamllint --no-warnings || @./scripts/echo-colors.sh yellow "⚠ yamllint not configured"; \
+    else \
+        @./scripts/echo-colors.sh yellow "⚠ yamllint not installed"; \
+    fi
+    @./scripts/echo-colors.sh green "✓ Lint complete"
+
+# Run tests for Claude Code services
+test-claude:
+    @./scripts/echo-colors.sh blue "Running Claude Code service tests..."
+    docker compose --profile claude-code ps | grep -q "claude-code" && @./scripts/echo-colors.sh green "✓ Claude Code services are running" || (@./scripts/echo-colors.sh red "✗ Claude Code services not running"; exit 1)
+    @./scripts/echo-colors.sh blue "Testing Claude Code API health..."
+    docker compose exec -f docker-compose.localnet.yml -T claude-code curl -f http://localhost:8081/health >/dev/null 2>&1 && @./scripts/echo-colors.sh green "✓ Claude Code API healthy" || @./scripts/echo-colors.sh yellow "⚠ Claude Code API not responding"
+    docker compose exec -f docker-compose.localnet.yml -T claude-code-ui curl -f http://localhost:3000/health >/dev/null 2>&1 && @./scripts/echo-colors.sh green "✓ Claude Code UI healthy" || @./scripts/echo-colors.sh yellow "⚠ Claude Code UI not responding"
+    docker compose exec -f docker-compose.localnet.yml -T claude-code-auth curl -f http://localhost:8080/health >/dev/null 2>&1 && @./scripts/echo-colors.sh green "✓ Claude Code Auth healthy" || @./scripts/echo-colors.sh yellow "⚠ Claude Code Auth not responding"
+    @./scripts/echo-colors.sh green "✓ Claude Code tests complete"
+
+# Lint Claude Code docker-compose configuration
+lint-claude:
+    @./scripts/echo-colors.sh blue "Linting Claude Code configuration..."
+    docker compose -f services/ai-codeassist/claude-code/claude-code/docker-compose.claude-code.yml config > /dev/null && @./scripts/echo-colors.sh green "✓ Claude Code docker-compose.yml syntax valid" || (@./scripts/echo-colors.sh red "✗ Claude Code docker-compose.yml syntax invalid"; exit 1)
+    if command -v yamllint >/dev/null 2>&1; then \
+        yamllint services/ai-codeassist/claude-code/claude-code/docker-compose.claude-code.yml || @./scripts/echo-colors.sh yellow "⚠ yamllint issues found"; \
+    else \
+        @./scripts/echo-colors.sh yellow "⚠ yamllint not installed"; \
+    fi
+    @./scripts/echo-colors.sh green "✓ Claude Code lint complete"
+
+# Start LocalStack cloud services (auto-detects platform)
+cloud-up:
+    @./scripts/echo-colors.sh blue "Starting cloud services..."
+    cd services/cloud && ./up.sh
+    @./scripts/echo-colors.sh green "✓ Cloud services started"
+
+# Stop LocalStack cloud services
+cloud-down:
+    @./scripts/echo-colors.sh yellow "Stopping cloud services..."
+    cd services/cloud && docker compose -f docker-compose.cloud.base.yml down
+
+# Build/Pull LocalStack cloud services
+cloud-build:
+    @./scripts/echo-colors.sh blue "Building/Pulling cloud services..."
+    cd services/cloud && docker compose -f docker-compose.cloud.base.yml pull
+    @./scripts/echo-colors.sh green "✓ Cloud services built/pulled"
+
+# Aliases for common commands
+alias rebuild := clean
+alias health := health-check
+alias status := ps
+alias stop := down
+alias start := up
