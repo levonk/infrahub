@@ -1,0 +1,35 @@
+{
+  "packages": [
+    "jq",
+    "just",
+    "yq-go"
+  ],
+  "shell": {
+    "init_hook": []
+  },
+  "scripts": {
+    "base-up": "just base-up-internal",
+    "bootstrap": "just bootstrap-internal",
+    "up": "just up-internal",
+    "down": "just down-internal",
+    "build": "just build-internal",
+    "clean": "just clean-internal",
+    "clean-full": "just clean-full-internal",
+    "clean-configs": "just clean-configs-internal",
+    "fix-configs": "just fix-configs-internal",
+    "logs": "just logs-internal",
+    "health-check": "just health-check-internal",
+    "test": "just test-internal",
+    "test-all": "just test-all-internal",
+    "test-claude": "just test-claude-internal",
+    "ps": "just ps-internal",
+    "stats": "just stats-internal",
+    "pull": "just pull-internal",
+    "config": "just config-internal",
+    "lint": "just lint-internal",
+    "lint-claude": "just lint-claude-internal",
+    "cloud-up": "just cloud-up-internal",
+    "cloud-down": "just cloud-down-internal",
+    "restart": "just restart-internal"
+  }
+}

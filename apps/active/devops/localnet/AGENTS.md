@@ -4,6 +4,69 @@ If you're working on Nix containers, see the documetnation at:
 
 - /home/micro/p/gh/lrepo52/job-aide/apps/active/devops/localnet/internal-docs/requirements/nix/
 
+## 🚀 Environment Setup
+
+This project uses **Devbox** for environment management. Follow these steps:
+
+### 1. Setup Devbox Environment
+```bash
+# Ensure you're in the correct directory
+cd apps/active/devops/localnet
+
+# Start devbox shell (installs just, yq-go, jq)
+devbox shell
+
+# Or run commands directly through devbox
+devbox run -- just base-up-internal
+```
+
+### 2. Available Commands
+```bash
+# Primary workflow: just → devbox run -- just-internal
+just base-up        # → devbox run -- just base-up-internal
+just up             # → devbox run -- just up-internal
+just down           # → devbox run -- just down-internal
+just build          # → devbox run -- just build-internal
+just clean          # → devbox run -- just clean-internal
+just logs           # → devbox run -- just logs-internal
+just health-check   # → devbox run -- just health-check-internal
+just test           # → devbox run -- just test-internal
+just bootstrap      # → devbox run -- just bootstrap-internal
+
+# Direct devbox commands (bypass just)
+devbox run -- just base-up-internal
+devbox run -- just up-internal
+devbox run -- just down-internal
+devbox run -- just clean-internal
+devbox run -- just logs-internal
+devbox run -- just health-check-internal
+devbox run -- just test-internal
+devbox run -- just bootstrap-internal
+
+# Direct just-internal targets (bypass devbox)
+just base-up-internal
+just up-internal
+just down-internal
+just build-internal
+just clean-internal
+just logs-internal
+just health-check-internal
+just test-internal
+just bootstrap-internal
+```
+
+### 3. ADR Compliance Notes
+This justfile includes `-internal` recipe variants to comply with ADR-20260131001:
+- All main recipes have corresponding `-internal` variants
+- `-internal` recipes delegate to their main counterparts
+- Enables parent devbox.json to call `bootstrap-internal` and other `-internal` targets
+
+### 4. Why Devbox?
+- Provides consistent development environment
+- Includes required tools (just, yq-go, jq)
+- Ensures proper package versions
+- Follows monorepo standards from ADR-20260131001
+
 ## ⚠️ CRITICAL: Directory Requirements
 
 **🚨 NEVER run docker compose commands from services/ subdirectories!**
@@ -212,6 +275,29 @@ just debug-env
 # Regenerate environment files
 just clean-env
 just up
+```
+
+### Container startup issues
+
+**Current Issue: nix-sidecar container missing `/bin/sh`**
+
+If you see this error:
+```
+exec /bin/sh: no such file or directory
+```
+
+**Root Cause:** The nix-sidecar container is built from a minimal base image that doesn't include `/bin/sh`.
+
+**Solution Path:** 
+1. Check the Dockerfile: `services/base/nix-sidecar/Dockerfile.nix-sidecar`
+2. Check the entrypoint: `services/base/nix-sidecar/assets/static/nix-sidecar/entrypoint-nix-sidecar.sh`
+3. Ensure proper user permission dropping as specified in the container configuration
+
+**Temporary Workaround:**
+```bash
+# Clean and restart
+just clean
+just base-up
 ```
 
 ## Remember
