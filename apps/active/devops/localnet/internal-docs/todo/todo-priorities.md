@@ -691,6 +691,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
     - [ ] https://github.com/OctoPrint/OctoPrint --- OctoPrint GitHub repo
     - [ ] https://github.com/home-assistant/ --- Home Assistant (home automation platform)
   - [ ] **Other Services & Utilities**
+    - [ ] freenet.org
     - [ ] https://github.com/DaKheera47/job-ops
     - [ ] https://github.com/gchq/CyberChef --- CyberChef (web-based data transform toolkit)
     - [ ] https://github.com/kasmtech/KasmVNC --- Web-based VNC viewer (browser VNC)
