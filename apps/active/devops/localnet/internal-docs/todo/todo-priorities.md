@@ -258,6 +258,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
 
 ### CI/CD & Lifecycle
 
+- [ ] Self Hosted GitHub Actions Runner https://github.com/actions/runner
 - [ ] **Updates**:
   - [ ] **Watchtower**: https://github.com/containrrr/watchtower
   - [ ] **WUD** (What's Up Docker): https://github.com/getwud/wud
