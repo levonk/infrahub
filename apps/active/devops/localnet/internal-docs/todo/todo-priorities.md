@@ -315,10 +315,13 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] **LLM Proxy**: https://github.com/Fast-Editor/Lynkr
   - [ ] **PluggedIn MCP proxy**: https://github.com/VeriTeknik/pluggedin-mcp-proxy
   - [ ] **PluggedIn app**: https://github.com/VeriTeknik/pluggedin-app
-  - [ ] **OpenClaw**: AI-powered automation and task management https://github.com/openclaw/openclaw (ClawdBot, MoltBot, OpenClaw)
-    - [ ] **ClawHub**: https://github.com/openclaw/clawhub
+- [ ] **AI Auto Agent**:
+  - [ ] **IronClaw**: AI-powered automation and task management https://github.com/nearai/ironclaw
 	- Alternatives
-	  - [ ] https://github.com/gavrielc/nanoclaw
+    - [ ] **OpenClaw**: AI-powered automation and task management https://github.com/openclaw/openclaw (ClawdBot, MoltBot, OpenClaw)
+      - [ ] **ClawHub**: https://github.com/openclaw/clawhub
+	  - https://github.com/gavrielc/nanoclaw
+    - https://github.com/zeroclaw-labs/zeroclaw
   - Desktop Control
 	- [ ] **OpenClaudeCowork**: https://github.com/ComposioHQ/open-claude-cowork/
   - [ ] **OpenCode**:
