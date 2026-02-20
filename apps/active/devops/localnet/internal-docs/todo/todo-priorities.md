@@ -199,6 +199,7 @@ A prioritized roadmap for building a secure, resilient, and privacy-focused home
 - [ ] **Guacamole**: https://github.com/apache/guacamole-server https://github.com/apache/guacamole-client
 - [ ] **RustDesk**: https://github.com/rustdesk/rustdesk
 - [ ] **ClipCascade**: Cross Device Clipboard sharing tool
+- [ ] **Termix**: https://github.com/Termix-SSH/Termix
 
 ### Hardening & Security Monitoring
 
@@ -301,12 +302,17 @@ _Goal: Privacy, Resilience, Ad-blocking_
 
 ### Development Tools
 
+- [ ] **Context Manager**:
+  - [ ] https://github.com/tobi/qmd
+  - [ ] https://github.com/zilliztech/memsearch
 - [ ] **Code / Git**:
   - [ ] **Gitea**: https://github.com/search?q=gitea&type=repositories
   - [ ] **Forgejo**: https://forgejo.org/download/#container-image
   - [ ] **GitVex**: https://github.com/mdhruvil/gitvex
 - [ ] **IDE**: VS Code Server / Coder
+  - [ ] https://github.com/asheshgoplani/agent-deck
 - [ ] **AI Code Assist (ai-codeassist)**:
+  - [ ] **Code Understanding** https://github.com/HKUDS/FastCode
   - [ ] **Claude Code core service (cc-tools)**: https://github.com/Veraticus/cc-tools
   - [ ] **Claude Code UI (claudecodeui)**: https://github.com/siteboon/claudecodeui
   - [ ] **Claude Code MCP server**: https://github.com/steipete/claude-code-mcp
@@ -322,6 +328,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
       - [ ] **ClawHub**: https://github.com/openclaw/clawhub
 	  - https://github.com/gavrielc/nanoclaw
     - https://github.com/zeroclaw-labs/zeroclaw
+    - https://github.com/bytebot-ai/bytebot
   - Desktop Control
 	- [ ] **OpenClaudeCowork**: https://github.com/ComposioHQ/open-claude-cowork/
   - [ ] **OpenCode**:
@@ -396,6 +403,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] **Unpackarr** (download archive unpacker) https://github.com/Unpackerr/unpackerr
   - [ ] **Recyclarr** (CLI tool to sync TRaSH Guides for quality profiles, formats, naming into Sonarr/Radarr)
   - [ ] **FlareSolverr** (proxy to bypass Cloudflare/DDoS-GUARD protections for scrapers and indexers)
+  - [ ] **Scraper** https://github.com/saifyxpro/HeadlessX
   - [ ] **Bazarr** (Subtitles) https://github.com/morpheus65535/bazarr
   - [ ] **Medusa** (TV Downloader) https://pymedusa.com/
   - [ ] **Lidarr** (Music) https://lidarr.audio/
@@ -407,6 +415,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] **Boxarr** Movie charts
   - [ ] **Releasarr** (Music)
   - [ ] **Suggesterr** Make Movie and TV recomendations of what to watch based on history
+  - [ ] **IPTV** https://github.com/Dispatcharr/Dispatcharr
   - [ ] **Whisparr** (Video) https://whisparr.com/
   - [ ] **Flexget**: Misc https://github.com/Flexget/Flexget
   - [ ] **Kapowarr**: (Comics) https://github.com/Casvt/Kapowarr
@@ -562,6 +571,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
 - [ ] Web->Vieo https://github.com/trycua/launchpad
 - [ ] Udemy learning: https://github.com/heliomarpm/udemy-downloader-gui/
 - [ ] video creation https://github.com/Godzilla675/clip-js-copilot
+  - [ ] Video editing https://github.com/kevinbadi/hyperedit
 
 ---
 
@@ -592,10 +602,13 @@ _Goal: Privacy, Resilience, Ad-blocking_
 	- [ ] AI Investors
 	  - [ ] https://github.com/ygwyg/MAHORAGA
 - [ ] **Investigate**:
+	- [ ] URL Shortener - https://github.com/SinTan1729/chhoto-url
 	- [ ] WunderTech - Task management and productivity
 	- [ ] Heimdall - Dashboard and link organizer
 	- [ ] Genmon - System monitoring and status dashboard
 	- [ ] Hubitat - Home automation platform
+  - [ ] https://github.com/surajverma/homehub
+  - [ ] https://github.com/iib0011/omni-tools
 	- [ ] Grocy - Grocery management and recipe organizer
 	- [ ] Logger - Log aggregation and analysis
 	- [ ] CodeProject.AI - AI platform with local inference capabilities
@@ -650,6 +663,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
     - [ ] https://github.com/phpipam/phpipam --- IP address management (IPAM)
     - [ ] https://github.com/rcourtman/Pulse --- Network/server monitoring dashboard
     - [ ] https://github.com/amir20/dozzle --- Real‑time container log viewer (Docker)
+    - [ ] https://github.com/dockpeek/dockpeek --- Container management and monitoring
     - [ ] https://github.com/pendulum-project/ntpd-rs --- NTP daemon in Rust
     - [ ] https://github.com/pendulum-project/statime --- PTP (Precision Time Protocol) daemon
     - [ ] https://github.com/YunoHost-Apps --- YunoHost app catalog (packaged self‑hosted apps)

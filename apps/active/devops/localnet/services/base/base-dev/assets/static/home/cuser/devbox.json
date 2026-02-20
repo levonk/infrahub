@@ -14,6 +14,7 @@
     "zellij", "direnv",       # Terminal multiplexer and environment manager
     "fzf", "ripgrep", "ast-grep", "fd", "bat", "eza", "zoxide", # Navigation and search tools
     "atuin", "sd", "comby", "tlrc", "pay-respects", "yazi",  # Shell enhancement tools
+    "zsh", "bashInteractive",  # Enhanced shells
 
     # Shell Scripting Tools
     "shellcheck", "shfmt",    # Shell linter and formatter
@@ -47,20 +48,27 @@
     # CI/CD & Build Tools
     "act",                    # Local GitHub Actions runner
 
+    # Container Security & Linting Tools
+    "dockle", "trivy", "hadolint", "checkov", "yamllint", "markdownlint-cli",  # Container security and linting
+
     # Data Visualization & Diagramming
     "graphviz", "plantuml", "mermaid-cli",          # Diagramming tools
 
     # System Monitoring & Utilities
     "htop", "btop", "bottom", "procs", "dust", "duf",  # System monitors
+    "procps", "strace", "lsof", "psmisc",  # Process and system utilities
 
     # File Management & Archives
     "trash-cli", "p7zip", "unzip", "zip", "rsync",   # File management tools
+    "findutils", "file", "tree", "gnutar", "gzip",  # File and archive utilities
 
     # Text Processing & Data Tools
     "jq", "yq-go", "gron", "fx", "tokei",          # JSON/YAML processing and code metrics
+    "gnused", "gnugrep", "gawk", "less", "which", "binutils", "tee",  # Text processing utilities
 
     # Network & Security Tools
     "nmap", "tcpdump", "mtr", "whois", "rhash",    # Network analysis and security
+    "curl", "wget", "iproute2", "dnsutils", "netcat-gnu", "nettools", "socat", "iputils",  # Network utilities
 
     # Data Processing & Databases
     "duckdb", "sqlite",       # Databases

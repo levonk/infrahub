@@ -196,6 +196,12 @@ else
     execute_as_user_in_devbox "curl --connect-timeout 10 --insecure -fsSL https://app.factory.ai/cli | sh" || { echo "❌ Failed to install app.factory.ai CLI in Devbox development environment"; exit 1; }
 fi
 
+if execute_as_user_in_devbox "curl -fsSL https://raw.githubusercontent.com/asheshgoplani/agent-deck/main/install.sh | bash" 2>/dev/null; then
+    echo "✅ agent-deck installed successfully"
+else
+    echo "⚠️ Failed to install agent-deck"
+fi
+
 
 
 
@@ -210,20 +216,52 @@ execute_as_user_in_devbox "pnpm setup" || { echo "❌ Failed to run pnpm setup i
 execute_as_user_in_devbox "pnpm install -g @beads/bd" || { echo "❌ Failed to install @beads/bd in Devbox development environment"; exit 1; }
 execute_as_user_in_devbox "pnpm install -g openskills" || { echo "❌ Failed to install openskills in Devbox development environment"; exit 1; }
 execute_as_user_in_devbox "pnpm install -g agent-browser" || { echo "❌ Failed to install agent-browser in Devbox development environment"; exit 1; }
+execute_as_user_in_devbox "pnpm install -g @tobilu/qmd" || { echo "❌ Failed to install @tobilu/qmd in Devbox development environment"; exit 1; }
 execute_as_user_in_devbox "pnpm install -g @twsxtd/hapi" || { echo "❌ Failed to install @twsxtd/hapi in Devbox development environment"; exit 1; }
+# https://github.com/vercel-labs/portless
+execute_as_user_in_devbox "pnpm install -g portless" || { echo "❌ Failed to install portless in Devbox development environment"; exit 1; }
+# https://turbo.build/
+execute_as_user_in_devbox "pnpm install -g turbo" || { echo "❌ Failed to install turbo in Devbox development environment"; exit 1; }
+# https://yarnpkg.com/
+execute_as_user_in_devbox "pnpm install -g yarn" || { echo "❌ Failed to install yarn in Devbox development environment"; exit 1; }
+# https://bun.sh/
+execute_as_user_in_devbox "pnpm install -g bun" || { echo "❌ Failed to install bun in Devbox development environment"; exit 1; }
+# https://github.com/kapishdima/soundcn
+execute_as_user_in_devbox "npx shadcn add https://soundcn.xyz/r/click-soft.json" || { echo "❌ Failed to install shadcn component in Devbox development environment"; exit 1; }
+# https://github.com/anl331/goey-toast?tab=readme-ov-file
+execute_as_user_in_devbox "npx shadcn@latest add https://goey-toast.vercel.app/r/goey-toaster.json" || { echo "❌ Failed to install shadcn component in Devbox development environment"; exit 1; }
+
+# Function to install Python packages using uv
+install_python_package() {
+    local package_name="$1"
+    echo "🤖 Installing Python package: $package_name"
+    
+    # Check for Python interpreter and install package
+    if execute_as_user_in_devbox "which python3" >/dev/null 2>&1; then
+        execute_as_user_in_devbox "uv pip install --python \$(which python3) --system $package_name" || { echo "❌ Failed to install $package_name in Devbox development environment"; exit 1; }
+    elif execute_as_user_in_devbox "which python" >/dev/null 2>&1; then
+        execute_as_user_in_devbox "uv pip install --python \$(which python) --system $package_name" || { echo "❌ Failed to install $package_name in Devbox development environment"; exit 1; }
+    else
+        echo "❌ No Python interpreter found in Devbox development environment"
+        exit 1
+    fi
+}
 
 # Check and install uv packages inside Devbox development shell
 echo "🤖 Checking for uv in Devbox development environment..."
 execute_as_user_in_devbox "which uv" >/dev/null 2>&1 || { echo "❌ uv not available in Devbox development environment"; exit 1; }
 echo "🤖 Installing uv packages in Devbox development environment..."
-# Check for Python inside Devbox development shell
-if execute_as_user_in_devbox "which python3" >/dev/null 2>&1; then
-    execute_as_user_in_devbox "uv pip install --python \$(which python3) --system llm-tldr" || { echo "❌ Failed to install llm-tldr in Devbox development environment"; exit 1; }
-elif execute_as_user_in_devbox "which python" >/dev/null 2>&1; then
-    execute_as_user_in_devbox "uv pip install --python \$(which python) --system llm-tldr" || { echo "❌ Failed to install llm-tldr in Devbox development environment"; exit 1; }
+
+# Install Python packages using the helper function
+install_python_package "llm-tldr"
+install_python_package "memsearch"
+
+# Install agent-deck
+echo "🤖 Installing agent-deck..."
+if execute_as_user_in_devbox "curl -fsSL https://raw.githubusercontent.com/asheshgoplani/agent-deck/main/install.sh | bash" 2>/dev/null; then
+    echo "✅ agent-deck installed successfully"
 else
-    echo "❌ No Python interpreter found in Devbox development environment"
-    exit 1
+    echo "⚠️ Failed to install agent-deck"
 fi
 execute_as_user_in_devbox "cd /home/$USERNAME/work; tldr warm . && tldr context main --project ." || { echo "❌ Failed to run llm-tldr commands in Devbox development environment"; exit 1; }
 
