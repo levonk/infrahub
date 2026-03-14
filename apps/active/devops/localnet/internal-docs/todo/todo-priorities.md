@@ -246,6 +246,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
 ### Web Proxy
 
 - [ ] **Search** (self-hosted meta-search to route through Tor) https://docs.searxng.org/
+- [ ] **AI Chat** (self-hosted AI chat) https://github.com/xprivo/ai-chat
 - [ ] **Marreta** (Special purpose de-annoyer) https://github.com/manualdousuario/marreta/blob/main/README.en.md
 - Tiered Fallback
   - [ ] Privoxy https://www.privoxy.org/
@@ -275,6 +276,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
     - [ ] **Rundeck**: Job scheduler https://github.com/rundeck/rundeck
     - [ ] **Ofelia**: Job scheduler https://github.com/mcuadros/ofelia
     - [ ] **Airflow**: Job scheduler
+      - alternative: https://github.com/openworkflowdev/openworkflow
   - [ ] **Kestra.io**: Automation platform https://github.com/kestra-io/kestra
   - [ ] **ChangeDetection.io**: Web change monitor https://github.com/dgtlmoon/changedetection.io
 
@@ -302,6 +304,10 @@ _Goal: Privacy, Resilience, Ad-blocking_
 
 ### Development Tools
 
+  - [ ] https://github.com/basecamp/fizzy?tab=readme-ov-file
+- [ ] **CI/CD Services**:
+  - [ ] https://github.com/mend/renovate-ce-ee/tree/main/docs
+  - [ ] https://github.com/SonarSource/sonarqube
 - [ ] **Context Manager**:
   - [ ] https://github.com/tobi/qmd
   - [ ] https://github.com/zilliztech/memsearch
@@ -312,6 +318,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
 - [ ] **IDE**: VS Code Server / Coder
   - [ ] https://github.com/asheshgoplani/agent-deck
 - [ ] **AI Code Assist (ai-codeassist)**:
+  - [ ] Human Interaction Controller https://github.com/easychen/ask4me
   - [ ] **Code Understanding** https://github.com/HKUDS/FastCode
   - [ ] **Claude Code core service (cc-tools)**: https://github.com/Veraticus/cc-tools
   - [ ] **Claude Code UI (claudecodeui)**: https://github.com/siteboon/claudecodeui
@@ -325,18 +332,23 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] **IronClaw**: AI-powered automation and task management https://github.com/nearai/ironclaw
 	- Alternatives
     - [ ] **OpenClaw**: AI-powered automation and task management https://github.com/openclaw/openclaw (ClawdBot, MoltBot, OpenClaw)
+      - [ ] **ClawRouter**: https://github.com/BlockRunAI/ClawRouter
       - [ ] **ClawHub**: https://github.com/openclaw/clawhub
 	  - https://github.com/gavrielc/nanoclaw
     - https://github.com/zeroclaw-labs/zeroclaw
     - https://github.com/bytebot-ai/bytebot
   - Desktop Control
 	- [ ] **OpenClaudeCowork**: https://github.com/ComposioHQ/open-claude-cowork/
+  - [ ] **Pi CodeAssist Agent**:
   - [ ] **OpenCode**:
   - [ ] https://github.com/nrslib/takt
+  - [ ] ClaudCode
+    - [ ] Caludit plugin to audit how much garbage is in claude.md
   - [ ] **SuperMemory**: https://supermemory.ai/docs/deployment/self-hosting#self-hosting https://github.com/supermemoryai/supermemory
   - [ ] **Vibe Kanban / Auto-Claude rollout checklist**
     - [x] Hostname: `kanban.levonk.com`, Traefik router with Authelia + geoblock (LAN-only) — confirmed 2025-12-19.
     - [x] Runtime shape: Vibe Kanban container (Node + pnpm) per `services/ai-codeassist/vibe-kanban/`, Linux uses Sysbox+DIND, WSL uses dockerproxy; `/p` repo mount required.
+      - [ ] Alternative https://github.com/BradGroux/veritas-kanban
     - [x] Opencode agent: runs as a separate container (`services/ai-codeassist/opencode-runner/`) to allow multiple instances per project; expose control API to Kanban.
     - [x] Auto-Claude runner: track upstream latest release (pin tag/digest once pulled) in `autoclaude-runner` image; integrate FastAPI shim + FalkorDB bolt URL.
     - [ ] Secrets & env required (provide before deploy):
@@ -366,8 +378,9 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] https://github.com/localstack/localstack - Self hosted Dev AWS
   - [ ] openstack - Self hosted full scale AWS
   - [ ] Blob Storage
-    - [ ] https://github.com/rustfs/rustfs
-    - [ ] https://github.com/minio/minio
+    - [ ] https://github.com/deuxfleurs-org/garage (geo-distributed)
+    - [ ] https://github.com/rustfs/rustfs (fast local)
+    - [ ] https://github.com/minio/minio (legacy de-opensourced)
     - [ ] https://github.com/seaweedfs/seaweedfs
 
 ---
@@ -386,15 +399,20 @@ _Goal: Privacy, Resilience, Ad-blocking_
 - [ ] **Streaming**:
   - [ ] **Jellyfin**: Primary media server https://github.com/jellyfin/jellyfin
     - [ ] **Skip Intro**: https://github.com/ClassicOldSong/SkipIntro plugin a must
+    - [ ] https://github.com/mmcdole/kino
   - [ ] **Jellyfin Swarm**: link friends servers in
   - [ ] **JellyfinTV**: TV channels for Jellyfin https://github.com/DrewThomasson/JellyfinTV
   - [ ] **Plex**: Backup / External sharing https://www.plex.tv/media-server-downloads/?cat=computer&plat=windows#plex-media-servertwingate
+    - [ ] https://github.com/trentferguson/homescreen-hero
   - [ ] **Emby**: alternative for Plex
   - [ ] **Notifiarr**: notifications https://github.com/Notifiarr/notifiarr
+  - [ ] **Tracearr**: https://github.com/connorgallopo/Tracearr
   - [ ] **Owncast**: Self-hosted streaming https://owncast.online/
   - [ ] **Apollo**: Gaming Remote Play Streaming https://github.com/ClassicOldSong/Apollo
   - [ ] **Audiobookshelf**: audiobook and podcast player https://github.com/audiobookshelf/audiobookshelf
+  - [ ] https://github.com/calibrain/shelfmark
   - [ ] **Miniflux**: Opinionated minimal feed reader https://github.com/miniflux/miniflux
+  - [ ] Add context to subtitles https://github.com/ponzischeme89/Sublogue
 - [ ] **Acquisition (\*arr Stack)**:
   - [ ] **MediaManager** (Unified Movies & TV alpha software) https://github.com/maxdorninger/MediaManager
   - [ ] **Radarr** (Movies) https://github.com/Radarr/Radarr
@@ -403,10 +421,13 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] **Unpackarr** (download archive unpacker) https://github.com/Unpackerr/unpackerr
   - [ ] **Recyclarr** (CLI tool to sync TRaSH Guides for quality profiles, formats, naming into Sonarr/Radarr)
   - [ ] **FlareSolverr** (proxy to bypass Cloudflare/DDoS-GUARD protections for scrapers and indexers)
-  - [ ] **Scraper** https://github.com/saifyxpro/HeadlessX
+  - [ ] **Scraper**
+    - [ ] https://github.com/saifyxpro/HeadlessX
+    - [ ] https://github.com/mnemosynestack/doppelganger
   - [ ] **Bazarr** (Subtitles) https://github.com/morpheus65535/bazarr
   - [ ] **Medusa** (TV Downloader) https://pymedusa.com/
   - [ ] **Lidarr** (Music) https://lidarr.audio/
+    - [ ] https://github.com/Nezreka/SoulSync
   - [ ] Lidarr Request Manager https://github.com/lklynet/aurral
   - [ ] **Lidify** (Music Favs) https://github.com/Chevron7Locked/lidify
   - [ ] **Your Spotify** (Music) https://github.com/Yooooomi/your_spotify
@@ -424,6 +445,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] **Huntarr** https://github.com/plexguide/Huntarr.io
   - [ ] **Swaparr** https://github.com/ThijmenGThN/swaparr
   - [ ] **Romm** Games and Roms https://romm.app/ https://github.com/rommapp/romm
+    - [ ] https://github.com/sam1am/backlogia
   - [ ] **Posterizarr** Arr-stack artwork manager https://github.com/Posterizarr/Posterizarr
   - [ ] Indexers
     - [ ] https://github.com/Prowlarr/Prowlarr
@@ -437,6 +459,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] **Enclosed**: Private Note exchange https://github.com/CorentinTh/enclosed
   - [ ] **MicroBin**: Private PasteBin https://github.com/microbin/microbin
   - [ ] **OpenBooks**: eBook downloader https://github.com/evan-buss/openbooks
+    - [ ] https://github.com/crocodilestick/Calibre-Web-Automated
   - [ ] **Stash**: https://github.com/stashapp/stash
 - [ ] Conversion
   - [ ] https://github.com/VERT-sh/VERT
@@ -449,6 +472,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] **Syncthing**: P2P Sync https://github.com/syncthing/syncthing
   - [ ] **FileBrowser**: Web file manager https://github.com/filebrowser/filebrowser
   - [ ] **FileCloud**: Enterprise file share https://github.com/filecloud/filecloud
+    - [ ] https://github.com/safebucket/safebucket
   - [ ] **Paperless-ngx**: Document Management System https://github.com/paperless-ngx/paperless-ngx
   - [ ] **PageIndex**: Document Analysis System https://github.com/VectifyAI/PageIndex
 - [ ] **File Transfer**
@@ -460,6 +484,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
     - [ ] **Deluge**: Torrent Client https://github.com/deluge-torrent/deluge
 - [ ] **Calendar**
   - [ ] **Radicale**: FOSS CalDAV and CardDAV server https://github.com/radicale/radicale
+  - [ ] https://github.com/supunlakmal/hash-calendar
 - [ ] **Photos**
   - [ ] Immich https://github.com/immich-app/immich
   - [ ] Immichframe
@@ -564,6 +589,8 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] **Test Swift Implementation**: Materialize and test Swift template on Mac system
     - **BLOCKED**: Requires macOS system with Swift installed
     - **Notes**: Swift not available on current Linux system, need Mac for testing
+      - [ ] https://github.com/akitaonrails/FrankMD
+      - [ ] https://github.com/outline/outline
 
 ### Content Creation
 
@@ -606,6 +633,9 @@ _Goal: Privacy, Resilience, Ad-blocking_
 	- [ ] WunderTech - Task management and productivity
 	- [ ] Heimdall - Dashboard and link organizer
 	- [ ] Genmon - System monitoring and status dashboard
+    - [ ] https://github.com/mostafa-wahied/portracker
+    - [ ] https://github.com/techfort/cronpulse-community
+    - [ ] https://github.com/bluewave-labs/checkmate
 	- [ ] Hubitat - Home automation platform
   - [ ] https://github.com/surajverma/homehub
   - [ ] https://github.com/iib0011/omni-tools
@@ -621,6 +651,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] **Media, Downloading & Dashboards**
     - [ ] http://github.com/bastienwirtz/homer --- Homelab / service dashboard
     - [ ] https://github.com/theMK2k/Media-Hoarder --- Media library management / hoarding helper
+      - https://github.com/Kyonew/DVinyl
     - [ ] https://github.com/alexta69/metube --- Self-hosted YouTube/media downloader
     - [ ] https://github.com/jdepoix/youtube-transcript-api - Youtube transcripts MCP
     - [ ] https://github.com/JMS1717/8mb.local --- Video size reduction / 8MB-style sharing helper
@@ -634,6 +665,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
     - [ ] Bichon Email backups
 	- [ ] Map / Trip / POI Planner https://github.com/itskovacs/trip
 	- [ ] Email https://github.com/wesm/msgvault
+	- [ ] Email Organization https://github.com/Lakshay1509/NeatMail
   - [ ] **Bookmarks, Reading & Knowledge**
     - [ ] https://github.com/FreshRSS/FreshRSS --- Self‑hosted RSS/news aggregator
     - [ ] https://github.com/karakeep-app/karakeep --- Personal knowledge / bookmark manager previously Hoarder
@@ -668,8 +700,10 @@ _Goal: Privacy, Resilience, Ad-blocking_
     - [ ] https://github.com/pendulum-project/statime --- PTP (Precision Time Protocol) daemon
     - [ ] https://github.com/YunoHost-Apps --- YunoHost app catalog (packaged self‑hosted apps)
     - [ ] https://github.com/YunoHost-Apps/invoiceninja5_ynh --- InvoiceNinja YunoHost package (invoicing)
+      - [ ] https://github.com/piratuks/invoice-builder
   - [ ] **Networking, Edge & Tunnels**
     - [ ] https://docs.pangolin.net/ --- Pangolin docs (reverse proxy / tunnel)
+    - [ ] https://github.com/octelium/octelium --- Zero‑trust / tunnel‑related tool (Octelium)
     - [ ] https://github.com/fosrl/pangolin --- Pangolin reverse proxy/tunneling service
     - [ ] https://github.com/cloudflare/cloudflared/blob/master/Dockerfile#L29C6-L29C13 --- Cloudflared Docker reference (Zero‑Trust tunnel)
     - [ ] Cloud Init https://www.raspberrypi.com/news/cloud-init-on-raspberry-pi-os/
@@ -710,6 +744,9 @@ _Goal: Privacy, Resilience, Ad-blocking_
     - [ ] https://github.com/home-assistant/ --- Home Assistant (home automation platform)
   - [ ] **Other Services & Utilities**
     - [ ] freenet.org
+    - [ ] Price tracking https://github.com/clucraft/PriceGhost
+    - [ ] SmartSDR for Linux from Simon Ritchie (NVOE) @ Tech Connect Radio Club (NA0TC)
+    - [ ] NetClaw from John Capobianco
     - [ ] https://github.com/DaKheera47/job-ops
     - [ ] https://github.com/gchq/CyberChef --- CyberChef (web-based data transform toolkit)
     - [ ] https://github.com/kasmtech/KasmVNC --- Web-based VNC viewer (browser VNC)
@@ -762,3 +799,4 @@ _Goal: Privacy, Resilience, Ad-blocking_
 ## References
 
 - [[Cross Platform To Install]]
+- https://github.com/BansheeTech/HomeDockOS
