@@ -247,6 +247,20 @@ install_python_package() {
     fi
 }
 
+# Function to install Cargo packages that aren't available as Nix packages yet
+install_cargo_package() {
+    local package_name="$1"
+    echo "🤖 Installing Cargo package: $package_name"
+    
+    # Check for Cargo and install package
+    if execute_as_user_in_devbox "which cargo" >/dev/null 2>&1; then
+        execute_as_user_in_devbox "cargo install $package_name" || { echo "❌ Failed to install $package_name in Devbox development environment"; exit 1; }
+    else
+        echo "❌ No Cargo found in Devbox development environment"
+        exit 1
+    fi
+}
+
 # Check and install uv packages inside Devbox development shell
 echo "🤖 Checking for uv in Devbox development environment..."
 execute_as_user_in_devbox "which uv" >/dev/null 2>&1 || { echo "❌ uv not available in Devbox development environment"; exit 1; }
@@ -255,6 +269,15 @@ echo "🤖 Installing uv packages in Devbox development environment..."
 # Install Python packages using the helper function
 install_python_package "llm-tldr"
 install_python_package "memsearch"
+
+# Check and install Cargo packages inside Devbox development shell
+echo "🤖 Checking for Cargo in Devbox development environment..."
+execute_as_user_in_devbox "which cargo" >/dev/null 2>&1 || { echo "❌ Cargo not available in Devbox development environment"; exit 1; }
+echo "🤖 Installing Cargo packages in Devbox development environment..."
+
+# Install Cargo packages using the helper function
+# These are useful development tools that may not be available as Nix packages yet
+install_cargo_package "worktrunk"        # Worktrunk development tool
 
 # Install agent-deck
 echo "🤖 Installing agent-deck..."
@@ -272,4 +295,13 @@ echo "🤖 Starting vibe-kanban inside Devbox development environment..."
 execute_as_user_in_devbox "npx vibe-kanban"
 
 # Execute command as user (fallback for manual commands)
-execute_as_user "$@"
+if [ $# -eq 0 ]; then
+    echo "🤖 Dev Base: No command provided, sleeping indefinitely..."
+    echo "🤖 Dev Base: Container will wait for manual intervention"
+    # Sleep indefinitely to keep container running
+    while true; do
+        sleep 3600
+    done
+else
+    execute_as_user "$@"
+fi

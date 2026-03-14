@@ -31,6 +31,7 @@
     "gh", "glab",             # GitHub and GitLab CLI tools
     "lazygit",                # Git TUI
     "git-extras", "git-lfs", "fzf-git-sh",          # Git extensions and tools
+    "gnupg", "password-store",
 
     # Document & Image Processing
     "poppler-utils", "chafa", "jp2a", "imagemagick", # PDF and image processing
@@ -120,6 +121,7 @@
     "gopls", "delve", "go-tools",                    # Go LSP, debugger, and tools
     "dotnet-sdk_8", "dotnet-runtime_8", "dotnet-aspnetcore_8",  # .NET 8 SDK and runtime
     "rustfmt", "rust-analyzer",                      # Rust formatter and LSP
+    "cargo-watch", "cargo-edit", "cargo-audit", "cargo-outdated",  # Cargo development tools
     "kotlin-language-server",                        # Kotlin LSP
     "rubyPackages_3_1.rubocop", "rubyPackages_3_2.rubocop", "rubyPackages_3_3.rubocop",  # Ruby linter
     "phpPackages_81.composer", "phpPackages_82.composer", "phpPackages_83.composer",  # PHP package manager
@@ -136,6 +138,7 @@
     "terraform", "terragrunt", "opentofu",           # IaC tools
     "tflint", "tfsec", "checkov",                    # IaC linting and security
     "pulumi", "pumictl", "pulumiPackages.pulumi-nodejs", "python313Packages.pulumi",  # Pulumi ecosystem
+    "localstack",
 
     # C/C++ Development Tools
     "gcc", "clang", "gdb", "lld", "llvm",            # Compilers, debuggers, and toolchains
