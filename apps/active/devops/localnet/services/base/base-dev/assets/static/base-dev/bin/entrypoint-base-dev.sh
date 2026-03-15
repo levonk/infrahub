@@ -289,6 +289,8 @@ fi
 execute_as_user_in_devbox "cd /home/$USERNAME/work; tldr warm . && tldr context main --project ." || { echo "❌ Failed to run llm-tldr commands in Devbox development environment"; exit 1; }
 
 # Check and run vibe-kanban inside Devbox development shell
+echo "🤖 Installing gh-dash gh plugin"
+execute_as_user_in_devbox "gh extension install dlvhdr/gh-dash" >/dev/null 2>&1 || { echo "❌ gh not available in Devbox development environment"; exit 1; }
 echo "🤖 Checking for npx in Devbox development environment..."
 execute_as_user_in_devbox "which npx" >/dev/null 2>&1 || { echo "❌ npx not available in Devbox development environment"; exit 1; }
 echo "🤖 Starting vibe-kanban inside Devbox development environment..."

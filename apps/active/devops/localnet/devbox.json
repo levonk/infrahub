@@ -1,4 +1,5 @@
 {
+  "_bug_note": "DEVBOX SCRIPT GENERATION BUG: devbox run <script> may fail with 'command not found' error. This is a known devbox regression in v0.14.x+. Use 'just <command>' or 'devbox shell' then 'just <command>-internal' instead. See ADR-20260131001 for details.",
   "packages": [
     "jq",
     "just",
