@@ -439,6 +439,48 @@ cloud-build:
     cd services/cloud && docker compose -f docker-compose.cloud.base.yml pull
     @./scripts/echo-colors.sh green "✓ Cloud services built/pulled"
 
+# Start RustFS service only
+up-cloud-rustfs:
+    @./scripts/echo-colors.sh blue "Starting RustFS service..."
+    cd services/cloud/rustfs && docker compose -f docker-compose.rustfs.yml --env-file ../../../{{ENV_FILE}} up -d
+    @./scripts/echo-colors.sh green "✓ RustFS service started"
+    @echo "Console: http://localhost:9001 (RustFS2026!SecureKey/RustFS2026!SecretPhrase)"
+
+# Stop RustFS service only
+down-cloud-rustfs:
+    @./scripts/echo-colors.sh yellow "Stopping RustFS service..."
+    cd services/cloud/rustfs && docker compose -f docker-compose.rustfs.yml down
+    @./scripts/echo-colors.sh green "✓ RustFS service stopped"
+
+# Show RustFS logs
+logs-cloud-rustfs:
+    @./scripts/echo-colors.sh blue "RustFS service logs:"
+    @docker logs -f localnet-rustfs
+
+# Check RustFS health
+health-cloud-rustfs:
+    @./scripts/echo-colors.sh blue "Checking RustFS health..."
+    @docker exec localnet-rustfs curl -f http://127.0.0.1:9000/health && \
+    docker exec localnet-rustfs curl -f http://127.0.0.1:9001/rustfs/console/health
+    @./scripts/echo-colors.sh green "✓ RustFS is healthy"
+
+# Open shell in RustFS container
+shell-cloud-rustfs:
+    @./scripts/echo-colors.sh blue "Opening shell in RustFS container..."
+    @docker exec -it localnet-rustfs /bin/sh
+
+# Start all app services
+up-apps:
+    @./scripts/echo-colors.sh blue "Starting app services..."
+    @docker compose -f docker-compose.localnet.yml --profile apps --env-file {{ENV_FILE}} --progress=plain up -d
+    @./scripts/echo-colors.sh green "✓ App services started"
+
+# Stop app services
+down-apps:
+    @./scripts/echo-colors.sh yellow "Stopping app services..."
+    @docker compose -f docker-compose.localnet.yml --profile apps --env-file {{ENV_FILE}} down
+    @./scripts/echo-colors.sh green "✓ App services stopped"
+
 # Aliases for common commands
 alias rebuild := clean
 alias health := health-check

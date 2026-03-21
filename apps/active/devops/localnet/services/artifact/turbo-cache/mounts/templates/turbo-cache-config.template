@@ -1,0 +1,29 @@
+# Turbo Cache Configuration Template
+# This file will be processed with environment variables during container startup
+
+# Server Configuration
+host = ${TURBO_CACHE_HOST:-0.0.0.0}
+port = ${TURBO_CACHE_PORT:-3654}
+
+# Data Storage
+data_dir = "${TURBO_CACHE_DATA_DIR:-/var/lib/turbocache}"
+
+# Logging
+log_level = "${TURBO_CACHE_LOG_LEVEL:-info}"
+
+# Web Interface (if applicable)
+web_port = ${ARTIFACT_TURBO_CACHE_WEB_CONTAINER_PORT:-3655}
+web_host = ${TURBO_CACHE_HOST:-0.0.0.0}
+
+# Security
+# Note: In production, consider adding authentication and TLS settings
+
+# Performance
+# Note: Adjust based on available resources
+max_concurrent_requests = 100
+cache_size_mb = 512
+
+# Integration
+# Note: Configure for your Turborepo setup
+team_id = "default"
+api_key = "${TURBO_CACHE_API_KEY:-}"

@@ -1,0 +1,42 @@
+# Nuxt Tweet Organizer Docker Service
+FROM localnet-base-alpine
+
+# Install Node.js and pnpm (NOT npm)
+RUN apk update && apk upgrade && \
+    apk add --no-cache \
+        nodejs \
+        npm \
+        curl \
+        ca-certificates \
+        bash \
+        git && \
+    npm install -g pnpm && \
+    rm -rf /var/cache/apk/*
+
+# Create app directory
+WORKDIR /app
+
+# Create non-root user (cuser with UID/GID 1000 as per LocalNet standards)
+RUN adduser -D -u 1000 -g 'cuser' cuser
+
+# Copy entrypoint and healthcheck scripts
+COPY assets/static/ /scripts/
+RUN chmod +x /scripts/entrypoint-nuxt-tweet-org.sh
+RUN chmod +x /scripts/healthcheck-nuxt-tweet-org.sh
+
+# Set ownership
+RUN chown -R cuser:cuser /app
+RUN chown -R cuser:cuser /scripts
+
+# Health check configuration
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD ["/scripts/healthcheck-nuxt-tweet-org.sh"]
+
+# Switch to non-root user
+USER cuser
+
+# Expose port (will be overridden by compose)
+EXPOSE 3000
+
+# Set entrypoint
+ENTRYPOINT ["/scripts/entrypoint-nuxt-tweet-org.sh"]

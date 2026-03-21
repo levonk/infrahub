@@ -1,0 +1,118 @@
+#!/bin/bash
+#  Health Check Script
+# Performs comprehensive health checks for the service
+
+set -euo pipefail
+
+# Configuration
+SERVICE_NAME="localnet-turbo-cache"
+SERVICE_PORT="${ARTIFACT_TURBO_CACHE_CONTAINER_PORT:-3654}"
+HEALTH_ENDPOINT="/health"
+TIMEOUT=10
+
+# Logging functions
+info() {
+  if [ "${VERBOSE:-}" = "true" ]; then
+    echo "[INFO] 🔍 $1"
+  fi
+}
+
+warn() {
+  echo "[WARN] ⚠️ $1"
+}
+
+error() {
+  echo "[ERROR] ❌ $1"
+}
+
+# Test macros
+test() {
+  info "Testing: $1"
+}
+
+success() {
+  info "✅ Success: $1"
+}
+
+not_applicable() {
+  info "⚪️ Not applicable: $1"
+}
+
+# Check for verbose flag
+if [ "$1" = "--verbose" ] || [ "$1" = "-v" ]; then
+  VERBOSE=true
+  shift
+fi
+
+# Check if service is running
+check_service_running() {
+    test "service container status..."
+    if docker ps --format "table {{.Names}}" | grep -q "^${SERVICE_NAME}$"; then
+        success "Service ${SERVICE_NAME} is running"
+        return 0
+    else
+        error "Service ${SERVICE_NAME} is not running"
+        return 1
+    fi
+}
+
+# Check service health via HTTP endpoint
+check_http_health() {
+    test "HTTP health endpoint..."
+    local url="http://localhost:${SERVICE_PORT}${HEALTH_ENDPOINT}"
+
+    if curl -f --max-time $TIMEOUT --silent "$url" > /dev/null 2>&1; then
+        success "HTTP health check passed"
+        return 0
+    else
+        error "HTTP health check failed"
+        return 1
+    fi
+}
+
+# Check resource usage
+check_resources() {
+    test "resource usage..."
+    local container_stats
+    container_stats=$(docker stats --no-stream --format "table {{.Container}}\t{{.CPUPerc}}\t{{.MemUsage}}" | grep "^${SERVICE_NAME}")
+
+    if [[ -n "$container_stats" ]]; then
+        success "Resource usage retrieved"
+        info "Resource usage: $container_stats"
+        return 0
+    else
+        warn "Could not retrieve resource usage"
+        return 1
+    fi
+}
+
+# Main health check function
+main() {
+    info "Starting health check for ${SERVICE_NAME}"
+
+    local failed_checks=0
+
+    if ! check_service_running; then
+        ((failed_checks++))
+    fi
+
+    if ! check_http_health; then
+        ((failed_checks++))
+    fi
+
+    if ! check_resources; then
+        # Resource check failure is not critical
+        warn "Resource check failed, but continuing"
+    fi
+
+    if [[ $failed_checks -eq 0 ]]; then
+        success "All health checks passed"
+        exit 0
+    else
+        error "$failed_checks health check(s) failed"
+        exit 1
+    fi
+}
+
+# Run main function
+main "$@"

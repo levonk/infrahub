@@ -321,13 +321,20 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] Human Interaction Controller https://github.com/easychen/ask4me
   - [ ] **Code Understanding** https://github.com/HKUDS/FastCode
   - [ ] **Claude Code core service (cc-tools)**: https://github.com/Veraticus/cc-tools
+  - [ ] **Everything Claude Code**: https://github.com/affaan-m/everything-claude-code
   - [ ] **Claude Code UI (claudecodeui)**: https://github.com/siteboon/claudecodeui
+    - [ ] https://github.com/jarrodwatts/claude-hud
+    - [ ] https://github.com/VoltAgent/awesome-agent-skills
+    - [ ] skills.sh
   - [ ] **Claude Code MCP server**: https://github.com/steipete/claude-code-mcp
   - [ ] **Agent Trace**: https://agent-trace.dev/#8-reference-implementation
   - [ ] https://github.com/Th0rgal/open-ralph-wiggum
   - [ ] **LLM Proxy**: https://github.com/Fast-Editor/Lynkr
   - [ ] **PluggedIn MCP proxy**: https://github.com/VeriTeknik/pluggedin-mcp-proxy
   - [ ] **PluggedIn app**: https://github.com/VeriTeknik/pluggedin-app
+  - [ ] **OpenClaw**: AI-powered automation and task management https://github.com/openclaw/openclaw (ClawdBot, MoltBot, OpenClaw)
+    - [ ] **ClawRouter**: https://github.com/BlockRunAI/ClawRouter
+    - [ ] **ClawHub**: https://github.com/openclaw/clawhub
 - [ ] **AI Auto Agent**:
   - [ ] **IronClaw**: AI-powered automation and task management https://github.com/nearai/ironclaw
 	- Alternatives
@@ -345,7 +352,9 @@ _Goal: Privacy, Resilience, Ad-blocking_
     - [ ] **LLM Memory Search**
       - [ ] https://github.com/tobi/qmd
   - [ ] **OpenCode**:
-  - [ ] https://github.com/nrslib/takt
+    - [ ] https://github.com/pedramamini/Maestro/issues/284 agent orchestrator
+    - [ ] https://github.com/nrslib/takt Task Agent Koordination Tool – A multi-agent orchestration system supporting Claude Code and Codex.
+  - [ ] **Compound Engineering**: https://github.com/EveryInc/compound-engineering-plugin
   - [ ] ClaudCode
     - [ ] Caludit plugin to audit how much garbage is in claude.md
   - [ ] **SuperMemory**: https://supermemory.ai/docs/deployment/self-hosting#self-hosting https://github.com/supermemoryai/supermemory
@@ -488,6 +497,8 @@ _Goal: Privacy, Resilience, Ad-blocking_
     - [ ] **Deluge**: Torrent Client https://github.com/deluge-torrent/deluge
 - [ ] **Calendar**
   - [ ] **Radicale**: FOSS CalDAV and CardDAV server https://github.com/radicale/radicale
+- [ ] **Music**
+  - [ ] https://github.com/HeartMuLa/heartlib
   - [ ] https://github.com/supunlakmal/hash-calendar
 - [ ] **Photos**
   - [ ] Immich https://github.com/immich-app/immich
@@ -495,6 +506,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] PhotoPrism https://github.com/photoprism/photoprism
 - [ ] **Document Specifics**:
   - [ ] PDF:
+    - [ ] https://github.com/PDFCraftTool/pdfcraft
     - [ ] https://github.com/alam00000/bentopdf
     - [ ] https://github.com/libpdf-js/core
 - [ ] **Documents Management**:
@@ -560,6 +572,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] **DeepCode**: Code agent https://github.com/HKUDS/DeepCode
   - [ ] **Skyvern**: Browser agent https://github.com/Skyvern-AI/skyvern
   - [ ] **AgentSea**: Compute agent https://github.com/agentsea/surfkit https://www.agentsea.ai/
+  - [ ] **Manus Replacement**: https://github.com/OthmanAdi/planning-with-files
   - [ ] **OpenScouts**: Web AI Notifier https://github.com/firecrawl/open-scouts
 - [ ] **Stable Diffusion**
   - [ ] **ComfyUI**: https://github.com/comfyanonymous/ComfyUI https://www.comfy.org/
@@ -576,6 +589,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
 - [ ] **Container Registry**: Harbor https://github.com/goharbor/harbor
 - [ ] **Package Proxies**:
   - [ ] **Verdaccio**: NPM Proxy https://github.com/verdaccio/verdaccio
+  - [ ] **turbo-cache**: https://github.com/brunojppb/turbo-cache-server
   - [ ] **Nexus**: Maven Proxy https://github.com/sonatype/nexus-public
   - [ ] **OpenRepo**: Deb/RPM Repo https://github.com/openkilt/openrepo
   - [ ] **Garnix-Yensid**: Nix Repo https://github.com/garnix-io/yensid
@@ -608,12 +622,15 @@ _Goal: Privacy, Resilience, Ad-blocking_
 
 ## 📝 Backlog
 
+- Learning
+  - [ ] https://github.com/HKUDS/DeepTutor
 - [ ] **CLI Tools**:
   - [ ] YouTube downloader https://github.com/yt-dlp/yt-dlp
   - [ ] Why is this Running? https://github.com/pranshuparmar/witr
 - [ ] **OCR Tools**:
   - [ ] Mistral OCR3: https://mistral.ai/news/mistral-ocr-3
   - Alternatives
+    - [ ] https://github.com/ocrbase-hq/ocrbase   Easy to use state of the art VLM(ocr+llm) via SDK & API. (📄 PDF ->.MD/.JSON). Self-hostable.
     - [ ] DeepSeek-OCR2: https://github.com/deepseek-ai/DeepSeek-OCR-2
 	- [ ] https://github.com/zai-org/GLM-OCR
   - [ ] Chandra: https://github.com/datalab-to/chandra
@@ -704,6 +721,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
     - [ ] https://github.com/pendulum-project/statime --- PTP (Precision Time Protocol) daemon
     - [ ] https://github.com/YunoHost-Apps --- YunoHost app catalog (packaged self‑hosted apps)
     - [ ] https://github.com/YunoHost-Apps/invoiceninja5_ynh --- InvoiceNinja YunoHost package (invoicing)
+	- [ ] https://github.com/pixlcore/xyops IT workflow management
       - [ ] https://github.com/piratuks/invoice-builder
   - [ ] **Networking, Edge & Tunnels**
     - [ ] https://docs.pangolin.net/ --- Pangolin docs (reverse proxy / tunnel)
@@ -752,6 +770,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
     - [ ] SmartSDR for Linux from Simon Ritchie (NVOE) @ Tech Connect Radio Club (NA0TC)
     - [ ] NetClaw from John Capobianco
     - [ ] https://github.com/DaKheera47/job-ops
+	- [ ]  resume optimizer https://github.com/btseytlin/hr-breaker
     - [ ] https://github.com/gchq/CyberChef --- CyberChef (web-based data transform toolkit)
     - [ ] https://github.com/kasmtech/KasmVNC --- Web-based VNC viewer (browser VNC)
     - [ ] https://github.com/Elbullazul/LinkGuardian --- Bookmark/link guardian / archiving helper
@@ -795,7 +814,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
 		- RabbitMQ use NATS
 - Tools
 	- zsh with oh-my-zsh
-	-
+	- https://github.com/lucasgelfond/zerobrew instead of homebrew / brew.sh
 	- Instead of
 		- Docker: use podman
 

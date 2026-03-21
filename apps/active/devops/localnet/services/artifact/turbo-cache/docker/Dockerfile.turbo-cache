@@ -1,0 +1,55 @@
+# Use localnet base Alpine image with proper user setup
+FROM localnet-base-alpine:latest
+
+# Install runtime dependencies
+RUN apk add --no-cache \
+    ca-certificates \
+    curl \
+    jq \
+    envsubst \
+    && rm -rf /var/cache/apk/*
+
+# Create application directories
+RUN mkdir -p /var/lib/turbocache /etc/turbocache /etc/turbocache/templates && \
+    chown -R cuser:cuser /var/lib/turbocache /etc/turbocache
+
+# Copy healthcheck script
+COPY ../healthcheck/check-health.sh /usr/local/bin/check-health.sh
+RUN chmod 0755 /usr/local/bin/check-health.sh
+
+# Copy configuration template
+COPY ../mounts/templates/turbo-cache-config.template /etc/turbocache/templates/turbo-cache-config.template
+RUN chown cuser:cuser /etc/turbocache/templates/turbo-cache-config.template
+
+# Copy entrypoint script
+COPY ../assets/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod 0755 /usr/local/bin/entrypoint.sh && \
+    chown cuser:cuser /usr/local/bin/entrypoint.sh
+
+# Create a simple placeholder script as the turbo-cache-server
+RUN echo '#!/bin/sh\n# Placeholder for turbo-cache-server\n# This is a temporary placeholder until the build issue is resolved\n# TODO: Implement actual turbo-cache-server binary\nexit 0' > /usr/local/bin/turbo-cache-server && \
+    chmod 0755 /usr/local/bin/turbo-cache-server && \
+    chown cuser:cuser /usr/local/bin/turbo-cache-server
+
+# Set environment variables
+ENV TURBO_CACHE_PORT=${ARTIFACT_TURBO_CACHE_CONTAINER_PORT:-3654} \
+    TURBO_CACHE_HOST=0.0.0.0 \
+    TURBO_CACHE_DATA_DIR=/var/lib/turbocache \
+    TURBO_CACHE_LOG_LEVEL=info \
+    ARTIFACT_TURBO_CACHE_WEB_CONTAINER_PORT=${ARTIFACT_TURBO_CACHE_WEB_CONTAINER_PORT:-3655}
+
+# Health check for turbo-cache-server
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD /usr/local/bin/check-health.sh || exit 1
+
+# Switch to standard user (cuser with UID/GID 1000)
+USER cuser
+
+# Expose ports
+EXPOSE ${TURBO_CACHE_PORT} ${ARTIFACT_TURBO_CACHE_WEB_CONTAINER_PORT}
+
+# Set working directory
+WORKDIR /var/lib/turbocache
+
+# Run the entrypoint script
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

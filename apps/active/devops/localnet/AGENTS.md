@@ -68,6 +68,18 @@ If you're working on Nix containers, see the documentation at:
 
 - /home/micro/p/gh/lrepo52/job-aide/apps/active/devops/localnet/internal-docs/requirements/nix/
 
+## Standards and Best Practices
+
+All Docker services in localnet must follow the **Docker Service Standards** as defined in ADR-20251218002:
+
+- **Reference**: `/home/micro/p/gh/lrepo52/job-aide/internal-docs/adr/adr-20251218002-docker-service-standards.md`
+- **Developer UX**: `/home/micro/p/gh/lrepo52/job-aide/internal-docs/adr/adr-20260131001-standard-developer-ux-flow.md`
+- **Base Images**: Use `localnet-base-alpine` if necessary `localnet-base-debian` in rare instances `localnet-base-nix` and in special cases `localnet-base-sidecar` or `localnet-base-dev`
+- **User Configuration**: Standard `cuser` with UID/GID 1000
+- **Environment Variables**: Follow naming convention `{CATEGORY}_{SERVICE}_{SUB_SERVICE}_{HOST|CONTAINER}_{PORT|IP}`
+- **Security**: Non-root execution, capability dropping, read-only filesystems
+- **Directory Structure**: Canonical layout with `docker/`, `assets/`, `healthcheck/`, `tests/`
+
 ## 🚀 Environment Setup
 
 This project uses **Devbox** for environment management with integrated memory management tools (qmd, tkr, Obsidian). Follow these steps:
@@ -616,7 +628,7 @@ exec /bin/sh: no such file or directory
 
 **Root Cause:** The nix-sidecar container is built from a minimal base image that doesn't include `/bin/sh`.
 
-**Solution Path:** 
+**Solution Path:**
 1. Check the Dockerfile: `services/base/nix-sidecar/Dockerfile.nix-sidecar`
 2. Check the entrypoint: `services/base/nix-sidecar/assets/static/nix-sidecar/entrypoint-nix-sidecar.sh`
 3. Ensure proper user permission dropping as specified in the container configuration

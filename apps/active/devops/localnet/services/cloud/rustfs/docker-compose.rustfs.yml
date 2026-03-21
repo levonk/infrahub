@@ -1,0 +1,104 @@
+# RustFS S3-Compatible Object Storage Service
+# High-performance object storage system built in Rust
+# Based on: https://github.com/rustfs/rustfs
+
+# Include shared volumes and networks
+include:
+  - ../../../docker-compose.include.yml
+
+services:
+  # RustFS main service
+  rustfs:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.rustfs
+    container_name: localnet-rustfs
+    # Security options following localnet standards
+    security_opt:
+      - "no-new-privileges:true"
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+      - DAC_OVERRIDE
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    # Ports
+    ports:
+      - "${CLOUD_RUSTFS_HOST_PORT:-9000}:9000"  # S3 API port
+      - "${CLOUD_RUSTFS_CONSOLE_HOST_PORT:-9001}:9001"  # Console port
+    # Environment variables
+    environment:
+      # Core configuration
+      - RUSTFS_VOLUMES=/data/rustfs{0..3}  # Define 4 storage volumes
+      - RUSTFS_ADDRESS=0.0.0.0:9000
+      - RUSTFS_CONSOLE_ADDRESS=0.0.0.0:9001
+      - RUSTFS_CONSOLE_ENABLE=true
+      # CORS configuration
+      - RUSTFS_CORS_ALLOWED_ORIGINS=*
+      - RUSTFS_CONSOLE_CORS_ALLOWED_ORIGINS=*
+      # Default credentials (should be overridden in production)
+      - RUSTFS_ACCESS_KEY=${CLOUD_RUSTFS_ACCESS_KEY:-rustfsadmin}
+      - RUSTFS_SECRET_KEY=${CLOUD_RUSTFS_SECRET_KEY:-rustfsadmin}
+      # Logging
+      - RUSTFS_OBS_LOGGER_LEVEL=${CLOUD_RUSTFS_LOG_LEVEL:-info}
+      # TLS configuration (optional)
+      - RUSTFS_TLS_PATH=${CLOUD_RUSTFS_TLS_PATH:-}
+      # OpenTelemetry (optional)
+      - RUSTFS_OBS_ENDPOINT=${CLOUD_RUSTFS_OBS_ENDPOINT:-}
+      # LocalNet standard environment variables
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - USERNAME=${USERNAME:-cuser}
+    # Volumes
+    volumes:
+      - rustfs-data:/data
+      - rustfs-logs:/app/logs
+    # Networks
+    networks:
+      - cloud-network
+    # Restart policy
+    restart: unless-stopped
+    # Health check
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "sh", "-c",
+          "curl -f http://127.0.0.1:9000/health && curl -f http://127.0.0.1:9001/rustfs/console/health"
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    # Labels for Traefik and monitoring
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.rustfs.rule=Host(`rustfs.local.localhost`)"
+      - "traefik.http.services.rustfs.loadbalancer.server.port=9001"
+      - "com.docker.compose.service=rustfs"
+      - "com.docker.compose.project=localnet"
+    # User (root for initialization, will drop to cuser in entrypoint)
+    user: "0:0"
+    # Working directory
+    working_dir: /
+    # Drop privileges
+    read_only: true
+    tmpfs:
+      - /tmp
+    # Entrypoint (command is in Dockerfile)
+    entrypoint: ["/entrypoint.sh"]
+
+# Networks (defined in parent compose)
+networks:
+  localnet:
+    external: true

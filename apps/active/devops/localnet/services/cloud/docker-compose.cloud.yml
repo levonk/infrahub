@@ -35,6 +35,16 @@ services:
     restart: unless-stopped
     profiles: ["all"]
 
+  # RustFS S3-Compatible Object Storage
+  rustfs:
+    extends:
+      file: ./rustfs/docker-compose.rustfs.yml
+      service: rustfs
+    container_name: localnet-rustfs
+    networks:
+      - localnet
+    profiles: ["cloud", "all"]
+
 networks:
   localnet:
     external: true

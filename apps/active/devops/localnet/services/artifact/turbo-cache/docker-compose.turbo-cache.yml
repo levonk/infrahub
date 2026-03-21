@@ -1,0 +1,107 @@
+# Turbo Cache Server - Turborepo remote cache service
+
+services:
+  turbo-cache:
+    image: localnet-turbo-cache:latest
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.turbo-cache
+      args:
+        TURBO_CACHE_VERSION: ${ARTIFACT_TURBO_CACHE_VERSION:-main}
+    container_name: localnet-turbo-cache
+    hostname: turbo-cache
+    restart: unless-stopped
+
+    # Security settings
+    user: "${PUID:-1000}:${PGID:-1000}"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=100m
+      - /var/tmp:noexec,nosuid,size=100m
+
+    # Environment variables
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-UTC}
+      - ARTIFACT_TURBO_CACHE_CONTAINER_PORT=${ARTIFACT_TURBO_CACHE_CONTAINER_PORT:-3654}
+      - ARTIFACT_TURBO_CACHE_WEB_CONTAINER_PORT=${ARTIFACT_TURBO_CACHE_WEB_CONTAINER_PORT:-3655}
+      - TURBO_CACHE_HOST=0.0.0.0
+      - TURBO_CACHE_PORT=${ARTIFACT_TURBO_CACHE_CONTAINER_PORT:-3654}
+      - TURBO_CACHE_DATA_DIR=/var/lib/turbocache
+      - TURBO_CACHE_LOG_LEVEL=${ARTIFACT_TURBO_CACHE_LOG_LEVEL:-info}
+
+    # Port mappings
+    ports:
+      - "${ARTIFACT_TURBO_CACHE_HOST_PORT:-3654}:${ARTIFACT_TURBO_CACHE_CONTAINER_PORT:-3654}"
+      - "${ARTIFACT_TURBO_CACHE_WEB_HOST_PORT:-3655}:${ARTIFACT_TURBO_CACHE_WEB_CONTAINER_PORT:-3655}"
+
+    # Volumes
+    volumes:
+      - turbo_cache_data:/var/lib/turbocache:rw
+      - turbo_cache_config:/etc/turbocache:rw
+      - ./mounts/templates:/etc/turbocache/templates:ro
+
+    # Networks
+    networks:
+      - localnet-internal
+
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '${ARTIFACT_TURBO_CACHE_CPU_LIMIT:-0.5}'
+          memory: '${ARTIFACT_TURBO_CACHE_MEMORY_LIMIT:-512M}'
+        reservations:
+          cpus: '${ARTIFACT_TURBO_CACHE_CPU_RESERVATION:-0.1}'
+          memory: '${ARTIFACT_TURBO_CACHE_MEMORY_RESERVATION:-128M}'
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/check-health.sh"]
+      interval: 30s
+      timeout: 10s
+      start_period: 10s
+      retries: 3
+
+    # Labels
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.turbo-cache.rule=Host(`turbo-cache.localnet`)"
+      - "traefik.http.routers.turbo-cache.entrypoints=web"
+      - "traefik.http.services.turbo-cache.loadbalancer.server.port=${ARTIFACT_TURBO_CACHE_WEB_CONTAINER_PORT:-3655}"
+      - "com.localnet.service=turbo-cache"
+      - "com.localnet.category=artifact"
+      - "com.localnet.description=Turborepo remote cache server"
+      - "version=${ARTIFACT_TURBO_CACHE_VERSION:-main}"
+
+    # Profiles
+    profiles: ["all"]
+
+# Named volumes
+volumes:
+  turbo_cache_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${VOLUME_BASE_PATH:-./volumes}/turbo_cache/data
+  turbo_cache_config:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${VOLUME_BASE_PATH:-./volumes}/turbo_cache/config
+
+# Networks
+networks:
+  localnet-internal:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: ${ARTIFACT_TURBO_CACHE_SUBNET:-172.21.255.0/24}
+          gateway: ${ARTIFACT_TURBO_CACHE_GATEWAY:-172.21.255.1}

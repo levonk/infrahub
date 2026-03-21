@@ -1,0 +1,65 @@
+---
+
+services:
+  nuxt-tweet-org:
+    build:
+      context: .
+      dockerfile: Dockerfile.nuxt-tweet-org
+    container_name: localnet-apps-nuxt-tweet-org
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      # X/Twitter API credentials (from main env.local)
+      - X_CLIENT_ID=${X_CLIENT_ID}
+      - X_CLIENT_SECRET=${X_CLIENT_SECRET}
+      - NUXT_SESSION_PASSWORD=${NUXT_SESSION_PASSWORD}
+      # Service configuration
+      - APPS_NUXT_TWEET_ORG_IP=${APPS_NUXT_TWEET_ORG_IP:-172.20.255.71}
+      - APPS_NUXT_TWEET_ORG_HOST_PORT=${APPS_NUXT_TWEET_ORG_HOST_PORT:-3000}
+      - APPS_NUXT_TWEET_ORG_CONTAINER_PORT=${APPS_NUXT_TWEET_ORG_CONTAINER_PORT:-3000}
+    ports:
+      - "${APPS_NUXT_TWEET_ORG_HOST_PORT:-3000}:${APPS_NUXT_TWEET_ORG_CONTAINER_PORT:-3000}"
+    networks:
+      localnet:
+        ipv4_address: ${APPS_NUXT_TWEET_ORG_IP:-172.20.255.71}
+    volumes:
+      # pnpm cache volume (shared with pnpm-sidecar)
+      - pnpm-cache:/home/cuser/.cache/pnpm
+      # App data volume
+      - nuxt-tweet-org-data:/app/data
+    depends_on:
+      - pnpm-sidecar
+    healthcheck:
+      test: ["CMD", "/assets/static/healthcheck-nuxt-tweet-org.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/tmp
+      - /app/.nuxt
+      - /app/.output
+    user: "1000:1000"
+
+networks:
+  localnet:
+    external: true
+    name: localnet
+
+volumes:
+  pnpm-cache:
+    external: true
+    name: localnet-pnpm-cache
+  nuxt-tweet-org-data:
+    driver: local
