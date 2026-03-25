@@ -1,7 +1,7 @@
 ---
 id: l-11ebc2b4
 title: Fix privilege dropping in nix-sidecar healthcheck
-status: open
+status: ready
 deps: []
 links: []
 created: 2026-02-04T18:55:44.587418421Z

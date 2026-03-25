@@ -13,22 +13,29 @@ set -eu
 # This healthcheck only verifies basic operational readiness
 
 # Drop privileges to non-root user if running as root
-if [ "$(id -u)" = "0" ] && [ -n "$USERNAME" ]; then
-    # Check if user exists and switch to it
-    if id "$USERNAME" >/dev/null 2>&1; then
-        # Use setpriv if available (more secure)
+if [ "$(id -u)" = "0" ] && [ -n "$PUID" ]; then
+    # Check if user with PUID exists and switch to it
+    if getent passwd "$PUID" >/dev/null 2>&1; then
+        # Use setpriv if available (more secure) - use numeric UID
         if command -v setpriv >/dev/null 2>&1; then
-            exec setpriv --reuid "$USERNAME" --regid "$USERNAME" --clear-groups "$0" "$@"
-        # Use chroot with user as fallback (less ideal but available)
-        elif command -v chroot >/dev/null 2>&1 && [ -d "/home/$USERNAME" ]; then
-            exec chroot --userspec="$USERNAME:$USERNAME" / "$0" "$@"
+            exec setpriv --reuid "$PUID" --regid "$PUID" --clear-groups "$0" "$@"
+        # Use chroot with numeric UID as fallback (less ideal but available)
+        elif command -v chroot >/dev/null 2>&1; then
+            # Find username for PUID to use with chroot
+            USERNAME_FOR_PUID=$(getent passwd "$PUID" | cut -d: -f1)
+            if [ -n "$USERNAME_FOR_PUID" ] && [ -d "/home/$USERNAME_FOR_PUID" ]; then
+                exec chroot --userspec="$PUID:$PUID" / "$0" "$@"
+            else
+                echo "[WARN] ⚠️ Cannot find home directory for UID $PUID"
+                echo "[WARN] ⚠️ Running healthcheck as root"
+            fi
         # If no user switching tools available, continue as root but warn
         else
             echo "[WARN] ⚠️ Cannot drop privileges - no user switching tools available"
             echo "[WARN] ⚠️ Running healthcheck as root"
         fi
     else
-        echo "[WARN] ⚠️ User $USERNAME does not exist"
+        echo "[WARN] ⚠️ User with UID $PUID does not exist"
         echo "[WARN] ⚠️ Running healthcheck as root"
     fi
 fi
@@ -327,54 +334,66 @@ done
 echo "✅ healthcheck: All nixbld users (nixbld1-32) exist with correct configuration"
 
 # Check if we can write to user profile directory
-if [ -n "$USERNAME" ]; then
-    user_profile_dir="/nix/var/nix/profiles/per-user/$USERNAME"
-    if [ ! -d "$user_profile_dir" ]; then
-        not_applicable "User profile directory does not exist"
-    else
-        test "user profile write access..."
-        if touch "$user_profile_dir/.test_write" 2>/dev/null; then
-            rm -f "$user_profile_dir/.test_write"
-            success "User profile directory is writable by $USERNAME"
+if [ -n "$PUID" ]; then
+    # Get username for PUID to construct profile path
+    USERNAME_FOR_PUID=$(getent passwd "$PUID" 2>/dev/null | cut -d: -f1)
+    if [ -n "$USERNAME_FOR_PUID" ]; then
+        user_profile_dir="/nix/var/nix/profiles/per-user/$USERNAME_FOR_PUID"
+        if [ ! -d "$user_profile_dir" ]; then
+            not_applicable "User profile directory does not exist"
         else
-            warn "User profile directory is not writable by $USERNAME"
+            test "user profile write access..."
+            if touch "$user_profile_dir/.test_write" 2>/dev/null; then
+                rm -f "$user_profile_dir/.test_write"
+                success "User profile directory is writable by UID $PUID"
+            else
+                warn "User profile directory is not writable by UID $PUID"
+            fi
         fi
+    else
+        not_applicable "Cannot find username for PUID $PUID, skipping profile write test"
     fi
 else
-    not_applicable "USERNAME not set, skipping profile write test"
+    not_applicable "PUID not set, skipping profile write test"
 fi
 
 # Check user profile directory structure and symlinks
-if [ -z "$USERNAME" ]; then
-    warn "USERNAME not set, skipping user profile checks"
+if [ -z "$PUID" ]; then
+    warn "PUID not set, skipping user profile checks"
 else
-    test "user profile for $USERNAME..."
-    user_profile_dir="/nix/var/nix/profiles/per-user/$USERNAME"
-    if [ ! -d "$user_profile_dir" ]; then
-        error "User profile directory $user_profile_dir does not exist"
-        exit 1
-    fi
-    success "User profile directory exists"
-
-    # Check user profile ownership (should be USERNAME:nixbld)
-    profile_owner=$(stat -c "%U:%G" "$user_profile_dir" 2>/dev/null || echo "unknown")
-    if [ "$profile_owner" != "$USERNAME:nixbld" ]; then
-        warn "User profile ownership is $profile_owner, expected $USERNAME:nixbld"
+    # Get username for PUID to construct profile path
+    USERNAME_FOR_PUID=$(getent passwd "$PUID" 2>/dev/null | cut -d: -f1)
+    if [ -z "$USERNAME_FOR_PUID" ]; then
+        warn "Cannot find username for PUID $PUID, skipping user profile checks"
     else
-        success "User profile ownership correct ($USERNAME:nixbld)"
-    fi
-
-    # Check user profile symlink
-    if [ -L "/home/$USERNAME/.nix-profile" ]; then
-        test "user profile symlink..."
-        symlink_target=$(readlink "/home/$USERNAME/.nix-profile" 2>/dev/null || echo "unknown")
-        if [ "$symlink_target" = "/nix/var/nix/profiles/per-user/$USERNAME/profile" ]; then
-            success "User profile symlink points to correct location"
-        else
-            warn "User profile symlink points to $symlink_target"
+        test "user profile for UID $PUID ($USERNAME_FOR_PUID)..."
+        user_profile_dir="/nix/var/nix/profiles/per-user/$USERNAME_FOR_PUID"
+        if [ ! -d "$user_profile_dir" ]; then
+            error "User profile directory $user_profile_dir does not exist"
+            exit 1
         fi
-    else
-        warn "User profile symlink does not exist"
+        success "User profile directory exists"
+
+        # Check user profile ownership (should be USERNAME_FOR_PUID:nixbld)
+        profile_owner=$(stat -c "%U:%G" "$user_profile_dir" 2>/dev/null || echo "unknown")
+        if [ "$profile_owner" != "$USERNAME_FOR_PUID:nixbld" ]; then
+            warn "User profile ownership is $profile_owner, expected $USERNAME_FOR_PUID:nixbld"
+        else
+            success "User profile ownership correct ($USERNAME_FOR_PUID:nixbld)"
+        fi
+
+        # Check user profile symlink
+        if [ -L "/home/$USERNAME_FOR_PUID/.nix-profile" ]; then
+            test "user profile symlink..."
+            symlink_target=$(readlink "/home/$USERNAME_FOR_PUID/.nix-profile" 2>/dev/null || echo "unknown")
+            if [ "$symlink_target" = "/nix/var/nix/profiles/per-user/$USERNAME_FOR_PUID/profile" ]; then
+                success "User profile symlink points to correct location"
+            else
+                warn "User profile symlink points to $symlink_target"
+            fi
+        else
+            warn "User profile symlink does not exist"
+        fi
     fi
 fi
 
@@ -422,27 +441,33 @@ if [ "$world_writable_found" = "false" ]; then
 fi
 
 # Check current user is not in nixbld group (security isolation)
-if [ -z "$USERNAME" ]; then
-    not_applicable "USERNAME not set, skipping user group check"
+if [ -z "$PUID" ]; then
+    not_applicable "PUID not set, skipping user group check"
 else
-    test "user group membership for security..."
-    # Check if user is in nixbld group by checking /etc/group
-    user_in_nixbld=false
-    while IFS=: read -r name passwd gid members; do
-        if [ "$name" = "nixbld" ]; then
-            # Check if USERNAME is in the members list
-            case ",$members," in
-                *,"$USERNAME",*) user_in_nixbld=true ;;
-            esac
-            break
-        fi
-    done < /etc/group
-
-    if [ "$user_in_nixbld" = "true" ]; then
-        error "$USERNAME is in nixbld group - security boundary violated"
-        exit 1
+    # Get username for PUID to check group membership
+    USERNAME_FOR_PUID=$(getent passwd "$PUID" 2>/dev/null | cut -d: -f1)
+    if [ -z "$USERNAME_FOR_PUID" ]; then
+        not_applicable "Cannot find username for PUID $PUID, skipping user group check"
     else
-        success "$USERNAME is not in nixbld group (security isolation verified)"
+        test "user group membership for security..."
+        # Check if user is in nixbld group by checking /etc/group
+        user_in_nixbld=false
+        while IFS=: read -r name passwd gid members; do
+            if [ "$name" = "nixbld" ]; then
+                # Check if USERNAME_FOR_PUID is in the members list
+                case ",$members," in
+                    *,"$USERNAME_FOR_PUID",*) user_in_nixbld=true ;;
+                esac
+                break
+            fi
+        done < /etc/group
+
+        if [ "$user_in_nixbld" = "true" ]; then
+            error "$USERNAME_FOR_PUID (UID $PUID) is in nixbld group - security boundary violated"
+            exit 1
+        else
+            success "$USERNAME_FOR_PUID (UID $PUID) is not in nixbld group (security isolation verified)"
+        fi
     fi
 fi
 
