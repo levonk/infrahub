@@ -3,34 +3,55 @@
   "packages": [
     "jq",
     "just",
-    "yq-go"
+    "yq-go",
+    "ripgrep",
+    "github:levonk/tkr#tkr"
   ],
   "shell": {
-    "init_hook": []
+    "init_hook": [
+      "just bootstrap-internal"
+    ]
   },
   "scripts": {
-    "base-up": "just base-up-internal",
     "bootstrap": "just bootstrap-internal",
-    "up": "just up-internal",
-    "down": "just down-internal",
-    "build": "just build-internal",
+    "prime": "just prime-internal",
+    "doctor": "just doctor-internal",
     "clean": "just clean-internal",
     "clean-full": "just clean-full-internal",
     "clean-configs": "just clean-configs-internal",
     "fix-configs": "just fix-configs-internal",
-    "logs": "just logs-internal",
-    "health-check": "just health-check-internal",
+    "build": "just build-internal",
+    "lint": "just lint-internal",
+    "lint-claude": "just lint-claude-internal",
     "test": "just test-internal",
     "test-all": "just test-all-internal",
     "test-claude": "just test-claude-internal",
+    "up": "just up-internal",
+    "down": "just down-internal",
+    "restart": "just restart-internal",
+    "logs": "just logs-internal",
+    "health-check": "just health-check-internal",
     "ps": "just ps-internal",
     "stats": "just stats-internal",
     "pull": "just pull-internal",
     "config": "just config-internal",
-    "lint": "just lint-internal",
-    "lint-claude": "just lint-claude-internal",
     "cloud-up": "just cloud-up-internal",
     "cloud-down": "just cloud-down-internal",
-    "restart": "just restart-internal"
+    "base-up": "just base-up-internal",
+    "up-agents": "just up-agents-internal",
+    "up-base01": "just up-base01-internal",
+    "up-base02": "just up-base02-internal",
+    "up-core": "just up-core-internal",
+    "up-nix": "just up-nix-internal",
+    "up-dns": "just up-dns-internal",
+    "up-security": "just up-security-internal",
+    "up-core-nix": "just up-core-nix-internal",
+    "up-localnet": "just up-localnet-internal",
+    "up-prod": "just up-prod-internal",
+    "up-test": "just up-test-internal",
+    "doc-search": "just doc-search-internal",
+    "tasks": "just tasks-internal",
+    "task-ready": "just task-ready-internal",
+    "task-start": "just task-start-internal"
   }
 }

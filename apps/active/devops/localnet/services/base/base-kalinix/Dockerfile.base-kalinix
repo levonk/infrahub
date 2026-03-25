@@ -1,0 +1,55 @@
+FROM localnet-base-kali:latest
+
+# Install Nix package manager
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        curl \
+        ca-certificates \
+        xz-utils \
+        && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install Nix
+RUN sh <(curl -L https://nixos.org/nix/install) --daemon --no-daemonize
+
+# Create openfang user with proper UID/GID (inheriting from base-kali)
+ARG PUID=1000
+ARG PGID=1000
+ARG USERNAME=cuser
+
+# Set working directory
+WORKDIR /opt/${USERNAME}
+
+# Copy static assets to mirror container filesystem
+COPY assets/static/base-kalinix/ /
+COPY assets/templates/ /templates/
+
+# Backup the internal Nix environment so it can be restored when an empty volume is mounted
+RUN mkdir -p /base-kalinix/tmp /etc/nix && \
+    tar -C / -cf /base-kalinix/tmp/bootstrap-slash-nix.tar nix bin etc/profile.d
+
+COPY assets/templates/etc/nix/nix.conf /etc/nix/nix.conf
+
+# Set up environment for the sidecar
+ENV PATH=/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/nix/var/nix/profiles/default/bin
+ENV NIX_PATH=nixpkgs=/nix/var/nix/profiles/default/channels/nixpkgs:/nix/var/nix/profiles/default/channels
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt
+ENV TZ=UTC
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Create directories
+RUN mkdir -p /home/${USERNAME}/.local/share /home/${USERNAME}/.config && \
+    chown -R ${USERNAME}:${USERNAME} /home/${USERNAME} /opt/${USERNAME} /base-kalinix
+
+# Make scripts executable
+RUN chmod +x /base-kalinix/entrypoint-base-kalinix.sh /base-kalinix/healthcheck-base-kalinix.sh
+
+# Switch to non-root user
+USER ${USERNAME}
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD ["/bin/sh", "-c", "/base-kalinix/healthcheck-base-kalinix.sh > /dev/null 2>&1"]
+
+# Set entrypoint
+ENTRYPOINT ["/bin/sh", "/base-kalinix/entrypoint-base-kalinix.sh"]

@@ -1,0 +1,62 @@
+FROM localnet-base-kalinix:latest
+
+# Install additional security tools for OpenFang
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        # Additional security tools
+        aircrack-ng \
+        wireshark-common \
+        tcpdump \
+        nmap \
+        # Development tools
+        build-essential \
+        cmake \
+        pkg-config \
+        # OpenFang dependencies
+        libssl-dev \
+        libffi-dev \
+        libpq-dev \
+        && \
+    rm -rf /var/lib/apt/lists/*
+
+# Create openfang user with proper UID/GID (inheriting from base-kalinix)
+ARG PUID=1000
+ARG PGID=1000
+ARG USERNAME=cuser
+
+# Set working directory
+WORKDIR /opt/openfang
+
+# Install OpenFang
+RUN curl -fsSL https://openfang.sh/install | sh
+
+# Copy static assets to mirror container filesystem
+COPY assets/static/openfang/ /openfang/
+COPY assets/templates/ /templates/
+
+# Set up environment
+ENV PATH=/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/nix/var/nix/profiles/default/bin
+ENV OPENFANG_DATA_DIR=/data/openfang
+ENV OPENFANG_CONFIG_DIR=/config/openfang
+ENV TZ=UTC
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Create data and config directories
+RUN mkdir -p ${OPENFANG_DATA_DIR} ${OPENFANG_CONFIG_DIR} && \
+    chown -R ${USERNAME}:${USERNAME} ${OPENFANG_DATA_DIR} ${OPENFANG_CONFIG_DIR}
+
+# Make scripts executable
+RUN chmod +x /openfang/entrypoint-openfang.sh /openfang/healthcheck-openfang.sh
+
+# Switch to non-root user
+USER ${USERNAME}
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD ["/bin/sh", "-c", "/openfang/healthcheck-openfang.sh > /dev/null 2>&1"]
+
+# Expose ports
+EXPOSE 4200
+
+# Set entrypoint
+ENTRYPOINT ["/bin/sh", "/openfang/entrypoint-openfang.sh"]

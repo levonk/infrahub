@@ -1,5 +1,8 @@
 FROM nixpkgs/nix:latest
 
+# Create /bin/sh symlink using nix-shell with proper nixpkgs path
+RUN NIX_PATH=nixpkgs=channel:nixos-unstable nix-shell -p bash --run "mkdir -p /bin && cp $(nix eval nixpkgs#bash --raw)/bin/bash /bin/sh" || true
+
 # Copy static assets to mirror container filesystem
 COPY assets/static/ /
 COPY assets/templates/ /templates/
@@ -22,4 +25,4 @@ HEALTHCHECK --interval=30s --timeout=120s --start-period=1200s --retries=3 \
   CMD /bin/sh -c '/nix-sidecar/healthcheck-nix-sidecar.sh > /dev/null 2>&1'
 
 # Use the static busybox shell for bootstrapping
-ENTRYPOINT ["/bin/sh", "/nix-sidecar/entrypoint-nix-sidecar.sh"]
+ENTRYPOINT ["/nix-sidecar/entrypoint-nix-sidecar.sh"]

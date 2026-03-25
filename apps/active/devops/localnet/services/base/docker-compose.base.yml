@@ -24,6 +24,7 @@ services:
         - PUID=${PUID:-1000}
         - PGID=${PGID:-1000}
         - TZ=${TZ:-UTC}
+    profiles: [core, base01, base02, localnet, all]
     networks:
       - null-network
     volumes:
@@ -39,11 +40,6 @@ services:
         condition: service_healthy
     restart: no
     logging: *default-logging
-    profiles:
-      - base01
-      - base02
-      - base03
-
   base-debian:
     image: localnet-base-debian:latest
     container_name: localnet-base-debian
@@ -136,7 +132,7 @@ services:
       interval: 240s
       timeout: 120s
       retries: 3
-      start_period: 1200s
+      start_period: 4800s
     logging: *default-logging
     profiles:
       - base01

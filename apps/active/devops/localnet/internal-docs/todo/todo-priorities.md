@@ -339,7 +339,11 @@ _Goal: Privacy, Resilience, Ad-blocking_
     - https://github.com/bytebot-ai/bytebot
   - Desktop Control
 	- [ ] **OpenClaudeCowork**: https://github.com/ComposioHQ/open-claude-cowork/
-  - [ ] **Pi CodeAssist Agent**:
+  - [ ] **Pi CodeAssist Agent**: https://pi.dev/
+  - [ ] **LLM Memory**
+    - [ ] https://github.com/plastic-labs/honcho
+    - [ ] **LLM Memory Search**
+      - [ ] https://github.com/tobi/qmd
   - [ ] **OpenCode**:
   - [ ] https://github.com/nrslib/takt
   - [ ] ClaudCode

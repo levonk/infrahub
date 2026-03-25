@@ -1,19 +1,21 @@
 # LocalNet Development Environment - Agent Instructions
 
-If you're working on Nix containers, see the documetnation at:
+This document follows **[ADR-20260322002](../internal-docs/adr/adr-20260322002-docker-compose-profile-strategy.md)** for Docker Compose profile-based service organization and **[ADR-20260322003](../internal-docs/adr/adr-20260322003-memory-management-local-task-tracking.md)** for memory management and task tracking.
+
+If you're working on Nix containers, see the documentation at:
 
 - /home/micro/p/gh/lrepo52/job-aide/apps/active/devops/localnet/internal-docs/requirements/nix/
 
 ## 🚀 Environment Setup
 
-This project uses **Devbox** for environment management. Follow these steps:
+This project uses **Devbox** for environment management with integrated memory management tools (qmd, tkr, Obsidian). Follow these steps:
 
 ### 1. Setup Devbox Environment
 ```bash
 # Ensure you're in the correct directory
 cd apps/active/devops/localnet
 
-# Start devbox shell (installs just, yq-go, jq)
+# Start devbox shell (installs just, yq-go, jq, qmd, tkr, obsidian)
 devbox shell
 
 # Or run commands directly through devbox
@@ -21,6 +23,37 @@ devbox run -- just base-up-internal
 ```
 
 ### 2. Available Commands
+
+**Profile-Based Service Management (NEW)**:
+```bash
+# Profile-based service orchestration (ADR-20260322002)
+just up-agents                    # Start AI/agent services
+just up-base01                    # Production base services
+just up-core-nix                  # Core infrastructure only
+just up-localnet                  # Full localnet environment
+
+# Environment-specific deployments
+COMPOSE_ENV=production just up-base01
+COMPOSE_ENV=testing just up-agents
+
+# Multi-profile combinations
+just up-core-nix                  # Core + Nix services
+just up-prod                      # Production environment
+```
+
+**Memory Management & Task Tracking (NEW)**:
+```bash
+# Search documentation and memory
+just doc-search "authentication"
+just doc-search "database patterns"
+
+# Task management with tkr
+just tasks                         # List open tasks
+just task-ready                    # Get next available task
+just task-start                   # Start working on task
+```
+
+**Traditional Commands (backward compatible)**:
 ```bash
 # Primary workflow: just → devbox run -- just-internal
 just base-up        # → devbox run -- just base-up-internal
@@ -32,40 +65,147 @@ just logs           # → devbox run -- just logs-internal
 just health-check   # → devbox run -- just health-check-internal
 just test           # → devbox run -- just test-internal
 just bootstrap      # → devbox run -- just bootstrap-internal
-
-# Direct devbox commands (bypass just)
-devbox run -- just base-up-internal
-devbox run -- just up-internal
-devbox run -- just down-internal
-devbox run -- just clean-internal
-devbox run -- just logs-internal
-devbox run -- just health-check-internal
-devbox run -- just test-internal
-devbox run -- just bootstrap-internal
-
-# Direct just-internal targets (bypass devbox)
-just base-up-internal
-just up-internal
-just down-internal
-just build-internal
-just clean-internal
-just logs-internal
-just health-check-internal
-just test-internal
-just bootstrap-internal
 ```
 
 ### 3. ADR Compliance Notes
-This justfile includes `-internal` recipe variants to comply with ADR-20260131001:
+
+This project follows multiple ADRs for standardized workflows:
+
+- **ADR-20260131001**: Standard Developer UX Flow (`direnv → devbox → just (*-internal)`)
+- **ADR-20260322002**: Docker Compose Profile-Based Service Organization
+- **ADR-20260322003**: Memory Management and Local Task Tracking
+
+The justfile includes `-internal` recipe variants to comply with ADR-20260131001:
 - All main recipes have corresponding `-internal` variants
 - `-internal` recipes delegate to their main counterparts
 - Enables parent devbox.json to call `bootstrap-internal` and other `-internal` targets
 
-### 4. Why Devbox?
-- Provides consistent development environment
-- Includes required tools (just, yq-go, jq)
-- Ensures proper package versions
-- Follows monorepo standards from ADR-20260131001
+### 4. Why Devbox with Memory Tools?
+- **Consistent Environment**: Provides consistent development environment across all projects
+- **Integrated Tooling**: Includes required tools (just, yq-go, jq, qmd, tkr, obsidian)
+- **Memory Management**: Built-in qmd for documentation search, tkr for task tracking
+- **Knowledge Graph**: Obsidian for interconnected knowledge management
+- **ADR Compliance**: Follows monorepo standards from ADR-20260131001
+
+## 🔄 Profile-Based Service Organization
+
+Following **[ADR-20260322002](../internal-docs/adr/adr-20260322002-docker-compose-profile-strategy.md)**, services are organized into profiles for better debugging and management:
+
+### Available Profiles
+
+```bash
+# Core Infrastructure
+just up-core                      # Core services (networks, shared resources)
+just up-nix                       # Nix package management
+just up-dns                       # DNS resolution services
+
+# Base Environments
+just up-base01                    # Production base infrastructure
+just up-base02                    # Development base infrastructure
+
+# Application Services
+just up-agents                    # AI and agent services (OpenFang)
+just up-security                  # Security services and monitoring
+
+# Combined Environments
+just up-localnet                  # Full localnet environment (default)
+just up-core-nix                  # Core infrastructure + Nix
+just up-prod                      # Production environment
+just up-test                      # Testing environment
+```
+
+### Environment-Specific Deployment
+
+```bash
+# Production environment
+COMPOSE_ENV=production just up-base01
+
+# Development environment (default)
+COMPOSE_ENV=development just up-localnet
+
+# Testing environment
+COMPOSE_ENV=testing just up-agents
+```
+
+### Debugging with Profiles
+
+```bash
+# Debug specific service
+docker compose --profile nix up nix-sidecar
+
+# Debug service cluster
+docker compose --profile agents up
+
+# Show logs for profile
+docker compose --profile nix logs --tail=50
+
+# Use justfile for ADR-compliant debugging
+just up-nix                        # Start Nix services
+just logs                          # View all logs
+```
+
+## 🧠 Memory Management & Task Tracking
+
+Following **[ADR-20260322003](../internal-docs/adr/adr-20260322003-memory-management-local-task-tracking.md)**:
+
+### Memory Search with qmd
+
+```bash
+# Search documentation and knowledge base
+just doc-search "authentication patterns"
+just doc-search "database design"
+just doc-search "kali security tools"
+
+# Show all indexed content
+just doc-search
+```
+
+### Task Management with tkr
+
+```bash
+# View available tasks
+just tasks
+
+# Get next actionable task
+just task-ready
+
+# Start working on task
+just task-start
+
+# Add notes to current task
+tkr add-note <task-id> "Working on authentication flow"
+```
+
+### Knowledge Management with Obsidian
+
+The `memory/` directory contains organized knowledge:
+- `01-projects/` - Project-specific knowledge
+- `02-decisions/` - Architecture decisions and rationale
+- `03-patterns/` - Design patterns and solutions
+- `04-learnings/` - Lessons learned and insights
+
+## 🎯 Integrated Workflow
+
+### Daily Development Workflow
+
+```bash
+# 1. Enter project (direnv activates devbox with memory tools)
+cd apps/active/devops/localnet
+
+# 2. Check available tasks
+just tasks
+
+# 3. Search memory for context
+just doc-search "security agent configuration"
+
+# 4. Start specific service cluster (ADR-20260322002)
+just up-agents
+
+# 5. Start working on task
+just task-start
+
+# 6. Work with full context (qmd + Obsidian + tkr)
+```
 
 ## ⚠️ CRITICAL: Directory Requirements
 
@@ -98,83 +238,67 @@ cd apps/active/devops/localnet
 just base-up  # ← Uses correct paths and env vars
 ```
 
-## ⚠️ IMPORTANT: Always Use the Justfile
+## ⚠️ IMPORTANT: Use Profile-Based Service Management
 
-**NEVER start services directly with `docker-compose up` or `docker-compose start`.** Always use the justfile targets:
+**PREFER the new profile-based approach** for better debugging and service isolation:
 
 ```bash
-# Start all services
-just up
+# RECOMMENDED: Profile-based service management (ADR-20260322002)
+just up-agents                    # Start AI/agent services
+just up-base01                    # Production base services
+just up-core-nix                  # Core infrastructure only
 
-# Start specific service group
-just base-up
-just up-dns
-just up-artifact
-
-# Stop all services
-just down
-
-# Restart services
-just restart
+# LEGACY: Traditional justfile commands (still work)
+just up                           # Start all services
+just base-up                      # Start base services
 ```
 
-## Why the Justfile is Required
+### When to Use Each Approach
 
-### 1. Environment File Loading
+**Use Profile-Based Services**:
+- Debugging specific service clusters
+- Testing individual components
+- Environment-specific deployments
+- Isolating service dependencies
 
-The justfile ensures proper loading of environment files in the correct order:
+**Use Traditional Commands**:
+- Full system startup
+- Legacy compatibility
+- Simple workflows
 
-- `env.template` - Base environment variables
-- `env.local` - Local overrides (if exists)
-- Service-specific env files for proper configuration
+## 🔄 Service Organization (Profile-Based)
 
-### 2. Docker Compose File Ordering
+Following **[ADR-20260322002](../internal-docs/adr/adr-20260322002-docker-compose-profile-strategy.md)**, services are organized into logical profiles:
 
-Services must be started in a specific dependency order:
+### Profile Hierarchy
 
-1. **Base services** (nix-sidecar, etc.) - Foundation services
-2. **DNS services** (CoreDNS, DNSDist, dnscrypt-proxy) - Network layer
-3. **Artifact services** (Harmonia, NCPS) - Application layer
+```
+ALL (Production/Development)
+├── BASE01/BASE02 (Base Infrastructure)
+│   ├── CORE (Essential services)
+│   ├── NIX (Package management)
+│   └── DNS (Resolution services)
+├── AGENTS (AI services)
+│   └── OpenFang security agent
+└── SECURITY (Security monitoring)
+```
 
-Starting services out of order will cause dependency failures.
+### Profile Usage Examples
 
-### 3. Network and Volume Initialization
+```bash
+# Start specific service cluster
+just up-core-nix                  # Core infrastructure only
+just up-agents                    # AI and agent services
+just up-security                  # Security services
 
-The justfile handles:
+# Environment-specific deployment
+COMPOSE_ENV=production just up-base01
+COMPOSE_ENV=development just up-localnet
 
-- Creating Docker networks in the correct sequence
-- Initializing shared volumes
-- Setting up proper inter-service communication
-
-### 4. Environment Variable Substitution
-
-Many services use environment variables in their configurations:
-
-- Port mappings (e.g., `DNS_TRANSPARENT_HOST_PORT`)
-- IP addresses for service communication
-- Feature flags and debug settings
-
-The justfile ensures these are properly exported before Docker Compose runs.
-
-## Service Groups
-
-### Base Services (`just up-base`)
-
-- `nix-sidecar` - Nix package manager and caching
-- Foundation services that other containers depend on
-
-### DNS Services (`just up-dns`)
-
-- `coredns` - Local DNS resolver
-- `dnsdist` - DNS router/forwarder
-- `dnscrypt-proxy-*` - Encrypted DNS clients
-- Must start after base services
-
-### Artifact Services (`just up-artifact`)
-
-- `harmonia` - Nix cache server
-- `ncps` - Nix binary cache proxy
-- Must start after DNS services
+# Debug specific service
+docker compose --profile nix up nix-sidecar
+docker compose --profile agents up openfang
+```
 
 ## Common Workflows
 

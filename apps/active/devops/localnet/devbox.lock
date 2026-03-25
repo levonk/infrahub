@@ -2,20 +2,79 @@
   "lockfile_version": "1",
   "packages": {
     "github:NixOS/nixpkgs/nixpkgs-unstable": {
-      "last_modified": "2026-02-06T12:24:04Z",
-      "resolved": "github:NixOS/nixpkgs/ae67888ff7ef9dff69b3cf0cc0fbfbcd3a722abe?lastModified=1770380644&narHash=sha256-P7dWMHRUWG5m4G%2B06jDyThXO7kwSk46C1kgjEWcybkE%3D"
+      "last_modified": "2026-03-23T13:48:00Z",
+      "resolved": "github:NixOS/nixpkgs/fdc7b8f7b30fdbedec91b71ed82f36e1637483ed?lastModified=1774273680&narHash=sha256-a%2B%2BtZ1RQsDb1I0NHrFwdGuRlR5TORvCEUksM459wKUA%3D"
+    },
+    "github:levonk/tkr#tkr": {
+      "last_modified": "2026-03-22T17:31:58Z",
+      "resolved": "github:levonk/tkr/b25cdc75e8981690e04d500292077c07b1446682?lastModified=1774200718&narHash=sha256-VFP8%2BA8O5ZHxRm1Kp6DxZ0I9tgEXef%2F7C14vHzXcFB8%3D#tkr"
     },
     "jq": {
       "resolved": "github:NixOS/nixpkgs/ae67888ff7ef9dff69b3cf0cc0fbfbcd3a722abe?narHash=sha256-P7dWMHRUWG5m4G%2B06jDyThXO7kwSk46C1kgjEWcybkE%3D#jq",
-      "source": "nixpkg"
+      "source": "nixpkg",
+      "systems": {
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "name": "bin",
+              "path": "/nix/store/51343hgchh7by4l8r1g244ma05ny3x0b-jq-1.8.1-bin",
+              "default": true
+            },
+            {
+              "name": "man",
+              "path": "/nix/store/vx840ik1sj1h8fhqwa40aglvrgpa0r18-jq-1.8.1-man",
+              "default": true
+            }
+          ]
+        }
+      }
     },
     "just": {
       "resolved": "github:NixOS/nixpkgs/ae67888ff7ef9dff69b3cf0cc0fbfbcd3a722abe?narHash=sha256-P7dWMHRUWG5m4G%2B06jDyThXO7kwSk46C1kgjEWcybkE%3D#just",
-      "source": "nixpkg"
+      "source": "nixpkg",
+      "systems": {
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "name": "man",
+              "path": "/nix/store/svaa8vdlzdgbm5plfk3bvyawnvkj7x36-just-1.46.0-man",
+              "default": true
+            },
+            {
+              "path": "/nix/store/dj01bb0rk1czx6wdymfswh4as56xsbkw-just-1.46.0",
+              "default": true
+            }
+          ]
+        }
+      }
+    },
+    "ripgrep": {
+      "resolved": "github:NixOS/nixpkgs/ae67888ff7ef9dff69b3cf0cc0fbfbcd3a722abe?narHash=sha256-P7dWMHRUWG5m4G%2B06jDyThXO7kwSk46C1kgjEWcybkE%3D#ripgrep",
+      "source": "nixpkg",
+      "systems": {
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "path": "/nix/store/iwgyg59m9na9wp424crxxj0dcmhi4ryd-ripgrep-15.1.0",
+              "default": true
+            }
+          ]
+        }
+      }
     },
     "yq-go": {
       "resolved": "github:NixOS/nixpkgs/ae67888ff7ef9dff69b3cf0cc0fbfbcd3a722abe?narHash=sha256-P7dWMHRUWG5m4G%2B06jDyThXO7kwSk46C1kgjEWcybkE%3D#yq-go",
-      "source": "nixpkg"
+      "source": "nixpkg",
+      "systems": {
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "path": "/nix/store/wd8img44f5sksvg9ghbrciji2mc62g3r-yq-go-4.52.2",
+              "default": true
+            }
+          ]
+        }
+      }
     }
   }
 }

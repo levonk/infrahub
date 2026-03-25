@@ -12,8 +12,6 @@ x-logging: &default-logging
     tag: "{{.Name}}"
     labels: "service"
 
-services: {}
-
 # ============================================================================
 # Proxy and gateway services are loaded via services/proxy/docker-compose.proxy.yml
 # ============================================================================
@@ -21,6 +19,7 @@ services: {}
 include:
   - docker-compose.include.yml
   - services/base/docker-compose.base.yml
+  - services/base/docker-compose.base-kali.yml
   - services/artifact/docker-compose.artifact.yml
   - services/security/docker-compose.security.yml
   - services/dns/docker-compose.dns.yml
@@ -43,5 +42,7 @@ include:
   #- services/ai-codeassist/docker-compose.opencode-runner.base.yml
   #- services/ai-codeassist/docker-compose.opencode-runner.linux.yml
   #- services/ai-codeassist/docker-compose.opencode-runner.wsl.yml
+  - services/ai-codeassist/openfang/openfang/docker-compose.openfang.yml
+  - services/agents/docker-compose.agents.yml
   # - services/home/docker-compose.home.yml
   # - services/iot/docker-compose.iot.yml

@@ -244,6 +244,31 @@ volumes:
     name: localnet-ai-codeassist-workdir-volume
     external: true
 
+  # OpenFang volumes
+  openfang-data:
+    name: localnet-openfang-data-volume
+    external: true
+  openfang-config:
+    name: localnet-openfang-config-volume
+    external: true
+  openfang-storage:
+    name: localnet-openfang-storage-volume
+    external: true
+  openfang-logs:
+    name: localnet-openfang-logs-volume
+    external: true
+  openfang-home:
+    name: localnet-openfang-home-volume
+    external: true
+
+  # Base Kali volumes
+  base-kali-home:
+    name: localnet-base-kali-home-volume
+    external: true
+  base-kalinix-home:
+    name: localnet-base-kalinix-home-volume
+    external: true
+
 
 networks:
   localnet:
@@ -256,6 +281,10 @@ networks:
 
   codeassist:
     name: codeassist-network
+    external: true
+
+  agent-network:
+    name: agent-network
     external: true
 
   null-network:

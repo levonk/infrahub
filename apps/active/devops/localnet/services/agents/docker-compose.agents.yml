@@ -1,0 +1,23 @@
+---
+# AI Agents Services
+# Security-focused AI agents running in isolated environment
+
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "5"
+    tag: "{{.Name}}"
+    labels: "service"
+
+include:
+  - ../../docker-compose.include.yml
+
+services: {}
+
+volumes: {}
+
+networks:
+  agent-network:
+    external: true
+    name: agent-network

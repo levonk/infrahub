@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 set -eu
 
 # NOTE: This healthcheck expects a Nix MULTI-USER installation

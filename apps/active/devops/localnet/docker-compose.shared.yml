@@ -55,6 +55,25 @@ networks:
     driver: bridge
     external: false
 
+  # Agent Networks
+  agent-network:
+    name: agent-network
+    driver: bridge
+    external: false
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+          gateway: 172.20.0.1
+
+  dmz-network:
+    name: dmz-network
+    driver: bridge
+    external: false
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16
+          gateway: 172.21.0.1
+
 volumes:
   # Base volumes
   nix-cache:
@@ -281,6 +300,31 @@ volumes:
     name: localnet-ai-codeassist-workdir-volume
     external: false
 
+  # Base Kali volumes
+  base-kali-home:
+    name: localnet-base-kali-home-volume
+    external: false
+  base-kalinix-home:
+    name: localnet-base-kalinix-home-volume
+    external: false
+
+  # OpenFang volumes
+  openfang-data:
+    name: localnet-openfang-data-volume
+    external: false
+  openfang-config:
+    name: localnet-openfang-config-volume
+    external: false
+  openfang-storage:
+    name: localnet-openfang-storage-volume
+    external: false
+  openfang-logs:
+    name: localnet-openfang-logs-volume
+    external: false
+  openfang-home:
+    name: localnet-openfang-home-volume
+    external: false
+
 
 services:
   # Dummy service to allow docker compose up to work
@@ -292,6 +336,8 @@ services:
       - localnet
       - wireguard
       - codeassist
+      - agent-network
+      - dmz-network
     volumes:
       - nix-cache:/root/.cache/nix:ro
       - nix-config:/nix/config:ro

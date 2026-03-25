@@ -48,6 +48,161 @@ build-internal:
     @docker compose -f docker-compose.localnet.yml --profile all --env-file {{ENV_FILE}} --progress=plain build
     @./scripts/echo-colors.sh green "✓ Build complete"
 
+# Profile-based service management (NEW - ADR-20260322002)
+up-agents:
+    devbox run up-agents
+
+up-agents-internal:
+    @./scripts/echo-colors.sh blue "Starting AI/agent services..."
+    @docker compose -f docker-compose.localnet.yml --profile agents up -d
+    @./scripts/echo-colors.sh green "✓ Agent services started"
+
+up-base01:
+    devbox run up-base01
+
+up-base01-internal:
+    @./scripts/echo-colors.sh blue "Starting production base services..."
+    @docker compose -f docker-compose.localnet.yml --profile base01 up -d
+    @./scripts/echo-colors.sh green "✓ Base01 services started"
+
+up-base02:
+    devbox run up-base02
+
+up-base02-internal:
+    @./scripts/echo-colors.sh blue "Starting development base services..."
+    @docker compose -f docker-compose.localnet.yml --profile base02 up -d
+    @./scripts/echo-colors.sh green "✓ Base02 services started"
+
+up-core:
+    devbox run up-core
+
+up-core-internal:
+    @./scripts/echo-colors.sh blue "Starting core infrastructure..."
+    @docker compose -f docker-compose.localnet.yml --profile core up -d
+    @./scripts/echo-colors.sh green "✓ Core services started"
+
+up-nix:
+    devbox run up-nix
+
+up-nix-internal:
+    @./scripts/echo-colors.sh blue "Starting Nix package management..."
+    @docker compose -f docker-compose.localnet.yml --profile nix up -d
+    @./scripts/echo-colors.sh green "✓ Nix services started"
+
+up-dns:
+    devbox run up-dns
+
+up-dns-internal:
+    @./scripts/echo-colors.sh blue "Starting DNS resolution services..."
+    @docker compose -f docker-compose.localnet.yml --profile dns up -d
+    @./scripts/echo-colors.sh green "✓ DNS services started"
+
+up-security:
+    devbox run up-security
+
+up-security-internal:
+    @./scripts/echo-colors.sh blue "Starting security services..."
+    @docker compose -f docker-compose.localnet.yml --profile security up -d
+    @./scripts/echo-colors.sh green "✓ Security services started"
+
+# Multi-profile combinations
+up-core-nix:
+    devbox run up-core-nix
+
+up-core-nix-internal:
+    @./scripts/echo-colors.sh blue "Starting core infrastructure + Nix..."
+    @docker compose -f docker-compose.localnet.yml --profile core --profile nix up -d
+    @./scripts/echo-colors.sh green "✓ Core + Nix services started"
+
+up-localnet:
+    devbox run up-localnet
+
+up-localnet-internal:
+    @./scripts/echo-colors.sh blue "Starting full localnet environment..."
+    @docker compose -f docker-compose.localnet.yml --profile localnet up -d
+    @./scripts/echo-colors.sh green "✓ LocalNet started"
+
+# Environment-specific deployments
+up-prod:
+    devbox run up-prod
+
+up-prod-internal:
+    @./scripts/echo-colors.sh blue "Starting production environment..."
+    COMPOSE_ENV=production docker compose -f docker-compose.localnet.yml --profile base01 up -d
+    @./scripts/echo-colors.sh green "✓ Production environment started"
+
+up-test:
+    devbox run up-test
+
+up-test-internal:
+    @./scripts/echo-colors.sh blue "Starting testing environment..."
+    COMPOSE_ENV=testing docker compose -f docker-compose.localnet.yml --profile agents up -d
+    @./scripts/echo-colors.sh green "✓ Testing environment started"
+
+# Memory management & task tracking (NEW - ADR-20260322003)
+doc-search query=".":
+    @./scripts/echo-colors.sh blue "Searching documentation and memory..."
+    @if command -v qmd >/dev/null 2>&1; then \
+        qmd search "{{query}}" | head -20; \
+    else \
+        echo "qmd not found - install with: cargo install qmd"; \
+        echo "Falling back to ripgrep..."; \
+        rg --type md "{{query}}" docs/ internal-docs/ memory/ || true; \
+    fi
+
+doc-search-internal query=".":
+    @./scripts/echo-colors.sh blue "Searching documentation and memory..."
+    @if command -v qmd >/dev/null 2>&1; then \
+        qmd search "{{query}}" | head -20; \
+    else \
+        echo "qmd not found - install with: cargo install qmd"; \
+        echo "Falling back to ripgrep..."; \
+        rg --type md "{{query}}" docs/ internal-docs/ memory/ || true; \
+    fi
+
+tasks:
+    devbox shell tasks
+
+tasks-internal:
+    @./scripts/echo-colors.sh blue "Listing open tasks..."
+    @if [ -f ".devbox/nix/profile/default/bin/tkr" ]; then \
+        .devbox/nix/profile/default/bin/tkr list --status=open; \
+    elif command -v tkr >/dev/null 2>&1; then \
+        tkr list --status=open; \
+    else \
+        echo "tkr not found - install from: https://github.com/levonk/tkr"; \
+    fi
+
+task-ready:
+    devbox shell task-ready
+
+task-ready-internal:
+    @./scripts/echo-colors.sh blue "Getting next available task..."
+    @if [ -f ".devbox/nix/profile/default/bin/tkr" ]; then \
+        .devbox/nix/profile/default/bin/tkr ready; \
+    elif command -v tkr >/dev/null 2>&1; then \
+        tkr ready; \
+    else \
+        echo "tkr not found - install from: https://github.com/levonk/tkr"; \
+    fi
+
+task-start:
+    devbox shell task-start
+
+task-start-internal:
+    @./scripts/echo-colors.sh blue "Starting available task..."
+    @if command -v tkr >/dev/null 2>&1; then \
+        task_id=$$(tkr ready | head -1 | cut -d' ' -f1); \
+        if [ -n "$$task_id" ]; then \
+            tkr start "$$task_id"; \
+            echo "Started task: $$task_id"; \
+        else \
+            echo "No available tasks"; \
+        fi; \
+    else \
+        echo "tkr not found - install from: https://github.com/levonk/tkr"; \
+    fi
+
 # Start all services
 up:
     devbox run up

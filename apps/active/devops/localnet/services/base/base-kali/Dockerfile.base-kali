@@ -1,0 +1,90 @@
+FROM kalilinux/kali-rolling:latest
+
+# Install required packages for security testing
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        # Basic utilities
+        curl \
+        wget \
+        ca-certificates \
+        bash \
+        git \
+        vim \
+        nano \
+        htop \
+        tree \
+        unzip \
+        zip \
+        # Network tools
+        nmap \
+        netcat-traditional \
+        tcpdump \
+        wireshark-common \
+        dnsutils \
+        # Web security tools
+        burpsuite \
+        gobuster \
+        dirb \
+        nikto \
+        sqlmap \
+        # Exploitation tools
+        metasploit-framework \
+        exploitdb \
+        # Password cracking
+        john \
+        hashcat \
+        # Forensics
+        autopsy \
+        sleuthkit \
+        # Python and development tools
+        python3 \
+        python3-pip \
+        python3-venv \
+        golang \
+        rustc \
+        cargo \
+        # Security research tools
+        recon-ng \
+        theharvester \
+        maltego \
+        # System tools
+        sudo \
+        && \
+    rm -rf /var/lib/apt/lists/*
+
+# Create openfang user with proper UID/GID
+ARG PUID=1000
+ARG PGID=1000
+ARG USERNAME=cuser
+
+RUN groupadd -g ${PGID} ${USERNAME} && \
+    useradd -m -u ${PUID} -g ${PGID} -s /bin/bash ${USERNAME} && \
+    echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# Set working directory
+WORKDIR /opt/${USERNAME}
+
+# Copy static assets
+COPY assets/static/base-kali/ /
+
+# Set up environment
+ENV PATH=/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ENV TZ=UTC
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Create directories
+RUN mkdir -p /home/${USERNAME}/.local/share /home/${USERNAME}/.config && \
+    chown -R ${USERNAME}:${USERNAME} /home/${USERNAME} /opt/${USERNAME}
+
+# Make scripts executable
+RUN chmod +x /base-kali/entrypoint-base-kali.sh /base-kali/healthcheck-base-kali.sh
+
+# Switch to non-root user
+USER ${USERNAME}
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD ["/bin/sh", "-c", "/base-kali/healthcheck-base-kali.sh > /dev/null 2>&1"]
+
+# Set entrypoint
+ENTRYPOINT ["/bin/sh", "/base-kali/entrypoint-base-kali.sh"]

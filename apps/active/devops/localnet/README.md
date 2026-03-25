@@ -64,22 +64,27 @@ See [Three-Tier Access Model](internal-docs/architecture-three-tier-access.md) f
    cd apps/active/devops/localnet
    ```
 
-2. **Configure environment**:
+2. **Setup Devbox environment** (ADR-20260131001):
+   ```bash
+   devbox shell
+   ```
+
+3. **Configure environment**:
    ```bash
    cp .env.example .env
    vi .env  # Set your HOST_IP and other preferences
    ```
 
-3. **Start services** (no host setup needed!):
+4. **Start services** (no host setup needed!):
    ```bash
-   make up
+   just up
    ```
 
    **Note:** No `sudo` required! The transparent proxy runs entirely in containers.
 
 5. **Verify health**:
    ```bash
-   make health-check
+   just health-check
    ```
 
 6. **Access dashboards**:
@@ -88,6 +93,26 @@ See [Three-Tier Access Model](internal-docs/architecture-three-tier-access.md) f
    - Nexus: http://YOUR_HOST_IP:8081
    - Verdaccio: http://YOUR_HOST_IP:4873
    - Jaeger: http://YOUR_HOST_IP:16686
+
+### Profile-Based Service Management (NEW)
+
+Following **[ADR-20260322002](../internal-docs/adr/adr-20260322002-docker-compose-profile-strategy.md)**:
+
+```bash
+# Start specific service clusters
+just up-agents                    # AI/agent services
+just up-base01                    # Production base services
+just up-core-nix                  # Core infrastructure only
+
+# Environment-specific deployments
+COMPOSE_ENV=production just up-base01
+COMPOSE_ENV=testing just up-agents
+
+# Memory management and task tracking
+just doc-search "topic"          # Search documentation
+just tasks                        # List open tasks
+just task-start                   # Start working on task
+```
 
 ## 📖 Documentation
 
