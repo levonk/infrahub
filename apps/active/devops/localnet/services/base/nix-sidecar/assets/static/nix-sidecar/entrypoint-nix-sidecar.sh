@@ -240,6 +240,22 @@ if [ ! -e /nix/var/nix/profiles/per-user/"$USERNAME"/profile ]; then
         chmod 755 /nix/var
         echo "✅ /nix/var permissions set to root:root 755"
     fi
+
+    # Set correct permissions on /etc/nix for multi-user Nix (shared config)
+    if [ -d "/etc/nix" ]; then
+        echo "🤖 Nix Sidecar: Setting /etc/nix permissions for multi-user Nix..."
+        chown root:root /etc/nix
+        chmod 644 /etc/nix
+        echo "✅ /etc/nix permissions set to root:root 644"
+    fi
+
+    # Set correct permissions on /root/.cache/nix for multi-user Nix (daemon cache)
+    if [ -d "/root/.cache/nix" ]; then
+        echo "🤖 Nix Sidecar: Setting /root/.cache/nix permissions for multi-user Nix..."
+        chown root:root /root/.cache/nix
+        chmod 755 /root/.cache/nix
+        echo "✅ /root/.cache/nix permissions set to root:root 755"
+    fi
 fi
 
 # Function to execute command as non-root user

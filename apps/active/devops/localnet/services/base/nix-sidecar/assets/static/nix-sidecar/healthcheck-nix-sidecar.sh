@@ -156,6 +156,48 @@ if [ "$nix_perms" != "755" ]; then
 fi
 success "/nix ownership and permissions correct (multi-user Nix base: root:root, 755)"
 
+# Check /etc/nix ownership and permissions (MULTI-USER NIX REQUIREMENTS)
+test "/etc/nix directory..."
+if [ ! -d "/etc/nix" ]; then
+    error "/etc/nix directory does not exist"
+    exit 1
+fi
+
+etc_nix_owner=$(stat -c "%U:%G" /etc/nix 2>/dev/null || echo "unknown")
+etc_nix_perms=$(stat -c "%a" /etc/nix 2>/dev/null || echo "unknown")
+# Multi-user Nix REQUIRES root:root ownership with 644 permissions for shared config
+if [ "$etc_nix_owner" != "root:root" ]; then
+    error "/etc/nix ownership is $etc_nix_owner, REQUIRED: root:root (multi-user Nix shared config)"
+    exit 1
+fi
+if [ "$etc_nix_perms" != "644" ] && [ "$etc_nix_perms" != "755" ]; then
+    error "/etc/nix permissions are $etc_nix_perms, REQUIRED: 644 (multi-user Nix shared config)"
+    exit 1
+fi
+if [ "$etc_nix_perms" = "755" ]; then
+    warn "/etc/nix permissions are 755 (acceptable for Docker volumes, 644 preferred)"
+fi
+success "/etc/nix ownership and permissions correct (multi-user Nix shared config: $etc_nix_owner, $etc_nix_perms)"
+
+# Check /root/.cache/nix ownership and permissions (MULTI-USER NIX REQUIREMENTS)
+test "/root/.cache/nix directory..."
+if [ ! -d "/root/.cache/nix" ]; then
+    not_applicable "/root/.cache/nix directory does not exist (may not be mounted yet)"
+else
+    cache_nix_owner=$(stat -c "%U:%G" /root/.cache/nix 2>/dev/null || echo "unknown")
+    cache_nix_perms=$(stat -c "%a" /root/.cache/nix 2>/dev/null || echo "unknown")
+    # Multi-user Nix REQUIRES root:root ownership with 755 permissions for daemon cache
+    if [ "$cache_nix_owner" != "root:root" ]; then
+        error "/root/.cache/nix ownership is $cache_nix_owner, REQUIRED: root:root (multi-user Nix daemon cache)"
+        exit 1
+    fi
+    if [ "$cache_nix_perms" != "755" ]; then
+        error "/root/.cache/nix permissions are $cache_nix_perms, REQUIRED: 755 (multi-user Nix daemon cache)"
+        exit 1
+    fi
+    success "/root/.cache/nix ownership and permissions correct (multi-user Nix daemon cache: $cache_nix_owner, $cache_nix_perms)"
+fi
+
 # Check /nix/store ownership and permissions (MULTI-USER NIX REQUIREMENTS)
 test "/nix/store directory..."
 if [ ! -d "/nix/store" ]; then
