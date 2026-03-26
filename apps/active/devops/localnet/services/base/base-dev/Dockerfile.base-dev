@@ -1,7 +1,7 @@
 # =============================================================================
 # DEV-BASE: Base development environment with Nix and essential tools
 # =============================================================================
-FROM localnet-base-debnix:latest
+FROM localnet-base-kalinix:latest
 
 # Set up the non-root user using Docker Compose environment variables
 ARG USERNAME=cuser

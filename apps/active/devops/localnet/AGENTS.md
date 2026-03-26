@@ -2,6 +2,68 @@
 
 This document follows **[ADR-20260322002](../internal-docs/adr/adr-20260322002-docker-compose-profile-strategy.md)** for Docker Compose profile-based service organization and **[ADR-20260322003](../internal-docs/adr/adr-20260322003-memory-management-local-task-tracking.md)** for memory management and task tracking.
 
+## 🤖 AI Development Loop Integration
+
+This project implements the **AI Development Loop** skill for systematic, high-quality development cycles. All AI agents working on this project MUST follow the standardized workflow.
+
+### Quick Start for AI Agents
+
+```bash
+# Use the orchestrator for automated step-by-step execution
+./scripts/orchestrator.sh --verbose loop
+
+# Or use the development loop helper directly
+./scripts/dev-loop-helper.sh --verbose foundation
+./scripts/dev-loop-helper.sh --verbose next
+./scripts/dev-loop-helper.sh --verbose start <ticket-id>
+./scripts/dev-loop-helper.sh --verbose complete <ticket-id>
+```
+
+### Core Workflow Steps
+
+**Automated Steps (handled by script):**
+- **Step 0**: Foundation Check - Environment validation and security scanning
+- **Step 1**: Ticket Selection - Get next actionable ticket
+- **Step 2**: Start Work - Mark ticket as in_progress
+- **Step 6**: Verification - Code quality validation
+- **Step 8**: Completion - Ticket audit and repository cleanup
+
+**Manual Steps (agent responsibility):**
+- **Step 3**: High Quality - Ensure adequate testing
+- **Step 4**: Strategy - Determine implementation approach
+- **Step 5**: Implementation - Do the actual work
+- **Step 7**: Ticket Audit - Coverage validation (90%+ threshold)
+- **Step 9**: Commit Changes - Organized commits
+- **Step 10**: Assess - Improvement opportunities
+- **Step 11**: Codify - Create improvement tickets
+- **Step 12**: Final Commit - Repository cleanup
+- **Step 13**: Loop Again - Grab next ticket
+
+### Critical Warnings
+
+🚨 **EMPLOYMENT TERMINATION OFFENSES**:
+- NEVER remove existing features unless explicitly required by ticket
+- NEVER reduce test coverage or delete tests
+- NEVER degrade code quality or introduce regressions
+- NEVER stop processing open tickets in the LOOP
+- NEVER send data out of owned systems without permission
+- NEVER misinform the owner (explicitly or via omission)
+
+### Quality Gates
+
+Before completing any ticket, verify:
+- [ ] Foundation checks passed (environment validation, security scan)
+- [ ] Code quality validation passed
+- [ ] Ticket audit completed with 90%+ coverage
+- [ ] All ticket requirements fully implemented
+- [ ] No features or tests removed unless explicitly required
+- [ ] Test coverage maintained or improved
+- [ ] All existing functionality still works
+- [ ] No regressions introduced
+- [ ] Assessment completed for improvements
+- [ ] Improvement tickets created and prioritized
+- [ ] Documentation updated
+
 If you're working on Nix containers, see the documentation at:
 
 - /home/micro/p/gh/lrepo52/job-aide/apps/active/devops/localnet/internal-docs/requirements/nix/
@@ -184,7 +246,108 @@ The `memory/` directory contains organized knowledge:
 - `03-patterns/` - Design patterns and solutions
 - `04-learnings/` - Lessons learned and insights
 
-## 🎯 Integrated Workflow
+## 🤖 AI Development Loop Ticket Management
+
+### Ticket Status Flow
+
+```text
+open → in_progress → ready → closed
+  ↑         ↓           ↓
+  └─────── ready ←─────┘
+           ↓
+    stale (>7d) → open (auto-cleanup)
+```
+
+### Ticket Management Commands
+
+```bash
+# Foundation check with stale ticket cleanup
+./scripts/dev-loop-helper.sh --verbose foundation
+
+# Get next actionable ticket
+./scripts/dev-loop-helper.sh --verbose next
+
+# Start working on ticket
+./scripts/dev-loop-helper.sh --verbose start <ticket-id>
+
+# Complete ticket with audit
+./scripts/dev-loop-helper.sh --verbose complete <ticket-id>
+
+# Manual ticket operations
+tkr list --status=open           # List open tickets
+tkr show <ticket-id>             # Show ticket details
+tkr add-note <ticket-id> "Note"  # Add progress note
+```
+
+### Ticket Audit Process
+
+**Step 7: Ticket Audit (Coverage Validation)**
+
+Systematically audit implementation against ticket requirements:
+
+#### 7.1: Requirement Extraction
+- Parse ticket title, description, and acceptance criteria
+- Identify functional, non-functional, and technical requirements
+
+#### 7.2: Coverage Analysis
+For each requirement, mark coverage status:
+- `covered` - Fully implemented with tests
+- `partial` - Partially implemented or insufficiently tested  
+- `missing` - Not implemented
+
+#### 7.3: Coverage Scoring
+- Calculate 0-100 coverage score
+- Must achieve 90%+ coverage before completion
+- Provide rationale for score
+
+#### 7.4: Gap Analysis
+List gaps by priority:
+- **Critical**: Missing core functionality
+- **Major**: Partial implementation or insufficient testing
+- **Minor**: Documentation, edge cases, optimizations
+
+#### 7.5: Implementation Patching
+Address identified gaps until 90%+ compliance achieved
+
+**Audit Example:**
+```
+Requirement: "user can reset password" → Covered: PasswordResetService.reset() in auth/password-reset.ts
+Requirement: "password reset email sent" → Covered: EmailService.sendPasswordReset() in auth/email.ts  
+Requirement: "rate limiting on reset attempts" → Missing: No rate limiting implemented
+Coverage Score: 85% - Missing rate limiting feature
+```
+
+### Assessment and Improvement (Steps 10-11)
+
+#### Technology Assessment
+- Tool knowledge improvements and alternatives
+- Integration and testing enhancements
+- Documentation and standards to establish
+
+#### Process Assessment  
+- Manual steps that should be automated
+- Testing process improvements
+- Workflow and tool creation opportunities
+
+#### Project Assessment
+- Project organization improvements
+- Cross-project learning opportunities
+- Future prevention measures
+
+#### Creating Improvement Tickets
+```bash
+# Create high-priority improvement tickets
+tkr create "Improve testing process for X technology" \
+  --type=improvement --priority=high \
+  --description="Based on assessment from ticket <current-ticket-id>"
+
+# Create process improvement tickets  
+tkr create "Add automation workflow for Y process" \
+  --type=process --priority=medium \
+  --description="Automate manual steps identified in ticket <current-ticket-id>"
+```
+
+## � Integrated Workflow
 
 ### Daily Development Workflow
 
@@ -272,15 +435,56 @@ Following **[ADR-20260322002](../internal-docs/adr/adr-20260322002-docker-compos
 
 ### Profile Hierarchy
 
-```
-ALL (Production/Development)
-├── BASE01/BASE02 (Base Infrastructure)
-│   ├── CORE (Essential services)
-│   ├── NIX (Package management)
-│   └── DNS (Resolution services)
-├── AGENTS (AI services)
-│   └── OpenFang security agent
-└── SECURITY (Security monitoring)
+```mermaid
+graph TB
+    subgraph BaseOS["Base OS Images"]
+        alpine[base-alpine<br/>dhi.io/alpine-base]
+        debian[base-debian<br/>dhi.io/debian-base]
+        kali[base-kali<br/>kalilinux/kali-rolling]
+    end
+
+    subgraph NixSidecar["Sidecar (Foundation)"]
+        nixsidecar[nix-sidecar<br/>Manages Nix store/cache]
+    end
+
+    subgraph NixVariants["Nix-Enabled Variants"]
+        nix[base-nix]
+        debnix[base-debnix<br/>Debian + Nix]
+        kalinix[base-kalinix<br/>Kali + Nix]
+    end
+
+    subgraph Sidecars["Sidecar Base"]
+        basesidecar[base-sidecar<br/>Inheritance only]
+    end
+
+    subgraph DevEnv["Working Environment"]
+        basedev[base-dev<br/>Developer workspace]
+    end
+
+    nixsidecar --> nix
+    nixsidecar --> debnix
+    nixsidecar --> kalinix
+    nixsidecar --> basedev
+
+    alpine --> nix
+    debian --> debnix
+    kali --> kalinix
+
+    kalinix --> basedev
+
+    nix --> basesidecar
+
+    nixsidecar -.->|provides volumes| basedev
+
+    classDef base fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    classDef sidecar fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef nix fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    classDef dev fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+
+    class alpine,debian,kali base
+    class nixsidecar sidecar
+    class nix,debnix,kalinix,nixsidecar,basesidecar nix
+    class basedev dev
 ```
 
 ### Profile Usage Examples
@@ -424,9 +628,152 @@ just clean
 just base-up
 ```
 
+## 🔄 AI Development Loop Complete Workflow
+
+### Example: Complete Development Cycle
+
+```bash
+# === STEP 0-2: Foundation, Selection, Start (Automated) ===
+cd apps/active/devops/localnet
+
+# Foundation check with environment validation and security scanning
+./scripts/dev-loop-helper.sh --verbose foundation
+
+# Get next actionable ticket (e.g., ja-1234 - Fix nix-sidecar permission issues)
+./scripts/dev-loop-helper.sh --verbose next
+
+# Start work on ticket
+./scripts/dev-loop-helper.sh --verbose start ja-1234
+
+# === STEP 3: High Quality (Manual) ===
+# Check existing test coverage and code quality
+just test-coverage || echo "No coverage command available"
+find . -name "*.test.*" -o -name "*_test.*" | head -10
+
+# === STEP 4: Strategy (Manual) ===
+# Search for existing solutions and patterns
+just doc-search "nix-sidecar permissions"
+just doc-search "container security"
+rg -i "permission\|user\|uid" --type yaml --type dockerfile
+
+# Check current implementation
+cat services/base/nix-sidecar/Dockerfile.nix-sidecar
+cat services/base/nix-sidecar/assets/static/nix-sidecar/entrypoint-nix-sidecar.sh
+
+# === STEP 5: Implementation (Manual) ===
+# Make changes to fix permission issues
+# Example: Update entrypoint script to drop permissions properly
+# Example: Modify Dockerfile to use appropriate user setup
+
+# === STEP 6: Verification (Manual) ===
+# Test the changes
+just rebuild SERVICE=nix-sidecar
+just up-base01
+just logs SERVICE=nix-sidecar
+
+# === STEP 7: Ticket Audit (Manual) ===
+# Audit implementation against ticket requirements
+# Requirement: "fix nix-sidecar permission issues" → Covered: Updated entrypoint script
+# Requirement: "drop permissions to $USERNAME/$PUID" → Covered: Added user switching logic
+# Requirement: "no errors in healthcheck" → Covered: Fixed shell path issues
+# Coverage Score: 95% - All requirements implemented with tests
+
+# === STEP 8: Completion (Automated) ===
+./scripts/dev-loop-helper.sh --verbose complete ja-1234
+
+# === STEP 9: Commit Changes (Manual) ===
+# Use git-repository-management skill for organized commits
+./scripts/git-repo-manager.sh organize
+./scripts/git-repo-manager.sh commit
+./scripts/git-repo-manager.sh verify
+
+# === STEP 10: Assessment (Manual) ===
+# Technology: Need better container security patterns
+# Process: Manual permission debugging could be automated
+# Project: Container user management should be standardized
+
+# === STEP 11: Codify (Manual) ===
+tkr create "Create container security boilerplate" \
+  --type=improvement --priority=high \
+  --description="Standardize container user permission management"
+
+tkr create "Automate container permission debugging" \
+  --type=process --priority=medium \
+  --description="Add automated checks for container user setup"
+
+# === STEP 12: Final Commit (Manual) ===
+./scripts/git-repo-manager.sh complete
+
+# === STEP 13: Loop Again (Automated) ===
+./scripts/dev-loop-helper.sh --verbose next
+```
+
+### Integration with LocalNet Environment
+
+The AI Development Loop integrates seamlessly with the LocalNet environment:
+
+#### Environment-Aware Execution
+```bash
+# The development loop automatically detects Devbox environment
+./scripts/dev-loop-helper.sh --verbose loop
+# → Automatically wraps commands with: devbox run -- <command>
+
+# Profile-based service management works with development loop
+just up-core-nix                  # Start services for development work
+./scripts/dev-loop-helper.sh --verbose next  # Work on tickets
+```
+
+#### Memory Integration
+```bash
+# Search memory for context during strategy phase
+just doc-search "nix container patterns"
+
+# Add development notes to tickets
+tkr add-note ja-1234 "Researched container permission patterns in memory/"
+```
+
+#### Security Scanning
+```bash
+# Foundation check includes security scanning
+./scripts/dev-loop-helper.sh --verbose foundation
+# → Scans docker-compose files for security issues
+# → Validates container configurations
+# → Checks for privileged containers and unsafe mounts
+```
+
+### Workflow Principles for LocalNet
+
+#### 1. Atomic Operations
+- Update ticket status immediately when starting/completing work
+- Use profile-based service management for isolated testing
+- Never leave tickets in ambiguous states
+
+#### 2. Environment-First Verification
+- Always test in the correct LocalNet environment
+- Use Devbox for consistent tool execution
+- Verify with profile-based service isolation
+
+#### 3. Memory-Enhanced Development
+- Search memory for existing patterns before implementing
+- Document new patterns in Obsidian for future reference
+- Use qmd for quick documentation lookup
+
+#### 4. Quality Gates
+- All services must start cleanly with `just up-base01`
+- Container health checks must pass
+- Security scanning must pass foundation check
+- Ticket audit must achieve 90%+ coverage
+
 ## Remember
 
-**Always use `just up`** - it handles the complex orchestration that Docker Compose alone cannot manage due to the multi-environment, multi-dependency nature of this development environment.
+**Always use the AI Development Loop** - it ensures systematic, high-quality development with proper ticket management, security scanning, and continuous improvement for the LocalNet environment.
+
+**Key Integration Points:**
+- Environment management through Devbox
+- Service management through Docker Compose profiles  
+- Memory management through qmd/tkr/Obsidian
+- Quality assurance through automated validation
+- Continuous improvement through assessment and codification
 
 ## Example Request
 

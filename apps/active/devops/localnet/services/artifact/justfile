@@ -1,0 +1,317 @@
+# Artifact Repository Services - Justfile
+# Following ADR-20260131001: direnv → devbox → just (*-internal) → [command]
+
+# Configuration
+PROJECT_DIR := "../.."
+COMPOSE_FILE := "docker-compose.artifact.yml"
+ENSURE_NETWORK := "../../scripts/ensure-network.py"
+
+# Colors for output
+BLUE := "\033[0;34m"
+GREEN := "\033[0;32m"
+YELLOW := "\033[0;33m"
+RED := "\033[0;31m"
+NC := "\033[0m"
+
+# Determine env args for docker compose
+ENV_ARGS := if path_exists(".env") == "true" { "--env-file ./.env" } else { "" }
+ENV_ARGS := ENV_ARGS + if path_exists("../../.env") == "true" { " --env-file ../../.env" } else { "" }
+
+# Docker compose command base
+COMPOSE_BASE := "docker compose --project-directory " + PROJECT_DIR + " -f " + COMPOSE_FILE + " " + ENV_ARGS
+
+# Default recipe - show help
+[private]
+default:
+    @just --list
+
+# =============================================================================
+# Normal Targets (Developer Interface)
+# Primary pattern: just x → devbox run x → just x-internal
+# =============================================================================
+
+# Build local Docker images for the artifact stack
+build:
+    devbox run build
+
+# Start Nexus and Verdaccio in detached mode
+up:
+    devbox run up
+
+# Stop artifact services and remove containers
+down:
+    devbox run down
+
+# Restart artifact services without recreating volumes
+restart:
+    devbox run restart
+
+# Show container status table
+status:
+    devbox run status
+
+# Tail last 200 log lines from all containers
+logs:
+    devbox run logs
+
+# Stream container logs
+logs-follow:
+    devbox run logs-follow
+
+# Probe HTTP health endpoints for Nexus and Verdaccio
+health-check:
+    devbox run health-check
+
+# Validate docker-compose syntax
+lint:
+    devbox run lint
+
+# Remove containers and networks (keep volumes intact)
+clean:
+    devbox run clean
+
+# Open a shell inside the Nexus container
+shell-nexus:
+    devbox run shell-nexus
+
+# Open a shell inside the Verdaccio container
+shell-verdaccio:
+    devbox run shell-verdaccio
+
+# =============================================================================
+# Internal Targets (Actual Implementation)
+# These are called by devbox scripts and do the actual work
+# =============================================================================
+
+# Internal: Build local Docker images
+[private]
+build-internal:
+    #!/usr/bin/env bash
+    echo -e "{{BLUE}}Building artifact service images...{{NC}}"
+    {{COMPOSE_BASE}} build
+    echo -e "{{GREEN}}✓ Images built{{NC}}"
+
+# Internal: Start artifact services
+[private]
+up-internal:
+    #!/usr/bin/env bash
+    echo -e "{{BLUE}}Starting artifact services...{{NC}}"
+    {{ENSURE_NETWORK}} --project-directory {{PROJECT_DIR}} -f {{COMPOSE_FILE}}
+    {{COMPOSE_BASE}} up -d
+    echo -e "{{GREEN}}✓ Services started{{NC}}"
+    echo "Run 'just health-check' once containers finish booting."
+
+# Internal: Stop artifact services
+[private]
+down-internal:
+    #!/usr/bin/env bash
+    echo -e "{{YELLOW}}Stopping artifact services...{{NC}}"
+    {{COMPOSE_BASE}} down
+    echo -e "{{GREEN}}✓ Services stopped{{NC}}"
+
+# Internal: Restart artifact services
+[private]
+restart-internal:
+    #!/usr/bin/env bash
+    echo -e "{{YELLOW}}Restarting artifact services...{{NC}}"
+    {{ENSURE_NETWORK}} --project-directory {{PROJECT_DIR}} -f {{COMPOSE_FILE}}
+    {{COMPOSE_BASE}} restart
+    echo -e "{{GREEN}}✓ Services restarted{{NC}}"
+
+# Internal: Show container status
+[private]
+status-internal:
+    {{COMPOSE_BASE}} ps
+
+# Internal: Show logs (last 200 lines)
+[private]
+logs-internal:
+    {{COMPOSE_BASE}} logs --tail=200
+
+# Internal: Follow logs
+[private]
+logs-follow-internal:
+    {{COMPOSE_BASE}} logs -f
+
+# Internal: Run health checks
+[private]
+health-check-internal:
+    #!/usr/bin/env bash
+    echo -e "{{BLUE}}Inspecting container status...{{NC}}"
+    {{COMPOSE_BASE}} ps
+    echo ""
+    echo -e "{{BLUE}}Checking Nexus status endpoint...{{NC}}"
+    {{COMPOSE_BASE}} exec nexus curl -fs http://localhost:8081/service/rest/v1/status >/dev/null && \
+        echo -e "{{GREEN}}✓ Nexus status reachable{{NC}}" || echo -e "{{RED}}✗ Nexus status failed{{NC}}"
+    echo -e "{{BLUE}}Checking Verdaccio ping endpoint...{{NC}}"
+    {{COMPOSE_BASE}} exec verdaccio wget --spider -q http://localhost:4873/-/ping && \
+        echo -e "{{GREEN}}✓ Verdaccio ping reachable{{NC}}" || echo -e "{{RED}}✗ Verdaccio ping failed{{NC}}"
+
+# Internal: Validate docker-compose configuration
+[private]
+lint-internal:
+    #!/usr/bin/env bash
+    echo -e "{{BLUE}}Linting docker-compose configuration...{{NC}}"
+    {{COMPOSE_BASE}} config >/dev/null && echo -e "{{GREEN}}✓ docker-compose configuration valid{{NC}}"
+    if command -v yamllint >/dev/null 2>&1; then
+        yamllint {{COMPOSE_FILE}}
+    else
+        echo -e "{{YELLOW}}⚠ yamllint not installed{{NC}}"
+    fi
+
+# Internal: Remove containers and networks (keep volumes)
+[private]
+clean-internal:
+    #!/usr/bin/env bash
+    echo -e "{{RED}}Removing artifact containers and networks...{{NC}}"
+    {{COMPOSE_BASE}} down --remove-orphans
+    docker network prune -f >/dev/null
+    echo -e "{{GREEN}}✓ Containers and networks removed{{NC}}"
+
+# Internal: Deep clean (remove volumes - data loss!)
+[private]
+clean-all-internal:
+    #!/usr/bin/env bash
+    echo -e "{{RED}}⚠ This will delete Nexus and Verdaccio data volumes{{NC}}"
+    read -p "Are you sure? [y/N] " -n 1 -r
+    echo ""
+    if echo "$REPLY" | grep -Eq '^[Yy]$'; then
+        {{COMPOSE_BASE}} down -v --remove-orphans
+        docker network prune -f >/dev/null
+        echo -e "{{GREEN}}✓ All volumes removed{{NC}}"
+    else
+        echo -e "{{YELLOW}}Cancelled{{NC}}"
+    fi
+
+# Internal: Open shell in Nexus container
+[private]
+shell-nexus-internal:
+    {{COMPOSE_BASE}} exec nexus /bin/sh
+
+# Internal: Open shell in Verdaccio container
+[private]
+shell-verdaccio-internal:
+    {{COMPOSE_BASE}} exec verdaccio /bin/sh
+
+# =============================================================================
+# Required ADR-20260131001 Targets
+# =============================================================================
+
+# Bootstrap the development environment
+[private]
+bootstrap:
+    devbox run bootstrap
+
+# Internal: Bootstrap logic
+[private]
+bootstrap-internal:
+    #!/usr/bin/env bash
+    echo "Bootstrapping artifact service stack..."
+    # Ensure docker network exists
+    {{ENSURE_NETWORK}} --project-directory {{PROJECT_DIR}} -f {{COMPOSE_FILE}} || true
+    # Build images
+    just build-internal
+    echo "Bootstrap complete!"
+
+# Prime code indexing and analysis tools
+[private]
+prime:
+    devbox run prime
+
+# Internal: Prime logic
+[private]
+prime-internal:
+    echo "Priming code indexing for artifact stack..."
+    # Artifact stack doesn't need traditional code indexing, validate configs
+    just lint-internal
+    echo "Prime complete!"
+
+# Check development environment health
+[private]
+doctor:
+    devbox run doctor
+
+# Internal: Doctor logic
+[private]
+doctor-internal:
+    #!/usr/bin/env bash
+    echo "Checking artifact stack environment health..."
+    # Check Docker is running
+    if ! docker info >/dev/null 2>&1; then
+        echo -e "{{RED}}✗ Docker is not running{{NC}}"
+        exit 1
+    fi
+    echo -e "{{GREEN}}✓ Docker is running{{NC}}"
+    # Check docker compose is available
+    if ! docker compose version >/dev/null 2>&1; then
+        echo -e "{{RED}}✗ docker compose is not available{{NC}}"
+        exit 1
+    fi
+    echo -e "{{GREEN}}✓ docker compose is available{{NC}}"
+    # Check compose file exists
+    if [ ! -f "{{COMPOSE_FILE}}" ]; then
+        echo -e "{{RED}}✗ {{COMPOSE_FILE}} not found{{NC}}"
+        exit 1
+    fi
+    echo -e "{{GREEN}}✓ {{COMPOSE_FILE}} exists{{NC}}"
+    # Validate compose configuration
+    just lint-internal
+    echo -e "{{GREEN}}✓ Environment health check passed{{NC}}"
+
+# Development mode (follow logs)
+[private]
+dev:
+    devbox run dev
+
+# Internal: Development mode
+[private]
+dev-internal:
+    just logs-follow-internal
+
+# Run tests (for artifact stack, this is health-check)
+[private]
+test:
+    devbox run test
+
+# Internal: Run tests
+[private]
+test-internal:
+    just health-check-internal
+
+# =============================================================================
+# Service-Specific Logs (Convenience Targets)
+# =============================================================================
+
+# Show Nexus logs
+logs-nexus:
+    {{COMPOSE_BASE}} logs --tail=200 nexus
+
+# Show Verdaccio logs
+logs-verdaccio:
+    {{COMPOSE_BASE}} logs --tail=200 verdaccio
+
+# =============================================================================
+# Quality Checks
+# =============================================================================
+
+# Run all quality checks
+quality:
+    just lint
+    just test
+
+# =============================================================================
+# Legacy Compatibility (Makefile aliases)
+# =============================================================================
+
+# Legacy: help target (just --list is the just way)
+help:
+    @echo "Artifact Repository Services"
+    @echo ""
+    @echo "This justfile manages Sonatype Nexus and Verdaccio in the localnet environment."
+    @echo ""
+    @echo "Available commands:"
+    @just --list
+
+# Legacy: clean-all alias for deep clean
+clean-all:
+    just clean-all-internal

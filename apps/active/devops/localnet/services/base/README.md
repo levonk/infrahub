@@ -2,11 +2,59 @@
 
 Secure Debian and Alpine base images derived from the hardened `dhi.io` OS series. Every service image in LocalNet is built on top of these layers so the same security posture, user model, and filesystem layout propagate across the stack.
 
-It also includes `nix-sidecar` image for managing the Nix store, caching and nix configuration.
+## Container Hierarchy
 
-Based off of standard debian slim is `base-debnix` this is Debian with the nix package manager loaded which uses the volumes that `nix-sidecar` manages.
+```
+Base Images (OS Foundation)
+├── base-alpine  → dhi.io/alpine-base:latest  (lightweight, minimal footprint)
+├── base-debian  → dhi.io/debian-base:trixie  (richer ecosystem)
+└── base-kali    → kalilinux/kali-rolling      (security testing)
+    ↑
+Nix-Enabled Variants
+├── base-nix     → Pure Nix + Nix package manager
+├── base-debnix  → Debian + Nix package manager
+└── base-kalinix → Kali + Nix package manager
+    ↑
+Working Environment
+└── base-dev     → Developer workspace (inherits base-kalinix)
 
-Based off of `base-debnix` we have `base-dev` which is a package for a developer to use for development. `base-dev` also mounts the volumes from `nix-sidecar` so that the developer can use the nix package manager.
+Sidecar
+├── nix-sidecar  → Manages Nix store and caching
+└── base-sidecar → Base for other sidecars (inheritance only)
+```
+
+### Base Images (OS Foundation)
+
+These wrap third-party hardened images to allow easy swapping:
+
+| Image         | Upstream                     | Purpose                                           |
+| ------------- | ---------------------------- | ------------------------------------------------- |
+| `base-alpine` | `dhi.io/alpine-base:latest`  | Ultra-small footprint, lightweight services     |
+| `base-debian` | `dhi.io/debian-base:trixie` | Debian compatibility + richer ecosystem           |
+| `base-kali`   | `kalilinux/kali-rolling`     | Security testing with Kali tools pre-installed    |
+
+### Nix-Enabled Variants
+
+These variants add the Nix package manager on top of OS foundation:
+
+| Image           | Inherits From | Purpose                                         |
+| --------------- | ------------- | ------------------------------------------------|
+| `base-nix`      | `nixpkgs/nix` | Pure Nix environment, minimal base            |
+| `base-debnix`   | `debian`      | Debian + Nix for Debian compatibility           |
+| `base-kalinix`  | `base-kali`   | Kali + Nix for security testing with Nix        |
+
+### Sidecar Services
+
+| Image           | Purpose                                         |
+| --------------- | ------------------------------------------------|
+| `nix-sidecar`   | **CRITICAL**: Manages Nix store, cache, and config volumes. All Nix services depend on this. |
+| `base-sidecar`  | Base image for other sidecars to inherit from.  |
+
+### Working Environment
+
+| Image      | Inherits From   | Purpose                                         |
+| ---------- | --------------- | ------------------------------------------------|
+| `base-dev` | `base-kalinix`  | Developer workspace with Nix + all dev tools.   |
 
 ## ⭐ Highlights
 
@@ -14,15 +62,6 @@ Based off of `base-debnix` we have `base-dev` which is a package for a developer
 - 🔐 **Security-first defaults**: Non-root `appuser`, no SUID/SGID binaries (beyond what is explicitly allowed), and aggressive filesystem cleanup.
 - 🧰 **Ready for derived builds**: Package managers remain available so higher-level images can install only what they need.
 - 📦 **Composable tooling**: A dedicated Makefile, docker-compose file, and quality gate script mirror the standards from the docker-compose copier boilerplate.
-
-## ☑️ Base OS Targets
-
-| Image         | Upstream Tag                 | Purpose                                   |
-| ------------- | ---------------------------- | ----------------------------------------- |
-| `base-alpine` | `dhi.io/alpine-base:latest`  | Ultra-small footprint, security-centric   |
-| `base-debian` | `dhi.io/debian-base:bookworm`| Debian compatibility + richer ecosystem   |
-
-Each image lives under `services/base/<variant>/docker/Dockerfile.<variant>` and keeps the UID/GID mapping identical (`1001:1001`) so derived services can swap OSes without permission drift.
 
 ## 🛠️ Usage
 
@@ -79,10 +118,34 @@ services/base/
 ├── scripts/
 │   └── run-quality-checks.sh
 ├── base-alpine/
-│   └── docker/Dockerfile.base-alpine
-└── base-debian/
-    └── docker/Dockerfile.base-debian
-```
+│   ├── Dockerfile.base-alpine
+│   └── entrypoint.sh
+├── base-debian/
+│   ├── Dockerfile.base-debian
+│   └── entrypoint.sh
+├── base-kali/
+│   ├── Dockerfile.base-kali
+│   └── assets/
+├── base-kalinix/
+│   ├── Dockerfile.base-kalinix
+│   └── assets/
+├── base-debnix/
+│   ├── Dockerfile.base-debnix
+│   └── assets/
+├── base-nix/
+│   ├── Dockerfile.base-nix
+│   └── assets/
+├── base-sidecar/
+│   ├── Dockerfile.base-sidecar
+│   └── assets/
+├── base-dev/
+│   ├── Dockerfile.base-dev
+│   ├── README.md
+│   └── assets/
+└── nix-sidecar/
+    ├── Dockerfile.nix-sidecar
+    ├── assets/
+    └── tests/
 
 ## 📌 Next Steps
 

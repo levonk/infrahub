@@ -18,13 +18,13 @@ if [ "$(id -u)" = "0" ] && [ -n "$PUID" ]; then
     if getent passwd "$PUID" >/dev/null 2>&1; then
         # Use setpriv if available (more secure) - use numeric UID
         if command -v setpriv >/dev/null 2>&1; then
-            exec setpriv --reuid "$PUID" --regid "$PUID" --clear-groups "$0" "$@"
+            exec setpriv --reuid "$PUID" --regid "${PGID:-$PUID}" --clear-groups "$0" "$@"
         # Use chroot with numeric UID as fallback (less ideal but available)
         elif command -v chroot >/dev/null 2>&1; then
             # Find username for PUID to use with chroot
             USERNAME_FOR_PUID=$(getent passwd "$PUID" | cut -d: -f1)
             if [ -n "$USERNAME_FOR_PUID" ] && [ -d "/home/$USERNAME_FOR_PUID" ]; then
-                exec chroot --userspec="$PUID:$PUID" / "$0" "$@"
+                exec chroot --userspec="$PUID:${PGID:-$PUID}" / "$0" "$@"
             else
                 echo "[WARN] ⚠️ Cannot find home directory for UID $PUID"
                 echo "[WARN] ⚠️ Running healthcheck as root"
