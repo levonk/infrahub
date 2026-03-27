@@ -1,6 +1,6 @@
 # Debian-based base image for services requiring Debian compatibility
 # DO NOT CHANGE THIS LINE!!!
-FROM dhi.io/debian-base:trixie
+FROM dhi.io/debian-base:trixie-dev
 
 # Labels for metadata and security scanning
 LABEL org.opencontainers.image.title="Base Debian Image" \
@@ -23,9 +23,9 @@ ENV DEBIAN_FRONTEND=noninteractive \
     TZ=${TZ}
 
 # Install essential packages with security updates
-RUN apt-get update && \
-    apt-get upgrade -y && \
-    apt-get install -y --no-install-recommends \
+RUN apt update && \
+    apt upgrade -y && \
+    apt install -y --no-install-recommends \
         curl \
         ca-certificates \
         gnupg \
@@ -34,8 +34,8 @@ RUN apt-get update && \
         gosu \
         && \
     # Clean up to reduce image size
-    apt-get clean && \
-    apt-get autoremove -y && \
+    apt clean && \
+    apt autoremove -y && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 
 # Create standard directories with proper permissions
@@ -60,7 +60,7 @@ WORKDIR /etc/service
 
 # Default health check (services should override this)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD echo "Base image healthy"
+    CMD echo "Debian Base image healthy"
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["sleep", "infinity"]

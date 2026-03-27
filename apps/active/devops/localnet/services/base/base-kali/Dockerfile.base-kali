@@ -64,8 +64,10 @@ RUN groupadd -g ${PGID} ${USERNAME} && \
 # Set working directory
 WORKDIR /opt/${USERNAME}
 
-# Copy static assets
-COPY assets/static/base-kali/ /
+# Copy static assets and make scripts executable in a single layer
+# This avoids cache issues where COPY is cached but files don't exist
+COPY assets/static/base-kali/ /base-kali/
+RUN chmod +x /base-kali/entrypoint-base-kali.sh /base-kali/healthcheck-base-kali.sh
 
 # Set up environment
 ENV PATH=/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
@@ -74,10 +76,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # Create directories
 RUN mkdir -p /home/${USERNAME}/.local/share /home/${USERNAME}/.config && \
-    chown -R ${USERNAME}:${USERNAME} /home/${USERNAME} /opt/${USERNAME}
-
-# Make scripts executable
-RUN chmod +x /base-kali/entrypoint-base-kali.sh /base-kali/healthcheck-base-kali.sh
+    chown -R ${USERNAME}:${USERNAME} /home/${USERNAME} /opt/${USERNAME} /base-kali
 
 # Switch to non-root user
 USER ${USERNAME}

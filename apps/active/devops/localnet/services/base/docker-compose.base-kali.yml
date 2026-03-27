@@ -74,7 +74,7 @@ services:
         - USERNAME=${USERNAME:-cuser}
     logging: *default-logging
     restart: unless-stopped
-    profiles: [base01, localnet, all]
+    profiles: [base02, localnet, all]
     environment:
       # User and permissions
       - PUID=${PUID:-1000}
@@ -91,6 +91,8 @@ services:
     networks:
       - localnet
     depends_on:
+      base-kali:
+        condition: service_started
       nix-sidecar:
         condition: service_healthy
     # Security options

@@ -98,6 +98,10 @@ See [Three-Tier Access Model](internal-docs/architecture-three-tier-access.md) f
 
 Following **[ADR-20260322002](../internal-docs/adr/adr-20260322002-docker-compose-profile-strategy.md)**:
 
+> **Note on Build Order:** Services are organized into profiles (`base01`, `base02`, `base03`) to ensure Docker images build in the correct sequence. This is necessary because `depends_on` only controls runtime startup, not build order. The justfile enforces sequential profile execution.
+>
+> **TODO:** Migrate to Docker Compose `additional_contexts` for native build dependency management when supported by OrbStack, Podman, Colima, and Lima. See `AGENTS.md` "Build Order vs Runtime Dependencies" for details.
+
 ```bash
 # Start specific service clusters
 just up-agents                    # AI/agent services

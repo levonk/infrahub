@@ -161,6 +161,8 @@ services:
       - TZ=UTC
     # Ensure sidecars are started and healthy.
     depends_on:
+      base-alpine:
+        condition: service_started
       nix-sidecar:
         condition: service_healthy
     healthcheck:
@@ -279,6 +281,8 @@ services:
       - OPENAI_API_KEY=${AI_CODEASSIST_OPENAI_API_KEY:-}
       - DOCKER_HOST=${BASE_DEV_DOCKER_HOST:-unix:///socket/docker.sock}
     depends_on:
+      base-kalinix:
+        condition: service_started
       nix-sidecar:
         condition: service_healthy
 #    healthcheck:

@@ -32,10 +32,14 @@ base-up:
 
 base-up-internal:
     @./scripts/echo-colors.sh blue "Creating base containers..."
+    # TODO: Migrate to Docker Compose additional_contexts for native build dependency
+    # when supported by OrbStack, Podman, Colima, and Lima. Current profile-based
+    # sequencing ensures build order without requiring BuildKit. See AGENTS.md
+    # "Build Order vs Runtime Dependencies" section for details.
     @docker compose -f docker-compose.shared.yml --env-file {{ENV_FILE}} --progress=plain up -d
-    @docker compose -f docker-compose.localnet.yml --profile base01 --env-file {{ENV_FILE}} --progress=plain up -d && \
-    docker compose -f docker-compose.localnet.yml --profile base02 --env-file {{ENV_FILE}} --progress=plain up -d && \
-    docker compose -f docker-compose.localnet.yml --profile base03 --env-file {{ENV_FILE}} --progress=plain up -d
+    @docker compose -f docker-compose.localnet.yml --profile base01 --env-file {{ENV_FILE}} --progress=plain up -d --build && \
+    docker compose -f docker-compose.localnet.yml --profile base02 --env-file {{ENV_FILE}} --progress=plain up -d --build && \
+    docker compose -f docker-compose.localnet.yml --profile base03 --env-file {{ENV_FILE}} --progress=plain up -d --build
     @./scripts/echo-colors.sh green "✓ base containers created"
 
 # Build all Docker images
