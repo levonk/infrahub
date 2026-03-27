@@ -68,6 +68,102 @@ If you're working on Nix containers, see the documentation at:
 
 - /home/micro/p/gh/lrepo52/job-aide/apps/active/devops/localnet/internal-docs/requirements/nix/
 
+## 🔄 Validate Before Completing
+
+**CRITICAL: You MUST verify your changes actually work before considering any task complete.**
+
+### The Validation Rule
+
+When given a request to fix or start something:
+
+1. **Take the request** - Understand what needs to be done
+2. **Make the changes** - Implement the fix or configuration
+3. **VALIDATE IT WORKS** - This is NOT optional - you must confirm success
+4. **Only then mark complete** - After confirming no errors
+
+### Container Startup Validation (Example)
+
+When asked to run commands like `just base-up-internal`:
+
+**❌ WRONG - Just running the command and walking away:**
+```bash
+devbox run just base-up-internal
+# Container is starting... OK I'm done!  ← NO - This is wrong!
+```
+
+**✅ CORRECT - Run, monitor, and validate:**
+```bash
+# 1. Run the command
+devbox run just base-up-internal
+
+# 2. Wait for containers to start (they may restart initially)
+# 3. Check logs for errors or negatives
+just logs SERVICE=<service-name>
+# OR
+docker logs <container-name> --tail=50
+
+# 4. Verify no errors - look for:
+#    - "Error" messages
+#    - "Failed" states
+#    - Crash loops (container restarting repeatedly)
+#    - Health check failures
+#    - Permission denied errors
+#    - Missing file errors
+
+# 5. Confirm healthy state before completing:
+docker ps --format "table {{.Names}}\t{{.Status}}"
+```
+
+### What "Validate" Means
+
+**For container operations:**
+- Container reaches "healthy" or "running" state (not restarting)
+- Logs show no errors or warnings
+- Health checks pass
+- Service responds to requests (if applicable)
+
+**For configuration changes:**
+- Configuration is applied without syntax errors
+- System accepts the new configuration
+- No error messages in relevant logs
+
+**For code changes:**
+- Code compiles/builds successfully
+- Tests pass (existing + any new tests)
+- Linting passes
+- No runtime errors
+
+### Anti-Pattern: "I Made The Change, You QA It"
+
+**NEVER do this:**
+- Make a change
+- Assume it works because you ran the command
+- Hand it back to the user to test
+- Mark task complete without validation
+
+**This wastes everyone's time.** The agent's job is to ensure the work is DONE, not just ATTEMPTED.
+
+### When to Keep Iterating
+
+If validation shows issues:
+
+1. **Fix the root cause** - Don't apply band-aids
+2. **Re-validate** - Run the checks again
+3. **Document what you found** - Add notes to the ticket about issues encountered
+4. **Keep going until clean** - No errors means NO ERRORS, not "fewer errors"
+
+### Quality Gate: Validation Checklist
+
+Before marking any task complete:
+
+- [ ] **I ran the verification command** (not just the setup command)
+- [ ] **I checked logs for errors** (searched for "error", "fail", "panic", "crash")
+- [ ] **I confirmed healthy state** (containers running, services responding)
+- [ ] **I did NOT hand back to user for testing** - I verified it myself
+- [ ] **I can explain why it works** (not just hoping it works)
+
+**Remember: Your job is to deliver WORKING solutions, not just make changes.**
+
 ## Standards and Best Practices
 
 All Docker services in localnet must follow the **Docker Service Standards** as defined in ADR-20251218002:
