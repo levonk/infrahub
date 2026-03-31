@@ -86,4 +86,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
   CMD ["/bin/sh", "-c", "/base-kali/healthcheck-base-kali.sh > /dev/null 2>&1"]
 
 # Set entrypoint
-ENTRYPOINT ["/bin/sh", "/base-kali/entrypoint-base-kali.sh"]
+ENTRYPOINT ["/bin/bash", "/base-kali/entrypoint-base-kali.sh"]
