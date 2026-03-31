@@ -75,7 +75,7 @@ ENV TZ=UTC
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Create directories
-RUN mkdir -p /home/${USERNAME}/.local/share /home/${USERNAME}/.config && \
+RUN mkdir -p /home/${USERNAME}/.local/bin /home/${USERNAME}/.local/share /home/${USERNAME}/.config /home/${USERNAME}/tools /home/${USERNAME}/workspace && \
     chown -R ${USERNAME}:${USERNAME} /home/${USERNAME} /opt/${USERNAME} /base-kali
 
 # Switch to non-root user

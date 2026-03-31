@@ -28,8 +28,39 @@ fi
 export HOME="/home/${USERNAME:-cuser}"
 export USER="${USERNAME:-cuser}"
 
-# Create personal directories
-mkdir -p "$HOME/.local/bin" "$HOME/.local/share" "$HOME/.config" "$HOME/tools" "$HOME/workspace"
+# Use /tmp-based HOME directory to avoid volume permission issues
+# The mounted volume has root ownership, but we need user-writable directories
+ORIGINAL_HOME="$HOME"
+USER_HOME="/tmp/${USERNAME:-cuser}"
+
+log "Using temporary HOME directory due to volume permissions..."
+log "Original HOME: $ORIGINAL_HOME (permissions: $(stat -c '%a %U:%G' "$ORIGINAL_HOME" 2>/dev/null || echo 'unknown'))"
+log "Temporary HOME: $USER_HOME"
+
+# Create user-writable HOME directory
+mkdir -p "$USER_HOME"
+export HOME="$USER_HOME"
+
+# Create personal directories with error handling
+log "Creating personal directories in $HOME..."
+for dir in "$HOME/.local/bin" "$HOME/.local/share" "$HOME/.config" "$HOME/tools" "$HOME/workspace"; do
+    if [ ! -d "$dir" ]; then
+        if ! mkdir -p "$dir" 2>/dev/null; then
+            log "Error: Could not create directory $dir"
+            log "Container running as user $(id -u):$(id -g)"
+            exit 1
+        fi
+    fi
+done
+
+# Verify directories were created successfully
+for dir in "$HOME/.local/bin" "$HOME/tools" "$HOME/workspace"; do
+    if [ ! -d "$dir" ]; then
+        log "Error: Required directory $dir does not exist and could not be created"
+        exit 1
+    fi
+done
+log "Personal directories created successfully"
 
 # Set up Python environment
 if [ ! -d "$HOME/.local/venv" ]; then
