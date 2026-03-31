@@ -192,6 +192,54 @@ devbox shell
 devbox run -- just base-up-internal
 ```
 
+### Environment Check and Nix Binary Detection
+
+**Problem:** If you see `zsh:1: command not found: devbox` or similar environment errors, your shell environment is not properly configured.
+
+**Root Cause:** The Nix binary or devbox is not in your PATH. This typically happens when:
+- Nix is installed but not sourced in your shell profile
+- You're using a non-interactive shell that didn't load environment variables
+- The devbox global shim is not in PATH
+
+**Solution:** Add this environment check to your shell profile or run before executing commands:
+
+```bash
+# Check for Nix binary and add to PATH if found
+if [ -z "$NIX_PATH" ] || ! command -v nix >/dev/null 2>&1; then
+    # Try common Nix installation locations
+    for nix_path in /nix/var/nix/profiles/default/bin/nix ~/.nix-profile/bin/nix /usr/local/bin/nix /usr/bin/nix; do
+        if [ -x "$nix_path" ]; then
+            export NIX_PATH="$(dirname "$nix_path"):${NIX_PATH:-}"
+            export PATH="$(dirname "$nix_path"):$PATH"
+            break
+        fi
+    done
+    
+    # Source Nix environment if available
+    if [ -f /etc/profile.d/nix.sh ]; then
+        . /etc/profile.d/nix.sh
+    elif [ -f ~/.nix-profile/etc/profile.d/nix.sh ]; then
+        . ~/.nix-profile/etc/profile.d/nix.sh
+    fi
+fi
+
+# Check for devbox and add global shim if available
+if ! command -v devbox >/dev/null 2>&1; then
+    if [ -x ~/.local/share/devbox/global/shims/devbox ]; then
+        export PATH="$HOME/.local/share/devbox/global/shims:$PATH"
+    elif [ -x /usr/local/bin/devbox ]; then
+        export PATH="/usr/local/bin:$PATH"
+    fi
+fi
+
+# Verify environment
+echo "Nix: $(command -v nix || echo 'NOT FOUND')"
+echo "Devbox: $(command -v devbox || echo 'NOT FOUND')"
+echo "Just: $(command -v just || echo 'NOT FOUND')"
+```
+
+**Add to AGENTS.md:** Include this check in any automated scripts or AI agent configurations that run commands in this project. This ensures the environment is always properly configured before executing `just` or `devbox` commands.
+
 ### 2. Available Commands
 
 **Profile-Based Service Management (NEW)**:
