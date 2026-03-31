@@ -11,9 +11,40 @@
     "file", "findutils", "procps", "shadow", "gosu",  # Core system utilities
 
     # Shell & Terminal Environment
-    "zellij", "wl-clipboard", "direnv",       # Terminal multiplexer and environment manager
-    "fzf", "ripgrep", "ast-grep", "fd", "bat", "eza", "zoxide", # Navigation and search tools
-    "atuin", "sd", "comby", "tlrc", "pay-respects", "yazi",  # Shell enhancement tools
+    "wl-clipboard", "direnv",       # Terminal multiplexer and environment manager
+    "fzf", "ast-grep", "eza", "zoxide", # Navigation and search tools
+    "atuin", "comby", "tlrc", "pay-respects", "yazi",  # Shell enhancement tools
+    "zellij", # Better than `tmux`
+    "ripgrep", # Better than `grep`
+    "fz", # Better than `find`
+    "plocate", # Better than `locate`
+    "sd", # Better than `sed`
+    "jaq", # Better than `awk` for json only
+    "bat", # Better than `less`
+    "cargo-binstall", # Better than `cargo install` when you don't need source
+    "zsh", # Better than `bash`
+    #"uutils", # Better than `coreutils`
+    "mtr", # better than `traceroute`
+    "ss", # better than `netstat`
+    "ip", # better than `ifconfig`
+    "dog", # better than `dig`
+    "xh", # better than `curl` (for humans)
+    "btop", # better than `top`
+    "procs", # better than `ps`
+    "dust", # better than `du`
+    "gping", # better than `ping`
+    "dtrx", # better than `tar`
+    "7z", # better than `unzip`
+    "rsync", # better than `scp`
+    "broot", # better than `tree`
+    "age", # better than `gpg`
+    "gpg-agent", # better than `ssh-agent`
+    "buildkit", # better than `ssh-agent`
+    "tldr", # better than `man`
+    "markdownlint-cli2", # better than `markdownlint`
+    "mdbook", # better than `pandoc`
+    "gitui", # better than `git-cli`
+    "tig", # better than `git log`
 
     # Shell Scripting Tools
     "shellcheck", "shfmt",    # Shell linter and formatter
@@ -35,7 +66,10 @@
     "poppler-utils", "chafa", "jp2a", "imagemagick", # PDF and image processing
 
     # Diff & Comparison Tools
-    "difftastic", "delta", "mergiraf", "odiff",     # Advanced diff tools
+    # Better diff
+    "difftastic", "delta", "vimdiff",
+    # Better nerge
+    "mergiraf", "odiff",
     "quilt", "guilt",
 
     # Development Infrastructure
@@ -133,6 +167,8 @@
     # C/C++ Development Tools
     "gcc", "clang", "gdb", "lld", "llvm",            # Compilers, debuggers, and toolchains
     "cppcheck", "valgrind", "clang-tools",           # Static analysis and debugging
+
+    #
 
   ],
   "shell": {
