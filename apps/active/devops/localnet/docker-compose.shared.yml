@@ -404,3 +404,5 @@ services:
       - ai-codeassist-cache:/home/${USERNAME:-cuser}/.cache/ai-codeassist:ro
       - ai-codeassist-worktrees:/home/${USERNAME:-cuser}/.local/share/ai-codeassist/worktrees:ro
       - ai-codeassist-workdir:/home/${USERNAME:-cuser}/.local/share/ai-codeassist/workdir:ro
+      - base-kalinix-home:/home/${USERNAME:-cuser}/tmp1
+      - base-kali-home:/home/${USERNAME:-cuser}/tmp2
