@@ -297,3 +297,5 @@ services:
       - "${AI_CODEASSIST_VIBEKANBAN_ALT_HOST_PORT:-33080}:${AI_CODEASSIST_VIBEKANBAN_ALT_CONTAINER_PORT:-8080}"
     profiles:
       - base03
+
+  

@@ -22,7 +22,6 @@ services:
       - 1.1.1.1
       - 8.8.8.8
       - 9.9.9.9
-    restart: unless-stopped
     environment:
       TZ: UTC
       PUID: 1000
