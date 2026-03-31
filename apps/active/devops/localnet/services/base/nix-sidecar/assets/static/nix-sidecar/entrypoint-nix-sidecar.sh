@@ -302,7 +302,7 @@ else
     exit 1
 fi
 if [ ! -L "/root/.nix-profile" ]; then
-    ln -sf /nix/var/nix/profiles/per-user/root/profile /root/.nix-profile
+    /bin/busybox ln -sf /nix/var/nix/profiles/per-user/root/profile /root/.nix-profile
 fi
 
 # TODO: Simplify user management to avoid nix develop complexity
