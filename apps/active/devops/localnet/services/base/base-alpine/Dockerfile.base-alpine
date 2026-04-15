@@ -22,7 +22,8 @@ ENV LANG=C.UTF-8 \
     PGID=${PGID} \
     TZ=${TZ}
 
-COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+#COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY assets/static/base-alpine/ /base-alpine/
 
 # Install essential packages with security updates and minimal dependencies
 RUN apk update && \
@@ -57,7 +58,7 @@ RUN find / -type f \( -name "*.pyc" -o -name "*.pyo" -o -name "*.orig" \) -delet
 	# Ensure SSL certificates are properly installed and updated
 	# This fixes HTTPS downloads in Alpine containers
 	update-ca-certificates || true && \
-	chmod +x /usr/local/bin/entrypoint.sh && \
+	chmod +x /base-alpine/bin/entrypoint-base-alpine.sh && \
 	# Clean up package manager cache and temporary files
     rm -rf /var/cache/apk/* /tmp/* || true
 
@@ -71,5 +72,5 @@ WORKDIR /etc/service
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD echo "Base image healthy"
 
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
-CMD ["sleep", "30"]
+ENTRYPOINT ["/base-alpine/bin/entrypoint-base-alpine.sh"]
+CMD ["sleep", "300"]

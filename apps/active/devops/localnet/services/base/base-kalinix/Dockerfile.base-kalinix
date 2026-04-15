@@ -1,6 +1,10 @@
 FROM localnet-base-kali:latest
 
-# Install Nix package manager
+# Switch back to root user to install packages (base-kali switches to cuser)
+USER root
+
+# Install only essential packages that don't conflict with Nix
+# Nix itself comes from the nix-sidecar volume at runtime
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         curl \
@@ -9,10 +13,7 @@ RUN apt-get update && \
         && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Nix
-RUN sh <(curl -L https://nixos.org/nix/install) --daemon --no-daemonize
-
-# Create openfang user with proper UID/GID (inheriting from base-kali)
+# Create user with proper UID/GID (inheriting from base-kali)
 ARG PUID=1000
 ARG PGID=1000
 ARG USERNAME=cuser
@@ -21,12 +22,16 @@ ARG USERNAME=cuser
 WORKDIR /opt/${USERNAME}
 
 # Copy static assets to mirror container filesystem
-COPY assets/static/base-kalinix/ /
+COPY assets/static/base-kalinix/ /base-kalinix/
 COPY assets/templates/ /templates/
 
-# Backup the internal Nix environment so it can be restored when an empty volume is mounted
-RUN mkdir -p /base-kalinix/tmp /etc/nix && \
-    tar -C / -cf /base-kalinix/tmp/bootstrap-slash-nix.tar nix bin etc/profile.d
+# Create /nix directory for the nix-sidecar volume mount
+# The actual Nix store comes from nix-sidecar at runtime
+RUN mkdir -p /nix /base-kalinix/tmp /etc/nix
+
+# Create bootstrap tar placeholder - will be populated at runtime from nix-sidecar
+# if available, otherwise the entrypoint handles initialization
+RUN touch /base-kalinix/tmp/.nix-placeholder
 
 COPY assets/templates/etc/nix/nix.conf /etc/nix/nix.conf
 
@@ -42,14 +47,14 @@ RUN mkdir -p /home/${USERNAME}/.local/share /home/${USERNAME}/.config && \
     chown -R ${USERNAME}:${USERNAME} /home/${USERNAME} /opt/${USERNAME} /base-kalinix
 
 # Make scripts executable
-RUN chmod +x /base-kalinix/entrypoint-base-kalinix.sh /base-kalinix/healthcheck-base-kalinix.sh
+RUN chmod +x /base-kalinix/bin/entrypoint-base-kalinix.sh /base-kalinix/bin/healthcheck-base-kalinix.sh
 
 # Switch to non-root user
 USER ${USERNAME}
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-  CMD ["/bin/sh", "-c", "/base-kalinix/healthcheck-base-kalinix.sh > /dev/null 2>&1"]
+  CMD ["/bin/sh", "-c", "/base-kalinix/bin/healthcheck-base-kalinix.sh"]
 
 # Set entrypoint
-ENTRYPOINT ["/bin/bash", "/base-kalinix/entrypoint-base-kalinix.sh"]
+ENTRYPOINT ["/bin/bash", "/base-kalinix/bin/entrypoint-base-kalinix.sh"]

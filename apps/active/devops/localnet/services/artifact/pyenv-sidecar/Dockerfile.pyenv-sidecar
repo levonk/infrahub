@@ -5,7 +5,7 @@ ENV HEALTHCHECK_SCRIPT="/pyenv-sidecar/healthcheck-pyenv.sh"
 
 # Install packages with Alpine and clean up
 RUN apk update && apk upgrade && \
-    if [ -n "python3" ]; then apk add python3; fi && \
+    apk add python3 && \
     rm -rf /var/cache/apk/*
 
 # Create necessary directories

@@ -5,7 +5,7 @@ ENV HEALTHCHECK_SCRIPT="/nvm-sidecar/healthcheck-nvm.sh"
 
 # Install packages with Alpine and clean up
 RUN apk update && apk upgrade && \
-    if [ -n "nodejs npm" ]; then apk add nodejs npm; fi && \
+    apk add nodejs npm && \
     rm -rf /var/cache/apk/*
 
 # Create necessary directories

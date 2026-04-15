@@ -5,7 +5,7 @@ ENV HEALTHCHECK_SCRIPT="/poetry-sidecar/healthcheck-poetry.sh"
 
 # Install packages with Alpine and clean up
 RUN apk update && apk upgrade && \
-    if [ -n "python3 py3-pip" ]; then apk add python3 py3-pip; fi && \
+    apk add python3 py3-pip && \
     rm -rf /var/cache/apk/*
 
 # Create necessary directories

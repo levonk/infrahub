@@ -331,6 +331,8 @@ services:
   # This service does nothing but allows networks/volumes to be created
   shared-resources:
     image: nixpkgs/nix:latest
+    command: >
+      sh -c 'echo "initialized networks & volumes for other services, shutting down now"'
     networks:
       - null-network
       - localnet

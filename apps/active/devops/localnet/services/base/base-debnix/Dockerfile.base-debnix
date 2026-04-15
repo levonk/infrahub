@@ -1,7 +1,7 @@
 # =============================================================================
 # BASE-DEBNIX: Debian + Nix Package Manager
 # =============================================================================
-FROM debian:trixie-slim
+FROM localnet-base-debian:latest
 
 # Set up the non-root user using Docker Compose environment variables
 ARG USERNAME=cuser

@@ -1,7 +1,8 @@
 # Build stage for Dart SDK
 FROM localnet-base-sidecar:latest as dart-builder
 RUN apk update && apk upgrade && \
-    apk add curl unzip; \
+    apk add curl unzip ca-certificates && \
+    update-ca-certificates && \
     mkdir -p /opt/dart; \
     curl -L "https://storage.googleapis.com/dart-archive/channels/stable/release/latest/linux/dart-sdk-linux-x64-release.zip" -o /tmp/dart-sdk.zip; \
     unzip /tmp/dart-sdk.zip -d /opt/dart --strip-components=1; \
@@ -14,12 +15,13 @@ FROM localnet-base-sidecar:latest
 ENV HEALTHCHECK_SCRIPT="/dart-sidecar/healthcheck-dart.sh"
 
 # Install only runtime dependencies
-RUN apk update && apk upgrade && \
+RUN apk update && \
+    (apk upgrade || true) && \
     rm -rf /var/cache/apk/*
 
 # Copy Dart from builder stage
 COPY --from=dart-builder /opt/dart /opt/dart
-RUN ln -sf /opt/dart/bin/dart /usr/local/bin/dart && \
+RUN mkdir -p /usr/local/bin && ln -sf /opt/dart/bin/dart /usr/local/bin/dart && \
     ln -sf /opt/dart/bin/dart2js /usr/local/bin/dart2js && \
     ln -sf /opt/dart/bin/pub /usr/local/bin/pub
 

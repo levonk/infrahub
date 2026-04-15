@@ -399,14 +399,22 @@ if [ ! -e /nix/var/nix/profiles/per-user/"$USERNAME"/profile ]; then
     # Create .nix-profile symlink in user's home directory if home directory exists
     if [ -d "/home/$USERNAME" ]; then
         if [ ! -L "/home/$USERNAME/.nix-profile" ]; then
-            ln -sf /nix/var/nix/profiles/per-user/"$USERNAME"/profile "/home/$USERNAME/.nix-profile" || true
-            if command -v chown >/dev/null 2>&1; then
-                chown -h "$PUID:$PGID" "/home/$USERNAME/.nix-profile" || true
+            if command -v ln >/dev/null 2>&1; then
+                ln -sf /nix/var/nix/profiles/per-user/"$USERNAME"/profile "/home/$USERNAME/.nix-profile" || true
             elif [ -x "/bin/busybox" ]; then
-                /bin/busybox chown -h "$PUID:$PGID" "/home/$USERNAME/.nix-profile" || true
+                /bin/busybox ln -sf /nix/var/nix/profiles/per-user/"$USERNAME"/profile "/home/$USERNAME/.nix-profile" || true
             else
-                echo "❌ Nix Sidecar: Error: chown command not found. Cannot set symlink ownership."
-                exit 1
+                echo "⚠️ Nix Sidecar: Warning: ln command not found. Cannot create .nix-profile symlink."
+            fi
+            if [ -L "/home/$USERNAME/.nix-profile" ]; then
+                if command -v chown >/dev/null 2>&1; then
+                    chown -h "$PUID:$PGID" "/home/$USERNAME/.nix-profile" || true
+                elif [ -x "/bin/busybox" ]; then
+                    /bin/busybox chown -h "$PUID:$PGID" "/home/$USERNAME/.nix-profile" || true
+                else
+                    echo "❌ Nix Sidecar: Error: chown command not found. Cannot set symlink ownership."
+                    exit 1
+                fi
             fi
         fi
     fi
@@ -530,9 +538,9 @@ exec_as_user() {
     # Always run within nix develop environment for consistent PATH and dependencies
     nix develop /nix-sidecar --command sh -c "
     if command -v gosu >/dev/null 2>&1; then
-        exec gosu \"$USERNAME\" $cmd
+        exec gosu \"$USERNAME\" sh -c \"$cmd\"
     elif command -v su-exec >/dev/null 2>&1; then
-        exec su-exec \"$USERNAME\" $cmd
+        exec su-exec \"$USERNAME\" sh -c \"$cmd\"
     else
         exec su \"$USERNAME\" -s /bin/sh -c \"$cmd\"
     fi

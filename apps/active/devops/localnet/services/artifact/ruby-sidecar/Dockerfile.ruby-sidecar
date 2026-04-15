@@ -5,7 +5,7 @@ ENV HEALTHCHECK_SCRIPT="/ruby-sidecar/healthcheck-ruby.sh"
 
 # Install packages with Alpine and clean up
 RUN apk update && apk upgrade && \
-    if [ -n "ruby" ]; then apk add ruby; fi && \
+    apk add ruby && \
     rm -rf /var/cache/apk/*
 
 # Create necessary directories

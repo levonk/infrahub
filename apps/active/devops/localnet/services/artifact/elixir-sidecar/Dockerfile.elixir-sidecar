@@ -5,7 +5,7 @@ ENV HEALTHCHECK_SCRIPT="/elixir-sidecar/healthcheck-elixir.sh"
 
 # Install packages with Alpine and clean up
 RUN apk update && apk upgrade && \
-    if [ -n "elixir" ]; then apk add elixir; fi && \
+    apk add elixir && \
     rm -rf /var/cache/apk/*
 
 # Create necessary directories

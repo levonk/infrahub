@@ -24,7 +24,7 @@ services:
         - PUID=${PUID:-1000}
         - PGID=${PGID:-1000}
         - TZ=${TZ:-UTC}
-    profiles: [core, base01, base02, localnet, all]
+    profiles: [core, base01, base02, base03, localnet, all]
     networks:
       - null-network
     volumes:
@@ -65,10 +65,7 @@ services:
         condition: service_healthy
     restart: no
     logging: *default-logging
-    profiles:
-      - base01
-      - base02
-      - base03
+    profiles: [core, base01, base02, base03, localnet, all]
 
   # Nix base image - for inheritance only
   base-nix:
@@ -101,9 +98,7 @@ services:
       start_period: 60s
     logging: *default-logging
     command: sleep 60
-    profiles:
-      - base02
-      - base03
+    profiles: [base02, base03, localnet, all]
 
   # Nix sidecar service - manages the Nix store and caching
   nix-sidecar:
@@ -128,16 +123,18 @@ services:
       - TZ=UTC
       - USERNAME=${USERNAME:-cuser}
     healthcheck:
-      test: ["CMD", "/bin/sh", "-c", "/nix-sidecar/healthcheck-nix-sidecar.sh > /dev/null 2>&1"]
+      test: ["CMD", "/bin/busybox", "sh", "/nix-sidecar/healthcheck-nix-sidecar.sh"]
       interval: 240s
       timeout: 120s
       retries: 3
-      start_period: 4800s
+      start_period: 240s
     logging: *default-logging
     profiles:
+      - core
       - base01
       - base02
       - base03
+      - localnet
       - all
 
   # base-sidecar - base image for sidecar services (inheritance only)
@@ -166,7 +163,7 @@ services:
       nix-sidecar:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "nix", "develop", "/app#default", "--command", "/usr/local/bin/healthcheck.sh"]
+      test: ["CMD", "/base-sidecar/bin/healthcheck-base-sidecar.sh"]
       interval: 60s
       timeout: 30s
       retries: 3
@@ -175,6 +172,9 @@ services:
     command: sleep 60
     profiles:
       - base03
+      - localnet
+      - all
+
 
   # base-debnix service - provides Debian + Nix environment (inheritance only)
   base-debnix:
@@ -211,6 +211,9 @@ services:
     logging: *default-logging
     profiles:
       - base02
+      - base03
+      - localnet
+      - all
 
   # Dev-Base service - provides essential development tools and Nix environment (inheritance only)
   base-dev:
@@ -285,17 +288,21 @@ services:
         condition: service_started
       nix-sidecar:
         condition: service_healthy
-#    healthcheck:
-#      test: ["CMD", "/base-dev/bin/healthcheck-base-dev.sh"]
-#      interval: 60s
-#      timeout: 60s
-#      retries: 3
-#      start_period: 120s
+    healthcheck:
+      test: ["CMD", "/base-dev/bin/healthcheck-base-dev.sh"]
+      interval: 60s
+      timeout: 60s
+      retries: 3
+      start_period: 120s
     logging: *default-logging
     ports:
       - "${AI_CODEASSIST_VIBEKANBAN_APP_HOST_PORT:-33000}:${AI_CODEASSIST_VIBEKANBAN_APP_CONTAINER_PORT:-3000}"
       - "${AI_CODEASSIST_VIBEKANBAN_ALT_HOST_PORT:-33080}:${AI_CODEASSIST_VIBEKANBAN_ALT_CONTAINER_PORT:-8080}"
     profiles:
       - base03
+      - localnet
+      - all
+
+
 
   

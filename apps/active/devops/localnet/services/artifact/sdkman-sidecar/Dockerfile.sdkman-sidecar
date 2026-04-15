@@ -4,8 +4,9 @@ FROM localnet-base-sidecar:latest
 ENV HEALTHCHECK_SCRIPT="/sdkman-sidecar/healthcheck-sdkman.sh"
 
 # Install packages with Alpine and clean up
-RUN apk update && apk upgrade && \
-    if [ -n "openjdk17" ]; then apk add openjdk17; fi && \
+RUN apk update && \
+    apk upgrade && \
+    apk add openjdk17 && \
     rm -rf /var/cache/apk/*
 
 # Create necessary directories

@@ -588,6 +588,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
 
 - [ ] **Container Registry**: Harbor https://github.com/goharbor/harbor
 - [ ] **Package Proxies**:
+  - [ ] **Supply Chain Monitor**: PyPI and NPM Security Monitor https://github.com/elastic/supply-chain-monitor
   - [ ] **Verdaccio**: NPM Proxy https://github.com/verdaccio/verdaccio
   - [ ] **turbo-cache**: https://github.com/brunojppb/turbo-cache-server
   - [ ] **Nexus**: Maven Proxy https://github.com/sonatype/nexus-public

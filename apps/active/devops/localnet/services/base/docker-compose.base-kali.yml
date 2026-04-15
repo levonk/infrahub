@@ -29,8 +29,7 @@ services:
         - TZ=${TZ:-UTC}
         - USERNAME=${USERNAME:-cuser}
     logging: *default-logging
-    restart: unless-stopped
-    profiles: [base01, localnet, all]
+    restart: no
     environment:
       # User and permissions
       - PUID=${PUID:-1000}
@@ -45,9 +44,22 @@ services:
       - nix-config:/etc/nix:ro
     networks:
       - localnet
+    # Health check
+    healthcheck:
+      test: ["CMD", "/base-kali/bin/healthcheck-base-kali.sh"]
+      interval: 30s
+      timeout: 30s
+      retries: 3
+      start_period: 60s
     # Security options
     security_opt:
       - no-new-privileges:true
+    profiles:
+      - base01
+      - base02
+      - base03
+      - localnet
+      - all
     # Resource limits
     deploy:
       resources:
@@ -73,8 +85,7 @@ services:
         - TZ=${TZ:-UTC}
         - USERNAME=${USERNAME:-cuser}
     logging: *default-logging
-    restart: unless-stopped
-    profiles: [base02, localnet, all]
+    restart: no
     environment:
       # User and permissions
       - PUID=${PUID:-1000}
@@ -95,6 +106,17 @@ services:
         condition: service_started
       nix-sidecar:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/base-kalinix/bin/healthcheck-base-kalinix.sh"]
+      interval: 30s
+      timeout: 30s
+      retries: 3
+      start_period: 60s
+    profiles:
+      - base02
+      - base03
+      - localnet
+      - all
     # Security options
     security_opt:
       - no-new-privileges:true

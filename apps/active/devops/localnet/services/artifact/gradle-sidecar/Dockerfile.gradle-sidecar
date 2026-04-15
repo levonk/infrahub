@@ -1,7 +1,8 @@
 # Build stage for Gradle
 FROM localnet-base-sidecar:latest as gradle-builder
 RUN apk update && apk upgrade && \
-    apk add curl unzip; \
+    apk add curl unzip ca-certificates && \
+    update-ca-certificates && \
     mkdir -p /opt/gradle; \
     curl -L "https://services.gradle.org/distributions/gradle-8.5-bin.zip" -o /tmp/gradle.zip; \
     unzip /tmp/gradle.zip -d /opt/gradle --strip-components=1; \
@@ -14,13 +15,14 @@ FROM localnet-base-sidecar:latest
 ENV HEALTHCHECK_SCRIPT="/gradle-sidecar/healthcheck-gradle.sh"
 
 # Install only runtime dependencies
-RUN apk update && apk upgrade && \
+RUN apk update && \
+    apk upgrade && \
     apk add openjdk17-jre; \
     rm -rf /var/cache/apk/*
 
 # Copy Gradle from builder stage
 COPY --from=gradle-builder /opt/gradle /opt/gradle
-RUN ln -sf /opt/gradle/bin/gradle /usr/local/bin/gradle && \
+RUN mkdir -p /usr/local/bin && ln -sf /opt/gradle/bin/gradle /usr/local/bin/gradle && \
     ln -sf /opt/gradle/bin/gradle /usr/local/bin/gradlew
 
 # Create necessary directories

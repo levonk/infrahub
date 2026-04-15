@@ -5,7 +5,7 @@ ENV HEALTHCHECK_SCRIPT="/java-sidecar/healthcheck-java.sh"
 
 # Install packages with Alpine and clean up
 RUN apk update && apk upgrade && \
-    if [ -n "openjdk17" ]; then apk add openjdk17; fi && \
+    apk add openjdk17 && \
     rm -rf /var/cache/apk/*
 
 # Create necessary directories

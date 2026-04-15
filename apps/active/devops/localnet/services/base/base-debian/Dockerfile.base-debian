@@ -52,8 +52,8 @@ RUN groupadd -r -g ${PGID} cuser && \
 RUN find / -type f \( -name "*.pyc" -o -name "*.pyo" \) -delete 2>/dev/null || true && \
     find / -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 
-COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
+COPY assets/static/base-debian/ /base-debian/
+RUN chmod +x /base-debian/bin/entrypoint-base-debian.sh
 
 # Set working directory
 WORKDIR /etc/service
@@ -62,5 +62,5 @@ WORKDIR /etc/service
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD echo "Debian Base image healthy"
 
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
-CMD ["sleep", "infinity"]
+ENTRYPOINT ["/base-debian/bin/entrypoint-base-debian.sh"]
+CMD ["sleep", "300"]

@@ -5,7 +5,7 @@ ENV HEALTHCHECK_SCRIPT="/go-sidecar/healthcheck-go.sh"
 
 # Install packages with Alpine and clean up
 RUN apk update && apk upgrade && \
-    if [ -n "go" ]; then apk add go; fi && \
+    apk add go && \
     rm -rf /var/cache/apk/*
 
 # Create necessary directories

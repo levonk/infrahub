@@ -16,7 +16,8 @@ services:
   # Base service that can be extended by other containers
   common-base:
     image: localnet-base-alpine:latest
-    command: ["sleep", "90"]
+    command: >
+      sh -c 'echo "Intended to be inherited from in other services, shutting down. Use docker exec -it localnet-base-alpine /bin/bash to get an interactive shell"'
     logging: *default-logging
     dns:
       - 1.1.1.1

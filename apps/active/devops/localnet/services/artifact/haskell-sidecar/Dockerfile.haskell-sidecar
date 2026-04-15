@@ -5,7 +5,7 @@ ENV HEALTHCHECK_SCRIPT="/haskell-sidecar/healthcheck-haskell.sh"
 
 # Install packages with Alpine and clean up
 RUN apk update && apk upgrade && \
-    if [ -n "ghc" ]; then apk add ghc; fi && \
+    apk add ghc && \
     rm -rf /var/cache/apk/*
 
 # Create necessary directories

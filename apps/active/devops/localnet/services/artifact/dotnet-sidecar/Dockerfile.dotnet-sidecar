@@ -1,35 +1,45 @@
-# Build stage for .NET SDK (requires Debian/Ubuntu)
-FROM localnet-base-debian:latest as dotnet-builder
-RUN apt-get update && apt-get install -y wget gpg && \
-    wget https://packages.microsoft.com/config/debian/12/packages-microsoft-prod.deb -O packages-microsoft-prod.deb && \
-    dpkg -i packages-microsoft-prod.deb && \
-    rm packages-microsoft-prod.deb && \
-    apt-get update && \
-    apt-get install -y dotnet-sdk-8.0 && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+# Build stage for .NET SDK
+FROM localnet-base-sidecar:latest as dotnet-builder
+
+# Install packages needed for .NET installation
+RUN apk update && apk upgrade && \
+    apk add curl wget bash libc6-compat libgcc libstdc++ libintl icu-libs tar ca-certificates zstd && \
+    rm -rf /var/cache/apk/*
+
+# Download and install .NET SDK to temp location for archiving
+RUN mkdir -p /tmp/dotnet-sdk && \
+    curl -sSL https://dot.net/v1/dotnet-install.sh | bash /dev/stdin --install-dir /tmp/dotnet-sdk --channel 8.0 --version latest && \
+    # Create archive of .NET SDK for runtime extraction
+    # Create archive using GNU tar with zstd
+    tar -I "zstd -19" -cf /tmp/dotnet-sdk-archive.tar.zstd -C /tmp/dotnet-sdk . && \
+    rm -rf /tmp/dotnet-sdk
 
 # Runtime stage
 FROM localnet-base-sidecar:latest
 
-# Install packages with Alpine and clean up
-# Copy .NET SDK from build stage
-RUN apk update && apk upgrade && \
-    apk add curl wget bash libc6-compat libgcc libstdc++ libintl libicu; \
+# Set healthcheck script path variable
+ENV HEALTHCHECK_SCRIPT="/dotnet-sidecar/healthcheck-dotnet.sh"
+
+# Install runtime dependencies and zstd for decompression
+RUN apk update && \
+    apk upgrade && \
+    apk add bash libc6-compat libgcc libstdc++ libintl icu-libs zstd ca-certificates && \
     rm -rf /var/cache/apk/*
 
-# Copy .NET from builder stage
-COPY --from=dotnet-builder /usr/share/dotnet /usr/share/dotnet
-RUN ln -sf /usr/share/dotnet/dotnet /usr/local/bin/dotnet
-
 # Create necessary directories
-RUN mkdir -p /home/developer/.cache/dotnet dotnet-sidecar
+RUN mkdir -p /var/lib/dotnet /home/cuser/.nuget/packages /home/cuser/.cache/dotnet dotnet-sidecar/tmp
 
-# Copy healthcheck script using variable
+# Copy .NET SDK archive from builder stage
+COPY --from=dotnet-builder /tmp/dotnet-sdk-archive.tar.zstd /dotnet-sidecar/tmp/
+
+# Copy entrypoint and healthcheck scripts
 COPY assets/static/ /
-RUN chmod +x /dotnet-sidecar/healthcheck-dotnet.sh
+RUN chmod +x /dotnet-sidecar/entrypoint-dotnet-sidecar.sh /dotnet-sidecar/healthcheck-dotnet.sh
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-  CMD ["/dotnet-sidecar/healthcheck-dotnet.sh"]
+  CMD ["${HEALTHCHECK_SCRIPT}"]
 
-ENTRYPOINT ["/usr/bin/env"]
+USER 1000
+
+ENTRYPOINT ["/dotnet-sidecar/entrypoint-dotnet-sidecar.sh"]
 CMD ["sleep", "30"]

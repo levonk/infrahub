@@ -4,8 +4,9 @@ FROM localnet-base-sidecar:latest
 ENV HEALTHCHECK_SCRIPT="/turborepo-sidecar/healthcheck-turborepo.sh"
 
 # Install packages with Alpine and clean up
-RUN apk update && apk upgrade && \
-    if [ -n "nodejs npm" ]; then apk add nodejs npm; fi && \
+RUN apk update && \
+    apk upgrade && \
+    apk add nodejs npm && \
     rm -rf /var/cache/apk/*
 
 # Create necessary directories

@@ -1,22 +1,46 @@
+# Build stage for Rust toolchain
+FROM localnet-base-sidecar:latest as rust-builder
+
+# Install Rust toolchain
+RUN apk update && apk upgrade && \
+    apk add rust cargo zstd tar curl ca-certificates && \
+    update-ca-certificates && \
+    # Create directories for archiving
+    mkdir -p /tmp/rust-toolchain/cargo /tmp/rust-toolchain/rustup && \
+    # Copy installed rust tools to temp location for archiving
+    cp -r /usr/bin/rustc /usr/bin/cargo /usr/bin/rustdoc /tmp/rust-toolchain/ 2>/dev/null || true && \
+    cp -r /usr/lib/rustlib /tmp/rust-toolchain/ 2>/dev/null || true && \
+    # Create archive of rust toolchain using GNU tar with zstd
+    tar -I "zstd -19" -cf /tmp/rust-toolchain-archive.tar.zstd -C /tmp/rust-toolchain . && \
+    rm -rf /tmp/rust-toolchain && \
+    rm -rf /var/cache/apk/*
+
+# Runtime stage
 FROM localnet-base-sidecar:latest
 
 # Set healthcheck script path variable
 ENV HEALTHCHECK_SCRIPT="/rust-sidecar/healthcheck-rust.sh"
 
-# Install packages with Alpine and clean up
-RUN apk update && apk upgrade && \
-    if [ -n "rust cargo" ]; then apk add rust cargo; fi && \
+# Install runtime dependencies and zstd for decompression
+RUN apk update && \
+    apk upgrade && \
+    apk add zstd && \
     rm -rf /var/cache/apk/*
 
 # Create necessary directories
-RUN mkdir -p /home/developer/.cache/rust rust-sidecar
+RUN mkdir -p /home/cuser/.cargo/registry /home/cuser/.cargo/git /home/cuser/.rustup rust-sidecar/tmp
 
-# Copy healthcheck script using variable
-COPY assets/static/rust-sidecar/healthcheck-rust.sh ${HEALTHCHECK_SCRIPT}
-RUN chmod +x ${HEALTHCHECK_SCRIPT}
+# Copy rust toolchain archive from builder stage
+COPY --from=rust-builder /tmp/rust-toolchain-archive.tar.zstd /rust-sidecar/tmp/
+
+# Copy entrypoint and healthcheck scripts
+COPY assets/static/ /
+RUN chmod +x /rust-sidecar/entrypoint-rust-sidecar.sh /rust-sidecar/healthcheck-rust.sh
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
   CMD ["${HEALTHCHECK_SCRIPT}"]
 
-ENTRYPOINT ["/usr/bin/env"]
+USER 1000
+
+ENTRYPOINT ["/rust-sidecar/entrypoint-rust-sidecar.sh"]
 CMD ["sleep", "30"]

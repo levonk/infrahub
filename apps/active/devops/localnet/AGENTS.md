@@ -1,3 +1,12 @@
+# LocalNet
+This project is a docker-compose deployment to set up a home / small-business Network
+
+# Project CLI
+- build a speific service `devbox run -- just build-service-internal {service name}`
+- start a speific service `devbox run -- docker compose -f docker-compose.localnet.yml --profile all up {service name}  -d --build`
+- start a speific service `devbox run -- just base-up-internal`
+
+
 # LocalNet Development Environment - Agent Instructions
 
 This document follows **[ADR-20260322002](../internal-docs/adr/adr-20260322002-docker-compose-profile-strategy.md)** for Docker Compose profile-based service organization and **[ADR-20260322003](../internal-docs/adr/adr-20260322003-memory-management-local-task-tracking.md)** for memory management and task tracking.
@@ -77,9 +86,10 @@ If you're working on Nix containers, see the documentation at:
 When given a request to fix or start something:
 
 1. **Take the request** - Understand what needs to be done
-2. **Make the changes** - Implement the fix or configuration
-3. **VALIDATE IT WORKS** - This is NOT optional - you must confirm success
-4. **Only then mark complete** - After confirming no errors
+2. **VALIDATE CURRENT STATE** - If it was a bug, verify you can reproduce, if it's a feature, verify it's not currently there.
+3. **Make the changes** - Implement the fix or configuration
+4. **VALIDATE IT WORKS** - This is NOT optional - you must confirm success
+5. **Only then mark complete** - After confirming no errors
 
 ### Container Startup Validation (Example)
 

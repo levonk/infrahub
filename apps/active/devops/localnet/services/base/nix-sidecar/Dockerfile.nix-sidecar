@@ -10,6 +10,8 @@ RUN mkdir -p /etc/nix /src && \
 WORKDIR /src
 
 # Write a tiny flake that overrides BusyBox to build static
+# NOTE: nixos-24.11 has tarball corruption issues (perl-packages.nix fetch fails)
+# Keep nixos-25.11 or later - do not downgrade to 24.11
 RUN cat > flake.nix <<'EOF'
 {
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";

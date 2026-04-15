@@ -1,11 +1,13 @@
 # Build stage for Mise
 FROM localnet-base-sidecar:latest as mise-builder
+
+# SSL_CERT_FILE is inherited from base-sidecar (correctly set to ca-certificates.crt for Alpine)
 RUN apk update && apk upgrade && \
-    apk add curl; \
-    mkdir -p /opt/mise; \
-	SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt \
-    curl -L "https://mise.jdx.dev/mise-latest-linux-x64" -o /opt/mise/mise; \
-    chmod +x /opt/mise/mise;
+    apk add curl ca-certificates && \
+    update-ca-certificates && \
+    mkdir -p /opt/mise && \
+    curl -fsSL "https://mise.jdx.dev/mise-latest-linux-x64" -o /opt/mise/mise && \
+    chmod +x /opt/mise/mise
 
 # Runtime stage
 FROM localnet-base-sidecar:latest
@@ -14,12 +16,13 @@ FROM localnet-base-sidecar:latest
 ENV HEALTHCHECK_SCRIPT="/mise-sidecar/healthcheck-mise.sh"
 
 # Install only runtime dependencies
-RUN apk update && apk upgrade && \
+RUN apk update && \
+    (apk upgrade || true) && \
     rm -rf /var/cache/apk/*
 
 # Copy Mise from builder stage
 COPY --from=mise-builder /opt/mise /opt/mise
-RUN ln -sf /opt/mise/mise /usr/local/bin/mise
+RUN mkdir -p /usr/local/bin && ln -sf /opt/mise/mise /usr/local/bin/mise
 
 # Create necessary directories
 RUN mkdir -p /home/developer/.cache/mise mise-sidecar

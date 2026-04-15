@@ -170,8 +170,21 @@ log "Ready for security testing!"
 
 # Keep container running if no command is provided
 if [ $# -eq 0 ]; then
-    log "Starting interactive shell..."
-    exec /bin/bash
+    log "Starting container to allow viewing of logs..."
+    log "This container is intended to be a base for other images."
+    log "Available commands:"
+    log "  security-tools - List available security tools"
+    log "  init-workspace - Create a new workspace directory"
+    log "  msfconsole - Launch Metasploit Framework"
+    log "  nmap - Network scanning"
+    log "  gobuster - Web directory brute forcing"
+    log ""
+    log "Use 'docker exec -it localnet-base-kali /bin/bash' to get an interactive shell"
+    
+    # Keep container alive with sleep loop instead of interactive shell
+    #while true; do
+        sleep 600  # Sleep for 10 minutes
+    #done
 else
     log "Executing command: $*"
     exec "$@"

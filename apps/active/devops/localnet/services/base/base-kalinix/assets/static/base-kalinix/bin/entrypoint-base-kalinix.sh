@@ -233,12 +233,25 @@ log "  msfconsole - Launch Metasploit Framework"
 log "  nmap - Network scanning"
 log "  gobuster - Web directory brute forcing"
 log ""
-log "Ready for security testing with Nix package management!"
+log "Kali Ready for Use with Nix package management!"
 
 # Keep container running if no command is provided
 if [ $# -eq 0 ]; then
-    log "Starting interactive shell..."
-    exec /bin/bash
+    log "Starting container to view logs..."
+    log "Container is ready for security testing!"
+    log "Available commands:"
+    log "  security-tools - List available security tools"
+    log "  init-workspace - Create a new workspace directory"
+    log "  msfconsole - Launch Metasploit Framework"
+    log "  nmap - Network scanning"
+    log "  gobuster - Web directory brute forcing"
+    log ""
+    log "Use 'docker exec -it localnet-base-kalinix /bin/bash' to get an interactive shell"
+    
+    # Keep container alive with sleep loop instead of interactive shell
+    #while true; do
+        sleep 600  # Sleep for 10 minutes
+    #done
 else
     log "Executing command: $*"
     exec "$@"

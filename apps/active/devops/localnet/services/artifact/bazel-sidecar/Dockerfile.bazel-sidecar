@@ -18,7 +18,7 @@ RUN apk update && apk upgrade && \
 
 # Copy Bazel from builder stage
 COPY --from=bazel-builder /opt/bazel /opt/bazel
-RUN ln -sf /opt/bazel/bazel /usr/local/bin/bazel
+RUN mkdir -p /usr/local/bin && ln -sf /opt/bazel/bazel /usr/local/bin/bazel
 
 # Create necessary directories
 RUN mkdir -p /home/developer/.cache/bazel bazel-sidecar

@@ -226,6 +226,8 @@ execute_as_user_in_devbox "pnpm install -g turbo" || { echo "❌ Failed to insta
 execute_as_user_in_devbox "pnpm install -g yarn" || { echo "❌ Failed to install yarn in Devbox development environment"; exit 1; }
 # https://bun.sh/
 execute_as_user_in_devbox "pnpm install -g bun" || { echo "❌ Failed to install bun in Devbox development environment"; exit 1; }
+# https://github.com/afshinm/zerobox
+execute_as_user_in_devbox "pnpm install -g zerobox" || { echo "❌ Failed to install zerobox in Devbox development environment"; exit 1; }
 # https://github.com/kapishdima/soundcn
 execute_as_user_in_devbox "npx shadcn add https://soundcn.xyz/r/click-soft.json" || { echo "❌ Failed to install shadcn component in Devbox development environment"; exit 1; }
 # https://github.com/anl331/goey-toast?tab=readme-ov-file
@@ -269,6 +271,7 @@ echo "🤖 Installing uv packages in Devbox development environment..."
 # Install Python packages using the helper function
 install_python_package "llm-tldr"
 install_python_package "memsearch"
+install_python_package "git_bayesect"
 
 # Check and install Cargo packages inside Devbox development shell
 echo "🤖 Checking for Cargo in Devbox development environment..."
@@ -278,6 +281,7 @@ echo "🤖 Installing Cargo packages in Devbox development environment..."
 # Install Cargo packages using the helper function
 # These are useful development tools that may not be available as Nix packages yet
 install_cargo_package "worktrunk"        # Worktrunk development tool
+install_cargo_package "--git https://github.com/rtk-ai/rtk"        # Bash Tool Token Reducer
 
 # Install agent-deck
 echo "🤖 Installing agent-deck..."

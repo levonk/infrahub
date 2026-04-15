@@ -5,7 +5,7 @@ ENV HEALTHCHECK_SCRIPT="/php-sidecar/healthcheck-php.sh"
 
 # Install packages with Alpine and clean up
 RUN apk update && apk upgrade && \
-    if [ -n "php composer" ]; then apk add php composer; fi && \
+    apk add php composer && \
     rm -rf /var/cache/apk/*
 
 # Create necessary directories
