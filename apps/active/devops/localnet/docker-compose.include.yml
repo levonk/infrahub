@@ -218,6 +218,9 @@ volumes:
   unity-cache:
     name: localnet-artifact-unity-cache-volume
     external: true
+  nx-cache:
+    name: localnet-artifact-nx-cache-volume
+    external: true
   vscode-cache:
     name: localnet-artifact-vscode-cache-volume
     external: true

@@ -2,16 +2,20 @@
 FROM localnet-base-sidecar:latest as pnpm-builder
 
 # Install packages and download pnpm
-RUN apk update && apk upgrade && \
-    apk add nodejs npm curl zstd tar ca-certificates && \
-    update-ca-certificates && \
-    mkdir -p /tmp/pnpm-store && \
-    # Install pnpm globally to temp location for archiving
-    npm install -g pnpm --prefix /tmp/pnpm-store && \
-    # Create archive of pnpm installation using GNU tar with zstd
-    tar -I "zstd -19" -cf /tmp/pnpm-store-archive.tar.zstd -C /tmp/pnpm-store . && \
-    rm -rf /tmp/pnpm-store && \
-    rm -rf /var/cache/apk/*
+# Uses cache mounts for apk indexes, npm, and pnpm caches to speed rebuilds
+# Retry logic handles transient TLS/network failures
+RUN --mount=type=cache,target=/var/cache/apk,id=pnpm-sidecar-apk \
+    --mount=type=cache,target=/root/.npm,id=pnpm-sidecar-npm \
+    for i in 1 2 3; do \
+        apk update && \
+        apk add nodejs npm curl zstd tar ca-certificates && \
+        update-ca-certificates && \
+        mkdir -p /tmp/pnpm-store && \
+        npm install -g pnpm --prefix /tmp/pnpm-store && \
+        tar -I "zstd -19" -cf /tmp/pnpm-store-archive.tar.zstd -C /tmp/pnpm-store . && \
+        rm -rf /tmp/pnpm-store && \
+        break || (echo "Retry $i failed, waiting..." && sleep 5); \
+    done
 
 # Runtime stage
 FROM localnet-base-sidecar:latest
@@ -20,10 +24,14 @@ FROM localnet-base-sidecar:latest
 ENV HEALTHCHECK_SCRIPT="/pnpm-sidecar/healthcheck-pnpm.sh"
 
 # Install runtime dependencies (nodejs needed for pnpm)
-RUN apk update && \
-    apk upgrade && \
-    apk add nodejs zstd && \
-    rm -rf /var/cache/apk/* || true
+# Uses cache mount for apk indexes to speed rebuilds
+# Retry logic handles transient TLS/network failures
+RUN --mount=type=cache,target=/var/cache/apk,id=pnpm-sidecar-apk \
+    for i in 1 2 3; do \
+        apk update && \
+        apk add nodejs zstd && \
+        break || (echo "Retry $i failed, waiting..." && sleep 5); \
+    done || true
 
 # Create necessary directories
 RUN mkdir -p /home/cuser/.local/share/pnpm /home/cuser/.cache/pnpm pnpm-sidecar/tmp

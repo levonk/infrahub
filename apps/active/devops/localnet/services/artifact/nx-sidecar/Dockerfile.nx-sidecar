@@ -1,0 +1,38 @@
+# NX Sidecar Dockerfile
+# Provides centralized NX build cache via shared volume
+# Depends on pnpm-sidecar for nx package installation
+
+FROM localnet-base-sidecar:latest
+
+# Copy healthcheck script path variable
+ENV HEALTHCHECK_SCRIPT="/nx-sidecar/healthcheck-nx.sh"
+
+# Install runtime dependencies (nodejs needed for nx)
+# Uses cache mount for apk indexes to speed rebuilds
+# Retry logic handles transient TLS/network failures
+RUN --mount=type=cache,target=/var/cache/apk,id=nx-sidecar-apk \
+    for i in 1 2 3; do \
+        apk update && \
+        apk add nodejs npm zstd && \
+        break || (echo "Retry $i failed, waiting..." && sleep 5); \
+    done || true
+
+# Create necessary directories for nx cache
+# Following FHS-compliant layout from spec: /var/cache/nx-cache/vANY/
+RUN mkdir -p /var/cache/nx-cache/vANY/hashes \
+    /var/cache/nx-cache/vANY/outputs \
+    /var/cache/nx-cache/vANY/terminalOutputs \
+    /home/cuser/.local/share/pnpm \
+    /home/cuser/.cache/pnpm
+
+# Copy entrypoint and healthcheck scripts
+COPY assets/static/ /
+RUN chmod +x /nx-sidecar/entrypoint-nx-sidecar.sh /nx-sidecar/healthcheck-nx.sh
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD ["/nx-sidecar/healthcheck-nx.sh"]
+
+USER 1000
+
+ENTRYPOINT ["/nx-sidecar/entrypoint-nx-sidecar.sh"]
+CMD ["sleep", "30"]

@@ -1,12 +1,30 @@
 # Build stage for Gradle
-FROM localnet-base-sidecar:latest as gradle-builder
-RUN apk update && apk upgrade && \
-    apk add curl unzip ca-certificates && \
-    update-ca-certificates && \
-    mkdir -p /opt/gradle; \
-    curl -L "https://services.gradle.org/distributions/gradle-8.5-bin.zip" -o /tmp/gradle.zip; \
-    unzip /tmp/gradle.zip -d /opt/gradle --strip-components=1; \
-    rm -rf /tmp/gradle.zip;
+FROM localnet-base-alpine:latest as gradle-builder
+
+# Copy downloads directory if it exists (may contain pre-downloaded artifacts)
+COPY assets/tmp/downloads/ /tmp/downloads/
+
+# Uses cache mounts for apk indexes and Gradle distribution downloads to speed rebuilds
+# Retry logic handles transient TLS/network failures
+# Checks /tmp/downloads/ first for pre-downloaded artifacts
+RUN --mount=type=cache,target=/var/cache/apk,id=gradle-sidecar-apk \
+    --mount=type=cache,target=/tmp/gradle-cache,id=gradle-sidecar-gradle \
+    for i in 1 2 3; do \
+        apk update && \
+        apk add curl unzip ca-certificates && \
+        update-ca-certificates && \
+        mkdir -p /opt/gradle && \
+        if [ -f /tmp/downloads/gradle-8.5-bin.zip ]; then \
+            echo "Using pre-downloaded Gradle..."; \
+            cp /tmp/downloads/gradle-8.5-bin.zip /tmp/gradle.zip; \
+        else \
+            echo "Downloading Gradle..."; \
+            curl -L "https://services.gradle.org/distributions/gradle-8.5-bin.zip" -o /tmp/gradle.zip; \
+        fi && \
+        unzip /tmp/gradle.zip -d /opt/gradle --strip-components=1 && \
+        rm -rf /tmp/gradle.zip && \
+        break || (echo "Retry $i failed, waiting..." && sleep 5); \
+    done
 
 # Runtime stage
 FROM localnet-base-sidecar:latest
@@ -15,10 +33,14 @@ FROM localnet-base-sidecar:latest
 ENV HEALTHCHECK_SCRIPT="/gradle-sidecar/healthcheck-gradle.sh"
 
 # Install only runtime dependencies
-RUN apk update && \
-    apk upgrade && \
-    apk add openjdk17-jre; \
-    rm -rf /var/cache/apk/*
+# Uses cache mount for apk indexes to speed rebuilds
+# Retry logic handles transient TLS/network failures
+RUN --mount=type=cache,target=/var/cache/apk,id=gradle-sidecar-apk \
+    for i in 1 2 3; do \
+        apk update && \
+        apk add openjdk17-jre && \
+        break || (echo "Retry $i failed, waiting..." && sleep 5); \
+    done
 
 # Copy Gradle from builder stage
 COPY --from=gradle-builder /opt/gradle /opt/gradle

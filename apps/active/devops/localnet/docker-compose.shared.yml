@@ -245,6 +245,9 @@ volumes:
   pnpm-store:
     name: localnet-artifact-pnpm-store-volume
     external: false
+  nx-cache:
+    name: localnet-artifact-nx-cache-volume
+    external: false
   pyenv-cache:
     name: localnet-artifact-pyenv-cache-volume
     external: false
@@ -388,6 +391,7 @@ services:
       - poetry-cache:/var/lib/poetry:ro
       - pnpm-store:/var/lib/pnpm:ro
       - pyenv-cache:/var/lib/pyenv:ro
+      - nx-cache:/var/cache/nx-cache:ro
       - python-cache:/var/lib/python:ro
       - ruby-cache:/var/lib/ruby:ro
       - rust-cargo-cache:/var/lib/cargo:ro

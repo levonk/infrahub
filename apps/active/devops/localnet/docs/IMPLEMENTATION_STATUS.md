@@ -3,6 +3,7 @@
 **Last Updated**: 2025-01-21  
 **Feature Branch**: `001-localnet-in-a-box`  
 **Target Path**: `apps/active/devops/localnet/`
+Background: apps/active/devops/AGENTS.md
 
 ## Overview
 
@@ -21,6 +22,10 @@ This document tracks the implementation status of all tasks for the Home Lab In-
 | **Phase 7: Logging Pipeline** | ⚠️ Partial | 12/15 | 15 | 80% |
 | **Phase 8: Monitoring** | ✅ Complete | 18/18 | 18 | 100% |
 | **Phase 8.5: Security Hardening** | ✅ Complete | 10/10 | 10 | 100% |
+| **Phase 8.6: Add NX alongside for build orchestration** | 🚧 In Progress | 8/12 | 12 | 67% |
+| **Phase 8.7: update justfile to prefer NX** | not started | | | |
+| **Phase 8.8: NX wth sidecar caching**| not started | | | |
+| **Phase 8.9: Add ansible** | not started | | | |
 | **Phase 9: Integration & Testing** | ❌ Not Started | 0/20 | 20 | 0% |
 | **Phase 10: Documentation** | ⚠️ Partial | 1/13 | 13 | 8% |
 | **Phase 11: WireGuard VPN** | ❌ Not Started | 0/26 | 26 | 0% |
@@ -87,6 +92,30 @@ This document tracks the implementation status of all tasks for the Home Lab In-
   - Web Proxy Performance - Request rates, latency, cache performance, Tor status
   - System Health - Service availability, resource usage, container health
   - Service Logs - Log volume, error tracking, security events
+
+---
+
+## Phase 8.6: NX Build Orchestration (12 tasks)
+
+### NX Foundation (4 tasks) ✅
+- [X] **T8.6-01**: Create `nx.json` with caching and dependency pipeline
+- [X] **T8.6-02**: Create `package.json` with NX dependencies and scripts
+- [X] **T8.6-03**: Document NX integration in `docs/NX-BUILD-ORCHESTRATION.md`
+- [X] **T8.6-04**: Add NX commands to `justfile` (nx-build, nx-graph, nx-clear-cache)
+
+### Base Image Projects (3 tasks) ✅
+- [X] **T8.6-05**: Create `project.json` for `localnet-base-alpine`
+- [X] **T8.6-06**: Create `project.json` for `localnet-base-debian` and `localnet-base-kali`
+- [X] **T8.6-07**: Create `project.json` for nix-enabled variants (`base-nix`, `base-kalinix`, `base-sidecar`)
+
+### Sidecar Projects (3 tasks) ✅
+- [X] **T8.6-08**: Create `project.json` for `localnet-nix-sidecar` (foundation)
+- [X] **T8.6-09**: Create `project.json` for `localnet-pnpm-sidecar`
+- [X] **T8.6-10**: Create `project.json` for `localnet-nx-sidecar` and link to pnpm-sidecar
+
+### Service Projects (2 tasks) 🚧
+- [X] **T8.6-11**: Create `project.json` for artifact services (nexus, verdaccio)
+- [ ] **T8.6-12**: Create `project.json` for remaining services (dns, security, etc.)
 
 ---
 

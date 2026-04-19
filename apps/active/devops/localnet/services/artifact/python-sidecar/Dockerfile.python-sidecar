@@ -4,9 +4,15 @@ FROM localnet-base-sidecar:latest
 ENV HEALTHCHECK_SCRIPT="/python-sidecar/healthcheck-python.sh"
 
 # Install packages with Alpine and clean up
-RUN apk update && apk upgrade && \
-    apk add python3 py3-pip && \
-    rm -rf /var/cache/apk/*
+# Uses cache mounts for apk indexes and pip cache to speed rebuilds
+# Retry logic handles transient TLS/network failures
+RUN --mount=type=cache,target=/var/cache/apk,id=python-sidecar-apk \
+    --mount=type=cache,target=/root/.cache/pip,id=python-sidecar-pip \
+    for i in 1 2 3; do \
+        apk update && \
+        apk add python3 py3-pip && \
+        break || (echo "Retry $i failed, waiting..." && sleep 5); \
+    done
 
 # Create necessary directories
 RUN mkdir -p /home/developer/.cache/python python-sidecar

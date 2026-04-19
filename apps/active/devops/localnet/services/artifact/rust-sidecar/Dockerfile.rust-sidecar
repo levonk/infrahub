@@ -2,18 +2,21 @@
 FROM localnet-base-sidecar:latest as rust-builder
 
 # Install Rust toolchain
-RUN apk update && apk upgrade && \
-    apk add rust cargo zstd tar curl ca-certificates && \
-    update-ca-certificates && \
-    # Create directories for archiving
-    mkdir -p /tmp/rust-toolchain/cargo /tmp/rust-toolchain/rustup && \
-    # Copy installed rust tools to temp location for archiving
-    cp -r /usr/bin/rustc /usr/bin/cargo /usr/bin/rustdoc /tmp/rust-toolchain/ 2>/dev/null || true && \
-    cp -r /usr/lib/rustlib /tmp/rust-toolchain/ 2>/dev/null || true && \
-    # Create archive of rust toolchain using GNU tar with zstd
-    tar -I "zstd -19" -cf /tmp/rust-toolchain-archive.tar.zstd -C /tmp/rust-toolchain . && \
-    rm -rf /tmp/rust-toolchain && \
-    rm -rf /var/cache/apk/*
+# Uses cache mounts for apk indexes and cargo registry to speed rebuilds
+# Retry logic handles transient TLS/network failures
+RUN --mount=type=cache,target=/var/cache/apk,id=rust-sidecar-apk \
+    --mount=type=cache,target=/root/.cargo/registry,id=rust-sidecar-cargo \
+    for i in 1 2 3; do \
+        apk update && \
+        apk add rust cargo zstd tar curl ca-certificates && \
+        update-ca-certificates && \
+        mkdir -p /tmp/rust-toolchain/cargo /tmp/rust-toolchain/rustup && \
+        cp -r /usr/bin/rustc /usr/bin/cargo /usr/bin/rustdoc /tmp/rust-toolchain/ 2>/dev/null || true && \
+        cp -r /usr/lib/rustlib /tmp/rust-toolchain/ 2>/dev/null || true && \
+        tar -I "zstd -19" -cf /tmp/rust-toolchain-archive.tar.zstd -C /tmp/rust-toolchain . && \
+        rm -rf /tmp/rust-toolchain && \
+        break || (echo "Retry $i failed, waiting..." && sleep 5); \
+    done
 
 # Runtime stage
 FROM localnet-base-sidecar:latest
@@ -22,10 +25,14 @@ FROM localnet-base-sidecar:latest
 ENV HEALTHCHECK_SCRIPT="/rust-sidecar/healthcheck-rust.sh"
 
 # Install runtime dependencies and zstd for decompression
-RUN apk update && \
-    apk upgrade && \
-    apk add zstd && \
-    rm -rf /var/cache/apk/*
+# Uses cache mount for apk indexes to speed rebuilds
+# Retry logic handles transient TLS/network failures
+RUN --mount=type=cache,target=/var/cache/apk,id=rust-sidecar-apk \
+    for i in 1 2 3; do \
+        apk update && \
+        apk add zstd && \
+        break || (echo "Retry $i failed, waiting..." && sleep 5); \
+    done
 
 # Create necessary directories
 RUN mkdir -p /home/cuser/.cargo/registry /home/cuser/.cargo/git /home/cuser/.rustup rust-sidecar/tmp

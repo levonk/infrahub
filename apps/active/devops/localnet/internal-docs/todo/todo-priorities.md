@@ -170,6 +170,7 @@ A prioritized roadmap for building a secure, resilient, and privacy-focused home
   - [ ] **GlueTun**: https://github.com/qdm12/gluetun
 - [ ] **VPN Outbound**:
   - [ ] **VLESS+XTLS**: 3x-ui (Proxy/VPN) https://github.com/MHSanaei/3x-ui (example config https://github.com/56idc/3x-ui-alpine )
+  - [ ] **Yggdrasil Network**: https://yggdrasil-network.github.io/
   - [ ] **Tor** https://www.torproject.org/download/tor/
   - [ ] **Cloudflare WARP**
     - [ ] https://github.com/deepwn/warpod

@@ -1,15 +1,32 @@
 # Build stage for Conda
 FROM localnet-base-sidecar:latest as conda-builder
-RUN apk update && apk upgrade && \
-    apk add curl bash zstd tar ca-certificates && \
-    update-ca-certificates && \
-    mkdir -p /opt/conda /conda-sidecar/tmp && \
-    curl -L "https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh" -o /tmp/miniconda.sh && \
-    bash /tmp/miniconda.sh -b -p /opt/conda && \
-    rm -rf /tmp/miniconda.sh && \
-    # Create archive of conda installation using GNU tar with zstd
-    tar -I "zstd -19" -cf /conda-sidecar/tmp/conda-archive.tar.zstd -C /opt/conda . && \
-    rm -rf /opt/conda
+
+# Copy downloads directory if it exists (may contain pre-downloaded artifacts)
+COPY assets/tmp/downloads/ /tmp/downloads/
+
+# Uses cache mounts for apk indexes and Miniconda downloads to speed rebuilds
+# Retry logic handles transient TLS/network failures
+# Checks /tmp/downloads/ first for pre-downloaded artifacts
+RUN --mount=type=cache,target=/var/cache/apk,id=conda-sidecar-apk \
+    --mount=type=cache,target=/tmp/conda-cache,id=conda-sidecar-miniconda \
+    for i in 1 2 3; do \
+        apk update && \
+        apk add curl bash zstd tar ca-certificates && \
+        update-ca-certificates && \
+        mkdir -p /opt/conda /conda-sidecar/tmp && \
+        if [ -f /tmp/downloads/Miniconda3-latest-Linux-x86_64.sh ]; then \
+            echo "Using pre-downloaded Miniconda..."; \
+            cp /tmp/downloads/Miniconda3-latest-Linux-x86_64.sh /tmp/miniconda.sh; \
+        else \
+            echo "Downloading Miniconda..."; \
+            curl -L "https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh" -o /tmp/miniconda.sh; \
+        fi && \
+        bash /tmp/miniconda.sh -b -p /opt/conda && \
+        rm -rf /tmp/miniconda.sh && \
+        tar -I "zstd -19" -cf /conda-sidecar/tmp/conda-archive.tar.zstd -C /opt/conda . && \
+        rm -rf /opt/conda && \
+        break || (echo "Retry $i failed, waiting..." && sleep 5); \
+    done
 
 # Runtime stage
 FROM localnet-base-sidecar:latest
@@ -18,10 +35,14 @@ FROM localnet-base-sidecar:latest
 ENV HEALTHCHECK_SCRIPT="/conda-sidecar/healthcheck-conda.sh"
 
 # Install runtime dependencies
-RUN apk update && \
-    apk upgrade && \
-    apk add zstd && \
-    rm -rf /var/cache/apk/*
+# Uses cache mount for apk indexes to speed rebuilds
+# Retry logic handles transient TLS/network failures
+RUN --mount=type=cache,target=/var/cache/apk,id=conda-sidecar-apk \
+    for i in 1 2 3; do \
+        apk update && \
+        apk add zstd && \
+        break || (echo "Retry $i failed, waiting..." && sleep 5); \
+    done
 
 # Create necessary directories
 RUN mkdir -p /home/cuser/.conda conda-sidecar/tmp /usr/local/bin

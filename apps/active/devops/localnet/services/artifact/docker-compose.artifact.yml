@@ -521,6 +521,39 @@ services:
     logging: *default-logging
     profiles: ["all"]
 
+  # NX sidecar service - provides centralized NX build cache
+  nx-sidecar:
+    image: localnet-artifact-sidecar-nx:latest
+    container_name: localnet-artifact-sidecar-nx
+    build:
+      context: ./nx-sidecar
+      dockerfile: Dockerfile.nx-sidecar
+    restart: unless-stopped
+    depends_on:
+      pnpm-sidecar:
+        condition: service_healthy
+    volumes:
+      - pnpm-store:/home/${USERNAME:-cuser}/.local/share/pnpm
+      - nx-cache:/var/cache/nx-cache
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=UTC
+      - NX_CACHE_DIRECTORY=/var/cache/nx-cache
+    healthcheck:
+      test: ["CMD", "/nx-sidecar/healthcheck-nx.sh"]
+      interval: 30s
+      timeout: 30s
+      retries: 3
+      start_period: 60s
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    command: sleep 30
+    logging: *default-logging
+    profiles: ["all"]
+
   elixir-sidecar:
     image: localnet-artifact-sidecar-elixir:latest
     container_name: localnet-artifact-sidecar-elixir

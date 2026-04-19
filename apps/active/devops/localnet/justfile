@@ -8,6 +8,21 @@ set export
 ENSURE_NETWORK := "./scripts/ensure-network.py"
 NETWORK_NAME := "localnet_default"
 ENV_FILE := ".env.local.localnet"
+COMPOSE_PARALLEL_LIMIT := "2"
+
+# Docker Compose base command (DRY - used throughout)
+DC_LOCAL := "COMPOSE_PARALLEL_LIMIT=" + COMPOSE_PARALLEL_LIMIT + " DOCKER_BUILDKIT=1 docker compose -f docker-compose.localnet.yml --env-file " + ENV_FILE
+DC_CLOUD := "COMPOSE_PARALLEL_LIMIT=" + COMPOSE_PARALLEL_LIMIT + " DOCKER_BUILDKIT=1 docker compose -f docker-compose.cloud.yml"
+
+# NX binary detection (DRY - resolves local pnpm bin or global nx)
+NX_BIN := if path_exists("./node_modules/.bin/nx") == "true" { "./node_modules/.bin/nx" } else { `command -v nx 2>/dev/null || echo ""` }
+NX_AVAILABLE := if NX_BIN != "" { "true" } else { "false" }
+
+# Logging configuration (DRY - all output logged with timestamps)
+LOG_DIR := "logs"
+LOG_FILE := LOG_DIR / "just.log"
+TIMESTAMP := "$(date '+%Y-%m-%d %H:%M:%S')"
+DATESTAMP := "$(date '+%Y%m%d')"
 
 # Default recipe when just is run without arguments
 default:
@@ -26,114 +41,134 @@ bootstrap:
 bootstrap-internal:
     @./scripts/echo-colors.sh green "✓ bootstrap-internal completed"
 
+# Logging helpers (DRY - all tasks log with start/end demarcation)
+[private]
+log-init:
+    @mkdir -p {{LOG_DIR}}
+    @touch {{LOG_FILE}}
+
+[private]
+log-start task:
+    @just log-init
+    @echo "" >> {{LOG_FILE}}
+    @echo "=== START: {{task}} ===" >> {{LOG_FILE}}
+    @echo "Timestamp: $(date '+%Y-%m-%d %H:%M:%S %Z')" >> {{LOG_FILE}}
+    @echo "Status: RUNNING" >> {{LOG_FILE}}
+    @echo "---" >> {{LOG_FILE}}
+
+[private]
+log-end task status="SUCCESS":
+    @echo "---" >> {{LOG_FILE}}
+    @echo "Timestamp: $(date '+%Y-%m-%d %H:%M:%S %Z')" >> {{LOG_FILE}}
+    @echo "Status: {{status}}" >> {{LOG_FILE}}
+    @echo "=== END: {{task}} ===" >> {{LOG_FILE}}
+
+[private]
+log-exec task *args:
+    @just log-start "{{task}}"
+    @({{args}} 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && just log-end "{{task}}" "SUCCESS" || (just log-end "{{task}}" "FAILED"; exit 1)
+
+# Helper: Profile-based docker compose operations (DRY)
+compose-up-profile profile message:
+    @just log-start "up-{{profile}}"
+    @./scripts/echo-colors.sh blue "{{message}}..."
+    @({{DC_LOCAL}} --profile {{profile}} up -d 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (./scripts/echo-colors.sh green "✓ {{message}} started"; just log-end "up-{{profile}}" "SUCCESS") || (./scripts/echo-colors.sh red "✗ {{message}} failed"; just log-end "up-{{profile}}" "FAILED"; exit 1)
+
+compose-down-profile profile message:
+    @just log-start "down-{{profile}}"
+    @./scripts/echo-colors.sh yellow "{{message}}..."
+    @({{DC_LOCAL}} --profile {{profile}} down 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (./scripts/echo-colors.sh green "✓ {{message}} stopped"; just log-end "down-{{profile}}" "SUCCESS") || (./scripts/echo-colors.sh red "✗ {{message}} failed"; just log-end "down-{{profile}}" "FAILED"; exit 1)
+
+compose-build-profile profile:
+    @{{DC_LOCAL}} --profile {{profile}} --progress=plain build
+
 # Build and run base-dev and dependencies
 # Builds services sequentially to avoid parallel build conflicts with slow Kali images
 base-up:
     devbox run base-up-internal
 
 base-up-internal:
+    @just log-start "base-up"
     @./scripts/echo-colors.sh blue "Creating base containers..."
     # TODO: Migrate to Docker Compose additional_contexts for native build dependency
     # when supported by OrbStack, Podman, Colima, and Lima. Current profile-based
     # sequencing ensures build order without requiring BuildKit. See AGENTS.md
     # "Build Order vs Runtime Dependencies" section for details.
-    @DOCKER_BUILDKIT=1 docker compose -f docker-compose.shared.yml --env-file {{ENV_FILE}} --progress=plain up -d
-    ## Build base-kali first (large image, slow build)
-    #@./scripts/echo-colors.sh blue "Building base-kali (this may take several minutes)..."
-    #@DOCKER_BUILDKIT=1 docker compose -f docker-compose.localnet.yml --profile base01 --env-file {{ENV_FILE}} build base-kali
-    ## Start nix-sidecar (base-kalinix depends on it being healthy)
-    #@./scripts/echo-colors.sh blue "Starting nix-sidecar..."
-    #@DOCKER_BUILDKIT=1 docker compose -f docker-compose.localnet.yml --profile base01 --env-file {{ENV_FILE}} up -d nix-sidecar
-    ## Build base-kalinix after base-kali and nix-sidecar are ready
-    #@./scripts/echo-colors.sh blue "Building base-kalinix..."
-    #@DOCKER_BUILDKIT=1 docker compose -f docker-compose.localnet.yml --profile base02 --env-file {{ENV_FILE}} build base-kalinix
+    @(COMPOSE_PARALLEL_LIMIT={{COMPOSE_PARALLEL_LIMIT}} DOCKER_BUILDKIT=1 docker compose -f docker-compose.shared.yml --env-file {{ENV_FILE}} --progress=plain up -d 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]})
 
     ## Build remaining base01 services
     @./scripts/echo-colors.sh blue "Building base01 services..."
-    @DOCKER_BUILDKIT=1 docker compose -f docker-compose.localnet.yml --profile base01 --env-file {{ENV_FILE}} up -d --build
+    @({{DC_LOCAL}} --profile base01 up -d --build 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]})
     ## Build remaining base02 services
     @./scripts/echo-colors.sh blue "Building remaining base02 services..."
-    @DOCKER_BUILDKIT=1 docker compose -f docker-compose.localnet.yml --profile base02 --env-file {{ENV_FILE}} up -d --build
+    @({{DC_LOCAL}} --profile base02 up -d --build 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]})
     ## Build base03 services (base-dev depends on base-kalinix)
     @./scripts/echo-colors.sh blue "Building base03 services..."
-    @DOCKER_BUILDKIT=1 docker compose -f docker-compose.localnet.yml --profile base03 --env-file {{ENV_FILE}} up -d --build
+    @({{DC_LOCAL}} --profile base03 up -d --build 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]})
     @./scripts/echo-colors.sh green "✓ base containers created"
+    @just log-end "base-up" "SUCCESS"
 
 # Build all Docker images
 build:
     devbox run build-internal
 
 build-internal:
+    @just log-start "build"
     just base-up-internal
     @./scripts/echo-colors.sh blue "Building all Docker images..."
-    @DOCKER_BUILDKIT=1 docker compose -f docker-compose.localnet.yml --profile all --env-file {{ENV_FILE}} --progress=plain build
-    @./scripts/echo-colors.sh green "✓ Build complete"
+    @({{DC_LOCAL}} --profile all --progress=plain build 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (./scripts/echo-colors.sh green "✓ Build complete"; just log-end "build" "SUCCESS") || (./scripts/echo-colors.sh red "✗ Build failed"; just log-end "build" "FAILED"; exit 1)
 
 # Build specific service with no cache
 build-service service:
     devbox run build-service-internal {{service}}
 
 build-service-internal service:
+    @just log-start "build-{{service}}"
     @./scripts/echo-colors.sh blue "Building service {{service}} with --no-cache..."
-    @DOCKER_BUILDKIT=1 docker compose -f docker-compose.localnet.yml --env-file {{ENV_FILE}} --progress=plain build {{service}} --no-cache
-    @./scripts/echo-colors.sh green "✓ Service {{service}} built"
+    @({{DC_LOCAL}} --progress=plain build {{service}} --no-cache 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (./scripts/echo-colors.sh green "✓ Service {{service}} built"; just log-end "build-{{service}}" "SUCCESS") || (./scripts/echo-colors.sh red "✗ Service {{service}} build failed"; just log-end "build-{{service}}" "FAILED"; exit 1)
 
 # Profile-based service management (NEW - ADR-20260322002)
 up-agents:
     devbox run up-agents-internal
 
 up-agents-internal:
-    @./scripts/echo-colors.sh blue "Starting AI/agent services..."
-    @DOCKER_BUILDKIT=1 docker compose -f docker-compose.localnet.yml --profile agents up -d
-    @./scripts/echo-colors.sh green "✓ Agent services started"
+    @just compose-up-profile agents "Starting AI/agent services"
 
 up-base01:
     devbox run up-base01-internal
 
 up-base01-internal:
-    @./scripts/echo-colors.sh blue "Starting production base services..."
-    @DOCKER_BUILDKIT=1 docker compose -f docker-compose.localnet.yml --profile base01 up -d
-    @./scripts/echo-colors.sh green "✓ Base01 services started"
+    @just compose-up-profile base01 "Starting production base services"
 
 up-base02:
     devbox run up-base02-internal
 
 up-base02-internal:
-    @./scripts/echo-colors.sh blue "Starting development base services..."
-    @DOCKER_BUILDKIT=1 docker compose -f docker-compose.localnet.yml --profile base02 up -d
-    @./scripts/echo-colors.sh green "✓ Base02 services started"
+    @just compose-up-profile base02 "Starting development base services"
 
 up-core:
     devbox run up-core-internal
 
 up-core-internal:
-    @./scripts/echo-colors.sh blue "Starting core infrastructure..."
-    @DOCKER_BUILDKIT=1 docker compose -f docker-compose.localnet.yml --profile core up -d
-    @./scripts/echo-colors.sh green "✓ Core services started"
+    @just compose-up-profile core "Starting core infrastructure"
 
 up-nix:
     devbox run up-nix-internal
 
 up-nix-internal:
-    @./scripts/echo-colors.sh blue "Starting Nix package management..."
-    @DOCKER_BUILDKIT=1 docker compose -f docker-compose.localnet.yml --profile nix up -d
-    @./scripts/echo-colors.sh green "✓ Nix services started"
+    @just compose-up-profile nix "Starting Nix package management"
 
 up-dns:
     devbox run up-dns-internal
 
 up-dns-internal:
-    @./scripts/echo-colors.sh blue "Starting DNS resolution services..."
-    @DOCKER_BUILDKIT=1 docker compose -f docker-compose.localnet.yml --profile dns up -d
-    @./scripts/echo-colors.sh green "✓ DNS services started"
+    @just compose-up-profile dns "Starting DNS resolution services"
 
 up-security:
     devbox run up-security-internal
 
 up-security-internal:
-    @./scripts/echo-colors.sh blue "Starting security services..."
-    @DOCKER_BUILDKIT=1 docker compose -f docker-compose.localnet.yml --profile security up -d
-    @./scripts/echo-colors.sh green "✓ Security services started"
+    @just compose-up-profile security "Starting security services"
 
 # Multi-profile combinations
 up-core-nix:
@@ -141,16 +176,14 @@ up-core-nix:
 
 up-core-nix-internal:
     @./scripts/echo-colors.sh blue "Starting core infrastructure + Nix..."
-    @DOCKER_BUILDKIT=1 docker compose -f docker-compose.localnet.yml --profile core --profile nix up -d
+    @{{DC_LOCAL}} --profile core --profile nix up -d
     @./scripts/echo-colors.sh green "✓ Core + Nix services started"
 
 up-localnet:
     devbox run up-localnet-internal
 
 up-localnet-internal:
-    @./scripts/echo-colors.sh blue "Starting full localnet environment..."
-    @DOCKER_BUILDKIT=1 docker compose -f docker-compose.localnet.yml --profile localnet up -d
-    @./scripts/echo-colors.sh green "✓ LocalNet started"
+    @just compose-up-profile localnet "Starting full localnet environment"
 
 # Environment-specific deployments
 up-prod:
@@ -158,7 +191,7 @@ up-prod:
 
 up-prod-internal:
     @./scripts/echo-colors.sh blue "Starting production environment..."
-    COMPOSE_ENV=production docker compose -f docker-compose.localnet.yml --profile base01 up -d
+    @COMPOSE_ENV=production {{DC_LOCAL}} --profile base01 up -d
     @./scripts/echo-colors.sh green "✓ Production environment started"
 
 up-test:
@@ -166,7 +199,7 @@ up-test:
 
 up-test-internal:
     @./scripts/echo-colors.sh blue "Starting testing environment..."
-    COMPOSE_ENV=testing docker compose -f docker-compose.localnet.yml --profile agents up -d
+    @COMPOSE_ENV=testing {{DC_LOCAL}} --profile agents up -d
     @./scripts/echo-colors.sh green "✓ Testing environment started"
 
 # Memory management & task tracking (NEW - ADR-20260322003)
@@ -238,11 +271,11 @@ up:
     devbox run up-internal
 
 up-internal:
+    @just log-start "up"
     just build
     @./scripts/echo-colors.sh blue "Starting all services..."
     @sleep 1
-    @DOCKER_BUILDKIT=1 docker compose -f docker-compose.localnet.yml --profile all --env-file {{ENV_FILE}} --progress=plain up -d
-    @./scripts/echo-colors.sh green "✓ Services started"
+    @({{DC_LOCAL}} --profile all --progress=plain up -d 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (./scripts/echo-colors.sh green "✓ Services started"; just log-end "up" "SUCCESS") || (./scripts/echo-colors.sh red "✗ Services failed to start"; just log-end "up" "FAILED"; exit 1)
     @echo "Run 'just health-check' to verify service health"
 
 # Stop all services
@@ -250,56 +283,57 @@ down:
     devbox run down-internal
 
 down-internal:
+    @just log-start "down"
     just cloud-down
     @./scripts/echo-colors.sh yellow "Stopping all services..."
-    @DOCKER_BUILDKIT=1 docker compose -f docker-compose.cloud.yml --progress=plain down
-    @./scripts/echo-colors.sh green "✓ Services stopped"
+    @({{DC_CLOUD}} down 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (./scripts/echo-colors.sh green "✓ Services stopped"; just log-end "down" "SUCCESS") || (./scripts/echo-colors.sh red "✗ Services failed to stop"; just log-end "down" "FAILED"; exit 1)
 
 # Restart all services
 restart:
     devbox run restart-internal
 
 restart-internal:
+    @just log-start "restart"
     @./scripts/echo-colors.sh yellow "Restarting all services..."
-    @DOCKER_BUILDKIT=1 docker compose -f docker-compose.localnet.yml --profile all --progress=plain restart
-    @./scripts/echo-colors.sh green "✓ Services restarted"
+    @({{DC_LOCAL}} --profile all --progress=plain restart 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (./scripts/echo-colors.sh green "✓ Services restarted"; just log-end "restart" "SUCCESS") || (./scripts/echo-colors.sh red "✗ Services failed to restart"; just log-end "restart" "FAILED"; exit 1)
 
 # Remove all containers, volumes, and networks, then restart services
 clean:
     devbox run clean-internal
 
 clean-internal:
+    @just log-start "clean"
     @./scripts/echo-colors.sh yellow "Cleaning up Docker resources and restarting..."
     @./scripts/echo-colors.sh blue "Stopping and removing all containers..."
-    DOCKER_BUILDKIT=1 docker compose down -f docker-compose.localnet.yml --profile all -v --remove-orphans 2>/dev/null || true
+    @({{DC_LOCAL}} --profile all down -v --remove-orphans 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) || true
     @./scripts/echo-colors.sh blue "Force-removing any stuck containers..."
-    ./scripts/cleanup-containers.sh
+    ./scripts/cleanup-containers.sh 2>&1 | tee -a {{LOG_FILE}} || true
     @./scripts/echo-colors.sh blue "Removing networks..."
-    DOCKER_BUILDKIT=1 docker network rm {{NETWORK_NAME}} 2>/dev/null || true
-    DOCKER_BUILDKIT=1 docker network rm localnet_default 2>/dev/null || true
+    @docker network rm {{NETWORK_NAME}} 2>&1 | tee -a {{LOG_FILE}} || true
+    @docker network rm localnet_default 2>&1 | tee -a {{LOG_FILE}} || true
     @./scripts/echo-colors.sh blue "NOT Pruning volumes..."
-    #DOCKER_BUILDKIT=1 docker system prune -f --volumes
     @./scripts/echo-colors.sh blue "Pruning builder..."
-    DOCKER_BUILDKIT=1 docker builder prune -af
+    @docker builder prune -af 2>&1 | tee -a {{LOG_FILE}} || true
     @./scripts/echo-colors.sh blue "Pruning system..."
-    DOCKER_BUILDKIT=1 docker system prune -af
-    sleep 2
+    @docker system prune -af 2>&1 | tee -a {{LOG_FILE}} || true
+    @sleep 2
     @./scripts/echo-colors.sh green "✓ Cleanup complete, starting services..."
-    just up
+    just up 2>&1 | tee -a {{LOG_FILE}}
+    @just log-end "clean" "SUCCESS"
 
 # View logs from all services (last 100 lines)
 logs:
     devbox run logs-internal
 
 logs-internal:
-    docker compose logs -f docker-compose.localnet.yml --profile all --tail=100
+    @{{DC_LOCAL}} --profile all logs --tail=100
 
 # Follow logs from all services
 logs-follow:
     devbox run logs-follow-internal
 
 logs-follow-internal:
-    docker compose logs -f docker-compose.localnet.yml --profile all -f
+    @{{DC_LOCAL}} --profile all logs -f
 
 # Check health status of all services
 health-check:
@@ -307,7 +341,7 @@ health-check:
 
 health-check-internal:
     @./scripts/echo-colors.sh blue "Checking service health..."
-    docker compose -f docker-compose.localnet.yml --profile all ps
+    @{{DC_LOCAL}} --profile all ps
     @echo ""
     @./scripts/echo-colors.sh blue "Running health checks..."
     ./scripts/health-checks/nftables-check.sh || @./scripts/echo-colors.sh yellow "⚠ nftables check failed"
@@ -337,7 +371,7 @@ update-blocklists:
 
 update-blocklists-internal:
     @./scripts/echo-colors.sh blue "Updating blocklists..."
-    @docker compose exec dnsdist /blocklists/update-blocklists.sh
+    @{{DC_LOCAL}} exec dnsdist /blocklists/update-blocklists.sh
     @./scripts/echo-colors.sh green "✓ Blocklists updated"
 
 # Remove Docker-created config directories (safe, no data loss)
@@ -372,26 +406,28 @@ clean-full:
     devbox run clean-full-internal
 
 clean-full-internal:
+    @just log-start "clean-full"
     @./scripts/echo-colors.sh yellow "Cleaning up Docker resources and restarting..."
     @./scripts/echo-colors.sh blue "Stopping and removing all containers..."
-    docker compose down -f docker-compose.localnet.yml --profile all -v --remove-orphans 2>/dev/null || true
+    @({{DC_LOCAL}} --profile all down -v --remove-orphans 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) || true
     @./scripts/echo-colors.sh blue "Force-removing any stuck containers..."
-    ./scripts/cleanup-containers.sh
+    ./scripts/cleanup-containers.sh 2>&1 | tee -a {{LOG_FILE}} || true
     @./scripts/echo-colors.sh blue "Removing networks..."
-    docker network rm {{NETWORK_NAME}} 2>/dev/null || true
-    docker network rm localnet_default 2>/dev/null || true
+    @docker network rm {{NETWORK_NAME}} 2>&1 | tee -a {{LOG_FILE}} || true
+    @docker network rm localnet_default 2>&1 | tee -a {{LOG_FILE}} || true
     @./scripts/echo-colors.sh blue "Pruning system..."
-    docker system prune -f --volumes
-    sleep 2
+    @docker system prune -f --volumes 2>&1 | tee -a {{LOG_FILE}} || true
+    @sleep 2
     @./scripts/echo-colors.sh green "✓ Cleanup complete, starting services..."
-    just up
+    just up 2>&1 | tee -a {{LOG_FILE}}
+    @just log-end "clean-full" "SUCCESS"
 
 # Show running containers
 ps:
     devbox run ps-internal
 
 ps-internal:
-    @docker compose -f docker-compose.localnet.yml --profile all ps
+    @{{DC_LOCAL}} --profile all ps
 
 # Show container resource usage
 stats:
@@ -406,7 +442,7 @@ pull:
 
 pull-internal:
     @./scripts/echo-colors.sh blue "Pulling latest images..."
-    @docker compose -f docker-compose.localnet.yml --profile all pull
+    @{{DC_LOCAL}} --profile all pull
     @./scripts/echo-colors.sh green "✓ Images updated"
 
 # Validate docker-compose.yml configuration
@@ -415,7 +451,7 @@ config:
 
 config-internal:
     @./scripts/echo-colors.sh blue "Validating configuration..."
-    @docker compose config -f docker-compose.localnet.yml --profile all > /dev/null
+    @{{DC_LOCAL}} --profile all config > /dev/null
     @./scripts/echo-colors.sh green "✓ Configuration valid"
 
 # Lint docker-compose.yml and YAML files
@@ -424,7 +460,7 @@ lint:
 
 lint-internal:
     @./scripts/echo-colors.sh blue "Linting configuration files..."
-    @docker compose config -f docker-compose.localnet.yml --profile all > /dev/null && @./scripts/echo-colors.sh green "✓ docker-compose.yml syntax valid" || (@./scripts/echo-colors.sh red "✗ docker-compose.yml syntax invalid"; exit 1)
+    @{{DC_LOCAL}} --profile all config > /dev/null && @./scripts/echo-colors.sh green "✓ docker-compose.yml syntax valid" || (@./scripts/echo-colors.sh red "✗ docker-compose.yml syntax invalid"; exit 1)
     if command -v yamllint >/dev/null 2>&1; then \
         find . -name "*.yml" -o -name "*.yaml" | xargs yamllint --no-warnings || @./scripts/echo-colors.sh yellow "⚠ yamllint not configured"; \
     else \
@@ -438,11 +474,11 @@ test-claude:
 
 test-claude-internal:
     @./scripts/echo-colors.sh blue "Running Claude Code service tests..."
-    @docker compose --profile claude-code ps | grep -q "claude-code" && @./scripts/echo-colors.sh green "✓ Claude Code services are running" || (@./scripts/echo-colors.sh red "✗ Claude Code services not running"; exit 1)
+    @{{DC_LOCAL}} --profile claude-code ps | grep -q "claude-code" && @./scripts/echo-colors.sh green "✓ Claude Code services are running" || (@./scripts/echo-colors.sh red "✗ Claude Code services not running"; exit 1)
     @./scripts/echo-colors.sh blue "Testing Claude Code API health..."
-    @docker compose exec -f docker-compose.localnet.yml -T claude-code curl -f http://localhost:8081/health >/dev/null 2>&1 && @./scripts/echo-colors.sh green "✓ Claude Code API healthy" || @./scripts/echo-colors.sh yellow "⚠ Claude Code API not responding"
-    @docker compose exec -f docker-compose.localnet.yml -T claude-code-ui curl -f http://localhost:3000/health >/dev/null 2>&1 && @./scripts/echo-colors.sh green "✓ Claude Code UI healthy" || @./scripts/echo-colors.sh yellow "⚠ Claude Code UI not responding"
-    @docker compose exec -f docker-compose.localnet.yml -T claude-code-auth curl -f http://localhost:8080/health >/dev/null 2>&1 && @./scripts/echo-colors.sh green "✓ Claude Code Auth healthy" || @./scripts/echo-colors.sh yellow "⚠ Claude Code Auth not responding"
+    @{{DC_LOCAL}} exec -T claude-code curl -f http://localhost:8081/health >/dev/null 2>&1 && @./scripts/echo-colors.sh green "✓ Claude Code API healthy" || @./scripts/echo-colors.sh yellow "⚠ Claude Code API not responding"
+    @{{DC_LOCAL}} exec -T claude-code-ui curl -f http://localhost:3000/health >/dev/null 2>&1 && @./scripts/echo-colors.sh green "✓ Claude Code UI healthy" || @./scripts/echo-colors.sh yellow "⚠ Claude Code UI not responding"
+    @{{DC_LOCAL}} exec -T claude-code-auth curl -f http://localhost:8080/health >/dev/null 2>&1 && @./scripts/echo-colors.sh green "✓ Claude Code Auth healthy" || @./scripts/echo-colors.sh yellow "⚠ Claude Code Auth not responding"
     @./scripts/echo-colors.sh green "✓ Claude Code tests complete"
 
 # Lint Claude Code docker-compose configuration
@@ -451,7 +487,7 @@ lint-claude:
 
 lint-claude-internal:
     @./scripts/echo-colors.sh blue "Linting Claude Code configuration..."
-    @docker compose -f services/ai-codeassist/claude-code/claude-code/docker-compose.claude-code.yml config > /dev/null && @./scripts/echo-colors.sh green "✓ Claude Code docker-compose.yml syntax valid" || (@./scripts/echo-colors.sh red "✗ Claude Code docker-compose.yml syntax invalid"; exit 1)
+    @COMPOSE_PARALLEL_LIMIT={{COMPOSE_PARALLEL_LIMIT}} DOCKER_BUILDKIT=1 docker compose -f services/ai-codeassist/claude-code/claude-code/docker-compose.claude-code.yml config > /dev/null && @./scripts/echo-colors.sh green "✓ Claude Code docker-compose.yml syntax valid" || (@./scripts/echo-colors.sh red "✗ Claude Code docker-compose.yml syntax invalid"; exit 1)
     if command -v yamllint >/dev/null 2>&1; then \
         yamllint services/ai-codeassist/claude-code/claude-code/docker-compose.claude-code.yml || @./scripts/echo-colors.sh yellow "⚠ yamllint issues found"; \
     else \
@@ -474,7 +510,7 @@ cloud-down:
 
 cloud-down-internal:
     @./scripts/echo-colors.sh yellow "Stopping cloud services..."
-    cd services/cloud && docker compose -f docker-compose.cloud.base.yml down
+    @cd services/cloud && COMPOSE_PARALLEL_LIMIT={{COMPOSE_PARALLEL_LIMIT}} docker compose -f docker-compose.cloud.base.yml down
 
 # Build/Pull LocalStack cloud services
 cloud-build:
@@ -482,7 +518,7 @@ cloud-build:
 
 cloud-build-internal:
     @./scripts/echo-colors.sh blue "Building/Pulling cloud services..."
-    cd services/cloud && docker compose -f docker-compose.cloud.base.yml pull
+    @cd services/cloud && COMPOSE_PARALLEL_LIMIT={{COMPOSE_PARALLEL_LIMIT}} docker compose -f docker-compose.cloud.base.yml pull
     @./scripts/echo-colors.sh green "✓ Cloud services built/pulled"
 
 # Start RustFS service only
@@ -491,7 +527,7 @@ up-cloud-rustfs:
 
 up-cloud-rustfs-internal:
     @./scripts/echo-colors.sh blue "Starting RustFS service..."
-    cd services/cloud/rustfs && docker compose -f docker-compose.rustfs.yml --env-file ../../../{{ENV_FILE}} up -d
+    @cd services/cloud/rustfs && COMPOSE_PARALLEL_LIMIT={{COMPOSE_PARALLEL_LIMIT}} docker compose -f docker-compose.rustfs.yml --env-file ../../../{{ENV_FILE}} up -d
     @./scripts/echo-colors.sh green "✓ RustFS service started"
     @echo "Console: http://localhost:9001 (RustFS2026!SecureKey/RustFS2026!SecretPhrase)"
 
@@ -501,7 +537,7 @@ down-cloud-rustfs:
 
 down-cloud-rustfs-internal:
     @./scripts/echo-colors.sh yellow "Stopping RustFS service..."
-    cd services/cloud/rustfs && docker compose -f docker-compose.rustfs.yml down
+    @cd services/cloud/rustfs && COMPOSE_PARALLEL_LIMIT={{COMPOSE_PARALLEL_LIMIT}} docker compose -f docker-compose.rustfs.yml down
     @./scripts/echo-colors.sh green "✓ RustFS service stopped"
 
 # Show RustFS logs
@@ -535,20 +571,151 @@ up-apps:
     devbox run up-apps-internal
 
 up-apps-internal:
-    @./scripts/echo-colors.sh blue "Starting app services..."
-    @docker compose -f docker-compose.localnet.yml --profile apps --env-file {{ENV_FILE}} --progress=plain up -d
-    @./scripts/echo-colors.sh green "✓ App services started"
+    @just compose-up-profile apps "Starting app services"
 
 # Stop app services
 down-apps:
     devbox run down-apps-internal
 
 down-apps-internal:
-    @./scripts/echo-colors.sh yellow "Stopping app services..."
-    @docker compose -f docker-compose.localnet.yml --profile apps --env-file {{ENV_FILE}} down
-    @./scripts/echo-colors.sh green "✓ App services stopped"
+    @just compose-down-profile apps "Stopping app services"
 
+# View just execution log
+view-log:
+    @if [ -f {{LOG_FILE}} ]; then \
+        ./scripts/echo-colors.sh blue "=== Just Execution Log ==="; \
+        cat {{LOG_FILE}}; \
+    else \
+        ./scripts/echo-colors.sh yellow "No log file found at {{LOG_FILE}}"; \
+    fi
+
+# Tail just execution log (follow mode)
+tail-log:
+    @if [ -f {{LOG_FILE}} ]; then \
+        ./scripts/echo-colors.sh blue "=== Tailing Just Log (Ctrl+C to exit) ==="; \
+        tail -f {{LOG_FILE}}; \
+    else \
+        ./scripts/echo-colors.sh yellow "No log file found at {{LOG_FILE}}"; \
+    fi
+
+# Clear just execution log
+clear-log:
+    @./scripts/echo-colors.sh yellow "Clearing log file..."
+    @rm -f {{LOG_FILE}}
+    @./scripts/echo-colors.sh green "✓ Log cleared"
+
+# ============================================================================
+# NX Build Orchestration (NEW - Phase 8.6)
+# ============================================================================
+
+# NX: Build base images (foundation layer)
+nx-build-base:
+    devbox run nx-build-base-internal
+
+nx-build-base-internal:
+    @./scripts/echo-colors.sh blue "NX: Building base images with dependency graph..."
+    @if [ "{{NX_AVAILABLE}}" = "true" ]; then \
+        {{NX_BIN}} run-many -t docker:build --projects=tag:base --parallel=1; \
+    else \
+        echo "NX not installed, falling back to legacy build..."; \
+        just base-up; \
+    fi
+
+# NX: Build sidecars (depends on base images)
+nx-build-sidecars:
+    devbox run nx-build-sidecars-internal
+
+nx-build-sidecars-internal:
+    @./scripts/echo-colors.sh blue "NX: Building sidecar containers..."
+    @if [ "{{NX_AVAILABLE}}" = "true" ]; then \
+        {{NX_BIN}} run-many -t docker:build --projects=tag:sidecar --parallel=2; \
+    else \
+        echo "NX not installed, using docker compose..."; \
+        just up-core-nix-internal; \
+    fi
+
+# NX: Build all services (uses dependency graph for optimal ordering)
+nx-build:
+    devbox run nx-build-internal
+
+nx-build-internal:
+    @./scripts/echo-colors.sh blue "NX: Building all services with smart caching..."
+    @if [ "{{NX_AVAILABLE}}" = "true" ]; then \
+        {{NX_BIN}} run-many -t docker:build --all --parallel=2; \
+    else \
+        echo "NX not installed, falling back to just build..."; \
+        just build-internal; \
+    fi
+
+# NX: Build only affected services (changed since last commit)
+nx-affected:
+    devbox run nx-affected-internal
+
+nx-affected-internal:
+    @./scripts/echo-colors.sh blue "NX: Building only affected services..."
+    @if [ "{{NX_AVAILABLE}}" = "true" ]; then \
+        {{NX_BIN}} affected -t docker:build --base=main --head=HEAD; \
+    else \
+        echo "NX not installed"; \
+        exit 1; \
+    fi
+
+# NX: Visualize dependency graph
+nx-graph:
+    devbox run nx-graph-internal
+
+nx-graph-internal:
+    @./scripts/echo-colors.sh blue "NX: Opening dependency graph..."
+    @if [ "{{NX_AVAILABLE}}" = "true" ]; then \
+        {{NX_BIN}} graph; \
+    else \
+        echo "NX not installed. Run: pnpm install"; \
+        exit 1; \
+    fi
+
+# NX: Install dependencies
+nx-install:
+    devbox run nx-internal-internal
+
+nx-install-internal:
+    @./scripts/echo-colors.sh blue "Installing NX dependencies..."
+    @pnpm install
+    @./scripts/echo-colors.sh green "✓ NX dependencies installed"
+
+# NX: Clear build cache
+nx-clear-cache:
+    devbox run nx-clear-cache-internal
+
+nx-clear-cache-internal:
+    @./scripts/echo-colors.sh yellow "Clearing NX build cache..."
+    @rm -rf .nx/cache
+    @docker builder prune -f
+    @./scripts/echo-colors.sh green "✓ NX cache cleared"
+
+# ============================================================================
+# NX + Docker Compose Hybrid Commands
+# ============================================================================
+
+# Build with NX, deploy with Docker Compose (recommended workflow)
+nx-up-base:
+    devbox run nx-up-base-internal
+
+nx-up-base-internal:
+    @just nx-build-base-internal
+    @./scripts/echo-colors.sh blue "Starting base infrastructure..."
+    @{{DC_LOCAL}} --profile base01 --profile base02 --profile base03 up -d
+
+nx-up-artifacts:
+    devbox run nx-up-artifacts-internal
+
+nx-up-artifacts-internal:
+    @just nx-build-sidecars-internal
+    @./scripts/echo-colors.sh blue "Starting artifact services..."
+    @{{DC_LOCAL}} --profile artifact up -d
+
+# ============================================================================
 # Aliases for common commands
+# ============================================================================
 alias rebuild := clean
 alias health := health-check
 alias status := ps

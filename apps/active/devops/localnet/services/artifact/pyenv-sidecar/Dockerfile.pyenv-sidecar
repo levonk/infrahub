@@ -4,9 +4,14 @@ FROM localnet-base-sidecar:latest
 ENV HEALTHCHECK_SCRIPT="/pyenv-sidecar/healthcheck-pyenv.sh"
 
 # Install packages with Alpine and clean up
-RUN apk update && apk upgrade && \
-    apk add python3 && \
-    rm -rf /var/cache/apk/*
+# Uses cache mount for apk indexes to speed rebuilds
+# Retry logic handles transient TLS/network failures
+RUN --mount=type=cache,target=/var/cache/apk,id=pyenv-sidecar-apk \
+    for i in 1 2 3; do \
+        apk update && \
+        apk add python3 && \
+        break || (echo "Retry $i failed, waiting..." && sleep 5); \
+    done
 
 # Create necessary directories
 RUN mkdir -p /home/developer/.cache/pyenv pyenv-sidecar
