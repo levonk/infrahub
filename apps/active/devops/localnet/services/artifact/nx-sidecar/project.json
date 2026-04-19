@@ -1,0 +1,37 @@
+{
+  "name": "localnet-nx-sidecar",
+  "$schema": "../../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "services/artifact/nx-sidecar",
+  "tags": ["sidecar", "artifact", "nx", "cache", "docker"],
+  "implicitDependencies": ["localnet-base-sidecar", "localnet-pnpm-sidecar"],
+  "targets": {
+    "docker:build": {
+      "executor": "@nx-tools/nx-container:build",
+      "options": {
+        "context": "services/artifact/nx-sidecar",
+        "file": "services/artifact/nx-sidecar/Dockerfile.nx-sidecar",
+        "tags": ["localnet-nx-sidecar:latest"],
+        "push": false,
+        "load": true
+      }
+    },
+    "docker:up": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "docker compose -f docker-compose.localnet.yml --profile artifact up nx-sidecar -d"
+        ],
+        "cwd": "../../../"
+      }
+    },
+    "cache:clear": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "docker exec localnet-nx-sidecar rm -rf /var/cache/nx-cache/vANY/* || true"
+        ]
+      }
+    }
+  }
+}

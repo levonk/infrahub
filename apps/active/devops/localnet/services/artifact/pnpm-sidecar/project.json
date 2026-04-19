@@ -1,0 +1,29 @@
+{
+  "name": "localnet-pnpm-sidecar",
+  "$schema": "../../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "services/artifact/pnpm-sidecar",
+  "tags": ["sidecar", "artifact", "nodejs", "docker"],
+  "implicitDependencies": ["localnet-base-sidecar"],
+  "targets": {
+    "docker:build": {
+      "executor": "@nx-tools/nx-container:build",
+      "options": {
+        "context": "services/artifact/pnpm-sidecar",
+        "file": "services/artifact/pnpm-sidecar/Dockerfile.pnpm-sidecar",
+        "tags": ["localnet-pnpm-sidecar:latest"],
+        "push": false,
+        "load": true
+      }
+    },
+    "docker:up": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "docker compose -f docker-compose.localnet.yml --profile artifact up pnpm-sidecar -d"
+        ],
+        "cwd": "../../../"
+      }
+    }
+  }
+}

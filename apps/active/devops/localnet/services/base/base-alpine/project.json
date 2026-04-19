@@ -1,0 +1,25 @@
+{
+  "name": "localnet-base-alpine",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "services/base/base-alpine",
+  "tags": ["base", "foundation", "docker"],
+  "targets": {
+    "docker:build": {
+      "executor": "@nx-tools/nx-container:build",
+      "options": {
+        "context": "services/base/base-alpine",
+        "file": "services/base/base-alpine/Dockerfile",
+        "tags": ["localnet-base-alpine:latest"],
+        "push": false,
+        "load": true
+      }
+    },
+    "docker:push": {
+      "executor": "@nx-tools/nx-container:push",
+      "options": {
+        "images": ["localnet-base-alpine:latest"]
+      }
+    }
+  }
+}

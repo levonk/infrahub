@@ -1,0 +1,20 @@
+{
+  "name": "localnet-base-kalinix",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "services/base/base-kalinix",
+  "tags": ["base", "kali", "nix", "docker"],
+  "implicitDependencies": ["localnet-base-kali", "localnet-nix-sidecar"],
+  "targets": {
+    "docker:build": {
+      "executor": "@nx-tools/nx-container:build",
+      "options": {
+        "context": "services/base/base-kalinix",
+        "file": "services/base/base-kalinix/Dockerfile.base-kalinix",
+        "tags": ["localnet-base-kalinix:latest"],
+        "push": false,
+        "load": true
+      }
+    }
+  }
+}

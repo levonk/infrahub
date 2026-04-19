@@ -1,0 +1,25 @@
+{
+  "name": "localnet",
+  "version": "1.0.0",
+  "description": "Home Lab In-a-Box - NX orchestrated Docker infrastructure",
+  "private": true,
+  "scripts": {
+    "build": "nx run-many -t docker:build --projects=tag:base",
+    "build:sidecars": "nx run-many -t docker:build --projects=tag:sidecar",
+    "build:services": "nx run-many -t docker:build --projects=tag:service",
+    "build:all": "nx run-many -t docker:build --all",
+    "up:base": "nx run-many -t docker:up --projects=tag:base --parallel=1",
+    "up:sidecars": "nx run-many -t docker:up --projects=tag:sidecar --parallel=1",
+    "affected:build": "nx affected -t docker:build",
+    "graph": "nx graph"
+  },
+  "devDependencies": {
+    "@nx-tools/nx-container": "^6.2.0",
+    "@nx/js": "^20.0.0",
+    "nx": "^20.8.4"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "packageManager": "pnpm@9.0.0"
+}

@@ -1,0 +1,20 @@
+{
+  "name": "localnet-base-sidecar",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "services/base/base-sidecar",
+  "tags": ["base", "sidecar", "docker"],
+  "implicitDependencies": ["localnet-base-nix"],
+  "targets": {
+    "docker:build": {
+      "executor": "@nx-tools/nx-container:build",
+      "options": {
+        "context": "services/base/base-sidecar",
+        "file": "services/base/base-sidecar/Dockerfile.base-sidecar",
+        "tags": ["localnet-base-sidecar:latest"],
+        "push": false,
+        "load": true
+      }
+    }
+  }
+}

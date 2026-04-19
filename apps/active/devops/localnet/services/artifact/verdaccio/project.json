@@ -1,0 +1,29 @@
+{
+  "name": "localnet-artifact-verdaccio",
+  "$schema": "../../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "services/artifact/verdaccio",
+  "tags": ["service", "artifact", "npm", "registry", "docker"],
+  "implicitDependencies": ["localnet-pnpm-sidecar"],
+  "targets": {
+    "docker:build": {
+      "executor": "@nx-tools/nx-container:build",
+      "options": {
+        "context": "services/artifact/verdaccio",
+        "file": "services/artifact/verdaccio/docker/Dockerfile.verdaccio",
+        "tags": ["localnet-artifact-verdaccio:latest"],
+        "push": false,
+        "load": true
+      }
+    },
+    "docker:up": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "docker compose -f docker-compose.localnet.yml --profile artifact up verdaccio -d"
+        ],
+        "cwd": "../../../"
+      }
+    }
+  }
+}
