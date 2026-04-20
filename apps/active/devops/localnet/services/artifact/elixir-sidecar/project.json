@@ -1,0 +1,19 @@
+{
+  "name": "localnet-artifact-elixir-sidecar",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "services/artifact/elixir-sidecar",
+  "tags": ["service", "artifact", "docker"],
+  "targets": {
+    "docker:build": {
+      "executor": "@nx-tools/nx-container:build",
+      "options": {
+        "context": "services/artifact/elixir-sidecar",
+        "file": "services/artifact/elixir-sidecar/Dockerfile.elixir-sidecar",
+        "tags": ["localnet-artifact-elixir-sidecar:latest"],
+        "push": false,
+        "load": true
+      }
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "localnet-artifact-gradle-sidecar",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "services/artifact/gradle-sidecar",
+  "tags": ["service", "artifact", "docker"],
+  "targets": {
+    "docker:build": {
+      "executor": "@nx-tools/nx-container:build",
+      "options": {
+        "context": "services/artifact/gradle-sidecar",
+        "file": "services/artifact/gradle-sidecar/Dockerfile.gradle-sidecar",
+        "tags": ["localnet-artifact-gradle-sidecar:latest"],
+        "push": false,
+        "load": true
+      }
+    }
+  }
+}

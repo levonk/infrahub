@@ -1,0 +1,19 @@
+{
+  "name": "localnet-artifact-bazel-sidecar",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "services/artifact/bazel-sidecar",
+  "tags": ["service", "artifact", "docker"],
+  "targets": {
+    "docker:build": {
+      "executor": "@nx-tools/nx-container:build",
+      "options": {
+        "context": "services/artifact/bazel-sidecar",
+        "file": "services/artifact/bazel-sidecar/Dockerfile.bazel-sidecar",
+        "tags": ["localnet-artifact-bazel-sidecar:latest"],
+        "push": false,
+        "load": true
+      }
+    }
+  }
+}

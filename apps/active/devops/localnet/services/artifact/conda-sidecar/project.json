@@ -1,0 +1,19 @@
+{
+  "name": "localnet-artifact-conda-sidecar",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "services/artifact/conda-sidecar",
+  "tags": ["service", "artifact", "docker"],
+  "targets": {
+    "docker:build": {
+      "executor": "@nx-tools/nx-container:build",
+      "options": {
+        "context": "services/artifact/conda-sidecar",
+        "file": "services/artifact/conda-sidecar/Dockerfile.conda-sidecar",
+        "tags": ["localnet-artifact-conda-sidecar:latest"],
+        "push": false,
+        "load": true
+      }
+    }
+  }
+}

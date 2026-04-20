@@ -1,0 +1,19 @@
+{
+  "name": "localnet-artifact-sdkman-sidecar",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "services/artifact/sdkman-sidecar",
+  "tags": ["service", "artifact", "docker"],
+  "targets": {
+    "docker:build": {
+      "executor": "@nx-tools/nx-container:build",
+      "options": {
+        "context": "services/artifact/sdkman-sidecar",
+        "file": "services/artifact/sdkman-sidecar/Dockerfile.sdkman-sidecar",
+        "tags": ["localnet-artifact-sdkman-sidecar:latest"],
+        "push": false,
+        "load": true
+      }
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "localnet-artifact-pyenv-sidecar",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "services/artifact/pyenv-sidecar",
+  "tags": ["service", "artifact", "docker"],
+  "targets": {
+    "docker:build": {
+      "executor": "@nx-tools/nx-container:build",
+      "options": {
+        "context": "services/artifact/pyenv-sidecar",
+        "file": "services/artifact/pyenv-sidecar/Dockerfile.pyenv-sidecar",
+        "tags": ["localnet-artifact-pyenv-sidecar:latest"],
+        "push": false,
+        "load": true
+      }
+    }
+  }
+}

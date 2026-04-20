@@ -1,0 +1,19 @@
+{
+  "name": "localnet-artifact-dotnet-sidecar",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "services/artifact/dotnet-sidecar",
+  "tags": ["service", "artifact", "docker"],
+  "targets": {
+    "docker:build": {
+      "executor": "@nx-tools/nx-container:build",
+      "options": {
+        "context": "services/artifact/dotnet-sidecar",
+        "file": "services/artifact/dotnet-sidecar/Dockerfile.dotnet-sidecar",
+        "tags": ["localnet-artifact-dotnet-sidecar:latest"],
+        "push": false,
+        "load": true
+      }
+    }
+  }
+}

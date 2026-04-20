@@ -1,0 +1,19 @@
+{
+  "name": "localnet-artifact-asdf-sidecar",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "services/artifact/asdf-sidecar",
+  "tags": ["service", "artifact", "docker"],
+  "targets": {
+    "docker:build": {
+      "executor": "@nx-tools/nx-container:build",
+      "options": {
+        "context": "services/artifact/asdf-sidecar",
+        "file": "services/artifact/asdf-sidecar/Dockerfile.asdf-sidecar",
+        "tags": ["localnet-artifact-asdf-sidecar:latest"],
+        "push": false,
+        "load": true
+      }
+    }
+  }
+}

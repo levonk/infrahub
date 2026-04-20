@@ -1,0 +1,19 @@
+{
+  "name": "localnet-artifact-rust-sidecar",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "services/artifact/rust-sidecar",
+  "tags": ["service", "artifact", "docker"],
+  "targets": {
+    "docker:build": {
+      "executor": "@nx-tools/nx-container:build",
+      "options": {
+        "context": "services/artifact/rust-sidecar",
+        "file": "services/artifact/rust-sidecar/Dockerfile.rust-sidecar",
+        "tags": ["localnet-artifact-rust-sidecar:latest"],
+        "push": false,
+        "load": true
+      }
+    }
+  }
+}

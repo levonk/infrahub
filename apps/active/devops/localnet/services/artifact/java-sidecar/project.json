@@ -1,0 +1,19 @@
+{
+  "name": "localnet-artifact-java-sidecar",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "services/artifact/java-sidecar",
+  "tags": ["service", "artifact", "docker"],
+  "targets": {
+    "docker:build": {
+      "executor": "@nx-tools/nx-container:build",
+      "options": {
+        "context": "services/artifact/java-sidecar",
+        "file": "services/artifact/java-sidecar/Dockerfile.java-sidecar",
+        "tags": ["localnet-artifact-java-sidecar:latest"],
+        "push": false,
+        "load": true
+      }
+    }
+  }
+}

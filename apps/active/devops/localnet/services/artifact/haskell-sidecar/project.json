@@ -1,0 +1,19 @@
+{
+  "name": "localnet-artifact-haskell-sidecar",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "services/artifact/haskell-sidecar",
+  "tags": ["service", "artifact", "docker"],
+  "targets": {
+    "docker:build": {
+      "executor": "@nx-tools/nx-container:build",
+      "options": {
+        "context": "services/artifact/haskell-sidecar",
+        "file": "services/artifact/haskell-sidecar/Dockerfile.haskell-sidecar",
+        "tags": ["localnet-artifact-haskell-sidecar:latest"],
+        "push": false,
+        "load": true
+      }
+    }
+  }
+}

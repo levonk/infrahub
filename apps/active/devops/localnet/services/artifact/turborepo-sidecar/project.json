@@ -1,0 +1,19 @@
+{
+  "name": "localnet-artifact-turborepo-sidecar",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "services/artifact/turborepo-sidecar",
+  "tags": ["service", "artifact", "docker"],
+  "targets": {
+    "docker:build": {
+      "executor": "@nx-tools/nx-container:build",
+      "options": {
+        "context": "services/artifact/turborepo-sidecar",
+        "file": "services/artifact/turborepo-sidecar/Dockerfile.turborepo-sidecar",
+        "tags": ["localnet-artifact-turborepo-sidecar:latest"],
+        "push": false,
+        "load": true
+      }
+    }
+  }
+}
