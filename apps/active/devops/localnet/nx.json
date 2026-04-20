@@ -11,6 +11,9 @@
       "!{projectRoot}/eslint.config.mjs"
     ]
   },
+  "cli": {
+    "packageManager": "pnpm"
+  },
   "targetDefaults": {
     "docker:build": {
       "dependsOn": ["^docker:build"],
@@ -38,6 +41,12 @@
       "plugin": "@nx-tools/nx-container",
       "options": {
         "defaultEngine": "docker"
+      }
+    },
+    {
+      "plugin": "@nxlv/python",
+      "options": {
+        "packageManager": "uv"
       }
     }
   ],

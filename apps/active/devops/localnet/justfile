@@ -39,7 +39,17 @@ bootstrap:
     devbox run bootstrap-internal
 
 bootstrap-internal:
-    @./scripts/echo-colors.sh green "✓ bootstrap-internal completed"
+    @./scripts/echo-colors.sh blue "Setting up pnpm and nx..."
+    @# Run all pnpm commands in single shell so PATH persists
+    @export PNPM_HOME="${PNPM_HOME:-$HOME/.local/share/pnpm}" && \
+        export PATH="$PNPM_HOME:$PATH" && \
+        (rm -f "$PNPM_HOME/global/5/pnpm-lock.yaml"* 2>/dev/null || true) && \
+        mkdir -p "$PNPM_HOME/global/5" "$PNPM_HOME/store" && \
+        pnpm config set global-dir "$PNPM_HOME/global" && \
+        pnpm config set global-bin-dir "$PNPM_HOME" && \
+        pnpm config set store-dir "$PNPM_HOME/store" && \
+        pnpm add -g nx && \
+        ./scripts/echo-colors.sh green "✓ bootstrap-internal completed"
 
 # Logging helpers (DRY - all tasks log with start/end demarcation)
 [private]
@@ -124,8 +134,8 @@ build-service service:
 
 build-service-internal service:
     @just log-start "build-{{service}}"
-    @./scripts/echo-colors.sh blue "Building service {{service}} with --no-cache..."
-    @({{DC_LOCAL}} --progress=plain build {{service}} --no-cache 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (./scripts/echo-colors.sh green "✓ Service {{service}} built"; just log-end "build-{{service}}" "SUCCESS") || (./scripts/echo-colors.sh red "✗ Service {{service}} build failed"; just log-end "build-{{service}}" "FAILED"; exit 1)
+    @./scripts/echo-colors.sh blue "Building service {{service}}..."
+    @({{DC_LOCAL}} --progress=plain build {{service}} 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (./scripts/echo-colors.sh green "✓ Service {{service}} built"; just log-end "build-{{service}}" "SUCCESS") || (./scripts/echo-colors.sh red "✗ Service {{service}} build failed"; just log-end "build-{{service}}" "FAILED"; exit 1)
 
 # Profile-based service management (NEW - ADR-20260322002)
 up-agents:
@@ -615,7 +625,7 @@ nx-build-base:
 nx-build-base-internal:
     @./scripts/echo-colors.sh blue "NX: Building base images with dependency graph..."
     @if [ "{{NX_AVAILABLE}}" = "true" ]; then \
-        {{NX_BIN}} run-many -t docker:build --projects=tag:base --parallel=1; \
+        {{NX_BIN}} run-many --verbose -t docker:build --projects=tag:base --parallel=1; \
     else \
         echo "NX not installed, falling back to legacy build..."; \
         just base-up; \
@@ -628,7 +638,7 @@ nx-build-sidecars:
 nx-build-sidecars-internal:
     @./scripts/echo-colors.sh blue "NX: Building sidecar containers..."
     @if [ "{{NX_AVAILABLE}}" = "true" ]; then \
-        {{NX_BIN}} run-many -t docker:build --projects=tag:sidecar --parallel=2; \
+        {{NX_BIN}} run-many --verbose -t docker:build --projects=tag:sidecar --parallel=2; \
     else \
         echo "NX not installed, using docker compose..."; \
         just up-core-nix-internal; \
@@ -641,7 +651,7 @@ nx-build:
 nx-build-internal:
     @./scripts/echo-colors.sh blue "NX: Building all services with smart caching..."
     @if [ "{{NX_AVAILABLE}}" = "true" ]; then \
-        {{NX_BIN}} run-many -t docker:build --all --parallel=2; \
+        {{NX_BIN}} run-many --verbose -t docker:build --all --parallel=2; \
     else \
         echo "NX not installed, falling back to just build..."; \
         just build-internal; \
@@ -654,7 +664,7 @@ nx-affected:
 nx-affected-internal:
     @./scripts/echo-colors.sh blue "NX: Building only affected services..."
     @if [ "{{NX_AVAILABLE}}" = "true" ]; then \
-        {{NX_BIN}} affected -t docker:build --base=main --head=HEAD; \
+        {{NX_BIN}} affected --verbose -t docker:build --base=main --head=HEAD; \
     else \
         echo "NX not installed"; \
         exit 1; \
@@ -679,8 +689,10 @@ nx-install:
 
 nx-install-internal:
     @./scripts/echo-colors.sh blue "Installing NX dependencies..."
-    @pnpm install
-    @./scripts/echo-colors.sh green "✓ NX dependencies installed"
+    @export PNPM_HOME="${PNPM_HOME:-$HOME/.local/share/pnpm}" && \
+        export PATH="$PNPM_HOME:$PATH" && \
+        pnpm install && \
+        ./scripts/echo-colors.sh green "✓ NX dependencies installed"
 
 # NX: Clear build cache
 nx-clear-cache:
