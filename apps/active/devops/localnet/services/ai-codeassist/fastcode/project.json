@@ -1,0 +1,19 @@
+{
+  "name": "localnet-ai-codeassist-fastcode",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "services/ai-codeassist/fastcode",
+  "tags": ["service", "ai-codeassist", "docker"],
+  "targets": {
+    "docker:build": {
+      "executor": "@nx-tools/nx-container:build",
+      "options": {
+        "context": "services/ai-codeassist/fastcode",
+        "file": "services/ai-codeassist/fastcode/Dockerfile.fastcode",
+        "tags": ["localnet-ai-codeassist-fastcode:latest"],
+        "push": false,
+        "load": true
+      }
+    }
+  }
+}

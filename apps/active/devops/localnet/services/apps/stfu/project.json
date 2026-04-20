@@ -1,0 +1,19 @@
+{
+  "name": "localnet-apps-stfu",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "services/apps/stfu",
+  "tags": ["service", "apps", "docker"],
+  "targets": {
+    "docker:build": {
+      "executor": "@nx-tools/nx-container:build",
+      "options": {
+        "context": "services/apps/stfu",
+        "file": "services/apps/stfu/Dockerfile.stfu",
+        "tags": ["localnet-apps-stfu:latest"],
+        "push": false,
+        "load": true
+      }
+    }
+  }
+}

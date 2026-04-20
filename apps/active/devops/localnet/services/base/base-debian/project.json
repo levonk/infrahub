@@ -9,7 +9,7 @@
       "executor": "@nx-tools/nx-container:build",
       "options": {
         "context": "services/base/base-debian",
-        "file": "services/base/base-debian/Dockerfile",
+        "file": "services/base/base-debian/Dockerfile.base-debian",
         "tags": ["localnet-base-debian:latest"],
         "push": false,
         "load": true

@@ -9,7 +9,7 @@
       "executor": "@nx-tools/nx-container:build",
       "options": {
         "context": "services/base/base-alpine",
-        "file": "services/base/base-alpine/Dockerfile",
+        "file": "services/base/base-alpine/Dockerfile.base-alpine",
         "tags": ["localnet-base-alpine:latest"],
         "push": false,
         "load": true

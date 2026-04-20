@@ -1,0 +1,19 @@
+{
+  "name": "localnet-airflow-airflow-core",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "services/airflow/airflow-core",
+  "tags": ["service", "airflow", "docker"],
+  "targets": {
+    "docker:build": {
+      "executor": "@nx-tools/nx-container:build",
+      "options": {
+        "context": "services/airflow/airflow-core",
+        "file": "services/airflow/airflow-core/Dockerfile.airflow-core",
+        "tags": ["localnet-airflow-airflow-core:latest"],
+        "push": false,
+        "load": true
+      }
+    }
+  }
+}

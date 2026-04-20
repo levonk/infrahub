@@ -9,6 +9,11 @@
     "nodejs",
     "pnpm"
   ],
+  "env": {
+    "SHELL": "/bin/zsh",
+    "XDG_CACHE_DIR": "/var/cache",
+    "XDG_RUNTIME_DIR": "/run/user/1000"
+  },
   "shell": {
     "init_hook": [
       "just bootstrap-internal"

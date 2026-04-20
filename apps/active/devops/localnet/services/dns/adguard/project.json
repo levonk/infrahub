@@ -1,0 +1,19 @@
+{
+  "name": "localnet-dns-adguard",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "services/dns/adguard",
+  "tags": ["service", "dns", "docker"],
+  "targets": {
+    "docker:build": {
+      "executor": "@nx-tools/nx-container:build",
+      "options": {
+        "context": "services/dns/adguard",
+        "file": "services/dns/adguard/Dockerfile.adguard",
+        "tags": ["localnet-dns-adguard:latest"],
+        "push": false,
+        "load": true
+      }
+    }
+  }
+}

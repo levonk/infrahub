@@ -1,0 +1,19 @@
+{
+  "name": "localnet-ai-codeassist-hapi-client",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "services/ai-codeassist/hapi-client",
+  "tags": ["service", "ai-codeassist", "docker"],
+  "targets": {
+    "docker:build": {
+      "executor": "@nx-tools/nx-container:build",
+      "options": {
+        "context": "services/ai-codeassist/hapi-client",
+        "file": "services/ai-codeassist/hapi-client/Dockerfile.hapi-client",
+        "tags": ["localnet-ai-codeassist-hapi-client:latest"],
+        "push": false,
+        "load": true
+      }
+    }
+  }
+}

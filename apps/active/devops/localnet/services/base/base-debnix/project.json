@@ -1,0 +1,19 @@
+{
+  "name": "localnet-base-base-debnix",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "services/base/base-debnix",
+  "tags": ["service", "base", "docker"],
+  "targets": {
+    "docker:build": {
+      "executor": "@nx-tools/nx-container:build",
+      "options": {
+        "context": "services/base/base-debnix",
+        "file": "services/base/base-debnix/Dockerfile.base-debnix",
+        "tags": ["localnet-base-base-debnix:latest"],
+        "push": false,
+        "load": true
+      }
+    }
+  }
+}

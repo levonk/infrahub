@@ -1,0 +1,19 @@
+{
+  "name": "localnet-airflow-base-python-debian",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "services/airflow/base-python-debian",
+  "tags": ["service", "airflow", "docker"],
+  "targets": {
+    "docker:build": {
+      "executor": "@nx-tools/nx-container:build",
+      "options": {
+        "context": "services/airflow/base-python-debian",
+        "file": "services/airflow/base-python-debian/Dockerfile.base-python-debian",
+        "tags": ["localnet-airflow-base-python-debian:latest"],
+        "push": false,
+        "load": true
+      }
+    }
+  }
+}
