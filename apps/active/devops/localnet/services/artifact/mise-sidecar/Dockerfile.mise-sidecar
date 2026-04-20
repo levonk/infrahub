@@ -1,5 +1,5 @@
 # Build stage for Mise
-FROM localnet-base-sidecar:latest as mise-builder
+FROM localnet-base-sidecar:latest AS mise-builder
 
 # SSL_CERT_FILE is inherited from base-sidecar (correctly set to ca-certificates.crt for Alpine)
 RUN apk update && apk upgrade && \

@@ -1,0 +1,19 @@
+{
+  "name": "localnet-artifact-mise-sidecar",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "services/artifact/mise-sidecar",
+  "tags": ["service", "artifact", "docker"],
+  "targets": {
+    "docker:build": {
+      "executor": "@nx-tools/nx-container:build",
+      "options": {
+        "context": "services/artifact/mise-sidecar",
+        "file": "services/artifact/mise-sidecar/Dockerfile.mise-sidecar",
+        "tags": ["localnet-artifact-mise-sidecar:latest"],
+        "push": false,
+        "load": true
+      }
+    }
+  }
+}
