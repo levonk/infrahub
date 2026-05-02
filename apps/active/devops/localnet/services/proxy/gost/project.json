@@ -1,0 +1,20 @@
+{
+  "name": "localnet-proxy-gost",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "services/dns/gost",
+  "tags": ["service", "dns", "docker"],
+  "implicitDependencies": ["localnet-base-alpine"],
+  "targets": {
+    "docker:build": {
+      "execugost": "@nx-tools/nx-container:build",
+      "options": {
+        "context": "services/dns/gost",
+        "file": "services/dns/gost/Dockerfile.gost",
+        "tags": ["localnet-proxy-gost:latest"],
+        "push": false,
+        "load": true
+      }
+    }
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "packages": [
+    "just@latest",
+    "docker@latest",
+    "docker-compose@latest",
+    "python3@latest",
+    "jq@latest",
+    "yamllint@latest"
+  ],
+  "nix_pkgs": [
+    "just",
+    "docker",
+    "docker-compose",
+    "python3",
+    "jq",
+    "yamllint"
+  ],
+  "shell": {
+    "init_hook": [
+      "just bootstrap-internal"
+    ]
+  },
+  "scripts": {
+    "bootstrap": "just bootstrap-internal",
+    "prime": "just prime-internal",
+    "doctor": "just doctor-internal",
+    "clean": "just clean-internal",
+    "build": "just build-internal",
+    "lint": "just lint-internal",
+    "test": "just test-internal",
+    "dev": "just dev-internal",
+    "up": "just up-internal",
+    "down": "just down-internal",
+    "restart": "just restart-internal",
+    "status": "just status-internal",
+    "logs": "just logs-internal",
+    "logs-follow": "just logs-follow-internal",
+    "logs-dnsdist": "just logs-dnsdist-internal",
+    "logs-coredns": "just logs-coredns-internal",
+    "logs-dnscrypt": "just logs-dnscrypt-internal",
+    "health-check": "just health-check-internal",
+    "shell": "just shell-internal",
+    "shell-dnsdist": "just shell-dnsdist-internal",
+    "shell-coredns": "just shell-coredns-internal",
+    "shell-dnscrypt": "just shell-dnscrypt-internal",
+    "blocklists-refresh": "just blocklists-refresh-internal",
+    "blocklists-view": "just blocklists-view-internal"
+  }
+}

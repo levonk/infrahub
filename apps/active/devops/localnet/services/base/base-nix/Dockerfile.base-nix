@@ -1,0 +1,76 @@
+# =============================================================================
+# Base Nix Dockerfile
+# =============================================================================
+# Purpose: Creates the foundational Nix environment for all LocalNet services
+# Provides: /base-app directory, Nix package manager, bootstrap tarball
+# Inheritance: Base image that other services (base-sidecar) inherit from
+# =============================================================================
+
+# Start from official Nix image - provides the Nix package manager
+FROM nixpkgs/nix:latest
+
+# Copy static assets to mirror container filesystem
+# This creates /base-app/ directory with entrypoint.sh, healthcheck.sh, and flake.nix
+# The /base-app/ directory will be inherited by child containers (like base-sidecar)
+COPY assets/static/ /
+
+# =============================================================================
+# Bootstrap Tarball Creation
+# =============================================================================
+# Purpose: Create a backup of the Nix environment for volume restoration
+# Problem: When Docker volumes are mounted, they can overwrite the /nix directory
+# Solution: Store a tarball that can be extracted to restore Nix functionality
+# =============================================================================
+# Backup the internal Nix environment so it can be restored when an empty volume is mounted
+# - Creates /base-nix/tmp/ directory for storing bootstrap data
+# - Tarballs essential Nix components: nix/, bin/, etc/profile.d/
+# - Child containers will extract this tarball if /nix/store is empty
+RUN mkdir -p /base-nix/tmp /etc/nix && \
+    tar -C / -cf /base-nix/tmp/bootstrap-slash-nix.tar nix bin etc/profile.d
+
+# Configure Nix with custom settings
+# Copies nix.conf to enable experimental features and optimize performance
+COPY assets/static/etc/nix/nix.conf /etc/nix/nix.conf
+
+# =============================================================================
+# Environment Configuration
+# =============================================================================
+# Set up environment for the sidecar
+# - PATH: Ensures all standard binaries are available
+# - NIX_PATH: Points to Nix channels for package resolution
+# - SSL_CERT_FILE: Points to CA certificates for HTTPS downloads
+ENV PATH=/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ENV NIX_PATH=nixpkgs=/nix/var/nix/profiles/per-user/root/channels/nixpkgs:/nix/var/nix/profiles/per-user/root/channels
+# Alpine uses ca-certificates.crt (not ca-bundle.crt like some other distros)
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+
+# =============================================================================
+# Script Permissions
+# =============================================================================
+# Make scripts executable so they can be run as entrypoints
+# - /base-app/healthcheck.sh: Used by Docker for container health checks
+# - /base-app/entrypoint.sh: Main script that sets up the Nix environment
+RUN chmod +x /base-app/healthcheck.sh /base-app/entrypoint.sh
+
+# =============================================================================
+# Health Check Configuration
+# =============================================================================
+# Docker will run this command every 30s to check if the container is healthy
+# The healthcheck.sh script validates Nix functionality
+# - interval: Check every 30 seconds
+# - timeout: Fail if check takes longer than 10 seconds
+# - start-period: Give container 20s to start before checking
+# - retries: Allow 3 consecutive failures before marking unhealthy
+HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
+  CMD /bin/sh -c '/base-app/healthcheck.sh > /dev/null 2>&1'
+
+# =============================================================================
+# Container Entry Point
+# =============================================================================
+# Use the static busybox shell for bootstrapping
+# The entrypoint.sh script will:
+# 1. Check if /nix/store exists (restore from tarball if needed)
+# 2. Set up user accounts with proper UID/GID
+# 3. Initialize Nix profiles and channels
+# 4. Execute the requested command or sleep by default
+ENTRYPOINT ["/bin/sh", "/base-app/entrypoint.sh"]

@@ -1,0 +1,93 @@
+---
+# Iron-Proxy Docker Compose Configuration
+# Generated secure docker-compose configuration for egress firewall for untrusted workloads
+
+# Default logging configuration - use json-file with rotation
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "5"
+    tag: "{{.Name}}"
+    labels: "service"
+
+
+services:
+  localnet-app-:
+    build:
+      context: .
+      dockerfile: ./Dockerfile.iron-proxy
+    container_name: localnet-app-
+    restart: unless-stopped
+    logging: *default-logging
+    user: "$AI_CODEASSIST_IRON_PROXY_PUID:-1000}:$AI_CODEASSIST_IRON_PROXY_PGID:-1000}"
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "$AI_CODEASSIST_IRON_PROXY_HOST_IP:-0.0.0.0}:$AI_CODEASSIST_IRON_PROXY_HOST_PORT:-8080:$AI_CODEASSIST_IRON_PROXY_CONTAINER_IP:-0.0.0.0}:$AI_CODEASSIST_IRON_PROXY_CONTAINER_PORT:-8080}"
+    environment:
+
+      - PUID=$AI_CODEASSIST_IRON_PROXY_PUID:-1000}
+      - PGID=$AI_CODEASSIST_IRON_PROXY_PGID:-1000}
+      - TZ=$AI_CODEASSIST_IRON_PROXY_TZ:-UTC}
+      - NODE_ENV=$AI_CODEASSIST_IRON_PROXY_NODE_ENV:-production}
+      - SERVICE_NAME=$AI_CODEASSIST_IRON_PROXY_SERVICE_NAME:-iron-proxy}
+      - SERVICE_PORT=$AI_CODEASSIST_IRON_PROXY_SERVICE_PORT:-8080}
+      - AI_CODEASSIST_IRON_PROXY_HOST_IP=$AI_CODEASSIST_IRON_PROXY_HOST_IP:-0.0.0.0}
+      - AI_CODEASSIST_IRON_PROXY_HOST_PORT=$AI_CODEASSIST_IRON_PROXY_HOST_PORT:-8080}
+      - AI_CODEASSIST_IRON_PROXY_CONTAINER_IP=$AI_CODEASSIST_IRON_PROXY_CONTAINER_IP:-0.0.0.0}
+      - AI_CODEASSIST_IRON_PROXY_CONTAINER_PORT=$AI_CODEASSIST_IRON_PROXY_CONTAINER_PORT:-8080}
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - -network
+
+  -debug:
+    build:
+      context: .
+      dockerfile: Dockerfile.iron-proxy
+      target: debug
+    logging: *default-logging
+
+    restart: unless-stopped
+    profiles: ["debug"]
+    stdin_open: true
+    tty: true
+    command: ["sleep", "infinity"]
+    environment:
+
+      - PUID=$AI_CODEASSIST_IRON_PROXY_PUID:-1000}
+      - PGID=$AI_CODEASSIST_IRON_PROXY_PGID:-1000}
+      - TZ=$AI_CODEASSIST_IRON_PROXY_TZ:-UTC}
+      - NODE_ENV=$AI_CODEASSIST_IRON_PROXY_NODE_ENV:-production}
+      - SERVICE_NAME=$AI_CODEASSIST_IRON_PROXY_SERVICE_NAME:-iron-proxy}
+      - SERVICE_PORT=$AI_CODEASSIST_IRON_PROXY_SERVICE_PORT:-8080}
+      - AI_CODEASSIST_IRON_PROXY_HOST_IP=$AI_CODEASSIST_IRON_PROXY_HOST_IP:-0.0.0.0}
+      - AI_CODEASSIST_IRON_PROXY_HOST_PORT=$AI_CODEASSIST_IRON_PROXY_HOST_PORT:-8080}
+      - AI_CODEASSIST_IRON_PROXY_CONTAINER_IP=$AI_CODEASSIST_IRON_PROXY_CONTAINER_IP:-0.0.0.0}
+      - AI_CODEASSIST_IRON_PROXY_CONTAINER_PORT=$AI_CODEASSIST_IRON_PROXY_CONTAINER_PORT:-8080}
+
+    networks:
+      - -network
+
+
+
+
+
+
+networks:
+  -network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

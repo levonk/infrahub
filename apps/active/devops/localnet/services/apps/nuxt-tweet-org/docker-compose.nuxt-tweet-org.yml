@@ -1,0 +1,63 @@
+---
+# Default logging configuration - use json-file with rotation
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "5"
+    tag: "{{.Name}}"
+    labels: "service"
+
+services:
+  nuxt-tweet-org:
+    image: localnet-apps-nuxt-tweet-org:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.nuxt-tweet-org
+    container_name: localnet-apps-nuxt-tweet-org
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=UTC
+      - APPS_NUXT_TWEET_ORG_CONTAINER_PORT=${APPS_NUXT_TWEET_ORG_CONTAINER_PORT:-3000}
+      - NODE_ENV=production
+    ports:
+      - "${APPS_NUXT_TWEET_ORG_HOST_PORT:-3000}:${APPS_NUXT_TWEET_ORG_CONTAINER_PORT:-3000}/tcp"
+    networks:
+      localnet:
+        ipv4_address: ${APPS_NUXT_TWEET_ORG_IP:-172.20.255.71}
+    volumes:
+      # Mount shared pnpm cache from pnpm-sidecar
+      - pnpm-cache:/home/cuser/.cache/pnpm:rw
+      # Mount application data
+      - nuxt-tweet-org-data:/app/data:rw
+    depends_on:
+      pnpm-sidecar:
+        condition: service_healthy
+    logging: *default-logging
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=100m
+      - /var/tmp:noexec,nosuid,size=100m
+    healthcheck:
+      test: ["CMD", "/scripts/healthcheck-nuxt-tweet-org.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    profiles: ["apps"]
+
+networks:
+  localnet:
+    external: true
+
+volumes:
+  pnpm-cache:
+    external: true
+  nuxt-tweet-org-data:
+    driver: local

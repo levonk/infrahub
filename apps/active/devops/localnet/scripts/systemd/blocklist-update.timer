@@ -1,0 +1,21 @@
+[Unit]
+Description=Daily Blocklist Update Timer
+Documentation=https://github.com/lrepo52/job-aide/tree/main/apps/active/devops/localnet
+Requires=blocklist-update.service
+
+[Timer]
+# Run daily at 3:00 AM local time
+OnCalendar=daily
+OnCalendar=*-*-* 03:00:00
+
+# Run 5 minutes after boot if missed
+OnBootSec=5min
+
+# Randomize start time by up to 30 minutes to avoid thundering herd
+RandomizedDelaySec=30min
+
+# Persist timer state across reboots
+Persistent=true
+
+[Install]
+WantedBy=timers.target

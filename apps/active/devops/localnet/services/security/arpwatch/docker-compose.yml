@@ -1,0 +1,35 @@
+---
+
+# Default logging configuration - use json-file with rotation
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "5"
+    tag: "{{.Name}}"
+    labels: "service"
+
+services:
+  arpwatch:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: localnet_app_arpwatch
+    # Host networking is required to see all traffic on the interface
+    network_mode: host
+    # Privileged mode is required for promiscuous mode on some systems
+    privileged: true
+    logging: *default-logging
+    environment:
+      # Change this to your wifi adapter name (e.g., wlan0, wlp3s0)
+      # Note: On Windows/WSL2, this container must be run in a Linux VM on the network.
+      # Windows will not share its NIC devices/wifi with Docker in WSL2.
+      # To monitor all interfaces, you would typically need separate instances or a custom script,
+      # as arpwatch is designed to monitor a single interface per process.
+      - INTERFACE=wlan0
+    volumes:
+      - arpwatch_data:/var/lib/arpwatch
+    restart: unless-stopped
+
+volumes:
+  arpwatch_data:

@@ -1,0 +1,60 @@
+# HAPI Client Container
+# Built from base-dev to include all development tools and AI agents
+FROM localnet-base-dev:latest
+
+# Set labels for identification
+LABEL maintainer="job-aide" \
+      description="HAPI Client - Interactive development environment with AI agents" \
+      version="1.0.0"
+
+# Set environment variables
+ENV NODE_ENV=production \
+    HAPI_API_URL=http://hapi-server:3006
+
+# Install HAPI CLI globally
+RUN npm install -g @twsxtd/hapi
+
+# Create entrypoint script
+RUN cat > /usr/local/bin/entrypoint-hapi-client.sh << 'EOF'
+#!/bin/bash
+set -e
+
+echo "🤖 HAPI Client starting..."
+echo "Server URL: \${HAPI_API_URL:-http://hapi-server:3006}"
+echo "CLI API Token: \${CLI_API_TOKEN:+(set)}"
+
+# Wait for server to be ready if server URL is provided
+if [ -n "\${HAPI_API_URL}" ]; then
+    echo "⏳ Waiting for HAPI server at \${HAPI_API_URL}..."
+
+    # Wait for server to be ready (with timeout)
+    timeout=60
+    while [ \$timeout -gt 0 ]; do
+        if curl -f -s "\${HAPI_API_URL}/health" > /dev/null 2>&1; then
+            echo "✅ HAPI server is ready!"
+            break
+        fi
+        sleep 2
+        timeout=\$((timeout - 2))
+    done
+
+    if [ \$timeout -le 0 ]; then
+        echo "❌ Timeout waiting for HAPI server at \${HAPI_API_URL}"
+        echo "⚠️  Starting client anyway - you may need to start the server first"
+    fi
+fi
+
+# Check if CLI API token is set
+if [ -z "\${CLI_API_TOKEN}" ]; then
+    echo "⚠️  Warning: CLI_API_TOKEN not set"
+    echo "   Set this environment variable to authenticate with the server"
+fi
+
+echo "🚀 Starting HAPI client..."
+exec hapi "$@"
+EOF
+
+RUN chmod +x /usr/local/bin/entrypoint-hapi-client.sh
+
+# Set entrypoint and command
+ENTRYPOINT ["/hapi-client/bin/entrypoint-hapi-client.sh"]

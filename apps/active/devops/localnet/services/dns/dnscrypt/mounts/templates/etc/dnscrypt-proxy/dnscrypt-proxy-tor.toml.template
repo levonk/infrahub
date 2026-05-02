@@ -1,0 +1,12 @@
+# DO NOT EDIT UNLESS IT'S IN `${REPO_ROOT}/apps/devops/localnet/services/dns/dnscrypt/mounts/templates/etc/dnscrypt-proxy`
+# If you're in `/etc/dnscrypt-proxy/` INSIDE the container, you are making changes to the processed ephemeral file!
+
+# dnscrypt-proxy configuration for DNS-over-Tor
+
+listen_addresses = ['0.0.0.0:{DNS_DNSCRYPT_TOR_CONTAINER_PORT}']
+
+# Route all DNS queries through the Tor SOCKS proxy
+proxy = 'socks5://{PROXY_TOR_SOCKS5_IP}:{PROXY_TOR_SOCKS5_CONTAINER_PORT}'
+
+# Use servers that are known to work well with Tor
+server_names = ['doh-crypto-sx', 'doh-securedns', 'doh-quad9-nl']

@@ -1,0 +1,28 @@
+  -debug:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: debug
+    logging: *default-logging
+
+    restart: unless-stopped
+    profiles: ["debug"]
+    stdin_open: true
+    tty: true
+    command: ["sleep", "infinity"]
+    environment:
+
+      - PUID=$AI_CODEASSIST_IRON_PROXY_PUID:-1000}
+      - PGID=$AI_CODEASSIST_IRON_PROXY_PGID:-1000}
+      - TZ=$AI_CODEASSIST_IRON_PROXY_TZ:-UTC}
+      - NODE_ENV=$AI_CODEASSIST_IRON_PROXY_NODE_ENV:-production}
+      - SERVICE_NAME=$AI_CODEASSIST_IRON_PROXY_SERVICE_NAME:-iron-proxy}
+      - SERVICE_PORT=$AI_CODEASSIST_IRON_PROXY_SERVICE_PORT:-8080}
+      - AI_CODEASSIST_IRON_PROXY_HOST_IP=$AI_CODEASSIST_IRON_PROXY_HOST_IP:-0.0.0.0}
+      - AI_CODEASSIST_IRON_PROXY_HOST_PORT=$AI_CODEASSIST_IRON_PROXY_HOST_PORT:-8080}
+      - AI_CODEASSIST_IRON_PROXY_CONTAINER_IP=$AI_CODEASSIST_IRON_PROXY_CONTAINER_IP:-0.0.0.0}
+      - AI_CODEASSIST_IRON_PROXY_CONTAINER_PORT=$AI_CODEASSIST_IRON_PROXY_CONTAINER_PORT:-8080}
+
+    networks:
+      - -network
+

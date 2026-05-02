@@ -1,0 +1,27 @@
+---
+# Tailscale VPN Docker Compose Configuration
+# Generated secure docker-compose configuration for tailscale vpn client
+
+services:
+  vpn-tailscale:
+    image: vpn-tailscale:latest
+    container_name: vpn-tailscale
+    restart: unless-stopped
+    ports:
+      - "8085:8085"
+    environment:
+      - NODE_ENV=production
+      - SERVICE_NAME=vpn-tailscale
+      - SERVICE_PORT=8085
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8085/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - vpn-tailscale-network
+
+networks:
+  vpn-tailscale-network:
+    driver: bridge

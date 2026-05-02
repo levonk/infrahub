@@ -1,0 +1,183 @@
+---
+# VPN service stack for Home Lab In-a-Box
+
+services:
+
+  gluetun:
+    # See https://github.com/qdm12/gluetun-wiki/blob/main/setup/connect-a-container-to-gluetun.md#external-container
+    image: qmcgaw/gluetun
+    container_name: localnet-vpn-gluetun
+    logging: *default-logging
+    cap_add:
+      - NET_ADMIN
+    devices:
+      /dev/net/tun:/dev/net/tun
+    networks:
+      - localnet
+    volumes:
+      - ./gluetun/mounts/etc/gluetun:/etc/gluetun
+    ports:
+      - "8888:8888/tcp" # HTTP Proxy
+      - "8388:8388/tcp" # Shadowsocks TCP
+      - "8388:8388/udp" # Shadowsocks UDP
+      - "8701:8701" # qBittorrent Web UI
+      - "6881:6881" # torrent port
+      - "6881:6881/udp" # torrent port
+      - "7878:7878" # Radarr
+      - "8989:8989" # Sonarr
+      - "8685:8685" # Lidarr
+      - "6767:6767" # Bazarr
+      - "9696:9696" # Prowlarr
+      - "8191:8191" # FlareSolverr
+    environment:
+      # See https://github.com/qdm12/gluetun-wiki/tree/main/setup#setup
+      - TZ=${TIMEZONE}
+      - VPN_SERVICE_PROVIDER=private internet access
+      - VPN_TYPE=wireguard
+      - WIREGUARD_PRIVATE_KEY=
+      - WIREGUARD_PRESHARED_KEY=
+      #- VPN_TYPE=openvpn
+      #- OPENVPN_USER=${OPENVPN_USER:-}
+      #- OPENVPN_PASSWORD=${OPENVPN_PASSWORD:-}
+      - WIREGUARD_ADDRESSES=10.14.14.2/32
+      - VPN_PORT_FORWARDING=on
+    restart: unless-stopped
+
+  # WireGuard Direct Mode (wg0) - Port 51820
+  # VPN clients have direct internet access, optional localnet services
+  wireguard-direct:
+    image: linuxserver/wireguard:latest
+    container_name: localnet-vpn-direct
+    logging: *default-logging
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TZ:-UTC}
+      - SERVERURL=${WIREGUARD_SERVERURL:-auto}
+      - SERVERPORT=${WIREGUARD_DIRECT_PORT:-51820}
+      - PEERS=${WIREGUARD_DIRECT_PEERS:-5}
+      - PEERDNS=${HOST_IP}
+      - INTERNAL_SUBNET=10.13.13.0
+      - ALLOWEDIPS=${WIREGUARD_DIRECT_ALLOWEDIPS:-172.20.0.0/16,${HOST_IP}/32}
+      - LOG_CONFS=true
+    volumes:
+      - wireguard-direct-config:/config
+      - /lib/modules:/lib/modules:ro
+    ports:
+      - "${WIREGUARD_DIRECT_PORT:-51820}:51820/udp"
+    sysctls:
+      - net.ipv4.conf.all.src_valid_mark=1
+      - net.ipv4.ip_forward=1
+    networks:
+      - wireguard
+      - localnet
+    dns:
+      - ${HOST_IP}
+    healthcheck:
+      test: ["CMD", "wg", "show", "wg0"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # Netbird VPN client (Nix-based image)
+  netbird-vpn:
+    image: vpn-netbird:latest
+    container_name: localnet-vpn-netbird
+    logging: *default-logging
+    networks:
+      - localnet
+    environment:
+      - SERVICE_NAME=vpn-netbird
+      - SERVICE_PORT=${VPN_NETBIRD_HTTP_CONTAINER_PORT:-8084}
+    labels:
+      - "traefik.enable=true"
+      - 'traefik.http.routers.netbird.rule=Host(`netbird.localnet`)'
+      - "traefik.http.routers.netbird.entryPoints=websecure"
+      - "traefik.http.routers.netbird.tls=true"
+      - "traefik.http.routers.netbird.tls.certresolver=le"
+      - "traefik.http.services.netbird.loadbalancer.server.port=${VPN_NETBIRD_HTTP_CONTAINER_PORT:-8084}"
+    restart: unless-stopped
+
+  # Tailscale VPN client (Nix-based image)
+  tailscale-vpn:
+    image: vpn-tailscale:latest
+    container_name: localnet-vpn-tailscale
+    logging: *default-logging
+    networks:
+      - localnet
+    environment:
+      - SERVICE_NAME=vpn-tailscale
+      - SERVICE_PORT=${VPN_TAILSCALE_HTTP_CONTAINER_PORT:-8085}
+    labels:
+      - "traefik.enable=true"
+      - 'traefik.http.routers.tailscale.rule=Host(`tailscale.localnet`)'
+      - "traefik.http.routers.tailscale.entryPoints=websecure"
+      - "traefik.http.routers.tailscale.tls=true"
+      - "traefik.http.routers.tailscale.tls.certresolver=le"
+      - "traefik.http.services.tailscale.loadbalancer.server.port=${VPN_TAILSCALE_HTTP_CONTAINER_PORT:-8085}"
+    restart: unless-stopped
+
+  # Twingate VPN connector
+  twingate-vpn:
+    image: twingate/connector:latest
+    container_name: localnet-vpn-twingate
+    logging: *default-logging
+    networks:
+      - localnet
+    sysctls:
+      - net.ipv4.ping_group_range=0 2147483647
+    environment:
+      - TENANT_URL=${TWINGATE_TENANT_URL}
+      - ACCESS_TOKEN=${TWINGATE_ACCESS_TOKEN}
+      - REFRESH_TOKEN=${TWINGATE_REFRESH_TOKEN}
+      - TWINGATE_LABEL_HOSTNAME=${TWINGATE_LABEL_HOSTNAME:-localnet-connector}
+    restart: unless-stopped
+
+  # WireGuard Transparent Mode (wg1) - Port 51821
+  # VPN clients under observation, MUST use localnet services
+  wireguard-transparent:
+    image: linuxserver/wireguard:latest
+    container_name: localnet-vpn-transparent
+    logging: *default-logging
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TZ:-UTC}
+      - SERVERURL=${WIREGUARD_SERVERURL:-auto}
+      - SERVERPORT=${WIREGUARD_TRANSPARENT_PORT:-51821}
+      - PEERS=${WIREGUARD_TRANSPARENT_PEERS:-3}
+      - PEERDNS=172.20.0.254
+      - INTERNAL_SUBNET=10.13.14.0
+      - ALLOWEDIPS=172.20.0.0/16
+      - LOG_CONFS=true
+    volumes:
+      - wireguard-transparent-config:/config
+      - /lib/modules:/lib/modules:ro
+    ports:
+      - "${WIREGUARD_TRANSPARENT_PORT:-51821}:51820/udp"
+    sysctls:
+      - net.ipv4.conf.all.src_valid_mark=1
+      - net.ipv4.ip_forward=1
+    networks:
+      - wireguard
+      - localnet
+    dns:
+      - 172.20.0.254
+    depends_on:
+      - transparent-gateway
+    healthcheck:
+      test: ["CMD", "wg", "show", "wg0"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+

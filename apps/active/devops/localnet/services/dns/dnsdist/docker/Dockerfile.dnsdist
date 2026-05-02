@@ -1,0 +1,64 @@
+FROM localnet-base-debian:latest AS builder
+
+USER root
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+	build-essential \
+	meson \
+	ninja-build \
+	git \
+	libedit-dev \
+	libsodium-dev \
+	liblmdb-dev \
+	libnghttp2-dev \
+	libssl-dev \
+	libre2-dev \
+	libfstrm-dev \
+	libprotobuf-dev \
+	libsnmp-dev \
+	&& rm -rf /var/lib/apt/lists/* \
+	&& mkdir -p /tmp/dnsdist \
+	libedit-dev libsodium-dev lmdb-dev \
+	nghttp2-dev openssl-dev re2-dev \
+	fstrm-dev protobuf-dev snmp-dev
+
+WORKDIR /tmp/dnsdist
+
+# Clone and build dnsdist
+RUN git clone https://github.com/PowerDNS/pdns.git && \
+	cd pdns/dnsdist && \
+	meson setup build -Denable_cdb=true && \
+	ninja -C build && \
+	ninja -C build install && \
+	dnsdist --version
+
+
+FROM localnet-base-debian:latest
+
+# Switch to root to install packages
+USER root
+
+# Install dnsutils for dig command (needed for health checks)
+RUN apt-get update && apt-get install -y --no-install-recommends bind9-dnsutils bash curl gettext-base dnsdist && \
+	rm -rf /var/lib/apt/lists/*
+
+# Create non-root user and set initial ownership
+# The service runs as root to bind to port 5053, but we prepare the user for future hardening.
+#RUN addgroup -g 1010 dnsdist && adduser -D -u 1010 -G dnsdist dnsdist
+
+COPY --chown=dnsdist:dnsdist assets/entrypoint-dnsdist.sh /entrypoint-dnsdist.sh
+#COPY --from=builder --chown=dnsdist:dnsdist /usr/local/bin/dnsdist /usr/local/bin/dnsdist
+RUN mkdir -p /templates /etc/dnsdist/blocklists ; chmod 755 /entrypoint-dnsdist.sh /templates /etc/dnsdist && chmod 555 /etc/dnsdist/blocklists
+
+
+
+VOLUME ["/templates", "/etc/dnsdist/blocklists"]
+
+# Healthcheck to ensure dnsdist is responding
+HEALTHCHECK --interval=10s --timeout=5s --start-period=15s --retries=3 \
+	CMD dig +short example.com @127.0.0.1 -p ${DNS_DNSDIST_MAIN_CONTAINER_PORT} || exit 1
+
+# Use the same entrypoint as the base image
+#ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/dnsdist-startup"]
+ENTRYPOINT ["/entrypoint-dnsdist.sh"]

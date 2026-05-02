@@ -1,0 +1,57 @@
+{
+  "$schema": "./node_modules/nx/schemas/nx-schema.json",
+  "namedInputs": {
+    "default": ["{projectRoot}/**/*", "sharedGlobals"],
+    "sharedGlobals": ["{workspaceRoot}/.env.local.localnet"],
+    "production": [
+      "default",
+      "!{projectRoot}/**/?(*.)+(spec|test).[jt]s?(x)?(.snap)",
+      "!{projectRoot}/tsconfig.spec.json",
+      "!{projectRoot}/.eslintrc.json",
+      "!{projectRoot}/eslint.config.mjs"
+    ]
+  },
+  "cli": {
+    "packageManager": "pnpm"
+  },
+  "targetDefaults": {
+    "docker:build": {
+      "dependsOn": ["^docker:build"],
+      "inputs": [
+        "{projectRoot}/Dockerfile*",
+        "{projectRoot}/docker/**/*",
+        "{projectRoot}/assets/**/*",
+        "{projectRoot}/**/*.sh",
+        "{projectRoot}/**/*.json",
+        "{workspaceRoot}/docker-compose.shared.yml"
+      ],
+      "cache": true
+    },
+    "docker:push": {
+      "dependsOn": ["docker:build"],
+      "cache": false
+    },
+    "docker:up": {
+      "dependsOn": ["docker:build"],
+      "cache": false
+    }
+  },
+  "plugins": [
+    {
+      "plugin": "@nx-tools/nx-container",
+      "options": {
+        "defaultEngine": "docker"
+      }
+    },
+    {
+      "plugin": "@nxlv/python",
+      "options": {
+        "packageManager": "uv"
+      }
+    }
+  ],
+  "parallel": 4,
+  "cacheDirectory": ".nx/cache",
+  "useDaemonProcess": true,
+  "defaultBase": "main"
+}

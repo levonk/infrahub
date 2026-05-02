@@ -1,0 +1,16 @@
+# Colors for output
+BLUE := \033[0;34m
+GREEN := \033[0;32m
+YELLOW := \033[0;33m
+RED := \033[0;31m
+NC := \033[0m # No Color
+
+# Project configuration
+SERVICE_NAME := 
+SERVICE_PORT := 8080
+SERVICE_HEALTH_ENDPOINT := /health
+COMPOSE_FILE ?= docker-compose.yml
+COMPOSE_OVERRIDE_FILE ?= docker-compose.override.yml
+ENV_FILE ?= .env
+WORKDIR := $(CURDIR)
+DOCKER_COMPOSE := docker compose -f $(COMPOSE_FILE) --env-file $(ENV_FILE)

@@ -1,0 +1,117 @@
+-- Home Lab In-a-Box - dnsdist Configuration
+-- Purpose: DNS load balancing, filtering, rate limiting, and routing
+
+setVerboseHealthChecks(true)
+
+-- Listen addresses - bind to all interfaces to accept queries from Docker network
+-- Using addLocal() to add to defaults rather than replace them
+addLocal("0.0.0.0:" .. "{DNS_DNSDIST_MAIN_CONTAINER_PORT}")
+
+-- Server policy: least outstanding queries
+setServerPolicy(leastOutstanding)
+
+-- Logging configuration
+-- Log all queries to stdout (captured by Docker logging driver)
+-- Queries are logged with timestamp, client IP, query, and response
+-- Note: File-based logging disabled to avoid permission/directory issues in container
+-- addAction(AllRule(), LogAction("/var/log/dnsdist/queries.log", false, true, true))
+
+-- Blocklist integration (CDB format for O(1) lookups)
+-- Blocklist file compiled from multiple sources (StevenBlack, AdAway, PhishTank, etc.)
+local blocklistPath = "/etc/dnsdist/blocklists/blocklist.cdb"
+do
+    local blocklistHandle = io.open(blocklistPath, "rb")
+    if blocklistHandle ~= nil then
+        blocklistHandle:close()
+        local blocklistStore = newCDBKVStore(blocklistPath, 3600)
+        addAction(
+            KeyValueStoreLookupRule(blocklistStore, KeyValueLookupKeyQName()),
+            RCodeAction(DNSRCode.NXDOMAIN)
+        )
+        infolog("Blocklist enabled; source=" .. blocklistPath)
+    else
+        warnlog("Blocklist file missing; source=" .. blocklistPath)
+    end
+end
+
+-- ECS (EDNS Client Subnet) stripping for privacy
+-- Remove client subnet information to prevent DNS fingerprinting
+-- TODO: Re-enable ECS stripping once compatible action is found for dnsdist 1.8.4
+-- Note: ECSPrefixLengthAction and DisableECSAction not available in this version
+-- addAction(AllRule(), DisableECSAction())
+
+-- Rate limiting: 100 queries per second per client IP
+-- Prevents DNS amplification attacks and abuse
+addAction(MaxQPSIPRule(100), DropAction())
+
+-- Upstream servers
+-- Primary: CoreDNS (local caching and DNSSEC validation)
+-- NOTE: Using static IPs - cannot use service names because DNS service binds to port 53
+-- When DNS services bind to :53, they intercept Docker's embedded DNS resolver (127.0.0.11:53)
+-- This breaks service discovery, so we must use static IPs assigned via ipv4_address in docker-compose
+-- CoreDNS now listens on port 15353 to avoid binding conflicts with host DNS
+newServer({address="{DNS_COREDNS_MAIN_IP}" .. ":" .. "{DNS_COREDNS_MAIN_CONTAINER_PORT}", name="coredns", pool="primary", checkInterval=5, maxCheckFailures=3})
+
+-- Server selection policy
+-- Try primary first, fallback if primary fails
+setPoolServerPolicy(leastOutstanding, "primary")
+setPoolServerPolicy(leastOutstanding, "fallback")
+
+-- Route all queries to primary pool (will use fallback if primary is down)
+addAction(AllRule(), PoolAction("primary"))
+
+-- Health checks
+-- Note: setServerCheckTimeout() does not exist in dnsdist 1.8.4
+-- Health checks are performed automatically by dnsdist
+
+-- Transparent vs Direct mode detection
+-- Packets marked by nftables (mark=1) are transparent mode
+-- Packets to port 5353 are direct mode
+-- Mode is logged in query log for analysis
+
+-- Console and API configuration
+-- Listen on localhost only for security
+setConsoleACL({"127.0.0.1/8", "::1/128"})
+local control_port = "{DNS_DNSDIST_CONTROL_CONTAINER_PORT}"
+local hashed_control_password = "{DNS_DNSDIST_CONTROL_PASSWORD_HASH}"
+if control_port ~= nil and control_port ~= "" and (string.find(control_port, "{", 1, true) == nil) and hashed_control_password ~= nil and hashed_control_password ~= "" and (string.find(hashed_control_password, "{", 1, true) == nil) then
+    controlSocket("0.0.0.0:" .. control_port)
+    setKey(hashed_control_password)
+else
+    warnlog("Control console disabled: missing port and/or password hash")
+end
+
+-- Webserver for metrics (Prometheus)
+local web_port = "{DNS_DNSDIST_WEB_CONTAINER_PORT}"
+local hashed_web_password = "{DNS_DNSDIST_WEB_PASSWORD_HASH}"
+local hashed_web_api_key = "{DNS_DNSDIST_WEB_API_KEY_HASH}"
+if web_port ~= nil and web_port ~= "" and (string.find(web_port, "{", 1, true) == nil) and hashed_web_api_key ~= nil and hashed_web_api_key ~= "" and (string.find(hashed_web_api_key, "{", 1, true) == nil) then
+    webserver("0.0.0.0:" .. web_port)
+    local web_cfg = { apiKey = hashed_web_api_key, acl = "192.0.2.0/8, !192.0.2.1" }
+    if hashed_web_password ~= nil and hashed_web_password ~= "" and (string.find(hashed_web_password, "{", 1, true) == nil) then
+        web_cfg.password = hashed_web_password
+    end
+    setWebserverConfig(web_cfg)
+else
+    warnlog("Web interface disabled: missing port and/or API key")
+end
+
+-- Performance tuning
+-- Set cache size and number of worker threads
+setMaxTCPClientThreads(10)
+setMaxUDPOutstanding(65535)
+
+-- Security: disable potentially dangerous features
+setSecurityPollSuffix("")  -- Disable security polling
+
+local acl_file = "/etc/dnsdist/query.acl"
+local file = io.open(acl_file, "r")
+if file ~= nil then
+    file:close()
+    local acl_ok, acl_err = pcall(setACLFromFile, acl_file)
+    if acl_ok then
+        showACL()
+    else
+        warnlog("Failed to load ACL file: " .. tostring(acl_err))
+    end
+end

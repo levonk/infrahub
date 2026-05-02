@@ -1,0 +1,61 @@
+# /home/micro/p/gh/lrepo52/job-aide-wt01/apps/active/devops/localnet/services/dns/docker-compose.mcp.yml
+---
+# The 'localnet' network is defined in the parent docker-compose.yml with proper subnet configuration
+services:
+  # Archon MCP server
+  archon-mcp:
+    image: otakulabz/archon:latest
+    container_name: localnet-mcp-archon
+    logging: *default-logging
+    networks:
+      - localnet
+    ports:
+      # Expose Archon MCP port on localnet + host
+      - "${MCP_ARCHON_HOST_PORT:-8083}:${MCP_ARCHON_CONTAINER_PORT:-8083}"
+    env_file:
+      - ../../.env
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "curl",
+          "-f",
+          "http://127.0.0.1:${MCP_ARCHON_CONTAINER_PORT:-8083}/health",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+  # First peer (not transparent) layer of DNS Services. Handles Blocklists.
+
+  serena-mcp:
+    build:
+      context: ./serena
+      dockerfile: docker/Dockerfile.serena
+    image: localnet-mcp-serena:latest
+    container_name: localnet-mcp-serena
+    logging: *default-logging
+    networks:
+      localnet:
+        aliases:
+          - serena
+    env_file:
+      - ../../.env
+    ports:
+      - "${MCP_SERENA_HOST_PORT:-8084}:${MCP_SERENA_CONTAINER_PORT:-8084}"
+    volumes:
+      - ./serena/mounts/templates:/templates:ro
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "curl",
+          "-f",
+          "http://127.0.0.1:${MCP_SERENA_CONTAINER_PORT:-8084}/health",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped

@@ -1,0 +1,112 @@
+---
+
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "5"
+    tag: "{{.Name}}"
+    labels: "service"
+
+
+# Monitoring services stack for Home Lab In-a-Box
+volumes:
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: localnet-monitoring-prometheus
+    logging: *default-logging
+    networks:
+      - localnet
+    ports:
+      - "${PROMETHEUS_HOST_PORT:-19090}:9090/tcp"
+    volumes:
+      - ./configs/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=${PROMETHEUS_RETENTION_DAYS:-30}d'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: localnet-monitoring-grafana
+    logging: *default-logging
+    networks:
+      - localnet
+    ports:
+      - "${GRAFANA_HOST_PORT:-3000}:3000/tcp"
+    volumes:
+      - ./configs/monitoring/grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      - ./configs/monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-changeme}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=http://${HOST_IP}:${GRAFANA_HOST_PORT:-3000}
+    depends_on:
+      - prometheus
+      - loki
+      - elasticsearch
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: localnet-monitoring-jaeger
+    logging: *default-logging
+    networks:
+      - localnet
+    ports:
+      - "${JAEGER_UI_HOST_PORT:-16686}:16686/tcp"
+      - "${JAEGER_ZIPKIN_HOST_PORT:-9411}:9411/tcp"
+      - "${JAEGER_COLLECTOR_HOST_PORT:-14268}:14268/tcp"
+    environment:
+      - COLLECTOR_ZIPKIN_HOST_PORT=:9411
+      - SAMPLING_STRATEGIES_FILE=/etc/jaeger/sampling.json
+    depends_on:
+      - elasticsearch
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:14269/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  blackbox-exporter:
+    image: prom/blackbox-exporter:latest
+    container_name: localnet-monitoring-blackbox-exporter
+    logging: *default-logging
+    networks:
+      - localnet
+    ports:
+      - "${BLACKBOX_EXPORTER_HOST_PORT:-9115}:9115/tcp"
+    volumes:
+      - ./configs/monitoring/blackbox.yml:/etc/blackbox_exporter/config.yml:ro
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9115/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped

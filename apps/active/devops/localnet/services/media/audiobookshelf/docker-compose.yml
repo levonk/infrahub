@@ -1,0 +1,35 @@
+---
+# Audiobookshelf Docker Compose Configuration
+# Generated secure docker-compose configuration for audiobookshelf
+
+services:
+  audiobookshelf:
+    image: ghcr.io/advplyr/audiobookshelf:latest
+    container_name: localnet-media-audiobookshelf-standalone
+    restart: unless-stopped
+    ports:
+      - "13378:80"
+    environment:
+      - NODE_ENV=production
+      - AUDIOBOOKSHELF_UID=1000
+      - AUDIOBOOKSHELF_GID=1000
+      - CONFIG_PATH=/config
+      - METADATA_PATH=/metadata
+    volumes:
+      - ./mounts/config:/config
+      - ./mounts/metadata:/metadata
+      - ./mounts/audiobooks:/audiobooks
+      - ./mounts/podcasts:/podcasts
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - audiobookshelf-network
+
+networks:
+  audiobookshelf-network:
+    driver: bridge
+

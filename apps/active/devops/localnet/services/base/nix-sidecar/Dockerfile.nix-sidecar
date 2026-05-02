@@ -1,0 +1,100 @@
+# ============================
+# 1. Builder Stage A — Build busybox static (dirty store, throw away)
+# ============================
+FROM nixpkgs/nix:latest AS busybox-builder
+
+# Enable modern Nix commands (required for flakes + nix build)
+RUN mkdir -p /etc/nix /src && \
+    echo "experimental-features = nix-command flakes" >> /etc/nix/nix.conf
+
+WORKDIR /src
+
+# Write a tiny flake that overrides BusyBox to build static
+# NOTE: nixos-24.11 has tarball corruption issues (perl-packages.nix fetch fails)
+# Keep nixos-25.11 or later - do not downgrade to 24.11
+RUN cat > flake.nix <<'EOF'
+{
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
+
+  outputs = { self, nixpkgs }:
+  let
+    pkgs = nixpkgs.legacyPackages.x86_64-linux;
+  in {
+    packages.x86_64-linux.busybox-static = pkgs.busybox.override {
+      enableStatic = true;
+    };
+  };
+}
+EOF
+
+# Build the overridden static BusyBox
+RUN nix build .#busybox-static
+
+# Install busybox applets into a temporary root
+RUN mkdir -p /busybox-root/bin && \
+    /src/result/bin/busybox --install -s /busybox-root/bin
+
+
+
+
+# ============================
+# 2. Builder Stage B — Build clean bootstrap tarball
+# ============================
+FROM nixpkgs/nix:latest AS bootstrap-builder
+
+# Enable modern Nix commands
+RUN mkdir -p /nix-sidecar/tmp /etc/nix && \
+    echo "experimental-features = nix-command flakes" >> /etc/nix/nix.conf
+
+# Copy static busybox from Builder A to a temp location first
+COPY --from=busybox-builder /src/result/bin/busybox /tmp/busybox
+COPY --from=busybox-builder /busybox-root/bin/ /tmp/busybox-bin/
+
+# Run tar BEFORE installing busybox to /bin (preserves /bin/sh from base image)
+RUN tar -C / -cf /nix-sidecar/tmp/bootstrap-slash-nix.tar nix bin etc/profile.d
+
+# Save tar binary to a location that won't be overwritten by busybox
+RUN mkdir -p /nix-sidecar/bin && cp /bin/tar /nix-sidecar/bin/
+
+# Now install busybox to /bin
+RUN cp /tmp/busybox /bin/busybox && \
+    cp -r /tmp/busybox-bin/* /bin/ 2>/dev/null || true
+
+# Switch Docker to use BusyBox shell for subsequent RUN commands
+SHELL ["/bin/busybox", "sh", "-c"]
+
+# Install busybox applets
+RUN ["/bin/busybox", "--install", "-s", "/bin"]
+
+
+
+# ============================
+# 3. Final stage — copies build artifacts
+# ============================
+FROM nixpkgs/nix:latest
+
+# Copy static assets to mirror container filesystem
+COPY assets/static/ /
+COPY assets/templates/ /templates/
+
+# Copy static busybox to /bin (outside /nix so it's not masked by volume mounts)
+COPY --from=busybox-builder /src/result/bin/busybox /bin/busybox
+COPY --from=busybox-builder /busybox-root/bin/ /bin/
+
+# Copy tar binary (needed because busybox doesn't include tar)
+COPY --from=bootstrap-builder /nix-sidecar/bin/tar /bin/tar
+
+# Copy bootstrap archive to restore nix environment when mounting new empty persistent volumes
+COPY --from=bootstrap-builder /nix-sidecar/tmp/bootstrap-slash-nix.tar /nix-sidecar/tmp/.
+
+COPY assets/templates/etc/nix/nix.conf /etc/nix/nix.conf
+
+# Set up environment for the sidecar
+ENV PATH=/nix/var/nix/profiles/default/bin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ENV NIX_PATH=nixpkgs=/nix/var/nix/profiles/per-user/root/channels/nixpkgs:/nix/var/nix/profiles/per-user/root/channels
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt
+
+HEALTHCHECK --interval=30s --timeout=120s --start-period=1200s --retries=3 \
+  CMD ["/bin/busybox", "sh", "-c", "/nix-sidecar/healthcheck-nix-sidecar.sh > /dev/null 2>&1"]
+
+ENTRYPOINT ["/bin/busybox", "sh", "/nix-sidecar/entrypoint-nix-sidecar.sh"]

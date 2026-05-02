@@ -1,0 +1,56 @@
+graph TB
+    Request[HTTP Request]
+
+    subgraph "Cache Lookup"
+        MemCheck[Check Memory Cache]
+        DiskCheck[Check Disk Cache]
+    end
+
+    subgraph "Cache Decision"
+        Fresh[Cache Fresh?]
+        Stale[Cache Stale?]
+        SWR{Stale-While-Revalidate?}
+        SIE{Stale-If-Error?}
+    end
+
+    subgraph "Actions"
+        Hit[Return Cached]
+        Revalidate[Revalidate with Origin]
+        BackgroundRevalidate[Background Revalidation]
+        Miss[Fetch from Origin]
+        ReturnError[Return Origin Error]
+    end
+
+    Request --> MemCheck
+    MemCheck -->|Hit| Fresh
+    MemCheck -->|Miss| DiskCheck
+    DiskCheck -->|Hit| Fresh
+    DiskCheck -->|Miss| Miss
+
+    Fresh -->|Yes| Hit
+    Fresh -->|No| Stale
+
+    Stale -->|Within Grace Period| Hit
+    Stale -->|Expired| SWR
+
+    SWR -->|Yes| Hit
+    SWR -->|Yes| BackgroundRevalidate
+    SWR -->|No| Revalidate
+
+    BackgroundRevalidate --> Revalidate
+    Revalidate -->|304 Not Modified| Hit
+    Revalidate -->|200 OK| Miss
+    Revalidate -->|5xx Error| SIE
+
+    SIE -->|Yes| Hit
+    SIE -->|No| ReturnError
+
+    Miss --> Store[Store in Cache]
+    Store --> Return[Return to Client]
+    Hit --> Return
+
+    style Hit fill:#99ff99
+    style Miss fill:#ffcc99
+    style Store fill:#99ccff
+    style ReturnError fill:#ff9999
+    style BackgroundRevalidate fill:#d1c4e9

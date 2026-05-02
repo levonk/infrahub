@@ -1,0 +1,103 @@
+# Vector Logging Configuration
+# Collects logs from journald (secure alternative to Docker socket)
+
+# Data directory for Vector state
+data_dir = "/var/lib/vector"
+
+# ============================================================================
+# Sources - Collect logs from journald
+# ============================================================================
+
+[sources.journald_logs]
+type = "journald"
+# Include all journal entries
+include_units = []
+# Exclude Vector's own logs to prevent loops
+exclude_units = ["vector.service"]
+# Include container metadata from journald fields
+current_boot_only = true
+
+# ============================================================================
+# Transforms - Parse and enrich logs
+# ============================================================================
+
+[transforms.parse_json]
+type = "remap"
+inputs = ["journald_logs"]
+source = '''
+# Parse JSON logs if present in MESSAGE field
+if exists(.MESSAGE) {
+  parsed, err = parse_json(.MESSAGE)
+  if err == null {
+    . = merge(., parsed)
+  }
+}
+
+# Extract container name from CONTAINER_NAME field
+if exists(.CONTAINER_NAME) {
+  .container_name = .CONTAINER_NAME
+}
+
+# Extract service name from SYSLOG_IDENTIFIER or _SYSTEMD_UNIT
+if exists(.SYSLOG_IDENTIFIER) {
+  .service = .SYSLOG_IDENTIFIER
+} else if exists(._SYSTEMD_UNIT) {
+  .service = ._SYSTEMD_UNIT
+}
+
+# Add timestamp
+.timestamp = now()
+'''
+
+[transforms.anonymize]
+type = "remap"
+inputs = ["parse_json"]
+source = '''
+# Redact sensitive fields per codeguard-0-logging
+if exists(.password) { .password = "[REDACTED]" }
+if exists(.token) { .token = "[REDACTED]" }
+if exists(.api_key) { .api_key = "[REDACTED]" }
+if exists(.secret) { .secret = "[REDACTED]" }
+if exists(.authorization) { .authorization = "[REDACTED]" }
+
+# Sanitize log injection attempts
+if exists(.message) {
+  .message = replace(.message, r'\r|\n', " ")
+}
+'''
+
+# ============================================================================
+# Sinks - Send logs to Elasticsearch and Loki
+# ============================================================================
+
+[sinks.elasticsearch]
+type = "elasticsearch"
+inputs = ["anonymize"]
+endpoint = "http://elasticsearch:9200"
+mode = "bulk"
+# SECURITY: Use environment variable for password
+auth.strategy = "basic"
+auth.user = "elastic"
+auth.password = "${ELASTICSEARCH_PASSWORD:-changeme}"
+bulk.index = "localnet-logs-%Y.%m.%d"
+
+[sinks.elasticsearch.encoding]
+codec = "json"
+
+[sinks.loki]
+type = "loki"
+inputs = ["anonymize"]
+endpoint = "http://loki:3100"
+labels.service = "{{ service }}"
+labels.container = "{{ container_name }}"
+
+[sinks.loki.encoding]
+codec = "json"
+
+# ============================================================================
+# Health Check
+# ============================================================================
+
+[api]
+enabled = true
+address = "0.0.0.0:9598"

@@ -1,0 +1,23 @@
+# /home/micro/p/gh/lrepo52/job-aide-wt01/apps/active/devops/localnet/services/proxy/tor/Dockerfile
+
+
+FROM localnet-base-alpine:latest
+
+USER root
+
+ENV PROXY_TOR_SOCKS5_CONTAINER_PORT=${PROXY_TOR_SOCKS5_CONTAINER_PORT:-9050}
+
+RUN apk add --no-cache tor netcat-openbsd
+
+COPY assets/ /
+
+COPY entrypoint-service.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+COPY healthcheck/check-health.sh /usr/local/bin/check-health.sh
+RUN chmod +x /usr/local/bin/check-health.sh
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD ["/usr/local/bin/check-health.sh"]
+
+ENTRYPOINT ["/entrypoint.sh"]

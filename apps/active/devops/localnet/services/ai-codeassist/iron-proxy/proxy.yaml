@@ -1,0 +1,57 @@
+# Iron-Proxy Configuration
+# Egress firewall for untrusted workloads
+# See: https://github.com/ironsh/iron-proxy
+
+# Proxy listening address
+listen_addr: "0.0.0.0:8080"
+
+# DNS server configuration
+dns:
+  listen_addr: "0.0.0.0:53"
+  upstream:
+    - "8.8.8.8:53"
+    - "8.8.4.4:53"
+
+# Allowlist of domains that can be accessed
+# Default-deny: everything not in this list is blocked
+allowlist:
+  # Example: allow GitHub for code fetching
+  - "github.com"
+  - "api.github.com"
+  - "raw.githubusercontent.com"
+  
+  # Example: allow package registries
+  - "registry.npmjs.org"
+  - "pypi.org"
+  - "files.pythonhosted.org"
+  
+  # Example: allow common development tools
+  - "docker.io"
+  - "registry-1.docker.io"
+  - "gcr.io"
+  - "ghcr.io"
+
+# Secret injection configuration
+# Workloads send proxy tokens, iron-proxy swaps them with real secrets
+secrets:
+  # Example: OPENAI_API_KEY
+  # The workload sends "OPENAI_API_KEY:proxy-token-abc123"
+  # iron-proxy replaces it with the real value from environment
+  OPENAI_API_KEY:
+    from_env: "OPENAI_API_KEY"
+  
+  # Example: ANTHROPIC_API_KEY
+  ANTHROPIC_API_KEY:
+    from_env: "ANTHROPIC_API_KEY"
+
+# Logging configuration
+log:
+  level: "info"  # debug, info, warn, error
+  format: "json"  # json, text
+
+# TLS configuration for HTTPS interception
+tls:
+  # CA certificate for generating leaf certificates
+  # This must be trusted by client containers
+  ca_cert_path: "/etc/iron-proxy/ca.crt"
+  ca_key_path: "/etc/iron-proxy/ca.key"

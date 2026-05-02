@@ -1,0 +1,51 @@
+# Home Lab In-a-Box - Blocklist Compiler
+# Purpose: Build and compile DNS/web blocklists to CDB format
+# Security: Non-root user, minimal dependencies, no shell access
+
+FROM localnet-base-debian:latest
+
+# apt operations require root; base-debian defaults to non-root appuser
+USER root
+
+# Install tinycdb and runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    tinycdb \
+    curl \
+    bash \
+    coreutils \
+    grep \
+    sed \
+    gawk && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install gosu for user switching
+RUN apt-get update && apt-get install -y gosu && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user for security
+#RUN groupadd -g 1000 blocklist && \
+#    useradd -d /blocklists -u 1000 -g blocklist -s /usr/sbin/nologin blocklist
+
+# Create directories with proper permissions
+RUN mkdir -p /blocklists/sources /blocklists/compiled ; \
+	chown -R ${PUID}:${PGID} /blocklists ; \
+	chmod 755 /blocklists /blocklists/compiled /blocklists/sources
+
+# Copy update script
+COPY --chown=${PUID}:${PGID} update-blocklists.sh /usr/local/bin/update-blocklists.sh
+RUN chmod +x /usr/local/bin/update-blocklists.sh
+
+# Add entrypoint to fix permissions
+COPY entrypoint-blocklist.sh /usr/local/bin/entrypoint-blocklist.sh
+RUN chmod +x /usr/local/bin/entrypoint-blocklist.sh
+
+# Health check: verify CDB file exists and is readable
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD [ -f /blocklists/compiled/blocklist.cdb ] || exit 1
+
+# Run as root so entrypoint can chown volumes and drop privileges
+USER root
+
+# Use custom entrypoint that chains to base entrypoint
+ENTRYPOINT ["/usr/local/bin/entrypoint-blocklist.sh"]
+CMD ["/usr/local/bin/update-blocklists.sh"]

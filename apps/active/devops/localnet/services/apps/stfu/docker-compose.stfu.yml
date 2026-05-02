@@ -1,0 +1,32 @@
+---
+# Default logging configuration - use json-file with rotation
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "5"
+    tag: "{{.Name}}"
+    labels: "service"
+
+services:
+  stfu:
+    image: localnet-stfu:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.stfu
+    environment:
+      - STFU_HOST_PORT=${STFU_HOST_PORT:-8080}
+    ports:
+      - "${STFU_HOST_PORT:-8080}:8080"
+    networks:
+      - localnet
+    logging: *default-logging
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges
+    cap_drop:
+      - ALL
+
+networks:
+  localnet:
+    external: true

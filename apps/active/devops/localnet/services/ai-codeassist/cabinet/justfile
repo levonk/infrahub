@@ -1,0 +1,42 @@
+# Justfile for Cabinet Docker container
+
+# Default: show available recipes
+default:
+    @just --list
+
+# Build the Docker image
+build:
+    docker-compose build
+
+# Start the container
+up:
+    docker-compose up -d
+
+# Stop the container
+down:
+    docker-compose down
+
+# Restart the container
+restart:
+    docker-compose restart
+
+# View container logs
+logs:
+    docker-compose logs -f cabinet
+
+# Remove container and volumes
+clean:
+    docker-compose down -v
+
+# Open shell in the container
+shell:
+    docker-compose exec cabinet sh
+
+# Check container health status
+health:
+    docker inspect --format='{{.State.Health.Status}}' ai-codeassist-cabinet
+
+# Rebuild from scratch (no cache)
+rebuild:
+    docker-compose build --no-cache
+    docker-compose up -d

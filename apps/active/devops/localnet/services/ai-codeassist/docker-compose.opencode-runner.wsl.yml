@@ -1,0 +1,5 @@
+services:
+  opencode-runner:
+    extends:
+      file: ../docker-compose.agent-runner.yml
+      service: x-runner-wsl-dockerproxy

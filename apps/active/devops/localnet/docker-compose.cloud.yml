@@ -1,0 +1,54 @@
+---
+# https://www.oracle.com/cloud/free/ - Oracle has a generous free tier
+
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "5"
+    tag: "{{.Name}}"
+    labels: "service"
+
+services:
+  # Cloudflare DDNS
+  cloudflare-ddns:
+    image: oznu/docker-cloudflare-ddns@latest
+    container_name: localnet-cloudflare-ddns
+    logging: *default-logging
+    restart: always
+    volumes:
+      - ./cloudflare-ddns/mounts/etc/cloudflare-ddns:/etc/cloudflare-ddns
+    network_mode: host
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
+    command: "-c /etc/cloudflare-ddns/cloudflare-ddns.toml"
+
+  frps: # https://github.com/fatedier/frp
+    # Alternatives: Pangolin
+    image: fatedier/frps:v0.65.0
+    container_name: localnet-proxy-frps
+    logging: *default-logging
+    restart: always
+    volumes:
+      - ./frps/mounts/etc/frps:/etc/frps
+    network_mode: host
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
+    command: "-c /etc/frps/frps.toml"
+
+## Maybe add other lightweight filtering services in the cloud too
+## TODO: traefik, crowdsec, GeoBlock, http->https
+
+## TODO: Authelia, Traefik, postgres HA, and Redis HA - Sentinal, keepalived, Wireguard
+
+## TODO: mail gateway to allow my own outbound email
+
+## TODO: backup DNS to have a cloud sync'd DNS I can connect to
+
+## TODO: VPN to use when outside to go outside or inside
+
+## TODO: Tor to use when going outside not Tor from home
+
+## TODO: bitcoin miner or folding@home
+include:
+  - ./docker-compose.include.yml

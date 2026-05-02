@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  cabinet:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ai-codeassist-cabinet
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - NEXT_TELEMETRY_DISABLED=1
+    volumes:
+      # Mount data directory for persistent knowledge base
+      - cabinet-data:/app/data
+      # Mount for git repository storage
+      - cabinet-git:/app/.git
+    networks:
+      - ai-codeassist
+    labels:
+      - "com.localnet.service=cabinet"
+      - "com.localnet.description=AI-first knowledge base and startup OS"
+      - "com.localnet.category=ai-codeassist"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  cabinet-data:
+    driver: local
+  cabinet-git:
+    driver: local
+
+networks:
+  ai-codeassist:
+    driver: bridge

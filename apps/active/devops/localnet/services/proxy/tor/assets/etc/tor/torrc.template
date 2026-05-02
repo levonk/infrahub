@@ -1,0 +1,6 @@
+# /home/micro/p/gh/lrepo52/job-aide-wt01/apps/active/devops/localnet/services/proxy/tor/assets/etc/tor/torrc.template
+# Tor SOCKS5 proxy configuration for LocalNet
+# Binds to all interfaces on the container port to allow dnscrypt-proxy to connect
+
+# Listen on all IPv4 interfaces for SOCKS5 connections
+SocksPort 0.0.0.0:{PROXY_TOR_SOCKS5_CONTAINER_PORT}

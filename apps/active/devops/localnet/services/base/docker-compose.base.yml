@@ -1,0 +1,308 @@
+---
+# /home/micro/p/gh/lrepo52/job-aide-wt01/apps/active/devops/localnet/services/base/docker-compose.base.yml
+
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "5"
+    tag: "{{.Name}}"
+    labels: "service"
+
+include:
+  - ../../docker-compose.include.yml
+
+# Base images for the localnet stack
+services:
+  base-alpine:
+    image: localnet-base-alpine:latest
+    container_name: localnet-base-alpine
+    build:
+      context: base-alpine
+      dockerfile: ./Dockerfile.base-alpine
+      args:
+        - PUID=${PUID:-1000}
+        - PGID=${PGID:-1000}
+        - TZ=${TZ:-UTC}
+    profiles: [core, base01, base02, base03, localnet, all]
+    networks:
+      - null-network
+    volumes:
+      - nix-cache:/root/.cache/nix
+      - nix-config:/etc/nix
+      - nix-store:/nix
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=UTC
+    depends_on:
+      nix-sidecar:
+        condition: service_healthy
+    restart: no
+    logging: *default-logging
+  base-debian:
+    image: localnet-base-debian:latest
+    container_name: localnet-base-debian
+    build:
+      context: base-debian
+      dockerfile: ./Dockerfile.base-debian
+      args:
+        - PUID=${PUID:-1000}
+        - PGID=${PGID:-1000}
+        - TZ=${TZ:-UTC}
+    networks:
+      - null-network
+    volumes:
+      - nix-cache:/root/.cache/nix
+      - nix-config:/etc/nix
+      - nix-store:/nix
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=UTC
+    depends_on:
+      nix-sidecar:
+        condition: service_healthy
+    restart: no
+    logging: *default-logging
+    profiles: [core, base01, base02, base03, localnet, all]
+
+  # Nix base image - for inheritance only
+  base-nix:
+    ## Name in Containers view
+    container_name: localnet-base-nix
+    ## Name in Images view
+    image: localnet-base-nix:latest
+    build:
+      context: base-nix
+      dockerfile: ./Dockerfile.base-nix
+    networks:
+      - null-network
+    restart: no
+    volumes:
+      - nix-cache:/root/.cache/nix
+      - nix-config:/etc/nix
+      - nix-store:/nix
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=UTC
+    depends_on:
+      nix-sidecar:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "nix", "develop", "/base-app#default", "--command", "/base-app/healthcheck.sh"]
+      interval: 30s
+      timeout: 30s
+      retries: 3
+      start_period: 60s
+    logging: *default-logging
+    command: sleep 60
+    profiles: [base02, base03, localnet, all]
+
+  # Nix sidecar service - manages the Nix store and caching
+  nix-sidecar:
+    ## Name in Containers view
+    container_name: localnet-base-nix-sidecar
+    ## Name in Images view
+    image: localnet-base-nix-sidecar
+    build:
+      context: nix-sidecar
+      dockerfile: ./Dockerfile.nix-sidecar
+    networks:
+      - null-network
+    privileged: true
+    restart: unless-stopped
+    volumes:
+      - nix-cache:/root/.cache/nix
+      - nix-config:/etc/nix
+      - nix-store:/nix
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=UTC
+      - USERNAME=${USERNAME:-cuser}
+    healthcheck:
+      test: ["CMD", "/bin/busybox", "sh", "/nix-sidecar/healthcheck-nix-sidecar.sh"]
+      interval: 240s
+      timeout: 120s
+      retries: 3
+      start_period: 240s
+    logging: *default-logging
+    profiles:
+      - core
+      - base01
+      - base02
+      - base03
+      - localnet
+      - all
+
+  # base-sidecar - base image for sidecar services (inheritance only)
+  base-sidecar:
+    container_name: localnet-base-sidecar
+    image: localnet-base-sidecar:latest
+    build:
+      context: base-sidecar
+      dockerfile: ./Dockerfile.base-sidecar
+    networks:
+      - null-network
+    restart: no
+    # Mount the shared named volumes.
+    volumes:
+      - nix-cache:/root/.cache/nix
+      - nix-config:/etc/nix
+      - nix-store:/nix
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=UTC
+    # Ensure sidecars are started and healthy.
+    depends_on:
+      base-alpine:
+        condition: service_started
+      nix-sidecar:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/base-sidecar/bin/healthcheck-base-sidecar.sh"]
+      interval: 60s
+      timeout: 30s
+      retries: 3
+      start_period: 60s
+    logging: *default-logging
+    command: sleep 60
+    profiles:
+      - base03
+      - localnet
+      - all
+
+
+  # base-debnix service - provides Debian + Nix environment (inheritance only)
+  base-debnix:
+    container_name: localnet-base-debnix
+    image: localnet-base-debnix:latest
+    build:
+      context: base-debnix
+      dockerfile: ./Dockerfile.base-debnix
+      args:
+        - PUID=${PUID:-1000}
+        - PGID=${PGID:-1000}
+        - TZ=${TZ:-UTC}
+    networks:
+      - null-network
+    restart: no
+    # Mount the shared named volumes.
+    volumes:
+      - nix-cache:/root/.cache/nix
+      - nix-config:/etc/nix
+      - nix-store:/nix
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=UTC
+    depends_on:
+      nix-sidecar:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/base-dev/bin/healthcheck-base-dev.sh"]
+      interval: 60s
+      timeout: 60s
+      retries: 3
+      start_period: 120s
+    logging: *default-logging
+    profiles:
+      - base02
+      - base03
+      - localnet
+      - all
+
+  # Dev-Base service - provides essential development tools and Nix environment (inheritance only)
+  base-dev:
+    container_name: localnet-base-dev
+    image: localnet-base-dev:latest
+    build:
+      context: base-dev
+      dockerfile: ./Dockerfile.base-dev
+      args:
+        - PUID=${PUID:-1000}
+        - PGID=${PGID:-1000}
+        - TZ=${TZ:-UTC}
+    networks:
+      - null-network
+    restart: no
+    # Mount the shared named volumes.
+    volumes:
+      - nix-cache:/root/.cache/nix
+      - nix-config:/etc/nix
+      - nix-store:/nix
+      - asdf-cache:/home/${USERNAME:-cuser}/.asdf
+      - bazel-cache:/home/${USERNAME:-cuser}/.cache/bazel
+      - conda-cache:/home/${USERNAME:-cuser}/.conda
+      - dart-cache:/home/${USERNAME:-cuser}/.dart-cache
+      - dotnet-cache:/home/${USERNAME:-cuser}/.nuget/packages
+      - elixir-cache:/home/${USERNAME:-cuser}/.mix/archives
+      - go-cache:/home/${USERNAME:-cuser}/go/pkg/mod
+      - go-build-cache:/home/${USERNAME:-cuser}/.cache/go-build
+      - gradle-cache:/home/${USERNAME:-cuser}/.gradle
+      - haskell-cabal-cache:/home/${USERNAME:-cuser}/.cabal
+      - haskell-stack-cache:/home/${USERNAME:-cuser}/.stack
+      - java-m2-cache:/home/${USERNAME:-cuser}/.m2
+      - mise-cache:/home/${USERNAME:-cuser}/.local/share/mise
+      - nvm-cache:/home/${USERNAME:-cuser}/.nvm
+      - php-cache:/home/${USERNAME:-cuser}/.composer
+      - poetry-cache:/home/${USERNAME:-cuser}/.cache/pypoetry
+      - pnpm-store:/home/${USERNAME:-cuser}/.local/share/pnpm
+      - pyenv-cache:/home/${USERNAME:-cuser}/.pyenv
+      - python-cache:/home/${USERNAME:-cuser}/.cache/pip
+      - ruby-cache:/home/${USERNAME:-cuser}/.gem
+      - rust-cargo-cache:/home/${USERNAME:-cuser}/.cargo/registry
+      - rust-cargo-git-cache:/home/${USERNAME:-cuser}/.cargo/git
+      - rust-rustup-cache:/home/${USERNAME:-cuser}/.rustup
+      - sdkman-cache:/home/${USERNAME:-cuser}/.sdkman/candidates
+      - turbo-cache:/home/${USERNAME:-cuser}/.cache/turbo
+      - unity-cache:/home/${USERNAME:-cuser}/.cache/unity
+      - vscode-cache:/home/${USERNAME:-cuser}/.vscode-server/extensions
+      ## Saved State
+      - vibe-kanban-data:/home/${USERNAME:-cuser}/.local/share/vibe-kanban
+      - ai-codeassist-codex-data:/home/${USERNAME:-cuser}/.codex
+      - ai-codeassist-gh-config:/home/${USERNAME:-cuser}/.config/gh
+      - ai-codeassist-cache:/home/${USERNAME:-cuser}/.cache/ai-codeassist
+      - ai-codeassist-worktrees:/var/tmp/worktrees
+      # - ai-codeassist-workdir:/work
+      # - projects-data:/home/${USERNAME:-cuser}/p
+      # - dockerproxy-ro:/socket:ro
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=UTC
+      - HOST=${AI_CODEASSIST_DEV_HOST:-0.0.0.0}
+      - PORT=${AI_CODEASSIST_DEV_PORT:-3000}
+      - GIT_AUTHOR_NAME=${AI_CODEASSIST_GIT_AUTHOR_NAME:-Local Dev User}
+      - GIT_AUTHOR_EMAIL=${AI_CODEASSIST_GIT_AUTHOR_EMAIL:-local.dev@example.com}
+      - GIT_COMMITTER_NAME=${AI_CODEASSIST_GIT_COMMITTER_NAME:-${AI_CODEASSIST_GIT_AUTHOR_NAME:-Local Dev User}}
+      - GIT_COMMITTER_EMAIL=${AI_CODEASSIST_GIT_COMMITTER_EMAIL:-${AI_CODEASSIST_GIT_AUTHOR_EMAIL:-local.dev@example.com}}
+      - GH_TOKEN=${AI_CODEASSIST_GH_TOKEN:-}
+      - OPENAI_API_KEY=${AI_CODEASSIST_OPENAI_API_KEY:-}
+      - DOCKER_HOST=${BASE_DEV_DOCKER_HOST:-unix:///socket/docker.sock}
+    depends_on:
+      base-kalinix:
+        condition: service_started
+      nix-sidecar:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/base-dev/bin/healthcheck-base-dev.sh"]
+      interval: 60s
+      timeout: 60s
+      retries: 3
+      start_period: 120s
+    logging: *default-logging
+    ports:
+      - "${AI_CODEASSIST_VIBEKANBAN_APP_HOST_PORT:-33000}:${AI_CODEASSIST_VIBEKANBAN_APP_CONTAINER_PORT:-3000}"
+      - "${AI_CODEASSIST_VIBEKANBAN_ALT_HOST_PORT:-33080}:${AI_CODEASSIST_VIBEKANBAN_ALT_CONTAINER_PORT:-8080}"
+    profiles:
+      - base03
+      - localnet
+      - all
+
+
+
+  

@@ -1,0 +1,44 @@
+# Home Lab In-a-Box - Grafana Datasources
+# Purpose: Configure data sources for Grafana dashboards
+
+apiVersion: 1
+
+datasources:
+  # Prometheus
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      timeInterval: 15s
+  
+  # Loki
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    editable: false
+    jsonData:
+      maxLines: 1000
+  
+  # Elasticsearch
+  - name: Elasticsearch
+    type: elasticsearch
+    access: proxy
+    url: http://elasticsearch:9200
+    database: "logs-*"
+    editable: false
+    jsonData:
+      timeField: "@timestamp"
+      esVersion: "8.0.0"
+      logMessageField: message
+      logLevelField: level
+  
+  # Jaeger
+  - name: Jaeger
+    type: jaeger
+    access: proxy
+    url: http://jaeger:16686
+    editable: false

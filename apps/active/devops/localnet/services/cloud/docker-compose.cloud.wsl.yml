@@ -1,0 +1,12 @@
+---
+# WSL2/Windows overrides using socket proxy
+
+services:
+  localstack:
+    environment:
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    volumes:
+      - dockerproxy-rw:/var/run/docker.sock
+
+include:
+  - ../../docker-compose.include.yml

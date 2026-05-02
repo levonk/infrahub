@@ -1,0 +1,61 @@
+ # Production-ready Docker service using official iron-proxy image
+# Iron-Proxy: Egress firewall for untrusted workloads
+# Source: https://github.com/ironsh/iron-proxy
+
+FROM ironsh/iron-proxy:latest AS runtime
+
+# Labels for metadata and security scanning
+LABEL org.opencontainers.image.title="Iron-Proxy" \
+      org.opencontainers.image.description="Egress firewall for untrusted workloads" \
+      org.opencontainers.image.version="1.0.0" \
+      org.opencontainers.image.vendor="LocalNet" \
+      org.opencontainers.image.base_os="alpine" \
+      org.opencontainers.image.service_slug="iron-proxy" \
+      maintainer="devops@localnet"
+
+ARG PUID=1000
+ARG PGID=1000
+
+# Create application user and directories
+RUN addgroup -g ${PGID} appuser && \
+    adduser -D -u ${PUID} -G appuser appuser && \
+    mkdir -p /etc/iron-proxy /var/log/iron-proxy && \
+    chown -R appuser:appuser /etc/iron-proxy /var/log/iron-proxy
+
+# Copy configuration files
+COPY proxy.yaml /etc/iron-proxy/proxy.yaml
+
+# Switch to non-root user for security
+USER appuser
+
+# Expose proxy ports (default HTTP proxy port)
+EXPOSE 8080
+
+# Health check - iron-proxy doesn't have a built-in health endpoint
+# Using process check as fallback
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+	CMD pgrep -f iron-proxy || exit 1
+
+# Start iron-proxy with config file
+CMD ["iron-proxy", "-config", "/etc/iron-proxy/proxy.yaml"]
+
+FROM runtime AS debug
+
+USER root
+
+RUN apk add --no-cache \
+    bash \
+    curl \
+    git \
+    htop \
+    iputils \
+    lsof \
+    net-tools \
+    openssh-client \
+    procps \
+    strace \
+    tcpdump \
+    vim
+
+
+USER appuser

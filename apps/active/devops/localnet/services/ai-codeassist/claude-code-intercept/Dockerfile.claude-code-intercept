@@ -1,0 +1,95 @@
+# Claude Code Intercept container
+# Builds upstream Claude Code proxy (Go) and Remix dashboard in a single image
+
+ARG CLAUDE_CODE_PROXY_REPO=https://github.com/seifghazi/claude-code-proxy.git
+ARG CLAUDE_CODE_PROXY_REF=dd812ab15e87e787f47d93d5330ff24ed2d03629
+
+# Stage 1: fetch source once so subsequent stages reuse it.
+FROM localnet-base-alpine:latest AS source
+USER root
+ARG CLAUDE_CODE_PROXY_REPO
+ARG CLAUDE_CODE_PROXY_REF
+RUN apk add --no-cache git && \
+    git clone ${CLAUDE_CODE_PROXY_REPO} /src && \
+    cd /src && \
+    git checkout ${CLAUDE_CODE_PROXY_REF}
+
+# Stage 2: build Go proxy binary (uses CGO for SQLite support).
+FROM golang:1.22-alpine AS go-builder
+RUN apk add --no-cache git gcc musl-dev sqlite-dev
+COPY --from=source /src /workspace
+WORKDIR /workspace/proxy
+RUN go mod download
+RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o /build/proxy ./cmd/proxy
+
+# Stage 3: build Remix web dashboard.
+FROM node:20-alpine AS web-builder
+RUN apk add --no-cache python3 make g++
+COPY --from=source /src /workspace
+WORKDIR /workspace/web
+RUN npm ci
+RUN npm run build
+RUN npm prune --omit=dev && npm cache clean --force
+
+# Stage 4: runtime on hardened base-alpine image.
+FROM localnet-base-alpine:latest
+USER root
+
+ARG CLAUDE_CODE_PROXY_REF
+
+RUN apk add --no-cache nodejs npm sqlite wget bash
+
+# Ensure application user exists with expected UID/GID and home
+RUN if ! getent group intercept >/dev/null; then \
+      addgroup -g 2001 intercept; \
+    fi && \
+    if ! id -u intercept >/dev/null 2>&1; then \
+      adduser -S intercept -G intercept -u 2001; \
+    fi
+
+WORKDIR /app
+
+RUN mkdir -p /app/bin /app/web /app/data /app/config
+
+COPY --from=go-builder /build/proxy /app/bin/proxy
+COPY --from=web-builder /workspace/web/build /app/web/build
+COPY --from=web-builder /workspace/web/public /app/web/public
+COPY --from=web-builder /workspace/web/package*.json /app/web/
+COPY --from=web-builder /workspace/web/node_modules /app/web/node_modules
+COPY --from=source /src/config.yaml.example /app/config/config.yaml
+COPY --from=source /src/.env.example /app/config/.env.example
+
+COPY claude-code-intercept-entrypoint.sh /app/claude-code-intercept-entrypoint.sh
+RUN chmod +x /app/claude-code-intercept-entrypoint.sh
+
+ARG CLAUDE_CODE_INTERCEPT_API_PORT=3001
+ARG CLAUDE_CODE_INTERCEPT_UI_PORT=5173
+ARG CLAUDE_CODE_INTERCEPT_READ_TIMEOUT=600s
+ARG CLAUDE_CODE_INTERCEPT_WRITE_TIMEOUT=600s
+ARG CLAUDE_CODE_INTERCEPT_IDLE_TIMEOUT=600s
+ARG CLAUDE_CODE_INTERCEPT_DB_PATH=/app/data/requests.db
+ARG CLAUDE_CODE_INTERCEPT_TO_ROUTER_URL=http://claude-code-router:8084
+ARG CLAUDE_CODE_INTERCEPT_TO_ROUTER_VERSION=2023-06-01
+ARG CLAUDE_CODE_INTERCEPT_TO_ROUTER_MAX_RETRIES=3
+
+ENV CLAUDE_CODE_INTERCEPT_API_PORT=${CLAUDE_CODE_INTERCEPT_API_PORT} \
+    CLAUDE_CODE_INTERCEPT_UI_PORT=${CLAUDE_CODE_INTERCEPT_UI_PORT} \
+    CLAUDE_CODE_INTERCEPT_READ_TIMEOUT=${CLAUDE_CODE_INTERCEPT_READ_TIMEOUT} \
+    CLAUDE_CODE_INTERCEPT_WRITE_TIMEOUT=${CLAUDE_CODE_INTERCEPT_WRITE_TIMEOUT} \
+    CLAUDE_CODE_INTERCEPT_IDLE_TIMEOUT=${CLAUDE_CODE_INTERCEPT_IDLE_TIMEOUT} \
+    CLAUDE_CODE_INTERCEPT_DB_PATH=${CLAUDE_CODE_INTERCEPT_DB_PATH} \
+    CLAUDE_CODE_INTERCEPT_TO_ROUTER_URL=${CLAUDE_CODE_INTERCEPT_TO_ROUTER_URL} \
+    CLAUDE_CODE_INTERCEPT_TO_ROUTER_VERSION=${CLAUDE_CODE_INTERCEPT_TO_ROUTER_VERSION} \
+    CLAUDE_CODE_INTERCEPT_TO_ROUTER_MAX_RETRIES=${CLAUDE_CODE_INTERCEPT_TO_ROUTER_MAX_RETRIES} \
+    NODE_ENV=production
+
+EXPOSE ${CLAUDE_CODE_INTERCEPT_API_PORT} ${CLAUDE_CODE_INTERCEPT_UI_PORT}
+
+RUN chown -R intercept:intercept /app
+
+USER intercept
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD wget -qO- http://localhost:${CLAUDE_CODE_INTERCEPT_API_PORT}/health > /dev/null || exit 1
+
+ENTRYPOINT ["/app/claude-code-intercept-entrypoint.sh"]

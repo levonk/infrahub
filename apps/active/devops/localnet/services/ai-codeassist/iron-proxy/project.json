@@ -1,0 +1,20 @@
+{
+  "name": "iron-proxy",
+  "description": "Egress firewall for untrusted workloads",
+  "category": "ai-codeassist",
+  "type": "service",
+  "platform": "docker",
+  "base_os": "alpine",
+  "ports": {
+    "http": 8080,
+    "dns": 53
+  },
+  "dependencies": [],
+  "environment_variables": {
+    "AI_CODEASSIST_IRON_PROXY_PORT": "8080"
+  },
+  "mounts": {
+    "config": "/etc/iron-proxy",
+    "logs": "/var/log/iron-proxy"
+  }
+}

@@ -1,0 +1,22 @@
+# Changes applied to this service
+_commit: 8ae9a492
+_src_path: boilerplate/apps/infrastructure/docker/docker-linux
+
+# Service Identity
+_service_name: Mydia
+_service_description: Your personal media companion
+_service_name_slug: mydia
+_domain: localnet
+
+# Container & Network
+_service_port: 4000
+_service_health_endpoint: /
+_use_traefik: true
+_enable_monitoring: true
+
+# Features
+_include_ui: true
+_ui_port: 4000
+
+# Nix Configuration
+_nix_system: x86_64-linux

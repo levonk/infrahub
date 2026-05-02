@@ -1,0 +1,17 @@
+services:
+  autoclaude-runner:
+    build: ./autoclaude-runner
+    container_name: localnet-autoclaude-runner
+    environment:
+      - AUTO_CLAUDE_FALKORDB_URL=bolt://falkordb:7687
+      - DOCKER_HOST=${DOCKER_HOST}
+    depends_on:
+      - falkordb
+    <<: *runner-base
+
+volumes:
+  autoclaude-logs:
+
+networks:
+  localnet:
+    external: true

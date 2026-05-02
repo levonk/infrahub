@@ -1,0 +1,19 @@
+{
+  "name": "localnet-dns-coredns",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "services/dns/coredns",
+  "tags": ["service", "dns", "docker"],
+  "targets": {
+    "docker:build": {
+      "executor": "@nx-tools/nx-container:build",
+      "options": {
+        "context": "services/dns/coredns",
+        "file": "services/dns/coredns/Dockerfile.coredns",
+        "tags": ["localnet-dns-coredns:latest"],
+        "push": false,
+        "load": true
+      }
+    }
+  }
+}

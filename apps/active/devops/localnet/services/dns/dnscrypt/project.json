@@ -1,0 +1,20 @@
+{
+  "name": "localnet-dns-dnscrypt",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "services/dns/dnscrypt",
+  "tags": ["service", "dns", "docker"],
+  "implicitDependencies": ["localnet-base-alpine"],
+  "targets": {
+    "docker:build": {
+      "executor": "@nx-tools/nx-container:build",
+      "options": {
+        "context": "services/dns/dnscrypt",
+        "file": "services/dns/dnscrypt/Dockerfile.dnscrypt",
+        "tags": ["localnet-dns-dnscrypt:latest"],
+        "push": false,
+        "load": true
+      }
+    }
+  }
+}

@@ -1,0 +1,48 @@
+# apps/active/devops/localnet/docker-compose.localnet.yml
+
+# Home Lab In-a-Box - Docker Compose Configuration
+# Complete infrastructure stack with transparent proxying, monitoring, and artifact repositories
+
+# Default logging configuration - use json-file with rotation
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "5"
+    tag: "{{.Name}}"
+    labels: "service"
+
+# ============================================================================
+# Proxy and gateway services are loaded via services/proxy/docker-compose.proxy.yml
+# ============================================================================
+
+include:
+  - docker-compose.include.yml
+  - services/base/docker-compose.base.yml
+  - services/base/docker-compose.base-kali.yml
+  - services/artifact/docker-compose.artifact.yml
+  #- services/security/docker-compose.security.yml
+  #- services/dns/docker-compose.dns.yml
+  - services/ntp/docker-compose.ntp.yml
+  #- services/apps/docker-compose.apps.yml
+  #- services/proxy/docker-compose.proxy.yml
+  #- services/media/docker-compose.media.yml
+  #- services/data/docker-compose.data.yml
+  #- services/ai-codeassist/docker-compose.agent-runner.yml
+  #- services/shared/docker-compose.shared.yml # folding@home
+  #- services/vpn/docker-compose.vpn.yml
+  #- services/logging/docker-compose.logging.yml
+  #- services/ai-codeassist/claude-code/claude-code/docker-compose.claude-code.yml
+  #- services/ai-codeassist/docker-compose.autoclaude.base.yml
+  #- services/ai-codeassist/docker-compose.autoclaude.linux.yml
+  #- services/ai-codeassist/docker-compose.autoclaude.wsl.yml
+  #- services/ai-codeassist/docker-compose.vibe-kanban.base.yml
+  #- services/ai-codeassist/docker-compose.vibe-kanban.linux.yml
+  #- services/ai-codeassist/docker-compose.vibe-kanban.wsl.yml
+  #- services/ai-codeassist/docker-compose.opencode-runner.base.yml
+  #- services/ai-codeassist/docker-compose.opencode-runner.linux.yml
+  #- services/ai-codeassist/docker-compose.opencode-runner.wsl.yml
+  #- services/ai-codeassist/openfang/openfang/docker-compose.openfang.yml
+  #- services/agents/docker-compose.agents.yml
+  # - services/home/docker-compose.home.yml
+  # - services/iot/docker-compose.iot.yml

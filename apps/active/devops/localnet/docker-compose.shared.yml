@@ -1,0 +1,414 @@
+---
+## This is the file intended to be incldued by NO other compose files, That's what the docker-compose.include.yml is for
+## If you're having a problem with networks or volumes not existing, did you run `make up`?
+
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "5"
+    tag: "{{.Name}}"
+    labels: "service"
+
+networks:
+  localnet:
+    name: localnet-network
+    external: false
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.26.0.0/16
+          gateway: ${DOCKER_NETWORK_GATEWAY:-172.26.0.1}
+          # Reserve high IP range (*.255.x) for DNS infrastructure per ADR
+          # These auxiliary addresses prevent DHCP from assigning IPs in this range
+  #          aux_addresses:
+  #            dns-coredns: ${DNS_COREDNS_MAIN_IP:-172.26.255.51}
+  #            dns-dnscrypt-odoh: ${DNS_DNSCRYPT_ODOH_IP:-172.26.255.60}
+  #            dns-dnscrypt-anon: ${DNS_DNSCRYPT_ANON_IP:-172.26.255.61}
+  #            dns-dnscrypt-std: ${DNS_DNSCRYPT_STD_IP:-172.26.255.62}
+  #            dns-dnscrypt-doh: ${DNS_DNSCRYPT_DOH_IP:-172.26.255.63}
+  #            dns-dnscrypt-encrypted: ${DNS_DNSCRYPT_ENCRYPTED_IP:-172.26.255.64}
+  #            dns-dnscrypt-plaintext: ${DNS_DNSCRYPT_PLAINTEXT_IP:-172.26.255.65}
+  #            dns-dnscrypt-tor: ${DNS_DNSCRYPT_TOR_IP:-172.26.255.66}
+  #            proxy-socks5-tor: ${PROXY_TOR_SOCKS5_IP:-172.26.255.70}
+
+  wireguard:
+    name: wireguard-network
+    driver: bridge
+    external: false
+    ipam:
+      config:
+        - subnet: 172.22.0.0/16
+
+  codeassist:
+    name: codeassist-network
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.23.0.0/16
+
+  null-network:
+    name: null-network
+    #driver: none # Why is this not working?
+    driver: bridge
+    external: false
+
+  # Agent Networks
+  agent-network:
+    name: agent-network
+    driver: bridge
+    external: false
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+          gateway: 172.20.0.1
+
+  dmz-network:
+    name: dmz-network
+    driver: bridge
+    external: false
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16
+          gateway: 172.21.0.1
+
+volumes:
+  # Base volumes
+  nix-cache:
+    name: localnet-base-nix-cache-volume
+    external: false
+  nix-config:
+    name: localnet-base-nix-config-volume
+    external: false
+  nix-store:
+    name: localnet-base-nix-store-volume
+    external: false
+
+  # DNS Services
+  dns-adguard-conf:
+    driver: local
+    name: localnet-dns-adguard-conf
+  dns-adguard-work:
+    driver: local
+    name: localnet-dns-adguard-work
+
+  dns-cache:
+    name: localnet-dns-cache-volume
+    external: false
+
+  dns-blocklist-archive:
+    name: localnet-dns-blocklist-archive-volume
+    external: false
+
+  dns-blocklist-cdbs:
+    name: localnet-dns-blocklist-cdbs-volume
+    external: false
+
+  dns-coredns-cache:
+    name: localnet-dns-coredns-cache-volume
+    external: false
+
+  # NTP Services
+  chronyd-data:
+    name: localnet-ntp-cache-volume
+    external: false
+
+  # Web Proxy Services
+  web-cache:
+    name: localnet-web-cache-volume
+    external: false
+
+  # WireGuard
+  wireguard-direct-config:
+    name: localnet-wireguard-direct-config-volume
+    external: false
+
+  wireguard-transparent-config:
+    name: localnet-wireguard-transparent-config-volume
+    external: false
+
+  # LocalStack
+  localstack-data:
+    name: localnet-localstack-data-volume
+    external: false
+
+## Caches
+  # Security
+  ## Dockerproxy
+  dockerproxy-ro:
+    name: localnet-dockerproxy-ro-volume
+    external: false
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: size=1k,uid=65534,gid=0,mode=0700,noexec
+  dockerproxy-rw:
+    name: localnet-dockerproxy-rw-volume
+    external: false
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: size=1k,uid=65534,gid=0,mode=0700,noexec
+
+  authelia-db:
+    name: localnet-security-authelia-db-volume
+    external: false
+  wud-store:
+    name: localnet-security-wud-store-volume
+    external: false
+  tugtainer_data:
+    name: localnet-security-tugtainer-data-volume
+    external: false
+  crowdsec-data:
+    name: localnet-security-crowdsec-data-volume
+    external: false
+  crowdsec-config:
+    name: localnet-security-crowdsec-config-volume
+    external: false
+  crowdsec-db:
+    name: localnet-security-crowdsec-db-volume
+    external: false
+  traefik-access-logs:
+    name: localnet-security-traefik-accesslog-volume
+    external: false
+
+  # Artifact repository services (Nexus & Verdaccio)
+  nexus-data:
+    name: localnet-nexus-data-volume
+    external: false
+  verdaccio-data:
+    name: localnet-verdaccio-data-volume
+    external: false
+  attic-data:
+    name: localnet-attic-data-volume
+    external: false
+  nix-snapshotter-data:
+    name: localnet-nix-snapshotter-data-volume
+    external: false
+  harmonia-data:
+    name: localnet-harmonia-data-volume
+    external: false
+  ncps-data:
+    name: localnet-ncps-data-volume
+    external: false
+  # Shared persistent volumes
+  asdf-cache:
+    name: localnet-artifact-asdf-cache-volume
+    external: false
+  bazel-cache:
+    name: localnet-artifact-bazel-cache-volume
+    external: false
+  conda-cache:
+    name: localnet-artifact-conda-cache-volume
+    external: false
+  dart-cache:
+    name: localnet-artifact-dart-cache-volume
+    external: false
+  dotnet-cache:
+    name: localnet-artifact-dotnet-cache-volume
+    external: false
+  elixir-cache:
+    name: localnet-artifact-elixir-cache-volume
+    external: false
+  go-cache:
+    name: localnet-artifact-go-cache-volume
+    external: false
+  go-build-cache:
+    name: localnet-artifact-go-build-cache-volume
+    external: false
+  gradle-cache:
+    name: localnet-artifact-gradle-cache-volume
+    external: false
+  haskell-cabal-cache:
+    name: localnet-artifact-haskell-cabal-cache-volume
+    external: false
+  haskell-stack-cache:
+    name: localnet-artifact-haskell-stack-cache-volume
+    external: false
+  java-m2-cache:
+    name: localnet-artifact-java-m2-cache-volume
+    external: false
+  mise-cache:
+    name: localnet-artifact-mise-cache-volume
+    external: false
+  nvm-cache:
+    name: localnet-artifact-nvm-cache-volume
+    external: false
+  php-cache:
+    name: localnet-artifact-php-cache-volume
+    external: false
+  poetry-cache:
+    name: localnet-artifact-poetry-cache-volume
+    external: false
+  pnpm-store:
+    name: localnet-artifact-pnpm-store-volume
+    external: false
+  nx-cache:
+    name: localnet-artifact-nx-cache-volume
+    external: false
+  pyenv-cache:
+    name: localnet-artifact-pyenv-cache-volume
+    external: false
+  python-cache:
+    name: localnet-artifact-python-cache-volume
+    external: false
+  ruby-cache:
+    name: localnet-artifact-ruby-cache-volume
+    external: false
+  rust-cargo-cache:
+    name: localnet-artifact-rust-cargo-cache-volume
+    external: false
+  rust-cargo-git-cache:
+    name: localnet-artifact-rust-cargo-git-cache-volume
+    external: false
+  rust-rustup-cache:
+    name: localnet-artifact-rust-rustup-cache-volume
+    external: false
+  sdkman-cache:
+    name: localnet-artifact-sdkman-cache-volume
+    external: false
+  turbo-cache:
+    name: localnet-artifact-turbo-cache-volume
+    external: false
+  unity-cache:
+    name: localnet-artifact-unity-cache-volume
+    external: false
+  vscode-cache:
+    name: localnet-artifact-vscode-cache-volume
+    external: false
+
+## Data Volumes
+  projects-data:
+    name: localnet-artifact-projects-data-volume
+    external: false
+  vibe-kanban-data:
+    name: localnet-artifact-vibe-kanban-data-volume
+    external: false
+
+  ai-codeassist-codex-data:
+    name: localnet-ai-codeassist-codex-data-volume
+    external: false
+  ai-codeassist-gh-config:
+    name: localnet-ai-codeassist-gh-config-volume
+    external: false
+  ai-codeassist-cache:
+    name: localnet-ai-codeassist-cache-volume
+    external: false
+  ai-codeassist-worktrees:
+    name: localnet-ai-codeassist-worktrees-volume
+    external: false
+  ai-codeassist-workdir:
+    name: localnet-ai-codeassist-workdir-volume
+    external: false
+
+  # Base Kali volumes
+  base-kali-home:
+    name: localnet-base-kali-home-volume
+    external: false
+  base-kalinix-home:
+    name: localnet-base-kalinix-home-volume
+    external: false
+
+  # OpenFang volumes
+  openfang-data:
+    name: localnet-openfang-data-volume
+    external: false
+  openfang-config:
+    name: localnet-openfang-config-volume
+    external: false
+  openfang-storage:
+    name: localnet-openfang-storage-volume
+    external: false
+  openfang-logs:
+    name: localnet-openfang-logs-volume
+    external: false
+  openfang-home:
+    name: localnet-openfang-home-volume
+    external: false
+
+
+services:
+  # Dummy service to allow docker compose up to work
+  # This service does nothing but allows networks/volumes to be created
+  shared-resources:
+    image: nixpkgs/nix:latest
+    command: >
+      sh -c 'echo "initialized networks & volumes for other services, shutting down now"'
+    networks:
+      - null-network
+      - localnet
+      - wireguard
+      - codeassist
+      - agent-network
+      - dmz-network
+    volumes:
+      - nix-cache:/root/.cache/nix:ro
+      - nix-config:/nix/config:ro
+      - nix-store:/nix/store:ro
+      - dns-adguard-conf:/etc/dns/adguard/conf:ro
+      - dns-adguard-work:/etc/dns/adguard/work:ro
+      - dns-cache:/etc/dns/cache:ro
+      - dns-blocklist-archive:/etc/dns/blocklists-archive:ro
+      - dns-blocklist-cdbs:/etc/dns/blocklists-cdbs:ro
+      - dns-coredns-cache:/etc/dns/coredns/cache:ro
+      - chronyd-data:/var/lib/chrony:ro
+      - web-cache:/var/cache/web:ro
+      - wireguard-direct-config:/etc/wireguard/direct:ro
+      - wireguard-transparent-config:/etc/wireguard/transparent:ro
+      - localstack-data:/var/lib/localstack:ro
+      - dockerproxy-ro:/var/lib/dockerproxy-ro:ro
+      - dockerproxy-rw:/var/lib/dockerproxy-rw:ro
+      - authelia-db:/var/lib/authelia:ro
+      - wud-store:/var/lib/wud:ro
+      - tugtainer_data:/var/lib/tugtainer:ro
+      - crowdsec-data:/var/lib/crowdsec:ro
+      - crowdsec-config:/etc/crowdsec:ro
+      - crowdsec-db:/var/lib/crowdsec-db:ro
+      - traefik-access-logs:/var/log/traefik:ro
+      - nexus-data:/var/lib/nexus:ro
+      - verdaccio-data:/var/lib/verdaccio:ro
+      - attic-data:/var/lib/attic:ro
+      - nix-snapshotter-data:/var/lib/nix-snapshotter:ro
+      - harmonia-data:/var/lib/harmonia:ro
+      - ncps-data:/var/lib/ncps:ro
+      - asdf-cache:/var/lib/asdf:ro
+      - bazel-cache:/var/lib/bazel:ro
+      - conda-cache:/var/lib/conda:ro
+      - dart-cache:/var/lib/dart:ro
+      - dotnet-cache:/var/lib/dotnet:ro
+      - elixir-cache:/var/lib/elixir:ro
+      - go-cache:/var/lib/go:ro
+      - go-build-cache:/home/${USERNAME:-cuser}/.cache/go-build:ro
+      - gradle-cache:/var/lib/gradle:ro
+      - haskell-cabal-cache:/var/lib/cabal:ro
+      - haskell-stack-cache:/var/lib/stack:ro
+      - java-m2-cache:/var/lib/m2:ro
+      - mise-cache:/var/lib/mise:ro
+      - nvm-cache:/var/lib/nvm:ro
+      - php-cache:/var/lib/php:ro
+      - poetry-cache:/var/lib/poetry:ro
+      - pnpm-store:/var/lib/pnpm:ro
+      - pyenv-cache:/var/lib/pyenv:ro
+      - nx-cache:/var/cache/nx-cache:ro
+      - python-cache:/var/lib/python:ro
+      - ruby-cache:/var/lib/ruby:ro
+      - rust-cargo-cache:/var/lib/cargo:ro
+      - rust-rustup-cache:/var/lib/rustup:ro
+      - rust-cargo-cache:/home/${USERNAME:-cuser}/.cargo/registry:ro
+      - rust-cargo-git-cache:/home/${USERNAME:-cuser}/.cargo/git:ro
+      - rust-rustup-cache:/home/${USERNAME:-cuser}/.rustup:ro
+      - sdkman-cache:/var/lib/sdkman:ro
+      - turbo-cache:/var/lib/turbo:ro
+      - unity-cache:/var/lib/unity:ro
+      - vscode-cache:/var/lib/vscode:ro
+      - vibe-kanban-data:/home/${USERNAME:-cuser}/.local/share/vibe-kanban:ro
+      - projects-data:/home/${USERNAME:-cuser}/projects:ro
+      - ai-codeassist-codex-data:/home/${USERNAME:-cuser}/.local/share/ai-codeassist/codex:ro
+      - ai-codeassist-gh-config:/home/${USERNAME:-cuser}/.config/ai-codeassist/gh:ro
+      - ai-codeassist-cache:/home/${USERNAME:-cuser}/.cache/ai-codeassist:ro
+      - ai-codeassist-worktrees:/home/${USERNAME:-cuser}/.local/share/ai-codeassist/worktrees:ro
+      - ai-codeassist-workdir:/home/${USERNAME:-cuser}/.local/share/ai-codeassist/workdir:ro
+      - base-kalinix-home:/home/${USERNAME:-cuser}/tmp1
+      - base-kali-home:/home/${USERNAME:-cuser}/tmp2

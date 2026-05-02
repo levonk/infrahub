@@ -1,0 +1,63 @@
+# =============================================================================
+# DEV-BASE: Base development environment with Nix and essential tools
+# =============================================================================
+FROM localnet-base-kalinix:latest
+
+# Set up the non-root user using Docker Compose environment variables
+ARG USERNAME=cuser
+ARG USER_UID=${PUID:-1000}
+ARG USER_GID=${PGID:-1000}
+
+# Copy static assets to mirror container filesystem
+COPY assets/static/ /
+
+# Ensure scripts are executable
+USER root
+RUN chmod +x /base-dev/bin/healthcheck-base-dev.sh /base-dev/bin/entrypoint-base-dev.sh
+
+# Create user and sudo setup
+RUN mkdir -p /etc/sudoers.d && \
+    # Check if user exists, if not create it (fallback), otherwise ensure home dir
+    if ! id -u ${USERNAME} > /dev/null 2>&1; then \
+        groupadd --gid $USER_GID $USERNAME && \
+        useradd --uid $USER_UID --gid $USER_GID -m -d /home/$USERNAME $USERNAME; \
+    else \
+        # Ensure home directory exists for existing user
+        if [ ! -d "/home/${USERNAME}" ]; then \
+            mkdir -p "/home/${USERNAME}"; \
+            chown ${USER_UID}:${USER_GID} "/home/${USERNAME}"; \
+        fi; \
+    fi && \
+    echo "${USERNAME} ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/${USERNAME}
+
+# Switch to user to setup project
+USER ${USERNAME}
+
+# Copy devbox configuration and activate development environment
+COPY assets/static/home/${USERNAME} /home/${USERNAME}/
+
+# Note: We do NOT run `nix develop` here because the Nix store volume will be mounted at runtime,
+# potentially obscuring any store paths built here. The development environment should be
+# hydrated at runtime or via the sidecar.
+
+# Set up working directory
+WORKDIR /home/${USERNAME}/project
+
+# Switch back to root to allow entrypoint to handle UID/GID fixing
+USER root
+
+# Set up Nix environment for the user (must be set after switching user)
+ENV PATH="/nix/var/nix/profiles/default/bin:/home/${USERNAME}/.local/bin:/home/${USERNAME}/.nix-profile/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+ENV NIX_PATH="nixpkgs=/nix/var/nix/profiles/per-user/root/channels/nixpkgs:/nix/var/nix/profiles/per-user/root/channels"
+# SSL Certificate settings for HTTPS to work with Nix (will be set dynamically in entrypoint)
+# ENV NIX_SSL_CERT_FILE="/nix/store/.../etc/ssl/certs/ca-bundle.crt"
+# ENV SSL_CERT_FILE="/nix/store/.../etc/ssl/certs/ca-bundle.crt"
+# ENV CURL_CA_BUNDLE="/nix/store/.../etc/ssl/certs/ca-bundle.crt"
+# ENV GIT_SSL_CAINFO="/nix/store/.../etc/ssl/certs/ca-bundle.crt"
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD ["/base-dev/bin/healthcheck-base-dev.sh"]
+
+# Override PATH in entrypoint to ensure Nix binaries are available
+ENTRYPOINT ["/base-dev/bin/entrypoint-base-dev.sh"]
+CMD ["/usr/bin/sleep", "infinity"]

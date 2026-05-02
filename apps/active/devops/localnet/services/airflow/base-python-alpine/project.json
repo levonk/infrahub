@@ -1,0 +1,20 @@
+{
+  "name": "localnet-airflow-base-python-alpine",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "services/airflow/base-python-alpine",
+  "tags": ["service", "airflow", "docker"],
+  "implicitDependencies": [],
+  "targets": {
+    "docker:build": {
+      "executor": "@nx-tools/nx-container:build",
+      "options": {
+        "context": "services/airflow/base-python-alpine",
+        "file": "services/airflow/base-python-alpine/Dockerfile.base-python-alpine",
+        "tags": ["localnet-airflow-base-python-alpine:latest"],
+        "push": false,
+        "load": true
+      }
+    }
+  }
+}

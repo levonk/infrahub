@@ -1,0 +1,8 @@
+---
+# Linux overrides using Sysbox runtime
+
+services:
+  localstack:
+    runtime: sysbox-runc
+    environment:
+      - DOCKER_HOST=unix:///var/run/docker.sock

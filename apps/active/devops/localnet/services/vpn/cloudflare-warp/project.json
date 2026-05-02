@@ -1,0 +1,20 @@
+{
+  "name": "localnet-vpn-cloudflare-warp",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "services/vpn/cloudflare-warp",
+  "tags": ["service", "vpn", "docker"],
+  "implicitDependencies": ["localnet-base-debian"],
+  "targets": {
+    "docker:build": {
+      "executor": "@nx-tools/nx-container:build",
+      "options": {
+        "context": "services/vpn/cloudflare-warp",
+        "file": "services/vpn/cloudflare-warp/Dockerfile.cloudflare-warp",
+        "tags": ["localnet-vpn-cloudflare-warp:latest"],
+        "push": false,
+        "load": true
+      }
+    }
+  }
+}

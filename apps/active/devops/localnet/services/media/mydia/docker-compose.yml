@@ -1,0 +1,32 @@
+---
+# Mydia Docker Compose Configuration
+# Generated secure docker-compose configuration for mydia
+
+services:
+  mydia:
+    image: ghcr.io/getmydia/mydia:latest
+    container_name: localnet-media-mydia-standalone
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      - PUID=${_PUID:-1000}
+      - PGID=${_PGID:-1000}
+      - TZ=${_TZ:-America/Los_Angeles}
+      - SECRET_KEY_BASE=${_SECRET_KEY_BASE}
+      - GUARDIAN_SECRET_KEY=${_GUARDIAN_SECRET_KEY}
+      - DATABASE_URL=${_DATABASE_URL}
+      - ECTO_IPV6=true
+      - PHX_HOST=localhost
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - mydia-network
+
+networks:
+  mydia-network:
+    driver: bridge

@@ -1,0 +1,385 @@
+# DNS Service Stack - Justfile
+# Following ADR-20260131001: direnv → devbox → just (*-internal) → [command]
+
+# Configuration
+PROJECT_DIR := "../.."
+COMPOSE_FILE := "docker-compose.dns.yml"
+ENSURE_NETWORK := "../../scripts/ensure-network.py"
+
+# Colors for output (using shell variables since just doesn't have native color support)
+BLUE := "\033[0;34m"
+GREEN := "\033[0;32m"
+YELLOW := "\033[0;33m"
+RED := "\033[0;31m"
+NC := "\033[0m"
+
+# Determine env args for docker compose
+ENV_ARGS := if path_exists(".env") == "true" { "--env-file ./.env" } else { "" }
+ENV_ARGS := ENV_ARGS + if path_exists("../../.env") == "true" { " --env-file ../../.env" } else { "" }
+
+# Docker compose command base
+COMPOSE_BASE := "docker compose --project-directory " + PROJECT_DIR + " -f " + COMPOSE_FILE + " " + ENV_ARGS
+
+# Default recipe - show help
+[private]
+default:
+    @just --list
+
+# =============================================================================
+# Normal Targets (Developer Interface)
+# Primary pattern: just x → devbox run x → just x-internal
+# =============================================================================
+
+# Build local Docker images for the DNS stack
+build:
+    devbox run build
+
+# Start DNS services in detached mode
+up:
+    devbox run up
+
+# Stop DNS services and remove containers
+down:
+    devbox run down
+
+# Restart DNS services
+restart:
+    devbox run restart
+
+# Show container status
+status:
+    devbox run status
+
+# Tail last 200 lines from all DNS containers
+logs:
+    devbox run logs
+
+# Follow logs for all DNS containers
+logs-follow:
+    devbox run logs-follow
+
+# Run DNS health probes inside the stack
+health-check:
+    devbox run health-check
+
+# Validate docker-compose configuration
+lint:
+    devbox run lint
+
+# Remove containers and networks (keep volumes)
+clean:
+    devbox run clean
+
+# Open a shell in the dnsdist container (default)
+shell:
+    devbox run shell
+
+# Rebuild DNS blocklists using compiler container
+blocklists-refresh:
+    devbox run blocklists-refresh
+
+# List compiled blocklist entries summary
+blocklists-view:
+    devbox run blocklists-view
+
+# Development mode - follow logs
+dev:
+    devbox run dev
+
+# Run tests (placeholder for DNS stack)
+test:
+    devbox run test
+
+# =============================================================================
+# Internal Targets (Actual Implementation)
+# These are called by devbox scripts and do the actual work
+# =============================================================================
+
+# Internal: Build local Docker images
+[private]
+build-internal:
+    #!/usr/bin/env bash
+    echo -e "{{BLUE}}Building DNS service images...{{NC}}"
+    {{COMPOSE_BASE}} build
+    echo -e "{{GREEN}}✓ Images built{{NC}}"
+
+# Internal: Start DNS services
+[private]
+up-internal:
+    #!/usr/bin/env bash
+    echo -e "{{BLUE}}Starting DNS services...{{NC}}"
+    {{ENSURE_NETWORK}} --project-directory {{PROJECT_DIR}} -f {{COMPOSE_FILE}}
+    {{COMPOSE_BASE}} up -d
+    echo -e "{{GREEN}}✓ Services started{{NC}}"
+    echo "Run 'just health-check' once the containers have finished booting."
+
+# Internal: Stop DNS services
+[private]
+down-internal:
+    #!/usr/bin/env bash
+    echo -e "{{YELLOW}}Stopping DNS services...{{NC}}"
+    {{COMPOSE_BASE}} down
+    echo -e "{{GREEN}}✓ Services stopped{{NC}}"
+
+# Internal: Restart DNS services
+[private]
+restart-internal:
+    #!/usr/bin/env bash
+    echo -e "{{YELLOW}}Restarting DNS services...{{NC}}"
+    {{ENSURE_NETWORK}} --project-directory {{PROJECT_DIR}} -f {{COMPOSE_FILE}}
+    {{COMPOSE_BASE}} restart dnsdist coredns dnscrypt-proxy
+    echo -e "{{GREEN}}✓ Services restarted{{NC}}"
+
+# Internal: Show container status
+[private]
+status-internal:
+    #!/usr/bin/env bash
+    echo -e "{{BLUE}}DNS container status{{NC}}"
+    {{COMPOSE_BASE}} ps
+
+# Internal: Show logs (last 200 lines)
+[private]
+logs-internal:
+    {{COMPOSE_BASE}} logs --tail=200
+
+# Internal: Follow logs
+[private]
+logs-follow-internal:
+    {{COMPOSE_BASE}} logs -f
+
+# Internal: Show dnsdist logs
+[private]
+logs-dnsdist-internal:
+    {{COMPOSE_BASE}} logs --tail=200 dnsdist
+
+# Internal: Show CoreDNS logs
+[private]
+logs-coredns-internal:
+    {{COMPOSE_BASE}} logs --tail=200 coredns
+
+# Internal: Show dnscrypt-proxy logs
+[private]
+logs-dnscrypt-internal:
+    {{COMPOSE_BASE}} logs --tail=200 dnscrypt-proxy
+
+# Internal: Run health checks
+[private]
+health-check-internal:
+    #!/usr/bin/env bash
+    echo -e "{{BLUE}}Inspecting container status...{{NC}}"
+    {{COMPOSE_BASE}} ps
+    echo ""
+    echo -e "{{BLUE}}Running dnsdist resolution probe...{{NC}}"
+    DNSDIST_OUTPUT=$({{COMPOSE_BASE}} exec dnsdist dig +short health.check.local @127.0.0.1 2>/dev/null)
+    if [ -n "$DNSDIST_OUTPUT" ]; then
+        echo -e "{{GREEN}}✓ dnsdist responded to health.check.local{{NC}}"
+    else
+        echo -e "{{RED}}✗ dnsdist failed to resolve health.check.local{{NC}}"
+    fi
+    echo -e "{{BLUE}}Validating dnscrypt-proxy upstream resolution...{{NC}}"
+    {{COMPOSE_BASE}} exec dnscrypt-proxy dnscrypt-proxy -resolve cloudflare.com -config /etc/dnscrypt-proxy/dnscrypt-proxy.toml >/dev/null 2>&1 && \
+        echo -e "{{GREEN}}✓ dnscrypt-proxy resolved cloudflare.com{{NC}}" || \
+        echo -e "{{RED}}✗ dnscrypt-proxy could not resolve cloudflare.com{{NC}}"
+    echo -e "{{BLUE}}Checking blocklist artifacts...{{NC}}"
+    {{COMPOSE_BASE}} exec dnsdist test -f /etc/dnsdist/blocklists/blocklist.cdb && \
+        echo -e "{{GREEN}}✓ Compiled blocklist available{{NC}}" || \
+        echo -e "{{RED}}✗ Compiled blocklist missing{{NC}}"
+
+# Internal: Validate docker-compose configuration
+[private]
+lint-internal:
+    #!/usr/bin/env bash
+    echo -e "{{BLUE}}Linting docker-compose configuration...{{NC}}"
+    {{COMPOSE_BASE}} config >/dev/null && echo -e "{{GREEN}}✓ docker-compose configuration valid{{NC}}"
+    if command -v yamllint >/dev/null 2>&1; then
+        yamllint {{COMPOSE_FILE}}
+    else
+        echo -e "{{YELLOW}}⚠ yamllint not installed{{NC}}"
+    fi
+
+# Internal: Remove containers and networks (keep volumes)
+[private]
+clean-internal:
+    #!/usr/bin/env bash
+    echo -e "{{RED}}Removing DNS containers and networks...{{NC}}"
+    {{COMPOSE_BASE}} down --remove-orphans
+    docker network prune -f >/dev/null
+    echo -e "{{GREEN}}✓ Containers and networks removed{{NC}}"
+
+# Internal: Deep clean (remove volumes - data loss!)
+[private]
+clean-all-internal:
+    #!/usr/bin/env bash
+    echo -e "{{RED}}⚠ This will delete all DNS volumes and data{{NC}}"
+    read -p "Are you sure? [y/N] " -n 1 -r
+    echo ""
+    if echo "$REPLY" | grep -Eq '^[Yy]$'; then
+        {{COMPOSE_BASE}} down -v --remove-orphans
+        docker network prune -f >/dev/null
+        echo -e "{{GREEN}}✓ All DNS volumes removed{{NC}}"
+    else
+        echo -e "{{YELLOW}}Cancelled{{NC}}"
+    fi
+
+# Internal: Open shell in dnsdist (default)
+[private]
+shell-internal:
+    just shell-dnsdist-internal
+
+# Internal: Open shell in dnsdist
+[private]
+shell-dnsdist-internal:
+    {{COMPOSE_BASE}} exec dnsdist /bin/sh
+
+# Internal: Open shell in CoreDNS
+[private]
+shell-coredns-internal:
+    {{COMPOSE_BASE}} exec coredns /bin/sh
+
+# Internal: Open shell in dnscrypt-proxy
+[private]
+shell-dnscrypt-internal:
+    {{COMPOSE_BASE}} exec dnscrypt-proxy /bin/sh
+
+# Internal: Rebuild blocklists
+[private]
+blocklists-refresh-internal:
+    #!/usr/bin/env bash
+    echo -e "{{BLUE}}Rebuilding DNS blocklists...{{NC}}"
+    {{COMPOSE_BASE}} run --rm blocklist-compiler
+    echo -e "{{GREEN}}✓ Blocklists rebuilt{{NC}}"
+
+# Internal: List blocklist files
+[private]
+blocklists-view-internal:
+    {{COMPOSE_BASE}} exec dnsdist ls -lh /etc/dnsdist/blocklists
+
+# =============================================================================
+# Required ADR-20260131001 Targets
+# =============================================================================
+
+# Bootstrap the development environment
+bootstrap:
+    devbox run bootstrap
+
+# Internal: Bootstrap logic
+[private]
+bootstrap-internal:
+    #!/usr/bin/env bash
+    echo "Bootstrapping DNS service stack..."
+    # Ensure docker network exists
+    {{ENSURE_NETWORK}} --project-directory {{PROJECT_DIR}} -f {{COMPOSE_FILE}} || true
+    # Build images
+    just build-internal
+    echo "Bootstrap complete!"
+
+# Prime code indexing and analysis tools
+prime:
+    devbox run prime
+
+# Internal: Prime logic
+[private]
+prime-internal:
+    echo "Priming code indexing for DNS stack..."
+    # DNS stack doesn't need traditional code indexing, but we can validate configs
+    just lint-internal
+    echo "Prime complete!"
+
+# Check development environment health
+doctor:
+    devbox run doctor
+
+# Internal: Doctor logic
+[private]
+doctor-internal:
+    #!/usr/bin/env bash
+    echo "Checking DNS stack environment health..."
+    # Check Docker is running
+    if ! docker info >/dev/null 2>&1; then
+        echo -e "{{RED}}✗ Docker is not running{{NC}}"
+        exit 1
+    fi
+    echo -e "{{GREEN}}✓ Docker is running{{NC}}"
+    # Check docker compose is available
+    if ! docker compose version >/dev/null 2>&1; then
+        echo -e "{{RED}}✗ docker compose is not available{{NC}}"
+        exit 1
+    fi
+    echo -e "{{GREEN}}✓ docker compose is available{{NC}}"
+    # Check compose file exists
+    if [ ! -f "{{COMPOSE_FILE}}" ]; then
+        echo -e "{{RED}}✗ {{COMPOSE_FILE}} not found{{NC}}"
+        exit 1
+    fi
+    echo -e "{{GREEN}}✓ {{COMPOSE_FILE}} exists{{NC}}"
+    # Validate compose configuration
+    just lint-internal
+    echo -e "{{GREEN}}✓ Environment health check passed{{NC}}"
+
+# Development mode (follow logs)
+[private]
+dev-internal:
+    just logs-follow-internal
+
+# Run tests (for DNS stack, this is health-check)
+[private]
+test-internal:
+    just health-check-internal
+
+# =============================================================================
+# Service-Specific Logs (Convenience Targets)
+# =============================================================================
+
+# Show dnsdist logs
+logs-dnsdist:
+    devbox run logs-dnsdist
+
+# Show CoreDNS logs
+logs-coredns:
+    devbox run logs-coredns
+
+# Show dnscrypt-proxy logs
+logs-dnscrypt:
+    devbox run logs-dnscrypt
+
+# =============================================================================
+# Shell Access (Convenience Targets)
+# =============================================================================
+
+# Open shell in dnsdist container
+shell-dnsdist:
+    devbox run shell-dnsdist
+
+# Open shell in CoreDNS container
+shell-coredns:
+    devbox run shell-coredns
+
+# Open shell in dnscrypt-proxy container
+shell-dnscrypt:
+    devbox run shell-dnscrypt
+
+# =============================================================================
+# Quality Checks
+# =============================================================================
+
+# Run all quality checks
+quality:
+    just lint
+    just test
+
+# =============================================================================
+# Legacy Compatibility (Makefile aliases)
+# =============================================================================
+
+# Legacy: help target (just --list is the just way)
+help:
+    @echo "DNS Service Stack - Build System"
+    @echo ""
+    @echo "This justfile manages the DNS stack (dnsdist, CoreDNS, dnscrypt-proxy, blocklist compiler)."
+    @echo ""
+    @echo "Available commands:"
+    @just --list
+
+# Legacy: clean-all alias for deep clean
+clean-all:
+    just clean-all-internal

@@ -1,0 +1,376 @@
+---
+
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "5"
+    tag: "{{.Name}}"
+    labels: "service"
+
+include:
+  - ../../docker-compose.include.yml
+
+services:
+  ## For Traefik and other read-only uses
+  dockerproxy-ro: # https://github.com/wollomatic/socket-proxy
+    image: ghcr.io/wollomatic/socket-proxy:1.10.1
+    #image: wollomatic/socket-proxy:latest
+    container_name: localnet-security-dockerproxy-ro
+    command:
+      - "-loglevel=debug"
+      - '-allowGET=(/v1/\..{1,2})?/(version|containers/.*|events.*)'
+      - "-allowHEAD=/_ping"
+      - "-shutdowngracetime=5"
+      - "-watchdoginterval=600"
+      - "-stoponwatchdog"
+      - "-proxysocketendpoint=/socket/docker.sock"
+      - "-proxysocketendpointfilemode=0400"
+    ports:
+      - "127.0.0.1:${SECURITY_DOCKERPROXY_RO_HOST_PORT:-12345}:${SECURITY_DOCKERPROXY_RO_CONTAINER_PORT:-12345}"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - dockerproxy-ro:/socket/
+    networks:
+      - localnet
+    restart: unless-stopped
+    read_only: true
+    mem_limit: 64M
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges
+    user: 65534:964 # replace latter with the output of `grep docker /etc/group | awk -F: '{print $3}'
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD","true"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    profiles:
+      - all
+
+  ## For Watchtower and other read-write uses
+  ## Evaluate https://github.com/nestybox/sysbox for better security Depending on use case
+  dockerproxy-rw: # https://github.com/wollomatic/socket-proxy
+    image: ghcr.io/wollomatic/socket-proxy:1.10.1
+    #image: wollomatic/socket-proxy:latest
+    container_name: localnet-security-dockerproxy-rw
+    command:
+      - "-loglevel=debug"
+      - '-allowGET=(/v1/\\..{2})??/(containers/.*|images/.*)'
+      - '-allowPOST=(/v1/\\..{2})??/(containers/.*|images/.*|networks/.*)'
+      - '-allowDELETE=(/v1/\\..{2})??/(containers/.*|images/.*)'
+      - "-allowHEAD=/_ping"
+      - "-shutdowngracetime=5"
+      - "-watchdoginterval=600"
+      - "-stoponwatchdog"
+      - "-proxysocketendpoint=/socket/docker.sock"
+      - "-proxysocketendpointfilemode=0600"
+    ports:
+      - "127.0.0.1:${SECURITY_DOCKERPROXY_RW_HOST_PORT:-12346}:${SECURITY_DOCKERPROXY_RW_CONTAINER_PORT:-12346}"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - dockerproxy-rw:/socket/
+    networks:
+      - localnet
+    restart: unless-stopped
+    read_only: true
+    mem_limit: 64M
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges
+    user: 65534:964 # replace latter with the output of `grep docker /etc/group | awk -F: '{print $3}'
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD","true"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    profiles:
+      - all
+
+  ## Watchtower needs rw access to docker socket, can't use sysbox
+  ## Should we swap this with Tugtainer which combines the functionality of watchtower + WUD?
+  watchtower: # https://github.com/containrrr/watchtower
+    container_name: localnet-security-watchtower
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD","true"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    profiles:
+      - all
+    privileged: true
+    restart: unless-stopped
+    image: containrrr/watchtower
+    environment:
+      WATCHTOWER_CLEANUP: "true"
+      WATCHTOWER_POLL_INTERVAL: 7200
+      WATCHTOWER_LABEL_ENABLE: "true"
+      DOCKER_HOST: "unix:///socket/docker.sock"
+    volumes:
+      #- /var/run/docker.sock:/var/run/docker.sock
+      - dockerproxy-rw:/socket/:rw
+    depends_on:
+      - dockerproxy-rw
+
+  tugtainer: # https://github.com/Quenary/tugtainer
+    image: quenary/tugtainer:latest
+    container_name: localnet-security-tugtainer
+    logging: *default-logging
+    restart: unless-stopped
+    environment:
+      - DOCKER_HOST=tcp://dockerproxy-rw:2375
+      - LOG_LEVEL=warning
+    volumes:
+      - tugtainer_data:/tugtainer
+    depends_on:
+      - dockerproxy-rw
+    networks:
+      - localnet
+    ports:
+      - "${SECURITY_TUGTAINER_HOST_PORT:-9412}:${SECURITY_TUGTAINER_CONTAINER_PORT:-80}"
+    healthcheck:
+      test: ["CMD","true"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
+      - "dev.quenary.tugtainer.protected=false"
+    profiles:
+      - all
+
+  sysbox-test:
+    image: base-alpine:latest
+    container_name: localnet-security-sysbox-test
+    runtime: sysbox-runc
+    command: tail -f /dev/null
+    networks:
+      - localnet
+    restart: unless-stopped
+    profiles: ["sysbox"]
+
+  crowdsec:  # https://github.com/crowdsecurity/crowdsec
+    image: crowdsecurity/crowdsec:latest
+    container_name: localnet-security-crowdsec
+    logging: *default-logging
+    networks:
+      - localnet
+    volumes:
+      - crowdsec-data:/var/lib/crowdsec/data
+      - crowdsec-config:/etc/crowdsec
+      - traefik-access-logs:/var/log/traefik/:ro
+      - ./crowdsec/mounts/templates:/templates:ro
+    environment:
+      - "TZ=${TZ:-UTC}"
+      - "GID=${GID-1000}"
+      - "COLLECTIONS=crowdsecurity/linux crowdsecurity/traefik"
+    #depends_on:
+      #- traefik
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    profiles:
+      - all
+
+  crowdsec-bouncer:
+    image: docker.io/fbonalair/traefik-crowdsec-bouncer:latest
+    container_name: localnet-security-crowdsec-bouncer
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD","true"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    profiles:
+      - all
+    environment:
+      CROWDSEC_BOUNCER_API_KEY: "" # cscli bouncers add crowdsecBouncer
+      CROWDSEC_AGENT_HOST: crowdsec:8080
+    networks:
+      - localnet
+    depends_on:
+      - crowdsec
+    restart: unless-stopped
+
+  crowdsec-dashboard:
+    image: crowdsecurity/crowdsec-dashboard:latest
+    container_name: localnet-security-crowdsec-dashboard
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD","true"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    profiles:
+      - broken
+    environment:
+      TZ: "${TZ:-UTC}"
+      GID: "${GID-1000}"
+    networks:
+      - localnet
+    depends_on:
+      - crowdsec
+    restart: unless-stopped
+
+  crowdsec-dashboard2:
+    image: metabase/metabase # crowdsec@crowdsec.net !!Cr0wdS3c_M3t4b4s3??
+    container_name: localnet-security-crowdsec-dashboard2
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD","true"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    profiles:
+      - all
+    environment:
+      MB_DB_FILE: /data/metabase.db
+      MGID: "${GID-1000}"
+    volumes:
+      - ./crowdsec/mounts/crowdsec-dash-db:/data # Bootstrap dashboard DB from https://crowdsec-statics-assets.s3-eu-west-1.amazonaws.com/metabase_sqlite.zip
+      - crowdsec-db:/metabase-data/
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.crowdsec-dashboard.rule=Host(`${PROXY_CROWDSEC_DASHBOARD2_HOSTNAME}`)"
+      - "traefik.http.routers.crowdsec-dashboard.entrypoints=websecure"
+      - "traefik.http.routers.crowdsec-dashboard.tls.certresolver=le"
+      - "traefik.http.routers.crowdsec-dashboard.tls=true"
+      - "traefik.http.routers.crowdsec-dashboard.middlewares=authelia@docker"
+      - "traefik.http.routers.crowdsec-dashboard.loadbalancer.server.port=${SECURITY_CROWDSEC_DASHBOARD_HOST_PORT:-3000}"
+    networks:
+      - localnet
+    depends_on:
+      - crowdsec
+    restart: unless-stopped
+
+  egress-firewall:
+    image: egress-firewall:latest
+    container_name: localnet-security-egress-firewall
+    cap_add:
+      - NET_ADMIN
+    environment:
+      - ALLOW_DESTINATIONS=api.github.com:443,cache.nixos.org:443
+      - ENABLE_DNS=true
+      - DEBUG=true
+    sysctls:
+      - net.ipv4.ip_forward=1
+    restart: unless-stopped
+    logging: *default-logging
+    profiles:
+      - broken
+
+  frpc: # https://github.com/fatedier/frp
+    image: fatedier/frpc:v0.65.0
+    container_name: localnet-proxy-frp
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD","true"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    profiles:
+      - all
+    restart: unless-stopped
+    volumes:
+      - ./frpc/mounts/etc/frpc:/etc/frpc
+    network_mode: host
+    command: "-c /etc/frpc/frpc.toml"
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
+
+  authelia: # https://github.com/authelia/authelia
+    image: authelia/authelia
+    container_name: localnet-security-authelia
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD","true"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    profiles:
+      - all
+    user: "1000:1000"
+    depends_on:
+      - authelia-db
+    volumes:
+      - ./authelia/mounts/etc/authelia:/etc/authelia
+    networks:
+      - localnet
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.authelia.rule=Host(`${LOCALNET_AUTH_HOSTNAME}`)"
+      - "traefik.http.routers.authelia.entryPoints=websecure"
+      - "traefik.http.routers.authelia.tls.certresolver=le"
+      - "traefik.http.routers.authelia.tls=true"
+      - "traefik.http.routers.authelia.middlewares=authelia@docker"
+      - "traefik.http.middlewares.authelia.forwardAuth.address=http://authelia:9091/api/verify?rd=https%3A%2F%2F${LOCALNET_AUTH_HOSTNAME}%2F"
+      - "traefik.http.middlewares.authelia.fowardAuth.truestForwardHeader=true"
+      - "traefik.http.middlewares.authelia.fowardAuth.authResponseHeaders=Remote-User,Remote-Groups,Remote-Name,Remote-Email"
+      - "traefik.http.middlewares.authelia-basic.forwardAuth.address=http://authelia:9091/api/verify?auth=basic"
+      - "traefik.http.middlewares.authelia-basic.forwardAuth.trustForwardheader=true"
+      - "traefik.http.middlewares.authelia-basic.fowardAuth.authResponseHeaders=Remote-User,Remote-Groups,Remote-Name,Remote-Email"
+    expose:
+      - 9091
+    restart: unless-stopped
+
+  authelia-db:
+    image: valkey/valkey:alpine
+    container_name: localnet-security-authelia-db
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD","true"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    profiles:
+      - all
+    user: "1000:1000"
+    volumes:
+      - authelia-db:/data
+    networks:
+      - localnet
+    expose:
+      - 6379
+    restart: unless-stopped
+
+  ## Should we swap this with Tugtainer which combines the functionality of watchtower + WUD?
+  wud:
+    image: getwud/wud:latest
+    container_name: localnet-security-wud
+    restart: unless-stopped
+    ports:
+      - "${SECURITY_WUD_HOST_PORT:-3000}:${SECURITY_WUD_CONTAINER_PORT:-3000}"
+    environment:
+      - TZ=UTC
+      - LOG_LEVEL=info
+      - DOCKER_HOST=tcp://dockerproxy-ro:2375
+      - WUD_SERVER_PORT=${SECURITY_WUD_CONTAINER_PORT:-3000}
+    volumes:
+      - wud-store:/store
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:${SECURITY_WUD_CONTAINER_PORT:-3000}/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    profiles:
+      - all
+    networks:
+      - localnet
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+      - "traefik.enable=true"
+      - "traefik.http.routers.wud.rule=Host(`wud.local`)"
+      - "traefik.http.routers.wud.entrypoints=websecure"
+      - "traefik.http.routers.wud.tls=true"
+      - "traefik.http.services.wud.loadbalancer.server.port=${SECURITY_WUD_CONTAINER_PORT:-3000}"

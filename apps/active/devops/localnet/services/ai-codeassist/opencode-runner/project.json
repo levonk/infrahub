@@ -1,0 +1,20 @@
+{
+  "name": "localnet-ai-codeassist-opencode-runner",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "services/ai-codeassist/opencode-runner",
+  "tags": ["service", "ai-codeassist", "docker"],
+  "implicitDependencies": ["localnet-base-dev"],
+  "targets": {
+    "docker:build": {
+      "executor": "@nx-tools/nx-container:build",
+      "options": {
+        "context": "services/ai-codeassist/opencode-runner",
+        "file": "services/ai-codeassist/opencode-runner/Dockerfile.opencode-runner",
+        "tags": ["localnet-ai-codeassist-opencode-runner:latest"],
+        "push": false,
+        "load": true
+      }
+    }
+  }
+}

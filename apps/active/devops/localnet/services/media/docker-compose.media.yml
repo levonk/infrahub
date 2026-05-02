@@ -1,0 +1,170 @@
+---
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "5"
+    tag: "{{.Name}}"
+    labels: "service"
+
+# Home services: Home Assistant + Mosquitto + ring-mqtt
+
+volumes:
+  media:
+
+services:
+  jellyfin:
+    image: jellyfin/jellyfin
+    container_name: localnet-media-jellyfin
+    logging: *default-logging
+    user: "1000:1000"
+    networks:
+      - localnet
+    ports:
+      - "8096:8096"
+      - "7359:7359/udp"
+    environment:
+      - TZ=${TIMEZONE}
+      - JELLYFIN_PublishedServerUrl=http://localhost:8096
+    volumes:
+      - /dev/dri:/dev/dri
+      - ${MEDIA_DATA_LOCATION}:/media
+      - ./jellyfin/mounts/etc/jellyfin/config:/config
+      - ./jellyfin/mounts/var/cache/jellyfin:/cache
+    restart: unless-stopped
+
+  audiobookshelf:
+    image: ghcr.io/advplyr/audiobookshelf:latest
+    container_name: localnet-media-audiobookshelf
+    logging: *default-logging
+    user: "1000:1000"
+    networks:
+      - localnet
+    ports:
+      - "13378:80"
+    environment:
+      - TZ=${TIMEZONE}
+      - AUDIOBOOKSHELF_UID=1000
+      - AUDIOBOOKSHELF_GID=1000
+      - CONFIG_PATH=/config
+      - METADATA_PATH=/metadata
+    volumes:
+      - ${MEDIA_DATA_LOCATION}/audiobooks:/audiobooks
+      - ${MEDIA_DATA_LOCATION}/podcasts:/podcasts
+      - ./audiobookshelf/mounts/config:/config
+      - ./audiobookshelf/mounts/metadata:/metadata
+    restart: unless-stopped
+
+  bazarr:
+    image: lscr.io/linuxserver/bazarr:latest
+    container_name: localnet-media-bazarr
+    logging: *default-logging
+    user: "1000:1000"
+    networks:
+      - localnet
+    ports:
+      - "6767:6767"
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TIMEZONE}
+    volumes:
+      - ./bazarr/mounts/config:/config
+      - ${MEDIA_DATA_LOCATION}/movies:/movies
+      - ${MEDIA_DATA_LOCATION}/tv:/tv
+    restart: unless-stopped
+
+  jellyfintv:
+    image: fallenbagel/jellyseerr:latest
+    container_name: localnet-media-jellyfintv
+    logging: *default-logging
+    user: "1000:1000"
+    networks:
+      - localnet
+    ports:
+      - "5055:5055"
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TIMEZONE}
+      - LOG_LEVEL=info
+    volumes:
+      - ./jellyfintv/mounts/config:/app/config
+    restart: unless-stopped
+
+  kapowarr:
+    image: mrcas/kapowarr:latest
+    container_name: localnet-media-kapowarr
+    logging: *default-logging
+    user: "1000:1000"
+    networks:
+      - localnet
+    ports:
+      - "5656:5656"
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TIMEZONE}
+    volumes:
+      - ./kapowarr/mounts/data:/app/db
+      - ${MEDIA_DATA_LOCATION}/comics:/comics
+      - ${MEDIA_DATA_LOCATION}/downloads:/downloads
+    restart: unless-stopped
+
+  lidarr:
+    image: lscr.io/linuxserver/lidarr:latest
+    container_name: localnet-media-lidarr
+    logging: *default-logging
+    user: "1000:1000"
+    networks:
+      - localnet
+    ports:
+      - "8686:8686"
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TIMEZONE}
+    volumes:
+      - ./lidarr/mounts/config:/config
+      - ${MEDIA_DATA_LOCATION}/music:/music
+      - ${MEDIA_DATA_LOCATION}/downloads:/downloads
+    restart: unless-stopped
+
+  mediamanager:
+    image: lscr.io/linuxserver/tinymediamanager:latest
+    container_name: localnet-media-mediamanager
+    logging: *default-logging
+    user: "1000:1000"
+    networks:
+      - localnet
+    ports:
+      - "5800:5800"
+      - "4000:4000"
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TIMEZONE}
+    volumes:
+      - ./mediamanager/mounts/config:/config
+      - ${MEDIA_DATA_LOCATION}:/media
+    restart: unless-stopped
+
+  mydia:
+    image: ghcr.io/getmydia/mydia:latest
+    container_name: localnet-media-mydia
+    logging: *default-logging
+    user: "1000:1000"
+    networks:
+      - localnet
+    ports:
+      - "4000:4000"
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TIMEZONE}
+      - SECRET_KEY_BASE=${MYDIA_SECRET_KEY_BASE}
+      - GUARDIAN_SECRET_KEY=${MYDIA_GUARDIAN_SECRET_KEY}
+      - DATABASE_URL=${MYDIA_DATABASE_URL}
+      - ECTO_IPV6=true
+      - PHX_HOST=localhost
+    restart: unless-stopped

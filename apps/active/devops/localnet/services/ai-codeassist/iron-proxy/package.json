@@ -1,0 +1,25 @@
+{
+  "name": "",
+  "version": "1.0.0",
+  "description": "Egress firewall for untrusted workloads - NX orchestrated Docker service",
+  "private": true,
+  "scripts": {
+    "build": "nx run :docker:build",
+    "build:push": "nx run :docker:push",
+    "up": "nx run :docker:up",
+    "down": "nx run :docker:down",
+    "lint": "just lint",
+    "test": "echo 'Tests configured in project.json'",
+    "affected:build": "nx affected -t docker:build",
+    "graph": "nx graph"
+  },
+  "devDependencies": {
+    "@nx-tools/nx-container": "^6.2.0",
+    "@nx/js": "^20.0.0",
+    "nx": "^20.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "packageManager": "pnpm@*"
+}

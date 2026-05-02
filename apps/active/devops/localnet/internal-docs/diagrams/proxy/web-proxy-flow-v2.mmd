@@ -1,0 +1,58 @@
+graph TD
+    subgraph "Client Layer"
+        Client["Client Device"]
+        ContainerA["Container A"]
+        ContainerB["Container B"]
+    end
+
+    subgraph "Entrypoints"
+        Transparent["User Port 3127/3128"]
+        Container_Net_Input["Container Network Input"]
+    end
+
+    subgraph "Proxy Chain"
+        MITM["L1: MITM Proxy<br/>Decrypts/Re-encrypts"]
+        PolicyEnforcer[L2: Identity Router / ExtAuth Hub<br/>Source IP maps to Policy ID]
+        AuthServer[ExtAuth Server Decision Logic]
+        Caching[L3: Varnish Cache]
+        Gost[L4: Egress Multiplexer]
+    end
+
+    subgraph "Egress Gateways (Dedicated)"
+        Egress_User[User Egress: WARP/Direct]
+        Egress_A[Container A Egress: WARP-Only]
+        Egress_B[Container B Egress: Tor-Only]
+    end
+
+    subgraph "External"
+        Internet[Internet]
+    end
+
+    %% --- User Traffic (Standard Path) ---
+    Client --> Transparent
+    Transparent --> MITM
+    MITM --> PolicyEnforcer
+    PolicyEnforcer -- User ID --> Caching
+    Caching --> Gost
+    Gost --> Egress_User
+    Egress_User --> Internet
+
+    %% --- Container Traffic (Dedicated Paths) ---
+    ContainerA --> Container_Net_Input
+    ContainerB --> Container_Net_Input
+    Container_Net_Input --> MITM
+
+    MITM --> PolicyEnforcer
+
+    %% L2 Decision Splits Traffic
+    PolicyEnforcer -- Container A (Cloudflare) --> Egress_A
+    PolicyEnforcer -- Container B (Tailscale) --> Egress_B
+
+    %% Egress Re-encryption (Happens at this step)
+    Egress_A --> Internet
+    Egress_B --> Internet
+
+    %% Logging and ExtAuth Management
+    PolicyEnforcer -- Policy Check --> AuthServer
+    PolicyEnforcer -.-> Logger[Logging]
+    AuthServer -.-> Logger

@@ -1,0 +1,45 @@
+# Dockerfile for dnscrypt-proxy with ODoH support
+# Uses custom-built binary from assets/ to fix IPv4 binding bug
+# Bug: https://github.com/DNSCrypt/dnscrypt-proxy/discussions/2700
+# The official releases fail to bind to IPv4 when running as non-root on Alpine Linux.
+# This Dockerfile uses a pre-built binary compiled from the development branch.
+
+FROM localnet-base-alpine:latest
+
+USER root
+
+# Install runtime dependencies
+RUN apk add --no-cache \
+    bash \
+    ca-certificates
+
+
+# Create non-root user and set initial ownership
+# The service runs as root to bind to port 5053, but we prepare the user for future hardening.
+RUN addgroup -g 1010 dnscrypt && \
+	adduser -D -u 1010 -G dnscrypt dnscrypt
+
+# Copy all assets into the builder stage
+COPY --chown=dnscrypt:dnscrypt assets/usr/local/bin/dnscrypt-proxy /usr/local/bin/dnscrypt-proxy
+COPY --chown=dnscrypt:dnscrypt assets/entrypoint-dnscrypt.sh /usr/local/bin/entrypoint-dnscrypt.sh
+
+# Set ownership for the directories that will be used by the non-root user
+RUN mkdir -p /templates /etc/dnscrypt-proxy /var/cache/dnscrypt-proxy /var/log/dnscrypt-proxy && \
+	chown -R dnscrypt:dnscrypt /etc/dnscrypt-proxy /var/cache/dnscrypt-proxy /var/log/dnscrypt-proxy && \
+	chmod 755 /templates /etc/dnscrypt-proxy /var/cache/dnscrypt-proxy /var/log/dnscrypt-proxy /usr/local/bin/entrypoint-dnscrypt.sh /usr/local/bin/dnscrypt-proxy
+
+
+# TODO: Consider using capabilities (CAP_NET_BIND_SERVICE) to allow non-root binding to privileged ports
+
+# Volume reminder, templates containe the configuration
+VOLUME ["/templates"]
+
+# Expose DNS port (will be overridden by docker-compose port mapping)
+EXPOSE 5053/udp 5053/tcp
+
+# Health check (uses a default config path for validation)
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+	CMD /usr/local/bin/dnscrypt-proxy -resolve cloudflare.com -config /etc/dnscrypt-proxy/dnscrypt-proxy.toml || exit 1
+
+# Run entrypoint script which substitutes the port and starts dnscrypt-proxy
+ENTRYPOINT ["/usr/local/bin/entrypoint-dnscrypt.sh"]

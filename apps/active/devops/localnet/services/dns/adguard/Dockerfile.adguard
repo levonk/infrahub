@@ -1,0 +1,23 @@
+FROM adguard/adguardhome:latest
+
+# Install curl for healthcheck
+RUN apk add --no-cache curl
+
+# Add healthcheck
+HEALTHCHECK --interval=30s --timeout=3s \
+  CMD curl --fail http://localhost:${DNS_ADGUARD_WEB_CONTAINER_PORT:-3000} || exit 1
+
+# Copy entrypoint script
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# Set non-root user (will be overridden by entrypoint if PUID/PGID provided)
+USER adguard
+
+# Expose ports
+EXPOSE ${DNS_ADGUARD_CONTAINER_PORT:-5354}/tcp
+EXPOSE ${DNS_ADGUARD_CONTAINER_PORT:-5354}/udp
+EXPOSE ${DNS_ADGUARD_WEB_CONTAINER_PORT:-3000}/tcp
+
+# Set entrypoint
+ENTRYPOINT ["/entrypoint.sh"]

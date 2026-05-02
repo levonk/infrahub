@@ -1,0 +1,92 @@
+---
+
+# Home services: Home Assistant + Mosquitto + ring-mqtt
+
+# Default logging configuration - use json-file with rotation
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "5"
+    tag: "{{.Name}}"
+    labels: "service"
+
+volumes:
+  homeassistant-config:
+
+services:
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    container_name: localnet-homeassistant
+    logging: *default-logging
+    networks:
+      - localnet
+    depends_on:
+      - iot-mosquitto
+    ports:
+      - "8123:8123"
+    environment:
+      - TZ=${TZ:-UTC}
+    volumes:
+      - homeassistant-config:/config
+    restart: unless-stopped
+
+  ring-mqtt:
+    image: tsightler/ring-mqtt:latest
+    container_name: localnet-ring-mqtt
+    logging: *default-logging
+    networks:
+      - localnet
+    depends_on:
+      - iot-mosquitto
+    environment:
+      - RINGTOKEN=${LOCALNET_RING_REFRESH_TOKEN}
+      - MQTT_HOST=${LOCALNET_MQTT_BROKER_HOST:-iot-mosquitto}
+      - MQTT_PORT=${LOCALNET_MQTT_BROKER_PORT:-1883}
+      - MQTT_USERNAME=${LOCALNET_MQTT_USERNAME_RING:-}
+      - MQTT_PASSWORD=${LOCALNET_MQTT_PASSWORD_RING:-}
+      - ENABLE_STREAMING=${LOCALNET_RING_ENABLE_LIVESTREAM:-true}
+      - HASS_DISCOVERY=true
+    restart: unless-stopped
+
+  homer:
+    build:
+      context: ./homer
+    image: b4bz/homer
+    container_name: localnet-home-homer
+    volumes:
+      - ./homer/mounts/www/assets:/www/assets # Make sure your local config directory exists
+    ports:
+      - 8888:8080
+    user: 1000:1000 # default
+    environment:
+      - INIT_ASSETS=1 # default, requires the config directory to be writable for the container user (see user option)
+    restart: unless-stopped
+
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: localnet-home-qbittorrent
+    depends_on:
+      - gluetun
+    network_mode: "service:gluetun"
+    ports:
+      - "8701:8701"
+      - "6881:6881"
+      - "6881:6881/udp"
+    volumes:
+      - ./qbittorrent/mounts/etc/qbittorrent/config:/config
+      - ${TORN_DATA_LOCATION}:/data/torn
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TIMEZONE:-UTC}
+      - WEBUI_PORT=8701
+      - TORRENTING_PORT=6881
+    restart: unless-stopped
+
+  it-tools:
+    image: corentinth/it-tools:latest
+    container_name: localnet-home-it-tools
+    ports:
+      - "7080:80"
+    restart: unless-stopped

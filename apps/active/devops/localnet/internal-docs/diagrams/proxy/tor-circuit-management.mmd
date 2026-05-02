@@ -1,0 +1,31 @@
+graph TB
+    subgraph "Tor Network"
+        Entry[Entry Guard]
+        Middle[Middle Relay]
+        Exit[Exit Node]
+    end
+    
+    subgraph "Circuit Lifecycle"
+        Create[Create Circuit]
+        Use[Use Circuit]
+        Rotate[Rotate Circuit<br/>Every 10 min]
+    end
+    
+    Client[Privoxy] --> Create
+    Create --> Entry
+    Entry -->|Encrypted| Middle
+    Middle -->|Encrypted| Exit
+    Exit -->|Cleartext| Internet[Internet]
+    
+    Create --> Use
+    Use --> Rotate
+    Rotate --> Create
+    
+    Internet -->|Response| Exit
+    Exit -->|Encrypted| Middle
+    Middle -->|Encrypted| Entry
+    Entry --> Client
+    
+    style Entry fill:#cc99ff
+    style Middle fill:#cc99ff
+    style Exit fill:#cc99ff

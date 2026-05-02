@@ -1,0 +1,76 @@
+# =============================================================================
+# Base Sidecar Dockerfile
+# =============================================================================
+# Purpose: Extends base-alpine to provide additional sidecar functionality
+# Inheritance: Inherits /base-app and /base-alpine directories from base-alpine
+# Provides: /base-sidecar directory with its own flake.nix and scripts
+# Usage: Base image for other services that need both Alpine and additional tools
+# =============================================================================
+
+# =============================================================================
+# Inheritance from Base Alpine
+# =============================================================================
+# Inherits from localnet-base-alpine:latest instead of directly from nixpkgs/nix:latest
+# This provides:
+# - /base-app/ directory with Alpine environment and bootstrap tarball
+# - /base-alpine/ directory with additional Alpine 
+# - Pre-configured Alpine environment with channels and SSL certificates
+# - Bootstrap tarball for volume restoration
+FROM localnet-base-alpine:latest
+
+# =============================================================================
+# Additional Assets
+# =============================================================================
+# Copy static assets to mirror container filesystem
+# This creates /base-sidecar/ directory with:
+# - entrypoint.sh: Custom entrypoint that extends base-alpine functionality
+# - healthcheck.sh: Health check specific to sidecar requirements
+# - flake.nix: Additional packages needed by sidecar services
+# Note: This does NOT overwrite /base-app/ inherited from base-alpine
+COPY assets/static/ /
+
+# =============================================================================
+# Environment Configuration
+# =============================================================================
+# Set up environment for the base-sidecar
+# Extends the environment inherited from base-alpine with additional paths
+# - PATH: Ensures all standard binaries are available (inherits from base-alpine)
+# - NIX_PATH: Points to Alpoine  channels for package resolution (inherits from base-alpine)
+# - SSL_CERT_FILE: Points to CA certificates for HTTPS downloads (inherits from base-alpine)
+ENV PATH=/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ENV NIX_PATH=nixpkgs=/nix/var/nix/profiles/per-user/root/channels/nixpkgs:/nix/var/nix/profiles/per-user/root/channels
+# Alpine uses ca-certificates.crt (not ca-bundle.crt like some other distros)
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+
+# =============================================================================
+# Script Permissions
+# =============================================================================
+# Make scripts executable so they can be run as entrypoints
+# - /base-sidecar/healthcheck.sh: Used by Docker for container health checks
+# - /base-sidecar/entrypoint.sh: Main script that extends base-alpine functionality
+# Note: /base-app/ scripts from base-alpine are already executable
+RUN chmod +x /base-sidecar/bin/healthcheck-base-sidecar.sh /base-sidecar/bin/entrypoint-base-sidecar.sh
+
+# =============================================================================
+# Health Check Configuration
+# =============================================================================
+# Docker will run this command every 30s to check if the container is healthy
+# Uses sidecar-specific healthcheck.sh that validates both Alpine and sidecar functionality
+# - interval: Check every 30 seconds
+# - timeout: Fail if check takes longer than 10 seconds
+# - start-period: Give container 20s to start before checking
+# - retries: Allow 3 consecutive failures before marking unhealthy
+HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
+  CMD /bin/sh -c '/base-sidecar/bin/healthcheck-base-sidecar.sh'
+
+# =============================================================================
+# Container Entry Point
+# =============================================================================
+# Use the static busybox shell for bootstrapping
+# The /base-sidecar/entrypoint.sh script will:
+# 1. Verify /base-app/ directory exists (inherited from base-alpine)
+# 2. Optionally execute /base-app/entrypoint.sh for base Alpine setup
+# 3. Set up additional sidecar-specific packages from /base-sidecar/flake.nix
+# 4. Configure user management with proper UID/GID
+# 5. Execute the requested command or sleep by default
+ENTRYPOINT ["/bin/sh", "/base-sidecar/bin/entrypoint-base-sidecar.sh"]

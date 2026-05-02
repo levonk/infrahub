@@ -1,0 +1,20 @@
+{
+  "name": "localnet-ai-codeassist-claude-code-intercept",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "services/ai-codeassist/claude-code-intercept",
+  "tags": ["service", "ai-codeassist", "docker"],
+  "implicitDependencies": ["localnet-base-alpine"],
+  "targets": {
+    "docker:build": {
+      "executor": "@nx-tools/nx-container:build",
+      "options": {
+        "context": "services/ai-codeassist/claude-code-intercept",
+        "file": "services/ai-codeassist/claude-code-intercept/Dockerfile.claude-code-intercept",
+        "tags": ["localnet-ai-codeassist-claude-code-intercept:latest"],
+        "push": false,
+        "load": true
+      }
+    }
+  }
+}

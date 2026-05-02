@@ -1,0 +1,7 @@
+services:
+  autoclaude-runner:
+    <<: *runner-wsl-dockerproxy
+
+networks:
+  localnet:
+    external: true

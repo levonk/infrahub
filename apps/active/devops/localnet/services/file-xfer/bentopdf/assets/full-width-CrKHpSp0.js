@@ -1,0 +1,1 @@
+function e(){localStorage.getItem("fullWidthMode")==="true"&&d()}function d(t){document.querySelectorAll("#tool-uploader").forEach(l=>{l.classList.remove("max-w-2xl","max-w-4xl","max-w-5xl")})}typeof document<"u"&&(document.readyState==="loading"?document.addEventListener("DOMContentLoaded",e):e());

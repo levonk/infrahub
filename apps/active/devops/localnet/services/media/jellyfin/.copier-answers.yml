@@ -1,0 +1,22 @@
+# Changes applied to this service
+_commit: 8ae9a492
+_src_path: boilerplate/apps/infrastructure/docker/docker-linux
+
+# Service Identity
+_service_name: Jellyfin
+_service_description: The Free Software Media System
+_service_name_slug: jellyfin
+_domain: localnet
+
+# Container & Network
+_service_port: 8096
+_service_health_endpoint: /health
+_use_traefik: true
+_enable_monitoring: true
+
+# Features
+_include_ui: false
+_ui_port: 8096
+
+# Nix Configuration (unused for linux boilerplate but required by some templates)
+_nix_system: x86_64-linux
