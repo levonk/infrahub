@@ -1,17 +1,17 @@
 {
-  "name": "localnet-artifact-unity-sidecar",
+  "name": "localnet-artifact-turbo-cache",
   "$schema": "../../../node_modules/nx/schemas/project-schema.json",
   "projectType": "library",
-  "sourceRoot": "services/artifact/unity-sidecar",
+  "sourceRoot": "services/artifact/turbo-cache",
   "tags": ["service", "artifact", "docker"],
   "implicitDependencies": ["localnet-base-sidecar"],
   "targets": {
     "docker:build": {
       "executor": "@nx-tools/nx-container:build",
       "options": {
-        "context": "services/artifact/unity-sidecar",
-        "file": "services/artifact/unity-sidecar/Dockerfile.unity-sidecar",
-        "tags": ["localnet-artifact-unity-sidecar:latest"],
+        "context": "services/artifact/turbo-cache",
+        "file": "services/artifact/turbo-cache/Dockerfile.turbo-cache",
+        "tags": ["localnet-artifact-turbo-cache:latest"],
         "push": false,
         "load": true
       }

@@ -1,5 +1,5 @@
 # Use localnet base Alpine image with proper user setup
-FROM localnet-base-alpine:latest
+FROM localnet-base-sidecar:latest
 
 # Install runtime dependencies
 RUN apk add --no-cache \

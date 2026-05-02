@@ -4,7 +4,7 @@
   "projectType": "library",
   "sourceRoot": "services/artifact/nx-sidecar",
   "tags": ["sidecar", "artifact", "nx", "cache", "docker"],
-  "implicitDependencies": ["localnet-base-sidecar", "localnet-pnpm-sidecar"],
+  "implicitDependencies": ["localnet-base-sidecar"],
   "targets": {
     "docker:build": {
       "executor": "@nx-tools/nx-container:build",

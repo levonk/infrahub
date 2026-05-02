@@ -1,5 +1,0 @@
-services:
-  vibe-kanban:
-    extends:
-      file: ../docker-compose.agent-runner.yml
-      service: x-runner-wsl-dockerproxy

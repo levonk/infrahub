@@ -4,6 +4,7 @@
   "projectType": "library",
   "sourceRoot": "services/artifact/python-sidecar",
   "tags": ["service", "artifact", "docker"],
+  "implicitDependencies": ["localnet-base-sidecar"],
   "targets": {
     "docker:build": {
       "executor": "@nx-tools/nx-container:build",
