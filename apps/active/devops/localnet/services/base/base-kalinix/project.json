@@ -4,7 +4,7 @@
   "projectType": "library",
   "sourceRoot": "services/base/base-kalinix",
   "tags": ["base", "kali", "nix", "docker"],
-  "implicitDependencies": ["localnet-base-kali", "localnet-nix-sidecar"],
+  "implicitDependencies": ["localnet-base-kali"],
   "targets": {
     "docker:build": {
       "executor": "@nx-tools/nx-container:build",

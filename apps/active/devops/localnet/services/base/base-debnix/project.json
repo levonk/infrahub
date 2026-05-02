@@ -4,6 +4,7 @@
   "projectType": "library",
   "sourceRoot": "services/base/base-debnix",
   "tags": ["service", "base", "docker"],
+  "implicitDependencies": ["localnet-base-debian"],
   "targets": {
     "docker:build": {
       "executor": "@nx-tools/nx-container:build",

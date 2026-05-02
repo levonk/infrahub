@@ -4,7 +4,7 @@
   "projectType": "library",
   "sourceRoot": "services/base/base-sidecar",
   "tags": ["base", "sidecar", "docker"],
-  "implicitDependencies": ["localnet-base-nix"],
+  "implicitDependencies": ["localnet-base-alpine"],
   "targets": {
     "docker:build": {
       "executor": "@nx-tools/nx-container:build",

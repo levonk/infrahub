@@ -306,7 +306,7 @@ if [ $# -eq 0 ]; then
     echo "🤖 Dev Base: Container will wait for manual intervention"
     # Sleep indefinitely to keep container running
     while true; do
-        sleep 3600
+        devbox run  -- sleep 3600
     done
 else
     execute_as_user "$@"
