@@ -49,6 +49,7 @@ bootstrap-internal:
         pnpm config set global-bin-dir "$PNPM_HOME" && \
         pnpm config set store-dir "$PNPM_HOME/store" && \
         pnpm add -g nx && \
+        pnpm install && \
         ./scripts/echo-colors.sh green "✓ bootstrap-internal completed"
 
 # Logging helpers (DRY - all tasks log with start/end demarcation)
@@ -136,6 +137,42 @@ build-service-internal service:
     @just log-start "build-{{service}}"
     @./scripts/echo-colors.sh blue "Building service {{service}}..."
     @({{DC_LOCAL}} --progress=plain build {{service}} 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (./scripts/echo-colors.sh green "✓ Service {{service}} built"; just log-end "build-{{service}}" "SUCCESS") || (./scripts/echo-colors.sh red "✗ Service {{service}} build failed"; just log-end "build-{{service}}" "FAILED"; exit 1)
+
+# Build base-dev specifically for iteration
+build-base-dev:
+    devbox run build-base-dev-internal
+
+build-base-dev-internal:
+    @just log-start "build-base-dev"
+    @./scripts/echo-colors.sh blue "Building base-dev service..."
+    @({{DC_LOCAL}} --progress=plain build base-dev 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (./scripts/echo-colors.sh green "✓ base-dev built"; just log-end "build-base-dev" "SUCCESS") || (./scripts/echo-colors.sh red "✗ base-dev build failed"; just log-end "build-base-dev" "FAILED"; exit 1)
+
+# Build openfang specifically for iteration
+build-openfang:
+    devbox run build-openfang-internal
+
+build-openfang-internal:
+    @just log-start "build-openfang"
+    @./scripts/echo-colors.sh blue "Building openfang service..."
+    @(COMPOSE_PARALLEL_LIMIT={{COMPOSE_PARALLEL_LIMIT}} DOCKER_BUILDKIT=1 docker compose -f services/ai-codeassist/openfang/openfang/docker-compose.openfang.yml --env-file {{ENV_FILE}} --progress=plain build openfang 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (./scripts/echo-colors.sh green "✓ openfang built"; just log-end "build-openfang" "SUCCESS") || (./scripts/echo-colors.sh red "✗ openfang build failed"; just log-end "build-openfang" "FAILED"; exit 1)
+
+# Build and start base-dev for iteration
+build-up-dev:
+    devbox run build-up-dev-internal
+
+build-up-dev-internal:
+    @just log-start "build-up-dev"
+    @./scripts/echo-colors.sh blue "Building and starting base-dev..."
+    @({{DC_LOCAL}} --progress=plain build base-dev 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (./scripts/echo-colors.sh green "✓ base-dev built"; {{DC_LOCAL}} up -d base-dev 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (./scripts/echo-colors.sh green "✓ base-dev started"; just log-end "build-up-dev" "SUCCESS") || (./scripts/echo-colors.sh red "✗ base-dev build-up failed"; just log-end "build-up-dev" "FAILED"; exit 1)
+
+# Build and start openfang for iteration
+build-up-openfang:
+    devbox run build-up-openfang-internal
+
+build-up-openfang-internal:
+    @just log-start "build-up-openfang"
+    @./scripts/echo-colors.sh blue "Building and starting openfang..."
+    @(COMPOSE_PARALLEL_LIMIT={{COMPOSE_PARALLEL_LIMIT}} DOCKER_BUILDKIT=1 docker compose -f services/ai-codeassist/openfang/openfang/docker-compose.openfang.yml --env-file {{ENV_FILE}} --progress=plain build openfang 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (./scripts/echo-colors.sh green "✓ openfang built"; COMPOSE_PARALLEL_LIMIT={{COMPOSE_PARALLEL_LIMIT}} DOCKER_BUILDKIT=1 docker compose -f services/ai-codeassist/openfang/openfang/docker-compose.openfang.yml --env-file {{ENV_FILE}} up -d openfang 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (./scripts/echo-colors.sh green "✓ openfang started"; just log-end "build-up-openfang" "SUCCESS") || (./scripts/echo-colors.sh red "✗ openfang build-up failed"; just log-end "build-up-openfang" "FAILED"; exit 1)
 
 # Profile-based service management (NEW - ADR-20260322002)
 up-agents:
@@ -677,7 +714,7 @@ nx-graph:
 nx-graph-internal:
     @./scripts/echo-colors.sh blue "NX: Opening dependency graph..."
     @if [ "{{NX_AVAILABLE}}" = "true" ]; then \
-        {{NX_BIN}} graph; \
+        {{NX_BIN}} --verbose graph; \
     else \
         echo "NX not installed. Run: pnpm install"; \
         exit 1; \

@@ -1,0 +1,20 @@
+{
+  "name": "localnet-cloud-rustfs",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "services/cloud/rustfs",
+  "tags": ["service", "cloud", "docker"],
+  "implicitDependencies": ["localnet-base-alpine"],
+  "targets": {
+    "docker:build": {
+      "executor": "@nx-tools/nx-container:build",
+      "options": {
+        "context": "services/cloud/rustfs",
+        "file": "services/cloud/rustfs/Dockerfile.rustfs",
+        "tags": ["localnet-cloud-rustfs:latest"],
+        "push": false,
+        "load": true
+      }
+    }
+  }
+}
