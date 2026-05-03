@@ -26,8 +26,35 @@ A prioritized roadmap for building a secure, resilient, and privacy-focused home
 - [ ] https://github.com/runtipi/runtipi
 
 ---
+## Bootable USB
+Ventoy USB Booter
+
+- Persistant
+	- https://github.com/Ganso/refugiOS
+- LiveCD
+	- Ubuntu Full
+	- Debian Full
+	- Debian Minimal
+	- Kali
+- Install
+	- QubesOS
+	- Windows
+	- Nix
+- Server
+	- Alpine
+	- Talos
+	- Proxmox
+	- Proxmox Backup
+- Diagnostic
+	- Memtest
+	- Backup/Recovery
+
+---
 
 ## 🖥️ Hardware & Virtualization Strategy
+
+### Mobile
+- [ ] https://github.com/ExTV/Podroid
 
 ### Firewall
 
@@ -78,17 +105,37 @@ A prioritized roadmap for building a secure, resilient, and privacy-focused home
 
 ### Cloud Server
 
-- DDNS, Caching Proxy, VPN, Reverse Proxy, Tor
-- Redundant Single Sign On
-- DNS (fourth backup after proxmox1, proxmox2, local Rasberry Pi, cloud based)
-- Time
-- Outside -> Reverse Proxy -> In (self hosted)
-- Outside -> VPN -> In
-- Outside -> VPN + Tor -> Outside
-- Inside -> VPN -> Outside
-- Cert Authority
-- RustDeskDocker - Remote Help
-- ZeroTrust VPN
+- Netbird Gateway Agent Wireguard (Host instance)
+- ssh-server
+- tailscale
+- mosh
+- Dunno: TmuxAI, Zellij, both?
+- Security: fail2ban, snort, IDS
+- assure UTC timezone
+- assure no password login
+- assure authorized keys
+- Neovim
+- zsh
+- Docker
+  - Netbird Control Plane: Management Server
+  - Netbird Control Plane: Signal NAT traversal helper Server
+  - Netbird Control Plane: TURN fallback relay Server
+  - DDNS
+  - Time
+  - DNS (fourth backup after proxmox1, proxmox2, local Rasberry Pi, cloud based)
+  - Redundant Single Sign On
+  - Caching Proxy, Reverse Proxy, Tor
+  - Cert Authority
+- KVM/libvirt
+  - Netbird Gateway Agent Wireguard (VM instance)
+  - Docker
+    - Paperclip
+		- Own github account
+		- Own Google Account
+    - OpenFang
+    - Outside -> VPN + Tor -> Outside
+    - Inside -> VPN -> Outside
+    - RustDeskDocker - Remote Help
 
 ### Local Rasberry Pi
 
@@ -228,6 +275,7 @@ A prioritized roadmap for building a secure, resilient, and privacy-focused home
 
 _Goal: Privacy, Resilience, Ad-blocking_
 
+- [ ] Security for Untrusted Workloads: https://github.com/ironsh/iron-proxy?tab=readme-ov-file
 - [ ] **High Availability**: `keepalived` for critical DNS endpoints
 - [ ] **Layer 1 (Filtering)**: AdGuard Home + keepalived https://github.com/AdguardTeam/AdGuardHome
 - [ ] **Layer 2 (Routing)**: DNSDist + keepalived https://github.com/PowerDNS/pdns
@@ -245,6 +293,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
 
 ### Web Proxy
 
+- [ ] Security for Untrusted workloads: https://github.com/ironsh/iron-proxy?tab=readme-ov-file
 - [ ] **Search** (self-hosted meta-search to route through Tor) https://docs.searxng.org/
 - [ ] **AI Chat** (self-hosted AI chat) https://github.com/xprivo/ai-chat
 - [ ] **Marreta** (Special purpose de-annoyer) https://github.com/manualdousuario/marreta/blob/main/README.en.md
@@ -467,7 +516,6 @@ _Goal: Privacy, Resilience, Ad-blocking_
 - [ ] **Management**:
   - [ ] **XPipte**: Connection Manager https://github.com/xpipe-io/xpipe
   - [ ] **Mydia**: Video Manager https://github.com/getmydia/mydia
-  - [ ] **Alt-SendMe**: Private file exchange https://github.com/tonyantony300/alt-sendme
   - [ ] **Rclone Gui**: https://rclone.org/gui/ https://github.com/rclone/rclone
   - [ ] **Enclosed**: Private Note exchange https://github.com/CorentinTh/enclosed
   - [ ] **MicroBin**: Private PasteBin https://github.com/microbin/microbin
@@ -489,6 +537,8 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] **Paperless-ngx**: Document Management System https://github.com/paperless-ngx/paperless-ngx
   - [ ] **PageIndex**: Document Analysis System https://github.com/VectifyAI/PageIndex
 - [ ] **File Transfer**
+  - [ ] **Alt-SendMe**: Private file exchange https://github.com/tonyantony300/alt-sendme
+  - [ ] **Locker**: Private file exchange https://github.com/zmeyer44/Locker
   - [ ] https://github.com/fatedier/fft
   - [ ] Torrents
     - [ ] **Qbittorrent**: Torrent Client https://github.com/c0re100/qBittorrent-Enhanced-Edition https://github.com/qbittorrent/qBittorrent
