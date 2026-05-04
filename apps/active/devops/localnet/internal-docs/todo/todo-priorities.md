@@ -198,6 +198,7 @@ A prioritized roadmap for building a secure, resilient, and privacy-focused home
 ### Remote Access
 
 - [ ] **Guacamole**: https://github.com/apache/guacamole-server https://github.com/apache/guacamole-client
+- [ ] **Loopsy**: https://github.com/leox255/loopsy (mobile terminal)
 - [ ] **RustDesk**: https://github.com/rustdesk/rustdesk
 - [ ] **ClipCascade**: Cross Device Clipboard sharing tool
 - [ ] **Termix**: https://github.com/Termix-SSH/Termix
@@ -304,7 +305,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] **Jaeger**: https://github.com/jaegertracing/jaeger
 
 ### Development Tools
-
+  - [ ] https://github.com/safishamsi/graphify
   - [ ] https://github.com/basecamp/fizzy?tab=readme-ov-file
 - [ ] **CI/CD Services**:
   - [ ] https://github.com/mend/renovate-ce-ee/tree/main/docs
@@ -319,6 +320,9 @@ _Goal: Privacy, Resilience, Ad-blocking_
 - [ ] **IDE**: VS Code Server / Coder
   - [ ] https://github.com/asheshgoplani/agent-deck
 - [ ] **AI Code Assist (ai-codeassist)**:
+  - [ ] https://github.com/forrestchang/andrej-karpathy-skills/blob/main/skills/karpathy-guidelines/SKILL.md
+  - [ ] https://github.com/paperclipai/paperclip https://github.com/gsxdsm/awesome-paperclip https://github.com/gsxdsm/oh-my-paperclip
+  - [ ] https://github.com/AnthonyDavidAdams/zero-employee-company-book
   - [ ] Human Interaction Controller https://github.com/easychen/ask4me
   - [ ] **Code Understanding** https://github.com/HKUDS/FastCode
   - [ ] **Claude Code core service (cc-tools)**: https://github.com/Veraticus/cc-tools
@@ -337,6 +341,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
     - [ ] **ClawRouter**: https://github.com/BlockRunAI/ClawRouter
     - [ ] **ClawHub**: https://github.com/openclaw/clawhub
 - [ ] **AI Auto Agent**:
+  - [ ] **Hermes**: AI-powered https://github.com/NousResearch/hermes-agent
   - [ ] **IronClaw**: AI-powered automation and task management https://github.com/nearai/ironclaw
 	- Alternatives
     - [ ] **OpenClaw**: AI-powered automation and task management https://github.com/openclaw/openclaw (ClawdBot, MoltBot, OpenClaw)

@@ -1,0 +1,63 @@
+---
+# Default logging configuration - use json-file with rotation
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "5"
+    tag: "{{.Name}}"
+    labels: "service"
+
+services:
+  job-ops:
+    image: ghcr.io/dakheera47/job-ops:latest
+    container_name: localnet-apps-job-ops
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=UTC
+      - APPS_JOB_OPS_CONTAINER_PORT=${APPS_JOB_OPS_CONTAINER_PORT:-3005}
+      # Optional: Demo mode for sandbox deployments
+      - DEMO_MODE=${APPS_JOB_OPS_DEMO_MODE:-false}
+      # Optional: Gmail OAuth (for tracking inbox)
+      - GMAIL_OAUTH_CLIENT_ID=${APPS_JOB_OPS_GMAIL_OAUTH_CLIENT_ID:-}
+      - GMAIL_OAUTH_CLIENT_SECRET=${APPS_JOB_OPS_GMAIL_OAUTH_CLIENT_SECRET:-}
+      - GMAIL_OAUTH_REDIRECT_URI=${APPS_JOB_OPS_GMAIL_OAUTH_REDIRECT_URI:-http://localhost:3005/oauth/gmail/callback}
+      # Optional: Basic auth for older single-user installs
+      - BASIC_AUTH_USER=${APPS_JOB_OPS_BASIC_AUTH_USER:-}
+      - BASIC_AUTH_PASSWORD=${APPS_JOB_OPS_BASIC_AUTH_PASSWORD:-}
+      # Optional: Self-hosted Reactive Resume
+      - RXRESUME_URL=${APPS_JOB_OPS_RXRESUME_URL:-}
+      - RXRESUME_API_KEY=${APPS_JOB_OPS_RXRESUME_API_KEY:-}
+    ports:
+      - "${APPS_JOB_OPS_HOST_PORT:-3005}:${APPS_JOB_OPS_CONTAINER_PORT:-3005}/tcp"
+    networks:
+      localnet:
+        ipv4_address: ${APPS_JOB_OPS_IP:-172.20.255.72}
+    volumes:
+      # Persistent data storage
+      - job-ops-data:/app/data:rw
+    logging: *default-logging
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges
+    cap_drop:
+      - ALL
+    # Note: JobOps container may require write access, so read_only is not set
+    # tmpfs:
+    #   - /tmp:noexec,nosuid,size=100m
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3005/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    profiles: ["apps"]
+
+networks:
+  localnet:
+    external: true
+
+volumes:
+  job-ops-data:
+    driver: local
