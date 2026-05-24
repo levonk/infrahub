@@ -1,0 +1,78 @@
+---
+# LocalNet DNS Stack Deployment
+# Services: dnsdist, CoreDNS, dnscrypt-plaintext, blocklist-compiler, tor-proxy
+
+- name: Ensure DNS service directory exists on target
+  ansible.builtin.file:
+    path: "{{ localnet_services_dir }}/dns"
+    state: directory
+    mode: "0755"
+
+- name: Ensure DNS blocklist volumes exist
+  community.docker.docker_volume:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - localnet-dns-blocklist-archive-volume
+    - localnet-dns-blocklist-cdbs-volume
+    - localnet-dns-coredns-cache-volume
+    - localnet-dns-adguard-conf-volume
+    - localnet-dns-adguard-work-volume
+
+- name: Synchronize DNS service files from control node
+  ansible.posix.synchronize:
+    src: "{{ playbook_dir }}/../../../container/services/dns/"
+    dest: "{{ localnet_services_dir }}/dns/"
+    delete: false
+    rsync_opts:
+      - "--exclude=.git"
+      - "--exclude=*.log"
+  delegate_to: "{{ inventory_hostname }}"
+  become: false
+  when: ansible_connection == "local"
+
+- name: Ensure DNS Docker Compose file exists
+  ansible.builtin.stat:
+    path: "{{ localnet_services_dir }}/dns/docker-compose.dns.yml"
+  register: dns_compose_stat
+
+- name: Deploy DNS stack via docker compose
+  community.docker.docker_compose_v2:
+    project_src: "{{ localnet_services_dir }}/dns"
+    files:
+      - docker-compose.dns.yml
+    state: present
+    build: always
+    profiles:
+      - all
+  when: dns_compose_stat.stat.exists
+  register: dns_deploy
+
+- name: Wait for CoreDNS to become healthy
+  ansible.builtin.shell: |
+    docker inspect --format='{{"{{"}}.State.Health.Status{{"}}"}}' localnet-dns-coredns
+  register: coredns_health
+  until: coredns_health.stdout == "healthy"
+  retries: 10
+  delay: 10
+  ignore_errors: true
+  when: dns_deploy.changed
+
+- name: Wait for DNSDist to become healthy
+  ansible.builtin.shell: |
+    docker inspect --format='{{"{{"}}.State.Health.Status{{"}}"}}' localnet-dns-dnsdist
+  register: dnsdist_health
+  until: dnsdist_health.stdout == "healthy"
+  retries: 10
+  delay: 15
+  ignore_errors: true
+  when: dns_deploy.changed
+
+- name: Report DNS stack status
+  ansible.builtin.debug:
+    msg: |
+      DNS Stack deployed successfully:
+        - DNSDist: localhost:{{ dns_transparent_host_port }} (transparent)
+        - CoreDNS: localhost:{{ dns_coredns_main_host_port }} (direct)
+        - dnscrypt-plaintext: localhost:{{ dns_dnscrypt_plaintext_host_port }}
+        - AdGuard: localhost:{{ dns_adguard_web_host_port }} (web UI)

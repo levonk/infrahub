@@ -1,0 +1,54 @@
+---
+# Common tasks for all LocalNet hosts
+
+- name: Update apt cache (Debian/Ubuntu)
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+  when: ansible_os_family == "Debian"
+
+- name: Ensure required packages are installed
+  ansible.builtin.package:
+    name:
+      - "{{ 'python3-docker' if ansible_os_family == 'Debian' else 'python3-podman' }}"
+      - curl
+      - jq
+      - git
+    state: present
+
+- name: Ensure Docker service is installed and running
+  ansible.builtin.systemd:
+    name: docker
+    state: started
+    enabled: true
+  ignore_errors: true
+
+- name: Ensure docker-compose plugin is available
+  ansible.builtin.command:
+    cmd: docker compose version
+  register: docker_compose_check
+  changed_when: false
+  ignore_errors: true
+
+- name: Install docker-compose plugin if missing
+  ansible.builtin.get_url:
+    url: "https://github.com/docker/compose/releases/download/v{{ docker_compose_version }}/docker-compose-linux-{{ ansible_architecture }}"
+    dest: /usr/local/lib/docker/cli-plugins/docker-compose
+    mode: "0755"
+  when: docker_compose_check.rc != 0
+
+- name: Ensure Docker networks exist
+  community.docker.docker_network:
+    name: "{{ item.name }}"
+    state: present
+    driver: bridge
+    ipam_config:
+      - subnet: "{{ item.subnet }}"
+        gateway: "{{ item.gateway | default(omit) }}"
+  loop:
+    - { name: "{{ localnet_network_name }}", subnet: "{{ localnet_network_subnet }}", gateway: "{{ localnet_network_gateway }}" }
+    - { name: "{{ wireguard_network_name }}", subnet: "{{ wireguard_network_subnet }}" }
+    - { name: "{{ codeassist_network_name }}", subnet: "{{ codeassist_network_subnet }}" }
+    - { name: "{{ agent_network_name }}", subnet: "{{ agent_network_subnet }}", gateway: "{{ agent_network_gateway }}" }
+    - { name: "{{ dmz_network_name }}", subnet: "{{ dmz_network_subnet }}", gateway: "{{ dmz_network_gateway }}" }
+  ignore_errors: true

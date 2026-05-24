@@ -1,0 +1,33 @@
+---
+# LocalNet Full Site Playbook
+# Deploys all enabled stacks: DNS, Proxy, VPN
+# Usage: ansible-playbook -i inventories/localnet.yml playbooks/site.yml
+
+- name: "Deploy LocalNet Infrastructure"
+  hosts: localnet_hosts
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: Ensure LocalNet base directory exists
+      ansible.builtin.file:
+        path: "{{ localnet_base_dir }}"
+        state: directory
+        mode: "0755"
+      become: false
+
+  roles:
+    - role: common
+      tags: ["always", "common"]
+
+    - role: dns
+      tags: ["dns"]
+      when: dns_stack_enabled | default(false) | bool
+
+    - role: proxy
+      tags: ["proxy"]
+      when: proxy_stack_enabled | default(false) | bool
+
+    - role: vpn
+      tags: ["vpn"]
+      when: vpn_stack_enabled | default(false) | bool

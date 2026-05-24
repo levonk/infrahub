@@ -1,0 +1,16 @@
+---
+# LocalNet VPN Stack Playbook
+# Deploys: Netbird, Tailscale, Gluetun, WireGuard, Twingate
+# Usage: ansible-playbook -i inventories/localnet.yml playbooks/vpn-stack.yml
+
+- name: "Deploy LocalNet VPN Stack"
+  hosts: localnet_hosts
+  become: true
+  gather_facts: true
+
+  roles:
+    - role: common
+      tags: ["always", "common"]
+
+    - role: vpn
+      tags: ["vpn"]

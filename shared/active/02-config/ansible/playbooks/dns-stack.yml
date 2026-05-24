@@ -1,0 +1,16 @@
+---
+# LocalNet DNS Stack Playbook
+# Deploys: dnsdist, CoreDNS, dnscrypt-plaintext, blocklist-compiler
+# Usage: ansible-playbook -i inventories/localnet.yml playbooks/dns-stack.yml
+
+- name: "Deploy LocalNet DNS Stack"
+  hosts: localnet_hosts
+  become: true
+  gather_facts: true
+
+  roles:
+    - role: common
+      tags: ["always", "common"]
+
+    - role: dns
+      tags: ["dns"]

@@ -1,0 +1,114 @@
+---
+# LocalNet Ansible Variables
+# Extracted from docker-compose files and justfile
+
+# Base identity
+localnet_puid: 1000
+localnet_pgid: 1000
+localnet_tz: UTC
+
+# ---------------------------------------------------------------------------
+# Docker / Compose settings
+# ---------------------------------------------------------------------------
+docker_compose_version: "2.24"
+docker_daemon_json:
+  log-driver: "json-file"
+  log-opts:
+    max-size: "10m"
+    max-file: "5"
+    labels: "service"
+
+# ---------------------------------------------------------------------------
+# Network settings
+# ---------------------------------------------------------------------------
+localnet_network_name: localnet-network
+localnet_network_subnet: "172.26.0.0/16"
+localnet_network_gateway: "172.26.0.1"
+
+wireguard_network_name: wireguard-network
+wireguard_network_subnet: "172.22.0.0/16"
+
+codeassist_network_name: codeassist-network
+codeassist_network_subnet: "172.23.0.0/16"
+
+agent_network_name: agent-network
+agent_network_subnet: "172.20.0.0/16"
+agent_network_gateway: "172.20.0.1"
+
+dmz_network_name: dmz-network
+dmz_network_subnet: "172.21.0.0/16"
+dmz_network_gateway: "172.21.0.1"
+
+# ---------------------------------------------------------------------------
+# DNS Stack Variables
+# ---------------------------------------------------------------------------
+dns_stack_enabled: true
+
+# Ports
+dns_transparent_host_port: 5500
+dns_transparent_container_port: 5500
+dns_dnsdist_main_host_port: 5501
+dns_dnsdist_main_container_port: 5501
+dns_dnsdist_metrics_host_port: 8083
+dns_dnsdist_metrics_container_port: 8083
+
+dns_coredns_main_host_port: 15354
+dns_coredns_main_container_port: 15353
+dns_coredns_main_metrics_host_port: 9153
+dns_coredns_main_health_host_port: 27493
+dns_coredns_main_health_container_port: 18080
+dns_coredns_main_ip: "172.26.255.51"
+
+dns_dnscrypt_plaintext_host_port: 5365
+dns_dnscrypt_plaintext_container_port: 5058
+dns_dnscrypt_plaintext_ip: "172.26.255.65"
+
+dns_adguard_host_port: 5354
+dns_adguard_container_port: 5354
+dns_adguard_web_host_port: 3000
+dns_adguard_web_container_port: 3000
+dns_adguard_ip: "172.26.255.67"
+
+# ---------------------------------------------------------------------------
+# Proxy / Web Stack Variables
+# ---------------------------------------------------------------------------
+proxy_stack_enabled: true
+
+proxy_tor_socks5_host_port: 9050
+proxy_tor_socks5_container_port: 9050
+proxy_tor_ip: "172.26.255.70"
+
+proxy_direct_port: 3128
+proxy_cache_size_mb: 10240
+proxy_http_transparent_port: 10080
+proxy_https_transparent_port: 10443
+proxy_envoy_internal_host_port: 3129
+proxy_envoy_admin_host_port: 9901
+
+# Traefik
+proxy_traefik_dashboard_host: "traefik.levonk.com"
+
+# ---------------------------------------------------------------------------
+# VPN Stack Variables
+# ---------------------------------------------------------------------------
+vpn_stack_enabled: true
+
+wireguard_direct_port: 51820
+wireguard_transparent_port: 51821
+wireguard_serverurl: "auto"
+wireguard_direct_peers: 5
+wireguard_transparent_peers: 3
+wireguard_internal_subnet: "10.13.13.0"
+wireguard_transparent_subnet: "10.13.14.0"
+wireguard_direct_allowedips: "172.20.0.0/16"
+
+vpn_netbird_http_container_port: 8084
+vpn_tailscale_http_container_port: 8085
+
+# ---------------------------------------------------------------------------
+# Service directories (relative to localnet container dir)
+# ---------------------------------------------------------------------------
+service_dirs:
+  dns: "services/dns"
+  proxy: "services/proxy"
+  vpn: "services/vpn"

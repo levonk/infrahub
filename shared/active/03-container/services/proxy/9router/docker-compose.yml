@@ -1,0 +1,74 @@
+services:
+  9router:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        PUID: ${PUID:-1000}
+        PGID: ${PGID:-1000}
+    container_name: localnet-9router
+    hostname: 9router
+    restart: unless-stopped
+    
+    # Security settings
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=100m
+    
+    # Environment variables
+    environment:
+      - NODE_ENV=production
+      - PORT=${PROXY_ROUTER_9ROUTER_CONTAINER_PORT:-20128}
+      - HOSTNAME=0.0.0.0
+      - NEXT_TELEMETRY_DISABLED=1
+      - DATA_DIR=/app/data
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+    
+    # Ports
+    ports:
+      - "${PROXY_ROUTER_9ROUTER_HOST_PORT:-20128}:20128"
+    
+    # Volumes
+    volumes:
+      - 9router-data:/app/data
+      - 9router-config:/app/config
+    
+    # Networks
+    networks:
+      - proxy-network
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:20128/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+
+volumes:
+  9router-data:
+    driver: local
+  9router-config:
+    driver: local
+
+networks:
+  proxy-network:
+    external: true
+    name: localnet-proxy-network
