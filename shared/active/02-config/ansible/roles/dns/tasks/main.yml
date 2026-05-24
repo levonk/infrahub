@@ -1,6 +1,6 @@
 ---
 # LocalNet DNS Stack Deployment
-# Services: dnsdist, CoreDNS, dnscrypt-plaintext, blocklist-compiler, tor-proxy
+# Services: dnsdist, CoreDNS, dnscrypt-plaintext, blocklist-compiler, tor-proxy, adguard
 
 - name: Ensure DNS service directory exists on target
   ansible.builtin.file:
@@ -67,6 +67,28 @@
   delay: 15
   ignore_errors: true
   when: dns_deploy.changed
+
+- name: Deploy AdGuard (profile broken)
+  community.docker.docker_compose_v2:
+    project_src: "{{ localnet_services_dir }}/dns"
+    files:
+      - docker-compose.dns.yml
+    state: present
+    build: always
+    profiles:
+      - broken
+  when: dns_compose_stat.stat.exists
+  register: adguard_deploy
+
+- name: Wait for AdGuard to become healthy
+  ansible.builtin.shell: |
+    docker inspect --format='{{"{{"}}.State.Health.Status{{"}}"}}' localnet-dns-adguard
+  register: adguard_health
+  until: adguard_health.stdout == "healthy"
+  retries: 10
+  delay: 10
+  ignore_errors: true
+  when: adguard_deploy.changed
 
 - name: Report DNS stack status
   ansible.builtin.debug:
