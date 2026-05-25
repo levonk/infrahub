@@ -1,0 +1,37 @@
+---
+# Ansible Vault Encrypted Secrets
+# To encrypt: ansible-vault encrypt group_vars/all.vault
+# To decrypt: ansible-vault decrypt group_vars/all.vault
+# To edit: ansible-vault edit group_vars/all.vault
+
+# Authelia Secrets
+authelia_hmac_secret: 'Bd5dqzlVMswRmT81G0C5uhM9HCJwyyw9Kw0Aw2XJ/fU='
+authelia_jwt_private_key: |
+  -----BEGIN PRIVATE KEY-----
+  MIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQC48bdIsxTg/wAr
+  72/R3xUFTsz11RUac9hLlCIoUSAd7Edhv6LrfZk0wvKueE6auty0SAH7vYbPBAwo
+  fHYHkMeFrTbnEiGVHXWUv7vuypbVfqIzhuz8nHvz2ARvL97sxEN8yEXt5d1hAw0r
+  HLgDZSJJnmQGi6XIrV/hQ6L+1w5JnvgML2lVyIC39VtU+WrrhDGOjiQK/v2A2XlC
+  VORTNEIZ8DHEyUVHTB21FG+IKmMbZXaGzzc4ZJ3p0+hw09+AsMctSYeHH4j04VqB
+  PWpJp1ZRtWICnh4U72HQaEaq50IeJ6bgr5WJ43rA2BJ2RFyLwT86fwiy/CMxbXhe
+  dfYKtPmrAgMBAAECggEAMbDcTn+zTeql2KgqEqkOJFFyV2DLnUJf7Jqd/NgjOXb5
+  DOXo973U0qzIeKEheYhYcWXhhop7NJcBT0V1jv3S5fNOy5H/DOoP5AoKDBRJp44x
+  NYf8l7jRwwgY1Oj3TAVFnrrOsycuLnkb6if6twrOxhn1BR8zSXJvzv4VxsPwdk32
+  /76DWq0r5cx9rG267dYIe1tmAE8j/YuTV/PW6qLDTLVE88SFBCQwU23pXxXSJ4u/
+  DEXOMevi+r47erbVJB/ebTJO9BOoB0q520lobIaRWACtezK1E0VXyL7uHcXTmsDf
+  aT8lZRtvf+GwoQKdN3oZ7r0r988Q/DUF4gowRJ3+VQKBgQDyBXOrQ20Py3ETztuy
+  9PXCqJxqyTRC17fBQZpc2skmQ4BwLv3ev+V/UASIWNs5FVnGH+JzY0bNEc0EsJ4Z
+  6ktVOYYk/qxW/0gnpj+J9GSQ0brDy7tkw0due5i1nHeQlf1qWlDVLfoqVaa1jSyr
+  zZ1yG8wh0FfSGfZN4albrZsZnQKBgQDDoFE0EfT+tdxw25p9UGlmMPi3/Tgl91U+
+  nSFj98ecRyFVY7tabF71G4fRp0cQETK1d+pHhLBMmbKT+q3YyxrvVoT2Qntv2ai8
+  8tS1KYHtp2+b6W/JTeYo4ANgV6jylximWTDsmIZKk7GzZ22QzOu6UvSp2m81+xQ+
+  wqt+l0BB5wKBgQCRiXm/OXKyFtLO6IvxF6FaB27YQFou/+2+Ryb+Q4rGeb0YuQlt
+  E9R8NLAlFdnuf8pWfAH/BWokE1pIQbUxPFVE0Ky8PnGAd076mNyIpvB6rcQzzaXI
+  uC2SYLy6KXc0+R1FAT6uk1Fmd88iSdzdC25smg6tHs5Qx8/3kYX4XXNxeQKBgQCk
+  DqGrClgs9/ULzI8uAq6xneYn3rsk09xwazQicxy6iciBpObtOS8VXWY0w5VL+zBM
+  kWkvWy7Cvq7NfRAoXISVLTjKkQyVy7K/6uHJoCqvVJi75zPxXVvk8aDDPiCYeXCZ
+  qPjnoi4VAvGm49k18zTJiGJYw7A6U/sxeu55dnzUBwKBgQDT7G/hkIVr7cXA0HI2
+  BeHx9QFUVfZWWt5IpVLDHIoW5o62GsWy25pFN5QsSe1eGVs0sRYLeeNe9WjTBSBx
+  eZn7QDFQu0Nsq2zT/PD7QVqQY+kEyQCqt/3dIsPbY8sX5PRwyZr4sbRvr+ewOPl6
+  hfOkF0OfcuvJEhss30/DigMmng==
+  -----END PRIVATE KEY-----

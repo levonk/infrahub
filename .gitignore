@@ -1,0 +1,81 @@
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+*.db-shm
+*.db-wal
+
+# Build artifacts
+build/
+dist/
+result/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg
+*.egg-info/
+.venv/
+venv/
+ENV/
+
+# Node.js
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Editor files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Source maps
+*.map
+
+# Minified files
+*.min.js
+*.min.css
+
+# WebAssembly
+*.wasm
+
+# Logs
+*.log
+logs/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Embedded repositories
+.git/
+!.gitignore
+
+# Nix
+.direnv/
+.envrc
+.flake.lock
+
+# Docker
+docker-compose.override.yml
+
+# Ansible
+*.retry
+vault_password
+
+# Temporary files
+tmp/
+temp/
+*.tmp
