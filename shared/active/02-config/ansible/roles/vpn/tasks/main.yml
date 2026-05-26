@@ -1,5 +1,5 @@
 ---
-# LocalNet VPN Stack Deployment
+# LocalNet VPN Stack Deployment - Direct Container Management
 # Services: Netbird, Tailscale, Gluetun, WireGuard (direct + transparent), Twingate
 
 - name: Ensure VPN service directory exists on target
@@ -8,6 +8,9 @@
     state: directory
     mode: "0755"
 
+# ============================================================================
+# Volume Management
+# ============================================================================
 - name: Ensure VPN volumes exist
   community.docker.docker_volume:
     name: "{{ item }}"
@@ -16,50 +19,26 @@
     - localnet-wireguard-direct-config-volume
     - localnet-wireguard-transparent-config-volume
 
-- name: Synchronize VPN service files from control node
-  ansible.posix.synchronize:
-    src: "{{ playbook_dir }}/../../../container/services/vpn/"
-    dest: "{{ localnet_services_dir }}/vpn/"
-    delete: false
-    rsync_opts:
-      - "--exclude=.git"
-      - "--exclude=*.log"
-  delegate_to: "{{ inventory_hostname }}"
-  become: false
-  when: ansible_connection == "local"
+# ============================================================================
+# Service Deployment
+# ============================================================================
+- ansible.builtin.include_tasks: gluetun.yml
+- ansible.builtin.include_tasks: wireguard-direct.yml
+- ansible.builtin.include_tasks: netbird.yml
+- ansible.builtin.include_tasks: tailscale.yml
+- ansible.builtin.include_tasks: twingate.yml
+- ansible.builtin.include_tasks: wireguard-transparent.yml
 
-- name: Ensure VPN Docker Compose file exists
-  ansible.builtin.stat:
-    path: "{{ localnet_services_dir }}/vpn/docker-compose.vpn.yml"
-  register: vpn_compose_stat
-
-- name: Deploy VPN stack via docker compose
-  community.docker.docker_compose_v2:
-    project_src: "{{ localnet_services_dir }}/vpn"
-    files:
-      - docker-compose.vpn.yml
-    state: present
-    build: always
-  when: vpn_compose_stat.stat.exists
-  register: vpn_deploy
-
-- name: Wait for WireGuard direct to become healthy
-  ansible.builtin.shell: |
-    docker inspect --format='{{"{{"}}.State.Health.Status{{"}}"}}' localnet-vpn-direct
-  register: wg_direct_health
-  until: wg_direct_health.stdout == "healthy"
-  retries: 10
-  delay: 10
-  ignore_errors: true
-  when: vpn_deploy.changed
-
+# ============================================================================
+# Status Report
+# ============================================================================
 - name: Report VPN stack status
   ansible.builtin.debug:
     msg: |
       VPN Stack deployed successfully:
-        - Netbird: http://localhost:{{ vpn_netbird_http_container_port }}
-        - Tailscale: http://localhost:{{ vpn_tailscale_http_container_port }}
+        - Netbird: http://localhost:{{ vpn_netbird_http_container_port | default('8084') }}
+        - Tailscale: http://localhost:{{ vpn_tailscale_http_container_port | default('8085') }}
         - Gluetun: http://localhost:8888 (HTTP proxy)
-        - WireGuard Direct: localhost:{{ wireguard_direct_port }}/udp
-        - WireGuard Transparent: localhost:{{ wireguard_transparent_port }}/udp
+        - WireGuard Direct: localhost:{{ wireguard_direct_port | default('51820') }}/udp
+        - WireGuard Transparent: localhost:{{ wireguard_transparent_port | default('51821') }}/udp
         - Twingate: Connector running

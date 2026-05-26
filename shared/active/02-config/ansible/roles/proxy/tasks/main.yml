@@ -1,6 +1,6 @@
 ---
-# LocalNet Proxy / Web Stack Deployment
-# Services: Traefik, Envoy, Squid, Privoxy, Authelia, CrowdSec, Tor proxy
+# LocalNet Proxy / Web Stack Deployment - Direct Container Management
+# Services: Traefik, Envoy, Squid, Privoxy
 
 - name: Ensure Proxy service directory exists on target
   ansible.builtin.file:
@@ -8,6 +8,9 @@
     state: directory
     mode: "0755"
 
+# ============================================================================
+# Volume Management
+# ============================================================================
 - name: Ensure Proxy volumes exist
   community.docker.docker_volume:
     name: "{{ item }}"
@@ -21,60 +24,24 @@
     - localnet-security-authelia-db-volume
     - localnet-dockerproxy-ro-volume
 
-- name: Synchronize Proxy service files from control node
-  ansible.posix.synchronize:
-    src: "{{ playbook_dir }}/../../../container/services/proxy/"
-    dest: "{{ localnet_services_dir }}/proxy/"
-    delete: false
-    rsync_opts:
-      - "--exclude=.git"
-      - "--exclude=*.log"
-  delegate_to: "{{ inventory_hostname }}"
-  become: false
-  when: ansible_connection == "local"
+# ============================================================================
+# Service Deployment
+# ============================================================================
+- ansible.builtin.include_tasks: privoxy.yml
+- ansible.builtin.include_tasks: squid.yml
+- ansible.builtin.include_tasks: envoy.yml
+- ansible.builtin.include_tasks: traefik.yml
 
-- name: Ensure Proxy Docker Compose file exists
-  ansible.builtin.stat:
-    path: "{{ localnet_services_dir }}/proxy/docker-compose.proxy.yml"
-  register: proxy_compose_stat
-
-- name: Deploy Proxy stack via docker compose
-  community.docker.docker_compose_v2:
-    project_src: "{{ localnet_services_dir }}/proxy"
-    files:
-      - docker-compose.proxy.yml
-    state: present
-    build: always
-    profiles:
-      - all
-  when: proxy_compose_stat.stat.exists
-  register: proxy_deploy
-
-- name: Wait for Traefik to become healthy
-  ansible.builtin.shell: |
-    docker inspect --format='{{"{{"}}.State.Health.Status{{"}}"}}' localnet-proxy-traefik
-  register: traefik_health
-  until: traefik_health.stdout == "healthy"
-  retries: 10
-  delay: 15
-  ignore_errors: true
-  when: proxy_deploy.changed
-
-- name: Wait for Squid to become healthy
-  ansible.builtin.shell: |
-    docker inspect --format='{{"{{"}}.State.Health.Status{{"}}"}}' localnet-proxy-squid
-  register: squid_health
-  until: squid_health.stdout == "healthy"
-  retries: 10
-  delay: 10
-  ignore_errors: true
-  when: proxy_deploy.changed
-
+# ============================================================================
+# Status Report
+# ============================================================================
 - name: Report Proxy stack status
   ansible.builtin.debug:
     msg: |
       Proxy Stack deployed successfully:
         - Traefik: http://localhost:80 / https://localhost:443
         - Envoy Admin: http://localhost:{{ proxy_envoy_admin_host_port }}
+        - Envoy Transparent HTTP: http://localhost:{{ proxy_http_transparent_port }}
+        - Envoy Transparent HTTPS: https://localhost:{{ proxy_https_transparent_port }}
         - Squid Direct: http://localhost:{{ proxy_direct_port }}
-        - Tor SOCKS5: socks5://localhost:{{ proxy_tor_socks5_host_port }}
+        - Privoxy: http://localhost:8118
