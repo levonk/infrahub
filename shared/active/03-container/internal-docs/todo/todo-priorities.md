@@ -390,6 +390,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
     - [ ] **ClawRouter**: https://github.com/BlockRunAI/ClawRouter
     - [ ] **ClawHub**: https://github.com/openclaw/clawhub
 - [ ] **AI Auto Agent**:
+  - [ ] https://github.com/agent0ai/space-agent
   - [ ] **Hermes**: AI-powered https://github.com/NousResearch/hermes-agent
   - [ ] **IronClaw**: AI-powered automation and task management https://github.com/nearai/ironclaw
 	- Alternatives
@@ -575,6 +576,8 @@ _Goal: Privacy, Resilience, Ad-blocking_
 
 ### Communication & Social
 
+- [ ] **Multi Publish**:
+  - [ ] https://github.com/yikart/AiToEarn/blob/main/README_EN.md#use-source
 - [ ] **Chat**:
   - [ ] **Revolt**: Discord Alternative https://github.com/revoltchat/
   - [ ] Slack Alternative
@@ -612,6 +615,9 @@ _Goal: Privacy, Resilience, Ad-blocking_
 
 ### Artificial Intelligence (Local & Private)
 
+- [ ] **AI API Routers**:
+  - [ ] https://github.com/diegosouzapw/OmniRoute
+    - [ ] https://github.com/decolua/9router
 - [ ] **Inference Engines**:
   - [ ] **Ollama**: LLM Runner https://github.com/ollama/ollama
   - [ ] **LocalAI**: OpenAI compatible API
@@ -822,6 +828,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
     - [ ] https://github.com/OctoPrint/OctoPrint --- OctoPrint GitHub repo
     - [ ] https://github.com/home-assistant/ --- Home Assistant (home automation platform)
   - [ ] **Other Services & Utilities**
+    - [ ] LanguageTool grammer checker https://dev.languagetool.org/http-server
     - [ ] freenet.org
     - [ ] Price tracking https://github.com/clucraft/PriceGhost
     - [ ] SmartSDR for Linux from Simon Ritchie (NVOE) @ Tech Connect Radio Club (NA0TC)

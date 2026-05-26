@@ -24,6 +24,8 @@ volumes:
     driver: local
   ai-langfuse-data:
     driver: local
+  ai-omniroute-data:
+    driver: local
 
 services:
   ollama:
@@ -235,3 +237,34 @@ services:
       interval: 30s
       timeout: 5s
       retries: 20
+    profiles: ["all"]
+
+  omniroute:
+    build:
+      context: ./omniroute
+      dockerfile: docker/Dockerfile.omniroute
+    image: localnet-ai-omniroute:latest
+    container_name: localnet-ai-omniroute
+    logging: *default-logging
+    restart: unless-stopped
+    networks:
+      - localnet
+    environment:
+      - PORT=${AI_OMNIROUTE_CONTAINER_PORT:-20128}
+      - NODE_ENV=production
+    ports:
+      - "${AI_OMNIROUTE_HOST_PORT:-20128}:${AI_OMNIROUTE_CONTAINER_PORT:-20128}"
+    volumes:
+      - ${AI_OMNIROUTE_DATA_PATH:-/opt/localnet/volumes/omniroute}:/app/data
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck-omniroute.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    profiles: ["all"]
