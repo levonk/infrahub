@@ -1,0 +1,25 @@
+---
+# Netbird VPN
+
+- name: Deploy netbird-vpn container
+  community.docker.docker_container:
+    name: localnet-vpn-netbird
+    image: vpn-netbird:latest
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ localnet_network_name }}"
+    env:
+      SERVICE_NAME: vpn-netbird
+      SERVICE_PORT: "{{ vpn_netbird_http_container_port | default('8084') }}"
+    labels:
+      traefik.enable: true
+      traefik.http.routers.netbird.rule: Host(`netbird.localnet`)
+      traefik.http.routers.netbird.entryPoints: websecure
+      traefik.http.routers.netbird.tls: true
+      traefik.http.routers.netbird.tls.certresolver: le
+      traefik.http.services.netbird.loadbalancer.server.port: "{{ vpn_netbird_http_container_port | default('8084') }}"
+    log_driver: json-file
+    log_options:
+      max-size: 10m
+      max-file: 5

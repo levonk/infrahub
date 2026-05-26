@@ -1,0 +1,22 @@
+---
+# Twingate VPN
+
+- name: Deploy twingate-vpn container
+  community.docker.docker_container:
+    name: localnet-vpn-twingate
+    image: twingate/connector:latest
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ localnet_network_name }}"
+    sysctls:
+      net.ipv4.ping_group_range: 0 2147483647
+    env:
+      TENANT_URL: "{{ twingate_tenant_url }}"
+      ACCESS_TOKEN: "{{ twingate_access_token }}"
+      REFRESH_TOKEN: "{{ twingate_refresh_token }}"
+      TWINGATE_LABEL_HOSTNAME: "{{ twingate_label_hostname | default('localnet-connector') }}"
+    log_driver: json-file
+    log_options:
+      max-size: 10m
+      max-file: 5

@@ -1,0 +1,55 @@
+---
+# WireGuard Direct Mode
+
+- name: Deploy wireguard-direct container
+  community.docker.docker_container:
+    name: localnet-vpn-direct
+    image: linuxserver/wireguard:latest
+    state: started
+    restart_policy: unless-stopped
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    networks:
+      - name: "{{ localnet_network_name }}"
+      - name: wireguard
+    volumes:
+      - localnet-wireguard-direct-config-volume:/config
+      - /lib/modules:/lib/modules:ro
+    ports:
+      - "{{ wireguard_direct_port | default('51820') }}:51820/udp"
+    sysctls:
+      net.ipv4.conf.all.src_valid_mark: 1
+      net.ipv4.ip_forward: 1
+    dns_servers:
+      - "{{ host_ip }}"
+    env:
+      PUID: "{{ localnet_puid }}"
+      PGID: "{{ localnet_pgid }}"
+      TZ: "{{ localnet_tz }}"
+      SERVERURL: "{{ wireguard_serverurl | default('auto') }}"
+      SERVERPORT: "{{ wireguard_direct_port | default('51820') }}"
+      PEERS: "{{ wireguard_direct_peers | default('5') }}"
+      PEERDNS: "{{ host_ip }}"
+      INTERNAL_SUBNET: 10.13.13.0
+      ALLOWEDIPS: "172.20.0.0/16,{{ host_ip }}/32"
+      LOG_CONFS: true
+    log_driver: json-file
+    log_options:
+      max-size: 10m
+      max-file: 5
+    healthcheck:
+      test: ["CMD", "wg", "show", "wg0"]
+      interval: 30
+      timeout: 5
+      retries: 3
+      start_period: 10
+
+- name: Wait for wireguard-direct to be healthy
+  ansible.builtin.shell: |
+    docker inspect --format='{{"{{"}}.State.Health.Status{{"}}"}}' localnet-vpn-direct
+  register: wg_direct_health
+  until: wg_direct_health.stdout == "healthy"
+  retries: 10
+  delay: 10
+  ignore_errors: true

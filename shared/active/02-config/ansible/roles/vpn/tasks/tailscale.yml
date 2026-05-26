@@ -1,0 +1,25 @@
+---
+# Tailscale VPN
+
+- name: Deploy tailscale-vpn container
+  community.docker.docker_container:
+    name: localnet-vpn-tailscale
+    image: vpn-tailscale:latest
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ localnet_network_name }}"
+    env:
+      SERVICE_NAME: vpn-tailscale
+      SERVICE_PORT: "{{ vpn_tailscale_http_container_port | default('8085') }}"
+    labels:
+      traefik.enable: true
+      traefik.http.routers.tailscale.rule: Host(`tailscale.localnet`)
+      traefik.http.routers.tailscale.entryPoints: websecure
+      traefik.http.routers.tailscale.tls: true
+      traefik.http.routers.tailscale.tls.certresolver: le
+      traefik.http.services.tailscale.loadbalancer.server.port: "{{ vpn_tailscale_http_container_port | default('8085') }}"
+    log_driver: json-file
+    log_options:
+      max-size: 10m
+      max-file: 5

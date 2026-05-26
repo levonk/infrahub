@@ -1,0 +1,55 @@
+---
+# WireGuard Transparent Mode
+
+- name: Deploy wireguard-transparent container
+  community.docker.docker_container:
+    name: localnet-vpn-transparent
+    image: linuxserver/wireguard:latest
+    state: started
+    restart_policy: unless-stopped
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    networks:
+      - name: "{{ localnet_network_name }}"
+      - name: wireguard
+    volumes:
+      - localnet-wireguard-transparent-config-volume:/config
+      - /lib/modules:/lib/modules:ro
+    ports:
+      - "{{ wireguard_transparent_port | default('51821') }}:51820/udp"
+    sysctls:
+      net.ipv4.conf.all.src_valid_mark: 1
+      net.ipv4.ip_forward: 1
+    dns_servers:
+      - 172.20.0.254
+    env:
+      PUID: "{{ localnet_puid }}"
+      PGID: "{{ localnet_pgid }}"
+      TZ: "{{ localnet_tz }}"
+      SERVERURL: "{{ wireguard_serverurl | default('auto') }}"
+      SERVERPORT: "{{ wireguard_transparent_port | default('51821') }}"
+      PEERS: "{{ wireguard_transparent_peers | default('3') }}"
+      PEERDNS: 172.20.0.254
+      INTERNAL_SUBNET: 10.13.14.0
+      ALLOWEDIPS: 172.20.0.0/16
+      LOG_CONFS: true
+    log_driver: json-file
+    log_options:
+      max-size: 10m
+      max-file: 5
+    healthcheck:
+      test: ["CMD", "wg", "show", "wg0"]
+      interval: 30
+      timeout: 5
+      retries: 3
+      start_period: 10
+
+- name: Wait for wireguard-transparent to be healthy
+  ansible.builtin.shell: |
+    docker inspect --format='{{"{{"}}.State.Health.Status{{"}}"}}' localnet-vpn-transparent
+  register: wg_transparent_health
+  until: wg_transparent_health.stdout == "healthy"
+  retries: 10
+  delay: 10
+  ignore_errors: true

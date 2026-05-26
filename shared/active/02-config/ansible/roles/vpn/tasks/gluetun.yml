@@ -1,0 +1,42 @@
+---
+# Gluetun
+
+- name: Deploy gluetun container
+  community.docker.docker_container:
+    name: localnet-vpn-gluetun
+    image: qmcgaw/gluetun
+    state: started
+    restart_policy: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    networks:
+      - name: "{{ localnet_network_name }}"
+    volumes:
+      - "{{ localnet_services_dir }}/vpn/gluetun/mounts/etc/gluetun:/etc/gluetun"
+    ports:
+      - "8888:8888/tcp"
+      - "8388:8388/tcp"
+      - "8388:8388/udp"
+      - "8701:8701"
+      - "6881:6881"
+      - "6881:6881/udp"
+      - "7878:7878"
+      - "8989:8989"
+      - "8685:8685"
+      - "6767:6767"
+      - "9696:9696"
+      - "8191:8191"
+    env:
+      TZ: "{{ localnet_tz }}"
+      VPN_SERVICE_PROVIDER: private internet access
+      VPN_TYPE: wireguard
+      WIREGUARD_PRIVATE_KEY: "{{ wireguard_private_key }}"
+      WIREGUARD_PRESHARED_KEY: "{{ wireguard_preshared_key }}"
+      WIREGUARD_ADDRESSES: 10.14.14.2/32
+      VPN_PORT_FORWARDING: on
+    log_driver: json-file
+    log_options:
+      max-size: 10m
+      max-file: 5
