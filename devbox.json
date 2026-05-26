@@ -1,32 +1,28 @@
 {
   "_bug_note": "DEVBOX SCRIPT GENERATION BUG: devbox run <script> may fail with 'command not found' error. This is a known devbox regression in v0.14.x+. See issues: https://github.com/jetify-com/devbox/issues/2517, https://github.com/jetify-com/devbox/issues/2108, https://github.com/jetify-com/devbox/issues/2607. Use 'just <command>' or 'devbox shell' then 'just <command>-internal' instead. See ADR-20260131001 for details.",
   "packages": [
-    "rops", # Rust based SOPS for secrets management
+    "rops",
     "github-to-sops",
+    "git-filter-repo",
     "pre-commit-hook-ensure-sops",
-    "k3d", # local services uses k3s, testing uses k3d
-    "kind", # k3d when you need to test against official k8s
+    "k3d",
+    "kind",
     "pulumi",
-    "pulumiesc",
-    "tf2pulumi",
     "crd2pulumi",
     "pulumictl",
     "unblob",
-    "rootlesskit",
     "docker",
     "podman",
     "podman-tui",
     "podman-compose",
     "podman-desktop",
-    "pods",
     "podlet",
-    "distrobox",
     "fetchit",
     "lazyjournal",
     "packer",
     "vimPlugins.packer-nvim",
     "bootc",
-    "podman-bootc"
+    "podman-bootc",
     "kubernetes-helm-wrapped",
     "kubernetes-helmPlugins.helm-dt",
     "kubernetes-helmPlugins.helm-git",
@@ -37,13 +33,10 @@
     "kubernetes-helmPlugins.helm-unittest",
     "chart-testing",
     "vscode-extensions.tim-koehler.helm-intellisense",
-    ## How does helm compare to "nelm", "timoni"
     "nova",
     "vals",
     "kube-linter",
-    # what does `atmos` provide
     "datree",
-    # what does `vendir` provide
     "kubescape",
     "helm-ls",
     "helmfile",
@@ -75,6 +68,7 @@
     "git",
     "github:levonk/tkr#tkr",
     "nodejs",
+    "nx",
     "pnpm"
   ],
   "env": {
