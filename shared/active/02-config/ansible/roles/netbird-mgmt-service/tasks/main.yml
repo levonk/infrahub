@@ -1,0 +1,71 @@
+---
+# NetBird Management Service Deployment
+
+- name: Ensure NetBird management service directory exists on target
+  ansible.builtin.file:
+    path: "{{ localnet_services_dir }}/netbird/management"
+    state: directory
+    mode: "0755"
+
+# ============================================================================
+# Volume Management
+# ============================================================================
+- name: Ensure NetBird management data volume exists
+  community.docker.docker_volume:
+    name: "{{ netbird_mgmt_volume_name }}"
+    state: present
+
+# ============================================================================
+# Container Deployment
+# ============================================================================
+- name: Deploy NetBird management container
+  community.docker.docker_container:
+    name: "{{ netbird_mgmt_container_name }}"
+    image: "{{ netbird_mgmt_image_name }}"
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ localnet_network_name }}"
+    ports:
+      - "{{ netbird_mgmt_host_port }}:{{ netbird_mgmt_container_port }}/tcp"
+    volumes:
+      - "{{ netbird_mgmt_volume_name }}/var/lib/netbird:/var/lib/netbird:rw"
+    env:
+      NETBIRD_LOG_LEVEL: "{{ netbird_mgmt_log_level }}"
+      TZ: "{{ localnet_tz }}"
+    log_driver: json-file
+    log_options:
+      max-size: 10m
+      max-file: 5
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777,size=128m
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:{{ netbird_mgmt_container_port }}/api/health"]
+      interval: "{{ netbird_mgmt_healthcheck_interval }}"
+      timeout: "{{ netbird_mgmt_healthcheck_timeout }}"
+      retries: "{{ netbird_mgmt_healthcheck_retries }}"
+      start_period: "{{ netbird_mgmt_healthcheck_start_period }}"
+  register: netbird_mgmt_deploy
+  notify: restart netbird-mgmt
+
+- name: Wait for NetBird management to be healthy
+  ansible.builtin.wait_for:
+    host: localhost
+    port: "{{ netbird_mgmt_host_port }}"
+    delay: 10
+    timeout: 120
+  when: netbird_mgmt_deploy.changed
+
+# ============================================================================
+# Status Report
+# ============================================================================
+- name: Report NetBird management status
+  ansible.builtin.debug:
+    msg: |
+      NetBird management service deployed successfully:
+        - Management API: http://localhost:{{ netbird_mgmt_host_port }}
+        - Container: {{ netbird_mgmt_container_name }}
+        - Volume: {{ netbird_mgmt_volume_name }}

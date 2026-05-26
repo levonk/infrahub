@@ -1,6 +1,6 @@
 ---
-# LocalNet DNS Stack Deployment
-# Services: dnsdist, CoreDNS, dnscrypt-plaintext, blocklist-compiler, tor-proxy, adguard
+# LocalNet DNS Stack Deployment - Direct Container Management
+# Services: dnsdist, coredns, dnscrypt-plaintext, blocklist-compiler, tor-proxy, adguard
 
 - name: Ensure DNS service directory exists on target
   ansible.builtin.file:
@@ -8,7 +8,10 @@
     state: directory
     mode: "0755"
 
-- name: Ensure DNS blocklist volumes exist
+# ============================================================================
+# Volume Management
+# ============================================================================
+- name: Ensure DNS volumes exist
   community.docker.docker_volume:
     name: "{{ item }}"
     state: present
@@ -19,82 +22,26 @@
     - localnet-dns-adguard-conf-volume
     - localnet-dns-adguard-work-volume
 
-- name: Synchronize DNS service files from control node
-  ansible.posix.synchronize:
-    src: "{{ playbook_dir }}/../../../container/services/dns/"
-    dest: "{{ localnet_services_dir }}/dns/"
-    delete: false
-    rsync_opts:
-      - "--exclude=.git"
-      - "--exclude=*.log"
-  delegate_to: "{{ inventory_hostname }}"
-  become: false
-  when: ansible_connection == "local"
+# ============================================================================
+# Service Deployment
+# ============================================================================
+- ansible.builtin.include_tasks: blocklist-compiler.yml
+- ansible.builtin.include_tasks: tor-proxy.yml
+- ansible.builtin.include_tasks: dnscrypt-plaintext.yml
+- ansible.builtin.include_tasks: coredns.yml
+- ansible.builtin.include_tasks: dnsdist.yml
+- ansible.builtin.include_tasks: adguard.yml
 
-- name: Ensure DNS Docker Compose file exists
-  ansible.builtin.stat:
-    path: "{{ localnet_services_dir }}/dns/docker-compose.dns.yml"
-  register: dns_compose_stat
-
-- name: Deploy DNS stack via docker compose
-  community.docker.docker_compose_v2:
-    project_src: "{{ localnet_services_dir }}/dns"
-    files:
-      - docker-compose.dns.yml
-    state: present
-    build: always
-    profiles:
-      - all
-  when: dns_compose_stat.stat.exists
-  register: dns_deploy
-
-- name: Wait for CoreDNS to become healthy
-  ansible.builtin.shell: |
-    docker inspect --format='{{"{{"}}.State.Health.Status{{"}}"}}' localnet-dns-coredns
-  register: coredns_health
-  until: coredns_health.stdout == "healthy"
-  retries: 10
-  delay: 10
-  ignore_errors: true
-  when: dns_deploy.changed
-
-- name: Wait for DNSDist to become healthy
-  ansible.builtin.shell: |
-    docker inspect --format='{{"{{"}}.State.Health.Status{{"}}"}}' localnet-dns-dnsdist
-  register: dnsdist_health
-  until: dnsdist_health.stdout == "healthy"
-  retries: 10
-  delay: 15
-  ignore_errors: true
-  when: dns_deploy.changed
-
-- name: Deploy AdGuard (profile broken)
-  community.docker.docker_compose_v2:
-    project_src: "{{ localnet_services_dir }}/dns"
-    files:
-      - docker-compose.dns.yml
-    state: present
-    build: always
-    profiles:
-      - broken
-  when: dns_compose_stat.stat.exists
-  register: adguard_deploy
-
-- name: Wait for AdGuard to become healthy
-  ansible.builtin.shell: |
-    docker inspect --format='{{"{{"}}.State.Health.Status{{"}}"}}' localnet-dns-adguard
-  register: adguard_health
-  until: adguard_health.stdout == "healthy"
-  retries: 10
-  delay: 10
-  ignore_errors: true
-  when: adguard_deploy.changed
-
+# ============================================================================
+# Status Report
+# ============================================================================
 - name: Report DNS stack status
   ansible.builtin.debug:
     msg: |
       DNS Stack deployed successfully:
         - DNSDist: localhost:{{ dns_transparent_host_port }} (transparent)
+        - DNSDist: localhost:{{ dns_dnsdist_main_host_port }} (direct)
         - CoreDNS: localhost:{{ dns_coredns_main_host_port }} (direct)
         - dnscrypt-plaintext: localhost:{{ dns_dnscrypt_plaintext_host_port }}
-        - AdGuard: localhost:{{ dns_adguard_web_host_port }} (web UI)
+        - AdGuard: http://localhost:{{ dns_adguard_web_host_port }} (web UI)
+        - Tor SOCKS5: socks5://localhost:{{ proxy_tor_socks5_host_port }}

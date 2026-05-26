@@ -1,0 +1,89 @@
+---
+# OmniRoute AI Gateway Deployment
+# Deploys OmniRoute container for unified AI provider access
+
+- name: Ensure OmniRoute service directory exists on target
+  ansible.builtin.file:
+    path: "{{ localnet_services_dir }}/ai-services/omniroute"
+    state: directory
+    mode: "0755"
+
+# ============================================================================
+# Volume Management
+# ============================================================================
+- name: Ensure OmniRoute data volume exists
+  community.docker.docker_volume:
+    name: "{{ ai_omniroute_volume_name }}"
+    state: present
+
+# ============================================================================
+# Image Build
+# ============================================================================
+- name: Build OmniRoute image
+  community.docker.docker_image:
+    name: "{{ ai_omniroute_image_name }}"
+    build:
+      path: "{{ localnet_services_dir }}/ai-services/omniroute"
+      dockerfile: docker/Dockerfile.omniroute
+      pull: false
+    source: build
+    state: present
+  register: omniroute_build
+
+# ============================================================================
+# Container Deployment
+# ============================================================================
+- name: Deploy OmniRoute container
+  community.docker.docker_container:
+    name: "{{ ai_omniroute_container_name }}"
+    image: "{{ ai_omniroute_image_name }}"
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ localnet_network_name }}"
+    ports:
+      - "{{ ai_omniroute_host_port }}:{{ ai_omniroute_container_port }}/tcp"
+    volumes:
+      - "{{ ai_omniroute_volume_name }}:/app/data:rw"
+    env:
+      PORT: "{{ ai_omniroute_container_port }}"
+      NODE_ENV: production
+      PUID: "{{ localnet_puid }}"
+      PGID: "{{ localnet_pgid }}"
+      TZ: "{{ localnet_tz }}"
+    log_driver: json-file
+    log_options:
+      max-size: 10m
+      max-file: 5
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777,size=128m
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck-omniroute.sh"]
+      interval: 30
+      timeout: 10
+      retries: 3
+      start_period: 40
+  register: omniroute_deploy
+  notify: restart omniroute
+
+- name: Wait for OmniRoute to be healthy
+  ansible.builtin.wait_for:
+    host: localhost
+    port: "{{ ai_omniroute_host_port }}"
+    delay: 10
+    timeout: 120
+  when: omniroute_deploy.changed
+
+# ============================================================================
+# Status Report
+# ============================================================================
+- name: Report OmniRoute status
+  ansible.builtin.debug:
+    msg: |
+      OmniRoute deployed successfully:
+        - Dashboard: http://localhost:{{ ai_omniroute_host_port }}
+        - API: http://localhost:{{ ai_omniroute_host_port }}/v1
+        - Container: {{ ai_omniroute_container_name }}

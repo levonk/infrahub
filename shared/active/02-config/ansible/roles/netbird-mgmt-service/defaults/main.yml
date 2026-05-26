@@ -1,0 +1,20 @@
+---
+# NetBird Management Service default variables
+
+# Container configuration
+netbird_mgmt_container_name: localnet-netbird-mgmt
+netbird_mgmt_image_name: netbirdio/management:latest
+netbird_mgmt_volume_name: netbird-mgmt-data
+
+# Port configuration (MUST BE DEFINED AS VARIABLES IN group_vars/all.yml)
+netbird_mgmt_host_port: "{{ netbird_mgmt_host_port | default('33073') }}"
+netbird_mgmt_container_port: "{{ netbird_mgmt_container_port | default('33073') }}"
+
+# Configuration
+netbird_mgmt_log_level: info
+
+# Healthcheck configuration
+netbird_mgmt_healthcheck_interval: 30
+netbird_mgmt_healthcheck_timeout: 10
+netbird_mgmt_healthcheck_retries: 3
+netbird_mgmt_healthcheck_start_period: 40

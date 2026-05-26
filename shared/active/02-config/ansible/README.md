@@ -1,9 +1,26 @@
 # LocalNet Ansible Playbooks
 
-Ansible playbooks to deploy LocalNet infrastructure services:
-- **DNS Stack**: DNSDist, CoreDNS, dnscrypt-proxy, AdGuard, blocklist-compiler
-- **Proxy/Web Stack**: Traefik, Envoy, Squid, Privoxy, Authelia, CrowdSec, Tor
-- **VPN Stack**: Netbird, Tailscale, Gluetun, WireGuard, Twingate
+Ansible playbooks to deploy LocalNet infrastructure services using direct Docker container management:
+- **DNS Stack**: DNSDist, CoreDNS, dnscrypt-proxy, AdGuard, blocklist-compiler, tor-proxy
+- **Proxy/Web Stack**: Traefik, Envoy, Squid, Privoxy, 9Router
+- **VPN Stack**: Netbird, Tailscale, Gluetun, WireGuard (direct + transparent), Twingate
+
+## Architecture
+
+This playbook uses **direct `community.docker` modules** instead of wrapping `docker compose` commands. Each service has:
+- Individual tasks for image building (when needed)
+- Direct container management with `community.docker.docker_container`
+- Granular volume management with `community.docker.docker_volume`
+- Per-container health checks
+- Network configuration with proper IP assignment
+- Environment variable templating via Ansible
+
+This approach provides:
+- **Granular control** - manage each service independently
+- **Better secrets management** - use Ansible Vault for sensitive values
+- **Idempotence** - safe to run multiple times
+- **Dependency management** - explicit service start order
+- **Native Ansible features** - variables, conditionals, loops
 
 ## Quick Start
 
@@ -82,7 +99,33 @@ ansible-playbook -i inventories/localnet.yml playbooks/site.yml --tags vpn
 
 ## Service Files
 
-Playbooks assume Docker Compose service files exist at:
-`../../../container/services/{dns,proxy,vpn}/docker-compose.*.yml`
+Playbooks use Docker build contexts and configuration files from the LocalNet repository. Ensure the repository is cloned at the path specified in `localnet_base_dir` (default: `~/localnet`).
 
-When running locally (`ansible_connection: local`), files are synchronized automatically. For remote hosts, ensure the LocalNet repository is cloned to the target first.
+For local deployment (`ansible_connection: local`), playbooks assume the repository is at the correct path. For remote deployment, ensure the repository is cloned to the target host first.
+
+## Secrets Management
+
+Sensitive values (WireGuard keys, Twingate tokens, etc.) should be managed via Ansible Vault:
+
+1. Create `group_vars/all.vault` with secrets:
+   ```yaml
+   ---
+   wireguard_private_key: "your-private-key"
+   wireguard_preshared_key: "your-preshared-key"
+   twingate_tenant_url: "https://tenant.twingate.com"
+   twingate_access_token: "your-access-token"
+   twingate_refresh_token: "your-refresh-token"
+   traefik_acme_email: "your-email@example.com"
+   ```
+
+2. Encrypt the vault file:
+   ```bash
+   ansible-vault encrypt group_vars/all.vault --vault-id localnet
+   ```
+
+3. Run playbooks with vault password:
+   ```bash
+   ansible-playbook -i inventories/localnet.yml playbooks/site.yml --ask-vault-pass
+   ```
+
+See `group_vars/all.yml` for the complete secrets section with vault variable references.

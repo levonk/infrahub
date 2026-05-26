@@ -1,0 +1,7 @@
+---
+# OmniRoute handlers
+
+- name: restart omniroute
+  community.docker.docker_container:
+    name: "{{ ai_omniroute_container_name }}"
+    state: restarted

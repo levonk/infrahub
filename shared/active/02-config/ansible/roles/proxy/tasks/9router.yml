@@ -1,0 +1,103 @@
+---
+# Services: 9Router
+
+- name: Ensure Proxy 9router directory exists on target
+  ansible.builtin.file:
+    path: "{{ localnet_services_dir }}/9router"
+    state: directory
+    mode: "0755"
+
+# ============================================================================
+# Volume Management
+# ============================================================================
+- name: Ensure 9router volumes exist
+  community.docker.docker_volume:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - localnet-proxy-9router-data-volume
+    - localnet-proxy-9router-config-volume
+
+# ============================================================================
+# 9Router (OmniRoute replaces this)
+# ============================================================================
+- name: Build 9router image
+  community.docker.docker_image:
+    name: localnet-proxy-9router
+    build:
+      path: "{{ localnet_services_dir }}/proxy/9router"
+      dockerfile: Dockerfile
+      pull: false
+      args:
+        PUID: "{{ localnet_puid }}"
+        PGID: "{{ localnet_pgid }}"
+    source: build
+    state: present
+
+- name: Deploy 9router container
+  community.docker.docker_container:
+    name: localnet-proxy-9router
+    image: localnet-proxy-9router
+    state: started
+    restart_policy: unless-stopped
+    hostname: 9router
+    networks:
+      - name: "{{ localnet_network_name }}"
+    ports:
+      - "{{ proxy_router_9router_host_port | default('20128') }}:{{ proxy_router_9router_container_port | default('20128') }}"
+    volumes:
+      - localnet-proxy-9router-data-volume:/app/data
+      - localnet-proxy-9router-config-volume:/app/config
+    env:
+      NODE_ENV: production
+      PORT: "{{ proxy_router_9router_container_port | default('20128') }}"
+      HOSTNAME: 0.0.0.0
+      NEXT_TELEMETRY_DISABLED: 1
+      DATA_DIR: /app/data
+      PUID: "{{ localnet_puid }}"
+      PGID: "{{ localnet_pgid }}"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=100m
+    log_driver: json-file
+    log_options:
+      max-size: 10m
+      max-file: 5
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:{{ proxy_router_9router_container_port | default('20128') }}/health"]
+      interval: 30
+      timeout: 10
+      retries: 3
+      start_period: 30
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+
+- name: Wait for 9router to be healthy
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ proxy_router_9router_host_port | default('20128') }}/health"
+    status_code: 200
+  register: router_health
+  until: router_health.status == 200
+  retries: 10
+  delay: 5
+
+# ============================================================================
+# Status Report
+# ============================================================================
+- name: Report Proxy stack status
+  ansible.builtin.debug:
+    msg: |
+      Proxy Stack deployed successfully:
+        - 9Router: http://localhost:{{ proxy_router_9router_host_port | default('20128') }}

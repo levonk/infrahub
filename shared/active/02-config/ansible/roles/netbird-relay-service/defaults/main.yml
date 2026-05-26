@@ -1,0 +1,19 @@
+---
+# NetBird Relay Service default variables
+
+# Container configuration
+netbird_relay_container_name: localnet-netbird-relay
+netbird_relay_image_name: netbirdio/relay:latest
+
+# Port configuration (MUST BE DEFINED AS VARIABLES IN group_vars/all.yml)
+netbird_relay_host_port: "{{ netbird_relay_host_port | default('33075') }}"
+netbird_relay_container_port: "{{ netbird_relay_container_port | default('33075') }}"
+
+# Configuration
+netbird_relay_log_level: info
+
+# Healthcheck configuration
+netbird_relay_healthcheck_interval: 30
+netbird_relay_healthcheck_timeout: 10
+netbird_relay_healthcheck_retries: 3
+netbird_relay_healthcheck_start_period: 40

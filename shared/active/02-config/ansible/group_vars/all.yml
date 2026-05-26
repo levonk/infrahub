@@ -112,3 +112,41 @@ service_dirs:
   dns: "services/dns"
   proxy: "services/proxy"
   vpn: "services/vpn"
+
+# ---------------------------------------------------------------------------
+# Secrets (Should be encrypted with Ansible Vault)
+# ---------------------------------------------------------------------------
+# These values should be stored in group_vars/all.vault and encrypted
+# To encrypt: ansible-vault encrypt group_vars/all.vault
+# To use: ansible-playbook --ask-vault-pass playbook.yml
+
+# VPN Secrets
+wireguard_private_key: "{{ vault_wireguard_private_key | default('changeme') }}"
+wireguard_preshared_key: "{{ vault_wireguard_preshared_key | default('changeme') }}"
+twingate_tenant_url: "{{ vault_twingate_tenant_url | default('changeme') }}"
+twingate_access_token: "{{ vault_twingate_access_token | default('changeme') }}"
+twingate_refresh_token: "{{ vault_twingate_refresh_token | default('changeme') }}"
+
+# Proxy Secrets
+traefik_acme_email: "{{ vault_traefik_acme_email | default('letsencrypt@example.com') }}"
+
+# DNS Secrets (if any)
+# dns_api_keys: "{{ vault_dns_api_keys | default({}) }}"
+
+# ---------------------------------------------------------------------------
+# Ansible Vault Configuration
+# ---------------------------------------------------------------------------
+# To use encrypted secrets:
+# 1. Create group_vars/all.vault with secrets section
+# 2. Encrypt: ansible-vault encrypt group_vars/all.vault --vault-id localnet
+# 3. Run playbooks with: ansible-playbook --ask-vault-pass playbook.yml
+# 4. Or set ANSIBLE_VAULT_PASSWORD environment variable
+
+# Example vault file structure:
+# ---
+# wireguard_private_key: "your-private-key-here"
+# wireguard_preshared_key: "your-preshared-key-here"
+# twingate_tenant_url: "https://tenant.twingate.com"
+# twingate_access_token: "your-access-token"
+# twingate_refresh_token: "your-refresh-token"
+# traefik_acme_email: "your-email@example.com"

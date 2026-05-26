@@ -1,0 +1,7 @@
+---
+# NetBird Relay Service Handlers
+
+- name: restart netbird-relay
+  community.docker.docker_container:
+    name: "{{ netbird_relay_container_name }}"
+    state: restarted

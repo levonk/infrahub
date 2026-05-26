@@ -1,0 +1,34 @@
+# OmniRoute Dockerfile
+# Based on official image diegosouzapw/omniroute:latest
+# Modified to follow localnet security standards
+
+FROM diegosouzapw/omniroute:latest
+
+# Create non-root user with UID/GID 1000 (localnet standard)
+RUN addgroup -g 1000 cuser && \
+    adduser -D -u 1000 -G cuser cuser
+
+# Set up directories with proper permissions
+RUN mkdir -p /app/data && \
+    chown -R cuser:cuser /app
+
+# Copy healthcheck script
+COPY --chown=cuser:cuser assets/static/omniroute/healthcheck-omniroute.sh /usr/local/bin/healthcheck-omniroute.sh
+RUN chmod +x /usr/local/bin/healthcheck-omniroute.sh
+
+# Copy entrypoint script
+COPY --chown=cuser:cuser assets/static/omniroute/entrypoint-omniroute.sh /usr/local/bin/entrypoint-omniroute.sh
+RUN chmod +x /usr/local/bin/entrypoint-omniroute.sh
+
+# Switch to non-root user
+USER cuser
+
+# Expose OmniRoute port
+EXPOSE 20128
+
+# Health check using localnet healthcheck script
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD /usr/local/bin/healthcheck-omniroute.sh
+
+# Use custom entrypoint
+ENTRYPOINT ["/usr/local/bin/entrypoint-omniroute.sh"]

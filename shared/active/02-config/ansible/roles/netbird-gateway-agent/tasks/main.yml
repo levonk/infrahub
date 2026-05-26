@@ -1,0 +1,161 @@
+---
+# NetBird Gateway Agent Installation and Configuration
+
+- name: Detect OS family and architecture
+  ansible.builtin.set_fact:
+    netbird_os_family: "{{ ansible_facts['os_family'] | lower }}"
+    netbird_architecture: "{{ ansible_facts['architecture'] | lower }}"
+    netbird_systemd: "{{ ansible_facts['service_mgr'] == 'systemd' }}"
+
+- name: Map architecture names for NetBird downloads
+  ansible.builtin.set_fact:
+    netbird_download_arch: "{{ 'amd64' if netbird_architecture == 'x86_64' else 'arm64' if netbird_architecture == 'aarch64' else netbird_architecture }}"
+
+- name: Set NetBird hostname
+  ansible.builtin.set_fact:
+    netbird_agent_hostname: "{{ inventory_hostname }}"
+  when: netbird_agent_hostname is not defined
+
+# ============================================================================
+# Dependency Installation
+# ============================================================================
+- name: Ensure required packages are installed (Debian/Ubuntu)
+  ansible.builtin.apt:
+    name:
+      - curl
+      - wget
+    state: present
+    update_cache: true
+  when: ansible_facts['os_family'] == 'Debian'
+
+- name: Ensure required packages are installed (RHEL/CentOS)
+  ansible.builtin.yum:
+    name:
+      - curl
+      - wget
+    state: present
+  when: ansible_facts['os_family'] == 'RedHat'
+
+- name: Ensure required packages are installed (Alpine)
+  ansible.builtin.apk:
+    name:
+      - curl
+      - wget
+    state: present
+  when: ansible_facts['os_family'] == 'Alpine'
+
+# ============================================================================
+# Agent Download and Installation
+# ============================================================================
+- name: Create NetBird installation directory
+  ansible.builtin.file:
+    path: "{{ netbird_agent_install_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Create NetBird configuration directory
+  ansible.builtin.file:
+    path: "{{ netbird_agent_config_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Download NetBird agent
+  ansible.builtin.get_url:
+    url: "{{ netbird_download_url }}"
+    dest: "{{ netbird_agent_install_dir }}/netbird"
+    mode: "0755"
+    owner: root
+    group: root
+  vars:
+    netbird_download_url: >-
+      {{ netbird_download_base_url }}/{{ netbird_agent_version }}/netbird_{{ netbird_agent_version }}_linux_{{ netbird_download_arch }}.tar.gz
+  when: netbird_os_family == 'debian'
+
+- name: Download NetBird agent (RPM-based systems)
+  ansible.builtin.get_url:
+    url: "{{ netbird_download_url }}"
+    dest: /tmp/netbird.rpm
+    mode: "0644"
+  vars:
+    netbird_download_url: >-
+      {{ netbird_download_base_url }}/{{ netbird_agent_version }}/netbird_{{ netbird_agent_version }}_linux_{{ netbird_download_arch }}.rpm
+  when: netbird_os_family == 'redhat'
+
+- name: Install NetBird agent from RPM
+  ansible.builtin.yum:
+    name: /tmp/netbird.rpm
+    state: present
+    disable_gpg_check: true
+  when: netbird_os_family == 'redhat'
+
+- name: Clean up RPM file
+  ansible.builtin.file:
+    path: /tmp/netbird.rpm
+    state: absent
+  when: netbird_os_family == 'redhat'
+
+# ============================================================================
+# Configuration
+# ============================================================================
+- name: Create NetBird configuration file
+  ansible.builtin.copy:
+    content: |
+      Management URL: {{ netbird_management_url }}
+      Setup Key: {{ netbird_setup_key }}
+      Hostname: {{ netbird_agent_hostname }}
+    dest: "{{ netbird_agent_config_dir }}/config.yml"
+    mode: "0600"
+    owner: root
+    group: root
+  when: netbird_os_family == 'debian'
+
+# ============================================================================
+# Service Setup
+# ============================================================================
+- name: Create NetBird systemd service file
+  ansible.builtin.copy:
+    content: |
+      [Unit]
+      Description=NetBird Agent
+      After=network.target
+
+      [Service]
+      Type=simple
+      ExecStart={{ netbird_agent_install_dir }}/netbird service install --setup-key {{ netbird_setup_key }} --management-url {{ netbird_management_url }} --hostname {{ netbird_agent_hostname }}
+      Restart=on-failure
+      RestartSec=5
+
+      [Install]
+      WantedBy=multi-user.target
+    dest: /etc/systemd/system/netbird.service
+    mode: "0644"
+  when: netbird_systemd
+
+- name: Reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when: netbird_systemd
+
+- name: Enable NetBird service
+  ansible.builtin.systemd:
+    name: netbird
+    enabled: "{{ netbird_agent_service_enabled }}"
+  when: netbird_systemd
+
+- name: Start NetBird service
+  ansible.builtin.systemd:
+    name: netbird
+    state: "{{ netbird_agent_service_state }}"
+  when: netbird_systemd
+
+# ============================================================================
+# Status Report
+# ============================================================================
+- name: Report NetBird agent status
+  ansible.builtin.debug:
+    msg: |
+      NetBird gateway agent deployed successfully:
+        - Version: {{ netbird_agent_version }}
+        - Management URL: {{ netbird_management_url }}
+        - Hostname: {{ netbird_agent_hostname }}
+        - Service: {{ 'enabled' if netbird_agent_service_enabled else 'disabled' }}

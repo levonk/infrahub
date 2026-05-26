@@ -1,0 +1,7 @@
+---
+# NetBird Signal Service Handlers
+
+- name: restart netbird-signal
+  community.docker.docker_container:
+    name: "{{ netbird_signal_container_name }}"
+    state: restarted

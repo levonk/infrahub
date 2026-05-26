@@ -1,0 +1,30 @@
+---
+# OmniRoute role metadata
+
+galaxy_info:
+  role_name: omniroute
+  author: localnet
+  description: Deploy OmniRoute AI Gateway for unified AI provider access
+  company: localnet
+  license: MIT
+  min_ansible_version: "2.9"
+
+  platforms:
+    - name: Ubuntu
+      versions:
+        - focal
+        - jammy
+    - name: Debian
+      versions:
+        - bullseye
+        - bookworm
+
+  galaxy_tags:
+    - ai
+    - gateway
+    - omniroute
+    - llm
+    - docker
+
+dependencies:
+  - role: common

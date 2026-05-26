@@ -1,0 +1,60 @@
+---
+# NetBird Signal Service Deployment
+
+- name: Ensure NetBird signal service directory exists on target
+  ansible.builtin.file:
+    path: "{{ localnet_services_dir }}/netbird/signal"
+    state: directory
+    mode: "0755"
+
+# ============================================================================
+# Container Deployment
+# ============================================================================
+- name: Deploy NetBird signal container
+  community.docker.docker_container:
+    name: "{{ netbird_signal_container_name }}"
+    image: "{{ netbird_signal_image_name }}"
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ localnet_network_name }}"
+    ports:
+      - "{{ netbird_signal_host_port }}:{{ netbird_signal_container_port }}/tcp"
+    env:
+      NETBIRD_LOG_LEVEL: "{{ netbird_signal_log_level }}"
+      TZ: "{{ localnet_tz }}"
+    log_driver: json-file
+    log_options:
+      max-size: 10m
+      max-file: 5
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777,size=128m
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:{{ netbird_signal_container_port }}/health"]
+      interval: "{{ netbird_signal_healthcheck_interval }}"
+      timeout: "{{ netbird_signal_healthcheck_timeout }}"
+      retries: "{{ netbird_signal_healthcheck_retries }}"
+      start_period: "{{ netbird_signal_healthcheck_start_period }}"
+  register: netbird_signal_deploy
+  notify: restart netbird-signal
+
+- name: Wait for NetBird signal to be healthy
+  ansible.builtin.wait_for:
+    host: localhost
+    port: "{{ netbird_signal_host_port }}"
+    delay: 10
+    timeout: 120
+  when: netbird_signal_deploy.changed
+
+# ============================================================================
+# Status Report
+# ============================================================================
+- name: Report NetBird signal status
+  ansible.builtin.debug:
+    msg: |
+      NetBird signal service deployed successfully:
+        - Signal Service: http://localhost:{{ netbird_signal_host_port }}
+        - Container: {{ netbird_signal_container_name }}

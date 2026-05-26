@@ -1,0 +1,7 @@
+---
+# NetBird Management Service Handlers
+
+- name: restart netbird-mgmt
+  community.docker.docker_container:
+    name: "{{ netbird_mgmt_container_name }}"
+    state: restarted

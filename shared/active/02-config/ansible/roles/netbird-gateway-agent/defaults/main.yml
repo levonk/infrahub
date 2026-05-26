@@ -1,0 +1,15 @@
+---
+# NetBird Gateway Agent default variables
+
+# Agent configuration
+netbird_agent_version: latest
+netbird_agent_install_dir: /usr/local/bin
+netbird_agent_config_dir: /etc/netbird
+netbird_agent_binary_name: netbird
+
+# Service configuration
+netbird_agent_service_enabled: true
+netbird_agent_service_state: started
+
+# Download URLs (will be templated with version)
+netbird_download_base_url: "https://github.com/netbirdio/netbird/releases/download"

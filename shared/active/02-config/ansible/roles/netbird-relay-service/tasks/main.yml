@@ -1,0 +1,61 @@
+---
+# NetBird Relay Service Deployment
+
+- name: Ensure NetBird relay service directory exists on target
+  ansible.builtin.file:
+    path: "{{ localnet_services_dir }}/netbird/relay"
+    state: directory
+    mode: "0755"
+
+# ============================================================================
+# Container Deployment
+# ============================================================================
+- name: Deploy NetBird relay container
+  community.docker.docker_container:
+    name: "{{ netbird_relay_container_name }}"
+    image: "{{ netbird_relay_image_name }}"
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ localnet_network_name }}"
+    ports:
+      - "{{ netbird_relay_host_port }}:{{ netbird_relay_container_port }}/tcp"
+      - "{{ netbird_relay_host_port }}:{{ netbird_relay_container_port }}/udp"
+    env:
+      NETBIRD_LOG_LEVEL: "{{ netbird_relay_log_level }}"
+      TZ: "{{ localnet_tz }}"
+    log_driver: json-file
+    log_options:
+      max-size: 10m
+      max-file: 5
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777,size=128m
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:{{ netbird_relay_container_port }}/health"]
+      interval: "{{ netbird_relay_healthcheck_interval }}"
+      timeout: "{{ netbird_relay_healthcheck_timeout }}"
+      retries: "{{ netbird_relay_healthcheck_retries }}"
+      start_period: "{{ netbird_relay_healthcheck_start_period }}"
+  register: netbird_relay_deploy
+  notify: restart netbird-relay
+
+- name: Wait for NetBird relay to be healthy
+  ansible.builtin.wait_for:
+    host: localhost
+    port: "{{ netbird_relay_host_port }}"
+    delay: 10
+    timeout: 120
+  when: netbird_relay_deploy.changed
+
+# ============================================================================
+# Status Report
+# ============================================================================
+- name: Report NetBird relay status
+  ansible.builtin.debug:
+    msg: |
+      NetBird relay service deployed successfully:
+        - Relay Service: http://localhost:{{ netbird_relay_host_port }}
+        - Container: {{ netbird_relay_container_name }}

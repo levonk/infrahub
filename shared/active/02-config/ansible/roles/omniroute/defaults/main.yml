@@ -1,0 +1,17 @@
+---
+# OmniRoute default variables
+
+# Container configuration
+ai_omniroute_container_name: localnet-ai-omniroute
+ai_omniroute_image_name: localnet-ai-omniroute:latest
+ai_omniroute_volume_name: ai-omniroute-data
+
+# Port configuration
+ai_omniroute_host_port: 20128
+ai_omniroute_container_port: 20128
+
+# Healthcheck configuration
+ai_omniroute_healthcheck_interval: 30
+ai_omniroute_healthcheck_timeout: 10
+ai_omniroute_healthcheck_retries: 3
+ai_omniroute_healthcheck_start_period: 40
