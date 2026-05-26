@@ -1,0 +1,47 @@
+---
+# Envoy
+
+- name: Build envoy image
+  community.docker.docker_image:
+    name: localnet-proxy-envoy
+    build:
+      path: "{{ localnet_services_dir }}/proxy/envoy"
+      dockerfile: docker/Dockerfile.envoy
+      pull: false
+    source: build
+    state: present
+
+- name: Deploy envoy container
+  community.docker.docker_container:
+    name: localnet-proxy-envoy
+    image: localnet-proxy-envoy
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ localnet_network_name }}"
+    ports:
+      - "{{ proxy_http_transparent_port }}:80/tcp"
+      - "{{ proxy_https_transparent_port }}:443/tcp"
+      - "{{ proxy_envoy_internal_host_port }}:3129/tcp"
+      - "{{ proxy_envoy_admin_host_port }}:9901/tcp"
+    volumes:
+      - "{{ localnet_services_dir }}/proxy/configs/web/envoy:/etc/envoy/conf.d:ro"
+    log_driver: json-file
+    log_options:
+      max-size: 10m
+      max-file: 5
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9901/ready"]
+      interval: 30
+      timeout: 5
+      retries: 3
+      start_period: 10
+
+- name: Wait for envoy to be healthy
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ proxy_envoy_admin_host_port }}/ready"
+    status_code: 200
+  register: envoy_health
+  until: envoy_health.status == 200
+  retries: 10
+  delay: 5

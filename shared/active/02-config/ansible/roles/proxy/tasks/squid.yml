@@ -1,0 +1,47 @@
+---
+# Squid
+
+- name: Build squid image
+  community.docker.docker_image:
+    name: localnet-proxy-squid
+    build:
+      path: "{{ localnet_services_dir }}/proxy/squid"
+      dockerfile: docker/Dockerfile.squid
+      pull: false
+    source: build
+    state: present
+
+- name: Deploy squid container
+  community.docker.docker_container:
+    name: localnet-proxy-squid
+    image: localnet-proxy-squid
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ localnet_network_name }}"
+    ports:
+      - "{{ proxy_direct_port }}:3128/tcp"
+    volumes:
+      - "{{ localnet_services_dir }}/proxy/configs/web/squid.conf:/etc/squid/conf.d/localnet.conf:ro"
+      - localnet-web-cache-volume:/var/spool/squid
+    env:
+      CACHE_SIZE_MB: "{{ proxy_cache_size_mb }}"
+    log_driver: json-file
+    log_options:
+      max-size: 10m
+      max-file: 5
+    healthcheck:
+      test: ["CMD", "squidclient", "-h", "localhost", "mgr:info"]
+      interval: 30
+      timeout: 5
+      retries: 3
+      start_period: 10
+
+- name: Wait for squid to be healthy
+  ansible.builtin.shell: |
+    docker inspect --format='{{"{{"}}.State.Health.Status{{"}}"}}' localnet-proxy-squid
+  register: squid_health
+  until: squid_health.stdout == "healthy"
+  retries: 10
+  delay: 10
+  ignore_errors: true

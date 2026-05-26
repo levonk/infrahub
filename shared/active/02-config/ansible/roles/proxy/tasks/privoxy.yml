@@ -1,0 +1,40 @@
+---
+# Privoxy
+
+- name: Build privoxy image
+  community.docker.docker_image:
+    name: localnet-proxy-privoxy
+    build:
+      path: "{{ localnet_services_dir }}/proxy/privoxy"
+      dockerfile: docker/Dockerfile.privoxy
+      pull: false
+    source: build
+    state: present
+
+- name: Deploy privoxy container
+  community.docker.docker_container:
+    name: localnet-proxy-privoxy
+    image: localnet-proxy-privoxy
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ localnet_network_name }}"
+    volumes:
+      - "{{ localnet_services_dir }}/proxy/configs/web/privoxy:/etc/privoxy:ro"
+    log_driver: json-file
+    log_options:
+      max-size: 10m
+      max-file: 5
+    healthcheck:
+      test: ["CMD", "nc", "-zv", "localhost", "8118"]
+      interval: 30
+      timeout: 5
+      retries: 3
+      start_period: 10
+
+- name: Wait for privoxy to be healthy
+  ansible.builtin.wait_for:
+    host: localhost
+    port: 8118
+    delay: 5
+    timeout: 60

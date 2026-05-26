@@ -1,0 +1,73 @@
+---
+# Traefik
+
+- name: Deploy traefik container
+  community.docker.docker_container:
+    name: localnet-proxy-traefik
+    image: traefik:latest
+    state: started
+    restart_policy: unless-stopped
+    command:
+      - "--api=true"
+      - "--api.dashboard=true"
+      - "--api.insecure=false"
+      - "--global.sendAnonymousUsage=false"
+      - "--global.checkNewVersion=true"
+      - "--log.level=DEBUG"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedByDefault=false"
+      - "--providers.file.filename=/etc/traefik/dynamic.yml"
+      - "--entrypoints.web=true"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+      - "--entrypoints.web.http.redirections.entryPoint.permanent=true"
+      - "--entrypoints.websecure=true"
+      - "--entrypoints.websecure.address=:443"
+      - "--entryPoints.websecure.proxyProtocol.trustedIPs={{ docker_network_gateway }}/32"
+      - "--entrypoints.health=true"
+      - "--entrypoints.health.address=:8882"
+      - "--ping=true"
+      - "--ping.entrypoint=health"
+      - "--certificatesresolvers.le.acme.email=letsencrypt@levonk.com"
+      - "--certificatesresolvers.le.acme.storage=./acme/acme.json"
+      - "--certificatesresolvers.le.acme.tlschallenge=true"
+      - "--accesslog=true"
+      - "--accesslog.filePath=/var/log/traefik/access.log"
+      - "--entryPoints.websecure.http.middlewares=crowdsec-bouncer@file"
+      - "--experimental.plugins.geoblock.modulename=github.com/PascalMinder/geoblock"
+      - "--experimental.plugins.geoblock.version=v0.3.3"
+      - "--providers.docker.endpoint=unix:///socket/docker.sock"
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - name: "{{ localnet_network_name }}"
+    volumes:
+      - "{{ localnet_services_dir }}/proxy/traefik/mounts/etc/traefik:/etc/traefik:ro"
+      - localnet-security-traefik-accesslog-volume:/var/log/traefik/
+      - localnet-dockerproxy-ro-volume:/socket/:ro
+    env:
+      TRAEFIK_EXPERIMENTAL_PLUGINS_GEOBLOCK_MODULENAME: github.com/PascalMinder/geoblock
+      TRAEFIK_EXPERIMENTAL_PLUGINS_GEOBLOCK_VERSION: "{{ traefik_plugin_geo_version | default('v0.2.9') }}"
+      TRAEFIK_EXPERIMENTAL_PLUGINS_CROWDSEC_MODULENAME: github.com/crowdsecurity/traefik-plugin-crowdsec
+      TRAEFIK_EXPERIMENTAL_PLUGINS_CROWDSEC_VERSION: "{{ traefik_plugin_crowdsec_version | default('v1.4.4') }}"
+    log_driver: json-file
+    log_options:
+      max-size: 10m
+      max-file: 5
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8882/ping"]
+      interval: 30
+      timeout: 5
+      retries: 3
+      start_period: 10
+
+- name: Wait for traefik to be healthy
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:8882/ping"
+    status_code: 200
+  register: traefik_health
+  until: traefik_health.status == 200
+  retries: 10
+  delay: 5
