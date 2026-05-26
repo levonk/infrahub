@@ -1,0 +1,59 @@
+---
+# AdGuard Home
+
+- name: Build adguard image
+  community.docker.docker_image:
+    name: localnet-dns-adguard
+    build:
+      path: "{{ localnet_services_dir }}/dns/adguard"
+      dockerfile: ./Dockerfile.adguard
+      pull: false
+    source: build
+    state: present
+
+- name: Deploy adguard container
+  community.docker.docker_container:
+    name: localnet-dns-adguard
+    image: localnet-dns-adguard
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ localnet_network_name }}"
+        ipv4_address: "{{ dns_adguard_ip }}"
+        aliases:
+          - adguard
+    ports:
+      - "{{ dns_adguard_host_port }}:{{ dns_adguard_container_port }}/udp"
+      - "{{ dns_adguard_host_port }}:{{ dns_adguard_container_port }}/tcp"
+      - "{{ dns_adguard_web_host_port }}:3000/tcp"
+    volumes:
+      - localnet-dns-adguard-conf-volume:/opt/adguardhome/conf
+      - localnet-dns-adguard-work-volume:/opt/adguardhome/work
+    env:
+      PUID: "{{ localnet_puid }}"
+      PGID: "{{ localnet_pgid }}"
+      TZ: "{{ localnet_tz }}"
+      DNS_ADGUARD_IP: "{{ dns_adguard_ip }}"
+      DNS_ADGUARD_HOST_PORT: "{{ dns_adguard_host_port }}"
+      DNS_ADGUARD_CONTAINER_PORT: "{{ dns_adguard_container_port }}"
+      DNS_ADGUARD_WEB_HOST_PORT: "{{ dns_adguard_web_host_port }}"
+      DNS_ADGUARD_WEB_CONTAINER_PORT: "{{ dns_adguard_web_container_port }}"
+    log_driver: json-file
+    log_options:
+      max-size: 10m
+      max-file: 5
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:3000"]
+      interval: 30
+      timeout: 10
+      retries: 3
+      start_period: 30
+
+- name: Wait for adguard to be healthy
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ dns_adguard_web_host_port }}"
+    status_code: 200
+  register: adguard_health
+  until: adguard_health.status == 200
+  retries: 10
+  delay: 5

@@ -1,0 +1,41 @@
+---
+# DNSCrypt Plaintext
+
+- name: Build dnscrypt-plaintext image
+  community.docker.docker_image:
+    name: localnet-dns-dnscrypt-plaintext
+    build:
+      path: "{{ localnet_services_dir }}/dns/dnscrypt"
+      dockerfile: docker/Dockerfile.dnscrypt-proxy
+      pull: false
+    source: build
+    state: present
+
+- name: Deploy dnscrypt-plaintext container
+  community.docker.docker_container:
+    name: localnet-dns-dnscrypt-plaintext
+    image: localnet-dns-dnscrypt-plaintext
+    state: started
+    restart_policy: unless-stopped
+    command: ["/usr/local/bin/entrypoint-dnscrypt.sh", "dnscrypt-proxy-plaintext"]
+    networks:
+      - name: "{{ localnet_network_name }}"
+        ipv4_address: "{{ dns_dnscrypt_plaintext_ip }}"
+    ports:
+      - "{{ dns_dnscrypt_plaintext_host_port }}:{{ dns_dnscrypt_plaintext_container_port }}/udp"
+      - "{{ dns_dnscrypt_plaintext_host_port }}:{{ dns_dnscrypt_plaintext_container_port }}/tcp"
+    volumes:
+      - "{{ localnet_services_dir }}/dns/dnscrypt/mounts/templates:/templates:ro"
+    env:
+      DNS_DNSCRYPT_PLAINTEXT_CONTAINER_PORT: "{{ dns_dnscrypt_plaintext_container_port }}"
+    log_driver: json-file
+    log_options:
+      max-size: 10m
+      max-file: 5
+
+- name: Wait for dnscrypt-plaintext to be healthy
+  ansible.builtin.wait_for:
+    host: "{{ dns_dnscrypt_plaintext_ip }}"
+    port: "{{ dns_dnscrypt_plaintext_container_port }}"
+    delay: 10
+    timeout: 60

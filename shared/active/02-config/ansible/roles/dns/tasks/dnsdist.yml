@@ -1,0 +1,49 @@
+---
+# DNSDist
+
+- name: Build dnsdist image
+  community.docker.docker_image:
+    name: localnet-dns-dnsdist
+    build:
+      path: "{{ localnet_services_dir }}/dns/dnsdist"
+      dockerfile: docker/Dockerfile.dnsdist
+      pull: false
+    source: build
+    state: present
+
+- name: Deploy dnsdist container
+  community.docker.docker_container:
+    name: localnet-dns-dnsdist
+    image: localnet-dns-dnsdist
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ localnet_network_name }}"
+    ports:
+      - "{{ dns_transparent_host_port }}:{{ dns_transparent_container_port }}/udp"
+      - "{{ dns_transparent_host_port }}:{{ dns_transparent_container_port }}/tcp"
+      - "{{ dns_dnsdist_main_host_port }}:{{ dns_dnsdist_main_container_port }}/udp"
+      - "{{ dns_dnsdist_main_host_port }}:{{ dns_dnsdist_main_container_port }}/tcp"
+      - "{{ dns_dnsdist_metrics_host_port }}:{{ dns_dnsdist_metrics_container_port }}/tcp"
+    volumes:
+      - "{{ localnet_services_dir }}/dns/dnsdist/mounts/templates:/templates:ro"
+      - localnet-dns-blocklist-cdbs-volume:/etc/dnsdist/blocklists:ro
+    log_driver: json-file
+    log_options:
+      max-size: 10m
+      max-file: 5
+    healthcheck:
+      test: ["CMD", "dig", "+short", "example.com", "@127.0.0.1", "-p", "{{ dns_dnsdist_main_container_port }}"]
+      interval: 30
+      timeout: 10
+      retries: 3
+      start_period: 170
+
+- name: Wait for dnsdist to be healthy
+  ansible.builtin.shell: |
+    docker inspect --format='{{"{{"}}.State.Health.Status{{"}}"}}' localnet-dns-dnsdist
+  register: dnsdist_health
+  until: dnsdist_health.stdout == "healthy"
+  retries: 10
+  delay: 15
+  ignore_errors: true

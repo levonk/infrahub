@@ -1,0 +1,62 @@
+---
+# CoreDNS
+
+- name: Build coredns image
+  community.docker.docker_image:
+    name: localnet-dns-coredns
+    build:
+      path: "{{ localnet_services_dir }}/dns/coredns"
+      dockerfile: docker/Dockerfile.coredns
+      pull: false
+    source: build
+    state: present
+
+- name: Deploy coredns container
+  community.docker.docker_container:
+    name: localnet-dns-coredns
+    image: localnet-dns-coredns
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ localnet_network_name }}"
+        ipv4_address: "{{ dns_coredns_main_ip }}"
+        aliases:
+          - coredns
+    ports:
+      - "{{ dns_coredns_main_host_port }}:{{ dns_coredns_main_container_port }}/udp"
+      - "{{ dns_coredns_main_host_port }}:{{ dns_coredns_main_container_port }}/tcp"
+      - "{{ dns_coredns_main_metrics_host_port }}:9153/tcp"
+      - "{{ dns_coredns_main_health_host_port }}:{{ dns_coredns_main_health_container_port }}/tcp"
+    volumes:
+      - "{{ localnet_services_dir }}/dns/coredns/mounts/templates:/templates:ro"
+      - localnet-dns-coredns-cache-volume:/var/lib/coredns:rw
+    env:
+      DNS_COREDNS_MAIN_IP: "{{ dns_coredns_main_ip }}"
+      DNS_COREDNS_MAIN_HOST_PORT: "{{ dns_coredns_main_host_port }}"
+      DNS_COREDNS_MAIN_CONTAINER_PORT: "{{ dns_coredns_main_container_port }}"
+      DNS_COREDNS_MAIN_METRICS_HOST_PORT: "{{ dns_coredns_main_metrics_host_port }}"
+      DNS_COREDNS_MAIN_HEALTH_HOST_PORT: "{{ dns_coredns_main_health_host_port }}"
+      DNS_COREDNS_MAIN_HEALTH_CONTAINER_PORT: "{{ dns_coredns_main_health_container_port }}"
+      DNS_DNSCRYPT_PLAINTEXT_IP: "{{ dns_dnscrypt_plaintext_ip }}"
+      DNS_DNSCRYPT_PLAINTEXT_CONTAINER_PORT: "{{ dns_dnscrypt_plaintext_container_port }}"
+      DNS_DNSCRYPT_TOR_IP: "{{ proxy_tor_ip }}"
+      DNS_DNSCRYPT_TOR_CONTAINER_PORT: "{{ proxy_tor_socks5_container_port }}"
+    log_driver: json-file
+    log_options:
+      max-size: 10m
+      max-file: 5
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:{{ dns_coredns_main_health_container_port }}/health"]
+      interval: 30
+      timeout: 10
+      retries: 3
+      start_period: 30
+
+- name: Wait for coredns to be healthy
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ dns_coredns_main_health_host_port }}/health"
+    status_code: 200
+  register: coredns_health
+  until: coredns_health.status == 200
+  retries: 10
+  delay: 5

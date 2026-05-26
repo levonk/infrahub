@@ -1,0 +1,51 @@
+---
+# Blocklist Compiler (one-shot job)
+
+- name: Build blocklist-compiler image
+  community.docker.docker_image:
+    name: localnet-dns-blocklist-compiler
+    build:
+      path: "{{ localnet_services_dir }}/dns/dns-blocklists"
+      dockerfile: Dockerfile.blocklist-compiler
+      pull: false
+    source: build
+    state: present
+  register: blocklist_compiler_build
+
+- name: Run blocklist-compiler (one-shot)
+  community.docker.docker_container:
+    name: localnet-dns-blocklist-compiler
+    image: localnet-dns-blocklist-compiler
+    state: started
+    restart_policy: "no"
+    networks:
+      - name: "{{ localnet_network_name }}"
+    volumes:
+      - localnet-dns-blocklist-archive-volume:/blocklists/sources:rw
+      - localnet-dns-blocklist-cdbs-volume:/blocklists/compiled:rw
+    tmpfs:
+      - /tmp:mode=1777,size=512m
+    env:
+      TZ: UTC
+      PUID: "{{ localnet_puid }}"
+      PGID: "{{ localnet_pgid }}"
+    healthcheck:
+      test: ["CMD", "test", "-f", "/blocklists/compiled/blocklist.cdb"]
+      interval: 30
+      timeout: 10
+      retries: 3
+  register: blocklist_compiler_run
+
+- name: Wait for blocklist-compiler to complete
+  ansible.builtin.wait_for:
+    host: localhost
+    port: 0
+    delay: 5
+    timeout: 300
+  when: blocklist_compiler_run.changed
+
+- name: Stop blocklist-compiler after completion
+  community.docker.docker_container:
+    name: localnet-dns-blocklist-compiler
+    state: absent
+  when: blocklist_compiler_run.changed

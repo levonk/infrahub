@@ -1,0 +1,30 @@
+---
+# Tor Proxy (foundational service)
+
+- name: Build tor-proxy image
+  community.docker.docker_image:
+    name: localnet-proxy-tor
+    build:
+      path: "{{ localnet_services_dir }}/proxy/tor"
+      dockerfile: docker/Dockerfile.tor
+      pull: false
+    source: build
+    state: present
+
+- name: Deploy tor-proxy container
+  community.docker.docker_container:
+    name: localnet-proxy-tor
+    image: localnet-proxy-tor
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ localnet_network_name }}"
+        ipv4_address: "{{ proxy_tor_ip }}"
+    ports:
+      - "{{ proxy_tor_socks5_host_port }}:{{ proxy_tor_socks5_container_port }}/tcp"
+    env:
+      PROXY_TOR_SOCKS5_CONTAINER_PORT: "{{ proxy_tor_socks5_container_port }}"
+    log_driver: json-file
+    log_options:
+      max-size: 10m
+      max-file: 5
