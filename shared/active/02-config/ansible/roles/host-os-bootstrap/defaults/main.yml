@@ -1,0 +1,50 @@
+---
+# defaults file for host-os-bootstrap
+# Neutral, overridable defaults. No localnet-specific paths.
+
+# ---------------------------------------------------------------------------
+# User Configuration
+# ---------------------------------------------------------------------------
+host_os_bootstrap_admin_user: "cuser"
+host_os_bootstrap_admin_uid: 1000
+host_os_bootstrap_admin_gid: 1000
+host_os_bootstrap_admin_shell: "/bin/bash"
+host_os_bootstrap_admin_home: "/home/{{ host_os_bootstrap_admin_user }}"
+host_os_bootstrap_admin_groups: "sudo"
+
+# ---------------------------------------------------------------------------
+# SSH Configuration
+# ---------------------------------------------------------------------------
+host_os_bootstrap_ssh_port: "{{ cloud_server_ssh_host_port | default(22) }}"
+host_os_bootstrap_ssh_permit_root_login: "prohibit-password"
+host_os_bootstrap_ssh_password_auth: "no"
+host_os_bootstrap_ssh_pubkey_auth: "yes"
+host_os_bootstrap_ssh_auth_method: "publickey"
+
+# ---------------------------------------------------------------------------
+# Timezone
+# ---------------------------------------------------------------------------
+host_os_bootstrap_timezone: "UTC"
+
+# ---------------------------------------------------------------------------
+# Security Updates
+# ---------------------------------------------------------------------------
+host_os_bootstrap_unattended_upgrades_enabled: true
+host_os_bootstrap_auto_reboot: false
+
+# ---------------------------------------------------------------------------
+# Packages
+# ---------------------------------------------------------------------------
+host_os_bootstrap_packages:
+  - openssh-server
+  - sudo
+  - unattended-upgrades
+  - apt-listchanges
+  - python3
+  - python3-apt
+
+# ---------------------------------------------------------------------------
+# Authorized Keys
+# ---------------------------------------------------------------------------
+host_os_bootstrap_admin_authorized_keys: []
+host_os_bootstrap_root_authorized_keys: []

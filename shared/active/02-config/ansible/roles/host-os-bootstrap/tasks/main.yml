@@ -1,0 +1,146 @@
+---
+# tasks file for host-os-bootstrap
+
+# ---------------------------------------------------------------------------
+# Package Index Refresh
+# ---------------------------------------------------------------------------
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+  when: ansible_os_family == "Debian"
+  become: true
+
+# ---------------------------------------------------------------------------
+# Required Packages
+# ---------------------------------------------------------------------------
+- name: Install required packages
+  ansible.builtin.package:
+    name: "{{ host_os_bootstrap_packages }}"
+    state: present
+  become: true
+
+# ---------------------------------------------------------------------------
+# Timezone
+# ---------------------------------------------------------------------------
+- name: Set system timezone
+  ansible.builtin.command:
+    cmd: "timedatectl set-timezone {{ host_os_bootstrap_timezone }}"
+  register: timezone_set
+  changed_when: timezone_set.rc == 0
+  become: true
+
+# ---------------------------------------------------------------------------
+# Admin User
+# ---------------------------------------------------------------------------
+- name: Ensure admin group exists
+  ansible.builtin.group:
+    name: "{{ host_os_bootstrap_admin_user }}"
+    gid: "{{ host_os_bootstrap_admin_gid | int }}"
+    state: present
+  become: true
+
+- name: Ensure admin user exists
+  ansible.builtin.user:
+    name: "{{ host_os_bootstrap_admin_user }}"
+    uid: "{{ host_os_bootstrap_admin_uid | int }}"
+    group: "{{ host_os_bootstrap_admin_user }}"
+    groups: "{{ host_os_bootstrap_admin_groups }}"
+    shell: "{{ host_os_bootstrap_admin_shell }}"
+    home: "{{ host_os_bootstrap_admin_home }}"
+    create_home: true
+    state: present
+  become: true
+
+# ---------------------------------------------------------------------------
+# Passwordless Sudo
+# ---------------------------------------------------------------------------
+- name: Configure passwordless sudo for admin user
+  ansible.builtin.template:
+    src: sudoers.j2
+    dest: "/etc/sudoers.d/{{ host_os_bootstrap_admin_user }}"
+    owner: root
+    group: root
+    mode: "0440"
+    validate: "visudo -cf %s"
+  become: true
+
+# ---------------------------------------------------------------------------
+# SSH Key Authentication
+# ---------------------------------------------------------------------------
+- name: Ensure admin user .ssh directory exists
+  ansible.builtin.file:
+    path: "{{ host_os_bootstrap_admin_home }}/.ssh"
+    state: directory
+    owner: "{{ host_os_bootstrap_admin_user }}"
+    group: "{{ host_os_bootstrap_admin_user }}"
+    mode: "0700"
+  become: true
+
+- name: Deploy admin user authorized keys
+  ansible.builtin.copy:
+    content: "{{ host_os_bootstrap_admin_authorized_keys | join('\n') }}\n"
+    dest: "{{ host_os_bootstrap_admin_home }}/.ssh/authorized_keys"
+    owner: "{{ host_os_bootstrap_admin_user }}"
+    group: "{{ host_os_bootstrap_admin_user }}"
+    mode: "0600"
+  when: host_os_bootstrap_admin_authorized_keys | default([]) | length > 0
+  become: true
+
+- name: Ensure root .ssh directory exists
+  ansible.builtin.file:
+    path: /root/.ssh
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+  become: true
+
+- name: Deploy root authorized keys
+  ansible.builtin.copy:
+    content: "{{ host_os_bootstrap_root_authorized_keys | join('\n') }}\n"
+    dest: /root/.ssh/authorized_keys
+    owner: root
+    group: root
+    mode: "0600"
+  when: host_os_bootstrap_root_authorized_keys | default([]) | length > 0
+  become: true
+
+# ---------------------------------------------------------------------------
+# SSH Server Configuration
+# ---------------------------------------------------------------------------
+- name: Configure SSH server
+  ansible.builtin.template:
+    src: sshd_config.j2
+    dest: /etc/ssh/sshd_config
+    owner: root
+    group: root
+    mode: "0644"
+    validate: "sshd -t -f %s"
+  become: true
+  notify:
+    - restart ssh
+    - restart sshd
+
+# ---------------------------------------------------------------------------
+# Automatic Security Updates
+# ---------------------------------------------------------------------------
+- name: Configure unattended-upgrades
+  ansible.builtin.template:
+    src: unattended-upgrades.j2
+    dest: /etc/apt/apt.conf.d/50unattended-upgrades
+    owner: root
+    group: root
+    mode: "0644"
+  when: host_os_bootstrap_unattended_upgrades_enabled | bool
+  become: true
+
+- name: Enable automatic apt updates
+  ansible.builtin.template:
+    src: auto-upgrades.j2
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    owner: root
+    group: root
+    mode: "0644"
+  when: host_os_bootstrap_unattended_upgrades_enabled | bool
+  become: true

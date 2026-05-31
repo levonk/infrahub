@@ -1,0 +1,8 @@
+# {{ ansible_managed }}
+{% if item is defined %}
+{{ item }}
+{% else %}
+{% for key in authorized_keys | default([]) %}
+{{ key }}
+{% endfor %}
+{% endif %}

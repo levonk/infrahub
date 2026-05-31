@@ -7,7 +7,7 @@ prd_file: "shared/active/08-docs/reqs/2026/20260529-cloud-server.md"
 phase: 2
 parallel_id: 1
 branch: "feature/current/cloud-server/story-02-001-role-os-bootstrap"
-status: "todo"
+status: "done"
 assignee: ""
 reviewer: ""
 dependencies: ["01-001", "01-002"]
@@ -18,7 +18,7 @@ risk_level: "low"
 tags: ["ansible", "role", "os", "bootstrap"]
 due: "2026-06-12"
 created_at: "2026-05-29"
-updated_at: "2026-05-29"
+updated_at: "2026-05-30"
 ---
 
 ## Summary
@@ -27,9 +27,9 @@ Create the `host-os-bootstrap` Ansible role in `shared/active/02-config/ansible/
 
 ## Sub-Tasks
 
-- [ ] Create role directory `shared/active/02-config/ansible/roles/host-os-bootstrap/`
-- [ ] Create `defaults/main.yml` with neutral, overridable defaults (no localnet-specific paths)
-- [ ] Create `tasks/main.yml` with tasks for:
+- [x] Create role directory `shared/active/02-config/ansible/roles/host-os-bootstrap/`
+- [x] Create `defaults/main.yml` with neutral, overridable defaults (no localnet-specific paths)
+- [x] Create `tasks/main.yml` with tasks for:
   - Package index refresh (`apt update` or equivalent)
   - OpenSSH server installation and basic config
   - Timezone enforcement to UTC (`timedatectl set-timezone UTC`)
@@ -37,11 +37,11 @@ Create the `host-os-bootstrap` Ansible role in `shared/active/02-config/ansible/
   - Passwordless sudo configuration for admin user
   - ed25519 SSH key auth for root and cuser
   - Automatic security updates (`unattended-upgrades` or equivalent)
-- [ ] Create `handlers/main.yml` for SSH service restart
-- [ ] Create `meta/main.yml` with role metadata and dependencies
-- [ ] Create `README.md` documenting role variables and usage
-- [ ] Create `tests/` directory with basic test playbook
-- [ ] Verify `ansible-lint` passes on the role
+- [x] Create `handlers/main.yml` for SSH service restart
+- [x] Create `meta/main.yml` with role metadata and dependencies
+- [x] Create `README.md` documenting role variables and usage
+- [x] Create `tests/` directory with basic test playbook
+- [x] Verify `ansible-lint` passes on the role
 
 ## Relevant Files
 
@@ -52,16 +52,17 @@ Create the `host-os-bootstrap` Ansible role in `shared/active/02-config/ansible/
 - `shared/active/02-config/ansible/roles/host-os-bootstrap/meta/main.yml` — role metadata
 - `shared/active/02-config/ansible/roles/host-os-bootstrap/README.md` — role documentation
 - `levonk/active/02-config/ansible/group_vars/cloud_server.yml` — consumes group vars
+- `ansible.cfg` — repo-root Ansible config providing roles_path for lint
 
 ## Acceptance Criteria
 
-- [ ] Role executes without errors on target host
-- [ ] `cuser` account exists with UID/GID 1000
-- [ ] UTC timezone is set
-- [ ] OpenSSH is installed and running
-- [ ] Passwordless sudo works for admin user
-- [ ] ed25519 key auth works for root and cuser
-- [ ] `ansible-lint` passes
+- [ ] Role executes without errors on target host (requires Phase 05 deploy)
+- [ ] `cuser` account exists with UID/GID 1000 (requires Phase 05 deploy)
+- [ ] UTC timezone is set (requires Phase 05 deploy)
+- [ ] OpenSSH is installed and running (requires Phase 05 deploy)
+- [ ] Passwordless sudo works for admin user (requires Phase 05 deploy)
+- [ ] ed25519 key auth works for root and cuser (requires Phase 05 deploy)
+- [x] `ansible-lint` passes
 
 ## Test Plan
 
@@ -104,3 +105,4 @@ Create the `host-os-bootstrap` Ansible role in `shared/active/02-config/ansible/
 ## Changelog
 
 - 2026-05-29: initialized story file
+- 2026-05-31: completed role implementation, fixed meta/description line length, fixed tests/test.yml role reference, added repo-root ansible.cfg for lint role resolution

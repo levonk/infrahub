@@ -32,7 +32,7 @@ All development and deployment commands must work through `devbox run ...` per A
 
 | Story ID | Story Title | Branch | Status | Dependencies | Parallel-safe | Modules |
 | -------- | ----------- | ------ | ------ | ------------ | ------------- | ------- |
-| 02-001 | Role: host-os-bootstrap | feature/current/cloud-server/story-02-001-role-os-bootstrap | [~] In-Progress | 01-001, 01-002 | true | ansible, role |
+| 02-001 | Role: host-os-bootstrap | feature/current/cloud-server/story-02-001-role-os-bootstrap | [x] Done | 01-001, 01-002 | true | ansible, role |
 | 02-002 | Role: nix-installation | feature/current/cloud-server/story-02-002-role-nix | [x] Done | 01-001, 01-002 | true | ansible, role, nix |
 | 02-003 | Role: docker-engine | feature/current/cloud-server/story-02-003-role-docker | [x] Done | 01-001, 01-002 | true | ansible, role, docker |
 | 02-004 | Role: nix-core-tools | feature/current/cloud-server/story-02-004-role-nix-tools | [x] Done | 01-001, 01-002 | true | ansible, role, nix |
@@ -51,7 +51,7 @@ All development and deployment commands must work through `devbox run ...` per A
 
 | Story ID | Story Title | Branch | Status | Dependencies | Parallel-safe | Modules |
 | -------- | ----------- | ------ | ------ | ------------ | ------------- | ------- |
-| 03-001 | Playbook: cloud-server-bootstrap.yml | feature/current/cloud-server/story-03-001-pb-bootstrap | [ ] Todo | 02-001, 02-002, 02-003, 02-004 | true | ansible, playbook |
+| 03-001 | Playbook: cloud-server-bootstrap.yml | feature/current/cloud-server/story-03-001-pb-bootstrap | [!] Blocked | 02-001, 02-002, 02-003, 02-004 | true | ansible, playbook |
 | 03-002 | Playbook: cloud-server-vpn.yml | feature/current/cloud-server/story-03-002-pb-vpn | [ ] Todo | 02-005, 02-006, 02-007, 02-008, 02-009 | true | ansible, playbook |
 | 03-003 | Playbook: cloud-server-infra.yml | feature/current/cloud-server/story-03-003-pb-infra | [ ] Todo | 02-010, 02-011, 02-012, 02-013 | true | ansible, playbook |
 | 03-004 | Playbook: cloud-server-vms.yml | feature/current/cloud-server/story-03-004-pb-vms | [ ] Todo | 02-014 | true | ansible, playbook |

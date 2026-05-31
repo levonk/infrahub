@@ -1,0 +1,10 @@
+---
+- name: Test host-os-bootstrap role
+  hosts: localhost
+  become: true
+  roles:
+    - role: host-os-bootstrap
+  vars:
+    host_os_bootstrap_admin_user: "testuser"
+    host_os_bootstrap_admin_uid: 1001
+    host_os_bootstrap_admin_gid: 1001

@@ -1,0 +1,16 @@
+---
+# handlers file for host-os-bootstrap
+
+- name: Restart ssh service
+  ansible.builtin.systemd:
+    name: ssh
+    state: restarted
+    enabled: true
+  listen: restart ssh
+
+- name: Restart sshd service
+  ansible.builtin.systemd:
+    name: sshd
+    state: restarted
+    enabled: true
+  listen: restart sshd
