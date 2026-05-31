@@ -5,9 +5,9 @@
 netbird_relay_container_name: localnet-netbird-relay
 netbird_relay_image_name: netbirdio/relay:latest
 
-# Port configuration (MUST BE DEFINED AS VARIABLES IN group_vars/all.yml)
-netbird_relay_host_port: "{{ netbird_relay_host_port | default('33075') }}"
-netbird_relay_container_port: "{{ netbird_relay_container_port | default('33075') }}"
+# Port configuration (references cloud_server group_vars per AGENTS.md; TURN relay)
+netbird_relay_host_port: "{{ cloud_server_netbird_turn_host_port | default('3478') }}"
+netbird_relay_container_port: "{{ cloud_server_netbird_turn_container_port | default('3478') }}"
 
 # Configuration
 netbird_relay_log_level: info

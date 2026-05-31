@@ -16,8 +16,8 @@ This Ansible role deploys the NetBird signal service (NAT traversal helper) as a
 |----------|---------|-------------|
 | `netbird_signal_container_name` | `localnet-netbird-signal` | Container name |
 | `netbird_signal_image_name` | `netbirdio/signal:latest` | Docker image name |
-| `netbird_signal_host_port` | `33074` | Host port mapping (MUST BE VARIABLE) |
-| `netbird_signal_container_port` | `33074` | Container port (MUST BE VARIABLE) |
+| `netbird_signal_host_port` | `{{ cloud_server_netbird_signal_host_port \| default('33074') }}` | Host port mapping (references `cloud_server_*` group_vars) |
+| `netbird_signal_container_port` | `{{ cloud_server_netbird_signal_container_port \| default('33074') }}` | Container port (references `cloud_server_*` group_vars) |
 | `netbird_signal_log_level` | `info` | Logging level |
 
 ### Required Variables
@@ -53,8 +53,8 @@ These variables must be defined in group_vars/all.yml or playbook:
     localnet_puid: 1000
     localnet_pgid: 1000
     localnet_tz: UTC
-    netbird_signal_host_port: "{{ netbird_signal_host_port }}"
-    netbird_signal_container_port: "{{ netbird_signal_container_port }}"
+    netbird_signal_host_port: "{{ cloud_server_netbird_signal_host_port }}"
+    netbird_signal_container_port: "{{ cloud_server_netbird_signal_container_port }}"
 ```
 
 ## Tasks
@@ -80,7 +80,7 @@ The role performs the following tasks:
 
 ## Important Notes
 
-**CRITICAL**: All port numbers must be defined as variables in group_vars/all.yml per localnet AGENTS.md. No hardcoded ports allowed.
+**CRITICAL**: All port numbers must be defined as variables in `levonk/active/02-config/ansible/group_vars/cloud_server.yml` per AGENTS.md. Defaults in this role reference `cloud_server_netbird_signal_*` variables. No hardcoded ports allowed.
 
 ## License
 

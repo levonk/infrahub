@@ -5,9 +5,9 @@
 netbird_signal_container_name: localnet-netbird-signal
 netbird_signal_image_name: netbirdio/signal:latest
 
-# Port configuration (MUST BE DEFINED AS VARIABLES IN group_vars/all.yml)
-netbird_signal_host_port: "{{ netbird_signal_host_port | default('33074') }}"
-netbird_signal_container_port: "{{ netbird_signal_container_port | default('33074') }}"
+# Port configuration (references cloud_server group_vars per AGENTS.md)
+netbird_signal_host_port: "{{ cloud_server_netbird_signal_host_port | default('33074') }}"
+netbird_signal_container_port: "{{ cloud_server_netbird_signal_container_port | default('33074') }}"
 
 # Configuration
 netbird_signal_log_level: info

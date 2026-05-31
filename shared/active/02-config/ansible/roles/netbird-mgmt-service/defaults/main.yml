@@ -6,9 +6,9 @@ netbird_mgmt_container_name: localnet-netbird-mgmt
 netbird_mgmt_image_name: netbirdio/management:latest
 netbird_mgmt_volume_name: netbird-mgmt-data
 
-# Port configuration (MUST BE DEFINED AS VARIABLES IN group_vars/all.yml)
-netbird_mgmt_host_port: "{{ netbird_mgmt_host_port | default('33073') }}"
-netbird_mgmt_container_port: "{{ netbird_mgmt_container_port | default('33073') }}"
+# Port configuration (references cloud_server group_vars per AGENTS.md)
+netbird_mgmt_host_port: "{{ cloud_server_netbird_mgmt_host_port | default('33073') }}"
+netbird_mgmt_container_port: "{{ cloud_server_netbird_mgmt_container_port | default('33073') }}"
 
 # Configuration
 netbird_mgmt_log_level: info

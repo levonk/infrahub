@@ -17,8 +17,8 @@ This Ansible role deploys the NetBird management service (control plane) as a Do
 | `netbird_mgmt_container_name` | `localnet-netbird-mgmt` | Container name |
 | `netbird_mgmt_image_name` | `netbirdio/management:latest` | Docker image name |
 | `netbird_mgmt_volume_name` | `netbird-mgmt-data` | Docker volume name |
-| `netbird_mgmt_host_port` | `33073` | Host port mapping (MUST BE VARIABLE) |
-| `netbird_mgmt_container_port` | `33073` | Container port (MUST BE VARIABLE) |
+| `netbird_mgmt_host_port` | `{{ cloud_server_netbird_mgmt_host_port \| default('33073') }}` | Host port mapping (references `cloud_server_*` group_vars) |
+| `netbird_mgmt_container_port` | `{{ cloud_server_netbird_mgmt_container_port \| default('33073') }}` | Container port (references `cloud_server_*` group_vars) |
 | `netbird_mgmt_log_level` | `info` | Logging level |
 
 ### Required Variables
@@ -54,8 +54,8 @@ These variables must be defined in group_vars/all.yml or playbook:
     localnet_puid: 1000
     localnet_pgid: 1000
     localnet_tz: UTC
-    netbird_mgmt_host_port: "{{ netbird_mgmt_host_port }}"
-    netbird_mgmt_container_port: "{{ netbird_mgmt_container_port }}"
+    netbird_mgmt_host_port: "{{ cloud_server_netbird_mgmt_host_port }}"
+    netbird_mgmt_container_port: "{{ cloud_server_netbird_mgmt_container_port }}"
 ```
 
 ## Tasks
@@ -88,7 +88,7 @@ After deployment, NetBird management service is accessible at:
 
 ## Important Notes
 
-**CRITICAL**: All port numbers must be defined as variables in group_vars/all.yml per localnet AGENTS.md. No hardcoded ports allowed.
+**CRITICAL**: All port numbers must be defined as variables in `levonk/active/02-config/ansible/group_vars/cloud_server.yml` per AGENTS.md. Defaults in this role reference `cloud_server_netbird_mgmt_*` variables. No hardcoded ports allowed.
 
 ## License
 

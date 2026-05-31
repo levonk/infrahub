@@ -16,8 +16,8 @@ This Ansible role deploys the NetBird relay service (TURN/STUN fallback) as a Do
 |----------|---------|-------------|
 | `netbird_relay_container_name` | `localnet-netbird-relay` | Container name |
 | `netbird_relay_image_name` | `netbirdio/relay:latest` | Docker image name |
-| `netbird_relay_host_port` | `33075` | Host port mapping (MUST BE VARIABLE) |
-| `netbird_relay_container_port` | `33075` | Container port (MUST BE VARIABLE) |
+| `netbird_relay_host_port` | `{{ cloud_server_netbird_turn_host_port \| default('3478') }}` | Host port mapping (references `cloud_server_*` group_vars; TURN relay) |
+| `netbird_relay_container_port` | `{{ cloud_server_netbird_turn_container_port \| default('3478') }}` | Container port (references `cloud_server_*` group_vars; TURN relay) |
 | `netbird_relay_log_level` | `info` | Logging level |
 
 ### Required Variables
@@ -53,8 +53,8 @@ These variables must be defined in group_vars/all.yml or playbook:
     localnet_puid: 1000
     localnet_pgid: 1000
     localnet_tz: UTC
-    netbird_relay_host_port: "{{ netbird_relay_host_port }}"
-    netbird_relay_container_port: "{{ netbird_relay_container_port }}"
+    netbird_relay_host_port: "{{ cloud_server_netbird_turn_host_port }}"
+    netbird_relay_container_port: "{{ cloud_server_netbird_turn_container_port }}"
 ```
 
 ## Tasks
@@ -80,7 +80,7 @@ The role performs the following tasks:
 
 ## Important Notes
 
-**CRITICAL**: All port numbers must be defined as variables in group_vars/all.yml per localnet AGENTS.md. No hardcoded ports allowed.
+**CRITICAL**: All port numbers must be defined as variables in `levonk/active/02-config/ansible/group_vars/cloud_server.yml` per AGENTS.md. Defaults in this role reference `cloud_server_netbird_turn_*` variables. No hardcoded ports allowed.
 
 ## License
 
