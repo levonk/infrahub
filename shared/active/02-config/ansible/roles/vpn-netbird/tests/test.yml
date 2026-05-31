@@ -1,0 +1,14 @@
+---
+# Test playbook for vpn-netbird role
+# Run with: ansible-playbook -i localhost, -c local tests/test.yml --check --diff
+
+- name: "Test vpn-netbird role"
+  hosts: all
+  become: true
+  vars:
+    # Use dummy credentials for dry-run tests; real runs require valid values.
+    vpn_netbird_setup_key: "nbp-setup-dummy-test"
+    vpn_netbird_management_url: "https://api.netbird.io:33073"
+    vpn_netbird_verify_connection: false
+  roles:
+    - role: ../vpn-netbird

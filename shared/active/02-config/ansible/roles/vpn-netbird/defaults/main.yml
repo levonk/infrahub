@@ -1,0 +1,50 @@
+---
+# defaults file for vpn-netbird
+# Neutral, overridable defaults. No localnet-specific paths.
+# Setup key must be provided via vault/secret manager; never commit plaintext keys.
+
+# ---------------------------------------------------------------------------
+# Netbird Version & Channel
+# ---------------------------------------------------------------------------
+vpn_netbird_version: "latest"
+vpn_netbird_channel: "stable"
+
+# ---------------------------------------------------------------------------
+# Netbird Auth & Network
+# ---------------------------------------------------------------------------
+# Management server URL (e.g., https://api.netbird.io:33073 or self-hosted).
+# Must be set via group_vars or host_vars.
+vpn_netbird_management_url: ""
+
+# Setup key for initial peer registration. Must be set via vault or host_vars.
+vpn_netbird_setup_key: ""
+
+# Port for Netbird WireGuard traffic (UDP).
+vpn_netbird_port: "{{ cloud_server_netbird_port | default('51820') }}"
+
+# Hostname advertised in the Netbird network.
+vpn_netbird_hostname: "{{ inventory_hostname | default('cloud-server') }}"
+
+# ---------------------------------------------------------------------------
+# Route Advertisement
+# ---------------------------------------------------------------------------
+# Advertise routes for subnet routing (e.g., ['10.0.0.0/24']).
+# Leave empty if not acting as a subnet router.
+vpn_netbird_advertise_routes: []
+
+# Accept DNS settings from Netbird management server.
+vpn_netbird_accept_dns: true
+
+# Accept routes advertised by other Netbird peers.
+vpn_netbird_accept_routes: false
+
+# ---------------------------------------------------------------------------
+# Feature Flags
+# ---------------------------------------------------------------------------
+vpn_netbird_enable_ssh: false
+
+# ---------------------------------------------------------------------------
+# Verification
+# ---------------------------------------------------------------------------
+vpn_netbird_verify_connection: true
+vpn_netbird_verify_timeout_seconds: 30

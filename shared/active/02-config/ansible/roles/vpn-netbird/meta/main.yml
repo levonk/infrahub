@@ -1,0 +1,24 @@
+---
+galaxy_info:
+  role_name: vpn_netbird
+  author: levonk
+  description: Install and configure Netbird as a host-level WireGuard mesh VPN daemon.
+  company: levonk
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+    - name: Ubuntu
+      versions:
+        - jammy
+        - noble
+  galaxy_tags:
+    - vpn
+    - netbird
+    - mesh
+    - networking
+    - wireguard
+
+dependencies: []

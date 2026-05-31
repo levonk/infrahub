@@ -1,0 +1,128 @@
+---
+# tasks file for vpn-netbird
+# Installs and configures Netbird as a host-level WireGuard mesh VPN daemon.
+
+# ---------------------------------------------------------------------------
+# Prerequisites
+# ---------------------------------------------------------------------------
+- name: Ensure required packages are present
+  ansible.builtin.apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg
+      - wireguard-tools
+    state: present
+    update_cache: true
+  become: true
+  when: ansible_facts.os_family == "Debian"
+
+# ---------------------------------------------------------------------------
+# Install Netbird (official repository)
+# ---------------------------------------------------------------------------
+- name: Add Netbird GPG key
+  ansible.builtin.apt_key:
+    url: https://pkgs.netbird.io/{{ vpn_netbird_channel }}/debian/bookworm.gpg
+    keyring: /usr/share/keyrings/netbird-archive-keyring.gpg
+  become: true
+  when: ansible_facts.os_family == "Debian"
+
+- name: Add Netbird apt repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/netbird-archive-keyring.gpg] https://pkgs.netbird.io/{{ vpn_netbird_channel }}/debian bookworm main"
+    filename: netbird
+    state: present
+  become: true
+  when: ansible_facts.os_family == "Debian"
+
+- name: Install Netbird
+  ansible.builtin.apt:
+    name: "netbird{% if vpn_netbird_version != 'latest' %}={{ vpn_netbird_version }}{% endif %}"
+    state: "{% if vpn_netbird_version == 'latest' %}present{% else %}fixed{% endif %}"
+    update_cache: true
+  become: true
+  notify: restart netbird
+  when: ansible_facts.os_family == "Debian"
+
+# ---------------------------------------------------------------------------
+# Configure Netbird
+# ---------------------------------------------------------------------------
+- name: Ensure Netbird state directory exists
+  ansible.builtin.file:
+    path: /var/lib/netbird
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+
+# ---------------------------------------------------------------------------
+# Authenticate and start Netbird
+# ---------------------------------------------------------------------------
+- name: Check Netbird authentication status
+  ansible.builtin.command:
+    cmd: netbird status
+  become: true
+  changed_when: false
+  failed_when: false
+  register: vpn_netbird_status_check
+
+- name: Build netbird up arguments
+  ansible.builtin.set_fact:
+    _vpn_netbird_up_args:
+      - --setup-key={{ vpn_netbird_setup_key }}
+      - --management-url={{ vpn_netbird_management_url }}
+      - --hostname={{ vpn_netbird_hostname }}
+      - "{% if vpn_netbird_accept_dns %}--accept-dns{% else %}--accept-dns=false{% endif %}"
+      - "{% if vpn_netbird_accept_routes %}--accept-routes{% else %}--accept-routes=false{% endif %}"
+      - "{% if vpn_netbird_enable_ssh %}--ssh{% endif %}"
+      - "{% if vpn_netbird_advertise_routes | length > 0 %}--advertise-routes={{ vpn_netbird_advertise_routes | join(',') }}{% endif %}"
+  when: vpn_netbird_setup_key | length > 0
+
+- name: Authenticate and start Netbird
+  ansible.builtin.command:
+    cmd: "netbird up {{ _vpn_netbird_up_args | select | join(' ') }}"
+  become: true
+  changed_when: true
+  when:
+    - vpn_netbird_setup_key | length > 0
+    - vpn_netbird_status_check.rc != 0
+  notify: restart netbird
+
+# ---------------------------------------------------------------------------
+# Service Management
+# ---------------------------------------------------------------------------
+- name: Ensure Netbird service is enabled and running
+  ansible.builtin.systemd:
+    name: netbird
+    state: started
+    enabled: true
+  become: true
+
+# ---------------------------------------------------------------------------
+# Verification
+# ---------------------------------------------------------------------------
+- name: Verify Netbird status
+  ansible.builtin.command:
+    cmd: netbird status
+  become: true
+  changed_when: false
+  when: vpn_netbird_verify_connection | bool
+
+- name: Verify Netbird IP
+  ansible.builtin.command:
+    cmd: netbird ip
+  become: true
+  changed_when: false
+  register: vpn_netbird_ip
+  when: vpn_netbird_verify_connection | bool
+
+- name: Report Netbird connection info
+  ansible.builtin.debug:
+    msg: |
+      Netbird is running:
+        - Hostname: {{ vpn_netbird_hostname }}
+        - Port: {{ vpn_netbird_port }}
+        - IP: {{ vpn_netbird_ip.stdout | default('N/A') }}
+  when: vpn_netbird_verify_connection | bool

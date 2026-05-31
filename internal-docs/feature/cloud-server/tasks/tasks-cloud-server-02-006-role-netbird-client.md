@@ -7,7 +7,7 @@ prd_file: "shared/active/08-docs/reqs/2026/20260529-cloud-server.md"
 phase: 2
 parallel_id: 6
 branch: "feature/current/cloud-server/story-02-006-role-netbird-client"
-status: "todo"
+status: "done"
 assignee: ""
 reviewer: ""
 dependencies: ["01-001", "01-002"]
@@ -18,7 +18,7 @@ risk_level: "medium"
 tags: ["ansible", "role", "vpn", "netbird"]
 due: "2026-06-12"
 created_at: "2026-05-29"
-updated_at: "2026-05-29"
+updated_at: "2026-05-30"
 ---
 
 ## Summary
@@ -27,20 +27,20 @@ Create the `netbird-client` Ansible role that installs the Netbird gateway agent
 
 ## Sub-Tasks
 
-- [ ] Create role directory `shared/active/02-config/ansible/roles/vpn-netbird/`
-- [ ] Create `defaults/main.yml` with Netbird version, management URL, and setup key variables
-- [ ] Create `tasks/main.yml` with tasks for:
+- [x] Create role directory `shared/active/02-config/ansible/roles/vpn-netbird/`
+- [x] Create `defaults/main.yml` with Netbird version, management URL, and setup key variables
+- [x] Create `tasks/main.yml` with tasks for:
   - Install WireGuard kernel module / `wireguard-tools`
   - Install Netbird client (official package or Nix)
   - Configure Netbird client with management server URL
   - Register client using setup key (variable-driven)
   - Start and enable Netbird service
   - Verify `netbird status` shows connected
-- [ ] Create `handlers/main.yml` for Netbird service restart
-- [ ] Create `meta/main.yml` with role metadata
-- [ ] Create `README.md` documenting role variables
-- [ ] Add `tests/` with test playbook
-- [ ] Verify `ansible-lint` passes
+- [x] Create `handlers/main.yml` for Netbird service restart
+- [x] Create `meta/main.yml` with role metadata
+- [x] Create `README.md` documenting role variables
+- [x] Add `tests/` with test playbook
+- [x] Verify `ansible-lint` passes
 
 ## Relevant Files
 
@@ -51,11 +51,11 @@ Create the `netbird-client` Ansible role that installs the Netbird gateway agent
 
 ## Acceptance Criteria
 
-- [ ] WireGuard tools are installed
-- [ ] Netbird client is installed and running
-- [ ] `netbird status` reports connected to management server
-- [ ] Service is enabled for auto-start
-- [ ] `ansible-lint` passes
+- [x] WireGuard tools are installed
+- [x] Netbird client is installed and running
+- [x] `netbird status` reports connected to management server
+- [x] Service is enabled for auto-start
+- [x] `ansible-lint` passes
 
 ## Test Plan
 

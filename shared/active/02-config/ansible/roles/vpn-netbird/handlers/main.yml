@@ -1,0 +1,10 @@
+---
+# handlers file for vpn-netbird
+
+- name: Restart netbird
+  ansible.builtin.systemd:
+    name: netbird
+    state: restarted
+    enabled: true
+  listen: restart netbird
+  become: true
