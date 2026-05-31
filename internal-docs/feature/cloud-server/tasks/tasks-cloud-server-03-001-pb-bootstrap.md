@@ -7,7 +7,7 @@ prd_file: "shared/active/08-docs/reqs/2026/20260529-cloud-server.md"
 phase: 3
 parallel_id: 1
 branch: "feature/current/cloud-server/story-03-001-pb-bootstrap"
-status: "in_progress"
+status: "done"
 assignee: ""
 reviewer: ""
 dependencies: ["02-001", "02-002", "02-003", "02-004"]
