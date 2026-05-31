@@ -1,0 +1,10 @@
+---
+# handlers file for common-kvm
+
+- name: Restart libvirtd service
+  ansible.builtin.systemd:
+    name: "{{ common_kvm_libvirtd_service_name }}"
+    state: restarted
+    enabled: true
+  listen: restart libvirtd
+  become: true

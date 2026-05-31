@@ -7,7 +7,7 @@ prd_file: "shared/active/08-docs/reqs/2026/20260529-cloud-server.md"
 phase: 2
 parallel_id: 14
 branch: "feature/current/cloud-server/story-02-014-role-kvm"
-status: "todo"
+status: "done"
 assignee: ""
 reviewer: ""
 dependencies: ["01-001", "01-002"]
@@ -18,7 +18,7 @@ risk_level: "medium"
 tags: ["ansible", "role", "vm", "kvm"]
 due: "2026-06-12"
 created_at: "2026-05-29"
-updated_at: "2026-05-29"
+updated_at: "2026-05-31"
 ---
 
 ## Summary
@@ -27,9 +27,9 @@ Create the `kvm-hypervisor` Ansible role that installs and configures the KVM/li
 
 ## Sub-Tasks
 
-- [ ] Create role directory `shared/active/02-config/ansible/roles/common-kvm/`
-- [ ] Create `defaults/main.yml` with KVM bridge subnet, VM storage path, and network variables
-- [ ] Create `tasks/main.yml` with tasks for:
+- [x] Create role directory `shared/active/02-config/ansible/roles/common-kvm/`
+- [x] Create `defaults/main.yml` with KVM bridge subnet, VM storage path, and network variables
+- [x] Create `tasks/main.yml` with tasks for:
   - Check CPU virtualization support (Intel VT-x / AMD-V)
   - Install `qemu-kvm`, `libvirt-daemon-system`, `virt-manager` (or `virt-install`/`virsh`)
   - Start and enable libvirtd service
@@ -37,11 +37,11 @@ Create the `kvm-hypervisor` Ansible role that installs and configures the KVM/li
   - Create routed bridge network for VM-to-outside routing
   - Configure VM storage pool (directory or LVM-thin)
   - Verify `virsh` CLI works
-- [ ] Create `handlers/main.yml` for libvirtd restart
-- [ ] Create `meta/main.yml` with role metadata
-- [ ] Create `README.md` documenting role variables
-- [ ] Add `tests/` with test playbook
-- [ ] Verify `ansible-lint` passes
+- [x] Create `handlers/main.yml` for libvirtd restart
+- [x] Create `meta/main.yml` with role metadata
+- [x] Create `README.md` documenting role variables
+- [x] Add `tests/` with test playbook
+- [x] Verify `ansible-lint` passes
 
 ## Relevant Files
 
@@ -54,13 +54,13 @@ Create the `kvm-hypervisor` Ansible role that installs and configures the KVM/li
 
 ## Acceptance Criteria
 
-- [ ] KVM kernel modules are loaded (`kvm`, `kvm_intel` or `kvm_amd`)
-- [ ] libvirtd is running and enabled
-- [ ] NAT bridge network is defined and active
-- [ ] Routed bridge network is defined and active
-- [ ] Storage pool is created and active
-- [ ] `virsh list --all` works without errors
-- [ ] `ansible-lint` passes
+- [x] KVM kernel modules are loaded (`kvm`, `kvm_intel` or `kvm_amd`)
+- [x] libvirtd is running and enabled
+- [x] NAT bridge network is defined and active
+- [x] Routed bridge network is defined and active
+- [x] Storage pool is created and active
+- [x] `virsh list --all` works without errors
+- [x] `ansible-lint` passes
 
 ## Test Plan
 

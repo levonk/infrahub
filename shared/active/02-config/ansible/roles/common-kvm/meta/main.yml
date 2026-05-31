@@ -1,0 +1,24 @@
+---
+galaxy_info:
+  role_name: common_kvm
+  author: levonk
+  description: Install and configure the KVM/libvirt/QEMU virtualization stack, bridge networks, and VM storage pools.
+  company: levonk
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+    - name: Ubuntu
+      versions:
+        - jammy
+        - noble
+  galaxy_tags:
+    - kvm
+    - libvirt
+    - qemu
+    - virtualization
+    - vm
+
+dependencies: []

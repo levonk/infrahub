@@ -45,7 +45,7 @@ All development and deployment commands must work through `devbox run ...` per A
 | 02-011 | Role: dns-stack | feature/current/cloud-server/story-02-011-role-dns | [x] Done | 01-001, 01-002 | true | ansible, role, dns |
 | 02-012 | Role: proxy-stack | feature/current/cloud-server/story-02-012-role-proxy | [x] Done | 01-001, 01-002 | true | ansible, role, proxy |
 | 02-013 | Role: sso-service | feature/current/cloud-server/story-02-013-role-sso | [x] Done | 01-001, 01-002 | true | ansible, role, security |
-| 02-014 | Role: kvm-hypervisor | feature/current/cloud-server/story-02-014-role-kvm | [ ] Todo | 01-001, 01-002 | true | ansible, role, vm |
+| 02-014 | Role: kvm-hypervisor | feature/current/cloud-server/story-02-014-role-kvm | [x] Done | 01-001, 01-002 | true | ansible, role, vm |
 
 ## Phase 03 — Shared Playbooks
 

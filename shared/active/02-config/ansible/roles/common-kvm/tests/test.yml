@@ -1,0 +1,10 @@
+---
+- name: Test common-kvm role
+  hosts: localhost
+  become: true
+  vars:
+    common_kvm_skip_virtualization_check: true
+  tasks:
+    - name: Import common-kvm role
+      ansible.builtin.import_role:
+        name: "{{ playbook_dir | dirname }}"

@@ -1,0 +1,10 @@
+<network>
+  <name>{{ common_kvm_nat_bridge_name }}</name>
+  <forward mode='nat'/>
+  <bridge name='{{ common_kvm_nat_bridge_name }}' stp='on' delay='0'/>
+  <ip address='{{ common_kvm_nat_bridge_gateway }}' netmask='255.255.255.0'>
+    <dhcp>
+      <range start='{{ common_kvm_nat_bridge_dhcp_start }}' end='{{ common_kvm_nat_bridge_dhcp_end }}'/>
+    </dhcp>
+  </ip>
+</network>
