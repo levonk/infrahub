@@ -116,6 +116,21 @@
     "doc-search":    "just doc-search-internal",
     "tasks":         "just tasks-internal",
     "task-ready":    "just task-ready-internal",
-    "task-start":    "just task-start-internal"
+    "task-start":    "just task-start-internal",
+    "ansible-lint":    "just ansible-lint-internal",
+    "ansible-syntax":  "just ansible-syntax-internal",
+    "ansible-test":    "just ansible-test-internal",
+    "ansible-deploy-bootstrap": "just ansible-deploy-bootstrap-internal",
+    "ansible-deploy-vpn":       "just ansible-deploy-vpn-internal",
+    "ansible-deploy-infra":     "just ansible-deploy-infra-internal",
+    "ansible-deploy-vms":       "just ansible-deploy-vms-internal",
+    "ansible-deploy-site":      "just ansible-deploy-site-internal",
+    "ansible-validate-bootstrap": "just ansible-validate-bootstrap-internal",
+    "ansible-validate-vpn":     "just ansible-validate-vpn-internal",
+    "ansible-validate-infra":   "just ansible-validate-infra-internal",
+    "ansible-validate-vms":     "just ansible-validate-vms-internal",
+    "packer-build":    "just packer-build-internal",
+    "packer-validate": "just packer-validate",
+    "packer-init":     "just packer-init"
   }
 }

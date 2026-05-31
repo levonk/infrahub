@@ -1,0 +1,198 @@
+{
+  "$schema": "./node_modules/nx/schemas/nx-schema.json",
+  "namedInputs": {
+    "default": ["{projectRoot}/**/*", "sharedGlobals"],
+    "sharedGlobals": ["{workspaceRoot}/.env", "{workspaceRoot}/devbox.json"],
+    "production": [
+      "default",
+      "!{projectRoot}/**/?(*.)+(spec|test).[jt]s?(x)?(.snap)",
+      "!{projectRoot}/tsconfig.spec.json",
+      "!{projectRoot}/.eslintrc.json",
+      "!{projectRoot}/eslint.config.mjs"
+    ]
+  },
+  "cli": {
+    "packageManager": "pnpm"
+  },
+  "targetDefaults": {
+    "build": {
+      "dependsOn": ["^build"],
+      "cache": true
+    },
+    "test": {
+      "cache": true
+    },
+    "lint": {
+      "cache": true
+    },
+    "deploy": {
+      "dependsOn": ["lint", "test"],
+      "cache": false
+    },
+    "validate": {
+      "dependsOn": ["deploy"],
+      "cache": false
+    },
+    "docker:build": {
+      "dependsOn": ["^docker:build"],
+      "inputs": [
+        "{projectRoot}/Dockerfile*",
+        "{projectRoot}/docker/**/*",
+        "{projectRoot}/assets/**/*",
+        "{projectRoot}/**/*.sh",
+        "{projectRoot}/**/*.json",
+        "{workspaceRoot}/docker-compose.shared.yml"
+      ],
+      "cache": true
+    },
+    "docker:push": {
+      "dependsOn": ["docker:build"],
+      "cache": false
+    },
+    "docker:up": {
+      "dependsOn": ["docker:build"],
+      "cache": false
+    }
+  },
+  "plugins": [
+    {
+      "plugin": "@nx-tools/nx-container",
+      "options": {
+        "defaultEngine": "docker"
+      }
+    }
+  ],
+  "projects": {
+    "infrahub-ansible": {
+      "name": "infrahub-ansible",
+      "root": "shared/active/02-config/ansible",
+      "sourceRoot": "shared/active/02-config/ansible",
+      "projectType": "application",
+      "targets": {
+        "lint": {
+          "executor": "nx:run-commands",
+          "options": {
+            "command": "ansible-lint shared/active/02-config/ansible/roles/ shared/active/02-config/ansible/playbooks/"
+          }
+        },
+        "syntax-check": {
+          "executor": "nx:run-commands",
+          "options": {
+            "commands": [
+              "ansible-playbook --syntax-check -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/playbooks/cloud-server-bootstrap.yml",
+              "ansible-playbook --syntax-check -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/playbooks/cloud-server-vpn.yml",
+              "ansible-playbook --syntax-check -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/playbooks/cloud-server-infra.yml",
+              "ansible-playbook --syntax-check -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/playbooks/cloud-server-vms.yml"
+            ],
+            "parallel": false
+          }
+        },
+        "test": {
+          "executor": "nx:run-commands",
+          "options": {
+            "command": "just ansible-test-internal"
+          }
+        },
+        "deploy-bootstrap": {
+          "executor": "nx:run-commands",
+          "options": {
+            "command": "ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/playbooks/cloud-server-bootstrap.yml"
+          }
+        },
+        "deploy-vpn": {
+          "executor": "nx:run-commands",
+          "options": {
+            "command": "ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/playbooks/cloud-server-vpn.yml"
+          }
+        },
+        "deploy-infra": {
+          "executor": "nx:run-commands",
+          "options": {
+            "command": "ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/playbooks/cloud-server-infra.yml"
+          }
+        },
+        "deploy-vms": {
+          "executor": "nx:run-commands",
+          "options": {
+            "command": "ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/playbooks/cloud-server-vms.yml"
+          }
+        },
+        "validate-bootstrap": {
+          "executor": "nx:run-commands",
+          "options": {
+            "command": "ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/playbooks/validate-bootstrap.yml"
+          }
+        },
+        "validate-vpn": {
+          "executor": "nx:run-commands",
+          "options": {
+            "command": "ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/playbooks/validate-vpn.yml"
+          }
+        },
+        "validate-infra": {
+          "executor": "nx:run-commands",
+          "options": {
+            "command": "ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/playbooks/validate-infra.yml"
+          }
+        },
+        "validate-vms": {
+          "executor": "nx:run-commands",
+          "options": {
+            "command": "ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/playbooks/validate-vms.yml"
+          }
+        }
+      }
+    },
+    "infrahub-localnet": {
+      "name": "infrahub-localnet",
+      "root": "shared/active/03-container",
+      "sourceRoot": "shared/active/03-container",
+      "projectType": "application",
+      "targets": {
+        "docker:build": {
+          "executor": "@nx-tools/nx-container:build",
+          "options": {
+            "dockerfile": "./Dockerfile",
+            "context": "."
+          }
+        },
+        "docker:up": {
+          "executor": "nx:run-commands",
+          "options": {
+            "command": "just -f shared/active/03-container/justfile base-up"
+          }
+        },
+        "docker:down": {
+          "executor": "nx:run-commands",
+          "options": {
+            "command": "just -f shared/active/03-container/justfile down"
+          }
+        }
+      }
+    },
+    "infrahub-packer": {
+      "name": "infrahub-packer",
+      "root": "shared/active/01-build/packer",
+      "sourceRoot": "shared/active/01-build/packer",
+      "projectType": "application",
+      "targets": {
+        "build": {
+          "executor": "nx:run-commands",
+          "options": {
+            "command": "just packer-build-internal"
+          }
+        },
+        "validate": {
+          "executor": "nx:run-commands",
+          "options": {
+            "command": "just packer-validate"
+          }
+        }
+      }
+    }
+  },
+  "parallel": 4,
+  "cacheDirectory": ".nx/cache",
+  "useDaemonProcess": true,
+  "defaultBase": "main"
+}
