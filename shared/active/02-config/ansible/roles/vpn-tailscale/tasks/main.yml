@@ -1,0 +1,128 @@
+---
+# tasks file for vpn-tailscale
+# Installs and configures Tailscale as a host-level daemon.
+
+# ---------------------------------------------------------------------------
+# Prerequisites
+# ---------------------------------------------------------------------------
+- name: Ensure required packages are present
+  ansible.builtin.apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg
+    state: present
+    update_cache: true
+  become: true
+  when: ansible_facts.os_family == "Debian"
+
+# ---------------------------------------------------------------------------
+# Install Tailscale (official repository)
+# ---------------------------------------------------------------------------
+- name: Add Tailscale GPG key
+  ansible.builtin.apt_key:
+    url: https://pkgs.tailscale.com/{{ vpn_tailscale_channel }}/debian/bookworm.gpg
+    keyring: /usr/share/keyrings/tailscale-archive-keyring.gpg
+  become: true
+  when: ansible_facts.os_family == "Debian"
+
+- name: Add Tailscale apt repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/tailscale-archive-keyring.gpg] https://pkgs.tailscale.com/{{ vpn_tailscale_channel }}/debian bookworm main"
+    filename: tailscale
+    state: present
+  become: true
+  when: ansible_facts.os_family == "Debian"
+
+- name: Install Tailscale
+  ansible.builtin.apt:
+    name: "tailscale{% if vpn_tailscale_version != 'latest' %}={{ vpn_tailscale_version }}{% endif %}"
+    state: "{% if vpn_tailscale_version == 'latest' %}present{% else %}fixed{% endif %}"
+    update_cache: true
+  become: true
+  notify: restart tailscale
+  when: ansible_facts.os_family == "Debian"
+
+# ---------------------------------------------------------------------------
+# Configure Tailscale
+# ---------------------------------------------------------------------------
+- name: Ensure Tailscale state directory exists
+  ansible.builtin.file:
+    path: /var/lib/tailscale
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+
+# ---------------------------------------------------------------------------
+# Authenticate and start Tailscale
+# ---------------------------------------------------------------------------
+- name: Check Tailscale authentication status
+  ansible.builtin.command:
+    cmd: tailscale status
+  become: true
+  changed_when: false
+  failed_when: false
+  register: vpn_tailscale_status_check
+
+- name: Build tailscale up arguments
+  ansible.builtin.set_fact:
+    _vpn_tailscale_up_args:
+      - --authkey={{ vpn_tailscale_auth_key }}
+      - --hostname={{ vpn_tailscale_hostname }}
+      - --port={{ vpn_tailscale_port }}
+      - "{% if vpn_tailscale_accept_dns %}--accept-dns{% else %}--accept-dns=false{% endif %}"
+      - "{% if vpn_tailscale_accept_routes %}--accept-routes{% else %}--accept-routes=false{% endif %}"
+      - "{% if vpn_tailscale_enable_ssh %}--ssh{% endif %}"
+      - "{% if vpn_tailscale_run_exit_node %}--advertise-exit-node{% endif %}"
+      - "{% if vpn_tailscale_advertise_routes | length > 0 %}--advertise-routes={{ vpn_tailscale_advertise_routes | join(',') }}{% endif %}"
+  when: vpn_tailscale_auth_key | length > 0
+
+- name: Authenticate and start Tailscale
+  ansible.builtin.command:
+    cmd: "tailscale up {{ _vpn_tailscale_up_args | select | join(' ') }}"
+  become: true
+  changed_when: true
+  when:
+    - vpn_tailscale_auth_key | length > 0
+    - vpn_tailscale_status_check.rc != 0
+  notify: restart tailscale
+
+# ---------------------------------------------------------------------------
+# Service Management
+# ---------------------------------------------------------------------------
+- name: Ensure Tailscale service is enabled and running
+  ansible.builtin.systemd:
+    name: tailscaled
+    state: started
+    enabled: true
+  become: true
+
+# ---------------------------------------------------------------------------
+# Verification
+# ---------------------------------------------------------------------------
+- name: Verify Tailscale status
+  ansible.builtin.command:
+    cmd: tailscale status
+  become: true
+  changed_when: false
+  when: vpn_tailscale_verify_connection | bool
+
+- name: Verify Tailscale IP
+  ansible.builtin.command:
+    cmd: tailscale ip -4
+  become: true
+  changed_when: false
+  register: vpn_tailscale_ip
+  when: vpn_tailscale_verify_connection | bool
+
+- name: Report Tailscale connection info
+  ansible.builtin.debug:
+    msg: |
+      Tailscale is running:
+        - Hostname: {{ vpn_tailscale_hostname }}
+        - Port: {{ vpn_tailscale_port }}
+        - IPv4: {{ vpn_tailscale_ip.stdout | default('N/A') }}
+  when: vpn_tailscale_verify_connection | bool

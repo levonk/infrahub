@@ -1,0 +1,13 @@
+---
+# Test playbook for vpn-tailscale role
+# Run with: ansible-playbook -i localhost, -c local tests/test.yml --check --diff
+
+- name: "Test vpn-tailscale role"
+  hosts: all
+  become: true
+  vars:
+    # Use a dummy auth key for dry-run tests; real runs require a valid key.
+    vpn_tailscale_auth_key: "tskey-auth-dummy-test"
+    vpn_tailscale_verify_connection: false
+  roles:
+    - role: ../vpn-tailscale

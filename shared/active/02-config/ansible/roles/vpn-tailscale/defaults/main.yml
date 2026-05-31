@@ -1,0 +1,47 @@
+---
+# defaults file for vpn-tailscale
+# Neutral, overridable defaults. No localnet-specific paths.
+# Auth key must be provided via vault/secret manager; never commit plaintext keys.
+
+# ---------------------------------------------------------------------------
+# Tailscale Version & Channel
+# ---------------------------------------------------------------------------
+vpn_tailscale_version: "latest"
+vpn_tailscale_channel: "stable"
+
+# ---------------------------------------------------------------------------
+# Tailscale Auth & Network
+# ---------------------------------------------------------------------------
+# Auth key for initial node registration. Must be set via vault or host_vars.
+vpn_tailscale_auth_key: ""
+
+# Port for Tailscale WireGuard traffic (UDP).
+vpn_tailscale_port: "{{ cloud_server_tailscale_port | default('41641') }}"
+
+# Hostname advertised in the Tailscale network.
+vpn_tailscale_hostname: "{{ inventory_hostname | default('cloud-server') }}"
+
+# ---------------------------------------------------------------------------
+# Route Advertisement
+# ---------------------------------------------------------------------------
+# Advertise routes for subnet routing (e.g., ['10.0.0.0/24']).
+# Leave empty if not acting as a subnet router.
+vpn_tailscale_advertise_routes: []
+
+# Accept DNS settings from Tailscale admin console.
+vpn_tailscale_accept_dns: true
+
+# Accept routes advertised by other Tailscale nodes.
+vpn_tailscale_accept_routes: false
+
+# ---------------------------------------------------------------------------
+# Feature Flags
+# ---------------------------------------------------------------------------
+vpn_tailscale_enable_ssh: false
+vpn_tailscale_run_exit_node: false
+
+# ---------------------------------------------------------------------------
+# Verification
+# ---------------------------------------------------------------------------
+vpn_tailscale_verify_connection: true
+vpn_tailscale_verify_timeout_seconds: 30

@@ -1,0 +1,23 @@
+---
+galaxy_info:
+  role_name: vpn_tailscale
+  author: levonk
+  description: Install and configure Tailscale as a host-level overlay mesh VPN daemon.
+  company: levonk
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+    - name: Ubuntu
+      versions:
+        - jammy
+        - noble
+  galaxy_tags:
+    - vpn
+    - tailscale
+    - mesh
+    - networking
+
+dependencies: []

@@ -1,0 +1,10 @@
+---
+# handlers file for vpn-tailscale
+
+- name: Restart tailscale
+  ansible.builtin.systemd:
+    name: tailscaled
+    state: restarted
+    enabled: true
+  listen: restart tailscale
+  become: true
