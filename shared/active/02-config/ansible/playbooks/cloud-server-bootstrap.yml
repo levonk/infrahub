@@ -1,0 +1,109 @@
+---
+# Cloud Server Bootstrap Playbook
+# Orchestrates foundational roles: host OS bootstrap, Nix installation,
+# Docker engine setup, and Nix core tools installation.
+# Usage:
+#   ansible-playbook -i inventories/oci.yml playbooks/cloud-server-bootstrap.yml
+#   ansible-playbook -i inventories/oci.yml playbooks/cloud-server-bootstrap.yml --check --diff
+
+- name: "Bootstrap Cloud Server"
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: "Gather ansible_facts"
+      ansible.builtin.setup:
+        gather_subset: ["all"]
+      tags: ["always"]
+
+    - name: "Validate required variables are defined"
+      ansible.builtin.assert:
+        that:
+          - cloud_server_admin_user is defined
+          - cloud_server_admin_user | length > 0
+          - cloud_server_ansible_host_ip is defined
+          - cloud_server_ssh_host_port is defined
+        fail_msg: "Missing required cloud_server variables. Check group_vars/cloud_server.yml and group_vars/all.yml."
+        success_msg: "All required variables are defined."
+      tags: ["always", "validate"]
+
+  roles:
+    - role: host-os-bootstrap
+      tags: ["bootstrap", "os"]
+
+    - role: nix-installation
+      tags: ["bootstrap", "nix"]
+
+    - role: docker-engine
+      tags: ["bootstrap", "docker"]
+
+    - role: nix-core-tools
+      tags: ["bootstrap", "tools"]
+
+  post_tasks:
+    - name: "Verify SSH service is running"
+      ansible.builtin.systemd:
+        name: "{{ 'ssh' if ansible_os_family == 'Debian' else 'sshd' }}"
+        state: started
+      check_mode: false
+      tags: ["verify", "ssh"]
+
+    - name: "Verify Nix installation"
+      ansible.builtin.command:
+        cmd: "nix --version"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      environment:
+        PATH: "/nix/var/nix/profiles/default/bin:{{ ansible_env.PATH | default('/usr/local/bin:/usr/bin:/bin') }}"
+      register: nix_verify
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "nix"]
+
+    - name: "Report Nix version"
+      ansible.builtin.debug:
+        msg: "Nix installed: {{ nix_verify.stdout }}"
+      when: nix_verify.rc == 0
+      tags: ["verify", "nix"]
+
+    - name: "Verify Docker is installed and running"
+      ansible.builtin.systemd:
+        name: docker
+        state: started
+      check_mode: false
+      tags: ["verify", "docker"]
+
+    - name: "Verify Docker CLI responds"
+      ansible.builtin.command:
+        cmd: "docker --version"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: docker_verify
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "docker"]
+
+    - name: "Report Docker version"
+      ansible.builtin.debug:
+        msg: "Docker installed: {{ docker_verify.stdout }}"
+      when: docker_verify.rc == 0
+      tags: ["verify", "docker"]
+
+    - name: "Verify core nix tools availability"
+      ansible.builtin.command:
+        cmd: "which zsh"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      environment:
+        PATH: "/nix/var/nix/profiles/default/bin:{{ ansible_env.PATH | default('/usr/local/bin:/usr/bin:/bin') }}"
+      register: tools_verify
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "tools"]
+
+    - name: "Report core tools status"
+      ansible.builtin.debug:
+        msg: "Core nix tools available at: {{ tools_verify.stdout }}"
+      when: tools_verify.rc == 0
+      tags: ["verify", "tools"]
