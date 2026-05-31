@@ -7,7 +7,7 @@ prd_file: "shared/active/08-docs/reqs/2026/20260529-cloud-server.md"
 phase: 2
 parallel_id: 12
 branch: "feature/current/cloud-server/story-02-012-role-proxy"
-status: "todo"
+status: "done"
 assignee: ""
 reviewer: ""
 dependencies: ["01-001", "01-002"]
@@ -27,36 +27,42 @@ Create the `proxy-stack` Ansible role that deploys the proxy services: caching p
 
 ## Sub-Tasks
 
-- [ ] Create role directory `shared/active/02-config/ansible/roles/proxy-traefik/` or `proxy-envoy/`
-- [ ] Create `defaults/main.yml` with proxy software choices, image tags, and port variables
-- [ ] Create `tasks/main.yml` with tasks for:
+- [x] Create role directory `shared/active/02-config/ansible/roles/proxy-traefik/` or `proxy-envoy/`
+- [x] Create `defaults/main.yml` with proxy software choices, image tags, and port variables
+- [x] Create `tasks/main.yml` with tasks for:
   - Deploy caching proxy container (Squid or Envoy) with variable-driven ports
   - Deploy reverse proxy container (Traefik or Envoy) with automatic cert discovery
   - Deploy Tor relay/onion service container with variable-driven ports
   - Configure shared Docker network for proxy services
   - Set up persistence volumes for configs and certs
   - Configure health checks for each proxy service
-- [ ] Create configuration templates for each proxy service
-- [ ] Create `handlers/main.yml` for container restarts
-- [ ] Create `meta/main.yml` with role metadata
-- [ ] Create `README.md` documenting role variables and proxy choices
-- [ ] Add `tests/` with test playbook
-- [ ] Verify `ansible-lint` passes
+- [x] Create configuration templates for each proxy service
+- [x] Create `handlers/main.yml` for container restarts
+- [x] Create `meta/main.yml` with role metadata
+- [x] Create `README.md` documenting role variables and proxy choices
+- [x] Add `tests/` with test playbook
+- [x] Verify `ansible-lint` passes
 
 ## Relevant Files
 
-- `shared/active/02-config/ansible/roles/proxy-traefik/` or `proxy-envoy/` — role directory
-- `shared/active/02-config/ansible/roles/proxy-*/defaults/main.yml`
-- `shared/active/02-config/ansible/roles/proxy-*/tasks/main.yml`
+- `shared/active/02-config/ansible/roles/proxy-traefik/` — role directory
+- `shared/active/02-config/ansible/roles/proxy-traefik/defaults/main.yml` — role defaults with variable-driven ports
+- `shared/active/02-config/ansible/roles/proxy-traefik/tasks/main.yml` — container deployment tasks
+- `shared/active/02-config/ansible/roles/proxy-traefik/handlers/main.yml` — container restart handlers
+- `shared/active/02-config/ansible/roles/proxy-traefik/meta/main.yml` — role metadata
+- `shared/active/02-config/ansible/roles/proxy-traefik/templates/traefik/traefik.yml.j2` — Traefik dynamic config
+- `shared/active/02-config/ansible/roles/proxy-traefik/templates/squid/squid.conf.j2` — Squid config
+- `shared/active/02-config/ansible/roles/proxy-traefik/tests/test.yml` — test playbook
+- `shared/active/02-config/ansible/roles/proxy-traefik/README.md` — role documentation
 - `levonk/active/02-config/ansible/group_vars/cloud_server.yml` — proxy port variables
 
 ## Acceptance Criteria
 
-- [ ] Caching proxy container is running and accessible
-- [ ] Reverse proxy container is running and can route traffic
-- [ ] Tor relay container is running on variable-driven port
-- [ ] All proxy ports are variable-driven (no hardcoded ports)
-- [ ] `ansible-lint` passes
+- [x] Caching proxy container is running and accessible
+- [x] Reverse proxy container is running and can route traffic
+- [x] Tor relay container is running on variable-driven port
+- [x] All proxy ports are variable-driven (no hardcoded ports)
+- [x] `ansible-lint` passes
 
 ## Test Plan
 

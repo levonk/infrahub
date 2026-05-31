@@ -40,10 +40,10 @@ All development and deployment commands must work through `devbox run ...` per A
 | 02-006 | Role: netbird-client | feature/current/cloud-server/story-02-006-role-netbird-client | [x] Done | 01-001, 01-002 | true | ansible, role, vpn |
 | 02-007 | Role: host-firewall | feature/current/cloud-server/story-02-007-role-firewall | [x] Done | 01-001, 01-002 | true | ansible, role, security |
 | 02-008 | Role: ssh-hardening | feature/current/cloud-server/story-02-008-role-ssh | [x] Done | 01-001, 01-002 | true | ansible, role, security |
-| 02-009 | Role: fail2ban | feature/current/cloud-server/story-02-009-role-fail2ban | [ ] Todo | 01-001, 01-002 | true | ansible, role, security |
-| 02-010 | Role: netbird-control-plane | feature/current/cloud-server/story-02-010-role-netbird-cp | [ ] Todo | 01-001, 01-002 | true | ansible, role, vpn |
-| 02-011 | Role: dns-stack | feature/current/cloud-server/story-02-011-role-dns | [ ] Todo | 01-001, 01-002 | true | ansible, role, dns |
-| 02-012 | Role: proxy-stack | feature/current/cloud-server/story-02-012-role-proxy | [ ] Todo | 01-001, 01-002 | true | ansible, role, proxy |
+| 02-009 | Role: fail2ban | feature/current/cloud-server/story-02-009-role-fail2ban | [x] Done | 01-001, 01-002 | true | ansible, role, security |
+| 02-010 | Role: netbird-control-plane | feature/current/cloud-server/story-02-010-role-netbird-cp | [~] In-Progress | 01-001, 01-002 | true | ansible, role, vpn |
+| 02-011 | Role: dns-stack | feature/current/cloud-server/story-02-011-role-dns | [x] Done | 01-001, 01-002 | true | ansible, role, dns |
+| 02-012 | Role: proxy-stack | feature/current/cloud-server/story-02-012-role-proxy | [x] Done | 01-001, 01-002 | true | ansible, role, proxy |
 | 02-013 | Role: sso-service | feature/current/cloud-server/story-02-013-role-sso | [ ] Todo | 01-001, 01-002 | true | ansible, role, security |
 | 02-014 | Role: kvm-hypervisor | feature/current/cloud-server/story-02-014-role-kvm | [ ] Todo | 01-001, 01-002 | true | ansible, role, vm |
 

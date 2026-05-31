@@ -1,0 +1,20 @@
+---
+# Test playbook for proxy-traefik role
+# Run with: ansible-playbook -i localhost, -c local tests/test.yml --check --diff
+
+- name: "Test proxy-traefik role"
+  hosts: all
+  become: true
+  vars:
+    proxy_verify_health: false
+    proxy_traefik_acme_enabled: false
+    proxy_traefik_dashboard_enabled: true
+    proxy_squid_enabled: true
+    proxy_tor_enabled: true
+    cloud_server_proxy_http_host_port: "8080"
+    cloud_server_proxy_https_host_port: "8443"
+    cloud_server_proxy_traefik_api_port: "8888"
+    cloud_server_proxy_squid_host_port: "3128"
+    cloud_server_tor_socks_host_port: "9050"
+  roles:
+    - role: ../proxy-traefik

@@ -1,0 +1,26 @@
+---
+galaxy_info:
+  role_name: proxy_traefik
+  author: levonk
+  description: Deploy Traefik reverse proxy, Squid caching proxy, and Tor relay as Docker containers.
+  company: levonk
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+    - name: Ubuntu
+      versions:
+        - jammy
+        - noble
+  galaxy_tags:
+    - proxy
+    - traefik
+    - squid
+    - tor
+    - docker
+    - reverseproxy
+    - caching
+
+dependencies: []

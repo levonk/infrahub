@@ -1,0 +1,20 @@
+---
+# Traefik dynamic configuration
+# Deployed by proxy-traefik Ansible role
+
+http:
+  routers:
+    dashboard:
+      rule: "Host(`{{ ansible_host | default('localhost') }}`) && (PathPrefix(`/api`) || PathPrefix(`/dashboard`))"
+      service: api@internal
+      entryPoints:
+        - "{{ proxy_traefik_api_entrypoint }}"
+      middlewares:
+        - "auth@file"
+
+  middlewares:
+    auth:
+      basicAuth:
+        users:
+          # Add users here or use an external file
+          # Example: admin:$apr1$H6uskkkW$IgXLP6ewTrSuBkTrqE8wj/

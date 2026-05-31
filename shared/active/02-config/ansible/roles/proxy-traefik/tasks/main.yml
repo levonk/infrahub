@@ -1,0 +1,238 @@
+---
+# tasks file for proxy-traefik
+# Deploys Traefik reverse proxy, Squid caching proxy, and Tor relay containers.
+# All ports are variable-driven per AGENTS.md rules.
+
+# ---------------------------------------------------------------------------
+# Prerequisites
+# ---------------------------------------------------------------------------
+- name: Ensure proxy data directory exists
+  ansible.builtin.file:
+    path: "{{ proxy_data_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+
+- name: Ensure proxy configuration directories exist
+  ansible.builtin.file:
+    path: "{{ proxy_data_dir }}/{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+  loop:
+    - traefik
+    - squid
+    - tor
+    - letsencrypt
+
+# ---------------------------------------------------------------------------
+# Docker Network
+# ---------------------------------------------------------------------------
+- name: Ensure proxy Docker network exists
+  community.docker.docker_network:
+    name: "{{ proxy_docker_network_name }}"
+    state: present
+    driver: bridge
+  become: true
+
+# ---------------------------------------------------------------------------
+# Docker Volumes
+# ---------------------------------------------------------------------------
+- name: Ensure proxy Docker volumes exist
+  community.docker.docker_volume:
+    name: "{{ item }}"
+    state: present
+  become: true
+  loop:
+    - proxy-traefik-letsencrypt
+    - proxy-squid-cache
+
+# ---------------------------------------------------------------------------
+# Configuration Templates
+# ---------------------------------------------------------------------------
+- name: Deploy Traefik static configuration
+  ansible.builtin.template:
+    src: traefik/traefik.yml.j2
+    dest: "{{ proxy_data_dir }}/traefik/traefik.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: restart proxy-traefik
+
+- name: Deploy Squid configuration
+  ansible.builtin.template:
+    src: squid/squid.conf.j2
+    dest: "{{ proxy_data_dir }}/squid/squid.conf"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: restart proxy-squid
+
+# ---------------------------------------------------------------------------
+# Traefik Reverse Proxy Container
+# ---------------------------------------------------------------------------
+- name: Deploy Traefik container
+  community.docker.docker_container:
+    name: proxy-traefik
+    image: "{{ proxy_traefik_image }}"
+    state: started
+    restart_policy: unless-stopped
+    command:
+      - "--api.dashboard={{ proxy_traefik_dashboard_enabled | ternary('true', 'false') }}"
+      - "--api.insecure={{ proxy_traefik_dashboard_insecure | ternary('true', 'false') }}"
+      - "--global.sendAnonymousUsage=false"
+      - "--global.checkNewVersion=true"
+      - "--log.level=INFO"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedByDefault=false"
+      - "--providers.file.filename=/etc/traefik/traefik.yml"
+      - "--entrypoints.web.address=:{{ proxy_traefik_http_container_port }}"
+      - "--entrypoints.websecure.address=:{{ proxy_traefik_https_container_port }}"
+      - "--entrypoints.{{ proxy_traefik_api_entrypoint }}.address=:{{ proxy_traefik_api_port }}"
+      - "--ping=true"
+      - "--ping.entrypoint={{ proxy_traefik_api_entrypoint }}"
+    ports:
+      - "{{ proxy_traefik_http_host_port }}:{{ proxy_traefik_http_container_port }}/tcp"
+      - "{{ proxy_traefik_https_host_port }}:{{ proxy_traefik_https_container_port }}/tcp"
+      - "{{ proxy_traefik_api_port }}:{{ proxy_traefik_api_port }}/tcp"
+    networks:
+      - name: "{{ proxy_docker_network_name }}"
+    volumes:
+      - "{{ proxy_data_dir }}/traefik:/etc/traefik:ro"
+      - proxy-traefik-letsencrypt:/letsencrypt
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    log_driver: json-file
+    log_options:
+      max-size: "10m"
+      max-file: "5"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:{{ proxy_traefik_api_port }}/ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+  become: true
+
+# ---------------------------------------------------------------------------
+# Squid Caching Proxy Container
+# ---------------------------------------------------------------------------
+- name: Deploy Squid container
+  community.docker.docker_container:
+    name: proxy-squid
+    image: "{{ proxy_squid_image }}"
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ proxy_docker_network_name }}"
+    ports:
+      - "{{ proxy_squid_host_port }}:{{ proxy_squid_container_port }}/tcp"
+    volumes:
+      - "{{ proxy_data_dir }}/squid/squid.conf:/etc/squid/squid.conf:ro"
+      - proxy-squid-cache:/var/spool/squid
+    env:
+      CACHE_SIZE_MB: "{{ proxy_squid_cache_size_mb }}"
+    log_driver: json-file
+    log_options:
+      max-size: "10m"
+      max-file: "5"
+    healthcheck:
+      test: ["CMD", "squidclient", "-h", "localhost", "mgr:info"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+  become: true
+  when: proxy_squid_enabled | bool
+
+# ---------------------------------------------------------------------------
+# Tor Relay Container
+# ---------------------------------------------------------------------------
+- name: Deploy Tor container
+  community.docker.docker_container:
+    name: proxy-tor
+    image: "{{ proxy_tor_image }}"
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ proxy_docker_network_name }}"
+    ports:
+      - "{{ proxy_tor_socks_host_port }}:{{ proxy_tor_socks_container_port }}/tcp"
+      - "{{ proxy_tor_dns_host_port }}:{{ proxy_tor_dns_container_port }}/udp"
+    env:
+      TOR_ExitRelay: "{{ proxy_tor_exit_relay_allowed | ternary('1', '0') }}"
+    log_driver: json-file
+    log_options:
+      max-size: "10m"
+      max-file: "5"
+    healthcheck:
+      test:
+        - "CMD"
+        - "wget"
+        - "--spider"
+        - "-q"
+        - "--proxy= socks5h://localhost:{{ proxy_tor_socks_container_port }}"
+        - "https://check.torproject.org"
+      interval: 60s
+      timeout: 15s
+      retries: 3
+      start_period: 30s
+  become: true
+  when: proxy_tor_enabled | bool
+
+# ---------------------------------------------------------------------------
+# Health Verification
+# ---------------------------------------------------------------------------
+- name: Wait for Traefik to be healthy
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ proxy_traefik_api_port }}/ping"
+    status_code: 200
+  register: traefik_health
+  until: traefik_health.status == 200
+  retries: 10
+  delay: 5
+  when: proxy_verify_health | bool
+
+- name: Wait for Squid to be healthy
+  ansible.builtin.shell: |
+    docker inspect --format='{{ '{{' }} .State.Health.Status {{ '}}' }}' proxy-squid
+  register: squid_health
+  until: squid_health.stdout == "healthy"
+  retries: 10
+  delay: 10
+  ignore_errors: true
+  changed_when: false
+  when:
+    - proxy_squid_enabled | bool
+    - proxy_verify_health | bool
+
+- name: Wait for Tor to be healthy
+  ansible.builtin.shell: |
+    docker inspect --format='{{ '{{' }} .State.Health.Status {{ '}}' }}' proxy-tor
+  register: tor_health
+  until: tor_health.stdout == "healthy"
+  retries: 10
+  delay: 10
+  ignore_errors: true
+  changed_when: false
+  when:
+    - proxy_tor_enabled | bool
+    - proxy_verify_health | bool
+
+# ---------------------------------------------------------------------------
+# Status Report
+# ---------------------------------------------------------------------------
+- name: Report proxy stack status
+  ansible.builtin.debug:
+    msg: |2
+      Proxy Stack deployed successfully:
+      - Traefik: http://{{ ansible_host | default('localhost') }}:{{ proxy_traefik_http_host_port }}
+      - Traefik HTTPS: https://{{ ansible_host | default('localhost') }}:{{ proxy_traefik_https_host_port }}
+      - Traefik Dashboard: http://{{ ansible_host | default('localhost') }}:{{ proxy_traefik_api_port }}
+      - Squid: http://{{ ansible_host | default('localhost') }}:{{ proxy_squid_host_port }}
+      - Tor SOCKS5: socks5h://{{ ansible_host | default('localhost') }}:{{ proxy_tor_socks_host_port }}

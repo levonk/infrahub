@@ -1,0 +1,65 @@
+---
+# defaults file for proxy-traefik
+# Neutral, overridable defaults. No localnet-specific paths.
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Reverse Proxy (Traefik)
+# ---------------------------------------------------------------------------
+proxy_traefik_version: "latest"
+proxy_traefik_image: "traefik:{{ proxy_traefik_version }}"
+
+proxy_traefik_http_host_port: "{{ cloud_server_proxy_http_host_port | default('80') }}"
+proxy_traefik_http_container_port: "{{ cloud_server_proxy_http_container_port | default('80') }}"
+proxy_traefik_https_host_port: "{{ cloud_server_proxy_https_host_port | default('443') }}"
+proxy_traefik_https_container_port: "{{ cloud_server_proxy_https_container_port | default('443') }}"
+
+proxy_traefik_dashboard_enabled: true
+proxy_traefik_dashboard_insecure: false
+proxy_traefik_api_entrypoint: "traefik"
+proxy_traefik_api_port: "{{ cloud_server_proxy_traefik_api_port | default('8080') }}"
+
+# ACME / Let's Encrypt
+proxy_traefik_acme_enabled: false
+proxy_traefik_acme_email: ""
+proxy_traefik_acme_storage: "/letsencrypt/acme.json"
+proxy_traefik_acme_challenge: "tlsChallenge"
+
+# ---------------------------------------------------------------------------
+# Caching Proxy (Squid)
+# ---------------------------------------------------------------------------
+proxy_squid_enabled: true
+proxy_squid_version: "latest"
+proxy_squid_image: "ubuntu/squid:{{ proxy_squid_version }}"
+
+proxy_squid_host_port: "{{ cloud_server_proxy_squid_host_port | default('3128') }}"
+proxy_squid_container_port: "{{ cloud_server_proxy_squid_container_port | default('3128') }}"
+
+proxy_squid_cache_size_mb: 1024
+proxy_squid_max_object_size_mb: 256
+
+# ---------------------------------------------------------------------------
+# Tor Relay / Onion Service
+# ---------------------------------------------------------------------------
+proxy_tor_enabled: true
+proxy_tor_version: "latest"
+proxy_tor_image: "dperson/torproxy:{{ proxy_tor_version }}"
+
+proxy_tor_socks_host_port: "{{ cloud_server_tor_socks_host_port | default('9050') }}"
+proxy_tor_socks_container_port: "{{ cloud_server_tor_socks_container_port | default('9050') }}"
+proxy_tor_dns_host_port: "{{ cloud_server_tor_dns_host_port | default('9053') }}"
+proxy_tor_dns_container_port: "{{ cloud_server_tor_dns_container_port | default('53') }}"
+
+proxy_tor_exit_relay_allowed: false
+
+# ---------------------------------------------------------------------------
+# Docker Network & Volumes
+# ---------------------------------------------------------------------------
+proxy_docker_network_name: "{{ cloud_server_proxy_network_name | default('proxy-network') }}"
+proxy_data_dir: "{{ cloud_server_proxy_data_dir | default('/opt/proxy') }}"
+
+# ---------------------------------------------------------------------------
+# Feature Flags
+# ---------------------------------------------------------------------------
+proxy_verify_health: true
+proxy_verify_timeout_seconds: 30

@@ -1,0 +1,26 @@
+---
+# handlers file for proxy-traefik
+
+- name: Restart proxy-traefik
+  community.docker.docker_container:
+    name: proxy-traefik
+    state: started
+    restart: true
+  listen: restart proxy-traefik
+  become: true
+
+- name: Restart proxy-squid
+  community.docker.docker_container:
+    name: proxy-squid
+    state: started
+    restart: true
+  listen: restart proxy-squid
+  become: true
+
+- name: Restart proxy-tor
+  community.docker.docker_container:
+    name: proxy-tor
+    state: started
+    restart: true
+  listen: restart proxy-tor
+  become: true
