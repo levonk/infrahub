@@ -1,0 +1,10 @@
+---
+- name: Test nix-core-tools role
+  hosts: localhost
+  become: true
+  roles:
+    - role: nix-core-tools
+  vars:
+    nix_core_tools_admin_user: "testuser"
+    nix_core_tools_admin_home: "/home/testuser"
+    nix_core_tools_set_zsh_default: false

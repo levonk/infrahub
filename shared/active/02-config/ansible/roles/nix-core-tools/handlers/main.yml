@@ -1,0 +1,10 @@
+---
+# handlers file for nix-core-tools
+
+- name: Restart systemd-timesyncd
+  ansible.builtin.systemd:
+    name: systemd-timesyncd
+    state: restarted
+    enabled: true
+  listen: restart systemd-timesyncd
+  become: true

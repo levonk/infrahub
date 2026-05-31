@@ -1,0 +1,47 @@
+---
+# defaults file for nix-core-tools
+# Neutral, overridable defaults. No localnet-specific paths.
+
+# ---------------------------------------------------------------------------
+# Admin User
+# ---------------------------------------------------------------------------
+nix_core_tools_admin_user: "{{ cloud_server_admin_user | default('cuser') }}"
+nix_core_tools_admin_home: "/home/{{ nix_core_tools_admin_user }}"
+
+# ---------------------------------------------------------------------------
+# Nix Environment
+# ---------------------------------------------------------------------------
+nix_core_tools_nix_bin_path: "/nix/var/nix/profiles/default/bin"
+nix_core_tools_nix_profile_path: "{{ nix_core_tools_admin_home }}/.nix-profile"
+nix_core_tools_nix_profile_bin: "{{ nix_core_tools_nix_profile_path }}/bin"
+
+# ---------------------------------------------------------------------------
+# Core Tools to Install via Nix
+# ---------------------------------------------------------------------------
+nix_core_tools_packages:
+  - zsh
+  - neovim
+  - mosh
+  - devbox
+
+# ---------------------------------------------------------------------------
+# Shell Configuration
+# ---------------------------------------------------------------------------
+nix_core_tools_set_zsh_default: true
+nix_core_tools_zsh_path: "{{ nix_core_tools_nix_profile_bin }}/zsh"
+
+# ---------------------------------------------------------------------------
+# Time Sync
+# ---------------------------------------------------------------------------
+nix_core_tools_time_sync_method: "systemd-timesyncd"
+nix_core_tools_ntp_servers:
+  - "0.debian.pool.ntp.org"
+  - "1.debian.pool.ntp.org"
+  - "2.debian.pool.ntp.org"
+  - "3.debian.pool.ntp.org"
+
+# ---------------------------------------------------------------------------
+# Verification
+# ---------------------------------------------------------------------------
+nix_core_tools_verify_install: true
+nix_core_tools_verify_timeout_seconds: 30

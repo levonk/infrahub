@@ -1,0 +1,25 @@
+---
+galaxy_info:
+  role_name: nix_core_tools
+  author: levonk
+  description: Install core tools (zsh, neovim, mosh, devbox) via Nix and configure time sync.
+  company: levonk
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+    - name: Ubuntu
+      versions:
+        - jammy
+        - noble
+  galaxy_tags:
+    - nix
+    - zsh
+    - neovim
+    - devbox
+    - tools
+
+dependencies:
+  - role: nix-installation
