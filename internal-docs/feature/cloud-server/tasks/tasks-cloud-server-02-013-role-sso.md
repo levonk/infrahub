@@ -7,7 +7,7 @@ prd_file: "shared/active/08-docs/reqs/2026/20260529-cloud-server.md"
 phase: 2
 parallel_id: 13
 branch: "feature/current/cloud-server/story-02-013-role-sso"
-status: "in_progress"
+status: "done"
 assignee: ""
 reviewer: ""
 dependencies: ["01-001", "01-002"]
