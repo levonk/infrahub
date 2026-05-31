@@ -1,0 +1,17 @@
+# OCI Packer Variables Example
+# Copy this file to variables.pkrvars.hcl and fill in real values.
+# NEVER commit the real variables.pkrvars.hcl to version control.
+# ---------------------------------------------------------------------------
+
+oci_tenancy_ocid     = "ocid1.tenancy.oc1..xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+oci_user_ocid        = "ocid1.user.oc1..xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+oci_fingerprint      = "xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx"
+oci_key_file         = "~/.oci/oci_api_key.pem"
+oci_region           = "us-ashburn-1"
+oci_compartment_ocid = "ocid1.compartment.oc1..xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+oci_availability_domain = "Uocm:US-ASHBURN-AD-1"
+oci_base_image_ocid  = "ocid1.image.oc1..xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+oci_shape            = "VM.Standard.E4.Flex"
+oci_subnet_ocid      = "ocid1.subnet.oc1..xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+ssh_username         = "debian"
+image_name           = "cloud-server-base"

@@ -26,7 +26,7 @@ All development and deployment commands must work through `devbox run ...` per A
 | Story ID | Story Title | Branch | Status | Dependencies | Parallel-safe | Modules |
 | -------- | ----------- | ------ | ------ | ------------ | ------------- | ------- |
 | 01-001 | Cloud Server Variable Schema (group_vars) | feature/current/cloud-server/story-01-001-group-vars | [x] Done | None | true | ansible, variables |
-| 01-002 | OCI Host Inventory & host_vars (incl. Packer base image) | feature/current/cloud-server/story-01-002-oci-inventory | [ ] Todo | None | true | ansible, inventory, packer |
+| 01-002 | OCI Host Inventory & host_vars (incl. Packer base image) | feature/current/cloud-server/story-01-002-oci-inventory | [x] Done | None | true | ansible, inventory, packer |
 
 ## Phase 02 — Galaxy Role Development
 
