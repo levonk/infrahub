@@ -36,7 +36,7 @@ All development and deployment commands must work through `devbox run ...` per A
 | 02-002 | Role: nix-installation | feature/current/cloud-server/story-02-002-role-nix | [x] Done | 01-001, 01-002 | true | ansible, role, nix |
 | 02-003 | Role: docker-engine | feature/current/cloud-server/story-02-003-role-docker | [x] Done | 01-001, 01-002 | true | ansible, role, docker |
 | 02-004 | Role: nix-core-tools | feature/current/cloud-server/story-02-004-role-nix-tools | [x] Done | 01-001, 01-002 | true | ansible, role, nix |
-| 02-005 | Role: tailscale-vpn | feature/current/cloud-server/story-02-005-role-tailscale | [~] In-Progress | 01-001, 01-002 | true | ansible, role, vpn |
+| 02-005 | Role: tailscale-vpn | feature/current/cloud-server/story-02-005-role-tailscale | [x] Done | 01-001, 01-002 | true | ansible, role, vpn |
 | 02-006 | Role: netbird-client | feature/current/cloud-server/story-02-006-role-netbird-client | [x] Done | 01-001, 01-002 | true | ansible, role, vpn |
 | 02-007 | Role: host-firewall | feature/current/cloud-server/story-02-007-role-firewall | [x] Done | 01-001, 01-002 | true | ansible, role, security |
 | 02-008 | Role: ssh-hardening | feature/current/cloud-server/story-02-008-role-ssh | [x] Done | 01-001, 01-002 | true | ansible, role, security |
@@ -52,7 +52,7 @@ All development and deployment commands must work through `devbox run ...` per A
 | Story ID | Story Title | Branch | Status | Dependencies | Parallel-safe | Modules |
 | -------- | ----------- | ------ | ------ | ------------ | ------------- | ------- |
 | 03-001 | Playbook: cloud-server-bootstrap.yml | feature/current/cloud-server/story-03-001-pb-bootstrap | [x] Done | 02-001, 02-002, 02-003, 02-004 | true | ansible, playbook |
-| 03-002 | Playbook: cloud-server-vpn.yml | feature/current/cloud-server/story-03-002-pb-vpn | [ ] Todo | 02-005, 02-006, 02-007, 02-008, 02-009 | true | ansible, playbook |
+| 03-002 | Playbook: cloud-server-vpn.yml | feature/current/cloud-server/story-03-002-pb-vpn | [!] Blocked | 02-005, 02-006, 02-007, 02-008, 02-009 | true | ansible, playbook |
 | 03-003 | Playbook: cloud-server-infra.yml | feature/current/cloud-server/story-03-003-pb-infra | [ ] Todo | 02-010, 02-011, 02-012, 02-013 | true | ansible, playbook |
 | 03-004 | Playbook: cloud-server-vms.yml | feature/current/cloud-server/story-03-004-pb-vms | [ ] Todo | 02-014 | true | ansible, playbook |
 | 03-005 | Site Playbook: cloud-server-site.yml | feature/current/cloud-server/story-03-005-pb-site | [ ] Todo | 03-001, 03-002, 03-003, 03-004 | true | ansible, playbook |

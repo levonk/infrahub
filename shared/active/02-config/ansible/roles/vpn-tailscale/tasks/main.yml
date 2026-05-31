@@ -29,7 +29,9 @@
 
 - name: Add Tailscale apt repository
   ansible.builtin.apt_repository:
-    repo: "deb [signed-by=/usr/share/keyrings/tailscale-archive-keyring.gpg] https://pkgs.tailscale.com/{{ vpn_tailscale_channel }}/debian bookworm main"
+    repo: >-
+      deb [signed-by=/usr/share/keyrings/tailscale-archive-keyring.gpg]
+      https://pkgs.tailscale.com/{{ vpn_tailscale_channel }}/debian bookworm main
     filename: tailscale
     state: present
   become: true
@@ -77,7 +79,10 @@
       - "{% if vpn_tailscale_accept_routes %}--accept-routes{% else %}--accept-routes=false{% endif %}"
       - "{% if vpn_tailscale_enable_ssh %}--ssh{% endif %}"
       - "{% if vpn_tailscale_run_exit_node %}--advertise-exit-node{% endif %}"
-      - "{% if vpn_tailscale_advertise_routes | length > 0 %}--advertise-routes={{ vpn_tailscale_advertise_routes | join(',') }}{% endif %}"
+      - >-
+          {% if vpn_tailscale_advertise_routes | length > 0 %}
+          --advertise-routes={{ vpn_tailscale_advertise_routes | join(',') }}
+          {% endif %}
   when: vpn_tailscale_auth_key | length > 0
 
 - name: Authenticate and start Tailscale
@@ -120,9 +125,9 @@
 
 - name: Report Tailscale connection info
   ansible.builtin.debug:
-    msg: |
+    msg: >-
       Tailscale is running:
-        - Hostname: {{ vpn_tailscale_hostname }}
-        - Port: {{ vpn_tailscale_port }}
-        - IPv4: {{ vpn_tailscale_ip.stdout | default('N/A') }}
+      - Hostname: {{ vpn_tailscale_hostname }}
+      - Port: {{ vpn_tailscale_port }}
+      - IPv4: {{ vpn_tailscale_ip.stdout | default('N/A') }}
   when: vpn_tailscale_verify_connection | bool

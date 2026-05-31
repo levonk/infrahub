@@ -18,7 +18,7 @@ risk_level: "low"
 tags: ["ansible", "role", "vpn", "tailscale"]
 due: "2026-06-12"
 created_at: "2026-05-29"
-updated_at: "2026-05-30"
+updated_at: "2026-05-31"
 ---
 
 ## Summary
@@ -38,7 +38,7 @@ Create the `tailscale-vpn` Ansible role that installs and configures the Tailsca
 - [x] Create `meta/main.yml` with role metadata
 - [x] Create `README.md` documenting role variables (including auth key handling)
 - [x] Add `tests/` with test playbook
-- [~] Verify `ansible-lint` passes — pending environment; role validated via Python YAML + manual review
+- [x] Verify `ansible-lint` passes — verified via `devbox run ansible-lint`, 0 failures, 0 warnings, production profile
 
 ## Relevant Files
 
@@ -57,7 +57,7 @@ Create the `tailscale-vpn` Ansible role that installs and configures the Tailsca
 - [x] `tailscale status` reports connected state — verified via `ansible.builtin.command tailscale status`
 - [x] Service is enabled for auto-start — `systemd enabled: true` in tasks and handlers
 - [x] Port configuration matches `cloud_server_tailscale_port` variable — defaults pull from `cloud_server_tailscale_port` with fallback to `41641`
-- [~] `ansible-lint` passes — environment unable to run `devbox run ansible-lint` (known upstream issue); role syntax validated via Python YAML parser and manual review for `changed_when`, `become`, and hardcoded IP/port compliance
+- [x] `ansible-lint` passes — verified via `devbox run ansible-lint shared/active/02-config/ansible/roles/vpn-tailscale/`, 0 failures, 0 warnings on 7 files, production profile met
 
 ## Test Plan
 
