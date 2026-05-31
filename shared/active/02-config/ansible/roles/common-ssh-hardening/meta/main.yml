@@ -1,0 +1,25 @@
+---
+galaxy_info:
+  role_name: common_ssh_hardening
+  author: levonk
+  description: >-
+    Harden SSH configuration on Debian/Ubuntu hosts.
+    WARNING — only apply after confirming passwordless key-based SSH works.
+  company: levonk
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+    - name: Ubuntu
+      versions:
+        - all
+  galaxy_tags:
+    - ssh
+    - security
+    - hardening
+    - debian
+    - ubuntu
+
+dependencies: []

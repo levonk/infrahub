@@ -7,7 +7,7 @@ prd_file: "shared/active/08-docs/reqs/2026/20260529-cloud-server.md"
 phase: 2
 parallel_id: 8
 branch: "feature/current/cloud-server/story-02-008-role-ssh"
-status: "todo"
+status: "done"
 assignee: ""
 reviewer: ""
 dependencies: ["01-001", "01-002"]
@@ -18,7 +18,7 @@ risk_level: "high"
 tags: ["ansible", "role", "security", "ssh"]
 due: "2026-06-12"
 created_at: "2026-05-29"
-updated_at: "2026-05-29"
+updated_at: "2026-05-31"
 ---
 
 ## Summary
@@ -27,9 +27,9 @@ Create the `ssh-hardening` Ansible role that hardens SSH configuration on the cl
 
 ## Sub-Tasks
 
-- [ ] Create role directory `shared/active/02-config/ansible/roles/common-ssh-hardening/`
-- [ ] Create `defaults/main.yml` with SSH config variables (port, algorithms, timeouts, etc.)
-- [ ] Create `tasks/main.yml` with tasks for:
+- [x] Create role directory `shared/active/02-config/ansible/roles/common-ssh-hardening/`
+- [x] Create `defaults/main.yml` with SSH config variables (port, algorithms, timeouts, etc.)
+- [x] Create `tasks/main.yml` with tasks for:
   - Verify passwordless SSH login works (pre-condition check)
   - Set `PermitRootLogin no`
   - Set `PasswordAuthentication no`
@@ -41,11 +41,11 @@ Create the `ssh-hardening` Ansible role that hardens SSH configuration on the cl
   - Optionally set non-standard port (variable-driven)
   - Validate SSH config before applying (`sshd -t`)
   - Restart SSH service only if config is valid
-- [ ] Create `handlers/main.yml` for SSH service restart
-- [ ] Create `meta/main.yml` with role metadata
-- [ ] Create `README.md` documenting role variables and the WARNING about lockout
-- [ ] Add `tests/` with test playbook
-- [ ] Verify `ansible-lint` passes
+- [x] Create `handlers/main.yml` for SSH service restart
+- [x] Create `meta/main.yml` with role metadata
+- [x] Create `README.md` documenting role variables and the WARNING about lockout
+- [x] Add `tests/` with test playbook
+- [x] Verify `ansible-lint` passes
 
 ## Relevant Files
 
@@ -56,13 +56,13 @@ Create the `ssh-hardening` Ansible role that hardens SSH configuration on the cl
 
 ## Acceptance Criteria
 
-- [ ] Passwordless SSH login is verified before hardening
-- [ ] `PermitRootLogin` is set to `no`
-- [ ] `PasswordAuthentication` is set to `no`
-- [ ] Only ed25519 keys are accepted
-- [ ] `MaxAuthTries`, `ClientAliveInterval`, `ClientAliveCountMax` are set correctly
-- [ ] SSH config validates with `sshd -t` before restart
-- [ ] `ansible-lint` passes
+- [x] Passwordless SSH login is verified before hardening
+- [x] `PermitRootLogin` is set to `no`
+- [x] `PasswordAuthentication` is set to `no`
+- [x] Only ed25519 keys are accepted
+- [x] `MaxAuthTries`, `ClientAliveInterval`, `ClientAliveCountMax` are set correctly
+- [x] SSH config validates with `sshd -t` before restart
+- [x] `ansible-lint` passes
 
 ## Test Plan
 

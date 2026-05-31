@@ -38,8 +38,8 @@ All development and deployment commands must work through `devbox run ...` per A
 | 02-004 | Role: nix-core-tools | feature/current/cloud-server/story-02-004-role-nix-tools | [x] Done | 01-001, 01-002 | true | ansible, role, nix |
 | 02-005 | Role: tailscale-vpn | feature/current/cloud-server/story-02-005-role-tailscale | [~] In-Progress | 01-001, 01-002 | true | ansible, role, vpn |
 | 02-006 | Role: netbird-client | feature/current/cloud-server/story-02-006-role-netbird-client | [x] Done | 01-001, 01-002 | true | ansible, role, vpn |
-| 02-007 | Role: host-firewall | feature/current/cloud-server/story-02-007-role-firewall | [ ] Todo | 01-001, 01-002 | true | ansible, role, security |
-| 02-008 | Role: ssh-hardening | feature/current/cloud-server/story-02-008-role-ssh | [ ] Todo | 01-001, 01-002 | true | ansible, role, security |
+| 02-007 | Role: host-firewall | feature/current/cloud-server/story-02-007-role-firewall | [x] Done | 01-001, 01-002 | true | ansible, role, security |
+| 02-008 | Role: ssh-hardening | feature/current/cloud-server/story-02-008-role-ssh | [x] Done | 01-001, 01-002 | true | ansible, role, security |
 | 02-009 | Role: fail2ban | feature/current/cloud-server/story-02-009-role-fail2ban | [ ] Todo | 01-001, 01-002 | true | ansible, role, security |
 | 02-010 | Role: netbird-control-plane | feature/current/cloud-server/story-02-010-role-netbird-cp | [ ] Todo | 01-001, 01-002 | true | ansible, role, vpn |
 | 02-011 | Role: dns-stack | feature/current/cloud-server/story-02-011-role-dns | [ ] Todo | 01-001, 01-002 | true | ansible, role, dns |
