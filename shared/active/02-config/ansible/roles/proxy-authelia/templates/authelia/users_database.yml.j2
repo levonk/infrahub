@@ -1,0 +1,13 @@
+---
+# Authelia users database
+# Managed by Ansible — do not edit manually.
+# Admin password MUST be overridden via vault variable.
+
+users:
+  {{ proxy_authelia_admin_user }}:
+    displayname: "Administrator"
+    password: "{{ proxy_authelia_admin_password }}"
+    email: {{ proxy_authelia_admin_email }}
+    groups:
+      - admins
+      - users

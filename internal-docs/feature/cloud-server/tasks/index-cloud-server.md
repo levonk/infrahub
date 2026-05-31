@@ -44,7 +44,7 @@ All development and deployment commands must work through `devbox run ...` per A
 | 02-010 | Role: netbird-control-plane | feature/current/cloud-server/story-02-010-role-netbird-cp | [~] In-Progress | 01-001, 01-002 | true | ansible, role, vpn |
 | 02-011 | Role: dns-stack | feature/current/cloud-server/story-02-011-role-dns | [x] Done | 01-001, 01-002 | true | ansible, role, dns |
 | 02-012 | Role: proxy-stack | feature/current/cloud-server/story-02-012-role-proxy | [x] Done | 01-001, 01-002 | true | ansible, role, proxy |
-| 02-013 | Role: sso-service | feature/current/cloud-server/story-02-013-role-sso | [ ] Todo | 01-001, 01-002 | true | ansible, role, security |
+| 02-013 | Role: sso-service | feature/current/cloud-server/story-02-013-role-sso | [~] In-Progress | 01-001, 01-002 | true | ansible, role, security |
 | 02-014 | Role: kvm-hypervisor | feature/current/cloud-server/story-02-014-role-kvm | [ ] Todo | 01-001, 01-002 | true | ansible, role, vm |
 
 ## Phase 03 — Shared Playbooks

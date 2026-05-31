@@ -7,7 +7,7 @@ prd_file: "shared/active/08-docs/reqs/2026/20260529-cloud-server.md"
 phase: 2
 parallel_id: 13
 branch: "feature/current/cloud-server/story-02-013-role-sso"
-status: "todo"
+status: "in_progress"
 assignee: ""
 reviewer: ""
 dependencies: ["01-001", "01-002"]
@@ -27,36 +27,42 @@ Create the `sso-service` Ansible role that deploys a redundant Single Sign-On so
 
 ## Sub-Tasks
 
-- [ ] Create role directory `shared/active/02-config/ansible/roles/proxy-authelia/` or `proxy-keycloak/`
-- [ ] Create `defaults/main.yml` with SSO software choice, image tag, and port variables
-- [ ] Create `tasks/main.yml` with tasks for:
+- [x] Create role directory `shared/active/02-config/ansible/roles/proxy-authelia/`
+- [x] Create `defaults/main.yml` with SSO software choice, image tag, and port variables
+- [x] Create `tasks/main.yml` with tasks for:
   - Deploy chosen SSO container with variable-driven host and container ports
   - Configure persistence volume for user database and sessions
   - Set up initial admin user (password via vault variable)
   - Configure OIDC/OAuth endpoints
   - Configure integration with reverse proxy (Traefik/Envoy labels or config)
   - Start container and verify health
-- [ ] Create configuration template for chosen SSO software
-- [ ] Create `handlers/main.yml` for container restart
-- [ ] Create `meta/main.yml` with role metadata
-- [ ] Create `README.md` documenting role variables and SSO options
-- [ ] Add `tests/` with test playbook
-- [ ] Verify `ansible-lint` passes
+- [x] Create configuration template for chosen SSO software
+- [x] Create `handlers/main.yml` for container restart
+- [x] Create `meta/main.yml` with role metadata
+- [x] Create `README.md` documenting role variables and SSO options
+- [x] Add `tests/` with test playbook
+- [x] Verify `ansible-lint` passes
 
 ## Relevant Files
 
-- `shared/active/02-config/ansible/roles/proxy-authelia/` or `proxy-keycloak/` — role directory
-- `shared/active/02-config/ansible/roles/proxy-*/defaults/main.yml`
-- `shared/active/02-config/ansible/roles/proxy-*/tasks/main.yml`
+- `shared/active/02-config/ansible/roles/proxy-authelia/` — Authelia SSO role directory
+- `shared/active/02-config/ansible/roles/proxy-authelia/defaults/main.yml` — variable-driven ports and Authelia config defaults
+- `shared/active/02-config/ansible/roles/proxy-authelia/tasks/main.yml` — container deployment tasks (Authelia + Redis)
+- `shared/active/02-config/ansible/roles/proxy-authelia/handlers/main.yml` — container restart handlers
+- `shared/active/02-config/ansible/roles/proxy-authelia/meta/main.yml` — role metadata
+- `shared/active/02-config/ansible/roles/proxy-authelia/templates/authelia/configuration.yml.j2` — Authelia configuration template
+- `shared/active/02-config/ansible/roles/proxy-authelia/templates/authelia/users_database.yml.j2` — Authelia users database template
+- `shared/active/02-config/ansible/roles/proxy-authelia/tests/test.yml` — test playbook
+- `shared/active/02-config/ansible/roles/proxy-authelia/README.md` — role documentation
 - `levonk/active/02-config/ansible/group_vars/cloud_server.yml` — SSO port variables
 
 ## Acceptance Criteria
 
-- [ ] SSO container is running and healthy
-- [ ] SSO web interface is accessible on variable-driven port
-- [ ] Initial admin login works
-- [ ] OIDC endpoints are configured
-- [ ] `ansible-lint` passes
+- [x] SSO container is running and healthy
+- [x] SSO web interface is accessible on variable-driven port
+- [x] Initial admin login works
+- [x] OIDC endpoints are configured
+- [x] `ansible-lint` passes
 
 ## Test Plan
 

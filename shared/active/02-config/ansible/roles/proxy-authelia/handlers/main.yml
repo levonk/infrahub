@@ -1,0 +1,18 @@
+---
+# handlers file for proxy-authelia
+
+- name: Restart proxy-authelia
+  community.docker.docker_container:
+    name: proxy-authelia
+    state: started
+    restart: true
+  listen: restart proxy-authelia
+  become: true
+
+- name: Restart proxy-authelia-redis
+  community.docker.docker_container:
+    name: proxy-authelia-redis
+    state: started
+    restart: true
+  listen: restart proxy-authelia-redis
+  become: true

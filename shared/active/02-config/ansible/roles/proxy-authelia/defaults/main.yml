@@ -1,0 +1,74 @@
+---
+# defaults file for proxy-authelia
+# Neutral, overridable defaults. No localnet-specific paths.
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# SSO Service (Authelia)
+# ---------------------------------------------------------------------------
+proxy_authelia_enabled: true
+proxy_authelia_version: "latest"
+proxy_authelia_image: "authelia/authelia:{{ proxy_authelia_version }}"
+
+proxy_authelia_web_host_port: "{{ cloud_server_authelia_web_host_port | default('9091') }}"
+proxy_authelia_web_container_port: "{{ cloud_server_authelia_web_container_port | default('9091') }}"
+
+proxy_authelia_redis_host_port: "{{ cloud_server_authelia_redis_host_port | default('6379') }}"
+proxy_authelia_redis_container_port: "{{ cloud_server_authelia_redis_container_port | default('6379') }}"
+
+# ---------------------------------------------------------------------------
+# Authelia Configuration
+# ---------------------------------------------------------------------------
+proxy_authelia_jwt_secret: "{{ cloud_server_authelia_jwt_secret | default('change-me-in-vault') }}"
+proxy_authelia_session_secret: "{{ cloud_server_authelia_session_secret | default('change-me-in-vault') }}"
+proxy_authelia_storage_encryption_key: >-
+  {{ cloud_server_authelia_storage_encryption_key | default('change-me-in-vault') }}
+
+proxy_authelia_log_level: "info"
+proxy_authelia_theme: "light"
+
+# Default admin user (password MUST be overridden via vault)
+proxy_authelia_admin_user: "admin"
+proxy_authelia_admin_password: "{{ cloud_server_authelia_admin_password | default('change-me-in-vault') }}"
+proxy_authelia_admin_email: "{{ cloud_server_authelia_admin_email | default('admin@example.com') }}"
+
+# Access Control — default deny, allow localhost for testing
+proxy_authelia_default_policy: "deny"
+proxy_authelia_rules:
+  - domain: "*.example.com"
+    policy: "one_factor"
+  - domain: "localhost"
+    policy: "bypass"
+
+# Session / Storage
+proxy_authelia_session_name: "authelia_session"
+proxy_authelia_session_expiration: "1h"
+proxy_authelia_session_inactivity: "5m"
+proxy_authelia_session_redis_enabled: true
+
+# Storage backend (sqlite3 by default)
+proxy_authelia_storage_backend: "sqlite"
+
+# Notifications
+proxy_authelia_notifier_backend: "filesystem"
+proxy_authelia_notifier_fs_path: "/config/notification.txt"
+
+# ---------------------------------------------------------------------------
+# Redis Sidecar (for sessions)
+# ---------------------------------------------------------------------------
+proxy_authelia_redis_enabled: true
+proxy_authelia_redis_version: "7-alpine"
+proxy_authelia_redis_image: "redis:{{ proxy_authelia_redis_version }}"
+proxy_authelia_redis_password: "{{ cloud_server_authelia_redis_password | default('change-me-in-vault') }}"
+
+# ---------------------------------------------------------------------------
+# Docker Network & Volumes
+# ---------------------------------------------------------------------------
+proxy_authelia_docker_network_name: "{{ cloud_server_authelia_network_name | default('proxy-network') }}"
+proxy_authelia_data_dir: "{{ cloud_server_authelia_data_dir | default('/opt/authelia') }}"
+
+# ---------------------------------------------------------------------------
+# Feature Flags
+# ---------------------------------------------------------------------------
+proxy_authelia_verify_health: true
+proxy_authelia_verify_timeout_seconds: 30

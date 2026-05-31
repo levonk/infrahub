@@ -1,0 +1,153 @@
+---
+# tasks file for proxy-authelia
+# Deploys Authelia SSO service and optional Redis session store as Docker containers.
+# All ports are variable-driven per AGENTS.md rules.
+
+# ---------------------------------------------------------------------------
+# Prerequisites
+# ---------------------------------------------------------------------------
+- name: Ensure authelia data directory exists
+  ansible.builtin.file:
+    path: "{{ proxy_authelia_data_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+
+- name: Ensure authelia configuration directories exist
+  ansible.builtin.file:
+    path: "{{ proxy_authelia_data_dir }}/{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+  loop:
+    - config
+
+# ---------------------------------------------------------------------------
+# Docker Volumes
+# ---------------------------------------------------------------------------
+- name: Ensure authelia Docker volumes exist
+  community.docker.docker_volume:
+    name: "{{ item }}"
+    state: present
+  become: true
+  loop:
+    - proxy-authelia-config
+    - proxy-authelia-sqlite
+
+# ---------------------------------------------------------------------------
+# Configuration Templates
+# ---------------------------------------------------------------------------
+- name: Deploy Authelia configuration
+  ansible.builtin.template:
+    src: authelia/configuration.yml.j2
+    dest: "{{ proxy_authelia_data_dir }}/config/configuration.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: restart proxy-authelia
+
+- name: Deploy Authelia users database
+  ansible.builtin.template:
+    src: authelia/users_database.yml.j2
+    dest: "{{ proxy_authelia_data_dir }}/config/users_database.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: restart proxy-authelia
+
+# ---------------------------------------------------------------------------
+# Redis Session Store (Sidecar)
+# ---------------------------------------------------------------------------
+- name: Deploy Authelia Redis container
+  community.docker.docker_container:
+    name: proxy-authelia-redis
+    image: "{{ proxy_authelia_redis_image }}"
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ proxy_authelia_docker_network_name }}"
+    ports:
+      - "{{ proxy_authelia_redis_host_port }}:{{ proxy_authelia_redis_container_port }}/tcp"
+    volumes:
+      - proxy-authelia-redis:/data
+    command:
+      - redis-server
+      - --requirepass
+      - "{{ proxy_authelia_redis_password }}"
+    log_driver: json-file
+    log_options:
+      max-size: "10m"
+      max-file: "5"
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+  become: true
+  when: proxy_authelia_redis_enabled | bool
+
+# ---------------------------------------------------------------------------
+# Authelia SSO Container
+# ---------------------------------------------------------------------------
+- name: Deploy Authelia container
+  community.docker.docker_container:
+    name: proxy-authelia
+    image: "{{ proxy_authelia_image }}"
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ proxy_authelia_docker_network_name }}"
+    ports:
+      - "{{ proxy_authelia_web_host_port }}:{{ proxy_authelia_web_container_port }}/tcp"
+    volumes:
+      - "{{ proxy_authelia_data_dir }}/config:/config"
+      - proxy-authelia-sqlite:/config/db
+    env:
+      AUTHELIA_JWT_SECRET_FILE: "/config/jwt_secret"
+      AUTHELIA_SESSION_SECRET_FILE: "/config/session_secret"
+      AUTHELIA_STORAGE_ENCRYPTION_KEY_FILE: "/config/storage_encryption_key"
+      AUTHELIA_NOTIFIER_SMTP_PASSWORD_FILE: "/config/smtp_password"
+    log_driver: json-file
+    log_options:
+      max-size: "10m"
+      max-file: "5"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:{{ proxy_authelia_web_container_port }}/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+  become: true
+  when: proxy_authelia_enabled | bool
+
+# ---------------------------------------------------------------------------
+# Health Verification
+# ---------------------------------------------------------------------------
+- name: Wait for Authelia to be healthy
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ proxy_authelia_web_host_port }}/api/health"
+    status_code: 200
+  register: authelia_health
+  until: authelia_health.status == 200
+  retries: 10
+  delay: 5
+  when:
+    - proxy_authelia_enabled | bool
+    - proxy_authelia_verify_health | bool
+
+# ---------------------------------------------------------------------------
+# Status Report
+# ---------------------------------------------------------------------------
+- name: Report authelia status
+  ansible.builtin.debug:
+    msg: |2
+      Authelia SSO deployed successfully:
+      - Web UI: https://{{ ansible_host | default('localhost') }}:{{ proxy_authelia_web_host_port }}
+      - Redis: {{ proxy_authelia_redis_host_port }} (if enabled)

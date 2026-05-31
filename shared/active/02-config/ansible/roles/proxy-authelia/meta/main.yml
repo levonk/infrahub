@@ -1,0 +1,25 @@
+---
+galaxy_info:
+  role_name: proxy_authelia
+  author: levonk
+  description: Deploy Authelia SSO service with Redis session store as Docker containers.
+  company: levonk
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+    - name: Ubuntu
+      versions:
+        - jammy
+        - noble
+  galaxy_tags:
+    - proxy
+    - authelia
+    - sso
+    - authentication
+    - docker
+    - security
+
+dependencies: []
