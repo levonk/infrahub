@@ -1,0 +1,248 @@
+---
+# Cloud Server Infrastructure Playbook
+# Orchestrates infrastructure services on cloud servers:
+# Netbird control plane (management, signal, TURN relay),
+# DNS stack (CoreDNS), proxy stack (Traefik), and SSO (Authelia).
+# Deployed as Docker containers; depends on Docker engine being ready.
+# Usage:
+#   ansible-playbook -i inventories/oci.yml playbooks/cloud-server-infra.yml
+#   ansible-playbook -i inventories/oci.yml playbooks/cloud-server-infra.yml --check --diff
+
+- name: "Deploy Cloud Server Infrastructure Services"
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: "Gather ansible_facts"
+      ansible.builtin.setup:
+        gather_subset: ["all"]
+      tags: ["always"]
+
+    - name: "Validate required variables are defined"
+      ansible.builtin.assert:
+        that:
+          - cloud_server_admin_user is defined
+          - cloud_server_admin_user | length > 0
+          - cloud_server_ansible_host_ip is defined
+          - cloud_server_ssh_host_port is defined
+        fail_msg: "Missing required cloud_server variables. Check group_vars/cloud_server.yml and group_vars/all.yml."
+        success_msg: "All required variables are defined."
+      tags: ["always", "validate"]
+
+    - name: "Verify Docker CLI is installed"
+      ansible.builtin.command:
+        cmd: "docker --version"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: docker_cli_check
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "bootstrap", "docker"]
+
+    - name: "Fail if Docker CLI is not installed"
+      ansible.builtin.fail:
+        msg: |
+          Bootstrap prerequisite failed: Docker CLI is not installed.
+          Run cloud-server-bootstrap.yml first.
+      when: docker_cli_check.rc != 0
+      tags: ["verify", "bootstrap", "docker"]
+
+    - name: "Verify Docker daemon is responsive"
+      ansible.builtin.command:
+        cmd: "docker info --format '{{ '{{' }} .ServerVersion {{ '}}' }}'"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: docker_daemon_check
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "bootstrap", "docker"]
+
+    - name: "Fail if Docker daemon is not responsive"
+      ansible.builtin.fail:
+        msg: |
+          Bootstrap prerequisite failed: Docker daemon is not running or
+          not accessible. Ensure Docker service is started.
+      when: docker_daemon_check.rc != 0
+      tags: ["verify", "bootstrap", "docker"]
+
+  roles:
+    - role: vpn-netbird-control
+      tags: ["infra", "vpn", "netbird", "control"]
+
+    - role: dns-coredns
+      tags: ["infra", "dns", "coredns"]
+
+    - role: proxy-traefik
+      tags: ["infra", "proxy", "traefik"]
+
+    - role: proxy-authelia
+      tags: ["infra", "proxy", "authelia", "sso"]
+
+  post_tasks:
+    - name: "Verify Docker service is running"
+      ansible.builtin.systemd:
+        name: docker
+        state: started
+      check_mode: false
+      tags: ["verify", "docker"]
+
+    - name: "Verify Netbird management container is running"
+      ansible.builtin.command:
+        cmd: "docker inspect --format='{{ '{{' }} .State.Status {{ '}}' }}' {{ netbird_control_mgmt_container_name }}"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: netbird_mgmt_container_check
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "netbird", "containers"]
+
+    - name: "Warn if Netbird management container is not running"
+      ansible.builtin.debug:
+        msg: "WARNING: Netbird management container ({{ netbird_control_mgmt_container_name }}) is not running."
+      when: netbird_mgmt_container_check.rc != 0 or netbird_mgmt_container_check.stdout != "running"
+      tags: ["verify", "netbird", "containers"]
+
+    - name: "Verify Netbird signal container is running"
+      ansible.builtin.command:
+        cmd: "docker inspect --format='{{ '{{' }} .State.Status {{ '}}' }}' {{ netbird_control_signal_container_name }}"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: netbird_signal_container_check
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "netbird", "containers"]
+
+    - name: "Warn if Netbird signal container is not running"
+      ansible.builtin.debug:
+        msg: "WARNING: Netbird signal container ({{ netbird_control_signal_container_name }}) is not running."
+      when: netbird_signal_container_check.rc != 0 or netbird_signal_container_check.stdout != "running"
+      tags: ["verify", "netbird", "containers"]
+
+    - name: "Verify Netbird relay container is running"
+      ansible.builtin.command:
+        cmd: "docker inspect --format='{{ '{{' }} .State.Status {{ '}}' }}' {{ netbird_control_relay_container_name }}"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: netbird_relay_container_check
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "netbird", "containers"]
+
+    - name: "Warn if Netbird relay container is not running"
+      ansible.builtin.debug:
+        msg: "WARNING: Netbird relay container ({{ netbird_control_relay_container_name }}) is not running."
+      when: netbird_relay_container_check.rc != 0 or netbird_relay_container_check.stdout != "running"
+      tags: ["verify", "netbird", "containers"]
+
+    - name: "Verify CoreDNS container is running"
+      ansible.builtin.command:
+        cmd: "docker inspect --format='{{ '{{' }} .State.Status {{ '}}' }}' {{ dns_coredns_container_name }}"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: coredns_container_check
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "dns", "containers"]
+
+    - name: "Warn if CoreDNS container is not running"
+      ansible.builtin.debug:
+        msg: "WARNING: CoreDNS container ({{ dns_coredns_container_name }}) is not running."
+      when: coredns_container_check.rc != 0 or coredns_container_check.stdout != "running"
+      tags: ["verify", "dns", "containers"]
+
+    - name: "Verify Traefik container is running"
+      ansible.builtin.command:
+        cmd: "docker inspect --format='{{ '{{' }} .State.Status {{ '}}' }}' proxy-traefik"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: traefik_container_check
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "proxy", "traefik", "containers"]
+
+    - name: "Warn if Traefik container is not running"
+      ansible.builtin.debug:
+        msg: "WARNING: Traefik container (proxy-traefik) is not running."
+      when: traefik_container_check.rc != 0 or traefik_container_check.stdout != "running"
+      tags: ["verify", "proxy", "traefik", "containers"]
+
+    - name: "Verify Authelia container is running"
+      ansible.builtin.command:
+        cmd: "docker inspect --format='{{ '{{' }} .State.Status {{ '}}' }}' proxy-authelia"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: authelia_container_check
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "proxy", "authelia", "containers"]
+
+    - name: "Warn if Authelia container is not running"
+      ansible.builtin.debug:
+        msg: "WARNING: Authelia container (proxy-authelia) is not running."
+      when: authelia_container_check.rc != 0 or authelia_container_check.stdout != "running"
+      tags: ["verify", "proxy", "authelia", "containers"]
+
+    - name: "HTTP probe — Traefik ping endpoint"
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ proxy_traefik_api_port }}/ping"
+        status_code: 200
+      register: traefik_ping
+      ignore_errors: true
+      tags: ["verify", "proxy", "traefik", "health"]
+
+    - name: "Report Traefik ping status"
+      ansible.builtin.debug:
+        msg: "Traefik ping: {{ traefik_ping.status }} ({{ traefik_ping.msg | default('OK') }})"
+      when: traefik_ping.status is defined
+      tags: ["verify", "proxy", "traefik", "health"]
+
+    - name: "HTTP probe — Authelia health endpoint"
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ proxy_authelia_web_host_port }}/api/health"
+        status_code: 200
+      register: authelia_health
+      ignore_errors: true
+      tags: ["verify", "proxy", "authelia", "health"]
+
+    - name: "Report Authelia health status"
+      ansible.builtin.debug:
+        msg: "Authelia health: {{ authelia_health.status }} ({{ authelia_health.msg | default('OK') }})"
+      when: authelia_health.status is defined
+      tags: ["verify", "proxy", "authelia", "health"]
+
+    - name: "DNS query — verify CoreDNS responds"
+      ansible.builtin.command:
+        cmd: "dig @127.0.0.1 -p {{ dns_coredns_host_port }} +short +time=5 +tries=1 cloudflare.com"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: coredns_dig
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "dns", "health"]
+
+    - name: "Report CoreDNS query status"
+      ansible.builtin.debug:
+        msg: "CoreDNS query result: {{ coredns_dig.stdout | default('FAILED') }}"
+      when: coredns_dig is defined
+      tags: ["verify", "dns", "health"]
+
+    - name: "Warn if CoreDNS query failed"
+      ansible.builtin.debug:
+        msg: "WARNING: CoreDNS did not respond to test query."
+      when: coredns_dig.rc != 0 or (coredns_dig.stdout | default('')) | length == 0
+      tags: ["verify", "dns", "health"]
+
+    - name: "Report infrastructure deployment complete"
+      ansible.builtin.debug:
+        msg: |
+          Infrastructure deployed on {{ inventory_hostname }}:
+          - Netbird: mgmt={{ netbird_control_mgmt_host_port }}
+          signal={{ netbird_control_signal_host_port }}
+          relay={{ netbird_control_relay_host_port }}
+          - CoreDNS: {{ dns_coredns_host_port }}/udp+tcp
+          - Traefik: http={{ proxy_traefik_http_host_port }}
+          https={{ proxy_traefik_https_host_port }}
+          api={{ proxy_traefik_api_port }}
+          - Authelia: {{ proxy_authelia_web_host_port }}
+      tags: ["verify", "summary"]

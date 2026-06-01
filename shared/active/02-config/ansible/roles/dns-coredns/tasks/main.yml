@@ -1,0 +1,101 @@
+---
+# Cloud Server CoreDNS Deployment
+# Deploys CoreDNS as a Docker container for cloud-server DNS resolution.
+
+# ============================================================================
+# Service Directory
+# ============================================================================
+- name: Ensure CoreDNS service directory exists on target
+  ansible.builtin.file:
+    path: "{{ dns_coredns_service_dir }}"
+    state: directory
+    mode: "0755"
+
+# ============================================================================
+# Configuration
+# ============================================================================
+- name: Render CoreDNS Corefile
+  ansible.builtin.template:
+    src: Corefile.j2
+    dest: "{{ dns_coredns_service_dir }}/Corefile"
+    mode: "0644"
+  notify: restart dns coredns
+
+# ============================================================================
+# Volume Management
+# ============================================================================
+- name: Ensure CoreDNS data volume exists
+  community.docker.docker_volume:
+    name: "{{ dns_coredns_volume_name }}"
+    state: present
+
+# ============================================================================
+# Container Deployment
+# ============================================================================
+- name: Deploy CoreDNS container
+  community.docker.docker_container:
+    name: "{{ dns_coredns_container_name }}"
+    image: "{{ dns_coredns_image }}:{{ dns_coredns_image_tag }}"
+    state: started
+    restart_policy: unless-stopped
+    command: ["-conf", "/etc/coredns/Corefile"]
+    networks:
+      - name: "{{ dns_coredns_network_name }}"
+    ports:
+      - "{{ dns_coredns_host_port }}:{{ dns_coredns_container_port }}/udp"
+      - "{{ dns_coredns_host_port }}:{{ dns_coredns_container_port }}/tcp"
+      - "{{ dns_coredns_metrics_host_port }}:{{ dns_coredns_metrics_container_port }}/tcp"
+    volumes:
+      - "{{ dns_coredns_service_dir }}/Corefile:/etc/coredns/Corefile:ro"
+      - "{{ dns_coredns_volume_name }}:/var/lib/coredns:rw"
+    env:
+      TZ: "{{ cloud_server_tz | default('UTC') }}"
+    log_driver: json-file
+    log_options:
+      max-size: 10m
+      max-file: 5
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777,size=64m
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:{{ dns_coredns_metrics_container_port }}/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+  register: dns_coredns_deploy
+  notify: restart dns coredns
+
+# ============================================================================
+# Verification
+# ============================================================================
+- name: Wait for CoreDNS to be healthy
+  ansible.builtin.uri:
+    url: "http://localhost:{{ dns_coredns_metrics_host_port }}/health"
+    status_code: 200
+  register: dns_coredns_health
+  until: dns_coredns_health.status == 200
+  retries: 10
+  delay: 3
+  when:
+    - dns_coredns_verify_health | bool
+    - dns_coredns_deploy.changed
+
+- name: Verify CoreDNS responds to DNS queries
+  ansible.builtin.command:
+    cmd: "dig @127.0.0.1 -p {{ dns_coredns_host_port }} +short +time=5 +tries=1 cloudflare.com"
+  changed_when: false
+  when: dns_coredns_verify_health | bool
+
+# ============================================================================
+# Status Report
+# ============================================================================
+- name: Report CoreDNS status
+  ansible.builtin.debug:
+    msg: |
+      CoreDNS deployed successfully:
+      - DNS:    udp/tcp {{ dns_coredns_host_port }}:{{ dns_coredns_container_port }}
+      - Health: http://localhost:{{ dns_coredns_metrics_host_port }}/health
+      - Container: {{ dns_coredns_container_name }}

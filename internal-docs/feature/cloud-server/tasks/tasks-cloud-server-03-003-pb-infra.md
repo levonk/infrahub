@@ -7,7 +7,7 @@ prd_file: "shared/active/08-docs/reqs/2026/20260529-cloud-server.md"
 phase: 3
 parallel_id: 3
 branch: "feature/current/cloud-server/story-03-003-pb-infra"
-status: "todo"
+status: "done"
 assignee: ""
 reviewer: ""
 dependencies: ["02-010", "02-011", "02-012", "02-013"]
@@ -27,18 +27,18 @@ Create the `cloud-server-infra.yml` playbook that orchestrates the infrastructur
 
 ## Sub-Tasks
 
-- [ ] Create `shared/active/02-config/ansible/playbooks/cloud-server-infra.yml`
-- [ ] Define `hosts: cloud_servers` target group
-- [ ] Import roles in dependency order:
+- [x] Create `shared/active/02-config/ansible/playbooks/cloud-server-infra.yml`
+- [x] Define `hosts: cloud_servers` target group
+- [x] Import roles in dependency order:
   - `vpn-netbird-control` (management, signal, TURN)
-  - `dns-adguard` or `dns-coredns`
-  - `proxy-traefik` or `proxy-envoy`
-  - `proxy-authelia` or `proxy-keycloak`
-- [ ] Add `pre_tasks` to verify Docker is running and accessible
-- [ ] Add `post_tasks` for service health checks (HTTP probes, DNS queries)
-- [ ] Document playbook usage in README
-- [ ] Verify `ansible-playbook --syntax-check` passes
-- [ ] Verify `ansible-lint` passes
+  - `dns-coredns`
+  - `proxy-traefik`
+  - `proxy-authelia`
+- [x] Add `pre_tasks` to verify Docker is running and accessible
+- [x] Add `post_tasks` for service health checks (HTTP probes, DNS queries)
+- [x] Document playbook usage in README
+- [x] Verify `ansible-playbook --syntax-check` passes
+- [x] Verify `ansible-lint` passes
 
 ## Relevant Files
 
@@ -51,12 +51,12 @@ Create the `cloud-server-infra.yml` playbook that orchestrates the infrastructur
 
 ## Acceptance Criteria
 
-- [ ] Playbook syntax is valid
-- [ ] All infrastructure roles are imported
-- [ ] Pre-tasks verify Docker availability
-- [ ] Post-tasks verify service health
-- [ ] `ansible-lint` passes
-- [ ] Can be executed via `devbox run ansible-playbook ...`
+- [x] Playbook syntax is valid
+- [x] All infrastructure roles are imported
+- [x] Pre-tasks verify Docker availability
+- [x] Post-tasks verify service health
+- [x] `ansible-lint` passes
+- [x] Can be executed via `devbox run ansible-playbook ...`
 
 ## Test Plan
 
