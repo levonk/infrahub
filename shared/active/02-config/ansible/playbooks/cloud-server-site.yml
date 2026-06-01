@@ -1,0 +1,178 @@
+---
+# Cloud Server Site Playbook
+# Top-level entry point for deploying the entire cloud server stack.
+# Imports all phase-specific playbooks in the correct deployment order:
+#   1. Bootstrap (OS, Nix, Docker, tools)
+#   2. VPN mesh and security hardening (Tailscale, Netbird, firewall, SSH, fail2ban)
+#   3. Infrastructure services (Netbird control plane, DNS, proxy, SSO)
+#   4. VM hypervisor (KVM, libvirt, networks, storage)
+#
+# Usage:
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
+#     shared/active/02-config/ansible/playbooks/cloud-server-site.yml
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
+#     shared/active/02-config/ansible/playbooks/cloud-server-site.yml --check --diff
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
+#     shared/active/02-config/ansible/playbooks/cloud-server-site.yml \
+#     --start-at-task="Import Phase 2: VPN and Security Playbook"
+#
+# Rollback Strategy:
+#   - Each phase playbook is idempotent and can be re-run safely
+#   - Use --start-at-task to resume from a specific phase if deployment fails
+#   - To rollback a specific phase, re-run the previous phase's playbook with --check --diff to verify state
+#   - For full rollback, manually revert each phase in reverse order (vms → infra → vpn → bootstrap)
+
+- name: "Deploy Cloud Server — Full Stack"
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: "Gather ansible_facts"
+      ansible.builtin.setup:
+        gather_subset: ["all"]
+      tags: ["always"]
+
+    - name: "Display deployment start information"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Cloud Server Site Deployment Started
+          ========================================
+          Target: {{ inventory_hostname }}
+          User: {{ ansible_user_id }}
+          OS: {{ ansible_distribution }} {{ ansible_distribution_version }}
+          Architecture: {{ ansible_architecture }}
+          Timestamp: {{ ansible_date_time.iso8601 }}
+          ========================================
+      tags: ["always", "info"]
+
+    - name: "Validate required site-level variables are defined"
+      ansible.builtin.assert:
+        that:
+          - cloud_server_admin_user is defined
+          - cloud_server_admin_user | length > 0
+          - cloud_server_ansible_host_ip is defined
+          - cloud_server_ssh_host_port is defined
+        fail_msg: >-
+          Missing required cloud_server variables. Check
+          levonk/active/02-config/ansible/group_vars/cloud_server.yml
+          and group_vars/all.yml.
+        success_msg: "All required site-level variables are defined."
+      tags: ["always", "validate"]
+
+    - name: "Validate SSH connectivity to target host"
+      ansible.builtin.wait_for:
+        host: "{{ cloud_server_ansible_host_ip }}"
+        port: "{{ cloud_server_ssh_host_port }}"
+        timeout: 10
+      delegate_to: localhost
+      tags: ["always", "validate", "connectivity"]
+
+    - name: "Check available disk space on target"
+      ansible.builtin.shell:
+        cmd: "set -o pipefail && df -h / | tail -1 | awk '{print $5}' | sed 's/%//'"
+      register: disk_usage_check
+      changed_when: false
+      tags: ["always", "validate", "resources"]
+
+    - name: "Warn if disk usage is high (>80%)"
+      ansible.builtin.debug:
+        msg: >-
+          WARNING: Disk usage is {{ disk_usage_check.stdout }}%.
+          Consider freeing space before deployment.
+      when: disk_usage_check.stdout | int > 80
+      tags: ["always", "validate", "resources"]
+
+  roles: []
+
+  tasks:
+    - name: "Import Phase 1: Bootstrap Playbook"
+      ansible.builtin.import_playbook:
+        name: cloud-server-bootstrap.yml
+      tags: ["bootstrap", "phase01"]
+
+    - name: "Import Phase 2: VPN and Security Playbook"
+      ansible.builtin.import_playbook:
+        name: cloud-server-vpn.yml
+      tags: ["vpn", "security", "phase02"]
+
+    - name: "Import Phase 3: Infrastructure Services Playbook"
+      ansible.builtin.import_playbook:
+        name: cloud-server-infra.yml
+      tags: ["infra", "phase03"]
+
+    - name: "Import Phase 4: VM Hypervisor Playbook"
+      ansible.builtin.import_playbook:
+        name: cloud-server-vms.yml
+      tags: ["vms", "hypervisor", "phase04"]
+
+  post_tasks:
+    - name: "Gather final system information"
+      ansible.builtin.setup:
+        gather_subset: ["all"]
+      tags: ["always", "verify"]
+
+    - name: "Verify Docker is accessible"
+      ansible.builtin.command:
+        cmd: "docker --version"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: final_docker_check
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "docker"]
+
+    - name: "Verify Nix is accessible"
+      ansible.builtin.command:
+        cmd: "nix --version"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      environment:
+        PATH: "/nix/var/nix/profiles/default/bin:{{ ansible_env.PATH | default('/usr/local/bin:/usr/bin:/bin') }}"
+      register: final_nix_check
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "nix"]
+
+    - name: "Verify libvirt is accessible"
+      ansible.builtin.command:
+        cmd: "virsh version"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: final_libvirt_check
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "libvirt"]
+
+    - name: "Display final deployment summary"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Cloud Server Site Deployment Complete
+          ========================================
+          Target: {{ inventory_hostname }}
+          Timestamp: {{ ansible_date_time.iso8601 }}
+          ----------------------------------------
+          Component Status:
+          - Docker: {{ 'OK' if final_docker_check.rc == 0 else 'FAILED' }}
+          - Nix: {{ 'OK' if final_nix_check.rc == 0 else 'FAILED' }}
+          - Libvirt: {{ 'OK' if final_libvirt_check.rc == 0 else 'FAILED' }}
+          ----------------------------------------
+          Next Steps:
+          1. Verify VPN connectivity (Tailscale/Netbird)
+          2. Verify infrastructure services (DNS, proxy, SSO)
+          3. Verify VM hypervisor (libvirt networks, storage)
+          4. Run validation playbooks (Phase 06)
+          ========================================
+      tags: ["always", "verify", "summary"]
+
+    - name: "Log deployment completion to system"
+      ansible.builtin.shell:
+        cmd: >-
+          echo 'Cloud server site deployment completed at
+          {{ ansible_date_time.iso8601 }}' >> /var/log/cloud-server-deploy.log
+      become: true
+      changed_when: false
+      failed_when: false
+      tags: ["always", "verify", "logging"]

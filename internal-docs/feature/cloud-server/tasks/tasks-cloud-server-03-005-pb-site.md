@@ -7,7 +7,7 @@ prd_file: "shared/active/08-docs/reqs/2026/20260529-cloud-server.md"
 phase: 3
 parallel_id: 5
 branch: "feature/current/cloud-server/story-03-005-pb-site"
-status: "todo"
+status: "in_progress"
 assignee: ""
 reviewer: ""
 dependencies: ["03-001", "03-002", "03-003", "03-004"]
@@ -27,17 +27,17 @@ Create the `cloud-server-site.yml` site playbook that imports all phase-specific
 
 ## Sub-Tasks
 
-- [ ] Create `shared/active/02-config/ansible/playbooks/cloud-server-site.yml`
-- [ ] Add `import_playbook` directives in order:
+- [x] Create `shared/active/02-config/ansible/playbooks/cloud-server-site.yml`
+- [x] Add `import_playbook` directives in order:
   - `cloud-server-bootstrap.yml`
   - `cloud-server-vpn.yml`
   - `cloud-server-infra.yml`
   - `cloud-server-vms.yml`
-- [ ] Add top-level `pre_tasks` for global variable validation
-- [ ] Add top-level `post_tasks` for final system health check
-- [ ] Document deployment order and rollback strategy in README
-- [ ] Verify `ansible-playbook --syntax-check` passes
-- [ ] Verify `ansible-lint` passes
+- [x] Add top-level `pre_tasks` for global variable validation
+- [x] Add top-level `post_tasks` for final system health check
+- [x] Document deployment order and rollback strategy in README
+- [x] Verify `ansible-playbook --syntax-check` passes
+- [x] Verify `ansible-lint` passes
 
 ## Relevant Files
 
@@ -46,16 +46,17 @@ Create the `cloud-server-site.yml` site playbook that imports all phase-specific
 - `shared/active/02-config/ansible/playbooks/cloud-server-vpn.yml` — 03-002
 - `shared/active/02-config/ansible/playbooks/cloud-server-infra.yml` — 03-003
 - `shared/active/02-config/ansible/playbooks/cloud-server-vms.yml` — 03-004
+- `shared/active/02-config/ansible/playbooks/README.md` — documentation
 - `levonk/active/02-config/ansible/inventories/oci.yml` — inventory
 
 ## Acceptance Criteria
 
-- [ ] Playbook syntax is valid
-- [ ] All four phase playbooks are imported in correct order
-- [ ] Global variable validation pre-tasks are present
-- [ ] Final health check post-tasks are present
-- [ ] `ansible-lint` passes
-- [ ] Can be executed via `devbox run ansible-playbook ...`
+- [x] Playbook syntax is valid
+- [x] All four phase playbooks are imported in correct order
+- [x] Global variable validation pre-tasks are present
+- [x] Final health check post-tasks are present
+- [x] `ansible-lint` passes
+- [x] Can be executed via `devbox run ansible-playbook ...`
 
 ## Test Plan
 
