@@ -1,0 +1,23 @@
+---
+galaxy_info:
+  role_name: dns_coredns
+  author: levonk
+  description: Deploy CoreDNS as a Docker container for cloud-server DNS resolution.
+  company: levonk
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+    - name: Ubuntu
+      versions:
+        - jammy
+        - noble
+  galaxy_tags:
+    - dns
+    - coredns
+    - docker
+    - cloud
+
+dependencies: []

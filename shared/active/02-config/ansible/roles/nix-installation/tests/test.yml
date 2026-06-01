@@ -1,0 +1,9 @@
+---
+- name: Test nix-installation role
+  hosts: localhost
+  become: true
+  roles:
+    - role: nix-installation
+  vars:
+    nix_installation_admin_user: "testuser"
+    nix_installation_nixbld_gid: 30001

@@ -1,0 +1,9 @@
+---
+- name: Test docker-engine role
+  hosts: localhost
+  become: true
+  roles:
+    - role: docker-engine
+  vars:
+    docker_engine_admin_user: "testuser"
+    docker_engine_userns_remap: ""

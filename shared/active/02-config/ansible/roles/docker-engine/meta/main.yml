@@ -1,0 +1,23 @@
+---
+galaxy_info:
+  role_name: docker_engine
+  author: levonk
+  description: Install Docker Engine and Docker Compose plugin, create a hardened daemon.json, and configure the Docker service.
+  company: levonk
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+    - name: Ubuntu
+      versions:
+        - jammy
+        - noble
+  galaxy_tags:
+    - docker
+    - container
+    - compose
+    - security
+
+dependencies: []

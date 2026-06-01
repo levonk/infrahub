@@ -1,0 +1,24 @@
+---
+# Test playbook for proxy-firewall role
+# Run with:
+#   devbox run ansible-playbook --check --diff -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/roles/proxy-firewall/tests/test.yml
+
+- name: Test proxy-firewall role
+  hosts: cloud_servers
+  become: true
+  vars:
+    proxy_firewall_type: nftables
+    proxy_firewall_ssh_port: "22"
+    proxy_firewall_mosh_port: "60000:61000"
+    proxy_firewall_vpn_subnets:
+      - "100.64.0.0/10"
+      - "10.0.0.0/8"
+    proxy_firewall_rate_limit_ssh: true
+    proxy_firewall_rate_limit_connections: 5
+    proxy_firewall_rate_limit_interval: "1/minute"
+    proxy_firewall_enable_forwarding: true
+    proxy_firewall_enable_masquerade: true
+    proxy_firewall_prevent_lockout: true
+    proxy_firewall_prevent_lockout_timeout: 300
+  roles:
+    - role: proxy-firewall

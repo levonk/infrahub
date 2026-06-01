@@ -50,6 +50,34 @@ Deploys the DNS stack.
 
 Deploys the proxy/web stack.
 
+### `cloud-server-vms.yml`
+
+Sets up the KVM hypervisor on cloud servers for VM workloads:
+- CPU virtualization support verification (Intel VT-x / AMD-V)
+- KVM packages and libvirtd installation (`common-kvm` role)
+- NAT and routed bridge networks
+- VM storage pool configuration
+- Post-deployment verification of libvirt stack
+
+**Usage:**
+
+```bash
+# Syntax check
+ansible-playbook -i inventories/oci.yml playbooks/cloud-server-vms.yml --syntax-check
+
+# Dry-run
+ansible-playbook -i inventories/oci.yml playbooks/cloud-server-vms.yml --check --diff
+
+# Deploy
+ansible-playbook -i inventories/oci.yml playbooks/cloud-server-vms.yml
+```
+
+**Target group:** `cloud_servers`
+
+**Requires:**
+- `cloud_server_admin_user` defined in `group_vars`
+- Nested virtualization or bare-metal host with VT-x/AMD-V
+
 ### `vpn-stack.yml`
 
 Deploys the VPN stack.

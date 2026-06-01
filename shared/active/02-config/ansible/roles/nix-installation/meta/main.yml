@@ -1,0 +1,23 @@
+---
+galaxy_info:
+  role_name: nix_installation
+  author: levonk
+  description: Install Nix package manager in multi-user daemon mode, enable flakes, and add the admin user to the nixbld group.
+  company: levonk
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+    - name: Ubuntu
+      versions:
+        - jammy
+        - noble
+  galaxy_tags:
+    - nix
+    - nixos
+    - package-manager
+    - flakes
+
+dependencies: []

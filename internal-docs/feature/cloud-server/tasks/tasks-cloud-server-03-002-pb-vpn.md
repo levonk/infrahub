@@ -7,7 +7,7 @@ prd_file: "shared/active/08-docs/reqs/2026/20260529-cloud-server.md"
 phase: 3
 parallel_id: 2
 branch: "feature/current/cloud-server/story-03-002-pb-vpn"
-status: "todo"
+status: "blocked"
 assignee: ""
 reviewer: ""
 dependencies: ["02-005", "02-006", "02-007", "02-008", "02-009"]

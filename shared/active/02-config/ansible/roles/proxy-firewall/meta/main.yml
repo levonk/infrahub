@@ -1,0 +1,28 @@
+---
+galaxy_info:
+  role_name: proxy_firewall
+  author: levonk
+  description: >
+    Configures a default-deny host-level firewall using nftables or ufw.
+    Allows SSH, mosh, and VPN connections. Includes lockout prevention
+    and forwarding/masquerade rules for VPN subnet routing.
+  company: levonk
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+    - name: Ubuntu
+      versions:
+        - jammy
+        - noble
+  galaxy_tags:
+    - firewall
+    - nftables
+    - ufw
+    - security
+    - vpn
+    - networking
+
+dependencies: []

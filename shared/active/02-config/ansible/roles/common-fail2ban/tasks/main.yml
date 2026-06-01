@@ -1,0 +1,72 @@
+---
+# tasks file for common-fail2ban
+
+# ---------------------------------------------------------------------------
+# Install fail2ban
+# ---------------------------------------------------------------------------
+- name: "FAIL2BAN | Ensure fail2ban is installed"
+  ansible.builtin.package:
+    name: "{{ fail2ban_service_name }}"
+    state: present
+  become: true
+
+# ---------------------------------------------------------------------------
+# Deploy jail.local
+# ---------------------------------------------------------------------------
+- name: "FAIL2BAN | Deploy jail.local"
+  ansible.builtin.template:
+    src: jail.local.j2
+    dest: /etc/fail2ban/jail.local
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: restart fail2ban
+
+# ---------------------------------------------------------------------------
+# Ensure fail2ban service is running and enabled
+# ---------------------------------------------------------------------------
+- name: "FAIL2BAN | Ensure fail2ban service is started and enabled"
+  ansible.builtin.systemd:
+    name: "{{ fail2ban_service_name }}"
+    state: started
+    enabled: true
+  become: true
+
+# ---------------------------------------------------------------------------
+# Verify fail2ban status
+# ---------------------------------------------------------------------------
+- name: "FAIL2BAN | Check fail2ban service status"
+  ansible.builtin.systemd:
+    name: "{{ fail2ban_service_name }}"
+  register: fail2ban_service_status
+  become: true
+  changed_when: false
+
+- name: "FAIL2BAN | Assert fail2ban is active"
+  ansible.builtin.assert:
+    that:
+      - fail2ban_service_status.status.ActiveState == "active"
+    fail_msg: "fail2ban service is not active"
+    success_msg: "fail2ban service is active"
+
+# ---------------------------------------------------------------------------
+# Verify active jails
+# ---------------------------------------------------------------------------
+- name: "FAIL2BAN | List active jails"
+  ansible.builtin.command:
+    cmd: fail2ban-client status
+  register: fail2ban_jails
+  changed_when: false
+  become: true
+
+- name: "FAIL2BAN | Assert SSH jail is active"
+  ansible.builtin.assert:
+    that:
+      - "'sshd' in fail2ban_jails.stdout"
+    fail_msg: "SSH jail (sshd) is not active in fail2ban"
+    success_msg: "SSH jail (sshd) is active"
+
+- name: "FAIL2BAN | Log active jails"
+  ansible.builtin.debug:
+    msg: "Active fail2ban jails: {{ fail2ban_jails.stdout }}"

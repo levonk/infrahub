@@ -1,0 +1,26 @@
+---
+galaxy_info:
+  role_name: common_fail2ban
+  author: levonk
+  description: >-
+    Install and configure fail2ban for SSH brute-force protection.
+    All ban times, retry limits, and ignore IPs are variable-driven.
+  company: levonk
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+    - name: Ubuntu
+      versions:
+        - all
+  galaxy_tags:
+    - fail2ban
+    - security
+    - hardening
+    - ssh
+    - debian
+    - ubuntu
+
+dependencies: []

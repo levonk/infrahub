@@ -1,0 +1,9 @@
+---
+# Ensure Netbird systemd service is present and running.
+
+- name: Ensure Netbird service is enabled and running (systemd)
+  ansible.builtin.systemd:
+    name: netbird
+    state: started
+    enabled: true
+  become: true

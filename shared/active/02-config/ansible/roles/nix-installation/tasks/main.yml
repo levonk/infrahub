@@ -1,0 +1,151 @@
+---
+# tasks file for nix-installation
+
+# ---------------------------------------------------------------------------
+# Prerequisites
+# ---------------------------------------------------------------------------
+- name: Ensure required packages are present
+  ansible.builtin.package:
+    name:
+      - curl
+      - xz-utils
+    state: present
+  become: true
+
+# ---------------------------------------------------------------------------
+# Check for existing Nix installation
+# ---------------------------------------------------------------------------
+- name: Check if Nix is already installed
+  ansible.builtin.stat:
+    path: /nix
+  register: nix_installation_nix_dir
+
+- name: Check if nix command is available
+  ansible.builtin.command:
+    cmd: which nix
+  register: nix_installation_nix_cmd
+  changed_when: false
+  failed_when: false
+
+# ---------------------------------------------------------------------------
+# Download and run official Nix installer (daemon mode)
+# ---------------------------------------------------------------------------
+- name: Download Nix installer
+  ansible.builtin.get_url:
+    url: "{{ nix_installation_installer_url }}"
+    dest: /tmp/nix-installer.sh
+    mode: "0755"
+    owner: root
+    group: root
+  become: true
+  when:
+    - not nix_installation_nix_dir.stat.exists
+    - nix_installation_nix_cmd.rc != 0
+
+- name: Run Nix multi-user installer
+  ansible.builtin.command:
+    cmd: /tmp/nix-installer.sh --daemon
+  args:
+    creates: /nix
+  become: true
+  when:
+    - not nix_installation_nix_dir.stat.exists
+    - nix_installation_nix_cmd.rc != 0
+  notify:
+    - restart nix-daemon
+
+- name: Remove installer script
+  ansible.builtin.file:
+    path: /tmp/nix-installer.sh
+    state: absent
+  become: true
+  when:
+    - not nix_installation_nix_dir.stat.exists
+    - nix_installation_nix_cmd.rc != 0
+
+# ---------------------------------------------------------------------------
+# Ensure nixbld group exists
+# ---------------------------------------------------------------------------
+- name: Ensure nixbld group exists
+  ansible.builtin.group:
+    name: "{{ nix_installation_nixbld_group }}"
+    gid: "{{ nix_installation_nixbld_gid | int }}"
+    state: present
+  become: true
+
+# ---------------------------------------------------------------------------
+# Add admin user to nixbld group
+# ---------------------------------------------------------------------------
+- name: Add admin user to nixbld group
+  ansible.builtin.user:
+    name: "{{ nix_installation_admin_user }}"
+    groups: "{{ nix_installation_nixbld_group }}"
+    append: true
+  become: true
+
+# ---------------------------------------------------------------------------
+# Create /etc/nix/nix.conf
+# ---------------------------------------------------------------------------
+- name: Ensure /etc/nix directory exists
+  ansible.builtin.file:
+    path: /etc/nix
+    state: directory
+    owner: "{{ nix_installation_nix_conf_owner }}"
+    group: "{{ nix_installation_nix_conf_group }}"
+    mode: "0755"
+  become: true
+
+- name: Deploy nix.conf
+  ansible.builtin.template:
+    src: nix.conf.j2
+    dest: "{{ nix_installation_nix_conf_path }}"
+    owner: "{{ nix_installation_nix_conf_owner }}"
+    group: "{{ nix_installation_nix_conf_group }}"
+    mode: "{{ nix_installation_nix_conf_mode }}"
+  become: true
+  notify:
+    - restart nix-daemon
+
+# ---------------------------------------------------------------------------
+# Configure Nix daemon service
+# ---------------------------------------------------------------------------
+- name: Ensure nix-daemon service is enabled and running
+  ansible.builtin.systemd:
+    name: "{{ nix_installation_daemon_service_name }}"
+    state: started
+    enabled: true
+  become: true
+
+# ---------------------------------------------------------------------------
+# Verify nix CLI is available and functional
+# ---------------------------------------------------------------------------
+- name: Verify nix --version returns expected output
+  ansible.builtin.command:
+    cmd: /nix/var/nix/profiles/default/bin/nix --version
+  register: nix_installation_version_check
+  changed_when: false
+  become: true
+
+- name: Assert Nix version matches expected
+  ansible.builtin.assert:
+    that:
+      - "'{{ nix_installation_version }}' in nix_installation_version_check.stdout"
+    fail_msg: "Nix version mismatch. Expected {{ nix_installation_version }}, got {{ nix_installation_version_check.stdout }}"
+    success_msg: "Nix version verified: {{ nix_installation_version_check.stdout }}"
+  when: nix_installation_verify_nix_version | bool
+
+- name: Log Nix version
+  ansible.builtin.debug:
+    msg: "Nix installed: {{ nix_installation_version_check.stdout }}"
+
+- name: Verify flakes are enabled
+  ansible.builtin.command:
+    cmd: /nix/var/nix/profiles/default/bin/nix --extra-experimental-features nix-command registry list
+  register: nix_installation_flakes_check
+  changed_when: false
+  become: true
+  ignore_errors: true
+
+- name: Log flake status
+  ansible.builtin.debug:
+    msg: "Nix flakes enabled: {{ nix_installation_flakes_check.stdout | default('unknown') }}"

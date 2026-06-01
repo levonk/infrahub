@@ -1,0 +1,251 @@
+---
+# tasks file for proxy-firewall
+# Configures a default-deny host-level firewall.
+# HIGH RISK: misconfiguration can lock out remote access.
+# Always test via console access before relying on remote-only connectivity.
+
+# ---------------------------------------------------------------------------
+# Gather facts for lockout prevention
+# ---------------------------------------------------------------------------
+- name: Gather required network facts
+  ansible.builtin.setup:
+    gather_subset:
+      - network
+  when: ansible_facts.default_ipv4 is not defined
+
+# ---------------------------------------------------------------------------
+# Lockout Prevention — temporary allow current management IP
+# ---------------------------------------------------------------------------
+- name: Detect current management IP for lockout prevention
+  ansible.builtin.set_fact:
+    _proxy_firewall_mgmt_ip: "{{ ansible_env.SSH_CONNECTION.split(' ')[0] | default(ansible_ssh_host | default(ansible_host | default(''))) }}"
+  when: proxy_firewall_prevent_lockout | bool
+
+- name: Add temporary allow rule for management IP (nftables)
+  ansible.builtin.command:
+    cmd: >-
+      nft add rule inet filter input
+      ip saddr {{ _proxy_firewall_mgmt_ip }} accept
+  become: true
+  when:
+    - proxy_firewall_prevent_lockout | bool
+    - _proxy_firewall_mgmt_ip | length > 0
+    - proxy_firewall_type == 'nftables'
+  changed_when: true
+
+- name: Add temporary allow rule for management IP (ufw)
+  ansible.builtin.command:
+    cmd: "ufw allow from {{ _proxy_firewall_mgmt_ip }} to any"
+  become: true
+  when:
+    - proxy_firewall_prevent_lockout | bool
+    - _proxy_firewall_mgmt_ip | length > 0
+    - proxy_firewall_type == 'ufw'
+  changed_when: true
+
+# ---------------------------------------------------------------------------
+# nftables Path
+# ---------------------------------------------------------------------------
+- name: Install nftables
+  ansible.builtin.package:
+    name: nftables
+    state: present
+  become: true
+  when: proxy_firewall_type == 'nftables'
+
+- name: Ensure nftables service directory exists
+  ansible.builtin.file:
+    path: /etc/nftables
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+  when: proxy_firewall_type == 'nftables'
+
+- name: Deploy nftables ruleset
+  ansible.builtin.template:
+    src: nftables.conf.j2
+    dest: /etc/nftables.conf
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  when: proxy_firewall_type == 'nftables'
+  notify: reload nftables
+
+- name: Enable and start nftables
+  ansible.builtin.systemd:
+    name: "{{ proxy_firewall_nftables_service }}"
+    state: started
+    enabled: true
+  become: true
+  when: proxy_firewall_type == 'nftables'
+
+# ---------------------------------------------------------------------------
+# ufw Path
+# ---------------------------------------------------------------------------
+- name: Install ufw
+  ansible.builtin.package:
+    name: ufw
+    state: present
+  become: true
+  when: proxy_firewall_type == 'ufw'
+
+- name: Reset ufw to clean state
+  ansible.builtin.command:
+    cmd: ufw --force reset
+  become: true
+  when: proxy_firewall_type == 'ufw'
+  changed_when: true
+
+- name: Set ufw default deny incoming
+  ansible.builtin.command:
+    cmd: ufw default deny incoming
+  become: true
+  when: proxy_firewall_type == 'ufw'
+  changed_when: true
+
+- name: Set ufw default allow outgoing
+  ansible.builtin.command:
+    cmd: ufw default allow outgoing
+  become: true
+  when: proxy_firewall_type == 'ufw'
+  changed_when: true
+
+- name: Allow loopback via ufw
+  ansible.builtin.command:
+    cmd: ufw allow in on lo
+  become: true
+  when: proxy_firewall_type == 'ufw'
+  changed_when: true
+
+- name: Allow established connections via ufw
+  ansible.builtin.command:
+    cmd: ufw allow out on lo
+  become: true
+  when: proxy_firewall_type == 'ufw'
+  changed_when: true
+
+- name: Allow SSH via ufw
+  ansible.builtin.command:
+    cmd: "ufw allow {{ proxy_firewall_ssh_port }}/tcp"
+  become: true
+  when: proxy_firewall_type == 'ufw'
+  changed_when: true
+
+- name: Allow mosh via ufw
+  ansible.builtin.command:
+    cmd: "ufw allow {{ proxy_firewall_mosh_port }}/udp"
+  become: true
+  when:
+    - proxy_firewall_type == 'ufw'
+    - proxy_firewall_mosh_port | length > 0
+  changed_when: true
+
+- name: Allow VPN subnets via ufw
+  ansible.builtin.command:
+    cmd: "ufw allow from {{ item }}"
+  become: true
+  loop: "{{ proxy_firewall_vpn_subnets }}"
+  when:
+    - proxy_firewall_type == 'ufw'
+    - proxy_firewall_vpn_subnets | length > 0
+  changed_when: true
+
+- name: Enable ufw
+  ansible.builtin.command:
+    cmd: ufw --force enable
+  become: true
+  when: proxy_firewall_type == 'ufw'
+  changed_when: true
+
+# ---------------------------------------------------------------------------
+# Kernel Parameters — IP Forwarding
+# ---------------------------------------------------------------------------
+- name: Enable IP forwarding
+  ansible.posix.sysctl:
+    name: net.ipv4.ip_forward
+    value: "1"
+    state: present
+    sysctl_set: true
+    reload: true
+  become: true
+  when: proxy_firewall_enable_forwarding | bool
+
+- name: Enable IPv6 forwarding
+  ansible.posix.sysctl:
+    name: net.ipv6.conf.all.forwarding
+    value: "1"
+    state: present
+    sysctl_set: true
+    reload: true
+  become: true
+  when:
+    - proxy_firewall_enable_forwarding | bool
+    - ansible_facts.default_ipv6 is defined
+
+# ---------------------------------------------------------------------------
+# Remove Temporary Lockout-Prevention Rules
+# ---------------------------------------------------------------------------
+- name: Schedule removal of temporary allow rule (nftables)
+  ansible.builtin.command:
+    cmd: >-
+      bash -c 'sleep {{ proxy_firewall_prevent_lockout_timeout | int }};
+      nft delete rule inet filter input handle
+      $(nft -a list chain inet filter input | grep "ip saddr {{ _proxy_firewall_mgmt_ip }}" | awk "{print \$NF}")'
+  become: true
+  when:
+    - proxy_firewall_prevent_lockout | bool
+    - _proxy_firewall_mgmt_ip | length > 0
+    - proxy_firewall_type == 'nftables'
+  changed_when: true
+  async: "{{ proxy_firewall_prevent_lockout_timeout | int + 10 }}"
+  poll: 0
+
+- name: Schedule removal of temporary allow rule (ufw)
+  ansible.builtin.command:
+    cmd: >-
+      bash -c 'sleep {{ proxy_firewall_prevent_lockout_timeout | int }};
+      ufw delete allow from {{ _proxy_firewall_mgmt_ip }} to any'
+  become: true
+  when:
+    - proxy_firewall_prevent_lockout | bool
+    - _proxy_firewall_mgmt_ip | length > 0
+    - proxy_firewall_type == 'ufw'
+  changed_when: true
+  async: "{{ proxy_firewall_prevent_lockout_timeout | int + 10 }}"
+  poll: 0
+
+# ---------------------------------------------------------------------------
+# Verification
+# ---------------------------------------------------------------------------
+- name: Verify nftables ruleset is active
+  ansible.builtin.command:
+    cmd: nft list ruleset
+  become: true
+  changed_when: false
+  when:
+    - proxy_firewall_verify_rules | bool
+    - proxy_firewall_type == 'nftables'
+
+- name: Verify ufw status
+  ansible.builtin.command:
+    cmd: ufw status verbose
+  become: true
+  changed_when: false
+  when:
+    - proxy_firewall_verify_rules | bool
+    - proxy_firewall_type == 'ufw'
+
+- name: Log firewall configuration
+  ansible.builtin.debug:
+    msg: |
+      Firewall configured:
+        - Type: {{ proxy_firewall_type }}
+        - SSH port: {{ proxy_firewall_ssh_port }}
+        - Mosh port: {{ proxy_firewall_mosh_port }}
+        - VPN subnets: {{ proxy_firewall_vpn_subnets | join(', ') }}
+        - Forwarding: {{ proxy_firewall_enable_forwarding }}
+        - Masquerade: {{ proxy_firewall_enable_masquerade }}
+        - Rate limit: {{ proxy_firewall_rate_limit_ssh }}
