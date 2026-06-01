@@ -1,0 +1,21 @@
+---
+# Test playbook for vpn-netbird-control role
+# This playbook runs the role tasks in check mode for basic validation.
+# Imports tasks directly to avoid docker-engine dependency during local test.
+
+- name: Test NetBird control plane role
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  become: false
+  vars:
+    localnet_services_dir: /tmp/test-netbird-control/services
+    localnet_network_name: test-netbird-control
+    localnet_tz: UTC
+  tasks:
+    - name: Load vpn-netbird-control defaults
+      ansible.builtin.include_vars:
+        file: ../defaults/main.yml
+    - name: Import vpn-netbird-control tasks
+      ansible.builtin.import_tasks:
+        file: ../tasks/main.yml

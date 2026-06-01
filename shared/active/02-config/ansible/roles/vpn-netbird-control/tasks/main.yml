@@ -1,0 +1,202 @@
+---
+# NetBird Control Plane Deployment
+# Deploys management, signal, and relay containers on a dedicated Docker network.
+
+# ============================================================================
+# Directory & Network Setup
+# ============================================================================
+- name: Ensure NetBird control plane directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ netbird_control_mgmt_data_dir }}"
+    - "{{ localnet_services_dir }}/netbird/signal"
+    - "{{ localnet_services_dir }}/netbird/relay"
+
+- name: Ensure NetBird control plane Docker network exists
+  community.docker.docker_network:
+    name: "{{ netbird_control_network_name }}"
+    state: present
+
+# ============================================================================
+# Volume Management
+# ============================================================================
+- name: Ensure NetBird management data volume exists
+  community.docker.docker_volume:
+    name: "{{ netbird_control_mgmt_volume_name }}"
+    state: present
+
+# ============================================================================
+# Management Container
+# ============================================================================
+- name: Deploy NetBird management container
+  community.docker.docker_container:
+    name: "{{ netbird_control_mgmt_container_name }}"
+    image: "{{ netbird_control_mgmt_image_name }}"
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ netbird_control_network_name }}"
+    ports:
+      - "{{ netbird_control_mgmt_host_port }}:{{ netbird_control_mgmt_container_port }}/tcp"
+    volumes:
+      - "{{ netbird_control_mgmt_volume_name }}:/var/lib/netbird:rw"
+    env:
+      NETBIRD_LOG_LEVEL: "{{ netbird_control_mgmt_log_level }}"
+      NETBIRD_MGMT_LISTEN_ADDRESS: "0.0.0.0:{{ netbird_control_mgmt_container_port }}"
+      NETBIRD_SIGNAL_ADDRESS: "{{ netbird_control_signal_url }}"
+      NETBIRD_RELAY_ADDRESS: "{{ netbird_control_relay_url }}"
+      NETBIRD_IDP_PROVIDER: "{{ netbird_control_mgmt_idp_provider }}"
+      NETBIRD_IDP_CLIENT_ID: "{{ netbird_control_mgmt_idp_client_id | default('') }}"
+      NETBIRD_IDP_CLIENT_SECRET: "{{ netbird_control_mgmt_idp_client_secret | default('') }}"
+      NETBIRD_IDP_AUTHORIZATION_ENDPOINT: "{{ netbird_control_mgmt_idp_authorization_endpoint | default('') }}"
+      NETBIRD_IDP_TOKEN_ENDPOINT: "{{ netbird_control_mgmt_idp_token_endpoint | default('') }}"
+      NETBIRD_IDP_JWKS_URI: "{{ netbird_control_mgmt_idp_jwks_uri | default('') }}"
+      TZ: "{{ localnet_tz }}"
+    log_driver: json-file
+    log_options:
+      max-size: 10m
+      max-file: 5
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777,size=128m
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - --no-verbose
+        - --tries=1
+        - --spider
+        - "http://localhost:{{ netbird_control_mgmt_container_port }}/api/health"
+      interval: "{{ netbird_control_healthcheck_interval }}"
+      timeout: "{{ netbird_control_healthcheck_timeout }}"
+      retries: "{{ netbird_control_healthcheck_retries }}"
+      start_period: "{{ netbird_control_healthcheck_start_period }}"
+  register: netbird_control_mgmt_deploy
+  notify: Restart netbird-control-mgmt
+
+# ============================================================================
+# Signal Container
+# ============================================================================
+- name: Deploy NetBird signal container
+  community.docker.docker_container:
+    name: "{{ netbird_control_signal_container_name }}"
+    image: "{{ netbird_control_signal_image_name }}"
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ netbird_control_network_name }}"
+    ports:
+      - "{{ netbird_control_signal_host_port }}:{{ netbird_control_signal_container_port }}/tcp"
+    env:
+      NETBIRD_LOG_LEVEL: "{{ netbird_control_signal_log_level }}"
+      NETBIRD_SIGNAL_LISTEN_ADDRESS: "0.0.0.0:{{ netbird_control_signal_container_port }}"
+      TZ: "{{ localnet_tz }}"
+    log_driver: json-file
+    log_options:
+      max-size: 10m
+      max-file: 5
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777,size=128m
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - --no-verbose
+        - --tries=1
+        - --spider
+        - "http://localhost:{{ netbird_control_signal_container_port }}/health"
+      interval: "{{ netbird_control_healthcheck_interval }}"
+      timeout: "{{ netbird_control_healthcheck_timeout }}"
+      retries: "{{ netbird_control_healthcheck_retries }}"
+      start_period: "{{ netbird_control_healthcheck_start_period }}"
+  register: netbird_control_signal_deploy
+  notify: Restart netbird-control-signal
+
+# ============================================================================
+# Relay (TURN) Container
+# ============================================================================
+- name: Deploy NetBird relay container
+  community.docker.docker_container:
+    name: "{{ netbird_control_relay_container_name }}"
+    image: "{{ netbird_control_relay_image_name }}"
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ netbird_control_network_name }}"
+    ports:
+      - "{{ netbird_control_relay_host_port }}:{{ netbird_control_relay_container_port }}/tcp"
+      - "{{ netbird_control_relay_host_port }}:{{ netbird_control_relay_container_port }}/udp"
+    env:
+      NETBIRD_LOG_LEVEL: "{{ netbird_control_relay_log_level }}"
+      NETBIRD_RELAY_ADDRESS: "0.0.0.0:{{ netbird_control_relay_container_port }}"
+      TZ: "{{ localnet_tz }}"
+    log_driver: json-file
+    log_options:
+      max-size: 10m
+      max-file: 5
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777,size=128m
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - --no-verbose
+        - --tries=1
+        - --spider
+        - "http://localhost:{{ netbird_control_relay_container_port }}/health"
+      interval: "{{ netbird_control_healthcheck_interval }}"
+      timeout: "{{ netbird_control_healthcheck_timeout }}"
+      retries: "{{ netbird_control_healthcheck_retries }}"
+      start_period: "{{ netbird_control_healthcheck_start_period }}"
+  register: netbird_control_relay_deploy
+  notify: Restart netbird-control-relay
+
+# ============================================================================
+# Health Verification
+# ============================================================================
+- name: Wait for NetBird management to be healthy
+  ansible.builtin.wait_for:
+    host: localhost
+    port: "{{ netbird_control_mgmt_host_port }}"
+    delay: 10
+    timeout: 120
+  when: netbird_control_mgmt_deploy.changed # noqa no-handler
+
+- name: Wait for NetBird signal to be healthy
+  ansible.builtin.wait_for:
+    host: localhost
+    port: "{{ netbird_control_signal_host_port }}"
+    delay: 10
+    timeout: 120
+  when: netbird_control_signal_deploy.changed # noqa no-handler
+
+- name: Wait for NetBird relay to be healthy
+  ansible.builtin.wait_for:
+    host: localhost
+    port: "{{ netbird_control_relay_host_port }}"
+    delay: 10
+    timeout: 120
+  when: netbird_control_relay_deploy.changed # noqa no-handler
+
+# ============================================================================
+# Status Report
+# ============================================================================
+- name: Report NetBird control plane status
+  ansible.builtin.debug:
+    msg: |
+      NetBird control plane deployed successfully:
+      - Management API: http://localhost:{{ netbird_control_mgmt_host_port }}
+      - Signal Service: http://localhost:{{ netbird_control_signal_host_port }}
+      - Relay Service:  http://localhost:{{ netbird_control_relay_host_port }}
+      - Network: {{ netbird_control_network_name }}

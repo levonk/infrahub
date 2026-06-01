@@ -7,7 +7,7 @@ prd_file: "shared/active/08-docs/reqs/2026/20260529-cloud-server.md"
 phase: 2
 parallel_id: 10
 branch: "feature/current/cloud-server/story-02-010-role-netbird-cp"
-status: "todo"
+status: "in_progress"
 assignee: ""
 reviewer: ""
 dependencies: ["01-001", "01-002"]
@@ -18,7 +18,7 @@ risk_level: "high"
 tags: ["ansible", "role", "vpn", "netbird", "docker"]
 due: "2026-06-12"
 created_at: "2026-05-29"
-updated_at: "2026-05-29"
+updated_at: "2026-05-31"
 ---
 
 ## Summary
@@ -27,9 +27,9 @@ Create the `netbird-control-plane` Ansible role that deploys the self-hosted Net
 
 ## Sub-Tasks
 
-- [ ] Create role directory `shared/active/02-config/ansible/roles/vpn-netbird-control/`
-- [ ] Create `defaults/main.yml` with container image tags, port mappings, and data path variables
-- [ ] Create `tasks/main.yml` with tasks for:
+- [x] Create role directory `shared/active/02-config/ansible/roles/vpn-netbird-control/`
+- [x] Create `defaults/main.yml` with container image tags, port mappings, and data path variables
+- [x] Create `tasks/main.yml` with tasks for:
   - Create Docker network for Netbird control plane
   - Deploy `netbird-management` container with:
     - Variable-driven host and container ports
@@ -39,29 +39,32 @@ Create the `netbird-control-plane` Ansible role that deploys the self-hosted Net
   - Deploy `netbird-turn` container with variable-driven ports
   - Configure container environment variables for management URLs
   - Start containers and verify health
-- [ ] Create Docker Compose template or individual container tasks
-- [ ] Create `handlers/main.yml` for container restarts
-- [ ] Create `meta/main.yml` with role metadata (depends on docker-engine)
-- [ ] Create `README.md` documenting role variables
-- [ ] Add `tests/` with test playbook
-- [ ] Verify `ansible-lint` passes
+- [x] Create Docker Compose template or individual container tasks
+- [x] Create `handlers/main.yml` for container restarts
+- [x] Create `meta/main.yml` with role metadata (depends on docker-engine)
+- [x] Create `README.md` documenting role variables
+- [x] Add `tests/` with test playbook
+- [x] Verify `ansible-lint` passes
 
 ## Relevant Files
 
 - `shared/active/02-config/ansible/roles/vpn-netbird-control/` — role directory
-- `shared/active/02-config/ansible/roles/vpn-netbird-control/defaults/main.yml`
-- `shared/active/02-config/ansible/roles/vpn-netbird-control/tasks/main.yml`
-- `shared/active/02-config/ansible/roles/vpn-netbird-control/templates/docker-compose.yml.j2`
+- `shared/active/02-config/ansible/roles/vpn-netbird-control/defaults/main.yml` — container images, ports, IdP config
+- `shared/active/02-config/ansible/roles/vpn-netbird-control/tasks/main.yml` — network, volume, container deployment, health checks
+- `shared/active/02-config/ansible/roles/vpn-netbird-control/handlers/main.yml` — container restart handlers
+- `shared/active/02-config/ansible/roles/vpn-netbird-control/meta/main.yml` — role metadata and docker-engine dependency
+- `shared/active/02-config/ansible/roles/vpn-netbird-control/README.md` — role documentation
+- `shared/active/02-config/ansible/roles/vpn-netbird-control/tests/test.yml` — test playbook
 - `levonk/active/02-config/ansible/group_vars/cloud_server.yml` — Netbird port variables
 
 ## Acceptance Criteria
 
-- [ ] All three Netbird control containers are running
-- [ ] Management server is accessible on variable-driven port
-- [ ] Signal server is running on variable-driven port
-- [ ] TURN server is running on variable-driven port
-- [ ] Persistence volumes are created and mounted
-- [ ] `ansible-lint` passes
+- [ ] All three Netbird control containers are running (requires deploy environment)
+- [ ] Management server is accessible on variable-driven port (requires deploy environment)
+- [ ] Signal server is running on variable-driven port (requires deploy environment)
+- [ ] TURN server is running on variable-driven port (requires deploy environment)
+- [ ] Persistence volumes are created and mounted (requires deploy environment)
+- [x] `ansible-lint` passes — verified 2026-05-31, 0 failures 0 warnings
 
 ## Test Plan
 

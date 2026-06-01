@@ -1,0 +1,17 @@
+---
+# NetBird Control Plane Handlers
+
+- name: Restart netbird-control-mgmt
+  community.docker.docker_container:
+    name: "{{ netbird_control_mgmt_container_name }}"
+    state: started
+
+- name: Restart netbird-control-signal
+  community.docker.docker_container:
+    name: "{{ netbird_control_signal_container_name }}"
+    state: started
+
+- name: Restart netbird-control-relay
+  community.docker.docker_container:
+    name: "{{ netbird_control_relay_container_name }}"
+    state: started
