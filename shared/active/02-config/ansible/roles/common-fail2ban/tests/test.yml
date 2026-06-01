@@ -1,0 +1,14 @@
+---
+# Test playbook for common-fail2ban role
+# Run with: ansible-playbook -i localhost, -c local tests/test.yml --check --diff
+
+- name: "Test common-fail2ban role (dry-run)"
+  hosts: all
+  become: true
+  vars:
+    fail2ban_ignoreip:
+      - "127.0.0.1/8"
+      - "::1"
+      - "10.0.0.0/8"
+  roles:
+    - role: common-fail2ban
