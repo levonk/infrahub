@@ -7,7 +7,7 @@ prd_file: "shared/active/08-docs/reqs/2026/20260529-cloud-server.md"
 phase: 2
 parallel_id: 5
 branch: "feature/current/cloud-server/story-02-005-role-tailscale"
-status: "in_progress"
+status: "done"
 assignee: ""
 reviewer: ""
 dependencies: ["01-001", "01-002"]
@@ -18,7 +18,7 @@ risk_level: "low"
 tags: ["ansible", "role", "vpn", "tailscale"]
 due: "2026-06-12"
 created_at: "2026-05-29"
-updated_at: "2026-05-31"
+updated_at: "2026-06-01"
 ---
 
 ## Summary
