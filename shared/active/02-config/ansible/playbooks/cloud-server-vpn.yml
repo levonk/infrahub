@@ -1,0 +1,160 @@
+---
+# Cloud Server VPN Playbook
+# Orchestrates the VPN mesh layer and security hardening:
+# Tailscale, Netbird client, host firewall, SSH hardening, and fail2ban.
+# Deploy AFTER confirming bootstrap succeeded.
+# Usage:
+#   ansible-playbook -i inventories/oci.yml playbooks/cloud-server-vpn.yml
+#   ansible-playbook -i inventories/oci.yml playbooks/cloud-server-vpn.yml --check --diff
+
+- name: "Deploy VPN Mesh and Security Hardening"
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: "Gather ansible_facts"
+      ansible.builtin.setup:
+        gather_subset: ["all"]
+      tags: ["always"]
+
+    - name: "Validate required variables are defined"
+      ansible.builtin.assert:
+        that:
+          - cloud_server_admin_user is defined
+          - cloud_server_admin_user | length > 0
+          - cloud_server_ansible_host_ip is defined
+          - cloud_server_ssh_host_port is defined
+        fail_msg: "Missing required cloud_server variables. Check group_vars/cloud_server.yml and group_vars/all.yml."
+        success_msg: "All required variables are defined."
+      tags: ["always", "validate"]
+
+    - name: "Verify bootstrap completed — Docker is available"
+      ansible.builtin.command:
+        cmd: "docker --version"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: docker_bootstrap_check
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "bootstrap", "docker"]
+
+    - name: "Fail if bootstrap did not complete (Docker missing)"
+      ansible.builtin.fail:
+        msg: |
+          Bootstrap prerequisite failed: Docker is not installed or not
+          responding. Run cloud-server-bootstrap.yml first.
+      when: docker_bootstrap_check.rc != 0
+      tags: ["verify", "bootstrap", "docker"]
+
+    - name: "Verify bootstrap completed — Nix is available"
+      ansible.builtin.command:
+        cmd: "nix --version"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      environment:
+        PATH: "/nix/var/nix/profiles/default/bin:{{ ansible_env.PATH | default('/usr/local/bin:/usr/bin:/bin') }}"
+      register: nix_bootstrap_check
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "bootstrap", "nix"]
+
+    - name: "Fail if bootstrap did not complete (Nix missing)"
+      ansible.builtin.fail:
+        msg: |
+          Bootstrap prerequisite failed: Nix is not installed or not
+          responding. Run cloud-server-bootstrap.yml first.
+      when: nix_bootstrap_check.rc != 0
+      tags: ["verify", "bootstrap", "nix"]
+
+    - name: "SSH hardening pre-check — verify passwordless sudo works"
+      ansible.builtin.command:
+        cmd: "sudo -n true"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: ssh_sudo_check
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "ssh", "pre-check"]
+
+    - name: "Fail if SSH hardening pre-condition not met"
+      ansible.builtin.fail:
+        msg: |
+          SSH hardening pre-condition failed: passwordless sudo is not
+          configured for {{ cloud_server_admin_user }}.
+          Verify SSH key auth and sudoers before proceeding.
+      when: ssh_sudo_check.rc != 0
+      tags: ["verify", "ssh", "pre-check"]
+
+  roles:
+    - role: vpn-tailscale
+      tags: ["vpn", "tailscale"]
+
+    - role: vpn-netbird
+      tags: ["vpn", "netbird"]
+
+    - role: proxy-firewall
+      tags: ["security", "firewall"]
+
+    - role: common-ssh-hardening
+      tags: ["security", "ssh"]
+
+    - role: common-fail2ban
+      tags: ["security", "fail2ban"]
+
+  post_tasks:
+    - name: "Verify Tailscale connectivity"
+      ansible.builtin.command:
+        cmd: "tailscale status"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: tailscale_status
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "vpn", "tailscale"]
+
+    - name: "Report Tailscale status"
+      ansible.builtin.debug:
+        msg: "Tailscale status: {{ tailscale_status.stdout }}"
+      when: tailscale_status.rc == 0
+      tags: ["verify", "vpn", "tailscale"]
+
+    - name: "Warn if Tailscale is not connected"
+      ansible.builtin.debug:
+        msg: "WARNING: Tailscale status check failed. The node may not be connected to the Tailscale mesh."
+      when: tailscale_status.rc != 0
+      tags: ["verify", "vpn", "tailscale"]
+
+    - name: "Verify Netbird connectivity"
+      ansible.builtin.command:
+        cmd: "netbird status"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: netbird_status
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "vpn", "netbird"]
+
+    - name: "Report Netbird status"
+      ansible.builtin.debug:
+        msg: "Netbird status: {{ netbird_status.stdout }}"
+      when: netbird_status.rc == 0
+      tags: ["verify", "vpn", "netbird"]
+
+    - name: "Warn if Netbird is not connected"
+      ansible.builtin.debug:
+        msg: "WARNING: Netbird status check failed. The node may not be connected to the Netbird mesh."
+      when: netbird_status.rc != 0
+      tags: ["verify", "vpn", "netbird"]
+
+    - name: "Verify fail2ban is running"
+      ansible.builtin.systemd:
+        name: fail2ban
+        state: started
+      check_mode: false
+      tags: ["verify", "security", "fail2ban"]
+
+    - name: "Report VPN and security deployment complete"
+      ansible.builtin.debug:
+        msg: "VPN mesh and security hardening deployed successfully on {{ inventory_hostname }}"
+      tags: ["verify", "summary"]

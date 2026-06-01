@@ -2,7 +2,7 @@
 prd_name: "cloud-server"
 prd_file: "shared/active/08-docs/reqs/2026/20260529-cloud-server.md"
 created_at: "2026-05-29"
-updated_at: "2026-05-29"
+updated_at: "2026-06-01"
 ---
 
 # Cloud Server — Task Index
@@ -41,7 +41,7 @@ All development and deployment commands must work through `devbox run ...` per A
 | 02-007 | Role: host-firewall | feature/current/cloud-server/story-02-007-role-firewall | [x] Done | 01-001, 01-002 | true | ansible, role, security |
 | 02-008 | Role: ssh-hardening | feature/current/cloud-server/story-02-008-role-ssh | [x] Done | 01-001, 01-002 | true | ansible, role, security |
 | 02-009 | Role: fail2ban | feature/current/cloud-server/story-02-009-role-fail2ban | [x] Done | 01-001, 01-002 | true | ansible, role, security |
-| 02-010 | Role: netbird-control-plane | feature/current/cloud-server/story-02-010-role-netbird-cp | [~] In-Progress | 01-001, 01-002 | true | ansible, role, vpn |
+| 02-010 | Role: netbird-control-plane | feature/current/cloud-server/story-02-010-role-netbird-cp | [x] Done | 01-001, 01-002 | true | ansible, role, vpn |
 | 02-011 | Role: dns-stack | feature/current/cloud-server/story-02-011-role-dns | [x] Done | 01-001, 01-002 | true | ansible, role, dns |
 | 02-012 | Role: proxy-stack | feature/current/cloud-server/story-02-012-role-proxy | [x] Done | 01-001, 01-002 | true | ansible, role, proxy |
 | 02-013 | Role: sso-service | feature/current/cloud-server/story-02-013-role-sso | [x] Done | 01-001, 01-002 | true | ansible, role, security |
@@ -52,9 +52,9 @@ All development and deployment commands must work through `devbox run ...` per A
 | Story ID | Story Title | Branch | Status | Dependencies | Parallel-safe | Modules |
 | -------- | ----------- | ------ | ------ | ------------ | ------------- | ------- |
 | 03-001 | Playbook: cloud-server-bootstrap.yml | feature/current/cloud-server/story-03-001-pb-bootstrap | [x] Done | 02-001, 02-002, 02-003, 02-004 | true | ansible, playbook |
-| 03-002 | Playbook: cloud-server-vpn.yml | feature/current/cloud-server/story-03-002-pb-vpn | [!] Blocked | 02-005, 02-006, 02-007, 02-008, 02-009 | true | ansible, playbook |
-| 03-003 | Playbook: cloud-server-infra.yml | feature/current/cloud-server/story-03-003-pb-infra | [ ] Todo | 02-010, 02-011, 02-012, 02-013 | true | ansible, playbook |
-| 03-004 | Playbook: cloud-server-vms.yml | feature/current/cloud-server/story-03-004-pb-vms | [ ] Todo | 02-014 | true | ansible, playbook |
+| 03-002 | Playbook: cloud-server-vpn.yml | feature/current/cloud-server/story-03-002-pb-vpn | [x] Done | 02-005, 02-006, 02-007, 02-008, 02-009 | true | ansible, playbook |
+| 03-003 | Playbook: cloud-server-infra.yml | feature/current/cloud-server/story-03-003-pb-infra | [!] Blocked | 02-010, 02-011, 02-012, 02-013 | true | ansible, playbook |
+| 03-004 | Playbook: cloud-server-vms.yml | feature/current/cloud-server/story-03-004-pb-vms | [~] In-Progress | 02-014 | true | ansible, playbook |
 | 03-005 | Site Playbook: cloud-server-site.yml | feature/current/cloud-server/story-03-005-pb-site | [ ] Todo | 03-001, 03-002, 03-003, 03-004 | true | ansible, playbook |
 
 ## Phase 04 — Lint & Test

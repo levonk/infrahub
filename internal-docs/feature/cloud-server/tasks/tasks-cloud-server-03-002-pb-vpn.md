@@ -7,7 +7,7 @@ prd_file: "shared/active/08-docs/reqs/2026/20260529-cloud-server.md"
 phase: 3
 parallel_id: 2
 branch: "feature/current/cloud-server/story-03-002-pb-vpn"
-status: "todo"
+status: "done"
 assignee: ""
 reviewer: ""
 dependencies: ["02-005", "02-006", "02-007", "02-008", "02-009"]
@@ -27,20 +27,20 @@ Create the `cloud-server-vpn.yml` playbook that orchestrates the VPN mesh layer 
 
 ## Sub-Tasks
 
-- [ ] Create `shared/active/02-config/ansible/playbooks/cloud-server-vpn.yml`
-- [ ] Define `hosts: cloud_servers` target group
-- [ ] Import roles in safe order:
+- [x] Create `shared/active/02-config/ansible/playbooks/cloud-server-vpn.yml`
+- [x] Define `hosts: cloud_servers` target group
+- [x] Import roles in safe order:
   - `vpn-tailscale`
   - `vpn-netbird` (client)
   - `proxy-firewall`
   - `common-ssh-hardening`
   - `common-fail2ban`
-- [ ] Add `pre_tasks` to verify bootstrap completed (check for Docker/Nix availability)
-- [ ] Add `post_tasks` for VPN connectivity verification (`tailscale status`, `netbird status`)
-- [ ] Add explicit SSH hardening pre-check: verify passwordless login works
-- [ ] Document playbook usage and deployment order in README
-- [ ] Verify `ansible-playbook --syntax-check` passes
-- [ ] Verify `ansible-lint` passes
+- [x] Add `pre_tasks` to verify bootstrap completed (check for Docker/Nix availability)
+- [x] Add `post_tasks` for VPN connectivity verification (`tailscale status`, `netbird status`)
+- [x] Add explicit SSH hardening pre-check: verify passwordless login works
+- [x] Document playbook usage and deployment order in README
+- [x] Verify `ansible-playbook --syntax-check` passes
+- [x] Verify `ansible-lint` passes
 
 ## Relevant Files
 
