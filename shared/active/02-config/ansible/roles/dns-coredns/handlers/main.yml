@@ -1,0 +1,9 @@
+---
+# handlers file for dns-coredns
+
+- name: Restart dns coredns
+  community.docker.docker_container:
+    name: "{{ dns_coredns_container_name }}"
+    state: started
+    restart: true
+  listen: restart dns coredns

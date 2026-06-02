@@ -1,0 +1,24 @@
+---
+- name: Verify
+  hosts: all
+  become: true
+  tasks:
+    - name: Check if Nix is installed
+      ansible.builtin.command:
+        cmd: nix --version
+      register: nix_version
+      changed_when: false
+      failed_when: nix_version.rc != 0
+
+    - name: Check if Nix profile exists
+      ansible.builtin.stat:
+        path: /nix/var/nix/profiles/default
+      register: nix_profile
+      failed_when: not nix_profile.stat.exists
+
+    - name: Check if nix-command is enabled
+      ansible.builtin.command:
+        cmd: nix --help
+      register: nix_help
+      changed_when: false
+      failed_when: "'nix-command' not in nix_help.stdout"

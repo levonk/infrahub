@@ -1,0 +1,10 @@
+---
+# handlers file for nix-installation
+
+- name: Restart nix-daemon service
+  ansible.builtin.systemd:
+    name: "{{ nix_installation_daemon_service_name }}"
+    state: restarted
+    enabled: true
+  listen: restart nix-daemon
+  become: true

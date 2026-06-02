@@ -27,8 +27,8 @@ Execute the `cloud-server-bootstrap.yml` playbook against the OCI host. This is 
 
 ## Sub-Tasks
 
-- [ ] Verify inventory `oci.yml` points to correct host and SSH key
-- [ ] Verify `cloud_server_ansible_host_ip` is populated
+- [x] Verify inventory `oci.yml` points to correct host and SSH key
+- [!] Verify `cloud_server_ansible_host_ip` is populated - BLOCKED: Variable is empty in cloud_servers.yml line 13
 - [ ] Run playbook with `--check --diff` first as final validation
 - [ ] Execute: `devbox run ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/playbooks/cloud-server-bootstrap.yml`
 - [ ] Monitor output for failures or unexpected changes

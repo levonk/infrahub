@@ -10,6 +10,19 @@ vpn_netbird_version: "latest"
 vpn_netbird_channel: "stable"
 
 # ---------------------------------------------------------------------------
+# Install Method
+# ---------------------------------------------------------------------------
+# auto   - detect from ansible_os_family (Debian/RedHat → repo, Alpine → binary)
+# repo   - use native package manager (apt, yum/dnf)
+# binary - download compiled binary from GitHub releases
+# script - use official Netbird install script (NOT idempotent)
+vpn_netbird_install_method: "auto"
+
+# Binary download settings (used when install_method == binary or auto-detected)
+vpn_netbird_binary_url_base: "https://github.com/netbirdio/netbird/releases/download"
+vpn_netbird_binary_install_dir: "/usr/local/bin"
+
+# ---------------------------------------------------------------------------
 # Netbird Auth & Network
 # ---------------------------------------------------------------------------
 # Management server URL (e.g., https://api.netbird.io:33073 or self-hosted).

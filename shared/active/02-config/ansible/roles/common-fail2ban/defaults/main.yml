@@ -1,0 +1,26 @@
+---
+# defaults file for common-fail2ban
+# Neutral, overridable defaults. No localnet-specific paths.
+
+# ---------------------------------------------------------------------------
+# Ban Settings
+# ---------------------------------------------------------------------------
+fail2ban_bantime: "{{ cloud_server_fail2ban_bantime | default(3600) }}"
+fail2ban_maxretry: "{{ cloud_server_fail2ban_maxretry | default(5) }}"
+fail2ban_findtime: "{{ cloud_server_fail2ban_findtime | default(600) }}"
+
+# ---------------------------------------------------------------------------
+# Ignore IP List
+# ---------------------------------------------------------------------------
+fail2ban_ignoreip: "{{ cloud_server_fail2ban_ignoreip | default(['127.0.0.1/8', '::1']) }}"
+
+# ---------------------------------------------------------------------------
+# SSH Jail Settings
+# ---------------------------------------------------------------------------
+fail2ban_sshd_port: "{{ cloud_server_ssh_host_port | default('22') }}"
+fail2ban_backend: "systemd"
+
+# ---------------------------------------------------------------------------
+# Service
+# ---------------------------------------------------------------------------
+fail2ban_service_name: "fail2ban"

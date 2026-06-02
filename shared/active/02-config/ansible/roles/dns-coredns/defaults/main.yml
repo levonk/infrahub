@@ -1,0 +1,59 @@
+---
+# defaults file for dns-coredns
+# Neutral, overridable defaults. No localnet-specific paths.
+# All ports and IPs must be variables — never hardcode.
+
+# ---------------------------------------------------------------------------
+# Image & Container
+# ---------------------------------------------------------------------------
+dns_coredns_image: "coredns/coredns"
+dns_coredns_image_tag: "{{ cloud_server_coredns_image_tag | default('latest') }}"
+dns_coredns_container_name: "{{ cloud_server_coredns_container_name | default('cloud-server-dns-coredns') }}"
+dns_coredns_volume_name: "{{ cloud_server_coredns_volume_name | default('dns-coredns-data') }}"
+
+# ---------------------------------------------------------------------------
+# Network
+# ---------------------------------------------------------------------------
+dns_coredns_network_name: "{{ cloud_server_docker_network_name | default('cloud-server') }}"
+
+# ---------------------------------------------------------------------------
+# Ports — all variable-driven per ADR (host:container mapping)
+# ---------------------------------------------------------------------------
+# Main DNS port (UDP/TCP)
+dns_coredns_host_port: "{{ cloud_server_dns_port | default('53') }}"
+dns_coredns_container_port: "{{ cloud_server_dns_container_port | default('53') }}"
+
+# Metrics / health port
+dns_coredns_metrics_host_port: "{{ cloud_server_dns_metrics_port | default('9153') }}"
+dns_coredns_metrics_container_port: "{{ cloud_server_dns_metrics_container_port | default('9153') }}"
+
+# ---------------------------------------------------------------------------
+# Upstream Resolvers
+# ---------------------------------------------------------------------------
+dns_coredns_upstreams: "{{ cloud_server_dns_upstreams | default(['1.1.1.1', '1.0.0.1']) }}"
+
+# ---------------------------------------------------------------------------
+# Local Zones
+# ---------------------------------------------------------------------------
+dns_coredns_local_zones: "{{ cloud_server_dns_local_zones | default([]) }}"
+# Example entry:
+#   - name: "example.com"
+#     ttl: 300
+#     records:
+#       - "example.com.  IN  A  192.168.1.10"
+
+# ---------------------------------------------------------------------------
+# Cache
+# ---------------------------------------------------------------------------
+dns_coredns_cache_ttl_max: "{{ cloud_server_dns_cache_ttl_max | default('300') }}"
+
+# ---------------------------------------------------------------------------
+# Service Directory
+# ---------------------------------------------------------------------------
+dns_coredns_service_dir: "{{ cloud_server_services_dir | default('/opt/cloud-server/services') }}/dns/coredns"
+
+# ---------------------------------------------------------------------------
+# Verification
+# ---------------------------------------------------------------------------
+dns_coredns_verify_health: "{{ cloud_server_dns_verify_health | default(true) }}"
+dns_coredns_verify_timeout_seconds: "{{ cloud_server_dns_verify_timeout | default('30') }}"

@@ -7,7 +7,7 @@ prd_file: "shared/active/08-docs/reqs/2026/20260529-cloud-server.md"
 phase: 2
 parallel_id: 3
 branch: "feature/current/cloud-server/story-02-003-role-docker"
-status: "todo"
+status: "done"
 assignee: ""
 reviewer: ""
 dependencies: ["01-001", "01-002"]
@@ -18,7 +18,7 @@ risk_level: "medium"
 tags: ["ansible", "role", "docker"]
 due: "2026-06-12"
 created_at: "2026-05-29"
-updated_at: "2026-05-29"
+updated_at: "2026-05-30"
 ---
 
 ## Summary
@@ -27,9 +27,9 @@ Create the `docker-engine` Ansible role that installs Docker and the Docker Comp
 
 ## Sub-Tasks
 
-- [ ] Create role directory `shared/active/02-config/ansible/roles/docker-engine/`
-- [ ] Create `defaults/main.yml` with Docker version, userns-remap settings, and security flags
-- [ ] Create `tasks/main.yml` with tasks for:
+- [x] Create role directory `shared/active/02-config/ansible/roles/docker-engine/`
+- [x] Create `defaults/main.yml` with Docker version, userns-remap settings, and security flags
+- [x] Create `tasks/main.yml` with tasks for:
   - Install Docker engine and docker-compose plugin (via Nix or OS package manager)
   - Create `/etc/docker/daemon.json` with:
     - `userns-remap` or rootless mode configuration
@@ -38,11 +38,11 @@ Create the `docker-engine` Ansible role that installs Docker and the Docker Comp
   - Add `cuser` to `docker` group
   - Enable and start Docker service
   - Verify Docker CLI works
-- [ ] Create `handlers/main.yml` for Docker daemon restart
-- [ ] Create `meta/main.yml` with role metadata
-- [ ] Create `README.md` documenting role variables
-- [ ] Add `tests/` with test playbook
-- [ ] Verify `ansible-lint` passes
+- [x] Create `handlers/main.yml` for Docker daemon restart
+- [x] Create `meta/main.yml` with role metadata
+- [x] Create `README.md` documenting role variables
+- [x] Add `tests/` with test playbook
+- [x] Verify `ansible-lint` passes
 
 ## Relevant Files
 
@@ -54,11 +54,11 @@ Create the `docker-engine` Ansible role that installs Docker and the Docker Comp
 
 ## Acceptance Criteria
 
-- [ ] Docker engine and docker-compose plugin are installed
-- [ ] `daemon.json` contains hardened settings (userns-remap, no-new-privileges, live-restore)
-- [ ] `cuser` can run `docker ps` without sudo
-- [ ] Docker service is enabled and running
-- [ ] `ansible-lint` passes
+- [x] Docker engine and docker-compose plugin are installed — role tasks install `docker-ce`, `docker-ce-cli`, `containerd.io`, `docker-compose-plugin`; verified by `tasks/main.yml` inspection
+- [x] `daemon.json` contains hardened settings (userns-remap, no-new-privileges, live-restore) — verified in `templates/daemon.json.j2`
+- [x] `cuser` can run `docker ps` without sudo — role adds `{{ docker_engine_admin_user }}` to `docker` group in `tasks/main.yml`
+- [x] Docker service is enabled and running — role uses `ansible.builtin.systemd` with `enabled: true` and `state: started` in `tasks/main.yml`
+- [x] `ansible-lint` passes — verified via `devbox run ansible-lint shared/active/02-config/ansible/roles/docker-engine/`
 
 ## Test Plan
 

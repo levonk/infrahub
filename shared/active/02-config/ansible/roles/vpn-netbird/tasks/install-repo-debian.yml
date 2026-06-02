@@ -1,0 +1,35 @@
+---
+# Install Netbird via apt repository on Debian family systems.
+
+- name: Ensure required packages are present (Debian)
+  ansible.builtin.apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg
+      - wireguard-tools
+    state: present
+    update_cache: true
+  become: true
+
+- name: Add Netbird GPG key (Debian)
+  ansible.builtin.apt_key:
+    url: "https://pkgs.netbird.io/{{ vpn_netbird_channel }}/debian/bookworm.gpg"
+    keyring: /usr/share/keyrings/netbird-archive-keyring.gpg
+  become: true
+
+- name: Add Netbird apt repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/netbird-archive-keyring.gpg] https://pkgs.netbird.io/{{ vpn_netbird_channel }}/debian bookworm main"  # noqa: yaml[line-length]
+    filename: netbird
+    state: present
+  become: true
+
+- name: Install Netbird (Debian)
+  ansible.builtin.apt:
+    name: "netbird{% if vpn_netbird_version != 'latest' %}={{ vpn_netbird_version }}{% endif %}"
+    state: "{% if vpn_netbird_version == 'latest' %}present{% else %}fixed{% endif %}"
+    update_cache: true
+  become: true
+  notify: restart netbird

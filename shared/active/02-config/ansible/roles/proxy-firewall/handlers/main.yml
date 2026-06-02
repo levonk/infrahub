@@ -1,0 +1,30 @@
+---
+# handlers file for proxy-firewall
+
+- name: Reload nftables
+  ansible.builtin.systemd:
+    name: "{{ proxy_firewall_nftables_service }}"
+    state: reloaded
+  listen: reload nftables
+  become: true
+
+- name: Reload ufw
+  ansible.builtin.command:
+    cmd: ufw reload
+  listen: reload ufw
+  become: true
+  changed_when: true
+
+- name: Restart nftables
+  ansible.builtin.systemd:
+    name: "{{ proxy_firewall_nftables_service }}"
+    state: restarted
+  listen: restart nftables
+  become: true
+
+- name: Restart ufw
+  ansible.builtin.command:
+    cmd: ufw reload
+  listen: restart ufw
+  become: true
+  changed_when: true

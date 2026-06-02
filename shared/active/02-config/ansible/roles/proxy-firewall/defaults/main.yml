@@ -1,0 +1,58 @@
+---
+# defaults file for proxy-firewall
+# Neutral, overridable defaults. No localnet-specific paths.
+# All ports and subnets must be variables — never hardcode.
+
+# ---------------------------------------------------------------------------
+# Firewall Engine Selection
+# ---------------------------------------------------------------------------
+proxy_firewall_type: "{{ cloud_server_firewall_type | default('nftables') }}"
+# Supported: nftables, ufw
+
+# ---------------------------------------------------------------------------
+# Allowed Ports
+# ---------------------------------------------------------------------------
+proxy_firewall_ssh_port: "{{ cloud_server_ssh_port | default('22') }}"
+proxy_firewall_mosh_port: "{{ cloud_server_mosh_port | default('60000:61000') }}"
+# Mosh uses a UDP port range; define as a string range or single port.
+
+# ---------------------------------------------------------------------------
+# VPN Subnets
+# ---------------------------------------------------------------------------
+proxy_firewall_vpn_subnets: "{{ cloud_server_vpn_subnets | default([]) }}"
+# List of CIDRs to allow inbound/outbound (e.g., ['100.64.0.0/10', '10.0.0.0/8'])
+
+proxy_firewall_tailscale_subnet: "{{ cloud_server_tailscale_subnet | default('100.64.0.0/10') }}"
+proxy_firewall_netbird_subnet: "{{ cloud_server_netbird_subnet | default('10.0.0.0/8') }}"
+
+# ---------------------------------------------------------------------------
+# Rate Limiting
+# ---------------------------------------------------------------------------
+proxy_firewall_rate_limit_ssh: "{{ cloud_server_firewall_rate_limit_ssh | default(true) }}"
+proxy_firewall_rate_limit_connections: "{{ cloud_server_firewall_rate_limit_connections | default(5) }}"
+proxy_firewall_rate_limit_interval: "{{ cloud_server_firewall_rate_limit_interval | default('1/minute') }}"
+
+# ---------------------------------------------------------------------------
+# Forwarding & Masquerade
+# ---------------------------------------------------------------------------
+proxy_firewall_enable_forwarding: "{{ cloud_server_firewall_enable_forwarding | default(true) }}"
+proxy_firewall_enable_masquerade: "{{ cloud_server_firewall_enable_masquerade | default(true) }}"
+
+# ---------------------------------------------------------------------------
+# Lockout Prevention
+# ---------------------------------------------------------------------------
+proxy_firewall_prevent_lockout: "{{ cloud_server_firewall_prevent_lockout | default(true) }}"
+proxy_firewall_prevent_lockout_timeout: "{{ cloud_server_firewall_prevent_lockout_timeout | default(300) }}"
+# Seconds to keep a temporary allow rule for the current management IP.
+
+# ---------------------------------------------------------------------------
+# Service Names
+# ---------------------------------------------------------------------------
+proxy_firewall_nftables_service: "nftables"
+proxy_firewall_ufw_service: "ufw"
+
+# ---------------------------------------------------------------------------
+# Verification
+# ---------------------------------------------------------------------------
+proxy_firewall_verify_rules: true
+proxy_firewall_verify_timeout_seconds: 30

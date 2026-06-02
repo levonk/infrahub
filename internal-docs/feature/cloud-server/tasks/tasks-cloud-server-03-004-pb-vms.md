@@ -7,7 +7,7 @@ prd_file: "shared/active/08-docs/reqs/2026/20260529-cloud-server.md"
 phase: 3
 parallel_id: 4
 branch: "feature/current/cloud-server/story-03-004-pb-vms"
-status: "todo"
+status: "in_progress"
 assignee: ""
 reviewer: ""
 dependencies: ["02-014"]
@@ -18,7 +18,7 @@ risk_level: "medium"
 tags: ["ansible", "playbook", "vm"]
 due: "2026-06-19"
 created_at: "2026-05-29"
-updated_at: "2026-05-29"
+updated_at: "2026-05-31"
 ---
 
 ## Summary
@@ -27,29 +27,30 @@ Create the `cloud-server-vms.yml` playbook that orchestrates the KVM hypervisor 
 
 ## Sub-Tasks
 
-- [ ] Create `shared/active/02-config/ansible/playbooks/cloud-server-vms.yml`
-- [ ] Define `hosts: cloud_servers` target group
-- [ ] Import `common-kvm` role
-- [ ] Add `pre_tasks` to verify host has virtualization support
-- [ ] Add `post_tasks` to verify libvirtd, bridge networks, and storage pool are active
-- [ ] Document playbook usage in README
-- [ ] Verify `ansible-playbook --syntax-check` passes
-- [ ] Verify `ansible-lint` passes
+- [x] Create `shared/active/02-config/ansible/playbooks/cloud-server-vms.yml`
+- [x] Define `hosts: cloud_servers` target group
+- [x] Import `common-kvm` role
+- [x] Add `pre_tasks` to verify host has virtualization support
+- [x] Add `post_tasks` to verify libvirtd, bridge networks, and storage pool are active
+- [x] Document playbook usage in README
+- [x] Verify `ansible-playbook --syntax-check` passes
+- [x] Verify `ansible-lint` passes
 
 ## Relevant Files
 
 - `shared/active/02-config/ansible/playbooks/cloud-server-vms.yml` — VM playbook
 - `shared/active/02-config/ansible/roles/common-kvm/` — role 02-014
 - `levonk/active/02-config/ansible/inventories/oci.yml` — inventory
+- `shared/active/02-config/ansible/playbooks/README.md` — playbook documentation
 
 ## Acceptance Criteria
 
-- [ ] Playbook syntax is valid
-- [ ] `common-kvm` role is imported
-- [ ] Pre-tasks check CPU virtualization support
-- [ ] Post-tasks verify libvirt stack is operational
-- [ ] `ansible-lint` passes
-- [ ] Can be executed via `devbox run ansible-playbook ...`
+- [x] Playbook syntax is valid
+- [x] `common-kvm` role is imported
+- [x] Pre-tasks check CPU virtualization support
+- [x] Post-tasks verify libvirt stack is operational
+- [x] `ansible-lint` passes
+- [x] Can be executed via `devbox run ansible-playbook ...`
 
 ## Test Plan
 

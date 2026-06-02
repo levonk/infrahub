@@ -148,19 +148,19 @@ ansible-test-internal:
 
 molecule-test role:
     @echo "Running Molecule test for role: {{role}}..."
-    cd {{MOLECULE_DIR}}/{{role}} && molecule test
+    cd {{MOLECULE_DIR}}/{{role}} && devbox run molecule test
 
 molecule-converge role:
     @echo "Running Molecule converge for role: {{role}}..."
-    cd {{MOLECULE_DIR}}/{{role}} && molecule converge
+    cd {{MOLECULE_DIR}}/{{role}} && devbox run molecule converge
 
 molecule-destroy role:
     @echo "Destroying Molecule environment for role: {{role}}..."
-    cd {{MOLECULE_DIR}}/{{role}} && molecule destroy
+    cd {{MOLECULE_DIR}}/{{role}} && devbox run molecule destroy
 
 molecule-verify role:
     @echo "Running Molecule verify for role: {{role}}..."
-    cd {{MOLECULE_DIR}}/{{role}} && molecule verify
+    cd {{MOLECULE_DIR}}/{{role}} && devbox run molecule verify
 
 # -- Docker Test Environment for Ansible --
 

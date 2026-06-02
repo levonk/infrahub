@@ -7,7 +7,7 @@ prd_file: "shared/active/08-docs/reqs/2026/20260529-cloud-server.md"
 phase: 2
 parallel_id: 7
 branch: "feature/current/cloud-server/story-02-007-role-firewall"
-status: "todo"
+status: "done"
 assignee: ""
 reviewer: ""
 dependencies: ["01-001", "01-002"]
@@ -27,9 +27,9 @@ Create the `host-firewall` Ansible role that configures a default-deny host-leve
 
 ## Sub-Tasks
 
-- [ ] Create role directory `shared/active/02-config/ansible/roles/proxy-firewall/`
-- [ ] Create `defaults/main.yml` with firewall type (nftables/ufw), allowed ports, and VPN subnet variables
-- [ ] Create `tasks/main.yml` with tasks for:
+- [x] Create role directory `shared/active/02-config/ansible/roles/proxy-firewall/`
+- [x] Create `defaults/main.yml` with firewall type (nftables/ufw), allowed ports, and VPN subnet variables
+- [x] Create `tasks/main.yml` with tasks for:
   - Install and enable nftables or ufw
   - Set default-deny policy
   - Allow loopback and established connections
@@ -39,27 +39,28 @@ Create the `host-firewall` Ansible role that configures a default-deny host-leve
   - Allow forwarding for VPN subnet routing with masquerade rules
   - Rate limiting on SSH port
   - Save and persist rules
-- [ ] Create `handlers/main.yml` for firewall reload
-- [ ] Create `meta/main.yml` with role metadata
-- [ ] Create `README.md` documenting role variables
-- [ ] Add `tests/` with test playbook
-- [ ] Verify `ansible-lint` passes
+- [x] Create `handlers/main.yml` for firewall reload
+- [x] Create `meta/main.yml` with role metadata
+- [x] Create `README.md` documenting role variables
+- [x] Add `tests/` with test playbook
+- [x] Verify `ansible-lint` passes (run in devbox environment: `devbox run just ansible-lint-internal`)
 
 ## Relevant Files
 
 - `shared/active/02-config/ansible/roles/proxy-firewall/` — role directory
-- `shared/active/02-config/ansible/roles/proxy-firewall/defaults/main.yml`
-- `shared/active/02-config/ansible/roles/proxy-firewall/tasks/main.yml`
+- `shared/active/02-config/ansible/roles/proxy-firewall/defaults/main.yml` — neutral, overridable defaults for firewall engine, ports, subnets, rate limiting, and lockout prevention
+- `shared/active/02-config/ansible/roles/proxy-firewall/tasks/main.yml` — tasks for nftables/ufw install, rule deployment, lockout prevention, forwarding, and verification
+- `shared/active/02-config/ansible/roles/proxy-firewall/templates/nftables.conf.j2` — nftables ruleset template with default-deny, SSH, mosh, VPN subnets, and masquerade
 - `levonk/active/02-config/ansible/group_vars/cloud_server.yml` — firewall port and subnet variables
 
 ## Acceptance Criteria
 
-- [ ] Firewall is installed and running
-- [ ] Default policy is deny
-- [ ] SSH port is accessible
-- [ ] VPN subnets can route through the host
-- [ ] Forwarding and masquerade rules are configured
-- [ ] `ansible-lint` passes
+- [x] Firewall is installed and running
+- [x] Default policy is deny
+- [x] SSH port is accessible
+- [x] VPN subnets can route through the host
+- [x] Forwarding and masquerade rules are configured
+- [x] `ansible-lint` passes (run in devbox environment)
 
 ## Test Plan
 

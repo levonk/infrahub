@@ -1,0 +1,13 @@
+{% set _daemon_config = {
+  "no-new-privileges": docker_engine_no_new_privileges,
+  "live-restore": docker_engine_live_restore,
+  "log-driver": docker_engine_log_driver,
+  "log-opts": docker_engine_log_opts
+} %}
+{% if docker_engine_userns_remap | length > 0 %}
+{% set _ = _daemon_config.update({"userns-remap": docker_engine_userns_remap}) %}
+{% endif %}
+{% if docker_engine_extra_daemon_config | length > 0 %}
+{% set _ = _daemon_config.update(docker_engine_extra_daemon_config) %}
+{% endif %}
+{{ _daemon_config | to_nice_json }}

@@ -1,0 +1,27 @@
+---
+- name: Verify
+  hosts: all
+  become: true
+  tasks:
+    - name: Check if Docker is installed
+      ansible.builtin.command:
+        cmd: docker --version
+      register: docker_version
+      changed_when: false
+      failed_when: docker_version.rc != 0
+
+    - name: Check if Docker daemon is running
+      ansible.builtin.systemd:
+        name: docker
+        state: started
+      check_mode: true
+      register: docker_check
+      failed_when: docker_check is changed
+
+    - name: Check if docker group exists
+      ansible.builtin.group:
+        name: docker
+        state: present
+      check_mode: true
+      register: docker_group_check
+      failed_when: docker_group_check is changed

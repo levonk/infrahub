@@ -353,6 +353,27 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] **Promtail**: https://github.com/grafana/loki
   - [ ] **Jaeger**: https://github.com/jaegertracing/jaeger
 
+### AI
+#### Config
+- [ ] https://github.com/OlegHQ/agentpack
+#### Cost Management
+- Monitoring
+  - [ ] https://github.com/nateherkai/token-dashboard
+- Input reduction
+- Output reduction
+  - AI Proxy
+    - [ ] https://github.com/chopratejas/headroom (tools, RAG, logs, files, history)
+    - https://github.com/yvgude/lean-ctx (CLI, MCP, editor rules)
+    - https://compresr.ai/ (text)
+    - https://thetokencompany.com/ (text)
+  - Conversational Output from AI
+    - [ ] https://github.com/vincentkoc/tokenjuice
+  - CLI Tool Output Reduction
+    - [ ] https://github.com/rtk-ai/rtk
+    - [ ] https://github.com/rtk-ai/semble_rs
+- Agent
+ - [ ] https://pi.dev/docs/latest/quickstart
+
 ### Development Tools
   - [ ] https://github.com/safishamsi/graphify
   - [ ] https://github.com/basecamp/fizzy?tab=readme-ov-file

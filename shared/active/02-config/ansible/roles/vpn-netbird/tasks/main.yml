@@ -1,52 +1,48 @@
 ---
 # tasks file for vpn-netbird
 # Installs and configures Netbird as a host-level WireGuard mesh VPN daemon.
+# Supports Debian, Kali, Oracle Linux, Alpine, and other distributions.
 
 # ---------------------------------------------------------------------------
-# Prerequisites
+# OS & Init Detection
 # ---------------------------------------------------------------------------
-- name: Ensure required packages are present
-  ansible.builtin.apt:
-    name:
-      - apt-transport-https
-      - ca-certificates
-      - curl
-      - gnupg
-      - wireguard-tools
-    state: present
-    update_cache: true
-  become: true
-  when: ansible_facts.os_family == "Debian"
+- name: Detect OS family and init system
+  ansible.builtin.set_fact:
+    _vpn_netbird_os_family: "{{ ansible_facts.os_family }}"
+    _vpn_netbird_init_system: "{{ ansible_facts.service_mgr }}"
+
+- name: Determine install method (auto-detect)
+  ansible.builtin.set_fact:
+    _vpn_netbird_install_method: >-
+      {{ 'repo' if _vpn_netbird_os_family in ['Debian', 'RedHat'] else 'binary' }}
+  when: vpn_netbird_install_method == 'auto'
+
+- name: Use explicit install method
+  ansible.builtin.set_fact:
+    _vpn_netbird_install_method: "{{ vpn_netbird_install_method }}"
+  when: vpn_netbird_install_method != 'auto'
 
 # ---------------------------------------------------------------------------
-# Install Netbird (official repository)
+# Installation (OS-specific)
 # ---------------------------------------------------------------------------
-- name: Add Netbird GPG key
-  ansible.builtin.apt_key:
-    url: https://pkgs.netbird.io/{{ vpn_netbird_channel }}/debian/bookworm.gpg
-    keyring: /usr/share/keyrings/netbird-archive-keyring.gpg
-  become: true
-  when: ansible_facts.os_family == "Debian"
+- name: Install Netbird via apt repository (Debian family)
+  ansible.builtin.include_tasks: install-repo-debian.yml
+  when:
+    - _vpn_netbird_install_method == 'repo'
+    - _vpn_netbird_os_family == 'Debian'
 
-- name: Add Netbird apt repository
-  ansible.builtin.apt_repository:
-    repo: "deb [signed-by=/usr/share/keyrings/netbird-archive-keyring.gpg] https://pkgs.netbird.io/{{ vpn_netbird_channel }}/debian bookworm main"
-    filename: netbird
-    state: present
-  become: true
-  when: ansible_facts.os_family == "Debian"
+- name: Install Netbird via yum/dnf repository (RedHat family)
+  ansible.builtin.include_tasks: install-repo-redhat.yml
+  when:
+    - _vpn_netbird_install_method == 'repo'
+    - _vpn_netbird_os_family == 'RedHat'
 
-- name: Install Netbird
-  ansible.builtin.apt:
-    name: "netbird{% if vpn_netbird_version != 'latest' %}={{ vpn_netbird_version }}{% endif %}"
-    state: "{% if vpn_netbird_version == 'latest' %}present{% else %}fixed{% endif %}"
-    update_cache: true
-  become: true
-  notify: restart netbird
-  when: ansible_facts.os_family == "Debian"
+- name: Install Netbird from binary (Alpine / fallback)
+  ansible.builtin.include_tasks: install-binary.yml
+  when: _vpn_netbird_install_method == 'binary'
 
 # ---------------------------------------------------------------------------
-# Configure Netbird
+# Configuration
 # ---------------------------------------------------------------------------
 - name: Ensure Netbird state directory exists
   ansible.builtin.file:
@@ -77,7 +73,7 @@
       - "{% if vpn_netbird_accept_dns %}--accept-dns{% else %}--accept-dns=false{% endif %}"
       - "{% if vpn_netbird_accept_routes %}--accept-routes{% else %}--accept-routes=false{% endif %}"
       - "{% if vpn_netbird_enable_ssh %}--ssh{% endif %}"
-      - "{% if vpn_netbird_advertise_routes | length > 0 %}--advertise-routes={{ vpn_netbird_advertise_routes | join(',') }}{% endif %}"
+      - "{% if vpn_netbird_advertise_routes | length > 0 %}--advertise-routes={{ vpn_netbird_advertise_routes | join(',') }}{% endif %}"  # noqa: yaml[line-length]
   when: vpn_netbird_setup_key | length > 0
 
 - name: Authenticate and start Netbird
@@ -91,14 +87,15 @@
   notify: restart netbird
 
 # ---------------------------------------------------------------------------
-# Service Management
+# Service Management (init-system aware)
 # ---------------------------------------------------------------------------
-- name: Ensure Netbird service is enabled and running
-  ansible.builtin.systemd:
-    name: netbird
-    state: started
-    enabled: true
-  become: true
+- name: Ensure Netbird systemd service is enabled and running
+  ansible.builtin.include_tasks: install-service-systemd.yml
+  when: _vpn_netbird_init_system == 'systemd'
+
+- name: Ensure Netbird OpenRC service is enabled and running
+  ansible.builtin.include_tasks: install-service-openrc.yml
+  when: _vpn_netbird_init_system == 'openrc'
 
 # ---------------------------------------------------------------------------
 # Verification
@@ -122,7 +119,7 @@
   ansible.builtin.debug:
     msg: |
       Netbird is running:
-        - Hostname: {{ vpn_netbird_hostname }}
-        - Port: {{ vpn_netbird_port }}
-        - IP: {{ vpn_netbird_ip.stdout | default('N/A') }}
+      - Hostname: {{ vpn_netbird_hostname }}
+      - Port: {{ vpn_netbird_port }}
+      - IP: {{ vpn_netbird_ip.stdout | default('N/A') }}
   when: vpn_netbird_verify_connection | bool

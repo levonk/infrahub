@@ -1,0 +1,203 @@
+---
+# tasks file for common-ssh-hardening
+# WARNING: Applying this role without working passwordless key auth WILL lock you out.
+# A pre-condition check enforces this safety gate.
+
+# ---------------------------------------------------------------------------
+# Pre-Condition: Verify Passwordless Key-Based SSH Works
+# ---------------------------------------------------------------------------
+- name: "SSH-HARDENING | Verify passwordless key-based SSH is configured"
+  ansible.builtin.stat:
+    path: "{{ ansible_user_dir }}/.ssh/authorized_keys"
+  register: ssh_hardening_authorized_keys_stat
+  changed_when: false
+
+- name: "SSH-HARDENING | Fail if passwordless SSH is not configured"
+  ansible.builtin.fail:
+    msg: |
+      CRITICAL: Passwordless key-based SSH login is NOT configured.
+      This role disables PasswordAuthentication, which will lock you out.
+      Ensure ~/.ssh/authorized_keys exists and test login before proceeding.
+  when:
+    - ssh_hardening_verify_passwordless | bool
+    - not ssh_hardening_authorized_keys_stat.stat.exists
+
+# ---------------------------------------------------------------------------
+# Backup Existing SSH Config
+# ---------------------------------------------------------------------------
+- name: "SSH-HARDENING | Backup existing sshd_config"
+  ansible.builtin.copy:
+    src: /etc/ssh/sshd_config
+    dest: /etc/ssh/sshd_config.bak.{{ ansible_date_time.iso8601_basic_short }}
+    remote_src: true
+    mode: "0600"
+  become: true
+  when: ssh_hardening_backup_config | bool
+
+# ---------------------------------------------------------------------------
+# Apply Hardening Settings via lineinfile
+# ---------------------------------------------------------------------------
+- name: "SSH-HARDENING | Set SSH port"
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^#?Port\\s+"
+    line: "Port {{ ssh_hardening_port }}"
+    state: present
+    validate: "sshd -t -f %s"
+  become: true
+  notify: restart ssh
+
+- name: "SSH-HARDENING | Disable root login"
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^#?PermitRootLogin\\s+"
+    line: "PermitRootLogin {{ ssh_hardening_permit_root_login }}"
+    state: present
+    validate: "sshd -t -f %s"
+  become: true
+  notify: restart ssh
+
+- name: "SSH-HARDENING | Disable password authentication"
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^#?PasswordAuthentication\\s+"
+    line: "PasswordAuthentication {{ ssh_hardening_password_authentication }}"
+    state: present
+    validate: "sshd -t -f %s"
+  become: true
+  notify: restart ssh
+
+- name: "SSH-HARDENING | Enforce publickey authentication method"
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^#?AuthenticationMethods\\s+"
+    line: "AuthenticationMethods {{ ssh_hardening_authentication_methods }}"
+    state: present
+    validate: "sshd -t -f %s"
+  become: true
+  notify: restart ssh
+
+- name: "SSH-HARDENING | Restrict accepted public-key algorithms to Ed25519"
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^#?PubkeyAcceptedAlgorithms\\s+"
+    line: "PubkeyAcceptedAlgorithms {{ ssh_hardening_pubkey_accepted_algorithms }}"
+    state: present
+    validate: "sshd -t -f %s"
+  become: true
+  notify: restart ssh
+
+- name: "SSH-HARDENING | Restrict host key algorithms to Ed25519"
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^#?HostKeyAlgorithms\\s+"
+    line: "HostKeyAlgorithms {{ ssh_hardening_host_key_algorithms }}"
+    state: present
+    validate: "sshd -t -f %s"
+  become: true
+  notify: restart ssh
+
+- name: "SSH-HARDENING | Set MaxAuthTries"
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^#?MaxAuthTries\\s+"
+    line: "MaxAuthTries {{ ssh_hardening_max_auth_tries }}"
+    state: present
+    validate: "sshd -t -f %s"
+  become: true
+  notify: restart ssh
+
+- name: "SSH-HARDENING | Set ClientAliveInterval"
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^#?ClientAliveInterval\\s+"
+    line: "ClientAliveInterval {{ ssh_hardening_client_alive_interval }}"
+    state: present
+    validate: "sshd -t -f %s"
+  become: true
+  notify: restart ssh
+
+- name: "SSH-HARDENING | Set ClientAliveCountMax"
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^#?ClientAliveCountMax\\s+"
+    line: "ClientAliveCountMax {{ ssh_hardening_client_alive_count_max }}"
+    state: present
+    validate: "sshd -t -f %s"
+  become: true
+  notify: restart ssh
+
+- name: "SSH-HARDENING | Disable challenge-response authentication"
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^#?ChallengeResponseAuthentication\\s+"
+    line: "ChallengeResponseAuthentication {{ ssh_hardening_challenge_response_auth }}"
+    state: present
+    validate: "sshd -t -f %s"
+  become: true
+  notify: restart ssh
+
+- name: "SSH-HARDENING | Keep PAM enabled (required for publickey + session management)"
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^#?UsePAM\\s+"
+    line: "UsePAM {{ ssh_hardening_use_pam }}"
+    state: present
+    validate: "sshd -t -f %s"
+  become: true
+  notify: restart ssh
+
+- name: "SSH-HARDENING | Disable X11 forwarding"
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^#?X11Forwarding\\s+"
+    line: "X11Forwarding {{ ssh_hardening_x11_forwarding }}"
+    state: present
+    validate: "sshd -t -f %s"
+  become: true
+  notify: restart ssh
+
+- name: "SSH-HARDENING | Disable agent forwarding"
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^#?AllowAgentForwarding\\s+"
+    line: "AllowAgentForwarding {{ ssh_hardening_allow_agent_forwarding }}"
+    state: present
+    validate: "sshd -t -f %s"
+  become: true
+  notify: restart ssh
+
+- name: "SSH-HARDENING | Disable TCP forwarding"
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^#?AllowTcpForwarding\\s+"
+    line: "AllowTcpForwarding {{ ssh_hardening_allow_tcp_forwarding }}"
+    state: present
+    validate: "sshd -t -f %s"
+  become: true
+  notify: restart ssh
+
+- name: "SSH-HARDENING | Disable tunneling"
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^#?PermitTunnel\\s+"
+    line: "PermitTunnel {{ ssh_hardening_permit_tunnel }}"
+    state: present
+    validate: "sshd -t -f %s"
+  become: true
+  notify: restart ssh
+
+# ---------------------------------------------------------------------------
+# Final Validation: Run sshd -t on the live config
+# ---------------------------------------------------------------------------
+- name: "SSH-HARDENING | Validate sshd_config syntax"
+  ansible.builtin.command:
+    cmd: sshd -t
+  become: true
+  changed_when: false
+  register: ssh_hardening_config_test
+
+- name: "SSH-HARDENING | Report validation result"
+  ansible.builtin.debug:
+    msg: "sshd_config syntax is valid."
+  when: ssh_hardening_config_test.rc == 0

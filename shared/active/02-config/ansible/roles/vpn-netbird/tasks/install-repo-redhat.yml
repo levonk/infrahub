@@ -1,0 +1,36 @@
+---
+# Install Netbird via yum/dnf repository on RedHat family systems.
+
+- name: Ensure required packages are present (RedHat)
+  ansible.builtin.dnf:
+    name:
+      - ca-certificates
+      - curl
+      - wireguard-tools
+    state: present
+  become: true
+
+- name: Add Netbird RPM GPG key
+  ansible.builtin.rpm_key:
+    key: "https://pkgs.netbird.io/{{ vpn_netbird_channel }}/rpm/RPM-GPG-KEY-netbird"
+    state: present
+  become: true
+
+- name: Add Netbird yum repository
+  ansible.builtin.yum_repository:
+    name: netbird
+    description: Netbird
+    baseurl: "https://pkgs.netbird.io/{{ vpn_netbird_channel }}/rpm/$basearch"
+    gpgcheck: true
+    gpgkey: "https://pkgs.netbird.io/{{ vpn_netbird_channel }}/rpm/RPM-GPG-KEY-netbird"
+    enabled: true
+    state: present
+  become: true
+
+- name: Install Netbird (RedHat)
+  ansible.builtin.dnf:
+    name: "netbird{% if vpn_netbird_version != 'latest' %}-{{ vpn_netbird_version }}{% endif %}"
+    state: "{% if vpn_netbird_version == 'latest' %}present{% else %}installed{% endif %}"
+    update_cache: true
+  become: true
+  notify: restart netbird

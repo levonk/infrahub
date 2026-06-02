@@ -884,6 +884,149 @@ just clean-env
 just up
 ```
 
+## Docker & Podman Commands
+
+### Docker Operations
+
+```bash
+# List all containers
+docker ps
+
+# View container logs
+docker logs <container-name> --tail=50
+
+# Stop a container
+docker stop <container-name>
+
+# Remove a container
+docker rm <container-name>
+
+# Remove all stopped containers
+docker container prune -f
+
+# Remove all unused images
+docker image prune -a
+
+# View disk usage
+docker system df
+```
+
+### Podman Operations
+
+```bash
+# List all containers
+podman ps -a
+
+# View container logs
+podman logs <container-name> --tail=50
+
+# Stop a container
+podman stop <container-name>
+
+# Remove a container
+podman rm <container-name>
+
+# Remove all stopped containers
+podman container prune -f
+
+# Remove all unused images
+podman image prune -a
+
+# View disk usage
+podman system df
+```
+
+### Molecule Testing (BLOCKED)
+
+**BLOCKER**: Molecule tests are currently blocked due to Python docker module dependency issue.
+
+**Status**: 
+- molecule-docker package doesn't exist in nixpkgs
+- molecule requires Python docker module which isn't available
+- molecule runs Ansible with restricted PATH (only Python package dirs), can't access system PATH where podman/docker binaries live
+- Tried: podman driver, delegated driver, custom nix package with withPackages, python313Packages.podman (installed but molecule still can't find podman binary in Ansible PATH)
+- Directory renamed from `molecule` to `.molecule` (molecule expects the directory to be be named `.molecule`)
+
+**Commands** (currently blocked):
+```bash
+# Test specific role via Molecule
+just molecule-test host-os-bootstrap
+just molecule-test nix-installation
+just molecule-test docker-engine
+
+# Run all Molecule tests
+just ansible-test-internal
+
+# Manual container cleanup
+just ansible-test-env-stop
+```
+
+**Root Cause**: When molecule executes, it runs Ansible playbooks internally with a restricted PATH that only includes Python package directories, not the system PATH where podman is installed.
+
+**Alternative**: Use ansible-test with manual docker container setup instead of molecule.
+
+## Docker & Podman Commands
+
+### Docker Operations
+
+```bash
+# List all containers
+docker ps
+
+# View container logs
+docker logs <container-name> --tail=50
+
+# Stop a container
+docker stop <container-name>
+
+# Remove a container
+docker rm <container-name>
+
+# Remove all stopped containers
+docker container prune -f
+
+# Remove all unused images
+docker image prune -a
+
+# View disk usage
+docker system df
+```
+
+### Podman Operations
+
+```bash
+# List all containers
+podman ps -a
+
+# View container logs
+podman logs <container-name> --tail=50
+
+# Stop a container
+podman stop <container-name>
+
+# Remove a container
+podman rm <container-name>
+
+# Remove all stopped containers
+podman container prune -f
+
+# Remove all unused images
+podman image prune -a
+
+# View disk usage
+podman system df
+```
+
+### Docker Test Environment
+
+```bash
+# Build test environment
+just ansible-test-env-build
+
+# Stop test container
+just ansible-test-env-stop
+```
+
 ### Container startup issues
 
 **Current Issue: nix-sidecar container missing `/bin/sh`**

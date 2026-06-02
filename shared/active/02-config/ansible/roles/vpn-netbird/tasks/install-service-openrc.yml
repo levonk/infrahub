@@ -1,0 +1,30 @@
+---
+# Ensure Netbird OpenRC service is present and running (Alpine).
+
+- name: Create Netbird OpenRC service directory
+  ansible.builtin.file:
+    path: /etc/init.d
+    state: directory
+    mode: "0755"
+  become: true
+
+- name: Deploy Netbird OpenRC init script
+  ansible.builtin.copy:
+    dest: /etc/init.d/netbird
+    content: |
+      #!/sbin/openrc-run
+      name="netbird"
+      description="Netbird mesh VPN daemon"
+      command="{{ vpn_netbird_binary_install_dir }}/netbird"
+      command_args="service run"
+      pidfile="/run/${name}.pid"
+      command_background=true
+    mode: "0755"
+  become: true
+
+- name: Ensure Netbird service is started and enabled (OpenRC)
+  ansible.builtin.service:
+    name: netbird
+    state: started
+    enabled: true
+  become: true

@@ -86,6 +86,121 @@ The following files contain hardcoded ports or IPs and need to be refactored:
 
 When working on localnet, always check for hardcoded IPs and ports before committing changes.
 
+## Developer UX Workflow
+
+This repository follows **ADR-20260131001** (Standard Developer UX Flow) and **ADR-20260419001** (NX Monorepo Build Tool).
+
+### Tooling Stack (Root Files)
+
+| File | Purpose | Standard |
+|------|---------|----------|
+| `devbox.json` | Environment definition, packages, scripts | ADR-20260131001 |
+| `justfile` | Command runner (normal + *-internal targets) | ADR-20260131001 |
+| `nx.json` | Monorepo build orchestration & caching | ADR-20260419001 |
+| `.envrc` | direnv hook for auto-activation | ADR-20260131001 |
+
+All three files live at the repository root. Component-specific justfiles (e.g., `shared/active/03-container/justfile`) handle subsystem commands; the root justfile delegates to them.
+
+### Standard Flow: `direnv → devbox → just (*-internal) → [build tool]`
+
+**For AI agents and automated systems:**
+```bash
+# Primary pattern — devbox run + *-internal target
+devbox run just build-internal       # build
+devbox run just test-internal        # test
+devbox run just lint-internal        # lint
+devbox run just doctor-internal      # health check
+```
+
+**For human developers (one-off convenience):**
+```bash
+# Normal target auto-ensures devbox environment
+just build      # → devbox run build → just build-internal
+just test       # → devbox run test → just test-internal
+just lint       # → devbox run lint → just lint-internal
+```
+
+**For developers already in devbox shell:**
+```bash
+just build-internal      # direct call, no wrapper overhead
+just test-internal
+```
+
+### Cloud Server / Ansible Commands
+
+| Command | Purpose | Phase |
+|---------|---------|-------|
+| `devbox run packer-validate` | Validate Packer base image config | 01 |
+| `devbox run packer-build` | Build OCI base VM image | 01 |
+| `devbox run ansible-lint` | Lint all roles & playbooks | 04 |
+| `devbox run ansible-syntax` | Check playbook syntax | 04 |
+| `devbox run ansible-test` | Run Molecule tests (Docker containers) | 04 |
+| `just molecule-test <role>` | Test specific role via Molecule | 04 |
+| `devbox run ansible-deploy-bootstrap` | Deploy bootstrap to OCI | 05 |
+| `devbox run ansible-deploy-vpn` | Deploy VPN layer to OCI | 05 |
+| `devbox run ansible-deploy-infra` | Deploy infrastructure to OCI | 05 |
+| `devbox run ansible-deploy-vms` | Deploy VM layer to OCI | 05 |
+| `devbox run ansible-validate-bootstrap` | Validate bootstrap deployment | 06 |
+| `devbox run ansible-validate-vpn` | Validate VPN deployment | 06 |
+| `devbox run ansible-validate-infra` | Validate infrastructure | 06 |
+| `devbox run ansible-validate-vms` | Validate VM layer | 06 |
+
+### Docker Test Environment (Molecule)
+
+Ansible roles are tested inside Docker containers via Molecule:
+
+```bash
+# Build the test image
+just ansible-test-env-build
+
+# Run a specific role's Molecule scenario
+just molecule-test host-os-bootstrap
+just molecule-test nix-installation
+just molecule-test docker-engine
+
+# Cleanup test container
+just ansible-test-env-stop
+```
+
+### NX Monorepo Targets
+
+```bash
+# View task graph
+nx graph
+
+# Lint all Ansible roles & playbooks
+nx run infrahub-ansible:lint
+
+# Deploy bootstrap via NX
+nx run infrahub-ansible:deploy-bootstrap
+
+# Build LocalNet Docker services
+nx run infrahub-localnet:docker:build
+```
+
+### Devbox Script Generation Bug (Known Issue)
+
+`devbox run <script>` may fail with "command not found" in devbox v0.14.x+ (upstream issues #2517, #2108, #2607).
+
+**Workarounds:**
+1. **Use `just` directly** (recommended): `just ansible-lint` instead of `devbox run ansible-lint`
+2. **Enter devbox shell first**: `devbox shell` then `just ansible-lint-internal`
+3. **Rollback devbox**: `export DEVBOX_USE_VERSION=0.13.7`
+
+The `justfile` normal targets already handle this by calling `devbox run <script>` which triggers `just <script>-internal`.
+
+### Bootstrap & Setup
+
+```bash
+# Full environment bootstrap (called by devbox init_hook)
+just bootstrap-internal
+
+# Health check
+just doctor-internal
+```
+
+---
+
 ## Repository Structure
 
 This repository uses a two-tier hierarchy at the root:
