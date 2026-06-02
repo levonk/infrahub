@@ -1,16 +1,20 @@
 ---
 # handlers file for host-os-bootstrap
 
-- name: Restart ssh service
+- name: Restart ssh service (Debian/Ubuntu)
   ansible.builtin.systemd:
     name: ssh
     state: restarted
     enabled: true
   listen: restart ssh
+  when: ansible_os_family == "Debian"
+  ignore_errors: true
 
-- name: Restart sshd service
+- name: Restart sshd service (Red Hat family)
   ansible.builtin.systemd:
     name: sshd
     state: restarted
     enabled: true
   listen: restart sshd
+  when: ansible_os_family == "RedHat"
+  ignore_errors: true

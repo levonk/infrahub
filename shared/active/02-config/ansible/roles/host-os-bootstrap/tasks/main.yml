@@ -4,30 +4,54 @@
 # ---------------------------------------------------------------------------
 # Package Index Refresh
 # ---------------------------------------------------------------------------
-- name: Update apt cache
+- name: Update apt cache (Debian/Ubuntu)
   ansible.builtin.apt:
     update_cache: true
     cache_valid_time: 3600
   when: ansible_os_family == "Debian"
   become: true
 
+- name: Update dnf cache (Red Hat family)
+  ansible.builtin.dnf:
+    update_cache: true
+  when: ansible_os_family == "RedHat"
+  become: true
+
 # ---------------------------------------------------------------------------
 # Required Packages
 # ---------------------------------------------------------------------------
-- name: Install required packages
-  ansible.builtin.package:
-    name: "{{ host_os_bootstrap_packages }}"
+- name: Install required packages (Debian/Ubuntu)
+  ansible.builtin.apt:
+    name: "{{ host_os_bootstrap_packages + host_os_bootstrap_packages_debian }}"
     state: present
+  when: ansible_os_family == "Debian"
+  become: true
+
+- name: Install required packages (Red Hat family)
+  ansible.builtin.dnf:
+    name: "{{ host_os_bootstrap_packages + host_os_bootstrap_packages_redhat }}"
+    state: present
+  when: ansible_os_family == "RedHat"
   become: true
 
 # ---------------------------------------------------------------------------
 # Timezone
 # ---------------------------------------------------------------------------
-- name: Set system timezone
+- name: Set system timezone (systemd)
   ansible.builtin.command:
     cmd: "timedatectl set-timezone {{ host_os_bootstrap_timezone }}"
   register: timezone_set
   changed_when: timezone_set.rc == 0
+  failed_when: false
+  become: true
+
+- name: Set system timezone (non-systemd fallback)
+  ansible.builtin.file:
+    src: "/usr/share/zoneinfo/{{ host_os_bootstrap_timezone }}"
+    dest: /etc/localtime
+    state: link
+    force: true
+  when: timezone_set.rc != 0
   become: true
 
 # ---------------------------------------------------------------------------
@@ -39,6 +63,7 @@
     gid: "{{ host_os_bootstrap_admin_gid | int }}"
     state: present
   become: true
+  ignore_errors: true
 
 - name: Ensure admin user exists
   ansible.builtin.user:
@@ -109,6 +134,13 @@
 # ---------------------------------------------------------------------------
 # SSH Server Configuration
 # ---------------------------------------------------------------------------
+- name: Ensure SSH privilege separation directory exists
+  ansible.builtin.file:
+    path: /run/sshd
+    state: directory
+    mode: "0755"
+  become: true
+
 - name: Configure SSH server
   ansible.builtin.template:
     src: sshd_config.j2
@@ -125,22 +157,55 @@
 # ---------------------------------------------------------------------------
 # Automatic Security Updates
 # ---------------------------------------------------------------------------
-- name: Configure unattended-upgrades
+- name: Configure unattended-upgrades (Debian/Ubuntu)
   ansible.builtin.template:
     src: unattended-upgrades.j2
     dest: /etc/apt/apt.conf.d/50unattended-upgrades
     owner: root
     group: root
     mode: "0644"
-  when: host_os_bootstrap_unattended_upgrades_enabled | bool
+  when: 
+    - ansible_os_family == "Debian"
+    - host_os_bootstrap_unattended_upgrades_enabled | bool
   become: true
 
-- name: Enable automatic apt updates
+- name: Enable automatic apt updates (Debian/Ubuntu)
   ansible.builtin.template:
     src: auto-upgrades.j2
     dest: /etc/apt/apt.conf.d/20auto-upgrades
     owner: root
     group: root
     mode: "0644"
-  when: host_os_bootstrap_unattended_upgrades_enabled | bool
+  when:
+    - ansible_os_family == "Debian"
+    - host_os_bootstrap_unattended_upgrades_enabled | bool
+  become: true
+
+- name: Configure dnf-automatic (Red Hat family)
+  ansible.builtin.lineinfile:
+    path: /etc/dnf/automatic.conf
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+    create: true
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - { regexp: '^apply_updates', line: 'apply_updates = yes' }
+    - { regexp: '^upgrade_type', line: 'upgrade_type = security' }
+    - { regexp: '^emit_via', line: 'emit_via = motd' }
+  when:
+    - ansible_os_family == "RedHat"
+    - host_os_bootstrap_unattended_upgrades_enabled | bool
+  become: true
+
+- name: Enable dnf-automatic timer (Red Hat family)
+  ansible.builtin.systemd:
+    name: dnf-automatic.timer
+    state: started
+    enabled: true
+  when:
+    - ansible_os_family == "RedHat"
+    - host_os_bootstrap_unattended_upgrades_enabled | bool
+  ignore_errors: true
   become: true

@@ -1,0 +1,37 @@
+---
+- name: Verify
+  hosts: all
+  become: true
+  tasks:
+    - name: Check if cuser exists
+      ansible.builtin.user:
+        name: cuser
+        state: present
+      check_mode: true
+      register: cuser_check
+      failed_when: cuser_check is changed
+
+    - name: Check timezone is set
+      ansible.builtin.command:
+        cmd: cat /etc/timezone
+      register: timezone_check
+      changed_when: false
+      failed_when: timezone_check.stdout not in ["UTC", "Etc/UTC"]
+
+    - name: Check SSH service is running
+      ansible.builtin.systemd:
+        name: ssh
+        state: started
+      check_mode: true
+      register: ssh_check
+      failed_when: ssh_check is changed
+      ignore_errors: true
+
+    - name: Check sudo is configured
+      ansible.builtin.lineinfile:
+        path: /etc/sudoers
+        regexp: '^cuser'
+        state: present
+      check_mode: true
+      register: sudo_check
+      failed_when: sudo_check is changed
