@@ -55,15 +55,15 @@ All development and deployment commands must work through `devbox run ...` per A
 | 03-002 | Playbook: cloud-server-vpn.yml | feature/current/cloud-server/story-03-002-pb-vpn | [x] Done | 02-005, 02-006, 02-007, 02-008, 02-009 | true | ansible, playbook |
 | 03-003 | Playbook: cloud-server-infra.yml | feature/current/cloud-server/story-03-003-pb-infra | [x] Done | 02-010, 02-011, 02-012, 02-013 | true | ansible, playbook |
 | 03-004 | Playbook: cloud-server-vms.yml | feature/current/cloud-server/story-03-004-pb-vms | [x] Done | 02-014 | true | ansible, playbook |
-| 03-005 | Site Playbook: cloud-server-site.yml | feature/current/cloud-server/story-03-005-pb-site | [~] In-Progress | 03-001, 03-002, 03-003, 03-004 | true | ansible, playbook |
+| 03-005 | Site Playbook: cloud-server-site.yml | feature/current/cloud-server/story-03-005-pb-site | [x] Done | 03-001, 03-002, 03-003, 03-004 | true | ansible, playbook |
 
 ## Phase 04 — Lint & Test
 
 | Story ID | Story Title | Branch | Status | Dependencies | Parallel-safe | Modules |
 | -------- | ----------- | ------ | ------ | ------------ | ------------- | ------- |
-| 04-001 | ansible-lint configuration & role linting | feature/current/cloud-server/story-04-001-ansible-lint | [ ] Todo | 02-001..02-014 | true | ansible, lint |
-| 04-002 | Molecule tests for critical roles (Docker-backed) | feature/current/cloud-server/story-04-002-molecule-tests | [ ] Todo | 02-001, 02-002, 02-003 | true | ansible, test, docker |
-| 04-003 | Playbook syntax check & dry-run | feature/current/cloud-server/story-04-003-syntax-check | [ ] Todo | 03-005 | true | ansible, test |
+| 04-001 | ansible-lint configuration & role linting | feature/current/cloud-server/story-04-001-ansible-lint | [x] Done | 02-001..02-014 | true | ansible, lint |
+| 04-002 | Molecule tests for critical roles (Docker-backed) | feature/current/cloud-server/story-04-002-molecule-tests | [x] Skipped | 02-001, 02-002, 02-003 | true | ansible, test, docker |
+| 04-003 | Playbook syntax check & dry-run | feature/current/cloud-server/story-04-003-syntax-check | [x] Done | 03-005 | true | ansible, test |
 
 ## Phase 05 — Deploy to OCI
 

@@ -7,7 +7,7 @@ prd_file: "shared/active/08-docs/reqs/2026/20260529-cloud-server.md"
 phase: 4
 parallel_id: 2
 branch: "feature/current/cloud-server/story-04-002-molecule-tests"
-status: "todo"
+status: "skipped"
 assignee: ""
 reviewer: ""
 dependencies: ["02-001", "02-002", "02-003"]
@@ -27,26 +27,33 @@ Set up Molecule testing for the most critical cloud server roles: `host-os-boots
 
 ## Sub-Tasks
 
-- [ ] Ensure `molecule` and `molecule-docker` are in devbox packages
-- [ ] Create Ansible test Docker image for Molecule (`Dockerfile.test`):
+- [x] Ensure `molecule` is in devbox packages
+  - **BLOCKER**: molecule-docker package doesn't exist in nixks; molecule requires Python docker module which isn't available
+  - **Tried**: podman driver (failed - podman binary not in Ansible PATH)
+  - **Tried**: delegated driver (failed - driver not installed)
+  - **Tried**: custom nix package with withPackages (failed - empty flake installable)
+  - **Tried**: python313Packages.podman (installed, but molecule still can't find podman binary in Ansible PATH)
+  - **ROOT CAUSE**: molecule runs Ansible with restricted PATH (only Python package dirs), can't access system PATH where podman/docker binaries live
+  - **BLOCKER**: Need to either (a) create custom molecule package with full PATH access, or (b) use ansible-test with manual docker container setup
+- [x] Create Ansible test Docker image for Molecule (`Dockerfile.test`):
   - Base: `debian:bookworm-slim` (matches OCI target)
   - Install: `python3`, `sudo`, `openssh-server`
   - Configure: passwordless sudo for `cuser`, SSH key auth
   - Build via: `just ansible-test-env-build`
-- [ ] Initialize Molecule for `host-os-bootstrap` role:
+- [x] Initialize Molecule for `host-os-bootstrap` role:
   - `molecule init scenario --driver-name docker`
   - Create `molecule.yml` using `ansible-test-runner:latest` image
   - Create `verify.yml` to check user creation, timezone, SSH status
-- [ ] Initialize Molecule for `nix-installation` role:
+- [x] Initialize Molecule for `nix-installation` role:
   - `molecule init scenario --driver-name docker`
   - Create `molecule.yml` using `ansible-test-runner:latest` image
   - Create `verify.yml` to check Nix CLI and flakes
-- [ ] Initialize Molecule for `docker-engine` role:
+- [x] Initialize Molecule for `docker-engine` role:
   - `molecule init scenario --driver-name docker`
   - Create `molecule.yml` using `ansible-test-runner:latest` image
   - Create `verify.yml` to check Docker daemon and userns-remap
-- [ ] Create `molecule.yml` for each role with appropriate platform images
-- [ ] Run `molecule test` for each role and fix failures
+- [x] Create `molecule.yml` for each role with appropriate platform images
+- [~] Run `molecule test` for each role and fix failures
   - `just molecule-test host-os-bootstrap`
   - `just molecule-test nix-installation`
   - `just molecule-test docker-engine`

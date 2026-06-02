@@ -9,7 +9,6 @@
     "pulumi",
     "crd2pulumi",
     "pulumictl",
-    "unblob",
     "docker",
     "podman",
     "podman-tui",
@@ -50,6 +49,7 @@
     "rolespec",
     "serverspec",
     "molecule",
+    "python313Packages.podman",
     "terraform-inventory",
     "fluxcd",
     "fluxcd-operator",
@@ -71,8 +71,8 @@
     "XDG_CACHE_DIR":   "/var/cache",
     "XDG_RUNTIME_DIR": "/run/user/1000"
   },
-  "shell": {
-    "init_hook": [
+  "hooks": {
+    "on_create": [
       "just bootstrap-internal"
     ]
   },
