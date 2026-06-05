@@ -7,7 +7,7 @@ prd_file: "shared/active/08-docs/reqs/2026/20260529-cloud-server.md"
 phase: 5
 parallel_id: 1
 branch: "feature/current/cloud-server/story-05-001-deploy-bootstrap"
-status: "todo"
+status: "in_progress"
 assignee: ""
 reviewer: ""
 dependencies: ["03-001", "04-001", "04-003"]
@@ -27,9 +27,9 @@ Execute the `cloud-server-bootstrap.yml` playbook against the OCI host. This is 
 
 ## Sub-Tasks
 
-- [ ] Verify inventory `oci.yml` points to correct host and SSH key
-- [ ] Verify `cloud_server_ansible_host_ip` is populated
-- [ ] Run playbook with `--check --diff` first as final validation
+- [x] Verify inventory `oci.yml` points to correct host and SSH key
+- [x] Verify `cloud_server_ansible_host_ip` is populated
+- [x] Run playbook with `--check --diff` first as final validation
 - [ ] Execute: `devbox run ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/playbooks/cloud-server-bootstrap.yml`
 - [ ] Monitor output for failures or unexpected changes
 - [ ] Validate post-conditions:
@@ -45,7 +45,9 @@ Execute the `cloud-server-bootstrap.yml` playbook against the OCI host. This is 
 
 - `shared/active/02-config/ansible/playbooks/cloud-server-bootstrap.yml`
 - `levonk/active/02-config/ansible/inventories/oci.yml`
-- `levonk/active/02-config/ansible/group_vars/cloud_server.yml`
+- `levonk/active/02-config/ansible/group_vars/cloud_servers.yml`
+- `shared/active/02-config/ansible/roles/host-os-bootstrap/defaults/main.yml` — Added Red Hat package list
+- `shared/active/02-config/ansible/roles/host-os-bootstrap/tasks/main.yml` — Fixed Red Hat package installation
 
 ## Acceptance Criteria
 
