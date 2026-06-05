@@ -18,21 +18,11 @@
 # ---------------------------------------------------------------------------
 - name: Check if Nix packages are installed
   ansible.builtin.command:
-    cmd: "{{ nix_core_tools_nix_bin_path }}/nix-env -q {{ item }}"
-  become_user: "{{ nix_core_tools_admin_user }}"
-  become: true
-  environment:
-    PATH: "{{ nix_core_tools_nix_bin_path }}:{{ ansible_env.PATH | default('/usr/local/bin:/usr/bin:/bin') }}"
-  changed_when: false
-  failed_when: false
-  register: nix_core_tools_pkg_check
-  loop: "{{ nix_core_tools_packages }}"
-  loop_control:
-    label: "{{ item }}"
+    cmd: sudo -u "{{ nix_core_tools_admin_user }}" {{ nix_core_tools_nix_bin_path }}/nix-env -q {{ item }}"
 
 - name: Install missing Nix packages
   ansible.builtin.command:
-    cmd: "{{ nix_core_tools_nix_bin_path }}/nix-env -iA nixpkgs.{{ item.item }}"
+    cmd: sudo -u "{{ nix_core_tools_admin_user }}" {{ nix_core_tools_nix_bin_path }}/nix-env -iA nixpkgs.{{ item.item }}"
   become_user: "{{ nix_core_tools_admin_user }}"
   become: true
   environment:
