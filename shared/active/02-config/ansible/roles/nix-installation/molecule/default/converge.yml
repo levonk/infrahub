@@ -1,0 +1,13 @@
+---
+- name: Converge
+  hosts: all
+  become: true
+  tasks:
+    - name: Update apt cache and install curl
+      ansible.builtin.apt:
+        update_cache: true
+        name: curl
+        state: present
+    - name: Include nix-installation role
+      ansible.builtin.include_role:
+        name: nix-installation

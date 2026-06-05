@@ -68,12 +68,21 @@ Set up Molecule testing for the most critical cloud server roles: `host-os-boots
     - Fixed verify.yml to accept "Etc/UTC" and ignore SSH service check errors
   - `just molecule-docker-test nix-installation` - BLOCKED
     - Created molecule scenario files
-    - Test fails due to missing curl in test image package repository
-    - Need to use different test image or pre-install curl
+    - Fixed missing curl by adding apt install curl to converge.yml
+    - Changed test image from localnet-base-debian to debian:bookworm-slim
+    - **NEW BLOCKER**: Nix installer extracts binaries without execute permissions in Docker containers
+    - Tried single-user installer (--no-daemon) - same permission issue
+    - Tried permission fix task with chmod - didn't work (installer creates new unpack dir each run)
+    - Root cause: Nix installer's tarball extraction doesn't preserve execute permissions in Docker
   - `just molecule-docker-test docker-engine` - BLOCKED
     - Created molecule scenario files
-    - Test fails due to missing curl in test image package repository
-    - Same issue as nix-installation
+    - Fixed missing curl by adding apt install curl to converge.yml
+    - Changed test image from localnet-base-debian to debian:bookworm-slim
+    - Fixed prepare.yml to skip python-docker install (PEP 668 restriction)
+    - **NEW BLOCKER**: Docker repository configuration not working for Debian bookworm
+    - Tried fixing repository URL and GPG key URL - still no docker-ce package available
+    - Added explicit apt cache update after repository addition
+    - Root cause: Docker repository setup not compatible with Debian bookworm in container
 - [ ] Document Molecule workflow in role README files
 
 ## Relevant Files

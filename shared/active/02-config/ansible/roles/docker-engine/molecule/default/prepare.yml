@@ -1,0 +1,8 @@
+---
+- name: Prepare
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Skip python-docker install (already in Molecule container)
+      ansible.builtin.debug:
+        msg: "Docker CLI already available in Molecule container"

@@ -62,14 +62,14 @@ All development and deployment commands must work through `devbox run ...` per A
 | Story ID | Story Title | Branch | Status | Dependencies | Parallel-safe | Modules |
 | -------- | ----------- | ------ | ------ | ------------ | ------------- | ------- |
 | 04-001 | ansible-lint configuration & role linting | feature/current/cloud-server/story-04-001-ansible-lint | [x] Done | 02-001..02-014 | true | ansible, lint |
-| 04-002 | Molecule tests for critical roles (Docker-backed) | feature/current/cloud-server/story-04-002-molecule-tests | [x] Skipped | 02-001, 02-002, 02-003 | true | ansible, test, docker |
+| 04-002 | Molecule tests for critical roles (Docker-backed) | feature/current/cloud-server/story-04-002-molecule-tests | [!] Blocked | 02-001, 02-002, 02-003 | true | ansible, test, docker |
 | 04-003 | Playbook syntax check & dry-run | feature/current/cloud-server/story-04-003-syntax-check | [x] Done | 03-005 | true | ansible, test |
 
 ## Phase 05 — Deploy to OCI
 
 | Story ID | Story Title | Branch | Status | Dependencies | Parallel-safe | Modules |
 | -------- | ----------- | ------ | ------ | ------------ | ------------- | ------- |
-| 05-001 | Deploy bootstrap to OCI host | feature/current/cloud-server/story-05-001-deploy-bootstrap | [ ] Todo | 03-001, 04-001, 04-003 | false | ansible, deploy |
+| 05-001 | Deploy bootstrap to OCI host | feature/current/cloud-server/story-05-001-deploy-bootstrap | [~] In-Progress | 03-001, 04-001, 04-003 | false | ansible, deploy |
 | 05-002 | Deploy VPN layer to OCI host | feature/current/cloud-server/story-05-002-deploy-vpn | [ ] Todo | 03-002, 05-001 | false | ansible, deploy |
 | 05-003 | Deploy infrastructure services to OCI | feature/current/cloud-server/story-05-003-deploy-infra | [ ] Todo | 03-003, 05-002 | false | ansible, deploy |
 | 05-004 | Deploy VM layer to OCI | feature/current/cloud-server/story-05-004-deploy-vms | [ ] Todo | 03-004, 05-003 | false | ansible, deploy |
