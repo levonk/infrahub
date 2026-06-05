@@ -48,6 +48,8 @@ Execute the `cloud-server-bootstrap.yml` playbook against the OCI host. This is 
 - `levonk/active/02-config/ansible/group_vars/cloud_servers.yml`
 - `shared/active/02-config/ansible/roles/host-os-bootstrap/defaults/main.yml` — Added Red Hat package list
 - `shared/active/02-config/ansible/roles/host-os-bootstrap/tasks/main.yml` — Fixed Red Hat package installation
+- `shared/active/02-config/ansible/roles/nix-installation/tasks/main.yml` — Simplified Nix installer conditions
+- `shared/active/02-config/ansible/roles/nix-core-tools/tasks/main.yml` — Fixed ACL permission errors with sudo -u
 
 ## Acceptance Criteria
 
