@@ -41,9 +41,7 @@
     url: "{{ nix_installation_installer_url }}"
     dest: /tmp/nix-installer.sh
     mode: "0755"
-  when:
-    - not nix_installation_nix_dir.stat.exists
-    - nix_installation_nix_cmd.rc != 0
+  when: not nix_installation_nix_dir.stat.exists
 
 - name: Run Nix single-user installer (simpler for Docker containers)
   ansible.builtin.command:
@@ -51,9 +49,7 @@
   args:
     creates: /nix
   become: true
-  when:
-    - not nix_installation_nix_dir.stat.exists
-    - nix_installation_nix_cmd.rc != 0
+  when: not nix_installation_nix_dir.stat.exists
   environment:
     NIX_INSTALLER_NO_MODIFY_PROFILE: "1"
 
@@ -62,9 +58,7 @@
     path: /tmp/nix-installer.sh
     state: absent
   become: true
-  when:
-    - not nix_installation_nix_dir.stat.exists
-    - nix_installation_nix_cmd.rc != 0
+  when: not nix_installation_nix_dir.stat.exists
 
 # ---------------------------------------------------------------------------
 # Ensure nixbld group exists
