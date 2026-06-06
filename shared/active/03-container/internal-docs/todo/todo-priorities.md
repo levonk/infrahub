@@ -618,7 +618,8 @@ _Goal: Privacy, Resilience, Ad-blocking_
 
 - [ ] **AI API Routers**:
   - [ ] https://github.com/diegosouzapw/OmniRoute
-    - [ ] https://github.com/decolua/9router
+    - [ ] https://github.com/maximhq/bifrost
+    - [ ] https://github.com/decolua/9router (OmniRoute seems way better than this)
 - [ ] **Inference Engines**:
   - [ ] **Ollama**: LLM Runner https://github.com/ollama/ollama
   - [ ] **LocalAI**: OpenAI compatible API

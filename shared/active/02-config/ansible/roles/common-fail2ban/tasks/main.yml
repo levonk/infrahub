@@ -33,6 +33,13 @@
     enabled: true
   become: true
 
+- name: "FAIL2BAN | Reload fail2ban to apply configuration changes"
+  ansible.builtin.systemd:
+    name: "{{ fail2ban_service_name }}"
+    state: reloaded
+  become: true
+  when: not ansible_check_mode
+
 # ---------------------------------------------------------------------------
 # Verify fail2ban status
 # ---------------------------------------------------------------------------
@@ -66,6 +73,7 @@
       - "'sshd' in fail2ban_jails.stdout"
     fail_msg: "SSH jail (sshd) is not active in fail2ban"
     success_msg: "SSH jail (sshd) is active"
+  when: not ansible_check_mode
 
 - name: "FAIL2BAN | Log active jails"
   ansible.builtin.debug:
