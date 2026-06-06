@@ -1,0 +1,25 @@
+{
+  "name": "localnet-molecule-test",
+  "$schema": "../../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "services/cli/molecule-test",
+  "tags": ["cli", "testing", "ansible", "molecule", "docker"],
+  "targets": {
+    "docker:build": {
+      "executor": "@nx-tools/nx-container:build",
+      "options": {
+        "context": "services/cli/molecule-test",
+        "file": "services/cli/molecule-test/Dockerfile.molecule-test",
+        "tags": ["localnet-molecule-test:latest"],
+        "push": false,
+        "load": true
+      }
+    },
+    "docker:push": {
+      "executor": "@nx-tools/nx-container:push",
+      "options": {
+        "images": ["localnet-molecule-test:latest"]
+      }
+    }
+  }
+}

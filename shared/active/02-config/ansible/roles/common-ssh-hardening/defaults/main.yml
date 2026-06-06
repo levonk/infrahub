@@ -1,0 +1,47 @@
+---
+# defaults file for common-ssh-hardening
+# Neutral, overridable defaults. No localnet-specific paths.
+# WARNING: This role MUST only be applied after confirming passwordless
+# key-based SSH login works. Misapplication will cause lockout.
+
+# ---------------------------------------------------------------------------
+# SSH Port & Service
+# ---------------------------------------------------------------------------
+ssh_hardening_port: "{{ cloud_server_ssh_host_port | default('22') }}"
+ssh_hardening_service_name: "ssh"
+
+# ---------------------------------------------------------------------------
+# Authentication Restrictions
+# ---------------------------------------------------------------------------
+ssh_hardening_permit_root_login: "no"
+ssh_hardening_password_authentication: "no"
+ssh_hardening_authentication_methods: "publickey"
+
+# ---------------------------------------------------------------------------
+# Algorithm Restrictions (Ed25519 only)
+# ---------------------------------------------------------------------------
+ssh_hardening_pubkey_accepted_algorithms: "ssh-ed25519-cert-v01@openssh.com,ssh-ed25519"
+ssh_hardening_host_key_algorithms: "ssh-ed25519-cert-v01@openssh.com,ssh-ed25519"
+
+# ---------------------------------------------------------------------------
+# Connection Limits & Timeouts
+# ---------------------------------------------------------------------------
+ssh_hardening_max_auth_tries: 3
+ssh_hardening_client_alive_interval: 300
+ssh_hardening_client_alive_count_max: 2
+
+# ---------------------------------------------------------------------------
+# Additional Hardening
+# ---------------------------------------------------------------------------
+ssh_hardening_challenge_response_auth: "no"
+ssh_hardening_use_pam: "yes"
+ssh_hardening_x11_forwarding: "no"
+ssh_hardening_allow_agent_forwarding: "no"
+ssh_hardening_allow_tcp_forwarding: "no"
+ssh_hardening_permit_tunnel: "no"
+
+# ---------------------------------------------------------------------------
+# Verification
+# ---------------------------------------------------------------------------
+ssh_hardening_verify_passwordless: true
+ssh_hardening_backup_config: true

@@ -1,0 +1,23 @@
+---
+- name: Create
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Create molecule instance(s)
+      community.docker.docker_container:
+        name: instance
+        image: localnet-base-debian
+        state: started
+        privileged: true
+        command: sleep infinity
+        tmpfs:
+          - /run
+          - /tmp
+        volumes:
+          - /sys/fs/cgroup:/sys/fs/cgroup:ro
+      register: create_result
+
+    - name: Wait for instance(s) creation to complete
+      ansible.builtin.wait_for:
+        timeout: 300
+      when: create_result.changed

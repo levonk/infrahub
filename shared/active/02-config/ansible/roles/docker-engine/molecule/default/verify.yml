@@ -1,0 +1,20 @@
+---
+- name: Verify
+  hosts: all
+  become: true
+  tasks:
+    - name: Check Docker is installed
+      ansible.builtin.command:
+        cmd: docker --version
+      register: docker_check
+      changed_when: false
+      failed_when: docker_check.rc != 0
+
+    - name: Check Docker service is running
+      ansible.builtin.systemd:
+        name: docker
+        state: started
+      check_mode: true
+      register: docker_service_check
+      failed_when: docker_service_check is changed
+      ignore_errors: true

@@ -1,0 +1,21 @@
+. {
+    bind 0.0.0.0
+    prometheus :{{ dns_coredns_metrics_container_port }}
+    cache {{ dns_coredns_cache_ttl_max }}
+    forward . {{ dns_coredns_upstreams | join(' ') }} {
+        health_check 5s
+    }
+    log
+    errors
+    health :{{ dns_coredns_metrics_container_port }}
+}
+
+{% for zone in dns_coredns_local_zones %}
+{{ zone.name }} {
+    bind 0.0.0.0
+    file /etc/coredns/zones/{{ zone.name }}.db
+    prometheus :{{ dns_coredns_metrics_container_port }}
+    log
+    errors
+}
+{% endfor %}

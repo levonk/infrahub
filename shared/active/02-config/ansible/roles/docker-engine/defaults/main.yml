@@ -1,0 +1,47 @@
+---
+# defaults file for docker-engine
+# Neutral, overridable defaults. No localnet-specific paths.
+
+# ---------------------------------------------------------------------------
+# Docker Engine Configuration
+# ---------------------------------------------------------------------------
+docker_engine_version: ""
+docker_engine_install_method: "repo"
+
+# ---------------------------------------------------------------------------
+# Admin User & Groups
+# ---------------------------------------------------------------------------
+docker_engine_admin_user: "{{ cloud_server_admin_user | default('cuser') }}"
+docker_engine_group: "docker"
+docker_engine_gid: ""
+
+# ---------------------------------------------------------------------------
+# Daemon Configuration
+# ---------------------------------------------------------------------------
+docker_engine_daemon_config_path: "/etc/docker/daemon.json"
+docker_engine_daemon_config_owner: "root"
+docker_engine_daemon_config_group: "root"
+docker_engine_daemon_config_mode: "0644"
+
+# Security hardening flags
+docker_engine_userns_remap: "default"
+docker_engine_no_new_privileges: true
+docker_engine_live_restore: true
+docker_engine_log_driver: "json-file"
+docker_engine_log_opts:
+  max-size: "10m"
+  max-file: "3"
+
+# Additional daemon.json settings (merged with defaults)
+docker_engine_extra_daemon_config: {}
+
+# ---------------------------------------------------------------------------
+# Service Configuration
+# ---------------------------------------------------------------------------
+docker_engine_service_name: "docker"
+
+# ---------------------------------------------------------------------------
+# Verification
+# ---------------------------------------------------------------------------
+docker_engine_verify_install: true
+docker_engine_verify_timeout_seconds: 30

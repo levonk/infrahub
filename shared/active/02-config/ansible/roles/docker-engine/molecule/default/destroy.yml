@@ -1,0 +1,17 @@
+---
+- name: Destroy
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Destroy molecule instance(s)
+      community.docker.docker_container:
+        name: instance
+        state: absent
+        force_kill: true
+      register: destroy_result
+      ignore_errors: true
+
+    - name: Wait for instance(s) deletion to complete
+      ansible.builtin.wait_for:
+        timeout: 60
+      when: destroy_result.changed

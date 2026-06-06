@@ -1,0 +1,58 @@
+---
+# Install Netbird by downloading the compiled binary directly.
+# Used for Alpine and other distributions without native packages.
+
+- name: Ensure required packages are present (binary install)
+  ansible.builtin.package:
+    name:
+      - curl
+      - ca-certificates
+    state: present
+  become: true
+
+- name: Map architecture for Netbird binary download
+  ansible.builtin.set_fact:
+    _vpn_netbird_download_arch: "{{ _arch_map[ansible_facts.architecture] | default(ansible_facts.architecture) }}"
+  vars:
+    _arch_map:
+      x86_64: amd64
+      aarch64: arm64
+
+- name: Set Netbird download URL
+  ansible.builtin.set_fact:
+    _vpn_netbird_download_url: "{{ vpn_netbird_binary_url_base }}/{{ vpn_netbird_version }}/netbird_{{ vpn_netbird_version }}_linux_{{ _vpn_netbird_download_arch }}.tar.gz"  # noqa: yaml[line-length]
+
+- name: Create Netbird install directory
+  ansible.builtin.file:
+    path: "{{ vpn_netbird_binary_install_dir }}"
+    state: directory
+    mode: "0755"
+  become: true
+
+- name: Download Netbird binary archive
+  ansible.builtin.get_url:
+    url: "{{ _vpn_netbird_download_url }}"
+    dest: "/tmp/netbird-linux.tar.gz"
+    mode: "0644"
+  become: true
+
+- name: Extract Netbird binary
+  ansible.builtin.unarchive:
+    src: "/tmp/netbird-linux.tar.gz"
+    dest: "{{ vpn_netbird_binary_install_dir }}"
+    remote_src: true
+    mode: "0755"
+  become: true
+
+- name: Clean up downloaded archive
+  ansible.builtin.file:
+    path: "/tmp/netbird-linux.tar.gz"
+    state: absent
+  become: true
+
+- name: Ensure netbird binary is executable
+  ansible.builtin.file:
+    path: "{{ vpn_netbird_binary_install_dir }}/netbird"
+    state: file
+    mode: "0755"
+  become: true

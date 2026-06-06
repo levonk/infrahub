@@ -1,0 +1,128 @@
+---
+# tasks file for nix-core-tools
+
+# ---------------------------------------------------------------------------
+# Ensure Nix is available for the admin user
+# ---------------------------------------------------------------------------
+- name: Ensure admin user Nix profile directory exists
+  ansible.builtin.file:
+    path: "{{ nix_core_tools_nix_profile_path }}"
+    state: directory
+    owner: "{{ nix_core_tools_admin_user }}"
+    group: "{{ nix_core_tools_admin_user }}"
+    mode: "0755"
+  become: true
+
+# ---------------------------------------------------------------------------
+# Install core tools via Nix
+# ---------------------------------------------------------------------------
+- name: Check if Nix packages are installed
+  ansible.builtin.command:
+    cmd: "{{ nix_core_tools_nix_bin_path }}/nix-env -q {{ item }}"
+  register: nix_core_tools_pkg_check
+  loop: "{{ nix_core_tools_packages }}"
+  loop_control:
+    label: "{{ item }}"
+
+- name: Install missing Nix packages
+  ansible.builtin.command:
+    cmd: "{{ nix_core_tools_nix_bin_path }}/nix-env -iA nixpkgs.{{ item.item }}"
+  become_user: "{{ nix_core_tools_admin_user }}"
+  become: true
+  environment:
+    PATH: "{{ nix_core_tools_nix_bin_path }}:{{ ansible_env.PATH | default('/usr/local/bin:/usr/bin:/bin') }}"
+  when:
+    - nix_core_tools_pkg_check.results is defined
+    - item.rc != 0
+  loop: "{{ nix_core_tools_pkg_check.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+# ---------------------------------------------------------------------------
+# Set zsh as default shell for admin user
+# ---------------------------------------------------------------------------
+- name: Set zsh as default shell for admin user
+  ansible.builtin.user:
+    name: "{{ nix_core_tools_admin_user }}"
+    shell: "{{ nix_core_tools_zsh_path }}"
+  become: true
+  when:
+    - nix_core_tools_set_zsh_default | bool
+    - "'zsh' in nix_core_tools_packages"
+
+# ---------------------------------------------------------------------------
+# Time Sync (systemd-timesyncd)
+# ---------------------------------------------------------------------------
+- name: Configure systemd-timesyncd
+  ansible.builtin.template:
+    src: timesyncd.conf.j2
+    dest: /etc/systemd/timesyncd.conf
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  when: nix_core_tools_time_sync_method == "systemd-timesyncd"
+  notify:
+    - restart systemd-timesyncd
+
+- name: Ensure systemd-timesyncd is enabled and running
+  ansible.builtin.systemd:
+    name: systemd-timesyncd
+    state: started
+    enabled: true
+  become: true
+  when: nix_core_tools_time_sync_method == "systemd-timesyncd"
+
+# ---------------------------------------------------------------------------
+# Verification
+# ---------------------------------------------------------------------------
+- name: Verify zsh is available
+  ansible.builtin.command:
+    cmd: "{{ nix_core_tools_zsh_path }} --version"
+  become_user: "{{ nix_core_tools_admin_user }}"
+  become: true
+  changed_when: false
+  when:
+    - nix_core_tools_verify_install | bool
+    - "'zsh' in nix_core_tools_packages"
+
+- name: Verify neovim is available
+  ansible.builtin.command:
+    cmd: "{{ nix_core_tools_nix_profile_bin }}/nvim --version"
+  become_user: "{{ nix_core_tools_admin_user }}"
+  become: true
+  changed_when: false
+  when:
+    - nix_core_tools_verify_install | bool
+    - "'neovim' in nix_core_tools_packages"
+
+- name: Verify mosh is available
+  ansible.builtin.command:
+    cmd: "{{ nix_core_tools_nix_profile_bin }}/mosh --version"
+  become_user: "{{ nix_core_tools_admin_user }}"
+  become: true
+  changed_when: false
+  when:
+    - nix_core_tools_verify_install | bool
+    - "'mosh' in nix_core_tools_packages"
+
+- name: Verify devbox is available
+  ansible.builtin.command:
+    cmd: "{{ nix_core_tools_nix_profile_bin }}/devbox --version"
+  become_user: "{{ nix_core_tools_admin_user }}"
+  become: true
+  changed_when: false
+  when:
+    - nix_core_tools_verify_install | bool
+    - "'devbox' in nix_core_tools_packages"
+
+- name: Verify time sync status
+  ansible.builtin.command:
+    cmd: timedatectl status
+  become: true
+  changed_when: false
+  when: nix_core_tools_verify_install | bool
+
+- name: Log installed tool versions
+  ansible.builtin.debug:
+    msg: "Core tools installed via Nix for {{ nix_core_tools_admin_user }}"

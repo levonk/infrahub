@@ -1,0 +1,10 @@
+---
+# handlers file for common-fail2ban
+
+- name: Restart fail2ban
+  ansible.builtin.systemd:
+    name: "{{ fail2ban_service_name }}"
+    state: restarted
+    enabled: true
+  listen: restart fail2ban
+  become: true

@@ -60,15 +60,12 @@
 - name: Ensure admin group exists
   ansible.builtin.group:
     name: "{{ host_os_bootstrap_admin_user }}"
-    gid: "{{ host_os_bootstrap_admin_gid | int }}"
     state: present
   become: true
-  ignore_errors: true
 
 - name: Ensure admin user exists
   ansible.builtin.user:
     name: "{{ host_os_bootstrap_admin_user }}"
-    uid: "{{ host_os_bootstrap_admin_uid | int }}"
     group: "{{ host_os_bootstrap_admin_user }}"
     groups: "{{ host_os_bootstrap_admin_groups }}"
     shell: "{{ host_os_bootstrap_admin_shell }}"

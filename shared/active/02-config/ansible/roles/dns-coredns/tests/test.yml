@@ -1,0 +1,14 @@
+---
+# Test playbook for dns-coredns role
+# Run with: ansible-playbook -i localhost, -c local tests/test.yml --check --diff
+
+- name: "Test dns-coredns role"
+  hosts: all
+  become: true
+  vars:
+    dns_coredns_verify_health: false
+    dns_coredns_upstreams:
+      - "1.1.1.1"
+      - "1.0.0.1"
+  roles:
+    - role: ../dns-coredns

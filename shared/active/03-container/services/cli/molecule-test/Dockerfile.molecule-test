@@ -1,0 +1,41 @@
+# Molecule test environment for Ansible role testing
+# DO NOT CHANGE THIS LINE!!!
+FROM localnet-base-debian:latest
+
+# Labels for metadata and security scanning
+LABEL org.opencontainers.image.title="Molecule Test Environment" \
+      org.opencontainers.image.description="Ansible Molecule test environment with Docker support" \
+      org.opencontainers.image.version="1.0.0" \
+      org.opencontainers.image.vendor="LocalNet" \
+      maintainer="devops@localnet"
+
+# Build-time arguments for user configuration
+ARG PUID=1000
+ARG PGID=1000
+ARG TZ=UTC
+
+# Security hardening: prevent privilege escalation
+ENV DEBIAN_FRONTEND=noninteractive \
+    LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8 \
+    PUID=${PUID} \
+    PGID=${PGID} \
+    TZ=${TZ} \
+    PYTHONUNBUFFERED=1
+
+# Install Python packages for Ansible and Molecule testing
+# Using --break-system-packages for PEP 668 compliance in Debian
+RUN pip3 install --no-cache-dir --break-system-packages \
+    ansible \
+    docker \
+    pytest-testinfra
+
+# Create workspace directory for Molecule tests
+RUN mkdir -p /workspace && \
+    chown -R cuser:cuser /workspace
+
+# Set working directory
+WORKDIR /workspace
+
+# Default command for interactive use
+CMD ["/bin/bash"]

@@ -33,12 +33,14 @@
       tags: ["bootstrap", "os"]
 
     - role: nix-installation
+      when: ansible_os_family != "RedHat"
       tags: ["bootstrap", "nix"]
 
     - role: docker-engine
       tags: ["bootstrap", "docker"]
 
     - role: nix-core-tools
+      when: ansible_os_family != "RedHat"
       tags: ["bootstrap", "tools"]
 
   post_tasks:
