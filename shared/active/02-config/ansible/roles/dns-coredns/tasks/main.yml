@@ -29,6 +29,11 @@
     name: "{{ dns_coredns_volume_name }}"
     state: present
 
+- name: Ensure Docker network exists
+  community.docker.docker_network:
+    name: "{{ dns_coredns_network_name }}"
+    state: present
+
 # ============================================================================
 # Container Deployment
 # ============================================================================
