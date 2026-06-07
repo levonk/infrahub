@@ -72,13 +72,13 @@ All development and deployment commands must work through `devbox run ...` per A
 | 05-001 | Deploy bootstrap to OCI host | feature/current/cloud-server/story-05-001-deploy-bootstrap | [x] Done | 03-001, 04-001, 04-003 | false | ansible, deploy |
 | 05-002 | Deploy VPN layer to OCI host | feature/current/cloud-server/story-05-002-deploy-vpn | [x] Done | 03-002, 05-001 | false | ansible, deploy |
 | 05-003 | Deploy infrastructure services to OCI | feature/current/cloud-server/story-05-003-deploy-infra | [x] Done | 03-003, 05-002 | false | ansible, deploy |
-| 05-004 | Deploy VM layer to OCI | feature/current/cloud-server/story-05-004-deploy-vms | [ ] Todo | 03-004, 05-003 | false | ansible, deploy |
+| 05-004 | Deploy VM layer to OCI | feature/current/cloud-server/story-05-004-deploy-vms | [!] Blocked | 03-004, 05-003 | false | ansible, deploy |
 
 ## Phase 06 — Validation & Final Testing
 
 | Story ID | Story Title | Branch | Status | Dependencies | Parallel-safe | Modules |
 | -------- | ----------- | ------ | ------ | ------------ | ------------- | ------- |
-| 06-001 | Validate host bootstrap (SSH, Nix, Docker) | feature/current/cloud-server/story-06-001-validate-bootstrap | [ ] Todo | 05-001 | true | test, validation |
+| 06-001 | Validate host bootstrap (SSH, Nix, Docker) | feature/current/cloud-server/story-06-001-validate-bootstrap | [~] In-Progress | 05-001 | true | test, validation |
 | 06-002 | Validate VPN mesh connectivity | feature/current/cloud-server/story-06-002-validate-vpn | [ ] Todo | 05-002 | true | test, validation |
 | 06-003 | Validate infrastructure services | feature/current/cloud-server/story-06-003-validate-infra | [ ] Todo | 05-003 | true | test, validation |
 | 06-004 | Validate VM workloads & routing | feature/current/cloud-server/story-06-004-validate-vms | [ ] Todo | 05-004 | true | test, validation |
