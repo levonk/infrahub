@@ -16,23 +16,14 @@
 # ---------------------------------------------------------------------------
 # Install core tools via Nix
 # ---------------------------------------------------------------------------
-- name: Check if Nix packages are installed
-  ansible.builtin.command:
-    cmd: sudo -u "{{ nix_core_tools_admin_user }}" {{ nix_core_tools_nix_bin_path }}/nix-env -q {{ item }}"
-  become: true
-  changed_when: false
-  failed_when: false
-  register: nix_core_tools_pkg_check
-  loop: "{{ nix_core_tools_packages }}"
-  loop_control:
-    label: "{{ item }}"
 
-- name: Install missing Nix packages
+
+- name: Install Nix packages
   ansible.builtin.command:
-    cmd: sudo -u "{{ nix_core_tools_admin_user }}" {{ nix_core_tools_nix_bin_path }}/nix-env -iA nixpkgs.{{ item }}"
+    cmd: "nix-env -iA nixpkgs.{{ item }}"
   become: true
   environment:
-    PATH: "{{ nix_core_tools_nix_bin_path }}:{{ ansible_env.PATH | default('/usr/local/bin:/usr/bin:/bin') }}"
+    PATH: "/nix/var/nix/profiles/default/bin:{{ ansible_env.PATH | default('/usr/local/bin:/usr/bin:/bin') }}"
   loop: "{{ nix_core_tools_packages }}"
   loop_control:
     label: "{{ item }}"
@@ -78,7 +69,7 @@
 # ---------------------------------------------------------------------------
 - name: Verify zsh is available
   ansible.builtin.command:
-    cmd: sudo -u "{{ nix_core_tools_admin_user }}" {{ nix_core_tools_zsh_path }} --version
+    cmd: "{{ nix_core_tools_zsh_path }} --version"
   become: true
   changed_when: false
   when:
@@ -87,7 +78,7 @@
 
 - name: Verify neovim is available
   ansible.builtin.command:
-    cmd: sudo -u "{{ nix_core_tools_admin_user }}" {{ nix_core_tools_nix_profile_bin }}/nvim --version
+    cmd: "{{ nix_core_tools_nix_profile_bin }}/nvim --version"
   become: true
   changed_when: false
   when:
@@ -96,7 +87,7 @@
 
 - name: Verify mosh is available
   ansible.builtin.command:
-    cmd: sudo -u "{{ nix_core_tools_admin_user }}" {{ nix_core_tools_nix_profile_bin }}/mosh --version
+    cmd: "{{ nix_core_tools_nix_profile_bin }}/mosh --version"
   become: true
   changed_when: false
   when:
@@ -105,7 +96,7 @@
 
 - name: Verify devbox is available
   ansible.builtin.command:
-    cmd: sudo -u "{{ nix_core_tools_admin_user }}" {{ nix_core_tools_nix_profile_bin }}/devbox --version
+    cmd: "{{ nix_core_tools_nix_profile_bin }}/devbox help"
   become: true
   changed_when: false
   when:

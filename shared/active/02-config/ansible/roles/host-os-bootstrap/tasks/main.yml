@@ -55,6 +55,34 @@
   become: true
 
 # ---------------------------------------------------------------------------
+# SELinux Configuration (for RedHat family - required for multi-user Nix)
+# ---------------------------------------------------------------------------
+- name: Check if SELinux is installed
+  ansible.builtin.stat:
+    path: /etc/selinux/config
+  register: selinux_config
+  when: ansible_os_family == "RedHat"
+
+- name: Set SELinux to permissive mode (required for multi-user Nix)
+  ansible.posix.selinux:
+    policy: targeted
+    state: permissive
+  when:
+    - ansible_os_family == "RedHat"
+    - selinux_config.stat.exists
+  become: true
+
+- name: Persist SELinux permissive mode in config
+  ansible.builtin.lineinfile:
+    path: /etc/selinux/config
+    regexp: '^SELINUX='
+    line: 'SELINUX=permissive'
+  when:
+    - ansible_os_family == "RedHat"
+    - selinux_config.stat.exists
+  become: true
+
+# ---------------------------------------------------------------------------
 # Admin User
 # ---------------------------------------------------------------------------
 - name: Ensure admin group exists
@@ -161,7 +189,7 @@
     owner: root
     group: root
     mode: "0644"
-  when: 
+  when:
     - ansible_os_family == "Debian"
     - host_os_bootstrap_unattended_upgrades_enabled | bool
   become: true

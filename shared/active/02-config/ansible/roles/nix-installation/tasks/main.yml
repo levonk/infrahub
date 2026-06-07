@@ -34,7 +34,7 @@
   failed_when: false
 
 # ---------------------------------------------------------------------------
-# Download and run official Nix installer (daemon mode)
+# Download and run official Nix installer (multi-user daemon mode)
 # ---------------------------------------------------------------------------
 - name: Download Nix installer
   ansible.builtin.get_url:
@@ -43,15 +43,13 @@
     mode: "0755"
   when: not nix_installation_nix_dir.stat.exists
 
-- name: Run Nix single-user installer (simpler for Docker containers)
+- name: Run Nix multi-user installer (daemon mode as per requirements)
   ansible.builtin.command:
-    cmd: bash /tmp/nix-installer.sh --no-daemon
+    cmd: bash /tmp/nix-installer.sh --daemon
   args:
     creates: /nix
   become: true
   when: not nix_installation_nix_dir.stat.exists
-  environment:
-    NIX_INSTALLER_NO_MODIFY_PROFILE: "1"
 
 - name: Remove installer script
   ansible.builtin.file:
@@ -111,18 +109,18 @@
     name: "{{ nix_installation_daemon_service_name }}"
     state: started
     enabled: true
+    daemon_reload: true
   become: true
-  ignore_errors: true
 
 # ---------------------------------------------------------------------------
 # Verify nix CLI is available and functional
 # ---------------------------------------------------------------------------
 - name: Verify nix --version returns expected output
   ansible.builtin.command:
-    cmd: /nix/var/nix/profiles/default/bin/nix --version
+    cmd: nix --version
+  become: true
   register: nix_installation_version_check
   changed_when: false
-  become: true
 
 - name: Assert Nix version matches expected
   ansible.builtin.assert:
@@ -143,7 +141,7 @@
 
 - name: Verify flakes are enabled
   ansible.builtin.command:
-    cmd: /nix/var/nix/profiles/default/bin/nix --extra-experimental-features nix-command registry list
+    cmd: nix --extra-experimental-features nix-command registry list
   register: nix_installation_flakes_check
   changed_when: false
   become: true
