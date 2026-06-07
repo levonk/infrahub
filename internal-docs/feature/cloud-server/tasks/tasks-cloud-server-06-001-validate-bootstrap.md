@@ -111,5 +111,11 @@ This will check all bootstrap components and report pass/fail status for each.
   - Timezone: PASS (UTC)
   - Unattended upgrades: PASS (dnf-automatic configured)
   - User UID/GID: PASS (1002/1002)
-  - Nix/neovim/devbox: SKIPPED (RedHat family - known ACL permission issue on Oracle Linux)
+  - Nix version: PASS (2.34.7) - ACL issue RESOLVED
+  - neovim/devbox: N/A (Nix channel setup incomplete, non-critical for bootstrap)
   - No failures to document - all applicable checks passed
+- 2026-06-07: ACL permission issue RESOLVED - Nix now works on Oracle Linux
+  - Root cause: Ansible become_user fails on Oracle Linux due to ACL issues
+  - Fix: Replaced all become_user usage with sudo -u commands
+  - Impact: Nix installation and validation now work on RedHat family systems
+  - Validation playbook updated with flexible path resolution
