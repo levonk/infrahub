@@ -7,7 +7,7 @@ prd_file: "shared/active/08-docs/reqs/2026/20260529-cloud-server.md"
 phase: 6
 parallel_id: 3
 branch: "feature/current/cloud-server/story-06-003-validate-infra"
-status: "in_progress"
+status: "done"
 assignee: ""
 reviewer: ""
 dependencies: ["05-003"]
