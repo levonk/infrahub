@@ -7,7 +7,7 @@ prd_file: "shared/active/08-docs/reqs/2026/20260529-cloud-server.md"
 phase: 6
 parallel_id: 4
 branch: "feature/current/cloud-server/story-06-004-validate-vms"
-status: "todo"
+status: "blocked"
 assignee: ""
 reviewer: ""
 dependencies: ["05-004"]
