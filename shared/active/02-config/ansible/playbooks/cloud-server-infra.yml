@@ -67,8 +67,9 @@
       tags: ["verify", "bootstrap", "docker"]
 
   roles:
-    - role: vpn-netbird-control
-      tags: ["infra", "vpn", "netbird", "control"]
+    # Temporarily disabled due to NetBird OIDC configuration bug
+    # - role: vpn-netbird-control
+    #   tags: ["infra", "vpn", "netbird", "control"]
 
     - role: dns-coredns
       tags: ["infra", "dns", "coredns"]
@@ -87,53 +88,54 @@
       check_mode: false
       tags: ["verify", "docker"]
 
-    - name: "Verify Netbird management container is running"
-      ansible.builtin.command:
-        cmd: "docker inspect --format='{{ '{{' }} .State.Status {{ '}}' }}' {{ netbird_control_mgmt_container_name }}"
-      become: true
-      become_user: "{{ cloud_server_admin_user }}"
-      register: netbird_mgmt_container_check
-      changed_when: false
-      ignore_errors: true
-      tags: ["verify", "netbird", "containers"]
+    # Netbird verification tasks temporarily disabled
+    # - name: "Verify Netbird management container is running"
+    #   ansible.builtin.command:
+    #     cmd: "docker inspect --format='{{ '{{' }} .State.Status {{ '}}' }}' {{ netbird_control_mgmt_container_name }}"
+    #   become: true
+    #   become_user: "{{ cloud_server_admin_user }}"
+    #   register: netbird_mgmt_container_check
+    #   changed_when: false
+    #   ignore_errors: true
+    #   tags: ["verify", "netbird", "containers"]
 
-    - name: "Warn if Netbird management container is not running"
-      ansible.builtin.debug:
-        msg: "WARNING: Netbird management container ({{ netbird_control_mgmt_container_name }}) is not running."
-      when: netbird_mgmt_container_check.rc != 0 or netbird_mgmt_container_check.stdout != "running"
-      tags: ["verify", "netbird", "containers"]
+    # - name: "Warn if Netbird management container is not running"
+    #   ansible.builtin.debug:
+    #     msg: "WARNING: Netbird management container ({{ netbird_control_mgmt_container_name }}) is not running."
+    #   when: netbird_mgmt_container_check.rc != 0 or netbird_mgmt_container_check.stdout != "running"
+    #   tags: ["verify", "netbird", "containers"]
 
-    - name: "Verify Netbird signal container is running"
-      ansible.builtin.command:
-        cmd: "docker inspect --format='{{ '{{' }} .State.Status {{ '}}' }}' {{ netbird_control_signal_container_name }}"
-      become: true
-      become_user: "{{ cloud_server_admin_user }}"
-      register: netbird_signal_container_check
-      changed_when: false
-      ignore_errors: true
-      tags: ["verify", "netbird", "containers"]
+    # - name: "Verify Netbird signal container is running"
+    #   ansible.builtin.command:
+    #     cmd: "docker inspect --format='{{ '{{' }} .State.Status {{ '}}' }}' {{ netbird_control_signal_container_name }}"
+    #   become: true
+    #   become_user: "{{ cloud_server_admin_user }}"
+    #   register: netbird_signal_container_check
+    #   changed_when: false
+    #   ignore_errors: true
+    #   tags: ["verify", "netbird", "containers"]
 
-    - name: "Warn if Netbird signal container is not running"
-      ansible.builtin.debug:
-        msg: "WARNING: Netbird signal container ({{ netbird_control_signal_container_name }}) is not running."
-      when: netbird_signal_container_check.rc != 0 or netbird_signal_container_check.stdout != "running"
-      tags: ["verify", "netbird", "containers"]
+    # - name: "Warn if Netbird signal container is not running"
+    #   ansible.builtin.debug:
+    #     msg: "WARNING: Netbird signal container ({{ netbird_control_signal_container_name }}) is not running."
+    #   when: netbird_signal_container_check.rc != 0 or netbird_signal_container_check.stdout != "running"
+    #   tags: ["verify", "netbird", "containers"]
 
-    - name: "Verify Netbird relay container is running"
-      ansible.builtin.command:
-        cmd: "docker inspect --format='{{ '{{' }} .State.Status {{ '}}' }}' {{ netbird_control_relay_container_name }}"
-      become: true
-      become_user: "{{ cloud_server_admin_user }}"
-      register: netbird_relay_container_check
-      changed_when: false
-      ignore_errors: true
-      tags: ["verify", "netbird", "containers"]
+    # - name: "Verify Netbird relay container is running"
+    #   ansible.builtin.command:
+    #     cmd: "docker inspect --format='{{ '{{' }} .State.Status {{ '}}' }}' {{ netbird_control_relay_container_name }}"
+    #   become: true
+    #   become_user: "{{ cloud_server_admin_user }}"
+    #   register: netbird_relay_container_check
+    #   changed_when: false
+    #   ignore_errors: true
+    #   tags: ["verify", "netbird", "containers"]
 
-    - name: "Warn if Netbird relay container is not running"
-      ansible.builtin.debug:
-        msg: "WARNING: Netbird relay container ({{ netbird_control_relay_container_name }}) is not running."
-      when: netbird_relay_container_check.rc != 0 or netbird_relay_container_check.stdout != "running"
-      tags: ["verify", "netbird", "containers"]
+    # - name: "Warn if Netbird relay container is not running"
+    #   ansible.builtin.debug:
+    #     msg: "WARNING: Netbird relay container ({{ netbird_control_relay_container_name }}) is not running."
+    #   when: netbird_relay_container_check.rc != 0 or netbird_relay_container_check.stdout != "running"
+    #   tags: ["verify", "netbird", "containers"]
 
     - name: "Verify CoreDNS container is running"
       ansible.builtin.command:

@@ -56,7 +56,7 @@
       DATA_DIR: /app/data
       PUID: "{{ localnet_puid }}"
       PGID: "{{ localnet_pgid }}"
-    security_opt:
+    security_opts:
       - no-new-privileges:true
     cap_drop:
       - ALL
