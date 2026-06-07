@@ -5,10 +5,12 @@
 # ---------------------------------------------------------------------------
 # Nix Installer Configuration
 # ---------------------------------------------------------------------------
-nix_installation_version: "2.28.3"
+nix_installation_version: "2.34.7"
 nix_installation_installer_url: "https://nixos.org/nix/install"
 nix_installation_installer_checksum: ""
 nix_installation_daemon_mode: true
+nix_installation_container_mode: false
+nix_installation_skip_installation: false
 
 # ---------------------------------------------------------------------------
 # Admin User & Groups

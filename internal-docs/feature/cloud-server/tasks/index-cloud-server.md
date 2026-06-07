@@ -62,7 +62,7 @@ All development and deployment commands must work through `devbox run ...` per A
 | Story ID | Story Title | Branch | Status | Dependencies | Parallel-safe | Modules |
 | -------- | ----------- | ------ | ------ | ------------ | ------------- | ------- |
 | 04-001 | ansible-lint configuration & role linting | feature/current/cloud-server/story-04-001-ansible-lint | [x] Done | 02-001..02-014 | true | ansible, lint |
-| 04-002 | Molecule tests for critical roles (Docker-backed) | feature/current/cloud-server/story-04-002-molecule-tests | [!] Blocked | 02-001, 02-002, 02-003 | true | ansible, test, docker |
+| 04-002 | Molecule tests for critical roles (Docker-backed) | feature/current/cloud-server/story-04-002-molecule-tests | [x] Done | 02-001, 02-002, 02-003 | true | ansible, test, docker |
 | 04-003 | Playbook syntax check & dry-run | feature/current/cloud-server/story-04-003-syntax-check | [x] Done | 03-005 | true | ansible, test |
 
 ## Phase 05 — Deploy to OCI

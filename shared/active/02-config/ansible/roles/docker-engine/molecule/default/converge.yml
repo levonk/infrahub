@@ -2,6 +2,8 @@
 - name: Converge
   hosts: all
   become: true
+  vars:
+    docker_engine_skip_installation: true
   tasks:
     - name: Update apt cache and install curl
       ansible.builtin.apt:

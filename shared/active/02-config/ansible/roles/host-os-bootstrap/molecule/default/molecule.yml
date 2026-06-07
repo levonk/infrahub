@@ -20,5 +20,8 @@ provisioner:
     defaults:
       remote_tmp: /tmp/.ansible/tmp
       ALLOW_BROKEN_CONDITIONALS: true
+      roles_path: "/workspace/shared/active/02-config/ansible/roles:/workspace/levonk/active/02-config/ansible/roles"
+  env:
+    ANSIBLE_ROLES_PATH: "/workspace/shared/active/02-config/ansible/roles:/workspace/levonk/active/02-config/ansible/roles"
 verifier:
   name: ansible

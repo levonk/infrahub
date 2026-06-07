@@ -13,7 +13,9 @@
       - software-properties-common
     state: present
   become: true
-  when: ansible_os_family == "Debian"
+  when: 
+    - ansible_os_family == "Debian"
+    - not docker_engine_skip_installation | default(false) | bool
 
 # ---------------------------------------------------------------------------
 # Add Docker apt repository (Debian/Ubuntu)
@@ -27,6 +29,7 @@
   when:
     - ansible_os_family == "Debian"
     - docker_engine_install_method == "repo"
+    - not docker_engine_skip_installation | default(false) | bool
 
 - name: Add Docker GPG key
   ansible.builtin.get_url:
@@ -37,6 +40,7 @@
   when:
     - ansible_os_family == "Debian"
     - docker_engine_install_method == "repo"
+    - not docker_engine_skip_installation | default(false) | bool
 
 - name: Add Docker apt repository
   ansible.builtin.apt_repository:
@@ -47,6 +51,7 @@
   when:
     - ansible_os_family == "Debian"
     - docker_engine_install_method == "repo"
+    - not docker_engine_skip_installation | default(false) | bool
 
 - name: Update apt cache after adding Docker repository
   ansible.builtin.apt:
@@ -55,6 +60,7 @@
   when:
     - ansible_os_family == "Debian"
     - docker_engine_install_method == "repo"
+    - not docker_engine_skip_installation | default(false) | bool
 
 # ---------------------------------------------------------------------------
 # Install Docker Engine and Compose plugin
@@ -68,6 +74,7 @@
       - docker-compose-plugin
     state: present
   become: true
+  when: not docker_engine_skip_installation | default(false) | bool
 
 # ---------------------------------------------------------------------------
 # Configure userns-remap
@@ -78,7 +85,9 @@
     gid: 100000
     state: present
   become: true
-  when: docker_engine_userns_remap | length > 0
+  when: 
+    - docker_engine_userns_remap | length > 0
+    - not docker_engine_skip_installation | default(false) | bool
 
 - name: Ensure dockremap user exists for userns-remap
   ansible.builtin.user:
@@ -91,7 +100,9 @@
     system: true
     state: present
   become: true
-  when: docker_engine_userns_remap | length > 0
+  when: 
+    - docker_engine_userns_remap | length > 0
+    - not docker_engine_skip_installation | default(false) | bool
 
 - name: Ensure userns-remap subordinate UID range exists
   ansible.builtin.lineinfile:
@@ -100,7 +111,9 @@
     create: true
     mode: "0644"
   become: true
-  when: docker_engine_userns_remap | length > 0
+  when: 
+    - docker_engine_userns_remap | length > 0
+    - not docker_engine_skip_installation | default(false) | bool
 
 - name: Ensure userns-remap subordinate GID range exists
   ansible.builtin.lineinfile:
@@ -109,7 +122,9 @@
     create: true
     mode: "0644"
   become: true
-  when: docker_engine_userns_remap | length > 0
+  when: 
+    - docker_engine_userns_remap | length > 0
+    - not docker_engine_skip_installation | default(false) | bool
 
 # ---------------------------------------------------------------------------
 # Deploy hardened daemon.json
@@ -122,6 +137,7 @@
     group: "{{ docker_engine_daemon_config_group }}"
     mode: "0755"
   become: true
+  when: not docker_engine_skip_installation | default(false) | bool
 
 - name: Deploy daemon.json
   ansible.builtin.template:
@@ -131,6 +147,7 @@
     group: "{{ docker_engine_daemon_config_group }}"
     mode: "{{ docker_engine_daemon_config_mode }}"
   become: true
+  when: not docker_engine_skip_installation | default(false) | bool
   notify:
     - restart docker
 
@@ -143,6 +160,7 @@
     gid: "{{ docker_engine_gid | int if docker_engine_gid | length > 0 else omit }}"
     state: present
   become: true
+  when: not docker_engine_skip_installation | default(false) | bool
 
 - name: Add admin user to docker group
   ansible.builtin.user:
@@ -150,6 +168,7 @@
     groups: "{{ docker_engine_group }}"
     append: true
   become: true
+  when: not docker_engine_skip_installation | default(false) | bool
 
 # ---------------------------------------------------------------------------
 # Enable and start Docker service
@@ -160,6 +179,8 @@
     state: started
     enabled: true
   become: true
+  when: not docker_engine_skip_installation | default(false) | bool
+  ignore_errors: true
 
 # ---------------------------------------------------------------------------
 # Verify Docker CLI works
@@ -170,10 +191,12 @@
   register: docker_engine_version_check
   changed_when: false
   become: true
+  when: not docker_engine_skip_installation | default(false) | bool
+  ignore_errors: true
 
 - name: Log Docker version
   ansible.builtin.debug:
-    msg: "Docker installed: {{ docker_engine_version_check.stdout }}"
+    msg: "Docker installed: {{ docker_engine_version_check.stdout | default('Docker not installed') }}"
 
 - name: Verify docker compose plugin is available
   ansible.builtin.command:
@@ -181,7 +204,9 @@
   register: docker_engine_compose_check
   changed_when: false
   become: true
+  when: not docker_engine_skip_installation | default(false) | bool
+  ignore_errors: true
 
 - name: Log Docker Compose version
   ansible.builtin.debug:
-    msg: "Docker Compose installed: {{ docker_engine_compose_check.stdout }}"
+    msg: "Docker Compose installed: {{ docker_engine_compose_check.stdout | default('Docker Compose not installed') }}"

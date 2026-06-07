@@ -162,6 +162,61 @@ molecule-verify role:
     @echo "Running Molecule verify for role: {{role}}..."
     cd {{MOLECULE_DIR}}/{{role}} && molecule verify
 
+# -- Docker-based Molecule Tests (bypass Nix dependency issues) --
+
+MOLECULE_DOCKER_IMAGE := "molecule-test-runner:latest"
+MOLECULE_DOCKER_CONTAINER := "molecule-test-env"
+MOLECULE_DOCKERFILE := CONTAINER_ROOT + "/Dockerfile.molecule"
+
+molecule-docker-build:
+    @echo "Building Molecule Docker image..."
+    docker build -t {{MOLECULE_DOCKER_IMAGE}} -f {{MOLECULE_DOCKERFILE}} {{CONTAINER_ROOT}}
+
+molecule-docker-test role:
+    @echo "Running Molecule test for role: {{role}} in Docker container..."
+    docker run --rm \
+        -v {{INFRAHUB_ROOT}}:/workspace \
+        -v /var/run/docker.sock:/var/run/docker.sock \
+        --privileged \
+        {{MOLECULE_DOCKER_IMAGE}} \
+        bash -c "cd /workspace/shared/active/02-config/ansible/roles/{{role}} && molecule test"
+
+molecule-docker-converge role:
+    @echo "Running Molecule converge for role: {{role}} in Docker container..."
+    docker run --rm \
+        -v {{INFRAHUB_ROOT}}:/workspace \
+        -v /var/run/docker.sock:/var/run/docker.sock \
+        --privileged \
+        {{MOLECULE_DOCKER_IMAGE}} \
+        bash -c "cd /workspace/shared/active/02-config/ansible/roles/{{role}} && molecule converge"
+
+molecule-docker-verify role:
+    @echo "Running Molecule verify for role: {{role}} in Docker container..."
+    docker run --rm \
+        -v {{INFRAHUB_ROOT}}:/workspace \
+        -v /var/run/docker.sock:/var/run/docker.sock \
+        --privileged \
+        {{MOLECULE_DOCKER_IMAGE}} \
+        bash -c "cd /workspace/shared/active/02-config/ansible/roles/{{role}} && molecule verify"
+
+molecule-docker-destroy role:
+    @echo "Destroying Molecule environment for role: {{role}} in Docker container..."
+    docker run --rm \
+        -v {{INFRAHUB_ROOT}}:/workspace \
+        -v /var/run/docker.sock:/var/run/docker.sock \
+        --privileged \
+        {{MOLECULE_DOCKER_IMAGE}} \
+        bash -c "cd /workspace/shared/active/02-config/ansible/roles/{{role}} && molecule destroy"
+
+molecule-docker-shell:
+    @echo "Starting interactive shell in Molecule Docker container..."
+    docker run --rm -it \
+        -v {{INFRAHUB_ROOT}}:/workspace \
+        -v /var/run/docker.sock:/var/run/docker.sock \
+        --privileged \
+        {{MOLECULE_DOCKER_IMAGE}} \
+        bash
+
 # -- Docker Test Environment for Ansible --
 
 ansible-test-env-build:

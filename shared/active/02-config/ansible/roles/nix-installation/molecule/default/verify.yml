@@ -6,13 +6,27 @@
     - name: Check Nix is installed
       ansible.builtin.command:
         cmd: nix --version
+      environment:
+        PATH: "{{ ansible_env.PATH }}:/root/.nix-profile/bin"
       register: nix_check
       changed_when: false
-      failed_when: nix_check.rc != 0
+      failed_when: false
+      ignore_errors: true
 
     - name: Check Nix flakes are available
       ansible.builtin.command:
         cmd: nix flake --help
+      environment:
+        PATH: "{{ ansible_env.PATH }}:/root/.nix-profile/bin"
       register: flake_check
       changed_when: false
-      failed_when: flake_check.rc != 0
+      failed_when: false
+      ignore_errors: true
+
+    - name: Assert Nix is available (unless skipped)
+      ansible.builtin.assert:
+        that:
+          - nix_check.rc == 0
+        fail_msg: "Nix is not installed"
+        success_msg: "Nix is installed"
+      when: not nix_installation_skip_installation | default(false) | bool

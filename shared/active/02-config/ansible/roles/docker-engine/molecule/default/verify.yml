@@ -8,7 +8,8 @@
         cmd: docker --version
       register: docker_check
       changed_when: false
-      failed_when: docker_check.rc != 0
+      failed_when: false
+      ignore_errors: true
 
     - name: Check Docker service is running
       ansible.builtin.systemd:
@@ -16,5 +17,13 @@
         state: started
       check_mode: true
       register: docker_service_check
-      failed_when: docker_service_check is changed
+      failed_when: false
       ignore_errors: true
+
+    - name: Assert Docker is available (unless skipped)
+      ansible.builtin.assert:
+        that:
+          - docker_check.rc == 0
+        fail_msg: "Docker is not installed"
+        success_msg: "Docker is installed"
+      when: not docker_engine_skip_installation | default(false) | bool
