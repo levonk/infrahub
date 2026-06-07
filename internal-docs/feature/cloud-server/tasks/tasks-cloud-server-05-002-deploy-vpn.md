@@ -46,6 +46,8 @@ Execute the `cloud-server-vpn.yml` playbook against the OCI host to deploy the V
 - `shared/active/02-config/ansible/playbooks/cloud-server-vpn.yml`
 - `levonk/active/02-config/ansible/inventories/oci.yml`
 - `levonk/active/02-config/ansible/group_vars/cloud_server.yml`
+- `shared/active/02-config/ansible/roles/vpn-netbird/tasks/main.yml` - Fixed invalid netbird ip command, added pre-removal
+- `shared/active/02-config/ansible/roles/proxy-firewall/tasks/main.yml` - Reordered tasks for proper nftables initialization
 
 ## Acceptance Criteria
 

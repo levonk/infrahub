@@ -79,7 +79,7 @@ All development and deployment commands must work through `devbox run ...` per A
 | Story ID | Story Title | Branch | Status | Dependencies | Parallel-safe | Modules |
 | -------- | ----------- | ------ | ------ | ------------ | ------------- | ------- |
 | 06-001 | Validate host bootstrap (SSH, Nix, Docker) | feature/current/cloud-server/story-06-001-validate-bootstrap | [x] Done | 05-001 | true | test, validation |
-| 06-002 | Validate VPN mesh connectivity | feature/current/cloud-server/story-06-002-validate-vpn | [ ] Todo | 05-002 | true | test, validation |
+| 06-002 | Validate VPN mesh connectivity | feature/current/cloud-server/story-06-002-validate-vpn | [x] Done | 05-002 | true | test, validation |
 | 06-003 | Validate infrastructure services | feature/current/cloud-server/story-06-003-validate-infra | [ ] Todo | 05-003 | true | test, validation |
 | 06-004 | Validate VM workloads & routing | feature/current/cloud-server/story-06-004-validate-vms | [ ] Todo | 05-004 | true | test, validation |
 | 06-005 | Security hardening & final audit | feature/current/cloud-server/story-06-005-final-audit | [ ] Todo | 06-001..06-004 | true | security, audit |

@@ -7,7 +7,7 @@ prd_file: "shared/active/08-docs/reqs/2026/20260529-cloud-server.md"
 phase: 5
 parallel_id: 4
 branch: "feature/current/cloud-server/story-05-004-deploy-vms"
-status: "todo"
+status: "blocked"
 assignee: ""
 reviewer: ""
 dependencies: ["03-004", "05-003"]
@@ -27,8 +27,8 @@ Execute the `cloud-server-vms.yml` playbook against the OCI host to set up the K
 
 ## Sub-Tasks
 
-- [ ] Verify infrastructure services are stable
-- [ ] Verify host has virtualization support (`grep -c vmx /proc/cpuinfo` or `svm`)
+- [x] Verify infrastructure services are stable
+- [!] Verify host has virtualization support (`grep -c vmx /proc/cpuinfo` or `svm`) - BLOCKER: ARM Neoverse-N1 CPU lacks KVM extensions
 - [ ] Run playbook with `--check --diff` first
 - [ ] Execute: `devbox run ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/playbooks/cloud-server-vms.yml`
 - [ ] Validate post-conditions:
@@ -96,3 +96,4 @@ Execute the `cloud-server-vms.yml` playbook against the OCI host to set up the K
 ## Changelog
 
 - 2026-05-29: initialized story file
+- 2026-06-07: BLOCKED - OCI host uses ARM Neoverse-N1 CPU without KVM virtualization extensions. KVM requires hardware virtualization support (Intel VT-x/AMD-V). Options: (1) Request x86 instance from Oracle Cloud, (2) Use QEMU software virtualization (slower, not recommended for production), (3) Skip VM layer and use container-based workloads instead.
