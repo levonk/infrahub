@@ -7,7 +7,7 @@ prd_file: "shared/active/08-docs/reqs/2026/20260529-cloud-server.md"
 phase: 5
 parallel_id: 3
 branch: "feature/current/cloud-server/story-05-003-deploy-infra"
-status: "in_progress"
+status: "blocked"
 assignee: ""
 reviewer: ""
 dependencies: ["03-003", "05-002"]
@@ -29,8 +29,8 @@ Execute the `cloud-server-infra.yml` playbook against the OCI host to deploy the
 
 - [x] Verify Docker is running and VPN layer is stable
 - [x] Run playbook with `--check --diff` first
-- [~] Execute: `devbox run ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/playbooks/cloud-server-infra.yml`
-- [ ] Monitor container startup and health
+- [x] Execute: `devbox run ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/playbooks/cloud-server-infra.yml`
+- [!] Monitor container startup and health - BLOCKED: NetBird containers require configuration file
 - [ ] Validate post-conditions:
   - Netbird management container responds on variable-driven port
   - DNS container responds to queries
@@ -78,6 +78,31 @@ Execute the `cloud-server-infra.yml` playbook against the OCI host to deploy the
 
 - Risk: Service startup ordering issues — Mitigation: Verify Docker Compose `depends_on` or add retry logic
 - Risk: Port conflicts with VPN services — Mitigation: Use distinct port ranges per service
+
+## Blocker Notes
+
+**BLOCKER (2026-06-07)**: NetBird control plane containers fail to start due to missing configuration file.
+
+**Issue**: The NetBird management container crashes with error:
+```
+Error: failed reading provided config file: /etc/netbird/management.json: open /etc/netbird/management.json: no such file or directory
+```
+
+**Root Cause**: The `vpn-netbird-control` role attempts to configure NetBird services solely through environment variables, but the NetBird containers require a configuration file mounted at `/etc/netbird/management.json` (and corresponding files for signal/relay services).
+
+**Current State**:
+- NetBird management container: Restarting (exit code 1)
+- NetBird signal container: Up but unhealthy
+- NetBird relay container: Restarting (exit code 1)
+
+**Required Fix**: The role needs to:
+1. Add configuration file templates for NetBird management, signal, and relay services
+2. Mount these configuration files into the containers via Docker volumes
+3. Properly configure the NetBird services with required settings (database, OIDC, etc.)
+
+**Alternative**: Consider using a different approach for NetBird deployment or skip NetBird control plane if not immediately required for the infrastructure services.
+
+**Impact**: This blocks the entire infrastructure deployment since the playbook fails when NetBird containers don't become healthy.
 
 ## Dependencies & Sequencing
 
