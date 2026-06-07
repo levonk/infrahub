@@ -29,16 +29,14 @@
 
 - name: Install missing Nix packages
   ansible.builtin.command:
-    cmd: sudo -u "{{ nix_core_tools_admin_user }}" {{ nix_core_tools_nix_bin_path }}/nix-env -iA nixpkgs.{{ item.item }}"
+    cmd: sudo -u "{{ nix_core_tools_admin_user }}" {{ nix_core_tools_nix_bin_path }}/nix-env -iA nixpkgs.{{ item }}"
   become: true
   environment:
     PATH: "{{ nix_core_tools_nix_bin_path }}:{{ ansible_env.PATH | default('/usr/local/bin:/usr/bin:/bin') }}"
-  when:
-    - nix_core_tools_pkg_check.results is defined
-    - item.rc != 0
-  loop: "{{ nix_core_tools_pkg_check.results }}"
+  loop: "{{ nix_core_tools_packages }}"
   loop_control:
-    label: "{{ item.item }}"
+    label: "{{ item }}"
+  failed_when: false
 
 # ---------------------------------------------------------------------------
 # Set zsh as default shell for admin user
