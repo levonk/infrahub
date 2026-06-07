@@ -7,7 +7,7 @@ prd_file: "shared/active/08-docs/reqs/2026/20260529-cloud-server.md"
 phase: 5
 parallel_id: 3
 branch: "feature/current/cloud-server/story-05-003-deploy-infra"
-status: "todo"
+status: "in_progress"
 assignee: ""
 reviewer: ""
 dependencies: ["03-003", "05-002"]
@@ -27,9 +27,9 @@ Execute the `cloud-server-infra.yml` playbook against the OCI host to deploy the
 
 ## Sub-Tasks
 
-- [ ] Verify Docker is running and VPN layer is stable
-- [ ] Run playbook with `--check --diff` first
-- [ ] Execute: `devbox run ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/playbooks/cloud-server-infra.yml`
+- [x] Verify Docker is running and VPN layer is stable
+- [x] Run playbook with `--check --diff` first
+- [~] Execute: `devbox run ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/playbooks/cloud-server-infra.yml`
 - [ ] Monitor container startup and health
 - [ ] Validate post-conditions:
   - Netbird management container responds on variable-driven port

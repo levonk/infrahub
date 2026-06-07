@@ -59,7 +59,7 @@
     log_options:
       max-size: 10m
       max-file: 5
-    security_opt:
+    security_opts:
       - no-new-privileges:true
     read_only: true
     tmpfs:
@@ -100,7 +100,7 @@
     log_options:
       max-size: 10m
       max-file: 5
-    security_opt:
+    security_opts:
       - no-new-privileges:true
     read_only: true
     tmpfs:
@@ -142,7 +142,7 @@
     log_options:
       max-size: 10m
       max-file: 5
-    security_opt:
+    security_opts:
       - no-new-privileges:true
     read_only: true
     tmpfs:
