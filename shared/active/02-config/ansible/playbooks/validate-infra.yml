@@ -1,0 +1,267 @@
+---
+# Infrastructure Services Validation Playbook
+# Validates that the infrastructure services are healthy on the OCI host
+# Checks Netbird control plane, DNS, proxy stack, and SSO service containers
+# Usage:
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/playbooks/validate-infra.yml
+
+- name: "Validate Infrastructure Services"
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+
+  vars:
+    validation_results: {}
+
+  pre_tasks:
+    - name: "Gather ansible_facts"
+      ansible.builtin.setup:
+        gather_subset: ["all"]
+      tags: ["always"]
+
+    - name: "Initialize validation results"
+      ansible.builtin.set_fact:
+        validation_results:
+          netbird_mgmt_running: false
+          netbird_mgmt_api_ok: false
+          netbird_signal_running: false
+          netbird_turn_running: false
+          dns_container_running: false
+          dns_responds: false
+          proxy_http_running: false
+          proxy_https_running: false
+          proxy_accessible: false
+          tor_running: false
+          authelia_web_running: false
+          authelia_redis_running: false
+          authelia_accessible: false
+          ports_match_variables: false
+          container_errors: false
+
+  tasks:
+    - name: "Check Netbird management container status"
+      community.docker.docker_container_info:
+        name: netbird-mgmt
+      register: netbird_mgmt_info
+      failed_when: false
+      tags: ["validate", "netbird"]
+
+    - name: "Record Netbird management container status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'netbird_mgmt_running': netbird_mgmt_info.container.State.Status == 'running' if netbird_mgmt_info.exists else false}) }}"
+      tags: ["validate", "netbird"]
+
+    - name: "Check Netbird management API response"
+      ansible.builtin.uri:
+        url: "http://localhost:{{ cloud_server_netbird_mgmt_container_port }}/api/health"
+        method: GET
+        return_content: false
+        status_code: [200, 404]
+      register: netbird_api_check
+      failed_when: false
+      tags: ["validate", "netbird"]
+
+    - name: "Record Netbird management API status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'netbird_mgmt_api_ok': netbird_api_check.status == 200}) }}"
+      tags: ["validate", "netbird"]
+
+    - name: "Check Netbird signal container status"
+      community.docker.docker_container_info:
+        name: netbird-signal
+      register: netbird_signal_info
+      failed_when: false
+      tags: ["validate", "netbird"]
+
+    - name: "Record Netbird signal container status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'netbird_signal_running': netbird_signal_info.container.State.Status == 'running' if netbird_signal_info.exists else false}) }}"
+      tags: ["validate", "netbird"]
+
+    - name: "Check Netbird TURN container status"
+      community.docker.docker_container_info:
+        name: netbird-turn
+      register: netbird_turn_info
+      failed_when: false
+      tags: ["validate", "netbird"]
+
+    - name: "Record Netbird TURN container status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'netbird_turn_running': netbird_turn_info.container.State.Status == 'running' if netbird_turn_info.exists else false}) }}"
+      tags: ["validate", "netbird"]
+
+    - name: "Check DNS container status"
+      community.docker.docker_container_info:
+        name: dns-stack
+      register: dns_info
+      failed_when: false
+      tags: ["validate", "dns"]
+
+    - name: "Record DNS container status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'dns_container_running': dns_info.container.State.Status == 'running' if dns_info.exists else false}) }}"
+      tags: ["validate", "dns"]
+
+    - name: "Test DNS query resolution"
+      ansible.builtin.command:
+        cmd: "dig @localhost -p {{ cloud_server_dns_container_port }} google.com +short"
+      register: dns_query
+      changed_when: false
+      failed_when: false
+      tags: ["validate", "dns"]
+
+    - name: "Record DNS query status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'dns_responds': dns_query.rc == 0 and dns_query.stdout | length > 0}) }}"
+      tags: ["validate", "dns"]
+
+    - name: "Check proxy HTTP container status"
+      community.docker.docker_container_info:
+        name: proxy-stack
+      register: proxy_info
+      failed_when: false
+      tags: ["validate", "proxy"]
+
+    - name: "Record proxy HTTP container status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'proxy_http_running': proxy_info.container.State.Status == 'running' if proxy_info.exists else false}) }}"
+      tags: ["validate", "proxy"]
+
+    - name: "Check proxy HTTPS container status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'proxy_https_running': proxy_info.container.State.Status == 'running' if proxy_info.exists else false}) }}"
+      when: proxy_info.exists
+      tags: ["validate", "proxy"]
+
+    - name: "Test proxy accessibility"
+      ansible.builtin.uri:
+        url: "http://localhost:{{ cloud_server_proxy_http_container_port }}"
+        method: GET
+        return_content: false
+        status_code: [200, 404, 403]
+      register: proxy_check
+      failed_when: false
+      tags: ["validate", "proxy"]
+
+    - name: "Record proxy accessibility status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'proxy_accessible': proxy_check.status in [200, 404, 403]}) }}"
+      tags: ["validate", "proxy"]
+
+    - name: "Check Tor relay container status"
+      community.docker.docker_container_info:
+        name: tor-relay
+      register: tor_info
+      failed_when: false
+      tags: ["validate", "tor"]
+
+    - name: "Record Tor relay container status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'tor_running': tor_info.container.State.Status == 'running' if tor_info.exists else false}) }}"
+      tags: ["validate", "tor"]
+
+    - name: "Check Authelia web container status"
+      community.docker.docker_container_info:
+        name: authelia-web
+      register: authelia_web_info
+      failed_when: false
+      tags: ["validate", "authelia"]
+
+    - name: "Record Authelia web container status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'authelia_web_running': authelia_web_info.container.State.Status == 'running' if authelia_web_info.exists else false}) }}"
+      tags: ["validate", "authelia"]
+
+    - name: "Check Authelia Redis container status"
+      community.docker.docker_container_info:
+        name: authelia-redis
+      register: authelia_redis_info
+      failed_when: false
+      tags: ["validate", "authelia"]
+
+    - name: "Record Authelia Redis container status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'authelia_redis_running': authelia_redis_info.container.State.Status == 'running' if authelia_redis_info.exists else false}) }}"
+      tags: ["validate", "authelia"]
+
+    - name: "Test Authelia web interface accessibility"
+      ansible.builtin.uri:
+        url: "http://localhost:{{ cloud_server_authelia_web_container_port }}"
+        method: GET
+        return_content: false
+        status_code: [200, 302, 401]
+      register: authelia_check
+      failed_when: false
+      tags: ["validate", "authelia"]
+
+    - name: "Record Authelia accessibility status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'authelia_accessible': authelia_check.status in [200, 302, 401]}) }}"
+      tags: ["validate", "authelia"]
+
+    - name: "Verify container ports match variable definitions"
+      ansible.builtin.set_fact:
+        port_checks:
+          netbird_mgmt: "{{ netbird_mgmt_info.container.NetworkSettings.Ports[cloud_server_netbird_mgmt_container_port|string] | length > 0 if (netbird_mgmt_info.exists and netbird_mgmt_info.container.NetworkSettings.Ports is defined) else false }}"
+          netbird_signal: "{{ netbird_signal_info.container.NetworkSettings.Ports[cloud_server_netbird_signal_container_port|string] | length > 0 if (netbird_signal_info.exists and netbird_signal_info.container.NetworkSettings.Ports is defined) else false }}"
+          netbird_turn: "{{ netbird_turn_info.container.NetworkSettings.Ports[cloud_server_netbird_turn_container_port|string] | length > 0 if (netbird_turn_info.exists and netbird_turn_info.container.NetworkSettings.Ports is defined) else false }}"
+          dns: "{{ dns_info.container.NetworkSettings.Ports[cloud_server_dns_container_port|string] | length > 0 if (dns_info.exists and dns_info.container.NetworkSettings.Ports is defined) else false }}"
+          proxy_http: "{{ proxy_info.container.NetworkSettings.Ports[cloud_server_proxy_http_container_port|string] | length > 0 if (proxy_info.exists and proxy_info.container.NetworkSettings.Ports is defined) else false }}"
+          proxy_https: "{{ proxy_info.container.NetworkSettings.Ports[cloud_server_proxy_https_container_port|string] | length > 0 if (proxy_info.exists and proxy_info.container.NetworkSettings.Ports is defined) else false }}"
+          tor: "{{ tor_info.container.NetworkSettings.Ports[cloud_server_tor_socks_container_port|string] | length > 0 if (tor_info.exists and tor_info.container.NetworkSettings.Ports is defined) else false }}"
+          authelia_web: "{{ authelia_web_info.container.NetworkSettings.Ports[cloud_server_authelia_web_container_port|string] | length > 0 if (authelia_web_info.exists and authelia_web_info.container.NetworkSettings.Ports is defined) else false }}"
+          authelia_redis: "{{ authelia_redis_info.container.NetworkSettings.Ports[cloud_server_authelia_redis_container_port|string] | length > 0 if (authelia_redis_info.exists and authelia_redis_info.container.NetworkSettings.Ports is defined) else false }}"
+      tags: ["validate", "ports"]
+
+    - name: "Record port match status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'ports_match_variables': port_checks.values() | select('equalto', true) | list | length == port_checks | length}) }}"
+      tags: ["validate", "ports"]
+
+    - name: "Check container logs for errors"
+      ansible.builtin.shell:
+        cmd: |
+          docker logs --tail 50 netbird-mgmt 2>&1 | grep -i "error\|fatal\|failed" || true
+          docker logs --tail 50 netbird-signal 2>&1 | grep -i "error\|fatal\|failed" || true
+          docker logs --tail 50 netbird-turn 2>&1 | grep -i "error\|fatal\|failed" || true
+          docker logs --tail 50 dns-stack 2>&1 | grep -i "error\|fatal\|failed" || true
+          docker logs --tail 50 proxy-stack 2>&1 | grep -i "error\|fatal\|failed" || true
+          docker logs --tail 50 tor-relay 2>&1 | grep -i "error\|fatal\|failed" || true
+          docker logs --tail 50 authelia-web 2>&1 | grep -i "error\|fatal\|failed" || true
+          docker logs --tail 50 authelia-redis 2>&1 | grep -i "error\|fatal\|failed" || true
+      register: container_errors
+      changed_when: false
+      failed_when: false
+      tags: ["validate", "logs"]
+
+    - name: "Record container error status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'container_errors': container_errors.stdout | length == 0}) }}"
+      tags: ["validate", "logs"]
+
+  post_tasks:
+    - name: "Display validation results"
+      ansible.builtin.debug:
+        msg: "{{ validation_results | to_nice_json }}"
+      tags: ["always"]
+
+    - name: "Display validation summary"
+      ansible.builtin.debug:
+        msg:
+          "Infrastructure Validation Summary:\n
+          - Netbird Management Running: {{ validation_results.netbird_mgmt_running }}\n
+          - Netbird Management API OK: {{ validation_results.netbird_mgmt_api_ok }}\n
+          - Netbird Signal Running: {{ validation_results.netbird_signal_running }}\n
+          - Netbird TURN Running: {{ validation_results.netbird_turn_running }}\n
+          - DNS Container Running: {{ validation_results.dns_container_running }}\n
+          - DNS Responds: {{ validation_results.dns_responds }}\n
+          - Proxy HTTP Running: {{ validation_results.proxy_http_running }}\n
+          - Proxy HTTPS Running: {{ validation_results.proxy_https_running }}\n
+          - Proxy Accessible: {{ validation_results.proxy_accessible }}\n
+          - Tor Running: {{ validation_results.tor_running }}\n
+          - Authelia Web Running: {{ validation_results.authelia_web_running }}\n
+          - Authelia Redis Running: {{ validation_results.authelia_redis_running }}\n
+          - Authelia Accessible: {{ validation_results.authelia_accessible }}\n
+          - Ports Match Variables: {{ validation_results.ports_match_variables }}\n
+          - No Container Errors: {{ validation_results.container_errors }}"
+      tags: ["always"]
