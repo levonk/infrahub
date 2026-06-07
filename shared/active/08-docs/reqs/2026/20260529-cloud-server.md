@@ -24,6 +24,7 @@
 
 ### Nix Foundation (Install First)
 - [ ] Nix multi-user installation (daemon mode)
+  - **Note**: On RedHat family systems (e.g., Oracle Linux), SELinux must be set to permissive mode for multi-user Nix to work. Nix does not support SELinux enforcing mode yet (see https://github.com/NixOS/nix/issues/2374)
 - [ ] Add admin user to `nixbld` group
 - [ ] Enable flakes: `experimental-features = nix-command flakes` in `/etc/nix/nix.conf`
 - [ ] Verify `nix` CLI works for admin user
