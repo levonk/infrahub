@@ -45,23 +45,18 @@
         validation_results: "{{ validation_results | combine({'ssh_connectivity': ssh_check.ping == 'pong'}) }}"
       tags: ["validate", "ssh"]
 
-    - name: "Check Nix version (skip on RedHat family)"
+    - name: "Check Nix version"
       ansible.builtin.command:
-        cmd: "nix --version"
+        cmd: sudo -u "{{ cloud_server_admin_user }}" /nix/var/nix/profiles/default/bin/nix --version
       become: true
-      become_user: "{{ cloud_server_admin_user }}"
-      environment:
-        PATH: "/nix/var/nix/profiles/default/bin:{{ ansible_env.PATH | default('/usr/local/bin:/usr/bin:/bin') }}"
       register: nix_check
       changed_when: false
       failed_when: false
-      when: ansible_os_family != "RedHat"
       tags: ["validate", "nix"]
 
     - name: "Record Nix version"
       ansible.builtin.set_fact:
         validation_results: "{{ validation_results | combine({'nix_version': nix_check.stdout | default('N/A')}) }}"
-      when: ansible_os_family != "RedHat"
       tags: ["validate", "nix"]
 
     - name: "Check Docker accessibility for cuser"
@@ -109,42 +104,32 @@
         validation_results: "{{ validation_results | combine({'default_shell': shell_check.stdout | default('N/A')}) }}"
       tags: ["validate", "shell"]
 
-    - name: "Check neovim version (skip on RedHat family)"
+    - name: "Check neovim version"
       ansible.builtin.command:
-        cmd: "nvim --version"
+        cmd: sudo -u "{{ cloud_server_admin_user }}" /home/{{ cloud_server_admin_user }}/.nix-profile/bin/nvim --version
       become: true
-      become_user: "{{ cloud_server_admin_user }}"
-      environment:
-        PATH: "/nix/var/nix/profiles/default/bin:{{ ansible_env.PATH | default('/usr/local/bin:/usr/bin:/bin') }}"
       register: neovim_check
       changed_when: false
       failed_when: false
-      when: ansible_os_family != "RedHat"
       tags: ["validate", "neovim"]
 
     - name: "Record neovim version"
       ansible.builtin.set_fact:
         validation_results: "{{ validation_results | combine({'neovim_version': neovim_check.stdout_lines[0] | default('N/A')}) }}"
-      when: ansible_os_family != "RedHat"
       tags: ["validate", "neovim"]
 
-    - name: "Check devbox version (skip on RedHat family)"
+    - name: "Check devbox version"
       ansible.builtin.command:
-        cmd: "devbox --version"
+        cmd: sudo -u "{{ cloud_server_admin_user }}" /home/{{ cloud_server_admin_user }}/.nix-profile/bin/devbox --version
       become: true
-      become_user: "{{ cloud_server_admin_user }}"
-      environment:
-        PATH: "/nix/var/nix/profiles/default/bin:{{ ansible_env.PATH | default('/usr/local/bin:/usr/bin:/bin') }}"
       register: devbox_check
       changed_when: false
       failed_when: false
-      when: ansible_os_family != "RedHat"
       tags: ["validate", "devbox"]
 
     - name: "Record devbox version"
       ansible.builtin.set_fact:
         validation_results: "{{ validation_results | combine({'devbox_version': devbox_check.stdout | default('N/A')}) }}"
-      when: ansible_os_family != "RedHat"
       tags: ["validate", "devbox"]
 
     - name: "Check timezone via timedatectl"
