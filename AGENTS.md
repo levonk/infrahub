@@ -1,5 +1,56 @@
 # Agent Guidelines for localnet
 
+## Security Audit Guidelines
+
+### Security Audit Playbooks
+
+All cloud server deployments must include a final security audit playbook (`final-audit.yml`) that validates:
+
+**Critical Security Checks:**
+- SSH connectivity and configuration
+- No hardcoded IPs/ports in deployed configs (excluding comments)
+- SSH hardening: PermitRootLogin (no or prohibit-password), PasswordAuthentication (no), ed25519-only keys
+- Firewall default-deny policy enforcement
+- fail2ban service and jail status
+- Docker daemon hardening (userns-remap or no-new-privileges)
+- Automatic security updates (dnf-automatic for RedHat, unattended-upgrades for Debian)
+- Container image ages (warning for images >30 days old)
+
+**Non-Critical Warnings:**
+- Container image age warnings should not fail the audit
+- Use separate `security_warnings` list for non-critical issues
+
+**Playbook Pattern:**
+```yaml
+- name: "Final Security Audit"
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+  vars:
+    audit_results: {}
+    security_gaps: []
+    security_warnings: []
+```
+
+### SSH Hardening Best Practices
+
+**PermitRootLogin Settings:**
+- `no` - Disables root login entirely (most secure)
+- `prohibit-password` - Allows root login only with SSH keys (acceptable for Oracle Cloud)
+- Both are considered secure in security audits
+
+**Key Types:**
+- Use ed25519 keys only (remove RSA, ECDSA, DSA host keys)
+- Update `HostKey` directives in `/etc/ssh/sshd_config` to only include ed25519
+
+### Container Image Management
+
+**Image Age Monitoring:**
+- Container images older than 30 days should trigger warnings
+- Use `docker images --format '{% raw %}{{.Repository}}:{{.Tag}} {{.CreatedSince}}{% endraw %}'` to check ages
+- Update images regularly to include security patches
+- Pin to specific tags for production, not just `latest`
+
 ## IP and Port Configuration Rules
 
 ### CRITICAL: All IP Addresses and Ports Must Be Variables

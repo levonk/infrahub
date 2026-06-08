@@ -8,22 +8,22 @@
 common_kvm_skip_virtualization_check: false
 
 # ---------------------------------------------------------------------------
-# KVM Packages
+# KVM/QEMU Packages
 # ---------------------------------------------------------------------------
 common_kvm_packages:
   - qemu-kvm
-  - libvirt-daemon-system
-  - virtinst
+  - libvirt-daemon
+  - virt-install
   - virt-manager
   - bridge-utils
-  - qemu-utils
+  - qemu-img
   - libguestfs-tools
 
 # ---------------------------------------------------------------------------
 # Libvirtd Service
 # ---------------------------------------------------------------------------
 common_kvm_libvirtd_service_name: "libvirtd"
-common_kvm_libvirtd_socket_name: "libvirt-socket"
+common_kvm_libvirtd_socket_name: "libvirtd.socket"
 
 # ---------------------------------------------------------------------------
 # Bridge Networks (subnets must be overridden in client group_vars)

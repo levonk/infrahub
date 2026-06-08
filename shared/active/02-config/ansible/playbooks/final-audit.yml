@@ -1,0 +1,282 @@
+---
+# Final Security Audit Playbook
+# Performs comprehensive security audit of the deployed cloud server
+# Usage:
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/playbooks/final-audit.yml
+# ansible-lint disable-line: command-instead-of-module
+# ansible-lint disable-line: yaml[indentation]
+
+- name: "Final Security Audit"
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+
+  vars:
+    audit_results: {}
+    security_gaps: []
+    security_warnings: []
+
+  pre_tasks:
+    - name: "Gather ansible_facts"
+      ansible.builtin.setup:
+        gather_subset: ["all"]
+      tags: ["always"]
+
+    - name: "Initialize audit results"
+      ansible.builtin.set_fact:
+        audit_results:
+          ssh_connectivity: false
+          hardcoded_ips_found: false
+          ssh_root_login: false
+          ssh_password_auth: false
+          ssh_ed25519_only: false
+          firewall_default_deny: false
+          fail2ban_active: false
+          docker_hardened: false
+          unnecessary_services: []
+          auto_updates_enabled: false
+          container_images: []
+
+  tasks:
+    - name: "Check SSH connectivity (Ansible connection test)"
+      ansible.builtin.ping: ~
+      register: ssh_check
+      tags: ["audit", "ssh"]
+
+    - name: "Record SSH connectivity result"
+      ansible.builtin.set_fact:
+        audit_results: "{{ audit_results | combine({'ssh_connectivity': ssh_check.ping == 'pong'}) }}"
+      tags: ["audit", "ssh"]
+
+    - name: "Check for hardcoded IP addresses in critical configs (excluding comments)"
+      ansible.builtin.shell:
+        cmd: "grep -rE '^[^#]*([0-9]{1,3}\.){3}[0-9]{1,3}' /etc/ssh/ /etc/docker/ /etc/systemd/ 2>/dev/null || true"
+      register: hardcoded_ip_check
+      changed_when: false
+      failed_when: false
+      tags: ["audit", "hardcoded"]
+      args:
+        executable: /bin/bash
+
+    - name: "Record hardcoded IP check result"
+      ansible.builtin.set_fact:
+        audit_results: "{{ audit_results | combine({'hardcoded_ips_found': hardcoded_ip_check.stdout_lines | length > 0}) }}"
+        security_gaps: "{{ security_gaps + ['Hardcoded IPs found in configs'] if hardcoded_ip_check.stdout_lines | length > 0 else security_gaps }}"
+      tags: ["audit", "hardcoded"]
+
+    - name: "Display hardcoded IP findings"
+      ansible.builtin.debug:
+        msg: "{{ hardcoded_ip_check.stdout_lines }}"
+      when: hardcoded_ip_check.stdout_lines | length > 0
+      tags: ["audit", "hardcoded"]
+
+    - name: "Check SSH PermitRootLogin setting"
+      ansible.builtin.command:
+        cmd: "grep -E '^PermitRootLogin' /etc/ssh/sshd_config"
+      register: ssh_root_login_check
+      changed_when: false
+      failed_when: false
+      tags: ["audit", "ssh"]
+
+    - name: "Record SSH root login result"
+      ansible.builtin.set_fact:
+        audit_results: "{{ audit_results | combine({'ssh_root_login': ssh_root_login_check.stdout is search('no') or ssh_root_login_check.stdout is search('prohibit-password')}) }}"
+        security_gaps: "{{ security_gaps + ['PermitRootLogin not set to no or prohibit-password'] if ssh_root_login_check.stdout is defined and not (ssh_root_login_check.stdout is search('no') or ssh_root_login_check.stdout is search('prohibit-password')) else security_gaps }}"
+      tags: ["audit", "ssh"]
+
+    - name: "Check SSH PasswordAuthentication setting"
+      ansible.builtin.command:
+        cmd: "grep -E '^PasswordAuthentication' /etc/ssh/sshd_config"
+      register: ssh_password_auth_check
+      changed_when: false
+      failed_when: false
+      tags: ["audit", "ssh"]
+
+    - name: "Record SSH password auth result"
+      ansible.builtin.set_fact:
+        audit_results: "{{ audit_results | combine({'ssh_password_auth': ssh_password_auth_check.stdout is search('no')}) }}"
+        security_gaps: "{{ security_gaps + ['PasswordAuthentication not set to no'] if ssh_password_auth_check.stdout is defined and not (ssh_password_auth_check.stdout is search('no')) else security_gaps }}"
+      tags: ["audit", "ssh"]
+
+    - name: "Check SSH key types (should only allow ed25519)"
+      ansible.builtin.command:
+        cmd: "grep -E '^HostKey /etc/ssh/ssh_host_' /etc/ssh/sshd_config"
+      register: ssh_key_types_check
+      changed_when: false
+      failed_when: false
+      tags: ["audit", "ssh"]
+
+    - name: "Record SSH key types result"
+      ansible.builtin.set_fact:
+        audit_results: "{{ audit_results | combine({'ssh_ed25519_only': ssh_key_types_check.stdout_lines | length == 1 and ssh_key_types_check.stdout is search('ed25519')}) }}"
+        security_gaps: "{{ security_gaps + ['SSH not ed25519-only'] if not (ssh_key_types_check.stdout_lines | length == 1 and ssh_key_types_check.stdout is search('ed25519')) else security_gaps }}"
+      tags: ["audit", "ssh"]
+
+    - name: "Check firewall default policy (firewalld for RedHat, ufw for Debian)"
+      # ansible-lint disable-line: risky-shell-pipe
+      ansible.builtin.shell:
+        cmd: "if command -v firewall-cmd &> /dev/null; then firewall-cmd --list-all; elif command -v ufw &> /dev/null; then ufw status verbose; else echo 'no_firewall'; fi"
+      register: firewall_check
+      changed_when: false
+      failed_when: false
+      tags: ["audit", "firewall"]
+      args:
+        executable: /bin/bash
+
+    - name: "Record firewall default-deny result"
+      ansible.builtin.set_fact:
+        audit_results: "{{ audit_results | combine({'firewall_default_deny': firewall_check.stdout is search('default') or firewall_check.stdout is search('deny') or firewall_check.stdout is search('block')}) }}"
+        security_gaps: "{{ security_gaps + ['Firewall not enforcing default-deny'] if not (firewall_check.stdout is search('default') or firewall_check.stdout is search('deny') or firewall_check.stdout is search('block')) else security_gaps }}"
+      tags: ["audit", "firewall"]
+
+    - name: "Check fail2ban service status"
+      ansible.builtin.systemd:
+        name: fail2ban
+      register: fail2ban_check
+      failed_when: false
+      tags: ["audit", "fail2ban"]
+
+    - name: "Record fail2ban status"
+      ansible.builtin.set_fact:
+        audit_results: "{{ audit_results | combine({'fail2ban_active': fail2ban_check.status.ActiveState == 'active'}) }}"
+        security_gaps: "{{ security_gaps + ['fail2ban not active'] if fail2ban_check.status.ActiveState != 'active' else security_gaps }}"
+      tags: ["audit", "fail2ban"]
+
+    - name: "Check fail2ban SSH jail status"
+      ansible.builtin.command:
+        cmd: "fail2ban-client status sshd"
+      register: fail2ban_jail_check
+      changed_when: false
+      failed_when: false
+      tags: ["audit", "fail2ban"]
+
+    - name: "Display fail2ban jail status"
+      ansible.builtin.debug:
+        msg: "{{ fail2ban_jail_check.stdout_lines }}"
+      when: fail2ban_jail_check.rc == 0
+      tags: ["audit", "fail2ban"]
+
+    - name: "Check Docker daemon hardening (userns-remap)"
+      ansible.builtin.command:
+        cmd: "grep -E '^userns-remap' /etc/docker/daemon.json"
+      register: docker_userns_check
+      changed_when: false
+      failed_when: false
+      tags: ["audit", "docker"]
+
+    - name: "Check Docker daemon hardening (no-new-privileges)"
+      # ansible-lint disable-line: risky-shell-pipe
+      ansible.builtin.shell:
+        cmd: "docker info 2>/dev/null | grep -i 'no-new-privileges' || echo 'not_configured'"
+      register: docker_privs_check
+      changed_when: false
+      failed_when: false
+      tags: ["audit", "docker"]
+      args:
+        executable: /bin/bash
+
+    - name: "Record Docker hardening result"
+      ansible.builtin.set_fact:
+        audit_results: "{{ audit_results | combine({'docker_hardened': docker_userns_check.stdout != 'not_configured' or docker_privs_check.stdout != 'not_configured'}) }}"
+        security_gaps: "{{ security_gaps + ['Docker daemon not hardened (userns-remap or no-new-privileges)'] if docker_userns_check.stdout == 'not_configured' and docker_privs_check.stdout == 'not_configured' else security_gaps }}"
+      tags: ["audit", "docker"]
+
+    - name: "Check for unnecessary services"
+      ansible.builtin.command:
+        cmd: "systemctl list-units --type=service --state=running --no-pager"
+      register: running_services_check
+      changed_when: false
+      failed_when: false
+      tags: ["audit", "services"]
+
+    - name: "Record running services"
+      ansible.builtin.set_fact:
+        audit_results: "{{ audit_results | combine({'unnecessary_services': running_services_check.stdout_lines}) }}"
+      tags: ["audit", "services"]
+
+    - name: "Check automatic security updates (dnf-automatic for RedHat)"
+      ansible.builtin.systemd:
+        name: dnf-automatic.timer
+      register: dnf_automatic_check
+      failed_when: false
+      when: ansible_facts['os_family'] == "RedHat"
+      tags: ["audit", "updates"]
+
+    - name: "Check automatic security updates (unattended-upgrades for Debian)"
+      ansible.builtin.systemd:
+        name: unattended-upgrades.service
+      register: unattended_check
+      failed_when: false
+      when: ansible_facts['os_family'] == "Debian"
+      tags: ["audit", "updates"]
+
+    - name: "Record auto updates status"
+      ansible.builtin.set_fact:
+        audit_results: "{{ audit_results | combine({'auto_updates_enabled': (dnf_automatic_check.status.ActiveState == 'active') if ansible_facts['os_family'] == 'RedHat' else (unattended_check.status.ActiveState == 'active')}) }}"
+        security_gaps: "{{ security_gaps + ['Automatic security updates not enabled'] if ((ansible_facts['os_family'] == 'RedHat' and dnf_automatic_check.status.ActiveState != 'active') or (ansible_facts['os_family'] == 'Debian' and unattended_check.status.ActiveState != 'active')) else security_gaps }}"
+      tags: ["audit", "updates"]
+
+    - name: "List deployed container images"
+      ansible.builtin.command:
+        cmd: "docker images --format '{% raw %}{{.Repository}}:{{.Tag}}{% endraw %}'"
+      register: container_images_check
+      changed_when: false
+      failed_when: false
+      tags: ["audit", "containers"]
+
+    - name: "Record container images"
+      ansible.builtin.set_fact:
+        audit_results: "{{ audit_results | combine({'container_images': container_images_check.stdout_lines}) }}"
+      tags: ["audit", "containers"]
+
+    - name: "Check container image ages (images older than 30 days may need updates)"
+      # ansible-lint disable-line: risky-shell-pipe
+      ansible.builtin.shell:
+        cmd: "docker images --format '{% raw %}{{.Repository}}:{{.Tag}} {{.CreatedSince}}{% endraw %}' | grep -E '[0-9]+ months?|[3-9][0-9]+ days?' || echo 'no_old_images'"
+      register: old_images_check
+      changed_when: false
+      failed_when: false
+      tags: ["audit", "containers"]
+      args:
+        executable: /bin/bash
+
+    - name: "Display old container images"
+      ansible.builtin.debug:
+        msg: "{{ old_images_check.stdout_lines }}"
+      when: old_images_check.stdout != 'no_old_images'
+      tags: ["audit", "containers"]
+
+    - name: "Add old images to security warnings if found (non-critical)"
+      ansible.builtin.set_fact:
+        security_warnings: "{{ security_warnings + ['Container images older than 30 days found'] if old_images_check.stdout != 'no_old_images' else security_warnings }}"
+      tags: ["audit", "containers"]
+
+  post_tasks:
+    - name: "Display audit results"
+      ansible.builtin.debug:
+        msg: "{{ audit_results | to_nice_json }}"
+      tags: ["always"]
+
+    - name: "Display security gaps"
+      ansible.builtin.debug:
+        msg: "{{ security_gaps | to_nice_json }}"
+      when: security_gaps | length > 0
+      tags: ["always"]
+
+    - name: "Display security warnings"
+      ansible.builtin.debug:
+        msg: "{{ security_warnings | to_nice_json }}"
+      when: security_warnings | length > 0
+      tags: ["always"]
+
+    - name: "Display no security gaps found"
+      ansible.builtin.debug:
+        msg: "✅ No security gaps found - audit passed!"
+      when: security_gaps | length == 0
+      tags: ["always"]
+
+    - name: "Fail if critical security gaps found"
+      ansible.builtin.fail:
+        msg: "Security audit failed with {{ security_gaps | length }} gap(s): {{ security_gaps | join(', ') }}"
+      when: security_gaps | length > 0
+      tags: ["always"]

@@ -25,6 +25,7 @@ PB_VAL_BOOTSTRAP := ANSIBLE_ROOT + "/playbooks/validate-bootstrap.yml"
 PB_VAL_VPN := ANSIBLE_ROOT + "/playbooks/validate-vpn.yml"
 PB_VAL_INFRA := ANSIBLE_ROOT + "/playbooks/validate-infra.yml"
 PB_VAL_VMS := ANSIBLE_ROOT + "/playbooks/validate-vms.yml"
+PB_FINAL_AUDIT := ANSIBLE_ROOT + "/playbooks/final-audit.yml"
 
 # Docker commands for Ansible test containers
 ANSIBLE_TEST_IMAGE := "ansible-test-runner:latest"
@@ -313,6 +314,13 @@ ansible-validate-all:
     just ansible-validate-vpn-internal
     just ansible-validate-infra-internal
     just ansible-validate-vms-internal
+
+ansible-final-audit:
+    devbox run ansible-final-audit
+
+ansible-final-audit-internal:
+    @echo "Running final security audit..."
+    ansible-playbook -i {{INVENTORY}} {{PB_FINAL_AUDIT}}
 
 # === Packer VM Image Creation ===
 

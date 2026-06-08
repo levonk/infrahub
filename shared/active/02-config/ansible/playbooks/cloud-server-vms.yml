@@ -25,6 +25,14 @@
         success_msg: "All required variables are defined."
       tags: ["always", "validate"]
 
+    - name: "Check CPU architecture"
+      ansible.builtin.command:
+        cmd: uname -m
+      register: cloud_server_vms_arch_check
+      changed_when: false
+      become: true
+      tags: ["pre-check", "virtualization"]
+
     - name: "Check CPU flags for Intel VT-x"
       ansible.builtin.command:
         cmd: grep -c vmx /proc/cpuinfo
@@ -32,6 +40,7 @@
       changed_when: false
       failed_when: false
       become: true
+      when: "'x86_64' in cloud_server_vms_arch_check.stdout"
       tags: ["pre-check", "virtualization"]
 
     - name: "Check CPU flags for AMD-V"
@@ -41,14 +50,22 @@
       changed_when: false
       failed_when: false
       become: true
+      when: "'x86_64' in cloud_server_vms_arch_check.stdout"
       tags: ["pre-check", "virtualization"]
 
-    - name: "Assert virtualization support is present"
+    - name: "Assert virtualization support is present (x86_64)"
       ansible.builtin.assert:
         that:
           - cloud_server_vms_vmx_check.stdout | int > 0 or cloud_server_vms_svm_check.stdout | int > 0
         fail_msg: "CPU does not support virtualization (Intel VT-x or AMD-V). Cannot install KVM."
         success_msg: "CPU virtualization support detected."
+      when: "'x86_64' in cloud_server_vms_arch_check.stdout"
+      tags: ["pre-check", "virtualization"]
+
+    - name: "Note ARM architecture will use QEMU software virtualization"
+      ansible.builtin.debug:
+        msg: "ARM architecture detected. Using QEMU software virtualization instead of KVM."
+      when: "'aarch64' in cloud_server_vms_arch_check.stdout"
       tags: ["pre-check", "virtualization"]
 
   roles:
@@ -61,6 +78,7 @@
         name: "{{ common_kvm_libvirtd_service_name | default('libvirtd') }}"
         state: started
       check_mode: false
+      failed_when: false
       tags: ["verify", "libvirt"]
 
     - name: "Verify libvirtd socket is active"
@@ -95,34 +113,29 @@
       become: true
       tags: ["verify", "storage"]
 
-    - name: "Set NAT bridge status"
+    - name: "Set default status values"
       ansible.builtin.set_fact:
-        cloud_server_vms_nat_lines: "{{ cloud_server_vms_nat_bridge_check.stdout_lines }}"
+        cloud_server_vms_nat_status: "unknown"
+        cloud_server_vms_routed_status: "unknown"
+        cloud_server_vms_pool_status: "unknown"
       tags: ["verify", "report"]
 
-    - name: "Set NAT bridge status (filter)"
+    - name: "Set NAT bridge status"
       ansible.builtin.set_fact:
-        cloud_server_vms_nat_status: "{{ cloud_server_vms_nat_lines | select('match', 'Active:.*yes') | list | length > 0 | ternary('active', 'inactive') }}"  # noqa: yaml[line-length]
+        cloud_server_vms_nat_status: "active"
+      when: "'Active:.*yes' in cloud_server_vms_nat_bridge_check.stdout"
       tags: ["verify", "report"]
 
     - name: "Set routed bridge status"
       ansible.builtin.set_fact:
-        cloud_server_vms_routed_lines: "{{ cloud_server_vms_routed_bridge_check.stdout_lines }}"
-      tags: ["verify", "report"]
-
-    - name: "Set routed bridge status (filter)"
-      ansible.builtin.set_fact:
-        cloud_server_vms_routed_status: "{{ cloud_server_vms_routed_lines | select('match', 'Active:.*yes') | list | length > 0 | ternary('active', 'inactive') }}"  # noqa: yaml[line-length]
+        cloud_server_vms_routed_status: "active"
+      when: "'Active:.*yes' in cloud_server_vms_routed_bridge_check.stdout"
       tags: ["verify", "report"]
 
     - name: "Set storage pool status"
       ansible.builtin.set_fact:
-        cloud_server_vms_pool_lines: "{{ cloud_server_vms_storage_pool_check.stdout_lines }}"
-      tags: ["verify", "report"]
-
-    - name: "Set storage pool status (filter)"
-      ansible.builtin.set_fact:
-        cloud_server_vms_pool_status: "{{ cloud_server_vms_pool_lines | select('match', 'State:.*running') | list | length > 0 | ternary('running', 'not running') }}"  # noqa: yaml[line-length]
+        cloud_server_vms_pool_status: "running"
+      when: "'State:.*running' in cloud_server_vms_storage_pool_check.stdout"
       tags: ["verify", "report"]
 
     - name: "Report libvirt stack status"

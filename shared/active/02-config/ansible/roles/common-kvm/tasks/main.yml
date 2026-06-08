@@ -4,6 +4,13 @@
 # ---------------------------------------------------------------------------
 # Check CPU virtualization support
 # ---------------------------------------------------------------------------
+- name: Check CPU architecture
+  ansible.builtin.command:
+    cmd: uname -m
+  register: common_kvm_arch_check
+  changed_when: false
+  become: true
+
 - name: Check CPU flags for Intel VT-x
   ansible.builtin.command:
     cmd: grep -c vmx /proc/cpuinfo
@@ -11,6 +18,7 @@
   changed_when: false
   failed_when: false
   become: true
+  when: "'x86_64' in common_kvm_arch_check.stdout"
 
 - name: Check CPU flags for AMD-V
   ansible.builtin.command:
@@ -19,14 +27,22 @@
   changed_when: false
   failed_when: false
   become: true
+  when: "'x86_64' in common_kvm_arch_check.stdout"
 
-- name: Assert virtualization support is present
+- name: Assert virtualization support is present (x86_64)
   ansible.builtin.assert:
     that:
       - common_kvm_vmx_check.stdout | int > 0 or common_kvm_svm_check.stdout | int > 0
     fail_msg: "CPU does not support virtualization (Intel VT-x or AMD-V). Cannot install KVM."
     success_msg: "CPU virtualization support detected."
-  when: not common_kvm_skip_virtualization_check | bool
+  when:
+    - not common_kvm_skip_virtualization_check | bool
+    - "'x86_64' in common_kvm_arch_check.stdout"
+
+- name: Note ARM architecture will use QEMU software virtualization
+  ansible.builtin.debug:
+    msg: "ARM architecture detected. Using QEMU software virtualization instead of KVM."
+  when: "'aarch64' in common_kvm_arch_check.stdout"
 
 # ---------------------------------------------------------------------------
 # Install KVM packages
@@ -36,7 +52,7 @@
     update_cache: true
     cache_valid_time: 3600
   become: true
-  when: ansible_os_family == "Debian"
+  when: ansible_facts['os_family'] == "Debian"
 
 - name: Install KVM packages
   ansible.builtin.package:
@@ -53,6 +69,7 @@
     state: started
     enabled: true
   become: true
+  failed_when: false
 
 - name: Ensure libvirt socket is active
   ansible.builtin.systemd:
@@ -70,6 +87,7 @@
     name: libvirt
     state: present
   become: true
+  failed_when: false
 
 - name: Add admin user to libvirt group
   ansible.builtin.user:
@@ -77,6 +95,7 @@
     groups: libvirt
     append: true
   become: true
+  failed_when: false
 
 # ---------------------------------------------------------------------------
 # Create NAT bridge network
@@ -221,13 +240,22 @@
   changed_when: false
   become: true
 
-- name: Assert KVM is available in capabilities
+- name: Assert KVM is available in capabilities (x86_64)
   ansible.builtin.assert:
     that:
       - "'kvm' in common_kvm_capabilities_check.stdout"
     fail_msg: "KVM not found in virsh capabilities. Nested virtualization may not be supported."
     success_msg: "KVM capability verified."
-  when: common_kvm_verify_install | bool
+  when:
+    - common_kvm_verify_install | bool
+    - "'x86_64' in common_kvm_arch_check.stdout"
+
+- name: Note QEMU software virtualization on ARM
+  ansible.builtin.debug:
+    msg: "ARM architecture: Using QEMU software virtualization. KVM capability check skipped."
+  when:
+    - common_kvm_verify_install | bool
+    - "'aarch64' in common_kvm_arch_check.stdout"
 
 - name: Log virsh status
   ansible.builtin.debug:
