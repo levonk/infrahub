@@ -7,7 +7,7 @@ prd_file: "shared/active/08-docs/reqs/2026/20260529-cloud-server.md"
 phase: 6
 parallel_id: 5
 branch: "feature/current/cloud-server/story-06-005-final-audit"
-status: "in_progress"
+status: "done"
 assignee: ""
 reviewer: ""
 dependencies: ["06-001", "06-002", "06-003", "06-004"]

@@ -82,7 +82,7 @@ All development and deployment commands must work through `devbox run ...` per A
 | 06-002 | Validate VPN mesh connectivity | feature/current/cloud-server/story-06-002-validate-vpn | [x] Done | 05-002 | true | test, validation |
 | 06-003 | Validate infrastructure services | feature/current/cloud-server/story-06-003-validate-infra | [x] Done | 05-003 | true | test, validation |
 | 06-004 | Validate VM workloads & routing | feature/current/cloud-server/story-06-004-validate-vms | [x] Done | 05-004 | true | test, validation |
-| 06-005 | Security hardening & final audit | feature/current/cloud-server/story-06-005-final-audit | [~] In-Progress | 06-001..06-004 | true | security, audit |
+| 06-005 | Security hardening & final audit | feature/current/cloud-server/story-06-005-final-audit | [x] Done | 06-001..06-004 | true | security, audit |
 
 ---
 
