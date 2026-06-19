@@ -158,7 +158,7 @@
 
     - name: "Check OpenSSH service status"
       ansible.builtin.systemd:
-        name: "{{ 'ssh' if ansible_os_family == 'Debian' else 'sshd' }}"
+        name: "{{ 'ssh' if ansible_facts['os_family'] == 'Debian' else 'sshd' }}"
       register: sshd_check
       failed_when: false
       tags: ["validate", "sshd"]
@@ -173,7 +173,7 @@
         path: /etc/apt/apt.conf.d/50unattended-upgrades
       register: unattended_check
       failed_when: false
-      when: ansible_os_family == "Debian"
+      when: ansible_facts['os_family'] == "Debian"
       tags: ["validate", "upgrades"]
 
     - name: "Check dnf-automatic configuration (RedHat family)"
@@ -181,12 +181,12 @@
         path: /etc/dnf/automatic.conf
       register: dnf_automatic_check
       failed_when: false
-      when: ansible_os_family == "RedHat"
+      when: ansible_facts['os_family'] == "RedHat"
       tags: ["validate", "upgrades"]
 
     - name: "Record unattended upgrades status"
       ansible.builtin.set_fact:
-        validation_results: "{{ validation_results | combine({'unattended_upgrades': (unattended_check.stat.exists | default(false)) if ansible_os_family == 'Debian' else (dnf_automatic_check.stat.exists | default(false))}) }}"
+        validation_results: "{{ validation_results | combine({'unattended_upgrades': (unattended_check.stat.exists | default(false)) if ansible_facts['os_family'] == 'Debian' else (dnf_automatic_check.stat.exists | default(false))}) }}"
       tags: ["validate", "upgrades"]
 
   post_tasks:

@@ -1,4 +1,5 @@
 graph TD
+    classDef default fill:#f5f5f5,stroke:#333,stroke-width:2px,color:#000000
     subgraph "Client Layer"
         Client["Client Device"]
         ContainerA["Container A"]
@@ -56,3 +57,14 @@ graph TD
     PolicyEnforcer -- Policy Check --> AuthServer
     PolicyEnforcer -.-> Logger[Logging]
     AuthServer -.-> Logger
+
+    %% Style definitions for better visibility
+    style Client fill:#b2dfdb,stroke:#333,stroke-width:2px,color:#000000
+    style Transparent fill:#cde4ff,stroke:#333,stroke-width:2px,color:#000000
+    style MITM fill:#ffcdd2,stroke:#333,stroke-width:2px,color:#000000
+    style PolicyEnforcer fill:#e1bee7,stroke:#333,stroke-width:2px,color:#000000
+    style Caching fill:#fff9c4,stroke:#333,stroke-width:2px,color:#000000
+    style Gost fill:#f8bbd0,stroke:#333,stroke-width:2px,color:#000000
+    style Egress_User fill:#d1c4e9,stroke:#333,stroke-width:2px,color:#000000
+    style Egress_A fill:#c8e6c9,stroke:#333,stroke-width:2px,color:#000000
+    style Egress_B fill:#ffccbc,stroke:#333,stroke-width:2px,color:#000000

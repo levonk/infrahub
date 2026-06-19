@@ -35,6 +35,20 @@ table inet filter {
         ip saddr {{ subnet }} accept
 {% endfor %}
 
+        # Allow RustDesk ports from VPN subnets only
+{% if rustdesk_server_vpn_only | default(false) %}
+{% for subnet in rustdesk_server_allowed_vpn_subnets | default(proxy_firewall_vpn_subnets) %}
+        ip saddr {{ subnet }} tcp dport {{ rustdesk_server_hbbs_nat_test_host_port | default('21115') }} accept
+        ip saddr {{ subnet }} tcp dport {{ rustdesk_server_hbbs_id_reg_host_port | default('21116') }} accept
+        ip saddr {{ subnet }} udp dport {{ rustdesk_server_hbbs_id_reg_host_port | default('21116') }} accept
+        ip saddr {{ subnet }} tcp dport {{ rustdesk_server_hbbr_relay_host_port | default('21117') }} accept
+{% if rustdesk_server_enable_web_client | default(false) %}
+        ip saddr {{ subnet }} tcp dport {{ rustdesk_server_hbbs_web_host_port | default('21118') }} accept
+        ip saddr {{ subnet }} tcp dport {{ rustdesk_server_hbbr_web_host_port | default('21119') }} accept
+{% endif %}
+{% endfor %}
+{% endif %}
+
         # Log and drop everything else
         log prefix "nftables dropped: " limit rate 5/minute
         drop

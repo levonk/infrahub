@@ -1,0 +1,237 @@
+---
+# RustDesk Server Deployment
+# Deploys RustDesk server (hbbs and hbbr) as Docker containers for remote desktop access.
+
+# ============================================================================
+# Service Directory
+# ============================================================================
+- name: Ensure RustDesk server service directory exists on target
+  ansible.builtin.file:
+    path: "{{ rustdesk_server_service_dir }}"
+    state: directory
+    mode: "0755"
+
+# ============================================================================
+# Volume Management
+# ============================================================================
+- name: Ensure RustDesk server data volume exists
+  community.docker.docker_volume:
+    name: "{{ rustdesk_server_volume_name }}"
+    state: present
+
+- name: Ensure Docker network exists
+  community.docker.docker_network:
+    name: "{{ rustdesk_server_network_name }}"
+    state: present
+  when: rustdesk_server_network_mode != "host"
+
+# ============================================================================
+# Container Deployment - hbbs (ID Server)
+# ============================================================================
+- name: Deploy RustDesk hbbs container
+  community.docker.docker_container:
+    name: "{{ rustdesk_server_hbbs_container_name }}"
+    image: "{{ rustdesk_server_image }}:{{ rustdesk_server_image_tag }}"
+    state: started
+    restart_policy: unless-stopped
+    command: ["hbbs"]
+    network_mode: "{{ rustdesk_server_network_mode }}"
+    networks:
+      - name: "{{ rustdesk_server_network_name }}"
+    ports:
+      - "{{ rustdesk_server_hbbs_nat_test_host_port }}:{{ rustdesk_server_hbbs_nat_test_container_port }}/tcp"
+      - "{{ rustdesk_server_hbbs_id_reg_host_port }}:{{ rustdesk_server_hbbs_id_reg_container_port }}/tcp"
+      - "{{ rustdesk_server_hbbs_id_reg_host_port }}:{{ rustdesk_server_hbbs_id_reg_container_port }}/udp"
+    volumes:
+      - "{{ rustdesk_server_volume_name }}:/root:rw"
+    env:
+      TZ: "{{ cloud_server_tz | default('UTC') }}"
+      ALWAYS_USE_RELAY: "{{ rustdesk_server_always_use_relay }}"
+    log_driver: json-file
+    log_options:
+      max-size: "10m"
+      max-file: "5"
+    security_opts:
+      - no-new-privileges:true
+  register: rustdesk_hbbs_deploy
+  notify: restart rustdesk hbbs
+  when: rustdesk_server_network_mode != "host"
+
+- name: Deploy RustDesk hbbs container (host networking)
+  community.docker.docker_container:
+    name: "{{ rustdesk_server_hbbs_container_name }}"
+    image: "{{ rustdesk_server_image }}:{{ rustdesk_server_image_tag }}"
+    state: started
+    restart_policy: unless-stopped
+    command: ["hbbs"]
+    network_mode: "host"
+    volumes:
+      - "{{ rustdesk_server_volume_name }}:/root:rw"
+    env:
+      TZ: "{{ cloud_server_tz | default('UTC') }}"
+      ALWAYS_USE_RELAY: "{{ rustdesk_server_always_use_relay }}"
+    log_driver: json-file
+    log_options:
+      max-size: "10m"
+      max-file: "5"
+    security_opts:
+      - no-new-privileges:true
+  register: rustdesk_hbbs_deploy
+  notify: restart rustdesk hbbs
+  when: rustdesk_server_network_mode == "host"
+
+# ============================================================================
+# Container Deployment - hbbr (Relay Server)
+# ============================================================================
+- name: Deploy RustDesk hbbr container
+  community.docker.docker_container:
+    name: "{{ rustdesk_server_hbbr_container_name }}"
+    image: "{{ rustdesk_server_image }}:{{ rustdesk_server_image_tag }}"
+    state: started
+    restart_policy: unless-stopped
+    command: ["hbbr"]
+    network_mode: "{{ rustdesk_server_network_mode }}"
+    networks:
+      - name: "{{ rustdesk_server_network_name }}"
+    ports:
+      - "{{ rustdesk_server_hbbr_relay_host_port }}:{{ rustdesk_server_hbbr_relay_container_port }}/tcp"
+    volumes:
+      - "{{ rustdesk_server_volume_name }}:/root:rw"
+    env:
+      TZ: "{{ cloud_server_tz | default('UTC') }}"
+    log_driver: json-file
+    log_options:
+      max-size: "10m"
+      max-file: "5"
+    security_opts:
+      - no-new-privileges:true
+  register: rustdesk_hbbr_deploy
+  notify: restart rustdesk hbbr
+  when: rustdesk_server_network_mode != "host"
+
+- name: Deploy RustDesk hbbr container (host networking)
+  community.docker.docker_container:
+    name: "{{ rustdesk_server_hbbr_container_name }}"
+    image: "{{ rustdesk_server_image }}:{{ rustdesk_server_image_tag }}"
+    state: started
+    restart_policy: unless-stopped
+    command: ["hbbr"]
+    network_mode: "host"
+    volumes:
+      - "{{ rustdesk_server_volume_name }}:/root:rw"
+    env:
+      TZ: "{{ cloud_server_tz | default('UTC') }}"
+    log_driver: json-file
+    log_options:
+      max-size: "10m"
+      max-file: "5"
+    security_opts:
+      - no-new-privileges:true
+  register: rustdesk_hbbr_deploy
+  notify: restart rustdesk hbbr
+  when: rustdesk_server_network_mode == "host"
+
+# ============================================================================
+# Web Client Support (Optional)
+# ============================================================================
+- name: Deploy RustDesk hbbs web client port
+  community.docker.docker_container:
+    name: "{{ rustdesk_server_hbbs_container_name }}"
+    image: "{{ rustdesk_server_image }}:{{ rustdesk_server_image_tag }}"
+    state: started
+    restart_policy: unless-stopped
+    command: ["hbbs"]
+    network_mode: "{{ rustdesk_server_network_mode }}"
+    networks:
+      - name: "{{ rustdesk_server_network_name }}"
+    ports:
+      - "{{ rustdesk_server_hbbs_nat_test_host_port }}:{{ rustdesk_server_hbbs_nat_test_container_port }}/tcp"
+      - "{{ rustdesk_server_hbbs_id_reg_host_port }}:{{ rustdesk_server_hbbs_id_reg_container_port }}/tcp"
+      - "{{ rustdesk_server_hbbs_id_reg_host_port }}:{{ rustdesk_server_hbbs_id_reg_container_port }}/udp"
+      - "{{ rustdesk_server_hbbs_web_host_port }}:{{ rustdesk_server_hbbs_web_container_port }}/tcp"
+    volumes:
+      - "{{ rustdesk_server_volume_name }}:/root:rw"
+    env:
+      TZ: "{{ cloud_server_tz | default('UTC') }}"
+      ALWAYS_USE_RELAY: "{{ rustdesk_server_always_use_relay }}"
+    log_driver: json-file
+    log_options:
+      max-size: "10m"
+      max-file: "5"
+    security_opts:
+      - no-new-privileges:true
+  register: rustdesk_hbbs_web_deploy
+  notify: restart rustdesk hbbs
+  when:
+    - rustdesk_server_enable_web_client | bool
+    - rustdesk_server_network_mode != "host"
+
+- name: Deploy RustDesk hbbr web client port
+  community.docker.docker_container:
+    name: "{{ rustdesk_server_hbbr_container_name }}"
+    image: "{{ rustdesk_server_image }}:{{ rustdesk_server_image_tag }}"
+    state: started
+    restart_policy: unless-stopped
+    command: ["hbbr"]
+    network_mode: "{{ rustdesk_server_network_mode }}"
+    networks:
+      - name: "{{ rustdesk_server_network_name }}"
+    ports:
+      - "{{ rustdesk_server_hbbr_relay_host_port }}:{{ rustdesk_server_hbbr_relay_container_port }}/tcp"
+      - "{{ rustdesk_server_hbbr_web_host_port }}:{{ rustdesk_server_hbbr_web_container_port }}/tcp"
+    volumes:
+      - "{{ rustdesk_server_volume_name }}:/root:rw"
+    env:
+      TZ: "{{ cloud_server_tz | default('UTC') }}"
+    log_driver: json-file
+    log_options:
+      max-size: "10m"
+      max-file: "5"
+    security_opts:
+      - no-new-privileges:true
+  register: rustdesk_hbbr_web_deploy
+  notify: restart rustdesk hbbr
+  when:
+    - rustdesk_server_enable_web_client | bool
+    - rustdesk_server_network_mode != "host"
+
+# ============================================================================
+# Verification
+# ============================================================================
+- name: Wait for RustDesk hbbs to be healthy
+  ansible.builtin.wait_for:
+    host: "{{ '127.0.0.1' if rustdesk_server_network_mode == 'host' else ansible_facts.default_ipv4.address }}"
+    port: "{{ rustdesk_server_hbbs_id_reg_host_port }}"
+    delay: 5
+    timeout: 30
+  when:
+    - rustdesk_server_verify_health | bool
+    - rustdesk_hbbs_deploy.changed
+    - not ansible_check_mode
+
+- name: Wait for RustDesk hbbr to be healthy
+  ansible.builtin.wait_for:
+    host: "{{ '127.0.0.1' if rustdesk_server_network_mode == 'host' else ansible_facts.default_ipv4.address }}"
+    port: "{{ rustdesk_server_hbbr_relay_host_port }}"
+    delay: 5
+    timeout: 30
+  when:
+    - rustdesk_server_verify_health | bool
+    - rustdesk_hbbr_deploy.changed
+    - not ansible_check_mode
+
+# ============================================================================
+# Status Report
+# ============================================================================
+- name: Report RustDesk server status
+  ansible.builtin.debug:
+    msg: |
+      RustDesk server deployed successfully:
+      - hbbs (ID server): {{ rustdesk_server_hbbs_container_name }}
+      - hbbr (Relay server): {{ rustdesk_server_hbbr_container_name }}
+      - NAT test port: {{ rustdesk_server_hbbs_nat_test_host_port }}/tcp
+      - ID registration: {{ rustdesk_server_hbbs_id_reg_host_port }}/tcp,{{ rustdesk_server_hbbs_id_reg_host_port }}/udp
+      - Relay port: {{ rustdesk_server_hbbr_relay_host_port }}/tcp
+      - Web client support: {{ rustdesk_server_enable_web_client }}
+      - VPN-only access: {{ rustdesk_server_vpn_only }}
+      - Network mode: {{ rustdesk_server_network_mode }}

@@ -1,0 +1,18 @@
+---
+# handlers file for rustdesk-server
+
+- name: restart rustdesk hbbs
+  community.docker.docker_container:
+    name: "{{ rustdesk_server_hbbs_container_name }}"
+    state: started
+    restart: true
+  become: true
+  when: not ansible_check_mode
+
+- name: restart rustdesk hbbr
+  community.docker.docker_container:
+    name: "{{ rustdesk_server_hbbr_container_name }}"
+    state: started
+    restart: true
+  become: true
+  when: not ansible_check_mode

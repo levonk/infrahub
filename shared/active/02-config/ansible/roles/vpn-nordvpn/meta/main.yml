@@ -1,0 +1,26 @@
+---
+galaxy_info:
+  author: infrahub
+  description: Deploys NordVPN container with VPN gateway capabilities
+  company: LocalNet
+  license: MIT
+  min_ansible_version: "2.9"
+  
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+    - name: Ubuntu
+      versions:
+        - jammy
+        - focal
+  
+  galaxy_tags:
+    - vpn
+    - nordvpn
+    - network
+    - security
+    - docker
+
+dependencies:
+  - role: docker-engine

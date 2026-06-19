@@ -36,6 +36,11 @@
           unnecessary_services: []
           auto_updates_enabled: false
           container_images: []
+          nordvpn_container_running: false
+          nordvpn_health_check_passed: false
+          nordvpn_token_configured: false
+          nordvpn_interface_up: false
+          nordvpn_ip_forwarding_enabled: false
 
   tasks:
     - name: "Check SSH connectivity (Ansible connection test)"
@@ -250,6 +255,88 @@
       ansible.builtin.set_fact:
         security_warnings: "{{ security_warnings + ['Container images older than 30 days found'] if old_images_check.stdout != 'no_old_images' else security_warnings }}"
       tags: ["audit", "containers"]
+
+    - name: "Check NordVPN container status"
+      community.docker.docker_container_info:
+        name: "nordvpn"
+      register: nordvpn_container_check
+      failed_when: false
+      when: vpn_nordvpn_enabled | default(false)
+      tags: ["audit", "vpn", "nordvpn"]
+
+    - name: "Record NordVPN container status"
+      ansible.builtin.set_fact:
+        audit_results: "{{ audit_results | combine({'nordvpn_container_running': nordvpn_container_check.container.State.Running if nordvpn_container_check.container is defined else false}) }}"
+        security_gaps: "{{ security_gaps + ['NordVPN container not running'] if not (nordvpn_container_check.container is defined and nordvpn_container_check.container.State.Running) else security_gaps }}"
+      when: vpn_nordvpn_enabled | default(false)
+      tags: ["audit", "vpn", "nordvpn"]
+
+    - name: "Check NordVPN health check"
+      community.docker.docker_container_exec:
+        container: "nordvpn"
+        command: /nordvpn/bin/healthcheck-nordvpn.sh
+      register: nordvpn_health_check
+      failed_when: false
+      when: vpn_nordvpn_enabled | default(false)
+      tags: ["audit", "vpn", "nordvpn"]
+
+    - name: "Record NordVPN health check status"
+      ansible.builtin.set_fact:
+        audit_results: "{{ audit_results | combine({'nordvpn_health_check_passed': nordvpn_health_check.rc == 0}) }}"
+        security_gaps: "{{ security_gaps + ['NordVPN health check failed'] if nordvpn_health_check.rc != 0 else security_gaps }}"
+      when: vpn_nordvpn_enabled | default(false)
+      tags: ["audit", "vpn", "nordvpn"]
+
+    - name: "Check NordVPN token is configured"
+      ansible.builtin.assert:
+        that:
+          - vpn_nordvpn_token is defined
+          - vpn_nordvpn_token | length > 0
+        fail_msg: "NordVPN token not configured"
+        quiet: true
+      register: nordvpn_token_check
+      failed_when: false
+      when: vpn_nordvpn_enabled | default(false)
+      tags: ["audit", "vpn", "nordvpn"]
+
+    - name: "Record NordVPN token configuration"
+      ansible.builtin.set_fact:
+        audit_results: "{{ audit_results | combine({'nordvpn_token_configured': nordvpn_token_check is succeeded}) }}"
+        security_gaps: "{{ security_gaps + ['NordVPN token not configured'] if nordvpn_token_check is failed else security_gaps }}"
+      when: vpn_nordvpn_enabled | default(false)
+      tags: ["audit", "vpn", "nordvpn"]
+
+    - name: "Check VPN interface (nordlynx) is up"
+      community.docker.docker_container_exec:
+        container: "nordvpn"
+        command: ip link show nordlynx
+      register: nordvpn_interface_check
+      failed_when: false
+      when: vpn_nordvpn_enabled | default(false)
+      tags: ["audit", "vpn", "nordvpn"]
+
+    - name: "Record VPN interface status"
+      ansible.builtin.set_fact:
+        audit_results: "{{ audit_results | combine({'nordvpn_interface_up': nordvpn_interface_check.rc == 0}) }}"
+        security_gaps: "{{ security_gaps + ['NordVPN interface (nordlynx) not up'] if nordvpn_interface_check.rc != 0 else security_gaps }}"
+      when: vpn_nordvpn_enabled | default(false)
+      tags: ["audit", "vpn", "nordvpn"]
+
+    - name: "Check IP forwarding is enabled in NordVPN container"
+      community.docker.docker_container_exec:
+        container: "nordvpn"
+        command: sysctl -n net.ipv4.ip_forward
+      register: nordvpn_ip_forwarding_check
+      failed_when: false
+      when: vpn_nordvpn_enabled | default(false)
+      tags: ["audit", "vpn", "nordvpn"]
+
+    - name: "Record IP forwarding status"
+      ansible.builtin.set_fact:
+        audit_results: "{{ audit_results | combine({'nordvpn_ip_forwarding_enabled': nordvpn_ip_forwarding_check.stdout == '1'}) }}"
+        security_gaps: "{{ security_gaps + ['NordVPN IP forwarding not enabled'] if nordvpn_ip_forwarding_check.stdout != '1' else security_gaps }}"
+      when: vpn_nordvpn_enabled | default(false)
+      tags: ["audit", "vpn", "nordvpn"]
 
   post_tasks:
     - name: "Display audit results"

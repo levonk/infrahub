@@ -87,6 +87,39 @@
   become: true
 
 # ---------------------------------------------------------------------------
+# Check if NordVPN is running and get its network namespace
+# ---------------------------------------------------------------------------
+- name: Check if NordVPN container is running
+  ansible.builtin.shell:
+    cmd: docker ps | grep nordvpn
+  register: nordvpn_running
+  changed_when: false
+  failed_when: false
+  ignore_errors: true
+
+- name: Set fact for NordVPN running status
+  ansible.builtin.set_fact:
+    nordvpn_is_running: "{{ nordvpn_running.rc == 0 }}"
+
+# ---------------------------------------------------------------------------
+# Service Management
+# ---------------------------------------------------------------------------
+- name: Check if Tailscale binary exists
+  ansible.builtin.stat:
+    path: /usr/bin/tailscale
+  register: tailscale_binary
+  become: true
+
+- name: Keep host-level Tailscale running for dual exit node flexibility
+  ansible.builtin.systemd:
+    name: tailscaled
+    state: started
+    enabled: true
+  become: true
+  when:
+    - tailscale_binary.stat.exists
+
+# ---------------------------------------------------------------------------
 # Authenticate and start Tailscale
 # ---------------------------------------------------------------------------
 - name: Check Tailscale authentication status
@@ -121,42 +154,114 @@
   when:
     - vpn_tailscale_auth_key | length > 0
     - vpn_tailscale_status_check.rc != 0
+    - not nordvpn_is_running | bool
   notify: restart tailscale
 
 # ---------------------------------------------------------------------------
-# Service Management
+# Deploy Tailscale container using dedicated VPN network with NordVPN as gateway
 # ---------------------------------------------------------------------------
-- name: Check if Tailscale binary exists
-  ansible.builtin.stat:
-    path: /usr/bin/tailscale
-  register: tailscale_binary
+- name: "Remove existing Tailscale container if NordVPN is running"
+  community.docker.docker_container:
+    name: "tailscale-nordvpn"
+    state: absent
+    force_kill: true
+  when:
+    - nordvpn_is_running | bool
+  ignore_errors: true
+
+- name: "Deploy Tailscale container using dedicated VPN network"
+  community.docker.docker_container:
+    name: "tailscale-nordvpn"
+    image: "tailscale/tailscale:latest"
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ vpn_nordvpn_network_name }}"
+    capabilities:
+      - NET_ADMIN
+    env:
+      TS_AUTHKEY: "{{ vpn_tailscale_auth_key }}"
+      TS_HOSTNAME: "{{ vpn_tailscale_hostname }}-nordvpn"
+      TS_STATE_DIR: "/var/lib/tailscale"
+      TS_EXTRA_ARGS: "--advertise-exit-node --accept-routes"
+    volumes:
+      - tailscale-nordvpn-state:/var/lib/tailscale
+  when:
+    - vpn_tailscale_enabled
+    - vpn_tailscale_run_exit_node | bool
+    - nordvpn_is_running | bool
   become: true
 
-- name: Ensure Tailscale service is enabled and running
-  ansible.builtin.systemd:
-    name: tailscaled
-    state: started
-    enabled: true
-  become: true
-  when: tailscale_binary.stat.exists
+- name: "Get NordVPN container IP address"
+  ansible.builtin.shell: docker inspect nordvpn --format '{% raw %}{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}{% endraw %}'
+  register: nordvpn_container_ip
+  changed_when: false
+  when:
+    - vpn_tailscale_enabled
+    - vpn_tailscale_run_exit_node | bool
+    - nordvpn_is_running | bool
+
+- name: "Configure NordVPN container as gateway for Tailscale traffic"
+  ansible.builtin.shell: |
+    docker exec tailscale-nordvpn ip route del default || true
+    docker exec tailscale-nordvpn ip route add default via {{ nordvpn_container_ip.stdout }}
+  when:
+    - vpn_tailscale_enabled
+    - vpn_tailscale_run_exit_node | bool
+    - nordvpn_is_running | bool
+  ignore_errors: true
+
+- name: "Add NAT masquerading rules to NordVPN container"
+  ansible.builtin.shell: |
+    docker exec nordvpn iptables -t nat -A POSTROUTING -s 172.28.0.0/16 -j MASQUERADE || true
+    docker exec nordvpn iptables -A FORWARD -i eth0 -o tun0 -j ACCEPT || true
+    docker exec nordvpn iptables -A FORWARD -i tun0 -o eth0 -m state --state RELATED,ESTABLISHED -j ACCEPT || true
+  when:
+    - vpn_tailscale_enabled
+    - vpn_tailscale_run_exit_node | bool
+    - nordvpn_is_running | bool
+  ignore_errors: true
 
 # ---------------------------------------------------------------------------
 # Verification
 # ---------------------------------------------------------------------------
 - name: Verify Tailscale status
   ansible.builtin.command:
+    cmd: docker exec tailscale-nordvpn tailscale status
+  become: true
+  changed_when: false
+  when:
+    - vpn_tailscale_verify_connection | bool
+    - nordvpn_is_running | bool
+
+- name: Verify Tailscale status (host-level)
+  ansible.builtin.command:
     cmd: tailscale status
   become: true
   changed_when: false
-  when: vpn_tailscale_verify_connection | bool
+  when:
+    - vpn_tailscale_verify_connection | bool
+    - not nordvpn_is_running | bool
 
 - name: Verify Tailscale IP
+  ansible.builtin.command:
+    cmd: docker exec tailscale-nordvpn tailscale ip -4
+  become: true
+  changed_when: false
+  register: vpn_tailscale_ip
+  when:
+    - vpn_tailscale_verify_connection | bool
+    - nordvpn_is_running | bool
+
+- name: Verify Tailscale IP (host-level)
   ansible.builtin.command:
     cmd: tailscale ip -4
   become: true
   changed_when: false
   register: vpn_tailscale_ip
-  when: vpn_tailscale_verify_connection | bool
+  when:
+    - vpn_tailscale_verify_connection | bool
+    - not nordvpn_is_running | bool
 
 - name: Report Tailscale connection info
   ansible.builtin.debug:

@@ -1,0 +1,9 @@
+---
+# handlers file for proxy-iron-proxy
+
+- name: restart iron-proxy
+  community.docker.docker_container:
+    name: iron-proxy
+    state: started
+    restart: true
+  become: true

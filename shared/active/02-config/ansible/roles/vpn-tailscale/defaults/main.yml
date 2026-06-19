@@ -41,6 +41,11 @@ vpn_tailscale_enable_ssh: false
 vpn_tailscale_run_exit_node: false
 
 # ---------------------------------------------------------------------------
+# NordVPN Integration
+# ---------------------------------------------------------------------------
+vpn_nordvpn_network_name: "{{ cloud_server_nordvpn_network_name | default('vpn-network') }}"
+
+# ---------------------------------------------------------------------------
 # Verification
 # ---------------------------------------------------------------------------
 vpn_tailscale_verify_connection: true

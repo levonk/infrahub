@@ -1,4 +1,5 @@
 graph TB
+    classDef default fill:#f5f5f5,stroke:#333,stroke-width:2px,color:#000000
     Request[HTTP Request]
     
     subgraph "Privoxy Filters"
@@ -29,6 +30,6 @@ graph TB
     
     RemoveCookie --> Filtered
     
-    style AdFilter fill:#99ccff
-    style TrackerFilter fill:#99ccff
-    style Filtered fill:#99ff99
+    style AdFilter fill:#99ccff,stroke:#333,stroke-width:2px,color:#000000
+    style TrackerFilter fill:#99ccff,stroke:#333,stroke-width:2px,color:#000000
+    style Filtered fill:#99ff99,stroke:#333,stroke-width:2px,color:#000000

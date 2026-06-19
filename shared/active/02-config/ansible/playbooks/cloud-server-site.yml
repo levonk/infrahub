@@ -42,7 +42,7 @@
           Target: {{ inventory_hostname }}
           User: {{ ansible_user_id }}
           OS: {{ ansible_distribution }} {{ ansible_distribution_version }}
-          Architecture: {{ ansible_architecture }}
+          Architecture: {{ ansible_facts['architecture'] }}
           Timestamp: {{ ansible_date_time.iso8601 }}
           ========================================
       tags: ["always", "info"]

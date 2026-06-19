@@ -9,6 +9,7 @@ INFRAHUB_ROOT := justfile_directory()
 ANSIBLE_ROOT := INFRAHUB_ROOT + "/shared/active/02-config/ansible"
 CONTAINER_ROOT := INFRAHUB_ROOT + "/shared/active/03-container"
 INVENTORY := INFRAHUB_ROOT + "/levonk/active/02-config/ansible/inventories/oci.yml"
+LOCALNET_INVENTORY := INFRAHUB_ROOT + "/levonk/active/02-config/ansible/inventories/localnet.yml"
 GROUP_VARS := INFRAHUB_ROOT + "/levonk/active/02-config/ansible/group_vars"
 PACKER_DIR := INFRAHUB_ROOT + "/shared/active/01-build/packer"
 MOLECULE_DIR := ANSIBLE_ROOT + "/roles"
@@ -16,9 +17,11 @@ MOLECULE_DIR := ANSIBLE_ROOT + "/roles"
 # Ansible playbooks
 PB_BOOTSTRAP := ANSIBLE_ROOT + "/playbooks/cloud-server-bootstrap.yml"
 PB_VPN := ANSIBLE_ROOT + "/playbooks/cloud-server-vpn.yml"
+PB_NORDVPN := ANSIBLE_ROOT + "/playbooks/cloud-server-nordvpn.yml"
 PB_INFRA := ANSIBLE_ROOT + "/playbooks/cloud-server-infra.yml"
 PB_VMS := ANSIBLE_ROOT + "/playbooks/cloud-server-vms.yml"
 PB_SITE := ANSIBLE_ROOT + "/playbooks/cloud-server-site.yml"
+PB_LOCALNET_TAILSCALE := ANSIBLE_ROOT + "/playbooks/localnet-tailscale.yml"
 
 # Validation playbooks
 PB_VAL_BOOTSTRAP := ANSIBLE_ROOT + "/playbooks/validate-bootstrap.yml"
@@ -255,7 +258,14 @@ ansible-deploy-vpn:
 
 ansible-deploy-vpn-internal:
     @echo "Deploying VPN playbook..."
-    ansible-playbook -i {{INVENTORY}} {{PB_VPN}}
+    ansible-playbook -i {{INVENTORY}} {{PB_VPN}} --ask-vault-pass
+
+ansible-deploy-nordvpn:
+    devbox run ansible-deploy-nordvpn
+
+ansible-deploy-nordvpn-internal:
+    @echo "Deploying NordVPN playbook..."
+    bash scripts/deploy-nordvpn.sh
 
 ansible-deploy-infra:
     devbox run ansible-deploy-infra
@@ -277,6 +287,15 @@ ansible-deploy-site:
 ansible-deploy-site-internal:
     @echo "Deploying site playbook (full stack)..."
     ansible-playbook -i {{INVENTORY}} {{PB_SITE}}
+
+# -- Local Network Deployment --
+
+ansible-deploy-localnet-tailscale:
+    devbox run ansible-deploy-localnet-tailscale
+
+ansible-deploy-localnet-tailscale-internal:
+    @echo "Deploying Tailscale to local network hosts..."
+    ansible-playbook -i {{LOCALNET_INVENTORY}} {{PB_LOCALNET_TAILSCALE}} --ask-vault-pass
 
 # -- Validation Playbooks --
 

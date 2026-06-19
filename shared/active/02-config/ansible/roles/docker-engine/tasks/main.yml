@@ -2,6 +2,13 @@
 # tasks file for docker-engine
 
 # ---------------------------------------------------------------------------
+# Gather facts for OS detection
+# ---------------------------------------------------------------------------
+- name: Gather ansible_facts
+  ansible.builtin.setup:
+    gather_subset: ["all"]
+
+# ---------------------------------------------------------------------------
 # Prerequisites
 # ---------------------------------------------------------------------------
 - name: Ensure required packages are present
@@ -14,7 +21,7 @@
     state: present
   become: true
   when: 
-    - ansible_os_family == "Debian"
+    - ansible_facts['os_family'] == "Debian"
     - not docker_engine_skip_installation | default(false) | bool
 
 # ---------------------------------------------------------------------------
@@ -27,7 +34,7 @@
     mode: "0755"
   become: true
   when:
-    - ansible_os_family == "Debian"
+    - ansible_facts['os_family'] == "Debian"
     - docker_engine_install_method == "repo"
     - not docker_engine_skip_installation | default(false) | bool
 
@@ -38,18 +45,23 @@
     mode: "0644"
   become: true
   when:
-    - ansible_os_family == "Debian"
+    - ansible_facts['os_family'] == "Debian"
     - docker_engine_install_method == "repo"
     - not docker_engine_skip_installation | default(false) | bool
 
 - name: Add Docker apt repository
-  ansible.builtin.apt_repository:
-    repo: "deb [arch={{ ansible_architecture }} signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian bookworm stable"
-    filename: docker
+  ansible.builtin.deb822_repository:
+    name: docker
+    types: deb
+    uris: https://download.docker.com/linux/debian
+    suites: bookworm
+    components: stable
+    signed_by: /etc/apt/keyrings/docker.asc
+    architecture: "{{ ansible_facts['architecture'] }}"
     state: present
   become: true
   when:
-    - ansible_os_family == "Debian"
+    - ansible_facts['os_family'] == "Debian"
     - docker_engine_install_method == "repo"
     - not docker_engine_skip_installation | default(false) | bool
 
@@ -58,7 +70,7 @@
     update_cache: true
   become: true
   when:
-    - ansible_os_family == "Debian"
+    - ansible_facts['os_family'] == "Debian"
     - docker_engine_install_method == "repo"
     - not docker_engine_skip_installation | default(false) | bool
 

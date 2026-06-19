@@ -1,0 +1,62 @@
+---
+# defaults file for rustdesk-server
+# Neutral, overridable defaults. No localnet-specific paths.
+# All ports and IPs must be variables — never hardcode.
+
+# ---------------------------------------------------------------------------
+# Image & Container
+# ---------------------------------------------------------------------------
+rustdesk_server_image: "rustdesk/rustdesk-server"
+rustdesk_server_image_tag: "{{ cloud_server_rustdesk_image_tag | default('latest') }}"
+rustdesk_server_hbbs_container_name: "{{ cloud_server_rustdesk_hbbs_container_name | default('rustdesk-hbbs') }}"
+rustdesk_server_hbbr_container_name: "{{ cloud_server_rustdesk_hbbr_container_name | default('rustdesk-hbbr') }}"
+rustdesk_server_volume_name: "{{ cloud_server_rustdesk_volume_name | default('rustdesk-server-data') }}"
+
+# ---------------------------------------------------------------------------
+# Network
+# ---------------------------------------------------------------------------
+rustdesk_server_network_name: "{{ cloud_server_docker_network_name | default('cloud-server') }}"
+rustdesk_server_network_mode: "{{ cloud_server_rustdesk_network_mode | default('host') }}"
+
+# ---------------------------------------------------------------------------
+# Ports — all variable-driven per ADR (host:container mapping)
+# ---------------------------------------------------------------------------
+# hbbs ports
+rustdesk_server_hbbs_nat_test_host_port: "{{ cloud_server_rustdesk_hbbs_nat_test_host_port | default('21115') }}"
+rustdesk_server_hbbs_nat_test_container_port: "{{ cloud_server_rustdesk_hbbs_nat_test_container_port | default('21115') }}"
+
+rustdesk_server_hbbs_id_reg_host_port: "{{ cloud_server_rustdesk_hbbs_id_reg_host_port | default('21116') }}"
+rustdesk_server_hbbs_id_reg_container_port: "{{ cloud_server_rustdesk_hbbs_id_reg_container_port | default('21116') }}"
+
+rustdesk_server_hbbs_web_host_port: "{{ cloud_server_rustdesk_hbbs_web_host_port | default('21118') }}"
+rustdesk_server_hbbs_web_container_port: "{{ cloud_server_rustdesk_hbbs_web_container_port | default('21118') }}"
+
+# hbbr ports
+rustdesk_server_hbbr_relay_host_port: "{{ cloud_server_rustdesk_hbbr_relay_host_port | default('21117') }}"
+rustdesk_server_hbbr_relay_container_port: "{{ cloud_server_rustdesk_hbbr_relay_container_port | default('21117') }}"
+
+rustdesk_server_hbbr_web_host_port: "{{ cloud_server_rustdesk_hbbr_web_host_port | default('21119') }}"
+rustdesk_server_hbbr_web_container_port: "{{ cloud_server_rustdesk_hbbr_web_container_port | default('21119') }}"
+
+# ---------------------------------------------------------------------------
+# Service Configuration
+# ---------------------------------------------------------------------------
+rustdesk_server_always_use_relay: "{{ cloud_server_rustdesk_always_use_relay | default('N') }}"
+rustdesk_server_enable_web_client: "{{ cloud_server_rustdesk_enable_web_client | default('false') }}"
+
+# ---------------------------------------------------------------------------
+# Service Directory
+# ---------------------------------------------------------------------------
+rustdesk_server_service_dir: "{{ cloud_server_services_dir | default('/opt/cloud-server/services') }}/rustdesk-server"
+
+# ---------------------------------------------------------------------------
+# VPN Access Control
+# ---------------------------------------------------------------------------
+rustdesk_server_vpn_only: "{{ cloud_server_rustdesk_vpn_only | default('true') }}"
+rustdesk_server_allowed_vpn_subnets: "{{ cloud_server_rustdesk_allowed_vpn_subnets | default(['100.64.0.0/10', '100.100.0.0/10']) }}"
+
+# ---------------------------------------------------------------------------
+# Verification
+# ---------------------------------------------------------------------------
+rustdesk_server_verify_health: "{{ cloud_server_rustdesk_verify_health | default(true) }}"
+rustdesk_server_verify_timeout_seconds: "{{ cloud_server_rustdesk_verify_timeout | default('30') }}"

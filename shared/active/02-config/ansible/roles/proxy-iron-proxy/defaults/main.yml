@@ -1,0 +1,82 @@
+---
+# defaults file for proxy-iron-proxy
+# Neutral, overridable defaults. No localnet-specific paths.
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# iron-proxy Container
+# ---------------------------------------------------------------------------
+proxy_iron_proxy_enabled: true
+proxy_iron_proxy_version: "latest"
+proxy_iron_proxy_image: "ghcr.io/ironsh/iron-proxy:{{ proxy_iron_proxy_version }}"
+
+# ---------------------------------------------------------------------------
+# DNS Configuration
+# ---------------------------------------------------------------------------
+proxy_iron_proxy_dns_enabled: true
+proxy_iron_proxy_dns_host_port: "{{ cloud_server_iron_proxy_dns_host_port | default('53') }}"
+proxy_iron_proxy_dns_container_port: "53"
+proxy_iron_proxy_dns_proxy_ip: "{{ docker_network_gateway | default('172.20.0.1') }}"
+proxy_iron_proxy_upstream_dns: "{{ cloud_server_iron_proxy_upstream_dns | default('8.8.8.8:53') }}"
+
+# ---------------------------------------------------------------------------
+# HTTP/HTTPS Proxy Configuration
+# ---------------------------------------------------------------------------
+proxy_iron_proxy_http_host_port: "{{ cloud_server_iron_proxy_http_host_port | default('8080') }}"
+proxy_iron_proxy_http_container_port: "80"
+proxy_iron_proxy_https_host_port: "{{ cloud_server_iron_proxy_https_host_port | default('8443') }}"
+proxy_iron_proxy_https_container_port: "443"
+
+# ---------------------------------------------------------------------------
+# TLS Configuration
+# ---------------------------------------------------------------------------
+proxy_iron_proxy_tls_mode: "{{ cloud_server_iron_proxy_tls_mode | default('mitm') }}"
+proxy_iron_proxy_cert_cache_size: "{{ cloud_server_iron_proxy_cert_cache_size | default(1000) }}"
+proxy_iron_proxy_leaf_cert_expiry_hours: "{{ cloud_server_iron_proxy_leaf_cert_expiry_hours | default(72) }}"
+
+# ---------------------------------------------------------------------------
+# Proxy Limits
+# ---------------------------------------------------------------------------
+proxy_iron_proxy_max_request_body_bytes: "{{ cloud_server_iron_proxy_max_request_body_bytes | default(1048576) }}"
+proxy_iron_proxy_max_response_body_bytes: "{{ cloud_server_iron_proxy_max_response_body_bytes | default(0) }}"
+proxy_iron_proxy_upstream_timeout: "{{ cloud_server_iron_proxy_upstream_timeout | default('30s') }}"
+
+# ---------------------------------------------------------------------------
+# Allowlist Configuration
+# ---------------------------------------------------------------------------
+proxy_iron_proxy_allowlist_warn: false
+proxy_iron_proxy_allowed_domains: []
+proxy_iron_proxy_allowed_cidrs: []
+proxy_iron_proxy_allowlist_rules: []
+
+# ---------------------------------------------------------------------------
+# API Key Configuration (Client-configurable)
+# ---------------------------------------------------------------------------
+proxy_iron_proxy_openai_enabled: false
+proxy_iron_proxy_openai_api_key: ""
+proxy_iron_proxy_anthropic_enabled: false
+proxy_iron_proxy_anthropic_api_key: ""
+proxy_iron_proxy_anthropic_proxy_token: "proxy-token-anthropic"
+proxy_iron_proxy_google_enabled: false
+proxy_iron_proxy_google_api_key: ""
+proxy_iron_proxy_github_enabled: false
+proxy_iron_proxy_github_token: ""
+
+# ---------------------------------------------------------------------------
+# Upstream Proxy Configuration (for corporate networks)
+# ---------------------------------------------------------------------------
+proxy_iron_proxy_http_proxy: ""
+proxy_iron_proxy_https_proxy: ""
+proxy_iron_proxy_no_proxy: ""
+
+# ---------------------------------------------------------------------------
+# Docker Network & Volumes
+# ---------------------------------------------------------------------------
+proxy_iron_proxy_docker_network_name: "{{ cloud_server_proxy_network_name | default('proxy-network') }}"
+proxy_iron_proxy_data_dir: "{{ cloud_server_proxy_data_dir | default('/opt/proxy') }}/iron-proxy"
+
+# ---------------------------------------------------------------------------
+# Feature Flags
+# ---------------------------------------------------------------------------
+proxy_iron_proxy_verify_health: true
+proxy_iron_proxy_verify_timeout_seconds: 30

@@ -1,0 +1,70 @@
+---
+# Local Network Tailscale Playbook
+# Installs and configures Tailscale on local network machines
+# Usage:
+#   ansible-playbook -i inventories/localnet.yml playbooks/localnet-tailscale.yml --vault-password-file
+#   ansible-playbook -i inventories/localnet.yml playbooks/localnet-tailscale.yml --ask-vault-pass
+# Note: Uses cloud_servers.vault.yml for Tailscale auth key
+
+- name: "Deploy Tailscale to Local Network Hosts"
+  hosts: vpn_tailscale_clients
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: "Gather ansible_facts"
+      ansible.builtin.setup:
+        gather_subset: ["all"]
+      tags: ["always"]
+
+    - name: "Validate required variables are defined"
+      ansible.builtin.assert:
+        that:
+          - vpn_tailscale_auth_key is defined
+          - vpn_tailscale_auth_key | length > 0
+        fail_msg: "Missing required vpn_tailscale_auth_key. Add it to vault or group_vars."
+        success_msg: "All required variables are defined."
+      tags: ["always", "validate"]
+
+  roles:
+    - role: vpn-tailscale
+      tags: ["vpn", "tailscale"]
+
+  post_tasks:
+    - name: "Verify Tailscale connectivity"
+      ansible.builtin.command:
+        cmd: "tailscale status"
+      become: true
+      register: tailscale_status
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "vpn", "tailscale"]
+
+    - name: "Report Tailscale status"
+      ansible.builtin.debug:
+        msg: "Tailscale status: {{ tailscale_status.stdout }}"
+      when: tailscale_status.rc == 0
+      tags: ["verify", "vpn", "tailscale"]
+
+    - name: "Report Tailscale IP"
+      ansible.builtin.command:
+        cmd: "tailscale ip -4"
+      become: true
+      register: tailscale_ip
+      changed_when: false
+      when: tailscale_status.rc == 0
+      tags: ["verify", "vpn", "tailscale"]
+
+    - name: "Report Tailscale connection info"
+      ansible.builtin.debug:
+        msg: >-
+          Tailscale is running on {{ inventory_hostname }}:
+          - Hostname: {{ vpn_tailscale_hostname }}
+          - IPv4: {{ tailscale_ip.stdout | default('N/A') }}
+      when: tailscale_status.rc == 0
+      tags: ["verify", "vpn", "tailscale"]
+
+    - name: "Report Tailscale deployment complete"
+      ansible.builtin.debug:
+        msg: "Tailscale deployed successfully on {{ inventory_hostname }}"
+      tags: ["verify", "summary"]

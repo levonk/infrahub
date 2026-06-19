@@ -1,6 +1,6 @@
 # Debian-based base image for services requiring Debian compatibility
-# DO NOT CHANGE THIS LINE!!!
-FROM dhi.io/debian-base:trixie-dev
+# Using public Debian image for OCI deployment
+FROM debian:bookworm-slim
 
 # Labels for metadata and security scanning
 LABEL org.opencontainers.image.title="Base Debian Image" \

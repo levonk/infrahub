@@ -273,6 +273,10 @@ Ventoy USB Booter
   - [ ] Time Tracking (automated) https://github.com/ActivityWatch
   - [ ] Activity Tracking (excersize) https://github.com/myfear/open-pace
 
+### Email Architecture
+- [ ]  https://github.com/toinbox/simplerelay to allow for all local apops to communicate with this, and it authenticates with the actual outbound
+
+
 ### DNS Architecture (Tiered Fallback)
 
 _Goal: Privacy, Resilience, Ad-blocking_
@@ -620,6 +624,16 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] https://github.com/diegosouzapw/OmniRoute
     - [ ] https://github.com/maximhq/bifrost
     - [ ] https://github.com/decolua/9router (OmniRoute seems way better than this)
+    - [ ] https://github.com/seakee/CPA-Manager-Plus
+      - [ ] https://github.com/router-for-me/CLIProxyAPI
+- [ ] **Token Optimization**:
+  - [ ] https://github.com/chopratejas/headroom
+    - [ ] https://github.com/rtk-ai/rtk
+    - [ ] https://github.com/johunsang/semble_rs
+    - [ ] https://github.com/yvgude/lean-ctx
+- [ ] **AI Metrics Dashboards**:
+  - [ ] https://github.com/nateherkai/token-dashboard
+  - [ ] https://github.com/router-for-me/Cli-Proxy-API-Management-Center
 - [ ] **Inference Engines**:
   - [ ] **Ollama**: LLM Runner https://github.com/ollama/ollama
   - [ ] **LocalAI**: OpenAI compatible API

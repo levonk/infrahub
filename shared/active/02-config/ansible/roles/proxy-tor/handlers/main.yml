@@ -1,0 +1,7 @@
+---
+# handlers file for proxy-tor
+
+- name: restart tor
+  ansible.builtin.command:
+    cmd: docker compose -f {{ localnet_services_dir }}/proxy/tor/docker-compose.yml restart
+  changed_when: true

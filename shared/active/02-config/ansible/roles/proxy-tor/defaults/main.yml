@@ -1,0 +1,17 @@
+---
+# defaults file for proxy-tor
+
+# Tor Configuration
+proxy_tor_enabled: false
+proxy_tor_socks5_container_port: "9050"
+proxy_tor_socks5_host_port: "9050"
+
+# Container Configuration
+proxy_tor_container_name: "localnet-proxy-tor"
+proxy_tor_config_volume_name: "localnet-tor-config-volume"
+proxy_tor_data_volume_name: "localnet-tor-data-volume"
+proxy_tor_image: "localnet-proxy-tor:latest"
+
+# Service Directories
+localnet_services_dir: "/opt/localnet/services"
+localnet_tz: "UTC"

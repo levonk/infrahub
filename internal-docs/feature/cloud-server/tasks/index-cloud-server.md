@@ -1,15 +1,28 @@
 ---
 prd_name: "cloud-server"
-prd_file: "shared/active/08-docs/reqs/2026/20260529-cloud-server.md"
+prd_file_host: "shared/active/08-docs/reqs/2026/20260619-oci-cloud-server-host.md"
+prd_file_isolation: "shared/active/08-docs/reqs/2026/20260619-isolation-vm.md"
 created_at: "2026-05-29"
-updated_at: "2026-06-01"
+updated_at: "2026-06-19"
 ---
 
 # Cloud Server — Task Index
 
 ## Overview
 
-Implementation of the cloud server requirements from `shared/active/08-docs/reqs/2026/20260529-cloud-server.md`, following the infrahub/ansible lifecycle: variables → roles → playbooks → lint/tests → deploy → validate.
+Implementation of the cloud server requirements, split into two layers:
+
+1. **OCI Cloud Server Host**: `shared/active/08-docs/reqs/2026/20260619-oci-cloud-server-host.md`
+   - Oracle Cloud VM host with Docker containers
+   - VPN, proxy, DNS, and infrastructure services
+   - Most workloads run here
+
+2. **Isolation VM**: `shared/active/08-docs/reqs/2026/20260619-isolation-vm.md`
+   - Nested QEMU VM for AI agent isolation
+   - Docker server for agent-managed containers
+   - Kali + Nix + Hermes agent stack
+
+Following the infrahub/ansible lifecycle: variables → roles → playbooks → lint/tests → deploy → validate.
 
 All development and deployment commands must work through `devbox run ...` per ADR-20260131001.
 
@@ -18,6 +31,11 @@ All development and deployment commands must work through `devbox run ...` per A
 **Docker Containers**: Ansible test environments use Docker containers (Molecule driver) via `just ansible-test-env-*` commands.
 
 **Packer VM Images**: OCI base VM image is created with Packer via `just packer-build` / `devbox run packer-build`.
+
+**Guidelines Compliance**: All work must follow:
+- `/AGENTS.md` - Root project guidelines (IP/port rules, security audits)
+- `shared/active/02-config/ansible/AGENTS.md` - Ansible-specific guidelines
+- `shared/active/03-container/AGENTS.md` - Container-specific guidelines
 
 ---
 

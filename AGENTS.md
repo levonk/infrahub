@@ -1,5 +1,81 @@
 # Agent Guidelines for localnet
 
+## CRITICAL: Environment Configuration for Devbox/Nix
+
+**MANDATORY PRE-REQUISITE**: Before running any devbox or Nix commands, you MUST ensure the Nix environment is properly configured in your PATH.
+
+### Environment Setup Rule
+
+**ALWAYS** check and add Nix paths to PATH before attempting to use devbox:
+
+```bash
+# Check for Nix binary and add to PATH if found
+if [ -z "$NIX_PATH" ] || ! command -v nix >/dev/null 2>&1; then
+    # Try common Nix installation locations
+    for nix_path in /nix/var/nix/profiles/default/bin/nix ~/.nix-profile/bin/nix /usr/local/bin/nix /usr/bin/nix; do
+        if [ -x "$nix_path" ]; then
+            export NIX_PATH="$(dirname "$nix_path"):${NIX_PATH:-}"
+            export PATH="$(dirname "$nix_path"):$PATH"
+            break
+        fi
+    done
+    
+    # Source Nix environment if available
+    if [ -f /etc/profile.d/nix.sh ]; then
+        . /etc/profile.d/nix.sh
+    elif [ -f ~/.nix-profile/etc/profile.d/nix.sh ]; then
+        . ~/.nix-profile/etc/profile.d/nix.sh
+    fi
+fi
+
+# Check for devbox and add global shim if available
+if ! command -v devbox >/dev/null 2>&1; then
+    if [ -x ~/.local/share/devbox/global/shims/devbox ]; then
+        export PATH="$HOME/.local/share/devbox/global/shims:$PATH"
+    elif [ -x /usr/local/bin/devbox ]; then
+        export PATH="/usr/local/bin:$PATH"
+    fi
+fi
+
+# Verify environment
+echo "Nix: $(command -v nix || echo 'NOT FOUND')"
+echo "Devbox: $(command -v devbox || echo 'NOT FOUND')"
+echo "Just: $(devbox run -- command -v just || echo 'NOT FOUND')"
+```
+
+### CRITICAL RULE
+
+**NEVER** attempt to work around using devbox by trying alternative methods. Always use devbox:
+
+1. ✅ **DO**: Ensure Nix paths are in PATH
+2. ✅ **DO**: Use `devbox run -- rtk <command>`
+3. ❌ **DO NOT**: Try to run commands directly without devbox
+4. ❌ **DO NOT**: Skip devbox and try system binaries
+5. ❌ **DO NOT**: Claim "devbox not found" and give up - FIX THE PATH
+
+### Ansible Vault Password
+
+**ALWAYS** use the vault password file at `~/.ansible/vault_password` for Ansible vault operations:
+
+```bash
+devbox run -- rtk ansible-playbook -i inventory.yml playbook.yml --vault-password-file ~/.ansible/vault_password
+```
+
+This is the standard location for Ansible vault passwords in this project.
+
+### Verification
+
+Before running any devbox command, verify:
+
+```bash
+# These must succeed before proceeding
+command -v nix
+command -v devbox
+devbox run -- command -v just
+```
+
+If any of these fail, add the appropriate paths to PATH before proceeding.
+
 ## Security Audit Guidelines
 
 ### Security Audit Playbooks

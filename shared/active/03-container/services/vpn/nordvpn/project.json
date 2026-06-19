@@ -1,0 +1,25 @@
+{
+  "name": "nordvpn",
+  "$schema": "../../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "services/vpn/nordvpn",
+  "tags": ["vpn", "networking", "docker", "server"],
+  "targets": {
+    "docker:build": {
+      "executor": "@nx-tools/nx-container:build",
+      "options": {
+        "context": "services/vpn/nordvpn",
+        "file": "services/vpn/nordvpn/Dockerfile",
+        "tags": ["nordvpn-nordvpn:latest"],
+        "push": false,
+        "load": true
+      }
+    },
+    "docker:push": {
+      "executor": "@nx-tools/nx-container:push",
+      "options": {
+        "images": ["nordvpn-nordvpn:latest"]
+      }
+    }
+  }
+}

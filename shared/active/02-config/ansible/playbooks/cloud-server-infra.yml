@@ -2,7 +2,8 @@
 # Cloud Server Infrastructure Playbook
 # Orchestrates infrastructure services on cloud servers:
 # Netbird control plane (management, signal, TURN relay),
-# DNS stack (CoreDNS), proxy stack (Traefik), and SSO (Authelia).
+# DNS stack (CoreDNS), proxy stack (Traefik), SSO (Authelia),
+# and RustDesk remote desktop server.
 # Deployed as Docker containers; depends on Docker engine being ready.
 # Usage:
 #   ansible-playbook -i inventories/oci.yml playbooks/cloud-server-infra.yml
@@ -77,8 +78,14 @@
     - role: proxy-traefik
       tags: ["infra", "proxy", "traefik"]
 
+    - role: proxy-iron-proxy
+      tags: ["infra", "proxy", "iron-proxy", "firewall"]
+
     - role: proxy-authelia
       tags: ["infra", "proxy", "authelia", "sso"]
+
+    - role: rustdesk-server
+      tags: ["infra", "rustdesk", "remote-desktop"]
 
   post_tasks:
     - name: "Verify Docker service is running"
@@ -169,6 +176,22 @@
       when: traefik_container_check.rc != 0 or traefik_container_check.stdout != "running"
       tags: ["verify", "proxy", "traefik", "containers"]
 
+    - name: "Verify iron-proxy container is running"
+      ansible.builtin.command:
+        cmd: "docker inspect --format='{{ '{{' }} .State.Status {{ '}}' }}' iron-proxy"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: iron_proxy_container_check
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "proxy", "iron-proxy", "containers"]
+
+    - name: "Warn if iron-proxy container is not running"
+      ansible.builtin.debug:
+        msg: "WARNING: iron-proxy container (iron-proxy) is not running."
+      when: iron_proxy_container_check.rc != 0 or iron_proxy_container_check.stdout != "running"
+      tags: ["verify", "proxy", "iron-proxy", "containers"]
+
     - name: "Verify Authelia container is running"
       ansible.builtin.command:
         cmd: "docker inspect --format='{{ '{{' }} .State.Status {{ '}}' }}' proxy-authelia"
@@ -185,6 +208,38 @@
       when: authelia_container_check.rc != 0 or authelia_container_check.stdout != "running"
       tags: ["verify", "proxy", "authelia", "containers"]
 
+    - name: "Verify RustDesk hbbs container is running"
+      ansible.builtin.command:
+        cmd: "docker inspect --format='{{ '{{' }} .State.Status {{ '}}' }}' {{ rustdesk_server_hbbs_container_name }}"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: rustdesk_hbbs_container_check
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "rustdesk", "containers"]
+
+    - name: "Warn if RustDesk hbbs container is not running"
+      ansible.builtin.debug:
+        msg: "WARNING: RustDesk hbbs container ({{ rustdesk_server_hbbs_container_name }}) is not running."
+      when: rustdesk_hbbs_container_check.rc != 0 or rustdesk_hbbs_container_check.stdout != "running"
+      tags: ["verify", "rustdesk", "containers"]
+
+    - name: "Verify RustDesk hbbr container is running"
+      ansible.builtin.command:
+        cmd: "docker inspect --format='{{ '{{' }} .State.Status {{ '}}' }}' {{ rustdesk_server_hbbr_container_name }}"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: rustdesk_hbbr_container_check
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "rustdesk", "containers"]
+
+    - name: "Warn if RustDesk hbbr container is not running"
+      ansible.builtin.debug:
+        msg: "WARNING: RustDesk hbbr container ({{ rustdesk_server_hbbr_container_name }}) is not running."
+      when: rustdesk_hbbr_container_check.rc != 0 or rustdesk_hbbr_container_check.stdout != "running"
+      tags: ["verify", "rustdesk", "containers"]
+
     - name: "HTTP probe — Traefik ping endpoint"
       ansible.builtin.uri:
         url: "http://127.0.0.1:{{ proxy_traefik_api_port }}/ping"
@@ -198,6 +253,20 @@
         msg: "Traefik ping: {{ traefik_ping.status }} ({{ traefik_ping.msg | default('OK') }})"
       when: traefik_ping.status is defined
       tags: ["verify", "proxy", "traefik", "health"]
+
+    - name: "HTTP probe — iron-proxy health endpoint"
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ proxy_iron_proxy_http_host_port }}/health"
+        status_code: 200
+      register: iron_proxy_health
+      ignore_errors: true
+      tags: ["verify", "proxy", "iron-proxy", "health"]
+
+    - name: "Report iron-proxy health status"
+      ansible.builtin.debug:
+        msg: "iron-proxy health: {{ iron_proxy_health.status }} ({{ iron_proxy_health.msg | default('OK') }})"
+      when: iron_proxy_health.status is defined
+      tags: ["verify", "proxy", "iron-proxy", "health"]
 
     - name: "HTTP probe — Authelia health endpoint"
       ansible.builtin.uri:
@@ -246,5 +315,8 @@
           - Traefik: http={{ proxy_traefik_http_host_port }}
           https={{ proxy_traefik_https_host_port }}
           api={{ proxy_traefik_api_port }}
+          - iron-proxy: dns={{ proxy_iron_proxy_dns_host_port }}
+          http={{ proxy_iron_proxy_http_host_port }}
+          https={{ proxy_iron_proxy_https_host_port }}
           - Authelia: {{ proxy_authelia_web_host_port }}
       tags: ["verify", "summary"]

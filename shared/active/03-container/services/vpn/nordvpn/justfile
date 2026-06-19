@@ -1,0 +1,131 @@
+# Justfile for NordVPN Service
+# Follows ADR-20260131001: Standard Developer UX Flow (devbox → just (*-internal))
+
+# Environment variables
+set export
+
+# Configuration
+PROJECT_DIR := "../../../.."
+ENV_FILE := "../../../../.env.local.localnet"
+COMPOSE_FILE := "docker-compose.yml"
+SERVICE_NAME := "nordvpn"
+
+# Docker Compose base command
+DC_BASE := "DOCKER_BUILDKIT=1 docker compose --project-directory " + PROJECT_DIR + " -f " + COMPOSE_FILE + " --env-file " + ENV_FILE
+
+# Logging configuration
+LOG_DIR := "../../../../logs"
+LOG_FILE := LOG_DIR / "nordvpn-just.log"
+
+# Default recipe when just is run without arguments
+default:
+    @just --list
+
+# Show this help message
+help:
+    @echo "NordVPN Service - Available Commands"
+    @echo ""
+    @just --list --unsorted
+
+# ============================================================================
+# Build Targets
+# ============================================================================
+
+# Build NordVPN service
+build:
+    devbox run build-internal
+
+build-internal:
+    @echo "Building NordVPN service..."
+    @({{DC_BASE}} build {{SERVICE_NAME}} 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (echo "✓ NordVPN built"; exit 0) || (echo "✗ NordVPN build failed"; exit 1)
+
+# ============================================================================
+# Run Targets
+# ============================================================================
+
+# Start NordVPN service
+up:
+    devbox run up-internal
+
+up-internal:
+    @echo "Starting NordVPN service..."
+    @({{DC_BASE}} up -d {{SERVICE_NAME}} 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (echo "✓ NordVPN started"; exit 0) || (echo "✗ NordVPN failed to start"; exit 1)
+
+# Stop NordVPN service
+down:
+    devbox run down-internal
+
+down-internal:
+    @echo "Stopping NordVPN service..."
+    @({{DC_BASE}} down {{SERVICE_NAME}} 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (echo "✓ NordVPN stopped"; exit 0) || (echo "✗ NordVPN failed to stop"; exit 1)
+
+# Restart NordVPN service
+restart:
+    devbox run restart-internal
+
+restart-internal:
+    @echo "Restarting NordVPN service..."
+    @({{DC_BASE}} restart {{SERVICE_NAME}} 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (echo "✓ NordVPN restarted"; exit 0) || (echo "✗ NordVPN failed to restart"; exit 1)
+
+# ============================================================================
+# Logs Targets
+# ============================================================================
+
+# View NordVPN logs
+logs:
+    devbox run logs-internal
+
+logs-internal:
+    @{{DC_BASE}} logs -f {{SERVICE_NAME}}
+
+# View last 50 lines of logs
+logs-tail:
+    devbox run logs-tail-internal
+
+logs-tail-internal:
+    @{{DC_BASE}} logs --tail=50 {{SERVICE_NAME}}
+
+# ============================================================================
+# Health Check Targets
+# ============================================================================
+
+# Run health check
+health-check:
+    devbox run health-check-internal
+
+health-check-internal:
+    @echo "Running health check..."
+    @docker exec {{SERVICE_NAME}} /nordvpn/bin/healthcheck-nordvpn.sh
+
+# ============================================================================
+# Test Targets
+# ============================================================================
+
+# Run integration tests
+test:
+    devbox run test-internal
+
+test-internal:
+    @echo "Running integration tests..."
+    @chmod +x tests/test-nordvpn.sh
+    @./tests/test-nordvpn.sh
+
+# ============================================================================
+# Clean Targets
+# ============================================================================
+
+# Remove NordVPN service
+clean:
+    devbox run clean-internal
+
+clean-internal:
+    @echo "Cleaning NordVPN service..."
+    @({{DC_BASE}} rm -f {{SERVICE_NAME}} 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (echo "✓ NordVPN cleaned"; exit 0) || (echo "✗ NordVPN clean failed"; exit 1)
+
+# Remove NordVPN service and volumes
+clean-volumes:
+    devbox run clean-volumes-internal
+
+clean-volumes-internal:
+    @echo "Cleaning NordVPN service and volumes..."
+    @({{DC_BASE}} down -v {{SERVICE_NAME}} 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (echo "✓ NordVPN cleaned with volumes"; exit 0) || (echo "✗ NordVPN clean failed"; exit 1)

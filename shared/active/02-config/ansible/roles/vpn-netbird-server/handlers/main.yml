@@ -1,0 +1,7 @@
+---
+# handlers file for vpn-netbird-server
+
+- name: restart netbird
+  ansible.builtin.command:
+    cmd: docker compose -f {{ localnet_services_dir }}/vpn/netbird/docker-compose.yml restart
+  changed_when: true

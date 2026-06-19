@@ -1,0 +1,25 @@
+---
+galaxy_info:
+  role_name: proxy_iron_proxy
+  author: levonk
+  description: Deploy iron-proxy egress firewall for untrusted workloads
+  company: levonk
+  license: MIT
+  min_ansible_version: "2.9"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - focal
+        - jammy
+    - name: Debian
+      versions:
+        - buster
+        - bullseye
+  galaxy_tags:
+    - proxy
+    - firewall
+    - security
+    - egress
+    - networking
+
+dependencies: []

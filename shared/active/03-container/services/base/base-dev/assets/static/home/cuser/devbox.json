@@ -99,6 +99,7 @@
 
     # Network & Security Tools
     "nmap", "tcpdump", "mtr", "whois", "rhash",    # Network analysis and security
+    "oniux",                                     # wrap any cli, incl. shell, with a tor exit only option.
 
     # Data Processing & Databases
     "duckdb", "sqlite",       # Databases
@@ -175,6 +176,11 @@
     #
 
   ],
+  "hooks": {
+    "on_create": [
+      "curl ifconfig.me"
+    ]
+  },
   "shell": {
     "init_hook": [
       "echo '🤖 Dev Base: Development environment ready'",

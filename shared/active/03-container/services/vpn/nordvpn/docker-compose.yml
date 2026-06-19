@@ -1,0 +1,27 @@
+services:
+  nordvpn:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    cap_drop:
+      - ALL
+    devices:
+      - /dev/net/tun
+    environment:
+      - VPN_NORDVPN_TOKEN=${NORDVPN_TOKEN}
+      - VPN_NORDVPN_COUNTRY=${NORDVPN_COUNTRY:-United_States}
+      - TZ=${TZ:-UTC}
+    ports:
+      - "51820:51820/udp"   # optional for Tailscale/NetBird routing
+      - "1080:1080"         # optional SOCKS proxy
+    sysctls:
+      - net.ipv4.ip_forward=1
+      - net.ipv6.conf.all.forwarding=1
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    # Note: Read-only filesystem not used due to NordVPN daemon requirements
+    # Note: Running as root required for NordVPN daemon and iptables operations
