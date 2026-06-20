@@ -78,7 +78,16 @@ regulation:
 
 storage:
   encryption_key: {{ proxy_authelia_storage_encryption_key }}
-{% if proxy_authelia_storage_backend == 'sqlite' %}
+{% if proxy_authelia_storage_backend == 'postgres' %}
+  postgres:
+    host: {{ proxy_authelia_postgres_host }}
+    port: {{ proxy_authelia_postgres_port }}
+    database: {{ proxy_authelia_postgres_database }}
+    username: {{ proxy_authelia_postgres_user }}
+    password: {{ proxy_authelia_postgres_password }}
+    ssl:
+      mode: disable
+{% elif proxy_authelia_storage_backend == 'sqlite' %}
   local:
     path: /config/db.sqlite3
 {% endif %}

@@ -31,3 +31,10 @@ kvm_enable_logging: true
 
 # Libvirt log level
 kvm_log_level: 1
+
+# NAT Bridge Network Configuration
+common_kvm_nat_bridge_name: "kvm-nat-br0"
+common_kvm_nat_bridge_subnet: "192.168.100.0/24"
+common_kvm_nat_bridge_gateway: "192.168.100.1"
+common_kvm_nat_bridge_dhcp_start: "192.168.100.128"
+common_kvm_nat_bridge_dhcp_end: "192.168.100.254"

@@ -1,0 +1,86 @@
+---
+- name: Verify
+  hosts: all
+  become: true
+  tasks:
+    - name: Check Authelia container is running
+      community.docker.docker_container:
+        name: proxy-authelia
+        state: present
+      register: authelia_container
+
+    - name: Assert Authelia container is running
+      ansible.builtin.assert:
+        that:
+          - authelia_container.container.State.Status == "running"
+        fail_msg: "Authelia container is not running"
+        success_msg: "Authelia container is running"
+
+    - name: Check Authelia PostgreSQL container is running
+      community.docker.docker_container:
+        name: proxy-authelia-postgres
+        state: present
+      register: postgres_container
+      when: proxy_authelia_postgres_enabled | bool
+
+    - name: Assert Authelia PostgreSQL container is running
+      ansible.builtin.assert:
+        that:
+          - postgres_container.container.State.Status == "running"
+        fail_msg: "Authelia PostgreSQL container is not running"
+        success_msg: "Authelia PostgreSQL container is running"
+      when: proxy_authelia_postgres_enabled | bool
+
+    - name: Check Authelia Redis container is running
+      community.docker.docker_container:
+        name: proxy-authelia-redis
+        state: present
+      register: redis_container
+      when: proxy_authelia_redis_enabled | bool
+
+    - name: Assert Authelia Redis container is running
+      ansible.builtin.assert:
+        that:
+          - redis_container.container.State.Status == "running"
+        fail_msg: "Authelia Redis container is not running"
+        success_msg: "Authelia Redis container is running"
+      when: proxy_authelia_redis_enabled | bool
+
+    - name: Check Authelia configuration file exists
+      ansible.builtin.stat:
+        path: "{{ proxy_authelia_data_dir }}/config/configuration.yml"
+      register: authelia_config
+
+    - name: Assert Authelia configuration file exists
+      ansible.builtin.assert:
+        that:
+          - authelia_config.stat.exists
+        fail_msg: "Authelia configuration file does not exist"
+        success_msg: "Authelia configuration file exists"
+
+    - name: Check Authelia users database file exists
+      ansible.builtin.stat:
+        path: "{{ proxy_authelia_data_dir }}/config/users_database.yml"
+      register: users_database
+
+    - name: Assert Authelia users database file exists
+      ansible.builtin.assert:
+        that:
+          - users_database.stat.exists
+        fail_msg: "Authelia users database file does not exist"
+        success_msg: "Authelia users database file exists"
+
+    - name: Check Authelia PostgreSQL volume exists
+      community.docker.docker_volume:
+        name: proxy-authelia-postgres
+        state: present
+      register: postgres_volume
+      when: proxy_authelia_postgres_enabled | bool
+
+    - name: Assert Authelia PostgreSQL volume exists
+      ansible.builtin.assert:
+        that:
+          - postgres_volume.exists
+        fail_msg: "Authelia PostgreSQL volume does not exist"
+        success_msg: "Authelia PostgreSQL volume exists"
+      when: proxy_authelia_postgres_enabled | bool

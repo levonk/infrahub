@@ -122,3 +122,47 @@
 - name: Display virsh version
   ansible.builtin.debug:
     var: virsh_version_output.stdout_lines
+
+- name: Deploy NAT bridge network definition
+  ansible.builtin.template:
+    src: network-nat.xml.j2
+    dest: "/tmp/{{ common_kvm_nat_bridge_name }}.xml"
+    mode: '0644'
+  become: true
+
+- name: Define NAT bridge network in libvirt
+  ansible.builtin.command: "virsh net-define /tmp/{{ common_kvm_nat_bridge_name }}.xml"
+  become: true
+  register: nat_net_define
+  failed_when: nat_net_define.rc != 0 and "already exists" not in nat_net_define.stderr
+  changed_when: nat_net_define.rc == 0
+
+- name: Start NAT bridge network
+  ansible.builtin.command: "virsh net-start {{ common_kvm_nat_bridge_name }}"
+  become: true
+  register: nat_net_start
+  failed_when: nat_net_start.rc != 0 and "already active" not in nat_net_start.stderr
+  changed_when: nat_net_start.rc == 0
+
+- name: Enable NAT bridge network autostart
+  ansible.builtin.command: "virsh net-autostart {{ common_kvm_nat_bridge_name }}"
+  become: true
+  register: nat_net_autostart
+  failed_when: nat_net_autostart.rc != 0 and "already marked" not in nat_net_autostart.stderr
+  changed_when: nat_net_autostart.rc == 0
+
+- name: Clean up temporary network definition file
+  ansible.builtin.file:
+    path: "/tmp/{{ common_kvm_nat_bridge_name }}.xml"
+    state: absent
+  become: true
+
+- name: Verify NAT bridge network is active
+  ansible.builtin.command: "virsh net-list --all"
+  become: true
+  register: net_list
+  changed_when: false
+
+- name: Display network list
+  ansible.builtin.debug:
+    var: net_list.stdout_lines

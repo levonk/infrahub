@@ -1,0 +1,13 @@
+---
+- name: Create
+  hosts: localhost
+  tasks:
+    - name: Create molecule instance
+      community.docker.docker_container:
+        name: authelia-test
+        image: debian:bookworm-slim
+        state: started
+        privileged: true
+        command: /sbin/init
+        volumes:
+          - /sys/fs/cgroup:/sys/fs/cgroup:ro

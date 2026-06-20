@@ -46,8 +46,20 @@ proxy_authelia_session_expiration: "1h"
 proxy_authelia_session_inactivity: "5m"
 proxy_authelia_session_redis_enabled: true
 
-# Storage backend (sqlite3 by default)
-proxy_authelia_storage_backend: "sqlite"
+# Storage backend (PostgreSQL by default per PRD requirements)
+proxy_authelia_storage_backend: "postgres"
+
+# ---------------------------------------------------------------------------
+# PostgreSQL Database (for Authelia storage)
+# ---------------------------------------------------------------------------
+proxy_authelia_postgres_enabled: true
+proxy_authelia_postgres_version: "15-alpine"
+proxy_authelia_postgres_image: "postgres:{{ proxy_authelia_postgres_version }}"
+proxy_authelia_postgres_host: "proxy-authelia-postgres"
+proxy_authelia_postgres_port: "{{ cloud_server_authelia_postgres_port | default('5432') }}"
+proxy_authelia_postgres_user: "{{ cloud_server_authelia_postgres_user | default('authelia') }}"
+proxy_authelia_postgres_password: "{{ cloud_server_authelia_postgres_password | default('change-me-in-vault') }}"
+proxy_authelia_postgres_database: "{{ cloud_server_authelia_postgres_database | default('authelia') }}"
 
 # Notifications
 proxy_authelia_notifier_backend: "filesystem"

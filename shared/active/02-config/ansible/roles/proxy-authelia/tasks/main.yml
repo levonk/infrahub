@@ -36,7 +36,7 @@
   become: true
   loop:
     - proxy-authelia-config
-    - proxy-authelia-sqlite
+    - proxy-authelia-postgres
 
 # ---------------------------------------------------------------------------
 # Configuration Templates
@@ -60,6 +60,57 @@
     mode: "0644"
   become: true
   notify: restart proxy-authelia
+
+- name: Deploy Traefik Authelia middleware configuration
+  ansible.builtin.template:
+    src: traefik/authelia_middleware.yml.j2
+    dest: "{{ proxy_authelia_data_dir }}/config/traefik_authelia_middleware.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: restart proxy-authelia
+
+# ---------------------------------------------------------------------------
+# PostgreSQL Database (for Authelia storage)
+# ---------------------------------------------------------------------------
+- name: Deploy Authelia PostgreSQL container
+  community.docker.docker_container:
+    name: proxy-authelia-postgres
+    image: "{{ proxy_authelia_postgres_image }}"
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ proxy_authelia_docker_network_name }}"
+    env:
+      POSTGRES_USER: "{{ proxy_authelia_postgres_user }}"
+      POSTGRES_PASSWORD: "{{ proxy_authelia_postgres_password }}"
+      POSTGRES_DB: "{{ proxy_authelia_postgres_database }}"
+    volumes:
+      - proxy-authelia-postgres:/var/lib/postgresql/data
+    log_driver: json-file
+    log_options:
+      max-size: "10m"
+      max-file: "5"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U {{ proxy_authelia_postgres_user }}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+  become: true
+  when: proxy_authelia_postgres_enabled | bool
+  notify: restart proxy-authelia-postgres
+
+- name: Wait for PostgreSQL to be ready
+  ansible.builtin.wait_for:
+    host: "{{ proxy_authelia_postgres_host }}"
+    port: "{{ proxy_authelia_postgres_port }}"
+    delay: 5
+    timeout: 30
+  when:
+    - proxy_authelia_postgres_enabled | bool
+    - proxy_authelia_verify_health | bool
 
 # ---------------------------------------------------------------------------
 # Redis Session Store (Sidecar)
@@ -92,6 +143,7 @@
       start_period: 5s
   become: true
   when: proxy_authelia_redis_enabled | bool
+  notify: restart proxy-authelia-redis
 
 # ---------------------------------------------------------------------------
 # Authelia SSO Container
@@ -108,7 +160,6 @@
       - "{{ proxy_authelia_web_host_port }}:{{ proxy_authelia_web_container_port }}/tcp"
     volumes:
       - "{{ proxy_authelia_data_dir }}/config:/config"
-      - proxy-authelia-sqlite:/config/db
     env:
       AUTHELIA_JWT_SECRET_FILE: "/config/jwt_secret"
       AUTHELIA_SESSION_SECRET_FILE: "/config/session_secret"

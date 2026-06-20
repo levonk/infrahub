@@ -1,0 +1,8 @@
+---
+- name: Destroy
+  hosts: localhost
+  tasks:
+    - name: Destroy molecule instance
+      community.docker.docker_container:
+        name: authelia-test
+        state: absent

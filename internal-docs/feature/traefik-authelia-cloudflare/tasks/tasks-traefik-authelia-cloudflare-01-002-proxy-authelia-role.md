@@ -7,7 +7,7 @@ prd_file: "shared/active/08-docs/reqs/2026/20260620-traefik-authelia-cloudflare.
 phase: 1
 parallel_id: 2
 branch: "feature/current/traefik-authelia-cloudflare/story-01-002-proxy-authelia-role"
-status: "todo"
+status: "in-progress"
 assignee: ""
 reviewer: ""
 dependencies: []
@@ -27,21 +27,21 @@ Create a complete Ansible role for deploying Authelia authentication service bas
 
 ## Sub-Tasks
 
-- [ ] Create role directory structure following docker-linux boilerplate patterns
-- [ ] Implement main tasks file with Docker container deployment logic
-- [ ] Create Authelia configuration template (configuration.yml) with environment variable substitution
-- [ ] Implement PostgreSQL database initialization and migration tasks
-- [ ] Create Redis session storage configuration
-- [ ] Implement user database template with admin account setup
-- [ ] Create Docker network configuration for traefik-network integration
-- [ ] Implement volume management for database and session persistence
-- [ ] Create handlers for Authelia restart/reload operations
-- [ ] Add health check configuration for Authelia service
-- [ ] Implement variable defaults with proper naming conventions
-- [ ] Create secure password generation utilities (Argon2 hashing)
-- [ ] Add Traefik forward auth middleware configuration template
-- [ ] Create README with role usage documentation
-- [ ] Add Molecule test skeleton for basic validation
+- [x] Create role directory structure following docker-linux boilerplate patterns
+- [x] Implement main tasks file with Docker container deployment logic
+- [x] Create Authelia configuration template (configuration.yml) with environment variable substitution
+- [x] Implement PostgreSQL database initialization and migration tasks
+- [x] Create Redis session storage configuration
+- [x] Implement user database template with admin account setup
+- [x] Create Docker network configuration for traefik-network integration
+- [x] Implement volume management for database and session persistence
+- [x] Create handlers for Authelia restart/reload operations
+- [x] Add health check configuration for Authelia service
+- [x] Implement variable defaults with proper naming conventions
+- [x] Create secure password generation utilities (Argon2 hashing)
+- [x] Add Traefik forward auth middleware configuration template
+- [x] Create README with role usage documentation
+- [x] Add Molecule test skeleton for basic validation
 
 ## Relevant Files
 
@@ -55,10 +55,10 @@ Create a complete Ansible role for deploying Authelia authentication service bas
 
 ## Acceptance Criteria
 
-- [ ] Role follows docker-linux boilerplate structure exactly
-- [ ] All configuration is variable-driven (no hardcoded credentials)
-- [ ] Authelia configuration includes PostgreSQL database setup
-- [ ] Redis session storage is properly configured
+- [x] Role follows docker-linux boilerplate structure exactly
+- [x] All configuration is variable-driven (no hardcoded credentials)
+- [x] Authelia configuration includes PostgreSQL database setup
+- [x] Redis session storage is properly configured
 - [ ] User database template supports admin account creation
 - [ ] Password hashing uses Argon2 (never plaintext storage)
 - [ ] Traefik forward auth middleware is configured
