@@ -8,3 +8,10 @@
   tags:
     - nix-sidecar
     - containers
+
+- name: Include base-kalinix deployment tasks
+  ansible.builtin.include_tasks: base-kalinix.yml
+  when: isolation_vm_deploy_base_kalinix | default(true)
+  tags:
+    - base-kalinix
+    - containers
