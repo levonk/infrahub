@@ -1,0 +1,27 @@
+---
+# Default variables for isolation-vm-tests role
+
+# Test execution flags
+isolation_vm_test_docker_access: true
+isolation_vm_test_vpn_routing: false
+isolation_vm_test_isolation: false
+isolation_vm_test_performance: false
+
+# Container names (should match deployment variables)
+isolation_vm_hermes_container_name: "hermes-agent"
+
+# Test resource limits
+isolation_vm_test_memory_limit: "512m"
+isolation_vm_test_cpu_limit: "0.5"
+
+# Test network configuration
+isolation_vm_test_network_subnet: "172.29.0.0/16"
+isolation_vm_test_network_gateway: "172.29.0.1"
+
+# Test volumes
+isolation_vm_test_volume_host_path: "/tmp"
+isolation_vm_test_volume_container_path: "/tmp"
+
+# Test cleanup
+isolation_vm_test_cleanup_on_failure: true
+isolation_vm_test_cleanup_on_success: true

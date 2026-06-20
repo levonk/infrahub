@@ -1,0 +1,7 @@
+---
+# Main tasks file for isolation-vm-tests role
+- name: "Include Docker access tests"
+  ansible.builtin.include_tasks: docker-access.yml
+  when: isolation_vm_test_docker_access | bool
+  tags:
+    - docker-access
