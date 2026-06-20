@@ -242,3 +242,63 @@
   become: true
   when: ansible_facts['services']['firewalld'] is not defined
   ignore_errors: true
+
+- name: Create storage pool directory
+  ansible.builtin.file:
+    path: "{{ kvm_storage_pool_path }}"
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+  become: true
+
+- name: Deploy storage pool definition
+  ansible.builtin.template:
+    src: storage-pool.xml.j2
+    dest: /tmp/default-storage-pool.xml
+    mode: '0644'
+  become: true
+
+- name: Define storage pool in libvirt
+  ansible.builtin.command: virsh pool-define /tmp/default-storage-pool.xml
+  become: true
+  register: pool_define
+  failed_when: pool_define.rc != 0 and "already exists" not in pool_define.stderr
+  changed_when: pool_define.rc == 0
+
+- name: Build storage pool
+  ansible.builtin.command: virsh pool-build default
+  become: true
+  register: pool_build
+  failed_when: pool_build.rc != 0 and "already built" not in pool_build.stderr
+  changed_when: pool_build.rc == 0
+
+- name: Start storage pool
+  ansible.builtin.command: virsh pool-start default
+  become: true
+  register: pool_start
+  failed_when: pool_start.rc != 0 and "already active" not in pool_start.stderr
+  changed_when: pool_start.rc == 0
+
+- name: Enable storage pool autostart
+  ansible.builtin.command: virsh pool-autostart default
+  become: true
+  register: pool_autostart
+  failed_when: pool_autostart.rc != 0 and "already marked" not in pool_autostart.stderr
+  changed_when: pool_autostart.rc == 0
+
+- name: Clean up temporary storage pool definition file
+  ansible.builtin.file:
+    path: /tmp/default-storage-pool.xml
+    state: absent
+  become: true
+
+- name: Verify storage pool is active
+  ansible.builtin.command: virsh pool-list --all
+  become: true
+  register: pool_list
+  changed_when: false
+
+- name: Display storage pool list
+  ansible.builtin.debug:
+    var: pool_list.stdout_lines

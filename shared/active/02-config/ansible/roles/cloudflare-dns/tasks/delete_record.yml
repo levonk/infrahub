@@ -1,0 +1,45 @@
+---
+# Delete DNS record from Cloudflare
+# Uses Cloudflare API v4 for record deletion
+
+- name: Check if DNS record exists
+  ansible.builtin.uri:
+    url: "https://api.cloudflare.com/client/v4/zones/{{ cloudflare_zone_id }}/dns_records"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ cloudflare_api_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    return_content: true
+  register: existing_records
+  no_log: true
+
+- name: Set fact for existing record
+  ansible.builtin.set_fact:
+    existing_record: "{{ existing_records.json.result | selectattr('name', 'equalto', cloudflare_dns_record_name) | selectattr('type', 'equalto', cloudflare_dns_record_type) | first | default({}) }}"
+    record_exists: "{{ existing_records.json.result | selectattr('name', 'equalto', cloudflare_dns_record_name) | selectattr('type', 'equalto', cloudflare_dns_record_type) | list | length > 0 }}"
+
+- name: Delete DNS record if it exists
+  ansible.builtin.uri:
+    url: "https://api.cloudflare.com/client/v4/zones/{{ cloudflare_zone_id }}/dns_records/{{ existing_record.id }}"
+    method: DELETE
+    headers:
+      Authorization: "Bearer {{ cloudflare_api_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    return_content: true
+    status_code: [200]
+  register: delete_result
+  when: record_exists
+  no_log: true
+  notify: Notify DNS record deleted
+
+- name: Log DNS record deletion
+  ansible.builtin.debug:
+    msg: "DNS record {{ cloudflare_dns_record_name }} deleted successfully"
+  when: record_exists and delete_result is succeeded
+
+- name: Skip record deletion if it doesn't exist
+  ansible.builtin.debug:
+    msg: "DNS record {{ cloudflare_dns_record_name }} does not exist (idempotent)"
+  when: not record_exists

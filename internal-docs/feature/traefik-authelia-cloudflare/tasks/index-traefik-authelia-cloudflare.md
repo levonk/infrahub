@@ -17,7 +17,7 @@ This index provides a comprehensive overview of all stories for the Traefik Prox
 | 01-001 | Create proxy-traefik Ansible role | feature/current/traefik-authelia-cloudflare/story-01-001-proxy-traefik-role | None | Parallel-safe: true | ansible/roles/proxy-traefik | [x] Done |
 | 01-002 | Create proxy-authelia Ansible role | feature/current/traefik-authelia-cloudflare/story-01-002-proxy-authelia-role | None | Parallel-safe: true | ansible/roles/proxy-authelia | [x] Done |
 | 01-003 | Create security-crowdsec Ansible role | feature/current/traefik-authelia-cloudflare/story-01-003-security-crowdsec-role | None | Parallel-safe: true | ansible/roles/security-crowdsec | [x] Done |
-| 01-004 | Create cloudflare-dns Ansible role | feature/current/traefik-authelia-cloudflare/story-01-004-cloudflare-dns-role | None | Parallel-safe: true | ansible/roles/cloudflare-dns | [ ] Todo |
+| 01-004 | Create cloudflare-dns Ansible role | feature/current/traefik-authelia-cloudflare/story-01-004-cloudflare-dns-role | None | Parallel-safe: true | ansible/roles/cloudflare-dns | [~] In-Progress |
 | 01-005 | Set up configuration management and vault | feature/current/traefik-authelia-cloudflare/story-01-005-config-management-vault | None | Parallel-safe: true | ansible/host_vars, ansible/vault | [ ] Todo |
 | 02-001 | Deploy Traefik with ACME and plugins | feature/current/traefik-authelia-cloudflare/story-02-001-deploy-traefik | 01-001, 01-005 | Parallel-safe: true | proxy-traefik, docker-compose | [ ] Todo |
 | 02-002 | Deploy Authelia with database and session management | feature/current/traefik-authelia-cloudflare/story-02-002-deploy-authelia | 01-002, 01-005 | Parallel-safe: true | proxy-authelia, docker-compose | [ ] Todo |

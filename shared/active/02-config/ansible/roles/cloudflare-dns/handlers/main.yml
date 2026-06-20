@@ -1,0 +1,27 @@
+---
+# Handlers for cloudflare-dns role
+# Notified when DNS records are created, updated, or deleted
+
+- name: Notify DNS record created
+  ansible.builtin.debug:
+    msg: "DNS record {{ cloudflare_dns_record_name }} was created successfully"
+  listen: Notify DNS record created
+
+- name: Notify DNS record updated
+  ansible.builtin.debug:
+    msg: "DNS record {{ cloudflare_dns_record_name }} was updated successfully"
+  listen: Notify DNS record updated
+
+- name: Notify DNS record deleted
+  ansible.builtin.debug:
+    msg: "DNS record {{ cloudflare_dns_record_name }} was deleted successfully"
+  listen: Notify DNS record deleted
+
+- name: Log DNS record change
+  ansible.builtin.lineinfile:
+    path: "{{ cloudflare_dns_log_file }}"
+    line: "{{ ansible_date_time.iso8601 }} - DNS record {{ cloudflare_dns_record_name }} {{ cloudflare_dns_state }} - Type: {{ cloudflare_dns_record_type }}, Content: {{ cloudflare_dns_record_content }}"
+    create: true
+    mode: '0644'
+  when: cloudflare_dns_log_operations | default(true)
+  listen: [Notify DNS record created, Notify DNS record updated, Notify DNS record deleted]

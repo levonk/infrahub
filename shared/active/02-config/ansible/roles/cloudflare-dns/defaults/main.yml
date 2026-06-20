@@ -1,0 +1,50 @@
+---
+# Default variables for cloudflare-dns role
+# These variables should be overridden in host_vars or group_vars
+
+# Cloudflare API Configuration
+cloudflare_api_token: "change-me-in-vault"
+cloudflare_zone_id: "change-me-in-vault"
+
+# DNS Record Configuration
+cloudflare_dns_state: "present"  # present, absent
+cloudflare_dns_record_name: "example.com"
+cloudflare_dns_record_type: "A"  # A, AAAA, CNAME, MX, TXT, SRV, etc.
+cloudflare_dns_record_content: "192.0.2.1"
+cloudflare_dns_ttl: 300
+cloudflare_dns_proxied: false
+
+# DNS Record Validation
+cloudflare_dns_verify: true
+cloudflare_dns_verify_propagation: false
+cloudflare_dns_propagation_wait: 10
+
+# IP Address Validation (for A records)
+cloudflare_dns_validate_ip: true
+cloudflare_dns_allow_private_ip: false
+
+# Multiple DNS Records Support
+cloudflare_dns_records: []
+# Example:
+# cloudflare_dns_records:
+#   - name: "www.example.com"
+#     type: "A"
+#     content: "192.0.2.1"
+#     ttl: 300
+#     proxied: false
+#   - name: "mail.example.com"
+#     type: "A"
+#     content: "192.0.2.2"
+#     ttl: 300
+#     proxied: false
+
+# API Rate Limiting
+cloudflare_dns_rate_limit_delay: 0.5
+cloudflare_dns_max_retries: 3
+
+# Dry Run Mode
+cloudflare_dns_dry_run: false
+
+# Logging
+cloudflare_dns_log_operations: true
+cloudflare_dns_log_file: "/var/log/cloudflare-dns.log"

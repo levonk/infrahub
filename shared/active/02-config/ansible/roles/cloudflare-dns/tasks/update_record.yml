@@ -1,0 +1,56 @@
+---
+# Update existing DNS record in Cloudflare
+# Uses Cloudflare API v4 for record updates
+
+- name: Check if DNS record exists and needs update
+  ansible.builtin.uri:
+    url: "https://api.cloudflare.com/client/v4/zones/{{ cloudflare_zone_id }}/dns_records"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ cloudflare_api_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    return_content: true
+  register: existing_records
+  no_log: true
+
+- name: Set fact for existing record
+  ansible.builtin.set_fact:
+    existing_record: "{{ existing_records.json.result | selectattr('name', 'equalto', cloudflare_dns_record_name) | selectattr('type', 'equalto', cloudflare_dns_record_type) | first | default({}) }}"
+    record_needs_update: "{{ existing_records.json.result | selectattr('name', 'equalto', cloudflare_dns_record_name) | selectattr('type', 'equalto', cloudflare_dns_record_type) | selectattr('content', 'ne', cloudflare_dns_record_content) | list | length > 0 }}"
+
+- name: Update DNS record if content differs
+  ansible.builtin.uri:
+    url: "https://api.cloudflare.com/client/v4/zones/{{ cloudflare_zone_id }}/dns_records/{{ existing_record.id }}"
+    method: PATCH
+    headers:
+      Authorization: "Bearer {{ cloudflare_api_token }}"
+      Content-Type: "application/json"
+    body:
+      type: "{{ cloudflare_dns_record_type }}"
+      name: "{{ cloudflare_dns_record_name }}"
+      content: "{{ cloudflare_dns_record_content }}"
+      ttl: "{{ cloudflare_dns_ttl | default(300) }}"
+      proxied: "{{ cloudflare_dns_proxied | default(false) }}"
+    body_format: json
+    return_content: true
+    status_code: [200]
+  register: update_result
+  when: existing_record.id is defined and record_needs_update
+  no_log: true
+  notify: Notify DNS record updated
+
+- name: Log DNS record update
+  ansible.builtin.debug:
+    msg: "DNS record {{ cloudflare_dns_record_name }} updated successfully"
+  when: existing_record.id is defined and record_needs_update and update_result is succeeded
+
+- name: Skip record update if content matches
+  ansible.builtin.debug:
+    msg: "DNS record {{ cloudflare_dns_record_name }} content matches (idempotent)"
+  when: existing_record.id is defined and not record_needs_update
+
+- name: Fail if record doesn't exist and update requested
+  ansible.builtin.fail:
+    msg: "DNS record {{ cloudflare_dns_record_name }} does not exist. Use create operation first."
+  when: existing_record.id is not defined

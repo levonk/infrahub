@@ -1,0 +1,8 @@
+---
+- name: Create
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Create test container
+      ansible.builtin.debug:
+        msg: "Test container creation would happen here"

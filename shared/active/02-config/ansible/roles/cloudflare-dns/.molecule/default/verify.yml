@@ -1,0 +1,18 @@
+---
+- name: Verify
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Check if role files exist
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - /etc/ansible/roles/cloudflare-dns/tasks/main.yml
+        - /etc/ansible/roles/cloudflare-dns/defaults/main.yml
+        - /etc/ansible/roles/cloudflare-dns/handlers/main.yml
+      register: role_files
+      failed_when: not item.stat.exists
+
+    - name: Verify role structure
+      ansible.builtin.debug:
+        msg: "cloudflare-dns role structure verified"

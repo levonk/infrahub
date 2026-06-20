@@ -27,20 +27,20 @@ Create a complete Ansible role for managing Cloudflare DNS records using the Clo
 
 ## Sub-Tasks
 
-- [ ] Create role directory structure following Ansible best practices
-- [ ] Implement main tasks file with Cloudflare API integration
-- [ ] Create DNS record management tasks (create, update, delete, list)
-- [ ] Implement A record creation with IP address validation
-- [ ] Add DNS record existence checks to prevent duplicates
-- [ ] Create variable defaults for Cloudflare API configuration
-- [ ] Implement proper error handling for API failures
-- [ ] Add idempotency checks to avoid unnecessary API calls
-- [ ] Create handlers for DNS record change notifications
-- [ ] Implement support for multiple domains and subdomains
-- [ ] Add DNS record verification tasks
-- [ ] Create README with role usage documentation
-- [ ] Add Molecule test skeleton with mocked Cloudflare API
-- [ ] Implement vault integration for API token security
+- [x] Create role directory structure following Ansible best practices
+- [x] Implement main tasks file with Cloudflare API integration
+- [x] Create DNS record management tasks (create, update, delete, list)
+- [x] Implement A record creation with IP address validation
+- [x] Add DNS record existence checks to prevent duplicates
+- [x] Create variable defaults for Cloudflare API configuration
+- [x] Implement proper error handling for API failures
+- [x] Add idempotency checks to avoid unnecessary API calls
+- [x] Create handlers for DNS record change notifications
+- [x] Implement support for multiple domains and subdomains
+- [x] Add DNS record verification tasks
+- [x] Create README with role usage documentation
+- [x] Add Molecule test skeleton with mocked Cloudflare API
+- [x] Implement vault integration for API token security
 
 ## Relevant Files
 
@@ -55,18 +55,18 @@ Create a complete Ansible role for managing Cloudflare DNS records using the Clo
 
 ## Acceptance Criteria
 
-- [ ] Role uses Cloudflare API v4 for all DNS operations
-- [ ] API credentials are stored in Ansible vault (never in plain text)
-- [ ] DNS record creation is idempotent (no duplicates)
-- [ ] A record creation includes IP address validation
-- [ ] Role supports multiple domains and subdomains via variables
-- [ ] Proper error handling for API failures and rate limits
-- [ ] DNS record verification tasks confirm successful changes
-- [ ] Role follows variable-driven configuration principles
-- [ ] README documents all required variables and vault setup
-- [ ] Molecule tests exist with mocked Cloudflare API
-- [ ] Role can create, update, and delete DNS records
-- [ ] Security best practices are followed (token encryption)
+- [x] Role uses Cloudflare API v4 for all DNS operations
+- [x] API credentials are stored in Ansible vault (never in plain text)
+- [x] DNS record creation is idempotent (no duplicates)
+- [x] A record creation includes IP address validation
+- [x] Role supports multiple domains and subdomains via variables
+- [x] Proper error handling for API failures and rate limits
+- [x] DNS record verification tasks confirm successful changes
+- [x] Role follows variable-driven configuration principles
+- [x] README documents all required variables and vault setup
+- [x] Molecule tests exist with mocked Cloudflare API
+- [x] Role can create, update, and delete DNS records
+- [x] Security best practices are followed (token encryption)
 
 ## Test Plan
 

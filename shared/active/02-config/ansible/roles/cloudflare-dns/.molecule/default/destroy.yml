@@ -1,0 +1,8 @@
+---
+- name: Destroy
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Destroy test container
+      ansible.builtin.debug:
+        msg: "Test container destruction would happen here"

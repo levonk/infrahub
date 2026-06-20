@@ -7,7 +7,7 @@ prd_file: "shared/active/08-docs/reqs/2026/20260619-isolation-vm.md"
 phase: 1
 parallel_id: 5
 branch: "feature/current/isolation-vm/story-01-005-storage-pools"
-status: "todo"
+status: "in-progress"
 assignee: ""
 reviewer: ""
 dependencies: []
@@ -27,12 +27,12 @@ Configure libvirt storage pools for VM disk images. This provides the storage ba
 
 ## Sub-Tasks
 
-- [ ] Create default libvirt storage pool directory
-- [ ] Define storage pool path using variable (default: /var/lib/libvirt/images)
-- [ ] Create libvirt storage pool definition
-- [ ] Configure storage pool for auto-start
-- [ ] Set appropriate permissions on storage directory
-- [ ] Create Ansible task to deploy storage pool configuration
+- [x] Create default libvirt storage pool directory
+- [x] Define storage pool path using variable (default: /var/lib/libvirt/images)
+- [x] Create libvirt storage pool definition
+- [x] Configure storage pool for auto-start
+- [x] Set appropriate permissions on storage directory
+- [x] Create Ansible task to deploy storage pool configuration
 - [ ] Test storage pool creation and basic operations
 - [ ] Document storage backend choice (qcow2 vs LVM-thin)
 
