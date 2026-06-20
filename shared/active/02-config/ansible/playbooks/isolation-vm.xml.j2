@@ -1,0 +1,54 @@
+<domain type='kvm'>
+  <name>{{ isolation_vm_name }}</name>
+  <memory unit='MiB'>{{ isolation_vm_memory_mb }}</memory>
+  <vcpu placement='static'>{{ isolation_vm_vcpus }}</vcpu>
+  <os>
+    <type arch='{{ isolation_vm_debian_arch }}' machine='pc'>hvm</type>
+    <boot dev='hd'/>
+  </os>
+  <features>
+    <acpi/>
+    <apic/>
+  </features>
+  <cpu mode='{{ kvm_cpu_mode }}'>
+    <topology sockets='1' cores='{{ isolation_vm_vcpus }}' threads='1'/>
+  </cpu>
+  <clock offset='utc'/>
+  <on_poweroff>destroy</on_poweroff>
+  <on_reboot>restart</on_reboot>
+  <on_crash>destroy</on_crash>
+  <devices>
+    <emulator>/usr/bin/qemu-system-{{ isolation_vm_debian_arch }}</emulator>
+    <disk type='file' device='disk'>
+      <driver name='qemu' type='qcow2'/>
+      <source file='{{ kvm_storage_pool_path }}/{{ isolation_vm_name }}.qcow2'/>
+      <target dev='vda' bus='virtio'/>
+      <address type='pci' domain='0x0000' bus='0x00' slot='0x04' function='0x0'/>
+    </disk>
+    <interface type='network'>
+      <mac address='52:54:00:00:00:01'/>
+      <source network='{{ isolation_vm_nat_bridge }}'/>
+      <model type='virtio'/>
+      <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x0'/>
+    </interface>
+    <interface type='network'>
+      <mac address='52:54:00:00:00:02'/>
+      <source network='{{ isolation_vm_routed_bridge }}'/>
+      <model type='virtio'/>
+      <address type='pci' domain='0x0000' bus='0x00' slot='0x02' function='0x0'/>
+    </interface>
+    <serial type='pty'>
+      <target port='0'/>
+    </serial>
+    <console type='pty'>
+      <target type='serial' port='0'/>
+    </console>
+    <input type='keyboard' bus='ps2'/>
+    <graphics type='vnc' port='-1' autoport='yes' listen='0.0.0.0'>
+      <listen type='address' address='0.0.0.0'/>
+    </graphics>
+    <video>
+      <model type='cirrus' vram='16384' heads='1' primary='yes'/>
+    </video>
+  </devices>
+</domain>

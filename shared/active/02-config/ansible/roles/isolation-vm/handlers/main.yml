@@ -1,0 +1,20 @@
+---
+# Handlers for isolation-vm role
+
+- name: Restart VM
+  ansible.builtin.command:
+    cmd: "virsh reboot {{ isolation_vm_name }}"
+  become: true
+  listen: restart isolation vm
+
+- name: Shutdown VM
+  ansible.builtin.command:
+    cmd: "virsh shutdown {{ isolation_vm_name }}"
+  become: true
+  listen: shutdown isolation vm
+
+- name: Start VM
+  ansible.builtin.command:
+    cmd: "virsh start {{ isolation_vm_name }}"
+  become: true
+  listen: start isolation vm

@@ -27,15 +27,15 @@ Create and configure the Debian minimal VM that will serve as the Isolation VM. 
 
 ## Sub-Tasks
 
-- [ ] Download or create Debian minimal base image (cloud-init or qcow2)
-- [ ] Create libvirt VM definition using virt-install or libvirt XML
-- [ ] Configure VM resources using variables: `isolation_vm_memory_mb`, `isolation_vm_vcpus`, `isolation_vm_disk_gb`
-- [ ] Connect VM to both NAT and routed bridge networks
-- [ ] Assign static IP using `isolation_vm_ip_address` variable
-- [ ] Configure gateway using `isolation_vm_gateway_ip` variable
-- [ ] Set VM to auto-start on host boot
-- [ ] Create Ansible playbook for VM provisioning
-- [ ] Test VM boot and basic connectivity
+- [x] Download or create Debian minimal base image (cloud-init or qcow2)
+- [x] Create libvirt VM definition using virt-install or libvirt XML
+- [x] Configure VM resources using variables: `isolation_vm_memory_mb`, `isolation_vm_vcpus`, `isolation_vm_disk_gb`
+- [x] Connect VM to both NAT and routed bridge networks
+- [x] Assign static IP using `isolation_vm_ip_address` variable
+- [x] Configure gateway using `isolation_vm_gateway_ip` variable
+- [x] Set VM to auto-start on host boot
+- [x] Create Ansible playbook for VM provisioning
+- [~] Test VM boot and basic connectivity
 
 ## Relevant Files
 

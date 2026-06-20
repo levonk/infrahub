@@ -1,0 +1,146 @@
+---
+# Traefik Deployment Playbook
+# Deploys Traefik reverse proxy with ACME SSL and experimental plugins
+# Usage: ansible-playbook -i ../../../levonk/active/02-config/ansible/inventories/oci.yml playbooks/deploy-traefik.yml
+# Story: 02-001 - Deploy Traefik with ACME and plugins
+
+- name: "Deploy Traefik Reverse Proxy"
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: "Gather ansible_facts"
+      ansible.builtin.setup:
+        gather_subset: ["all"]
+      tags: ["always"]
+
+    - name: "Validate required Traefik variables are defined"
+      ansible.builtin.assert:
+        that:
+          - proxy_traefik_enabled is defined
+          - proxy_traefik_acme_email is defined
+          - proxy_traefik_acme_storage is defined
+        fail_msg: "Missing required Traefik variables. Check host_vars/oci-cloud-server.yml and vault. Variables: proxy_traefik_enabled={{ proxy_traefik_enabled | default('undefined') }}, proxy_traefik_acme_email={{ proxy_traefik_acme_email | default('undefined') }}, proxy_traefik_acme_storage={{ proxy_traefik_acme_storage | default('undefined') }}"
+        success_msg: "All required Traefik variables are defined."
+      tags: ["always", "validate"]
+
+    - name: "Verify Docker CLI is installed"
+      ansible.builtin.command:
+        cmd: "docker --version"
+      become: true
+      become_user: "{{ ansible_user }}"
+      register: docker_cli_check
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "docker"]
+
+    - name: "Fail if Docker CLI is not installed"
+      ansible.builtin.fail:
+        msg: |
+          Docker prerequisite failed: Docker CLI is not installed.
+          Ensure Docker engine is deployed before running this playbook.
+      when: docker_cli_check.rc != 0
+      tags: ["verify", "docker"]
+
+    - name: "Verify Docker daemon is responsive"
+      ansible.builtin.command:
+        cmd: "docker info --format '{{ '{{' }} .ServerVersion {{ '}}' }}'"
+      become: true
+      register: docker_daemon_check
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "docker"]
+
+    - name: "Fail if Docker daemon is not responsive"
+      ansible.builtin.fail:
+        msg: |
+          Docker prerequisite failed: Docker daemon is not running or
+          not accessible. Ensure Docker service is started.
+      when: docker_daemon_check.rc != 0
+      tags: ["verify", "docker"]
+
+  roles:
+    - role: proxy-traefik
+      tags: ["traefik", "proxy"]
+
+  post_tasks:
+    - name: "Verify Traefik container is running"
+      ansible.builtin.command:
+        cmd: "docker inspect --format='{{ '{{' }} .State.Status {{ '}}' }}' {{ proxy_traefik_container_name }}"
+      become: true
+      register: traefik_container_check
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "traefik", "containers"]
+
+    - name: "Report Traefik container status"
+      ansible.builtin.debug:
+        msg: |
+          Traefik container status: {{ traefik_container_check.stdout | default('not found') }}
+      tags: ["verify", "traefik", "containers"]
+
+    - name: "Verify Traefik network exists"
+      ansible.builtin.command:
+        cmd: "docker network inspect {{ proxy_traefik_network_name }}"
+      become: true
+      register: traefik_network_check
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "traefik", "network"]
+
+    - name: "Report Traefik network status"
+      ansible.builtin.debug:
+        msg: |
+          Traefik network status: {{ 'exists' if traefik_network_check.rc == 0 else 'not found' }}
+      tags: ["verify", "traefik", "network"]
+
+    - name: "Check Traefik HTTP port accessibility"
+      ansible.builtin.wait_for:
+        host: "{{ ansible_host | default('localhost') }}"
+        port: "{{ proxy_traefik_http_port }}"
+        timeout: 10
+      delegate_to: localhost
+      become: false
+      ignore_errors: true
+      register: traefik_http_port_check
+      tags: ["verify", "traefik", "ports"]
+
+    - name: "Report HTTP port status"
+      ansible.builtin.debug:
+        msg: |
+          Traefik HTTP port {{ proxy_traefik_http_port }}: {{ 'accessible' if traefik_http_port_check.failed is false else 'not accessible' }}
+      tags: ["verify", "traefik", "ports"]
+
+    - name: "Check Traefik HTTPS port accessibility"
+      ansible.builtin.wait_for:
+        host: "{{ ansible_host | default('localhost') }}"
+        port: "{{ proxy_traefik_https_port }}"
+        timeout: 10
+      delegate_to: localhost
+      become: false
+      ignore_errors: true
+      register: traefik_https_port_check
+      tags: ["verify", "traefik", "ports"]
+
+    - name: "Report HTTPS port status"
+      ansible.builtin.debug:
+        msg: |
+          Traefik HTTPS port {{ proxy_traefik_https_port }}: {{ 'accessible' if traefik_https_port_check.failed is false else 'not accessible' }}
+      tags: ["verify", "traefik", "ports"]
+
+    - name: "Get Traefik container logs (last 20 lines)"
+      ansible.builtin.command:
+        cmd: "docker logs --tail 20 {{ proxy_traefik_container_name }}"
+      become: true
+      register: traefik_logs
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "traefik", "logs"]
+
+    - name: "Report Traefik logs"
+      ansible.builtin.debug:
+        msg: |
+          Traefik container logs:
+          {{ traefik_logs.stdout | default('no logs available') }}
+      tags: ["verify", "traefik", "logs"]

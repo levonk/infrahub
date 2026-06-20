@@ -1,0 +1,12 @@
+---
+# Role dependencies for isolation-vm
+galaxy_info:
+  role_name: isolation_vm
+  author: levonk
+  description: Provision Debian minimal VM for AI agent isolation
+  company: levonk
+  license: MIT
+  min_ansible_version: "2.9"
+
+dependencies:
+  - role: common-kvm

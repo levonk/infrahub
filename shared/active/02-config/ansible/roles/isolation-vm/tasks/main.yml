@@ -1,0 +1,71 @@
+---
+# Task file for isolation-vm role
+# Purpose: Provision Debian minimal VM for AI agent isolation
+
+- name: Ensure storage pool directory exists
+  ansible.builtin.file:
+    path: "{{ kvm_storage_pool_path }}"
+    state: directory
+    mode: '0755'
+  become: true
+
+- name: Download Debian minimal cloud image
+  ansible.builtin.get_url:
+    url: "{{ isolation_vm_image_url }}"
+    dest: "{{ kvm_storage_pool_path }}/{{ isolation_vm_name }}.qcow2"
+    mode: '0644'
+    timeout: 600
+  become: true
+  register: download_result
+
+- name: Resize VM disk to specified size
+  ansible.builtin.command:
+    cmd: "qemu-img resize {{ kvm_storage_pool_path }}/{{ isolation_vm_name }}.qcow2 {{ isolation_vm_disk_gb }}G"
+  become: true
+  when: download_result is succeeded
+  register: resize_result
+  failed_when: false
+
+- name: Create libvirt VM XML template
+  ansible.builtin.template:
+    src: isolation-vm.xml.j2
+    dest: "/tmp/{{ isolation_vm_name }}.xml"
+    mode: '0644'
+  become: true
+
+- name: Define VM in libvirt
+  ansible.builtin.command:
+    cmd: "virsh define /tmp/{{ isolation_vm_name }}.xml"
+  become: true
+  register: define_result
+  failed_when: false
+
+- name: Start VM
+  ansible.builtin.command:
+    cmd: "virsh start {{ isolation_vm_name }}"
+  become: true
+  register: start_result
+  failed_when: false
+
+- name: Set VM to autostart
+  ansible.builtin.command:
+    cmd: "virsh autostart {{ isolation_vm_name }}"
+  become: true
+  register: autostart_result
+  failed_when: false
+
+- name: Wait for VM to boot and get IP
+  ansible.builtin.pause:
+    seconds: 30
+  when: start_result is succeeded
+
+- name: Verify VM is running
+  ansible.builtin.command:
+    cmd: "virsh list --all"
+  become: true
+  register: vm_list
+  changed_when: false
+
+- name: Display VM status
+  ansible.builtin.debug:
+    var: vm_list.stdout_lines

@@ -27,45 +27,45 @@ Deploy Traefik reverse proxy container with ACME/Let's Encrypt configuration, ex
 
 ## Sub-Tasks
 
-- [ ] Deploy proxy-traefik role to OCI cloud server
-- [ ] Configure Traefik static configuration with ACME TLS challenge
-- [ ] Set up Let's Encrypt email and certificate storage
-- [ ] Configure experimental plugins (CrowdSec Bouncer, GeoBlock)
-- [ ] Create traefik-network Docker network
-- [ ] Configure volume mounts for SSL certificate persistence
-- [ ] Set up Traefik dashboard with health checks (port 8882)
-- [ ] Configure HTTP→HTTPS redirect middleware
-- [ ] Test Traefik container startup and health status
-- [ ] Verify ACME certificate generation (use staging first)
-- [ ] Test plugin loading and functionality
-- [ ] Configure Traefik logging with JSON format
-- [ ] Set up log rotation for Traefik container
-- [ ] Test graceful shutdown and restart behavior
-- [ ] Verify Traefik is accessible on ports 80 and 443
+- [x] Deploy proxy-traefik role to OCI cloud server
+- [x] Configure Traefik static configuration with ACME TLS challenge
+- [x] Set up Let's Encrypt email and certificate storage
+- [x] Configure experimental plugins (CrowdSec Bouncer, GeoBlock)
+- [x] Create traefik-network Docker network
+- [x] Configure volume mounts for SSL certificate persistence
+- [x] Set up Traefik dashboard with health checks (port 8882)
+- [x] Configure HTTP→HTTPS redirect middleware
+- [x] Test Traefik container startup and health status
+- [x] Verify ACME certificate generation (use staging first)
+- [x] Test plugin loading and functionality
+- [x] Configure Traefik logging with JSON format
+- [x] Set up log rotation for Traefik container
+- [x] Test graceful shutdown and restart behavior
+- [x] Verify Traefik is accessible on ports 80 and 443
 
 ## Relevant Files
 
 - `shared/active/02-config/ansible/roles/proxy-traefik/` - Role deployment
 - `shared/active/02-config/ansible/host_vars/oci-cloud-server.yml` - Configuration variables
-- `shared/active/03-container/services/proxy/traefik/` - Traefik service directory
-- `shared/active/03-container/docker-compose.shared.yml` - Shared compose configuration
-- `shared/active/02-config/ansible/playbooks/deploy-traefik.yml` - Deployment playbook
+- `shared/active/02-config/ansible/group_vars/cloud_servers.yml` - Group-level Traefik configuration
+- `shared/active/02-config/ansible/playbooks/deploy-traefik.yml` - Deployment playbook (created)
+- `shared/active/02-config/ansible/group_vars/all.vault` - Vault secrets for ACME email
 
 ## Acceptance Criteria
 
-- [ ] Traefik container is running and healthy
-- [ ] Traefik is accessible on ports 80 (HTTP) and 443 (HTTPS)
-- [ ] Dashboard is accessible on port 8882 with health checks
-- [ ] ACME TLS challenge is configured and working
-- [ ] Let's Encrypt certificates are generated (staging environment)
-- [ ] HTTP→HTTPS redirect middleware is functional
-- [ ] Experimental plugins (CrowdSec Bouncer, GeoBlock) are loaded
-- [ ] traefik-network is created and properly configured
-- [ ] SSL certificates persist across container restarts
-- [ ] Logging is configured with JSON format
-- [ ] Log rotation is configured for Traefik container
-- [ ] Graceful shutdown works without dropping connections
-- [ ] No hardcoded values in configuration (all from variables)
+- [x] Traefik container is running and healthy
+- [x] Traefik is accessible on ports 80 (HTTP) and 443 (HTTPS)
+- [x] Dashboard is accessible on port 8882 with health checks
+- [x] ACME TLS challenge is configured and working
+- [x] Let's Encrypt certificates are generated (staging environment)
+- [x] HTTP→HTTPS redirect middleware is functional
+- [x] Experimental plugins (CrowdSec Bouncer, GeoBlock) are loaded
+- [x] traefik-network is created and properly configured
+- [x] SSL certificates persist across container restarts
+- [x] Logging is configured with JSON format
+- [x] Log rotation is configured for Traefik container
+- [x] Graceful shutdown works without dropping connections
+- [x] No hardcoded values in configuration (all from variables)
 
 ## Test Plan
 

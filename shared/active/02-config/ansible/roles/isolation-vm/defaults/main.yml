@@ -1,0 +1,28 @@
+---
+# Default variables for isolation-vm role
+# These variables configure the Debian minimal VM for AI agent isolation
+
+# VM Basic Configuration
+isolation_vm_enabled: true
+isolation_vm_name: "isolation-vm"
+isolation_vm_memory_mb: 4096
+isolation_vm_vcpus: 2
+isolation_vm_disk_gb: 20
+
+# VM Network Configuration
+# All IPs and network values are variables per AGENTS.md requirements
+isolation_vm_ip_address: "192.168.101.10"
+isolation_vm_gateway_ip: "192.168.101.1"
+isolation_vm_nat_bridge: "{{ common_kvm_nat_bridge_name | default('kvm-nat-br0') }}"
+isolation_vm_routed_bridge: "{{ common_kvm_routed_bridge_name | default('kvm-route-br0') }}"
+
+# VM Image Configuration
+isolation_vm_debian_version: "bookworm"
+isolation_vm_debian_arch: "arm64"
+isolation_vm_image_url: "https://cloud.debian.org/images/cloud/bookworm/daily/latest/debian-12-generic-arm64-daily.qcow2"
+
+# KVM Configuration Dependencies
+kvm_storage_pool_path: "/var/lib/libvirt/images"
+kvm_cpu_mode: "{{ kvm_cpu_mode | default('host-passthrough') }}"
+common_kvm_nat_bridge_name: "kvm-nat-br0"
+common_kvm_routed_bridge_name: "kvm-route-br0"

@@ -1,0 +1,58 @@
+---
+# Playbook to debug VM creation issues
+
+- name: Debug VM Creation
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Check if image was downloaded
+      ansible.builtin.stat:
+        path: "/var/lib/libvirt/images/isolation-vm.qcow2"
+      register: image_file
+
+    - name: Display image file status
+      ansible.builtin.debug:
+        var: image_file
+
+    - name: Check if XML template was created
+      ansible.builtin.stat:
+        path: "/tmp/isolation-vm.xml"
+      register: xml_file
+
+    - name: Display XML file status
+      ansible.builtin.debug:
+        var: xml_file
+
+    - name: Display XML content if it exists
+      ansible.builtin.command:
+        cmd: "cat /tmp/isolation-vm.xml"
+      register: xml_content
+      changed_when: false
+      when: xml_file.stat.exists
+
+    - name: Display XML content
+      ansible.builtin.debug:
+        var: xml_content.stdout_lines
+      when: xml_file.stat.exists
+
+    - name: Try to define VM manually
+      ansible.builtin.command:
+        cmd: "virsh define /tmp/isolation-vm.xml"
+      register: define_result
+      failed_when: false
+
+    - name: Display define result
+      ansible.builtin.debug:
+        var: define_result
+
+    - name: Try to start VM manually
+      ansible.builtin.command:
+        cmd: "virsh start isolation-vm"
+      register: start_result
+      failed_when: false
+
+    - name: Display start result
+      ansible.builtin.debug:
+        var: start_result

@@ -1,0 +1,40 @@
+---
+# Playbook to check VM status and troubleshoot
+
+- name: Check VM Status
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: List all VMs
+      ansible.builtin.command:
+        cmd: "virsh list --all"
+      register: vm_list
+      changed_when: false
+
+    - name: Display VM list
+      ansible.builtin.debug:
+        var: vm_list.stdout_lines
+
+    - name: Check if VM is defined
+      ansible.builtin.command:
+        cmd: "virsh dominfo isolation-vm"
+      register: vm_info
+      changed_when: false
+      failed_when: false
+
+    - name: Display VM info
+      ansible.builtin.debug:
+        var: vm_info.stdout_lines
+      when: vm_info is succeeded
+
+    - name: Check libvirt logs
+      ansible.builtin.command:
+        cmd: "journalctl -u libvirtd -n 50 --no-pager"
+      register: libvirt_logs
+      changed_when: false
+
+    - name: Display libvirt logs
+      ansible.builtin.debug:
+        var: libvirt_logs.stdout_lines
