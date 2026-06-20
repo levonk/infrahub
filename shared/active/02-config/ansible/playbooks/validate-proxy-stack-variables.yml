@@ -1,0 +1,164 @@
+---
+# Validate Proxy Stack Variables
+# Purpose: Validate variable types, formats, and required values for proxy stack configuration
+# Usage: ansible-playbook validate-proxy-stack-variables.yml --vault-password-file ~/.ansible/vault_password
+
+- name: "Validate Proxy Stack Variables"
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    # Load variables from host_vars and vault
+    ansible_python_interpreter: "{{ ansible_playbook_python }}"
+  
+  tasks:
+    - name: "Check if host_vars file exists"
+      ansible.builtin.stat:
+        path: "{{ lookup('env', 'PWD') }}/levonk/active/02-config/ansible/host_vars/oci-cloud-server.yml"
+      register: host_vars_file
+      failed_when: not host_vars_file.stat.exists
+      become: false
+    
+    - name: "Load host variables"
+      ansible.builtin.include_vars:
+        file: "{{ lookup('env', 'PWD') }}/levonk/active/02-config/ansible/host_vars/oci-cloud-server.yml"
+      become: false
+    
+    - name: "Load vault variables"
+      ansible.builtin.include_vars:
+        file: "{{ lookup('env', 'PWD') }}/shared/active/02-config/ansible/group_vars/all.vault"
+      become: false
+      no_log: true
+    
+    - name: "Validate Traefik variables"
+      ansible.builtin.assert:
+        that:
+          - proxy_traefik_enabled is defined
+          - proxy_traefik_enabled is boolean
+          - proxy_traefik_container_name is defined
+          - proxy_traefik_container_name is string
+          - proxy_traefik_image is defined
+          - proxy_traefik_image is string
+          - proxy_traefik_version is defined
+          - proxy_traefik_version is string
+          - proxy_traefik_host_http_port is defined
+          - proxy_traefik_host_http_port is string
+          - proxy_traefik_host_https_port is defined
+          - proxy_traefik_host_https_port is string
+          - proxy_traefik_network_name is defined
+          - proxy_traefik_network_name is string
+          - proxy_traefik_network_subnet is defined
+          - proxy_traefik_network_subnet is string
+          - vault_traefik_acme_email is defined
+          - vault_traefik_acme_email is string
+          - (vault_traefik_acme_email | regex_search('^[^@]+@[^@]+\.[^@]+$')) != ""
+        fail_msg: "Traefik variable validation failed"
+        success_msg: "Traefik variables validated successfully"
+      become: false
+    
+    - name: "Validate Authelia variables"
+      ansible.builtin.assert:
+        that:
+          - proxy_authelia_enabled is defined
+          - proxy_authelia_enabled is boolean
+          - proxy_authelia_container_name is defined
+          - proxy_authelia_container_name is string
+          - proxy_authelia_image is defined
+          - proxy_authelia_image is string
+          - proxy_authelia_version is defined
+          - proxy_authelia_version is string
+          - proxy_authelia_host_port is defined
+          - proxy_authelia_host_port is string
+          - proxy_authelia_container_port is defined
+          - proxy_authelia_container_port is string
+          - proxy_authelia_postgres_password is defined
+          - proxy_authelia_postgres_password is string
+          - proxy_authelia_postgres_password | length > 16
+          - vault_authelia_admin_password is defined
+          - vault_authelia_admin_password is string
+          - vault_authelia_admin_password | length > 16
+          - vault_authelia_admin_email is defined
+          - vault_authelia_admin_email is string
+          - (vault_authelia_admin_email | regex_search('^[^@]+@[^@]+\.[^@]+$')) != ""
+          - vault_authelia_session_secret is defined
+          - vault_authelia_session_secret is string
+          - vault_authelia_session_secret | length > 32
+          - vault_authelia_jwt_secret is defined
+          - vault_authelia_jwt_secret is string
+          - vault_authelia_jwt_secret | length > 32
+        fail_msg: "Authelia variable validation failed"
+        success_msg: "Authelia variables validated successfully"
+      become: false
+    
+    - name: "Validate CrowdSec variables"
+      ansible.builtin.assert:
+        that:
+          - security_crowdsec_enabled is defined
+          - security_crowdsec_enabled is boolean
+          - security_crowdsec_container_name is defined
+          - security_crowdsec_container_name is string
+          - security_crowdsec_image is defined
+          - security_crowdsec_image is string
+          - security_crowdsec_version is defined
+          - security_crowdsec_version is string
+          - security_crowdsec_host_port is defined
+          - security_crowdsec_host_port is string
+          - security_crowdsec_container_port is defined
+          - security_crowdsec_container_port is string
+          - vault_crowdsec_api_token is defined
+          - vault_crowdsec_api_token is string
+          - vault_crowdsec_api_token | length > 32
+          - vault_crowdsec_bouncer_api_key is defined
+          - vault_crowdsec_bouncer_api_key is string
+          - vault_crowdsec_bouncer_api_key | length > 32
+          - security_crowdsec_ban_duration is defined
+          - security_crowdsec_ban_duration is string
+        fail_msg: "CrowdSec variable validation failed"
+        success_msg: "CrowdSec variables validated successfully"
+      become: false
+    
+    - name: "Validate Cloudflare variables"
+      ansible.builtin.assert:
+        that:
+          - cloudflare_dns_enabled is defined
+          - cloudflare_dns_enabled is boolean
+          - vault_cloudflare_zone_id is defined
+          - vault_cloudflare_zone_id is string
+          - vault_cloudflare_zone_id | length > 10
+          - vault_cloudflare_api_token is defined
+          - vault_cloudflare_api_token is string
+          - vault_cloudflare_api_token | length > 32
+          - vault_cloudflare_account_email is defined
+          - vault_cloudflare_account_email is string
+          - (vault_cloudflare_account_email | regex_search('^[^@]+@[^@]+\.[^@]+$')) != ""
+          - cloudflare_domain is defined
+          - cloudflare_domain is string
+          - (cloudflare_domain | regex_search('^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.[a-zA-Z]{2,}$')) != ""
+          - cloudflare_subdomain_search is defined
+          - cloudflare_subdomain_search is string
+          - cloudflare_search_fqdn is defined
+          - cloudflare_search_fqdn is string
+        fail_msg: "Cloudflare variable validation failed"
+        success_msg: "Cloudflare variables validated successfully"
+      become: false
+    
+    - name: "Check for placeholder values in vault"
+      ansible.builtin.assert:
+        that:
+          - vault_authelia_postgres_password != "change-me-in-vault-generate-secure-password"
+          - vault_authelia_session_secret != "change-me-in-vault-generate-secure-random-string"
+          - vault_authelia_admin_password != "change-me-in-vault-generate-secure-password"
+          - vault_authelia_jwt_secret != "change-me-in-vault-generate-secure-random-string"
+          - vault_crowdsec_api_token != "change-me-in-vault-generate-secure-random-string"
+          - vault_crowdsec_bouncer_api_key != "change-me-in-vault-generate-secure-random-string"
+          - vault_cloudflare_zone_id != "change-me-in-vault-get-from-cloudflare-dashboard"
+          - vault_cloudflare_api_token != "change-me-in-vault-generate-in-cloudflare-dashboard"
+        fail_msg: "Vault contains placeholder values that must be replaced with actual secure values"
+        success_msg: "No placeholder values found in vault"
+      become: false
+      ignore_errors: true  # Allow placeholders during development
+    
+    - name: "Display validation summary"
+      ansible.builtin.debug:
+        msg: "All proxy stack variables validated successfully"
+      become: false

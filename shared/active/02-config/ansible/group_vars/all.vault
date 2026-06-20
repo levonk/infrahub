@@ -35,3 +35,45 @@ authelia_jwt_private_key: |
   eZn7QDFQu0Nsq2zT/PD7QVqQY+kEyQCqt/3dIsPbY8sX5PRwyZr4sbRvr+ewOPl6
   hfOkF0OfcuvJEhss30/DigMmng==
   -----END PRIVATE KEY-----
+
+# ---------------------------------------------------------------------------
+# Traefik ACME Configuration
+# ---------------------------------------------------------------------------
+vault_traefik_acme_email: "admin@levonk.com"
+
+# ---------------------------------------------------------------------------
+# Authelia Configuration (New Proxy Stack)
+# ---------------------------------------------------------------------------
+# PostgreSQL Database Password
+vault_authelia_postgres_password: "change-me-in-vault-generate-secure-password"
+
+# Session Secret for Redis
+vault_authelia_session_secret: "change-me-in-vault-generate-secure-random-string"
+
+# Admin User Credentials
+vault_authelia_admin_password: "change-me-in-vault-generate-secure-password"
+vault_authelia_admin_email: "admin@levonk.com"
+
+# JWT Secret for token signing
+vault_authelia_jwt_secret: "change-me-in-vault-generate-secure-random-string"
+
+# ---------------------------------------------------------------------------
+# CrowdSec Configuration
+# ---------------------------------------------------------------------------
+# API Token for CrowdSec local API
+vault_crowdsec_api_token: "change-me-in-vault-generate-secure-random-string"
+
+# Bouncer API Key for Traefik integration
+vault_crowdsec_bouncer_api_key: "change-me-in-vault-generate-secure-random-string"
+
+# ---------------------------------------------------------------------------
+# Cloudflare Configuration
+# ---------------------------------------------------------------------------
+# Cloudflare Zone ID (from Cloudflare dashboard)
+vault_cloudflare_zone_id: "change-me-in-vault-get-from-cloudflare-dashboard"
+
+# Cloudflare API Token (with Zone:DNS:Edit permissions)
+vault_cloudflare_api_token: "change-me-in-vault-generate-in-cloudflare-dashboard"
+
+# Cloudflare Account Email
+vault_cloudflare_account_email: "admin@levonk.com"
