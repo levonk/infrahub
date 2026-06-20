@@ -7,7 +7,7 @@ prd_file: "shared/active/08-docs/reqs/2026/20260620-traefik-authelia-cloudflare.
 phase: 1
 parallel_id: 3
 branch: "feature/current/traefik-authelia-cloudflare/story-01-003-security-crowdsec-role"
-status: "todo"
+status: "in-progress"
 assignee: ""
 reviewer: ""
 dependencies: []
@@ -27,21 +27,21 @@ Create a complete Ansible role for deploying CrowdSec security engine and CrowdS
 
 ## Sub-Tasks
 
-- [ ] Create role directory structure following docker-linux boilerplate patterns
-- [ ] Implement main tasks file with Docker container deployment logic
-- [ ] Create CrowdSec configuration template (config.yaml) with acquisition sources
-- [ ] Implement Traefik log acquisition configuration
-- [ ] Create CrowdSec Bouncer configuration template for Traefik integration
-- [ ] Implement remediation profiles (default 672h ban, custom profiles)
-- [ ] Create Docker network configuration for traefik-network integration
-- [ ] Implement volume management for SQLite database persistence
-- [ ] Create handlers for CrowdSec restart/reload operations
-- [ ] Add health check configuration for CrowdSec service
-- [ ] Implement variable defaults with proper naming conventions
-- [ ] Create ban duration and remediation policy templates
-- [ ] Add API token management for bouncer communication
-- [ ] Create README with role usage documentation
-- [ ] Add Molecule test skeleton for basic validation
+- [x] Create role directory structure following docker-linux boilerplate patterns
+- [x] Implement main tasks file with Docker container deployment logic
+- [x] Create CrowdSec configuration template (config.yaml) with acquisition sources
+- [x] Implement Traefik log acquisition configuration
+- [x] Create CrowdSec Bouncer configuration template for Traefik integration
+- [x] Implement remediation profiles (default 672h ban, custom profiles)
+- [x] Create Docker network configuration for traefik-network integration
+- [x] Implement volume management for SQLite database persistence
+- [x] Create handlers for CrowdSec restart/reload operations
+- [x] Add health check configuration for CrowdSec service
+- [x] Implement variable defaults with proper naming conventions
+- [x] Create ban duration and remediation policy templates
+- [x] Add API token management for bouncer communication
+- [x] Create README with role usage documentation
+- [x] Add Molecule test skeleton for basic validation
 
 ## Relevant Files
 
@@ -56,18 +56,18 @@ Create a complete Ansible role for deploying CrowdSec security engine and CrowdS
 
 ## Acceptance Criteria
 
-- [ ] Role follows docker-linux boilerplate structure exactly
-- [ ] All configuration is variable-driven (no hardcoded values)
-- [ ] CrowdSec configuration includes Traefik log acquisition
-- [ ] CrowdSec Bouncer is configured for Traefik integration
-- [ ] Default remediation profile (672h ban) is implemented
-- [ ] Custom remediation profiles can be configured via variables
-- [ ] Docker network integration with traefik-network is established
-- [ ] Health checks are configured for CrowdSec service
-- [ ] Volume mounts ensure SQLite database persistence
-- [ ] API token management is secure (use Ansible vault)
-- [ ] README documents all required variables and security profiles
-- [ ] Molecule test skeleton exists and can run basic validation
+- [x] Role follows docker-linux boilerplate structure exactly
+- [x] All configuration is variable-driven (no hardcoded values)
+- [x] CrowdSec configuration includes Traefik log acquisition
+- [x] CrowdSec Bouncer is configured for Traefik integration
+- [x] Default remediation profile (672h ban) is implemented
+- [x] Custom remediation profiles can be configured via variables
+- [x] Docker network integration with traefik-network is established
+- [x] Health checks are configured for CrowdSec service
+- [x] Volume mounts ensure SQLite database persistence
+- [x] API token management is secure (use Ansible vault)
+- [x] README documents all required variables and security profiles
+- [x] Molecule test skeleton exists and can run basic validation
 
 ## Test Plan
 

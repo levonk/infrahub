@@ -1,0 +1,31 @@
+---
+# CrowdSec Handlers
+# Restart and reload handlers for CrowdSec services
+
+- name: restart crowdsec
+  community.docker.docker_container:
+    name: "{{ security_crowdsec_container_name }}"
+    state: started
+    restart: true
+  become: true
+
+- name: restart crowdsec-bouncer
+  community.docker.docker_container:
+    name: "{{ security_crowdsec_bouncer_container_name }}"
+    state: started
+    restart: true
+  become: true
+
+- name: reload crowdsec
+  community.docker.docker_container:
+    name: "{{ security_crowdsec_container_name }}"
+    state: started
+    restart: true
+  become: true
+
+- name: reload crowdsec-bouncer
+  community.docker.docker_container:
+    name: "{{ security_crowdsec_bouncer_container_name }}"
+    state: started
+    restart: true
+  become: true

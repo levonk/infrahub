@@ -166,3 +166,79 @@
 - name: Display network list
   ansible.builtin.debug:
     var: net_list.stdout_lines
+
+- name: Deploy routed bridge network definition
+  ansible.builtin.template:
+    src: network-routed.xml.j2
+    dest: "/tmp/{{ common_kvm_routed_bridge_name }}.xml"
+    mode: '0644'
+  become: true
+
+- name: Define routed bridge network in libvirt
+  ansible.builtin.command: "virsh net-define /tmp/{{ common_kvm_routed_bridge_name }}.xml"
+  become: true
+  register: routed_net_define
+  failed_when: routed_net_define.rc != 0 and "already exists" not in routed_net_define.stderr
+  changed_when: routed_net_define.rc == 0
+
+- name: Start routed bridge network
+  ansible.builtin.command: "virsh net-start {{ common_kvm_routed_bridge_name }}"
+  become: true
+  register: routed_net_start
+  failed_when: routed_net_start.rc != 0 and "already active" not in routed_net_start.stderr
+  changed_when: routed_net_start.rc == 0
+
+- name: Enable routed bridge network autostart
+  ansible.builtin.command: "virsh net-autostart {{ common_kvm_routed_bridge_name }}"
+  become: true
+  register: routed_net_autostart
+  failed_when: routed_net_autostart.rc != 0 and "already marked" not in routed_net_autostart.stderr
+  changed_when: routed_net_autostart.rc == 0
+
+- name: Clean up temporary network definition file
+  ansible.builtin.file:
+    path: "/tmp/{{ common_kvm_routed_bridge_name }}.xml"
+    state: absent
+  become: true
+
+- name: Verify routed bridge network is active
+  ansible.builtin.command: "virsh net-list --all"
+  become: true
+  register: routed_net_list
+  changed_when: false
+
+- name: Display routed network list
+  ansible.builtin.debug:
+    var: routed_net_list.stdout_lines
+
+- name: Configure firewall rules for routed bridge (firewalld)
+  ansible.posix.firewalld:
+    zone: trusted
+    interface: "{{ common_kvm_routed_bridge_name }}"
+    permanent: true
+    state: enabled
+  when: ansible_facts['services']['firewalld'] is defined
+  become: true
+  ignore_errors: true
+
+- name: Configure firewall rules for routed bridge (iptables - allow forwarding)
+  ansible.builtin.iptables:
+    table: filter
+    chain: FORWARD
+    in_interface: "{{ common_kvm_routed_bridge_name }}"
+    jump: ACCEPT
+    action: insert
+  become: true
+  when: ansible_facts['services']['firewalld'] is not defined
+  ignore_errors: true
+
+- name: Configure firewall rules for routed bridge (iptables - NAT masquerade)
+  ansible.builtin.iptables:
+    table: nat
+    chain: POSTROUTING
+    out_interface: "{{ common_kvm_routed_bridge_interface }}"
+    source: "{{ common_kvm_routed_bridge_subnet }}"
+    jump: MASQUERADE
+  become: true
+  when: ansible_facts['services']['firewalld'] is not defined
+  ignore_errors: true

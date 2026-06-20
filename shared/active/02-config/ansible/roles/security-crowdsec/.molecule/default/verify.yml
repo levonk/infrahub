@@ -1,0 +1,56 @@
+---
+- name: Verify
+  hosts: all
+  become: true
+  tasks:
+    - name: Check CrowdSec container is running
+      community.docker.docker_container:
+        name: crowdsec
+        state: present
+      register: crowdsec_container
+
+    - name: Assert CrowdSec container is running
+      ansible.builtin.assert:
+        that:
+          - crowdsec_container.container.State.Status == "running"
+        fail_msg: "CrowdSec container is not running"
+        success_msg: "CrowdSec container is running"
+
+    - name: Check CrowdSec database volume exists
+      community.docker.docker_volume:
+        name: localnet-crowdsec-db-volume
+        state: present
+      register: crowdsec_db_volume
+
+    - name: Assert CrowdSec database volume exists
+      ansible.builtin.assert:
+        that:
+          - crowdsec_db_volume.exists
+        fail_msg: "CrowdSec database volume does not exist"
+        success_msg: "CrowdSec database volume exists"
+
+    - name: Check CrowdSec configuration volume exists
+      community.docker.docker_volume:
+        name: localnet-crowdsec-config-volume
+        state: present
+      register: crowdsec_config_volume
+
+    - name: Assert CrowdSec configuration volume exists
+      ansible.builtin.assert:
+        that:
+          - crowdsec_config_volume.exists
+        fail_msg: "CrowdSec configuration volume does not exist"
+        success_msg: "CrowdSec configuration volume exists"
+
+    - name: Check CrowdSec data directory exists
+      ansible.builtin.stat:
+        path: /opt/crowdsec
+      register: crowdsec_data_dir
+
+    - name: Assert CrowdSec data directory exists
+      ansible.builtin.assert:
+        that:
+          - crowdsec_data_dir.stat.exists
+          - crowdsec_data_dir.stat.isdir
+        fail_msg: "CrowdSec data directory does not exist"
+        success_msg: "CrowdSec data directory exists"

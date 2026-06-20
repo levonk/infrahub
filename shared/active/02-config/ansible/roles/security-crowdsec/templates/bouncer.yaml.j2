@@ -1,0 +1,63 @@
+---
+# CrowdSec Bouncer Configuration Template
+# Configures CrowdSec Bouncer for Traefik integration
+# All values are variable-driven per AGENTS.md rules
+
+mode: {{ security_crowdsec_bouncer_mode }}
+daemon: {{ security_crowdsec_bouncer_daemon | lower }}
+
+{% if security_crowdsec_bouncer_mode == 'traefik' %}
+# Traefik-specific configuration
+traefik:
+  log_level: {{ security_crowdsec_bouncer_log_level }}
+  log_file: {{ security_crowdsec_bouncer_log_file }}
+  log_format: {{ security_crowdsec_bouncer_log_format }}
+  log_max_size: {{ security_crowdsec_bouncer_log_max_size }}
+  log_max_age: {{ security_crowdsec_bouncer_log_max_age }}
+  log_max_backups: {{ security_crowdsec_bouncer_log_max_backups }}
+{% endif %}
+
+{% if security_crowdsec_bouncer_mode == 'nginx' %}
+# Nginx-specific configuration
+nginx:
+  log_level: {{ security_crowdsec_bouncer_log_level }}
+  log_file: {{ security_crowdsec_bouncer_log_file }}
+  log_format: {{ security_crowdsec_bouncer_log_format }}
+{% endif %}
+
+# CrowdSec LAPI configuration
+crowdsec:
+  log_level: {{ security_crowdsec_bouncer_log_level }}
+  log_file: {{ security_crowdsec_bouncer_log_file }}
+  log_format: {{ security_crowdsec_bouncer_log_format }}
+  log_max_size: {{ security_crowdsec_bouncer_log_max_size }}
+  log_max_age: {{ security_crowdsec_bouncer_log_max_age }}
+  log_max_backups: {{ security_crowdsec_bouncer_log_max_backups }}
+
+  # LAPI connection settings
+  lapi_url: {{ security_crowdsec_lapi_url }}
+  lapi_key: {{ security_crowdsec_bouncer_api_key }}
+  insecure_skip_verify: {{ security_crowdsec_bouncer_insecure_skip_verify | lower }}
+
+  # Update configuration
+  update_frequency: {{ security_crowdsec_bouncer_update_frequency }}
+  update_strategy: {{ security_crowdsec_bouncer_update_strategy }}
+
+  # Decision configuration
+  decision_timeout: {{ security_crowdsec_bouncer_decision_timeout }}
+  fail_open: {{ security_crowdsec_bouncer_fail_open | lower }}
+
+  # Forward headers configuration
+  forward_headers: {{ security_crowdsec_bouncer_forward_headers | lower }}
+  forwarded_headers_header: {{ security_crowdsec_bouncer_forwarded_headers_header }}
+
+# Redis cache (optional)
+{% if security_crowdsec_bouncer_redis_enabled %}
+redis:
+  enabled: true
+  host: {{ security_crowdsec_bouncer_redis_host }}
+  port: {{ security_crowdsec_bouncer_redis_port }}
+  db: {{ security_crowdsec_bouncer_redis_db }}
+  password: {{ security_crowdsec_bouncer_redis_password }}
+  expiration: {{ security_crowdsec_bouncer_redis_expiration }}
+{% endif %}

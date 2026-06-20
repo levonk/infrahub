@@ -38,3 +38,11 @@ common_kvm_nat_bridge_subnet: "192.168.100.0/24"
 common_kvm_nat_bridge_gateway: "192.168.100.1"
 common_kvm_nat_bridge_dhcp_start: "192.168.100.128"
 common_kvm_nat_bridge_dhcp_end: "192.168.100.254"
+
+# Routed Bridge Network Configuration
+common_kvm_routed_bridge_name: "kvm-route-br0"
+common_kvm_routed_bridge_subnet: "192.168.101.0/24"
+common_kvm_routed_bridge_gateway: "192.168.101.1"
+common_kvm_routed_bridge_dhcp_start: "192.168.101.128"
+common_kvm_routed_bridge_dhcp_end: "192.168.101.254"
+common_kvm_routed_bridge_interface: "{{ ansible_facts['default_ipv4']['interface'] | default('eth0') }}"

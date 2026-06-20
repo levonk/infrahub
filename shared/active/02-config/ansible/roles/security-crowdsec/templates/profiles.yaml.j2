@@ -1,0 +1,82 @@
+---
+# CrowdSec Remediation Profiles Configuration
+# Defines ban durations and remediation policies
+# All values are variable-driven per AGENTS.md rules
+
+# Default profile with 672h (28 days) ban duration
+profiles:
+  default:
+    decisions:
+      - type: ban
+        duration: {{ security_crowdsec_default_ban_duration }}
+        scope: ip
+        on_duration: {{ security_crowdsec_default_on_duration }}
+        on_alert: {{ security_crowdsec_default_on_alert }}
+    filters:
+      - alert.reason like "{{ security_crowdsec_default_alert_filter }}"
+    notifications:
+      - slack:
+        url: {{ security_crowdsec_slack_webhook_url | default('') }}
+        # Only configure if webhook URL is provided
+        {% if security_crowdsec_slack_webhook_url %}
+        enabled: true
+        {% else %}
+        enabled: false
+        {% endif %}
+        username: {{ security_crowdsec_slack_username | default('CrowdSec') }}
+        channel: {{ security_crowdsec_slack_channel | default('#security') }}
+
+# Custom profiles for different threat levels
+{% if security_crowdsec_custom_profiles_enabled %}
+{% for profile in security_crowdsec_custom_profiles %}
+  {{ profile.name }}:
+    decisions:
+      - type: {{ profile.decision_type | default('ban') }}
+        duration: {{ profile.duration | default('4h') }}
+        scope: {{ profile.scope | default('ip') }}
+        on_duration: {{ profile.on_duration | default('4h') }}
+        on_alert: {{ profile.on_alert | default('true') }}
+    filters:
+      {% for filter in profile.filters %}
+      - {{ filter }}
+      {% endfor %}
+{% endfor %}
+{% endif %}
+
+# Severity-based profiles
+{% if security_crowdsec_severity_profiles_enabled %}
+  critical:
+    decisions:
+      - type: ban
+        duration: {{ security_crowdsec_critical_ban_duration }}
+        scope: ip
+    filters:
+      - alert.severity >= {{ security_crowdsec_critical_severity_threshold }}
+
+  high:
+    decisions:
+      - type: ban
+        duration: {{ security_crowdsec_high_ban_duration }}
+        scope: ip
+    filters:
+      - alert.severity >= {{ security_crowdsec_high_severity_threshold }}
+      - alert.severity < {{ security_crowdsec_critical_severity_threshold }}
+
+  medium:
+    decisions:
+      - type: ban
+        duration: {{ security_crowdsec_medium_ban_duration }}
+        scope: ip
+    filters:
+      - alert.severity >= {{ security_crowdsec_medium_severity_threshold }}
+      - alert.severity < {{ security_crowdsec_high_severity_threshold }}
+
+  low:
+    decisions:
+      - type: captcha
+        duration: {{ security_crowdsec_low_ban_duration }}
+        scope: ip
+    filters:
+      - alert.severity >= {{ security_crowdsec_low_severity_threshold }}
+      - alert.severity < {{ security_crowdsec_medium_severity_threshold }}
+{% endif %}

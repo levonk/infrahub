@@ -27,12 +27,12 @@ Configure a routed bridge network for VM-to-outside communication. This enables 
 
 ## Sub-Tasks
 
-- [ ] Create libvirt network definition for routed bridge (kvm-route-br0)
-- [ ] Define network subnet using variable `isolation_vm_routed_bridge_subnet` (default: 192.168.101.0/24)
-- [ ] Configure routing rules for VM external access
-- [ ] Create Ansible task to deploy network definition
+- [x] Create libvirt network definition for routed bridge (kvm-route-br0)
+- [x] Define network subnet using variable `isolation_vm_routed_bridge_subnet` (default: 192.168.101.0/24)
+- [x] Configure routing rules for VM external access
+- [x] Create Ansible task to deploy network definition
 - [ ] Activate the routed bridge network
-- [ ] Configure host firewall rules to allow VM traffic
+- [x] Configure host firewall rules to allow VM traffic
 - [ ] Test routing from VM subnet to external networks
 
 ## Relevant Files
