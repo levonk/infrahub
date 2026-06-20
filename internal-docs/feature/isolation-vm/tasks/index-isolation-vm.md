@@ -28,7 +28,7 @@ This document provides an index of all tasks for implementing the Isolation VM f
 | 02-002 | Install Docker Server in VM | feature/current/isolation-vm/story-02-002-docker-server | 02-001 | Parallel-safe: true | vm-services | [x] Done |
 | 02-003 | Configure VM Networking and User Access | feature/current/isolation-vm/story-02-003-vm-networking-users | 02-001 | Parallel-safe: true | vm-config | [x] Done |
 | 03-001 | Deploy Nix Sidecar Container | feature/current/isolation-vm/story-03-001-nix-sidecar | 02-002, 02-003 | Parallel-safe: true | containers | [x] Done |
-| 03-002 | Deploy Base KaliNix Container | feature/current/isolation-vm/story-03-002-base-kalinix | 03-001 | Parallel-safe: true | containers | [~] In-Progress |
+| 03-002 | Deploy Base KaliNix Container | feature/current/isolation-vm/story-03-002-base-kalinix | 03-001 | Parallel-safe: true | containers | [x] Done |
 | 03-003 | Deploy Hermes Agent Container | feature/current/isolation-vm/story-03-003-hermes-agent | 03-001, 03-002 | Parallel-safe: true | containers | [ ] Todo |
 | 03-004 | Configure Volume Mounts and Networking | feature/current/isolation-vm/story-03-004-volume-network-config | 03-001, 03-002, 03-003 | Parallel-safe: true | container-config | [ ] Todo |
 | 04-001 | Test Agent Container Docker Access | feature/current/isolation-vm/story-04-001-docker-access-test | 03-004 | Parallel-safe: true | testing | [ ] Todo |
