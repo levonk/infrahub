@@ -26,6 +26,9 @@ kvm_network_type: "bridge"
 # Default storage pool path
 kvm_storage_pool_path: "/var/lib/libvirt/images"
 
+# Default storage pool name
+kvm_storage_pool_name: "default"
+
 # Enable libvirt logging
 kvm_enable_logging: true
 

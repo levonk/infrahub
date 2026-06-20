@@ -7,7 +7,7 @@ prd_file: "shared/active/08-docs/reqs/2026/20260620-traefik-authelia-cloudflare.
 phase: 1
 parallel_id: 5
 branch: "feature/current/traefik-authelia-cloudflare/story-01-005-config-management-vault"
-status: "in-progress"
+status: "done"
 assignee: ""
 reviewer: ""
 dependencies: []

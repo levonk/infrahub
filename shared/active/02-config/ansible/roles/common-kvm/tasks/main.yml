@@ -270,7 +270,7 @@
   ansible.builtin.command: virsh pool-build default
   become: true
   register: pool_build
-  failed_when: pool_build.rc != 0 and "already built" not in pool_build.stderr
+  failed_when: pool_build.rc != 0 and "already built" not in pool_build.stderr and "already active" not in pool_build.stderr
   changed_when: pool_build.rc == 0
 
 - name: Start storage pool

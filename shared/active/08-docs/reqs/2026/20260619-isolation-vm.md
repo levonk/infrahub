@@ -160,7 +160,7 @@
 |-------|----------|--------|
 | Nested Virtualization | Does OCI hardware support nested KVM? | Tested - NOT SUPPORTED (ARM aarch64) |
 | VM Resources | CPU/RAM allocation for Isolation VM? | Open |
-| Storage Backend | qcow2, LVM-thin, or other? | Open |
+| Storage Backend | qcow2, LVM-thin, or other? | Decided - qcow2 (simplicity, compatibility, sparse allocation) |
 | Backup Strategy | How to backup VM state and agent data? | Open |
 | Monitoring | How to monitor VM and agent health? | Open |
 

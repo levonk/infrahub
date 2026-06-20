@@ -107,7 +107,7 @@
 
     - name: "Verify VM storage pool is active"
       ansible.builtin.command:
-        cmd: "virsh pool-info {{ common_kvm_storage_pool_name | default('default') }}"
+        cmd: "virsh pool-info {{ kvm_storage_pool_name | default('default') }}"
       register: cloud_server_vms_storage_pool_check
       changed_when: false
       become: true

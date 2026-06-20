@@ -33,23 +33,25 @@ Configure libvirt storage pools for VM disk images. This provides the storage ba
 - [x] Configure storage pool for auto-start
 - [x] Set appropriate permissions on storage directory
 - [x] Create Ansible task to deploy storage pool configuration
-- [ ] Test storage pool creation and basic operations
-- [ ] Document storage backend choice (qcow2 vs LVM-thin)
+- [x] Test storage pool creation and basic operations
+- [x] Document storage backend choice (qcow2 vs LVM-thin)
 
 ## Relevant Files
 
-- `shared/active/02-config/ansible/roles/common-kvm/tasks/storage.yml` - Storage configuration tasks
+- `shared/active/02-config/ansible/roles/common-kvm/tasks/main.yml` - Storage configuration tasks
 - `shared/active/02-config/ansible/roles/common-kvm/defaults/main.yml` - Storage path variables
-- `shared/active/02-config/ansible/inventory/group_vars/oci_cloud_server_host.yml` - Host-specific storage variables
+- `shared/active/02-config/ansible/roles/common-kvm/templates/storage-pool.xml.j2` - Storage pool definition template
+- `levonk/active/02-config/ansible/host_vars/oci-cloud-server.yml` - Host-specific storage variables
+- `shared/active/02-config/ansible/playbooks/test-storage-pool.yml` - Test playbook for storage pool
 
 ## Acceptance Criteria
 
-- [ ] Storage pool directory exists with correct permissions
-- [ ] Storage pool is defined in libvirt
-- [ ] Storage pool is active and persistent
-- [ ] Storage path is configurable via variable
-- [ ] virsh pool-list shows the storage pool as active
-- [ ] Storage backend choice is documented
+- [x] Storage pool directory exists with correct permissions
+- [x] Storage pool is defined in libvirt
+- [x] Storage pool is active and persistent
+- [x] Storage path is configurable via variable
+- [x] virsh pool-list shows the storage pool as active
+- [x] Storage backend choice is documented
 
 ## Test Plan
 
