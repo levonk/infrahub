@@ -7,7 +7,7 @@ prd_file: "shared/active/08-docs/reqs/2026/20260619-isolation-vm.md"
 phase: 1
 parallel_id: 3
 branch: "feature/current/isolation-vm/story-01-003-nat-bridge-network"
-status: "in-progress"
+status: "done"
 assignee: ""
 reviewer: ""
 dependencies: []
