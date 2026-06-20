@@ -15,3 +15,10 @@
   tags:
     - base-kalinix
     - containers
+
+- name: Include hermes-agent deployment tasks
+  ansible.builtin.include_tasks: hermes-agent.yml
+  when: isolation_vm_deploy_hermes_agent | default(true)
+  tags:
+    - hermes-agent
+    - containers

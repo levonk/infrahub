@@ -2,9 +2,13 @@
 # Authelia configuration
 # Managed by Ansible — do not edit manually.
 
-default_redirection_url: https://{{ ansible_host | default('localhost') }}:{{ proxy_authelia_web_host_port }}
+
 
 theme: {{ proxy_authelia_theme }}
+
+identity_validation:
+  reset_password:
+    jwt_secret: {{ proxy_authelia_jwt_secret }}
 
 server:
   address: "tcp://0.0.0.0:{{ proxy_authelia_web_container_port }}"
@@ -44,7 +48,7 @@ authentication_backend:
       iterations: 1
       key_length: 32
       salt_length: 16
-  parallelism: 8
+      parallelism: 8
       memory: 64
 
 access_control:
@@ -60,17 +64,23 @@ session:
   expiration: {{ proxy_authelia_session_expiration }}
   inactivity: {{ proxy_authelia_session_inactivity }}
   same_site: lax
+  secret: {{ proxy_authelia_session_secret }}
   cookies:
     - name: authelia_session
-      domain: {{ ansible_host | default('localhost') }}
+      domain: {{ ansible_host | default('localhost') }}.local
       same_site: lax
-      http_only: true
-      authelia_url: https://{{ ansible_host | default('localhost') }}:{{ proxy_authelia_web_host_port }}
+      authelia_url: https://{{ ansible_host | default('localhost') }}.local:{{ proxy_authelia_web_host_port }}
 {% if proxy_authelia_session_redis_enabled | bool %}
   redis:
     host: proxy-authelia-redis
     port: {{ proxy_authelia_redis_container_port }}
+    password: {{ proxy_authelia_redis_password }}
 {% endif %}
+
+notifier:
+  disable_startup_check: true
+  filesystem:
+    filename: /config/notification.txt
 
 regulation:
   max_retries: 3
@@ -78,6 +88,7 @@ regulation:
   ban_time: 10m
 
 storage:
+  encryption_key: {{ proxy_authelia_storage_encryption_key }}
 {% if proxy_authelia_storage_backend == 'postgres' %}
   postgres:
     address: "tcp://{{ proxy_authelia_postgres_host }}:{{ proxy_authelia_postgres_port }}"
@@ -89,9 +100,4 @@ storage:
     path: /config/db.sqlite3
 {% endif %}
 
-notifier:
-  disable_startup_check: false
-{% if proxy_authelia_notifier_backend == 'filesystem' %}
-  filesystem:
-    filename: {{ proxy_authelia_notifier_fs_path }}
-{% endif %}
+

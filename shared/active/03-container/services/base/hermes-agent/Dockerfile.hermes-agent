@@ -1,0 +1,44 @@
+FROM localnet-base-kalinix:latest
+
+# Create hermes-agent user with proper UID/GID (inheriting from base-kalinix)
+ARG PUID=1000
+ARG PGID=1000
+ARG USERNAME=cuser
+
+# Set working directory
+WORKDIR /opt/hermes-agent
+
+# Install Docker CLI for container management
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        docker-cli \
+        docker-compose-plugin \
+        && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy static assets to mirror container filesystem
+COPY assets/static/hermes-agent/ /hermes-agent/
+
+# Set up environment
+ENV PATH=/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/nix/var/nix/profiles/default/bin
+ENV HERMES_DATA_DIR=/data/hermes-agent
+ENV HERMES_CONFIG_DIR=/config/hermes-agent
+ENV TZ=UTC
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Create data and config directories
+RUN mkdir -p ${HERMES_DATA_DIR} ${HERMES_CONFIG_DIR} && \
+    chown -R ${USERNAME}:${USERNAME} ${HERMES_DATA_DIR} ${HERMES_CONFIG_DIR}
+
+# Make scripts executable
+RUN chmod +x /hermes-agent/entrypoint-hermes-agent.sh /hermes-agent/healthcheck-hermes-agent.sh
+
+# Switch to non-root user
+USER ${USERNAME}
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD ["/bin/sh", "-c", "/hermes-agent/healthcheck-hermes-agent.sh > /dev/null 2>&1"]
+
+# Set entrypoint
+ENTRYPOINT ["/bin/sh", "/hermes-agent/entrypoint-hermes-agent.sh"]

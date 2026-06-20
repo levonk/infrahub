@@ -1,6 +1,6 @@
 # isolation-vm-containers Ansible Role
 
-Deploys containers inside the Isolation VM for AI agent operations, including nix-sidecar and base-kalinix containers.
+Deploys containers inside the Isolation VM for AI agent operations, including nix-sidecar, base-kalinix, and hermes-agent containers.
 
 ## Role Variables
 
@@ -66,6 +66,34 @@ Deploys containers inside the Isolation VM for AI agent operations, including ni
 |----------|---------|-------------|
 | `isolation_vm_base_kalinix_mem_limit` | `2g` | Memory limit |
 | `isolation_vm_base_kalinix_cpu_limit` | `1.0` | CPU limit |
+
+### Hermes Agent Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `isolation_vm_deploy_hermes_agent` | `true` | Control hermes-agent deployment |
+| `isolation_vm_hermes_agent_container_name` | `isolation-vm-hermes-agent` | Container name |
+| `isolation_vm_hermes_agent_image_name` | `isolation-vm-hermes-agent:latest` | Image name |
+| `isolation_vm_hermes_agent_volume_path` | `/var/lib/isolation-vm/hermes-agent` | Volume mount path |
+| `isolation_vm_hermes_agent_data_dir` | `/data/hermes-agent` | Data directory |
+| `isolation_vm_hermes_agent_config_dir` | `/config/hermes-agent` | Config directory |
+
+### Hermes Agent Healthcheck Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `isolation_vm_hermes_agent_healthcheck_interval` | `30s` | Healthcheck interval |
+| `isolation_vm_hermes_agent_healthcheck_timeout` | `10s` | Healthcheck timeout |
+| `isolation_vm_hermes_agent_healthcheck_retries` | `3` | Healthcheck retries |
+| `isolation_vm_hermes_agent_healthcheck_start_period` | `60s` | Healthcheck start period |
+| `isolation_vm_hermes_agent_startup_timeout` | `300` | Container startup timeout |
+
+### Hermes Agent Resource Limits
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `isolation_vm_hermes_agent_mem_limit` | `2g` | Memory limit |
+| `isolation_vm_hermes_agent_cpu_limit` | `1.0` | CPU limit |
 
 ## Dependencies
 
@@ -133,6 +161,24 @@ devbox run -- rtk ansible-playbook -i levonk/active/02-config/ansible/inventorie
   --vault-password-file ~/.ansible/vault_password
 ```
 
+Check hermes-agent container status:
+
+```bash
+# From within the Isolation VM
+docker ps | grep hermes-agent
+docker exec isolation-vm-hermes-agent docker ps
+docker exec isolation-vm-hermes-agent docker run --rm hello-world
+```
+
+Run hermes-agent test playbook:
+
+```bash
+cd ~/p/gh/levonk/infrahub
+devbox run -- rtk ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
+  shared/active/02-config/ansible/playbooks/test-hermes-agent.yml \
+  --vault-password-file ~/.ansible/vault_password
+```
+
 ## Architecture
 
 ### Nix Sidecar
@@ -167,6 +213,33 @@ The base-kalinix container includes the following categories of security tools:
 - **Development**: python3, golang, rustc, cargo
 
 Additional tools can be installed via Nix package management.
+
+### Hermes Agent
+
+The hermes-agent container provides Docker-in-Docker capabilities for AI agents to create and manage their own containers:
+
+- **Docker Socket Access**: Mounts `/var/run/docker.sock` for container management
+- **Docker CLI**: Includes docker-cli and docker-compose-plugin for container operations
+- **Nix Integration**: Access to Nix package management via volume mounts from nix-sidecar
+- **User Environment**: Runs as non-root user (cuser:1000) with Docker group access
+- **Data Persistence**: Persistent data and config directories for agent operations
+
+#### Hermes Agent Capabilities
+
+The hermes-agent container enables AI agents to:
+- Create and manage Docker containers independently
+- Run containerized workloads with full Docker API access
+- Use Nix packages for additional tooling
+- Maintain persistent data across container restarts
+- Execute container operations (run, stop, rm, exec, etc.)
+
+#### Security Considerations
+
+- Docker socket access provides container management capabilities
+- Container runs as non-root user with restricted permissions
+- Resource limits prevent resource exhaustion
+- Healthchecks ensure container availability
+- All Docker operations are logged and auditable
 
 ## Security Notes
 

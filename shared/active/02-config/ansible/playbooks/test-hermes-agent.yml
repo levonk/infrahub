@@ -1,0 +1,74 @@
+---
+# Test playbook for Hermes agent container deployment
+# Validates Docker socket access and container creation capabilities
+
+- name: Test Hermes Agent Container
+  hosts: isolation_vms
+  become: true
+  gather_facts: true
+  
+  tasks:
+    - name: Check if hermes-agent container exists
+      community.docker.docker_container_info:
+        name: "{{ isolation_vm_hermes_agent_container_name }}"
+      register: hermes_agent_info
+      ignore_errors: true
+
+    - name: Fail if hermes-agent container is not running
+      ansible.builtin.assert:
+        that:
+          - hermes_agent_info.container.State.Status == "running"
+        fail_msg: "hermes-agent container is not running"
+        success_msg: "hermes-agent container is running"
+      when: hermes_agent_info.container is defined
+
+    - name: Test Docker socket access from within hermes-agent
+      ansible.builtin.command: docker exec {{ isolation_vm_hermes_agent_container_name }} docker ps
+      register: docker_socket_test
+      changed_when: false
+      when: hermes_agent_info.container is defined
+
+    - name: Verify Docker socket access is functional
+      ansible.builtin.assert:
+        that:
+          - docker_socket_test.rc == 0
+        fail_msg: "Docker socket access from hermes-agent failed"
+        success_msg: "Docker socket access from hermes-agent is functional"
+      when: hermes_agent_info.container is defined
+
+    - name: Test container creation from within hermes-agent
+      ansible.builtin.command: docker exec {{ isolation_vm_hermes_agent_container_name }} docker run --rm hello-world
+      register: container_creation_test
+      changed_when: false
+      when: hermes_agent_info.container is defined
+
+    - name: Verify container creation is functional
+      ansible.builtin.assert:
+        that:
+          - container_creation_test.rc == 0
+        fail_msg: "Container creation from hermes-agent failed"
+        success_msg: "Container creation from hermes-agent is functional"
+      when: hermes_agent_info.container is defined
+
+    - name: Verify Nix volume mounts
+      ansible.builtin.command: docker exec {{ isolation_vm_hermes_agent_container_name }} ls -la /nix
+      register: nix_mount_test
+      changed_when: false
+      when: hermes_agent_info.container is defined
+
+    - name: Verify Nix is accessible
+      ansible.builtin.assert:
+        that:
+          - nix_mount_test.rc == 0
+        fail_msg: "Nix volume mount is not accessible"
+        success_msg: "Nix volume mount is accessible"
+      when: hermes_agent_info.container is defined
+
+    - name: Display test results
+      ansible.builtin.debug:
+        msg:
+          - "Hermes Agent Container: {{ isolation_vm_hermes_agent_container_name }}"
+          - "Docker Socket Access: {{ 'PASS' if docker_socket_test.rc == 0 else 'FAIL' }}"
+          - "Container Creation: {{ 'PASS' if container_creation_test.rc == 0 else 'FAIL' }}"
+          - "Nix Mount: {{ 'PASS' if nix_mount_test.rc == 0 else 'FAIL' }}"
+      when: hermes_agent_info.container is defined

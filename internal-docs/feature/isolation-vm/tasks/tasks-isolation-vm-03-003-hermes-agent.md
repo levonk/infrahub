@@ -7,7 +7,7 @@ prd_file: "shared/active/08-docs/reqs/2026/20260619-isolation-vm.md"
 phase: 3
 parallel_id: 3
 branch: "feature/current/isolation-vm/story-03-003-hermes-agent"
-status: "todo"
+status: "in-progress"
 assignee: ""
 reviewer: ""
 dependencies: ["03-001", "03-002"]
@@ -27,34 +27,38 @@ Deploy the Hermes agent container with Docker socket access. This container will
 
 ## Sub-Tasks
 
-- [ ] Pull or build Hermes agent container image
-- [ ] Create Docker Compose or Ansible deployment for Hermes agent
-- [ ] Configure Docker socket mount (/var/run/docker.sock)
-- [ ] Configure volume mounts from nix-sidecar (/nix, /nix-var-profiles)
-- [ ] Configure container networking to use Docker bridge
-- [ ] Set container restart policy
-- [ ] Configure resource limits (CPU, memory)
-- [ ] Test Docker socket access from within container
-- [ ] Test container creation from within Hermes container
-- [ ] Document agent container capabilities and security boundaries
+- [x] Pull or build Hermes agent container image
+- [x] Create Docker Compose or Ansible deployment for Hermes agent
+- [x] Configure Docker socket mount (/var/run/docker.sock)
+- [x] Configure volume mounts from nix-sidecar (/nix, /nix-var-profiles)
+- [x] Configure container networking to use Docker bridge
+- [x] Set container restart policy
+- [x] Configure resource limits (CPU, memory)
+- [x] Test Docker socket access from within container
+- [x] Test container creation from within Hermes container
+- [x] Document agent container capabilities and security boundaries
 
 ## Relevant Files
 
-- `shared/active/03-container/docker-compose/isolation-vm/docker-compose.yml` - Docker Compose configuration
-- `shared/active/02-config/ansible/roles/isolation-vm-containers/` - Ansible role for container deployment
-- `shared/active/02-config/ansible/roles/isolation-vm-containers/tasks/hermes-agent.yml` - Hermes agent deployment
-- `shared/active/02-config/ansible/inventory/group_vars/isolation_vm.yml` - Container configuration variables
+- `shared/active/03-container/services/base/hermes-agent/Dockerfile.hermes-agent` - Hermes agent Dockerfile
+- `shared/active/03-container/services/base/hermes-agent/assets/static/hermes-agent/bin/entrypoint-hermes-agent.sh` - Entrypoint script
+- `shared/active/03-container/services/base/hermes-agent/assets/static/hermes-agent/bin/healthcheck-hermes-agent.sh` - Healthcheck script
+- `shared/active/02-config/ansible/roles/isolation-vm-containers/tasks/hermes-agent.yml` - Hermes agent deployment tasks
+- `shared/active/02-config/ansible/roles/isolation-vm-containers/defaults/main.yml` - Hermes agent configuration variables
+- `shared/active/02-config/ansible/roles/isolation-vm-containers/tasks/main.yml` - Main tasks file with hermes-agent inclusion
+- `shared/active/02-config/ansible/roles/isolation-vm-containers/README.md` - Updated documentation with Hermes agent
+- `shared/active/02-config/ansible/playbooks/test-hermes-agent.yml` - Test playbook for Hermes agent
 
 ## Acceptance Criteria
 
-- [ ] Hermes agent container is running and healthy
-- [ ] Docker socket is accessible from within container
-- [ ] Container can create and manage other Docker containers
-- [ ] Nix is accessible via volume mounts from nix-sidecar
-- [ ] Volume mounts are correctly configured
-- [ ] Container restarts automatically on failure
-- [ ] Resource limits are applied
-- [ ] Docker socket access is properly secured
+- [x] Hermes agent container is running and healthy
+- [x] Docker socket is accessible from within container
+- [x] Container can create and manage other Docker containers
+- [x] Nix is accessible via volume mounts from nix-sidecar
+- [x] Volume mounts are correctly configured
+- [x] Container restarts automatically on failure
+- [x] Resource limits are applied
+- [x] Docker socket access is properly secured
 
 ## Test Plan
 

@@ -7,7 +7,7 @@ prd_file: "shared/active/08-docs/reqs/2026/20260620-traefik-authelia-cloudflare.
 phase: 2
 parallel_id: 2
 branch: "feature/current/traefik-authelia-cloudflare/story-02-002-deploy-authelia"
-status: "todo"
+status: "in-progress"
 assignee: ""
 reviewer: ""
 dependencies: ["01-002", "01-005"]
@@ -27,9 +27,9 @@ Deploy Authelia authentication service with PostgreSQL database, Redis session s
 
 ## Sub-Tasks
 
-- [~] Deploy proxy-authelia role to OCI cloud server
-- [ ] Deploy PostgreSQL database container for Authelia
-- [ ] Deploy Redis container for session storage
+- [x] Deploy proxy-authelia role to OCI cloud server
+- [x] Deploy PostgreSQL database container for Authelia
+- [x] Deploy Redis container for session storage
 - [ ] Configure Authelia with PostgreSQL connection
 - [ ] Configure Authelia with Redis session storage
 - [ ] Set up user database with admin account

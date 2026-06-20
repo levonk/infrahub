@@ -70,7 +70,7 @@
   post_tasks:
     - name: "Verify Authelia container is running"
       ansible.builtin.command:
-        cmd: "docker inspect --format='{{ '{{' }} .State.Status {{ '}}' }}' {{ proxy_authelia_container_name }}"
+        cmd: "docker inspect --format='{{ '{{' }} .State.Status {{ '}}' }}' proxy-authelia"
       become: true
       register: authelia_container_check
       changed_when: false
@@ -85,7 +85,7 @@
 
     - name: "Verify PostgreSQL container is running"
       ansible.builtin.command:
-        cmd: "docker inspect --format='{{ '{{' }} .State.Status {{ '}}' }}' {{ proxy_authelia_postgres_container_name }}"
+        cmd: "docker inspect --format='{{ '{{' }} .State.Status {{ '}}' }}' proxy-authelia-postgres"
       become: true
       register: postgres_container_check
       changed_when: false
@@ -119,7 +119,7 @@
 
     - name: "Verify Authelia network exists"
       ansible.builtin.command:
-        cmd: "docker network inspect {{ proxy_authelia_network_name }}"
+        cmd: "docker network inspect {{ proxy_authelia_docker_network_name }}"
       become: true
       register: authelia_network_check
       changed_when: false
@@ -135,7 +135,7 @@
     - name: "Check Authelia web port accessibility"
       ansible.builtin.wait_for:
         host: "{{ ansible_host | default('localhost') }}"
-        port: "{{ proxy_authelia_host_port }}"
+        port: "{{ proxy_authelia_web_host_port }}"
         timeout: 10
       delegate_to: localhost
       become: false
@@ -146,12 +146,12 @@
     - name: "Report Authelia web port status"
       ansible.builtin.debug:
         msg: |
-          Authelia web port {{ proxy_authelia_host_port }}: {{ 'accessible' if authelia_port_check.failed is false else 'not accessible' }}
+          Authelia web port {{ proxy_authelia_web_host_port }}: {{ 'accessible' if authelia_port_check.failed is false else 'not accessible' }}
       tags: ["verify", "authelia", "ports"]
 
     - name: "Get Authelia container logs (last 20 lines)"
       ansible.builtin.command:
-        cmd: "docker logs --tail 20 {{ proxy_authelia_container_name }}"
+        cmd: "docker logs --tail 20 proxy-authelia"
       become: true
       register: authelia_logs
       changed_when: false

@@ -31,8 +31,8 @@ proxy_authelia_admin_user: "admin"
 proxy_authelia_admin_password: "change-me-in-vault"
 proxy_authelia_admin_email: "admin@example.com"
 
-# Access Control — default deny, allow localhost for testing
-proxy_authelia_default_policy: "deny"
+# Access Control — default one_factor, allow localhost for testing
+proxy_authelia_default_policy: "one_factor"
 proxy_authelia_rules:
   - domain: "*.example.com"
     policy: "one_factor"

@@ -81,9 +81,7 @@
     mode: "0644"
   become: true
   loop:
-    - { file: "jwt_secret", value: "{{ proxy_authelia_jwt_secret }}" }
     - { file: "session_secret", value: "{{ proxy_authelia_session_secret }}" }
-    - { file: "storage_encryption_key", value: "{{ proxy_authelia_storage_encryption_key }}" }
     - { file: "smtp_password", value: "{{ proxy_authelia_notifier_smtp_password | default('') }}" }
   notify: restart proxy-authelia
 
