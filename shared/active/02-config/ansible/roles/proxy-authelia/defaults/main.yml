@@ -45,8 +45,8 @@ proxy_authelia_session_expiration: "1h"
 proxy_authelia_session_inactivity: "5m"
 proxy_authelia_session_redis_enabled: true
 
-# Storage backend (PostgreSQL by default per PRD requirements)
-proxy_authelia_storage_backend: "postgres"
+# Storage backend (SQLite for simpler deployment)
+proxy_authelia_storage_backend: "sqlite"
 
 # ---------------------------------------------------------------------------
 # PostgreSQL Database (for Authelia storage)

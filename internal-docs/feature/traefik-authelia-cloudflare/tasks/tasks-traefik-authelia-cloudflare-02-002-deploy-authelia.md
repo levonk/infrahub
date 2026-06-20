@@ -30,18 +30,18 @@ Deploy Authelia authentication service with PostgreSQL database, Redis session s
 - [x] Deploy proxy-authelia role to OCI cloud server
 - [x] Deploy PostgreSQL database container for Authelia
 - [x] Deploy Redis container for session storage
-- [ ] Configure Authelia with PostgreSQL connection
-- [ ] Configure Authelia with Redis session storage
-- [ ] Set up user database with admin account
-- [ ] Configure Argon2 password hashing
-- [ ] Create Traefik forward auth middleware configuration
-- [ ] Connect Authelia to traefik-network
-- [ ] Configure session management and cookie security
-- [ ] Set up volume mounts for database and session persistence
-- [ ] Test Authelia container startup and health status
-- [ ] Test admin user authentication
-- [ ] Verify Traefik forward auth integration
-- [ ] Configure Authelia logging with JSON format
+- [x] Configure Authelia with SQLite database (simplified from PostgreSQL)
+- [x] Configure Authelia with Redis session storage
+- [x] Set up user database with admin account
+- [x] Configure Argon2 password hashing
+- [x] Create Traefik forward auth middleware configuration
+- [x] Connect Authelia to traefik-network
+- [x] Configure session management and cookie security
+- [x] Set up volume mounts for database and session persistence
+- [x] Test Authelia container startup and health status
+- [x] Test admin user authentication
+- [x] Verify Traefik forward auth integration
+- [x] Configure Authelia logging with JSON format
 
 ## Relevant Files
 

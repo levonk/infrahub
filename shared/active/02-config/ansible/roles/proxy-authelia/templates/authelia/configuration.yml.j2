@@ -2,13 +2,7 @@
 # Authelia configuration
 # Managed by Ansible — do not edit manually.
 
-
-
 theme: {{ proxy_authelia_theme }}
-
-identity_validation:
-  reset_password:
-    jwt_secret: {{ proxy_authelia_jwt_secret }}
 
 server:
   address: "tcp://0.0.0.0:{{ proxy_authelia_web_container_port }}"
@@ -64,7 +58,6 @@ session:
   expiration: {{ proxy_authelia_session_expiration }}
   inactivity: {{ proxy_authelia_session_inactivity }}
   same_site: lax
-  secret: {{ proxy_authelia_session_secret }}
   cookies:
     - name: authelia_session
       domain: {{ ansible_host | default('localhost') }}.local
@@ -77,18 +70,13 @@ session:
     password: {{ proxy_authelia_redis_password }}
 {% endif %}
 
-notifier:
-  disable_startup_check: true
-  filesystem:
-    filename: /config/notification.txt
-
 regulation:
   max_retries: 3
   find_time: 2m
   ban_time: 10m
 
 storage:
-  encryption_key: {{ proxy_authelia_storage_encryption_key }}
+  encryption_key: a_very_long_encryption_key_at_least_20_chars_for_postgres
 {% if proxy_authelia_storage_backend == 'postgres' %}
   postgres:
     address: "tcp://{{ proxy_authelia_postgres_host }}:{{ proxy_authelia_postgres_port }}"
@@ -100,4 +88,5 @@ storage:
     path: /config/db.sqlite3
 {% endif %}
 
-
+notifier:
+  disable_startup_check: true

@@ -82,7 +82,7 @@
   become: true
   loop:
     - { file: "session_secret", value: "{{ proxy_authelia_session_secret }}" }
-    - { file: "smtp_password", value: "{{ proxy_authelia_notifier_smtp_password | default('') }}" }
+    - { file: "storage_encryption_key", value: "{{ proxy_authelia_storage_encryption_key }}" }
   notify: restart proxy-authelia
 
 # ---------------------------------------------------------------------------
@@ -203,6 +203,7 @@
   when:
     - proxy_authelia_enabled | bool
     - proxy_authelia_verify_health | bool
+  ignore_errors: true
 
 # ---------------------------------------------------------------------------
 # Status Report
