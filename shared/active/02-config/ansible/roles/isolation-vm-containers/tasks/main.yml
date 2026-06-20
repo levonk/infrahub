@@ -1,0 +1,10 @@
+---
+# Main tasks file for isolation-vm-containers role
+# Deploys containers inside the Isolation VM for AI agent operations
+
+- name: Include nix-sidecar deployment tasks
+  ansible.builtin.include_tasks: nix-sidecar.yml
+  when: isolation_vm_deploy_nix_sidecar | default(true)
+  tags:
+    - nix-sidecar
+    - containers

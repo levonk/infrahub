@@ -1,0 +1,36 @@
+---
+# Default variables for isolation-vm-containers role
+# All configuration values are variable-driven per AGENTS.md requirements
+
+# Nix sidecar deployment control
+isolation_vm_deploy_nix_sidecar: true
+
+# User configuration (from isolation-vm-config role)
+isolation_vm_user: cuser
+isolation_vm_user_uid: 1000
+isolation_vm_user_gid: 1000
+isolation_vm_timezone: UTC
+
+# Nix sidecar container configuration
+isolation_vm_nix_sidecar_container_name: isolation-vm-nix-sidecar
+isolation_vm_nix_sidecar_image_name: isolation-vm-nix-sidecar:latest
+isolation_vm_nix_sidecar_network_name: isolation-vm-network
+
+# Nix sidecar volume configuration
+isolation_vm_nix_sidecar_volume_path: /var/lib/isolation-vm/nix-sidecar
+
+# Nix sidecar build configuration
+isolation_vm_nix_sidecar_build_path: /tmp/nix-sidecar-build
+isolation_vm_nix_sidecar_dockerfile_path: "{{ playbook_dir }}/../active/03-container/services/base/nix-sidecar/Dockerfile.nix-sidecar"
+isolation_vm_nix_sidecar_assets_path: "{{ playbook_dir }}/../active/03-container/services/base/nix-sidecar/assets"
+
+# Nix sidecar healthcheck configuration
+isolation_vm_nix_sidecar_healthcheck_interval: 240s
+isolation_vm_nix_sidecar_healthcheck_timeout: 120s
+isolation_vm_nix_sidecar_healthcheck_retries: 3
+isolation_vm_nix_sidecar_healthcheck_start_period: 240s
+isolation_vm_nix_sidecar_startup_timeout: 600
+
+# Nix sidecar resource limits
+isolation_vm_nix_sidecar_mem_limit: 2g
+isolation_vm_nix_sidecar_cpu_limit: 2.0

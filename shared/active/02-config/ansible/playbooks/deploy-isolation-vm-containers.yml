@@ -1,0 +1,16 @@
+---
+# Playbook to deploy containers inside the Isolation VM
+# This playbook runs on the OCI cloud server and deploys containers to the Isolation VM
+
+- name: Deploy nix-sidecar container to Isolation VM
+  hosts: isolation_vms
+  become: true
+  gather_facts: true
+  vars_files:
+    - ../../levonk/active/02-config/ansible/host_vars/oci-cloud-server.yml
+
+  roles:
+    - role: isolation-vm-containers
+      tags:
+        - containers
+        - nix-sidecar

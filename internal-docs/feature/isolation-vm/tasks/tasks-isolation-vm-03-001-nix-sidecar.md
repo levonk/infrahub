@@ -7,7 +7,7 @@ prd_file: "shared/active/08-docs/reqs/2026/20260619-isolation-vm.md"
 phase: 3
 parallel_id: 1
 branch: "feature/current/isolation-vm/story-03-001-nix-sidecar"
-status: "todo"
+status: "in-progress"
 assignee: ""
 reviewer: ""
 dependencies: ["02-002", "02-003"]
@@ -27,30 +27,33 @@ Deploy the nix-sidecar container to provide Nix package management to other agen
 
 ## Sub-Tasks
 
-- [ ] Pull or build nix-sidecar container image
-- [ ] Create Docker Compose or Ansible deployment for nix-sidecar
-- [ ] Configure volume mounts: /nix (read-only), /nix-var-profiles (read-only)
-- [ ] Configure container networking to use Docker bridge
-- [ ] Set container restart policy
-- [ ] Configure resource limits (CPU, memory)
-- [ ] Test Nix functionality from within container
-- [ ] Document Nix store sharing mechanism
+- [x] Pull or build nix-sidecar container image
+- [x] Create Docker Compose or Ansible deployment for nix-sidecar
+- [x] Configure volume mounts: /nix (read-only), /nix-var-profiles (read-only)
+- [x] Configure container networking to use Docker bridge
+- [x] Set container restart policy
+- [x] Configure resource limits (CPU, memory)
+- [x] Test Nix functionality from within container
+- [x] Document Nix store sharing mechanism
 
 ## Relevant Files
 
-- `shared/active/03-container/docker-compose/isolation-vm/docker-compose.yml` - Docker Compose configuration
-- `shared/active/02-config/ansible/roles/isolation-vm-containers/` - Ansible role for container deployment
-- `shared/active/02-config/ansible/roles/isolation-vm-containers/tasks/nix-sidecar.yml` - Nix sidecar deployment
-- `shared/active/02-config/ansible/inventory/group_vars/isolation_vm.yml` - Container configuration variables
+- `shared/active/02-config/ansible/roles/isolation-vm-containers/tasks/main.yml` - Main role entry point
+- `shared/active/02-config/ansible/roles/isolation-vm-containers/tasks/nix-sidecar.yml` - Nix sidecar deployment tasks
+- `shared/active/02-config/ansible/roles/isolation-vm-containers/defaults/main.yml` - Default variables
+- `shared/active/02-config/ansible/roles/isolation-vm-containers/handlers/main.yml` - Container handlers
+- `shared/active/02-config/ansible/roles/isolation-vm-containers/meta/main.yml` - Role metadata
+- `shared/active/02-config/ansible/roles/isolation-vm-containers/README.md` - Role documentation
+- `shared/active/02-config/ansible/playbooks/deploy-isolation-vm-containers.yml` - Deployment playbook
 
 ## Acceptance Criteria
 
-- [ ] nix-sidecar container is running and healthy
-- [ ] Nix store is accessible via volume mounts
-- [ ] Container can run Nix commands successfully
-- [ ] Volume mounts are correctly configured (read-only where appropriate)
-- [ ] Container restarts automatically on failure
-- [ ] Resource limits are applied
+- [x] nix-sidecar container is running and healthy
+- [x] Nix store is accessible via volume mounts
+- [x] Container can run Nix commands successfully
+- [x] Volume mounts are correctly configured (read-only where appropriate)
+- [x] Container restarts automatically on failure
+- [x] Resource limits are applied
 
 ## Test Plan
 

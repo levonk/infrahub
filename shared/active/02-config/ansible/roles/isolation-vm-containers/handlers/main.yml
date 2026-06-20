@@ -1,0 +1,46 @@
+---
+# Handlers for isolation-vm-containers role
+
+- name: Restart nix-sidecar container
+  community.docker.docker_container:
+    name: "{{ isolation_vm_nix_sidecar_container_name }}"
+    state: restarted
+  become: true
+  listen: restart nix-sidecar
+
+- name: Recreate nix-sidecar container
+  community.docker.docker_container:
+    name: "{{ isolation_vm_nix_sidecar_container_name }}"
+    state: absent
+  become: true
+  listen: recreate nix-sidecar
+
+- name: Create nix-sidecar container
+  community.docker.docker_container:
+    name: "{{ isolation_vm_nix_sidecar_container_name }}"
+    image: "{{ isolation_vm_nix_sidecar_image_name }}"
+    state: started
+    restart_policy: unless-stopped
+    privileged: true
+    networks:
+      - name: "{{ isolation_vm_nix_sidecar_network_name }}"
+    volumes:
+      - "{{ isolation_vm_nix_sidecar_volume_path }}/nix-store:/nix:ro"
+      - "{{ isolation_vm_nix_sidecar_volume_path }}/nix-config:/etc/nix:ro"
+      - "{{ isolation_vm_nix_sidecar_volume_path }}/nix-cache:/root/.cache/nix"
+    env:
+      PUID: "{{ isolation_vm_user_uid }}"
+      PGID: "{{ isolation_vm_user_gid }}"
+      TZ: "{{ isolation_vm_timezone }}"
+      USERNAME: "{{ isolation_vm_user }}"
+    healthcheck:
+      test: ["CMD", "/bin/busybox", "sh", "/nix-sidecar/healthcheck-nix-sidecar.sh"]
+      interval: "{{ isolation_vm_nix_sidecar_healthcheck_interval }}"
+      timeout: "{{ isolation_vm_nix_sidecar_healthcheck_timeout }}"
+      retries: "{{ isolation_vm_nix_sidecar_healthcheck_retries }}"
+      start_period: "{{ isolation_vm_nix_sidecar_healthcheck_start_period }}"
+    user: "{{ isolation_vm_user_uid }}:{{ isolation_vm_user_gid }}"
+    mem_limit: "{{ isolation_vm_nix_sidecar_mem_limit }}"
+    cpus: "{{ isolation_vm_nix_sidecar_cpu_limit }}"
+  become: true
+  listen: create nix-sidecar

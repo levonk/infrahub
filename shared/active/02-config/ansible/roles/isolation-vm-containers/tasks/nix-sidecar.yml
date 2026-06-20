@@ -1,0 +1,101 @@
+---
+# Nix sidecar container deployment tasks
+# Deploys nix-sidecar to provide Nix package management to other containers
+
+- name: Create nix-sidecar volume directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+    owner: "{{ isolation_vm_user }}"
+    group: "{{ isolation_vm_user }}"
+  loop:
+    - "{{ isolation_vm_nix_sidecar_volume_path }}/nix-store"
+    - "{{ isolation_vm_nix_sidecar_volume_path }}/nix-config"
+    - "{{ isolation_vm_nix_sidecar_volume_path }}/nix-cache"
+  become: true
+
+- name: Copy nix-sidecar Dockerfile to VM
+  ansible.builtin.copy:
+    src: "{{ isolation_vm_nix_sidecar_dockerfile_path }}"
+    dest: "{{ isolation_vm_nix_sidecar_build_path }}/Dockerfile.nix-sidecar"
+    mode: '0644'
+    owner: "{{ isolation_vm_user }}"
+    group: "{{ isolation_vm_user }}"
+  become: true
+
+- name: Copy nix-sidecar assets to VM
+  ansible.builtin.synchronize:
+    src: "{{ isolation_vm_nix_sidecar_assets_path }}/"
+    dest: "{{ isolation_vm_nix_sidecar_build_path }}/assets/"
+    delete: true
+    recursive: true
+  become: true
+
+- name: Build nix-sidecar container image
+  community.docker.docker_image:
+    name: "{{ isolation_vm_nix_sidecar_image_name }}"
+    source: build
+    build:
+      path: "{{ isolation_vm_nix_sidecar_build_path }}"
+      dockerfile: Dockerfile.nix-sidecar
+    state: present
+  become: true
+  register: nix_sidecar_build
+
+- name: Create nix-sidecar Docker network
+  community.docker.docker_network:
+    name: "{{ isolation_vm_nix_sidecar_network_name }}"
+    state: present
+    driver: bridge
+  become: true
+
+- name: Create nix-sidecar container
+  community.docker.docker_container:
+    name: "{{ isolation_vm_nix_sidecar_container_name }}"
+    image: "{{ isolation_vm_nix_sidecar_image_name }}"
+    state: started
+    restart_policy: unless-stopped
+    privileged: true
+    networks:
+      - name: "{{ isolation_vm_nix_sidecar_network_name }}"
+    volumes:
+      - "{{ isolation_vm_nix_sidecar_volume_path }}/nix-store:/nix:ro"
+      - "{{ isolation_vm_nix_sidecar_volume_path }}/nix-config:/etc/nix:ro"
+      - "{{ isolation_vm_nix_sidecar_volume_path }}/nix-cache:/root/.cache/nix"
+    env:
+      PUID: "{{ isolation_vm_user_uid }}"
+      PGID: "{{ isolation_vm_user_gid }}"
+      TZ: "{{ isolation_vm_timezone }}"
+      USERNAME: "{{ isolation_vm_user }}"
+    healthcheck:
+      test: ["CMD", "/bin/busybox", "sh", "/nix-sidecar/healthcheck-nix-sidecar.sh"]
+      interval: "{{ isolation_vm_nix_sidecar_healthcheck_interval }}"
+      timeout: "{{ isolation_vm_nix_sidecar_healthcheck_timeout }}"
+      retries: "{{ isolation_vm_nix_sidecar_healthcheck_retries }}"
+      start_period: "{{ isolation_vm_nix_sidecar_healthcheck_start_period }}"
+    user: "{{ isolation_vm_user_uid }}:{{ isolation_vm_user_gid }}"
+    mem_limit: "{{ isolation_vm_nix_sidecar_mem_limit }}"
+    cpus: "{{ isolation_vm_nix_sidecar_cpu_limit }}"
+  become: true
+  register: nix_sidecar_container
+
+- name: Wait for nix-sidecar to become healthy
+  ansible.builtin.wait_for:
+    timeout: "{{ isolation_vm_nix_sidecar_startup_timeout }}"
+  delegate_to: localhost
+  when: nix_sidecar_container.changed
+
+- name: Verify nix-sidecar container is running
+  community.docker.docker_container_info:
+    name: "{{ isolation_vm_nix_sidecar_container_name }}"
+  register: nix_sidecar_info
+  become: true
+
+- name: Check nix-sidecar health status
+  ansible.builtin.assert:
+    that:
+      - nix_sidecar_info.container.State.Status == "running"
+      - nix_sidecar_info.container.State.Health.Status == "healthy"
+    fail_msg: "nix-sidecar container is not healthy"
+    success_msg: "nix-sidecar container is running and healthy"
