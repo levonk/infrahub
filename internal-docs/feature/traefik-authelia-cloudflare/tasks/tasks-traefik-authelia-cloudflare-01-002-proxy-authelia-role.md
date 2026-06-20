@@ -59,14 +59,14 @@ Create a complete Ansible role for deploying Authelia authentication service bas
 - [x] All configuration is variable-driven (no hardcoded credentials)
 - [x] Authelia configuration includes PostgreSQL database setup
 - [x] Redis session storage is properly configured
-- [ ] User database template supports admin account creation
-- [ ] Password hashing uses Argon2 (never plaintext storage)
-- [ ] Traefik forward auth middleware is configured
-- [ ] Docker network integration with traefik-network is established
-- [ ] Health checks are configured for Authelia service
-- [ ] Volume mounts ensure database and session persistence
-- [ ] README documents all required variables and security considerations
-- [ ] Molecule test skeleton exists and can run basic validation
+- [x] User database template supports admin account creation
+- [x] Password hashing uses Argon2 (never plaintext storage)
+- [x] Traefik forward auth middleware is configured
+- [x] Docker network integration with traefik-network is established
+- [x] Health checks are configured for Authelia service
+- [x] Volume mounts ensure database and session persistence
+- [x] README documents all required variables and security considerations
+- [x] Molecule test skeleton exists and can run basic validation
 
 ## Test Plan
 
