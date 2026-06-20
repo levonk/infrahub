@@ -15,7 +15,7 @@ This index provides a comprehensive overview of all stories for the Traefik Prox
 | Story ID | Story Title | Branch | Dependencies | Parallel-safe | Modules | Status |
 | -------- | ----------- | ------ | ------------ | ------------- | ------- | ------ |
 | 01-001 | Create proxy-traefik Ansible role | feature/current/traefik-authelia-cloudflare/story-01-001-proxy-traefik-role | None | Parallel-safe: true | ansible/roles/proxy-traefik | [x] Done |
-| 01-002 | Create proxy-authelia Ansible role | feature/current/traefik-authelia-cloudflare/story-01-002-proxy-authelia-role | None | Parallel-safe: true | ansible/roles/proxy-authelia | [~] In-Progress |
+| 01-002 | Create proxy-authelia Ansible role | feature/current/traefik-authelia-cloudflare/story-01-002-proxy-authelia-role | None | Parallel-safe: true | ansible/roles/proxy-authelia | [x] Done |
 | 01-003 | Create security-crowdsec Ansible role | feature/current/traefik-authelia-cloudflare/story-01-003-security-crowdsec-role | None | Parallel-safe: true | ansible/roles/security-crowdsec | [ ] Todo |
 | 01-004 | Create cloudflare-dns Ansible role | feature/current/traefik-authelia-cloudflare/story-01-004-cloudflare-dns-role | None | Parallel-safe: true | ansible/roles/cloudflare-dns | [ ] Todo |
 | 01-005 | Set up configuration management and vault | feature/current/traefik-authelia-cloudflare/story-01-005-config-management-vault | None | Parallel-safe: true | ansible/host_vars, ansible/vault | [ ] Todo |
