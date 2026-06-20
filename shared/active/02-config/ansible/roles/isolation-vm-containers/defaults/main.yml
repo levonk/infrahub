@@ -87,3 +87,11 @@ isolation_vm_hermes_agent_startup_timeout: 300
 # Hermes agent resource limits
 isolation_vm_hermes_agent_mem_limit: 2g
 isolation_vm_hermes_agent_cpu_limit: 1.0
+
+# Network configuration
+isolation_vm_network_subnet: "172.28.0.0/16"
+isolation_vm_network_gateway: "172.28.0.1"
+isolation_vm_network_subnet_size: 24
+isolation_vm_enable_vpn_routing: false
+isolation_vm_vpn_gateway: "192.168.101.1"
+isolation_vm_docker_metrics_address: "127.0.0.1:9323"

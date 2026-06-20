@@ -1,6 +1,18 @@
 ---
 # Handlers for isolation-vm-containers role
 
+- name: Restart docker
+  ansible.builtin.service:
+    name: docker
+    state: restarted
+  become: true
+  listen: restart docker
+
+- name: Reload sysctl
+  ansible.builtin.command: sysctl -p /etc/sysctl.d/99-isolation-vm-networking.conf
+  become: true
+  listen: reload sysctl
+
 - name: Restart nix-sidecar container
   community.docker.docker_container:
     name: "{{ isolation_vm_nix_sidecar_container_name }}"

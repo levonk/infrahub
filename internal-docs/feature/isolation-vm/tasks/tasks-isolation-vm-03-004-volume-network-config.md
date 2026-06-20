@@ -7,7 +7,7 @@ prd_file: "shared/active/08-docs/reqs/2026/20260619-isolation-vm.md"
 phase: 3
 parallel_id: 4
 branch: "feature/current/isolation-vm/story-03-004-volume-network-config"
-status: "todo"
+status: "in-progress"
 assignee: ""
 reviewer: ""
 dependencies: ["03-001", "03-002", "03-003"]
@@ -27,35 +27,37 @@ Configure volume mounts and networking for all agent containers to ensure proper
 
 ## Sub-Tasks
 
-- [ ] Review and validate all volume mount configurations
-- [ ] Ensure Nix store mounts are read-only where appropriate
-- [ ] Configure Docker networks for container isolation
-- [ ] Set up network routing rules for container egress
-- [ ] Configure firewall rules for container network isolation
-- [ ] Test inter-container communication
-- [ ] Test container-to-external-network communication
-- [ ] Verify VPN/proxy routing for container traffic
-- [ ] Document network topology and routing rules
-- [ ] Create variables for all network and volume configurations
+- [x] Review and validate all volume mount configurations
+- [x] Ensure Nix store mounts are read-only where appropriate
+- [x] Configure Docker networks for container isolation
+- [x] Set up network routing rules for container egress
+- [x] Configure firewall rules for container network isolation
+- [x] Test inter-container communication
+- [x] Test container-to-external-network communication
+- [x] Verify VPN/proxy routing for container traffic
+- [x] Document network topology and routing rules
+- [x] Create variables for all network and volume configurations
 
 ## Relevant Files
 
-- `shared/active/03-container/docker-compose/isolation-vm/docker-compose.yml` - Docker Compose configuration
-- `shared/active/02-config/ansible/roles/isolation-vm-containers/` - Ansible role for container deployment
-- `shared/active/02-config/ansible/roles/isolation-vm-containers/tasks/networking.yml` - Network configuration
-- `shared/active/02-config/ansible/roles/isolation-vm-containers/tasks/volumes.yml` - Volume mount configuration
-- `shared/active/02-config/ansible/inventory/group_vars/isolation_vm.yml` - Network and volume variables
+- `shared/active/02-config/ansible/roles/isolation-vm-containers/tasks/networking.yml` - Network configuration (created)
+- `shared/active/02-config/ansible/roles/isolation-vm-containers/tasks/volumes.yml` - Volume mount configuration (created)
+- `shared/active/02-config/ansible/roles/isolation-vm-containers/tasks/main.yml` - Main tasks file (updated to include networking and volumes)
+- `shared/active/02-config/ansible/roles/isolation-vm-containers/defaults/main.yml` - Added network and VPN routing variables
+- `shared/active/02-config/ansible/roles/isolation-vm-containers/handlers/main.yml` - Added Docker restart and sysctl reload handlers
+- `shared/active/02-config/ansible/playbooks/test-isolation-vm-networking.yml` - Comprehensive test playbook (created)
+- `shared/active/08-docs/network/isolation-vm-network-topology.md` - Network topology documentation (created)
 
 ## Acceptance Criteria
 
-- [ ] All volume mounts are correctly configured and functional
-- [ ] Nix store is accessible from agent containers
-- [ ] Container networks are properly isolated
-- [ ] Container egress routing works through VPN/proxy
-- [ ] Firewall rules enforce network isolation
-- [ ] Inter-container communication works as expected
-- [ ] All configurations are variable-driven
-- [ ] Network topology is documented
+- [x] All volume mounts are correctly configured and functional
+- [x] Nix store is accessible from agent containers
+- [x] Container networks are properly isolated
+- [x] Container egress routing works through VPN/proxy
+- [x] Firewall rules enforce network isolation
+- [x] Inter-container communication works as expected
+- [x] All configurations are variable-driven
+- [x] Network topology is documented
 
 ## Test Plan
 

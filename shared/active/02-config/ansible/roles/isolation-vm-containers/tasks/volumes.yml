@@ -1,0 +1,89 @@
+---
+# Volume mount configuration tasks for isolation-vm containers
+# Ensures proper volume permissions and mount configurations
+
+- name: Create base volume directories with proper permissions
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    mode: "{{ item.mode | default('0755') }}"
+    owner: "{{ isolation_vm_user }}"
+    group: "{{ isolation_vm_user }}"
+  loop:
+    - path: "{{ isolation_vm_nix_sidecar_volume_path }}/nix-store"
+      mode: '0755'
+    - path: "{{ isolation_vm_nix_sidecar_volume_path }}/nix-config"
+      mode: '0755'
+    - path: "{{ isolation_vm_nix_sidecar_volume_path }}/nix-cache"
+      mode: '0777'
+    - path: "{{ isolation_vm_base_kalinix_volume_path }}/home"
+      mode: '0755'
+    - path: "{{ isolation_vm_base_kalinix_volume_path }}/tmp"
+      mode: '1777'
+    - path: "{{ isolation_vm_hermes_agent_volume_path }}/data"
+      mode: '0755'
+    - path: "{{ isolation_vm_hermes_agent_volume_path }}/config"
+      mode: '0755'
+  become: true
+
+- name: Set up volume mount permissions for Nix cache
+  ansible.builtin.file:
+    path: "{{ isolation_vm_nix_sidecar_volume_path }}/nix-cache"
+    state: directory
+    mode: '1777'
+    owner: "{{ isolation_vm_user }}"
+    group: "{{ isolation_vm_user }}"
+  become: true
+
+- name: Create volume health check scripts
+  ansible.builtin.copy:
+    dest: "{{ item.path }}"
+    content: "{{ item.content }}"
+    mode: '0755'
+    owner: "{{ isolation_vm_user }}"
+    group: "{{ isolation_vm_user }}"
+  loop:
+    - path: "{{ isolation_vm_nix_sidecar_volume_path }}/check-volumes.sh"
+      content: |
+        #!/bin/sh
+        # Volume health check for Nix sidecar
+        for mount in /nix /etc/nix /root/.cache/nix; do
+          if ! mountpoint -q "$mount"; then
+            echo "Volume $mount is not mounted"
+            exit 1
+          fi
+        done
+        echo "All volumes are properly mounted"
+        exit 0
+    - path: "{{ isolation_vm_base_kalinix_volume_path }}/check-volumes.sh"
+      content: |
+        #!/bin/sh
+        # Volume health check for base-kalinix
+        for mount in /nix /etc/nix /root/.cache/nix /home/{{ isolation_vm_user }}; do
+          if ! mountpoint -q "$mount"; then
+            echo "Volume $mount is not mounted"
+            exit 1
+          fi
+        done
+        echo "All volumes are properly mounted"
+        exit 0
+    - path: "{{ isolation_vm_hermes_agent_volume_path }}/check-volumes.sh"
+      content: |
+        #!/bin/sh
+        # Volume health check for hermes-agent
+        for mount in /nix /etc/nix /root/.cache/nix {{ isolation_vm_hermes_agent_data_dir }} {{ isolation_vm_hermes_agent_config_dir }} /var/run/docker.sock; do
+          if ! mountpoint -q "$mount"; then
+            echo "Volume $mount is not mounted"
+            exit 1
+          fi
+        done
+        echo "All volumes are properly mounted"
+        exit 0
+  become: true
+
+- name: Log volume configuration
+  ansible.builtin.debug:
+    msg:
+      - "Nix sidecar volumes: {{ isolation_vm_nix_sidecar_volume_path }}"
+      - "Base KaliNix volumes: {{ isolation_vm_base_kalinix_volume_path }}"
+      - "Hermes agent volumes: {{ isolation_vm_hermes_agent_volume_path }}"
