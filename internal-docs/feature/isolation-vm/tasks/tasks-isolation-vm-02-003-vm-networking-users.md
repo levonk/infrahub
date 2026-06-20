@@ -27,35 +27,45 @@ Configure basic networking, user accounts, and CLI tools inside the Isolation VM
 
 ## Sub-Tasks
 
-- [ ] Configure network interfaces for both bridges (NAT and routed)
-- [ ] Set up DNS resolution inside VM
-- [ ] Configure routing table for external access via routed bridge
-- [ ] Create non-root user (cuser) with sudo access
-- [ ] Configure SSH access for cuser user
-- [ ] Install basic CLI tools: zsh, tmux, curl, git, vim
-- [ ] Configure zsh as default shell for cuser
-- [ ] Set up basic tmux configuration
-- [ ] Configure timezone and locale
-- [ ] Test user login and basic tool functionality
+- [x] Configure network interfaces for both bridges (NAT and routed)
+- [x] Set up DNS resolution inside VM
+- [x] Configure routing table for external access via routed bridge
+- [x] Create non-root user (cuser) with sudo access
+- [x] Configure SSH access for cuser user
+- [x] Install basic CLI tools: zsh, tmux, curl, git, vim
+- [x] Configure zsh as default shell for cuser
+- [x] Set up basic tmux configuration
+- [x] Configure timezone and locale
+- [x] Test user login and basic tool functionality
 
 ## Relevant Files
 
 - `shared/active/02-config/ansible/roles/isolation-vm-config/` - New Ansible role for VM configuration
+- `shared/active/02-config/ansible/roles/isolation-vm-config/tasks/main.yml` - Main task file
 - `shared/active/02-config/ansible/roles/isolation-vm-config/tasks/networking.yml` - Network configuration
 - `shared/active/02-config/ansible/roles/isolation-vm-config/tasks/users.yml` - User configuration
 - `shared/active/02-config/ansible/roles/isolation-vm-config/tasks/tools.yml` - CLI tools installation
-- `shared/active/02-config/ansible/inventory/group_vars/isolation_vm.yml` - VM configuration variables
+- `shared/active/02-config/ansible/roles/isolation-vm-config/tasks/system.yml` - System configuration
+- `shared/active/02-config/ansible/roles/isolation-vm-config/templates/interfaces.j2` - Network interfaces template
+- `shared/active/02-config/ansible/roles/isolation-vm-config/templates/resolv.conf.j2` - DNS configuration template
+- `shared/active/02-config/ansible/roles/isolation-vm-config/templates/routes.j2` - Routing configuration template
+- `shared/active/02-config/ansible/roles/isolation-vm-config/defaults/main.yml` - Default variables
+- `shared/active/02-config/ansible/roles/isolation-vm-config/handlers/main.yml` - Service handlers
+- `shared/active/02-config/ansible/roles/isolation-vm-config/meta/main.yml` - Role metadata
+- `shared/active/02-config/ansible/playbooks/configure-isolation-vm.yml` - Configuration playbook
+- `levonk/active/02-config/ansible/inventories/oci.yml` - Updated with isolation_vms host group
+- `levonk/active/02-config/ansible/host_vars/oci-cloud-server.yml` - Added SSH public key variable
 
 ## Acceptance Criteria
 
-- [ ] VM has functional network connectivity on both bridges
-- [ ] DNS resolution works inside VM
-- [ ] Non-root user (cuser) exists with sudo access
-- [ ] SSH access works for cuser user
-- [ ] Basic CLI tools are installed and functional
-- [ ] zsh is default shell for cuser
-- [ ] tmux is configured and usable
-- [ ] All configuration is variable-driven
+- [x] VM has functional network connectivity on both bridges
+- [x] DNS resolution works inside VM
+- [x] Non-root user (cuser) exists with sudo access
+- [x] SSH access works for cuser user
+- [x] Basic CLI tools are installed and functional
+- [x] zsh is default shell for cuser
+- [x] tmux is configured and usable
+- [x] All configuration is variable-driven
 
 ## Test Plan
 

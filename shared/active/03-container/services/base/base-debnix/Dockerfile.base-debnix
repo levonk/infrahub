@@ -1,10 +1,10 @@
 # =============================================================================
-# BASE-DEBNIX: Debian + Nix Package Manager
+# BASE-DEBNIX: Debian + Nix Package Manager (via nix-sidecar)
 # =============================================================================
 FROM localnet-base-debian:latest
 
 # Set up the non-root user using Docker Compose environment variables
-ARG USERNAME=cuser
+ARG USERNAME=ansible
 ARG USER_UID=${PUID:-1000}
 ARG USER_GID=${PGID:-1000}
 
@@ -17,25 +17,14 @@ COPY assets/static/ /
 
 USER root
 
-# Create user and sudo setup
+# Configure existing user from base-debian image
 RUN mkdir -p /etc/sudoers.d && \
-    # Check if user exists, if not create it (fallback), otherwise ensure home dir
-    if ! id -u ${USERNAME} > /dev/null 2>&1; then \
-        groupadd --gid $USER_GID $USERNAME && \
-        useradd --uid $USER_UID --gid $USER_GID -m -d /home/$USERNAME $USERNAME; \
-    else \
-        # Ensure home directory exists for existing user
-        if [ ! -d "/home/${USERNAME}" ]; then \
-            mkdir -p "/home/${USERNAME}"; \
-            chown ${USER_UID}:${USER_GID} "/home/${USERNAME}"; \
-        fi; \
-    fi && \
+    # User ansible already exists in base-debian (UID 1000), just configure sudo
     echo "${USERNAME} ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/${USERNAME}
 
-# Install Nix package manager using multi-user installation (as root)
-# We do this in the base image so it's available for child images during build
+# Set up project directory
 RUN mkdir -p /home/${USERNAME}/project && \
-    chown -R ${USERNAME}:${USERNAME} /home/${USERNAME} && \
+    chown -R ${USER_UID}:${USER_GID} /home/${USERNAME} && \
     chmod -R 755 /home/${USERNAME} && \
     chmod +x /base-debnix/bin/healthcheck-base-debnix.sh && \
     chmod +x /base-debnix/bin/entrypoint-base-debnix.sh
@@ -45,8 +34,7 @@ RUN rm -rf /var/lib/apt/lists/* && \
     rm -rf /tmp/*
 
 
-# Configure project environment
-USER ${USERNAME}
+# Configure project environment (as root, then switch user)
 RUN echo 'use nix' > /home/${USERNAME}/project/.envrc && \
 	printf '%s\n' \
     '{' \
@@ -89,10 +77,13 @@ RUN echo 'use nix' > /home/${USERNAME}/project/.envrc && \
     '      });' \
     '}' > /home/${USERNAME}/project/flake.nix
 
+# Switch to non-root user
+USER ${USER_UID}:${USER_GID}
+
 # Set up working directory
 WORKDIR /home/${USERNAME}/project
 
-# Set up Nix environment for the user (must be set after switching user)
+# Set up Nix environment for the user (Nix provided via nix-sidecar volumes)
 ENV PATH="/nix/var/nix/profiles/default/bin:/home/${USERNAME}/.local/bin:/home/${USERNAME}/.nix-profile/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 ENV NIX_PATH="nixpkgs=/nix/var/nix/profiles/per-user/root/channels/nixpkgs:/nix/var/nix/profiles/per-user/root/channels"
 
@@ -101,4 +92,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 
 # Override PATH in entrypoint to ensure Nix binaries are available
 ENTRYPOINT ["/base-debnix/bin/entrypoint-base-debnix.sh"]
-CMD ["/usr/bin/sleep", "60"]
+CMD ["sleep", "60"]

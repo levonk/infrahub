@@ -1,0 +1,40 @@
+---
+# System configuration tasks for Isolation VM
+# Purpose: Configure timezone, locale, and system settings
+
+- name: Configure timezone
+  ansible.builtin.timezone:
+    name: "{{ isolation_vm_timezone }}"
+  tags:
+    - system
+
+- name: Ensure locale is available
+  ansible.builtin.locale_gen:
+    name: "{{ isolation_vm_locale }}"
+    state: present
+  tags:
+    - system
+
+- name: Set default locale
+  ansible.builtin.command:
+    cmd: "update-locale LANG={{ isolation_vm_locale }} LC_ALL={{ isolation_vm_locale }}"
+  changed_when: false
+  tags:
+    - system
+
+- name: Verify system locale
+  ansible.builtin.command:
+    cmd: "locale"
+  register: locale_check
+  changed_when: false
+  tags:
+    - system
+
+- name: Display system configuration
+  ansible.builtin.debug:
+    msg:
+      - "Timezone: {{ isolation_vm_timezone }}"
+      - "Locale: {{ isolation_vm_locale }}"
+      - "Current Locale: {{ locale_check.stdout_lines }}"
+  tags:
+    - system

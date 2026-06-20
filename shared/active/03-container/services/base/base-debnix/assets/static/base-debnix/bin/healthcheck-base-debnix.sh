@@ -1,14 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 
-# Check if we're root, if so, run as cuser with nix environment
-if [ "$(id -u)" = "0" ]; then
-    # We're root, so run the healthcheck as cuser with nix environment
-    # First set up the PATH, then use gosu to switch to cuser
+# Get username from environment or default to ansible
+USERNAME=${USERNAME:-ansible}
 
-    exec gosu cuser bash /base-debnix/bin/healthcheck-base-debnix.sh
-fi
-
+# Since we're already running as the target user (set in Dockerfile), just check Nix
 # Verify Nix command exists
 if ! command -v nix &> /dev/null; then
     echo "nix not found"

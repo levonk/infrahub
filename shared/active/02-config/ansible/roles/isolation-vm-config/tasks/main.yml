@@ -1,0 +1,23 @@
+---
+# Main task file for isolation-vm-config role
+# Purpose: Configure networking, users, and CLI tools inside the Isolation VM
+
+- name: Include networking configuration tasks
+  ansible.builtin.include_tasks: networking.yml
+  tags:
+    - networking
+
+- name: Include user configuration tasks
+  ansible.builtin.include_tasks: users.yml
+  tags:
+    - users
+
+- name: Include CLI tools installation tasks
+  ansible.builtin.include_tasks: tools.yml
+  tags:
+    - tools
+
+- name: Include system configuration tasks
+  ansible.builtin.include_tasks: system.yml
+  tags:
+    - system

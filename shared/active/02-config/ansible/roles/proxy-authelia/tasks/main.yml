@@ -72,6 +72,21 @@
   become: true
   notify: restart proxy-authelia
 
+- name: Create secret files for Authelia
+  ansible.builtin.copy:
+    content: "{{ item.value }}"
+    dest: "{{ proxy_authelia_data_dir }}/config/{{ item.file }}"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  loop:
+    - { file: "jwt_secret", value: "{{ proxy_authelia_jwt_secret }}" }
+    - { file: "session_secret", value: "{{ proxy_authelia_session_secret }}" }
+    - { file: "storage_encryption_key", value: "{{ proxy_authelia_storage_encryption_key }}" }
+    - { file: "smtp_password", value: "{{ proxy_authelia_notifier_smtp_password | default('') }}" }
+  notify: restart proxy-authelia
+
 # ---------------------------------------------------------------------------
 # PostgreSQL Database (for Authelia storage)
 # ---------------------------------------------------------------------------
@@ -104,11 +119,13 @@
   notify: restart proxy-authelia-postgres
 
 - name: Wait for PostgreSQL to be ready
-  ansible.builtin.wait_for:
-    host: "{{ proxy_authelia_postgres_host }}"
-    port: "{{ proxy_authelia_postgres_port }}"
-    delay: 5
-    timeout: 30
+  ansible.builtin.command:
+    cmd: "docker inspect --format='{{ '{{' }} .State.Health.Status {{ '}}' }}' proxy-authelia-postgres"
+  become: true
+  register: postgres_health
+  until: postgres_health.stdout == "healthy"
+  retries: 10
+  delay: 5
   when:
     - proxy_authelia_postgres_enabled | bool
     - proxy_authelia_verify_health | bool
@@ -161,11 +178,6 @@
       - "{{ proxy_authelia_web_host_port }}:{{ proxy_authelia_web_container_port }}/tcp"
     volumes:
       - "{{ proxy_authelia_data_dir }}/config:/config"
-    env:
-      AUTHELIA_JWT_SECRET_FILE: "/config/jwt_secret"
-      AUTHELIA_SESSION_SECRET_FILE: "/config/session_secret"
-      AUTHELIA_STORAGE_ENCRYPTION_KEY_FILE: "/config/storage_encryption_key"
-      AUTHELIA_NOTIFIER_SMTP_PASSWORD_FILE: "/config/smtp_password"
     log_driver: json-file
     log_options:
       max-size: "10m"

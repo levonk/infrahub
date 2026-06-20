@@ -27,7 +27,7 @@ Deploy Authelia authentication service with PostgreSQL database, Redis session s
 
 ## Sub-Tasks
 
-- [ ] Deploy proxy-authelia role to OCI cloud server
+- [~] Deploy proxy-authelia role to OCI cloud server
 - [ ] Deploy PostgreSQL database container for Authelia
 - [ ] Deploy Redis container for session storage
 - [ ] Configure Authelia with PostgreSQL connection

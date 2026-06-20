@@ -199,11 +199,12 @@ services:
       - PUID=1000
       - PGID=1000
       - TZ=UTC
+      - USERNAME=ansible
     depends_on:
       nix-sidecar:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "/base-dev/bin/healthcheck-base-dev.sh"]
+      test: ["CMD", "/base-debnix/bin/healthcheck-base-debnix.sh"]
       interval: 60s
       timeout: 60s
       retries: 3

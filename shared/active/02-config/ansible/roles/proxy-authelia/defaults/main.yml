@@ -19,18 +19,17 @@ proxy_authelia_redis_container_port: "{{ cloud_server_authelia_redis_container_p
 # ---------------------------------------------------------------------------
 # Authelia Configuration
 # ---------------------------------------------------------------------------
-proxy_authelia_jwt_secret: "{{ cloud_server_authelia_jwt_secret | default('change-me-in-vault') }}"
-proxy_authelia_session_secret: "{{ cloud_server_authelia_session_secret | default('change-me-in-vault') }}"
-proxy_authelia_storage_encryption_key: >-
-  {{ cloud_server_authelia_storage_encryption_key | default('change-me-in-vault') }}
+proxy_authelia_jwt_secret: "change-me-in-vault"
+proxy_authelia_session_secret: "change-me-in-vault"
+proxy_authelia_storage_encryption_key: "change-me-in-vault"
 
 proxy_authelia_log_level: "info"
 proxy_authelia_theme: "light"
 
 # Default admin user (password MUST be overridden via vault)
 proxy_authelia_admin_user: "admin"
-proxy_authelia_admin_password: "{{ cloud_server_authelia_admin_password | default('change-me-in-vault') }}"
-proxy_authelia_admin_email: "{{ cloud_server_authelia_admin_email | default('admin@example.com') }}"
+proxy_authelia_admin_password: "change-me-in-vault"
+proxy_authelia_admin_email: "admin@example.com"
 
 # Access Control — default deny, allow localhost for testing
 proxy_authelia_default_policy: "deny"
@@ -56,10 +55,10 @@ proxy_authelia_postgres_enabled: true
 proxy_authelia_postgres_version: "15-alpine"
 proxy_authelia_postgres_image: "postgres:{{ proxy_authelia_postgres_version }}"
 proxy_authelia_postgres_host: "proxy-authelia-postgres"
-proxy_authelia_postgres_port: "{{ cloud_server_authelia_postgres_port | default('5432') }}"
-proxy_authelia_postgres_user: "{{ cloud_server_authelia_postgres_user | default('authelia') }}"
-proxy_authelia_postgres_password: "{{ cloud_server_authelia_postgres_password | default('change-me-in-vault') }}"
-proxy_authelia_postgres_database: "{{ cloud_server_authelia_postgres_database | default('authelia') }}"
+proxy_authelia_postgres_port: "5432"
+proxy_authelia_postgres_user: "authelia"
+proxy_authelia_postgres_password: "change-me-in-vault"
+proxy_authelia_postgres_database: "authelia"
 
 # Notifications
 proxy_authelia_notifier_backend: "filesystem"
@@ -71,7 +70,7 @@ proxy_authelia_notifier_fs_path: "/config/notification.txt"
 proxy_authelia_redis_enabled: true
 proxy_authelia_redis_version: "7-alpine"
 proxy_authelia_redis_image: "redis:{{ proxy_authelia_redis_version }}"
-proxy_authelia_redis_password: "{{ cloud_server_authelia_redis_password | default('change-me-in-vault') }}"
+proxy_authelia_redis_password: "change-me-in-vault"
 
 # ---------------------------------------------------------------------------
 # Docker Network & Volumes
