@@ -20,6 +20,7 @@ isolation_vm_routed_bridge: "{{ common_kvm_routed_bridge_name | default('kvm-rou
 isolation_vm_debian_version: "bookworm"
 isolation_vm_debian_arch: "arm64"
 isolation_vm_image_url: "https://cloud.debian.org/images/cloud/bookworm/daily/latest/debian-12-generic-arm64-daily.qcow2"
+isolation_vm_osinfo: "debian12"
 
 # KVM Configuration Dependencies
 kvm_storage_pool_path: "/var/lib/libvirt/images"

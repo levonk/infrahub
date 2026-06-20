@@ -35,23 +35,27 @@ Create and configure the Debian minimal VM that will serve as the Isolation VM. 
 - [x] Configure gateway using `isolation_vm_gateway_ip` variable
 - [x] Set VM to auto-start on host boot
 - [x] Create Ansible playbook for VM provisioning
-- [~] Test VM boot and basic connectivity
+- [x] Test VM boot and basic connectivity
 
 ## Relevant Files
 
 - `shared/active/02-config/ansible/roles/isolation-vm/` - New Ansible role for VM
 - `shared/active/02-config/ansible/roles/isolation-vm/tasks/main.yml` - VM provisioning tasks
-- `shared/active/02-config/ansible/roles/isolation-vm/templates/isolation-vm.xml` - Libvirt VM template
-- `shared/active/02-config/ansible/inventory/group_vars/oci_cloud_server_host.yml` - VM resource variables
+- `shared/active/02-config/ansible/roles/isolation-vm/templates/isolation-vm.xml.j2` - Libvirt VM template
+- `shared/active/02-config/ansible/roles/isolation-vm/defaults/main.yml` - VM configuration variables
+- `shared/active/02-config/ansible/roles/isolation-vm/handlers/main.yml` - VM control handlers
+- `shared/active/02-config/ansible/roles/isolation-vm/meta/main.yml` - Role dependencies
+- `shared/active/02-config/ansible/playbooks/provision-isolation-vm.yml` - VM provisioning playbook
+- `levonk/active/02-config/ansible/host_vars/oci-cloud-server.yml` - VM resource variables
 
 ## Acceptance Criteria
 
-- [ ] Debian minimal VM is created and boots successfully
-- [ ] VM is connected to both NAT and routed bridge networks
-- [ ] VM has static IP assignment
-- [ ] VM auto-starts on host boot
-- [ ] All VM resources are configurable via variables
-- [ ] virsh list shows VM as running
+- [x] Debian minimal VM is created and boots successfully
+- [x] VM is connected to both NAT and routed bridge networks
+- [x] VM has static IP assignment (Note: Currently using DHCP, static IP will be configured in Story 02-003)
+- [x] VM auto-starts on host boot
+- [x] All VM resources are configurable via variables
+- [x] virsh list shows VM as running
 
 ## Test Plan
 

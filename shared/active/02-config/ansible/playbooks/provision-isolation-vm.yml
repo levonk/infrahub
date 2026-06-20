@@ -59,7 +59,7 @@
           --network network={{ isolation_vm_routed_bridge }},model=virtio
           --graphics vnc,listen=0.0.0.0
           --noautoconsole
-          --osinfo debian12
+          --osinfo {{ isolation_vm_osinfo }}
           --import
       register: install_result
 
