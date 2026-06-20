@@ -31,25 +31,25 @@ Configure a routed bridge network for VM-to-outside communication. This enables 
 - [x] Define network subnet using variable `isolation_vm_routed_bridge_subnet` (default: 192.168.101.0/24)
 - [x] Configure routing rules for VM external access
 - [x] Create Ansible task to deploy network definition
-- [ ] Activate the routed bridge network
+- [x] Activate the routed bridge network
 - [x] Configure host firewall rules to allow VM traffic
-- [ ] Test routing from VM subnet to external networks
+- [x] Test routing from VM subnet to external networks
 
 ## Relevant Files
 
-- `shared/active/02-config/ansible/roles/common-kvm/templates/kvm-route-br0.xml` - Libvirt network template
-- `shared/active/02-config/ansible/roles/common-kvm/tasks/network.yml` - Network configuration tasks
-- `shared/active/02-config/ansible/roles/common-kvm/tasks/firewall.yml` - Firewall rules
-- `shared/active/02-config/ansible/inventory/group_vars/oci_cloud_server_host.yml` - Network variables
+- `shared/active/02-config/ansible/roles/common-kvm/templates/network-routed.xml.j2` - Libvirt routed network template
+- `shared/active/02-config/ansible/roles/common-kvm/tasks/main.yml` - Network deployment and firewall tasks
+- `shared/active/02-config/ansible/roles/common-kvm/defaults/main.yml` - Network configuration variables
+- `levonk/active/02-config/ansible/host_vars/oci-cloud-server.yml` - Host-specific network configuration
 
 ## Acceptance Criteria
 
-- [ ] Routed bridge network is defined in libvirt
-- [ ] Network is active and persistent
-- [ ] Host routing rules allow VM external access
-- [ ] Firewall rules permit VM traffic
-- [ ] Network subnet is configurable via variable
-- [ ] virsh net-list shows the routed bridge as active
+- [x] Routed bridge network is defined in libvirt
+- [x] Network is active and persistent
+- [x] Host routing rules allow VM external access
+- [x] Firewall rules permit VM traffic
+- [x] Network subnet is configurable via variable
+- [x] virsh net-list shows the routed bridge as active
 
 ## Test Plan
 
