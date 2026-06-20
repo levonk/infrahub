@@ -20,7 +20,7 @@ This document provides an index of all tasks for implementing the Isolation VM f
 | Story ID | Story Title | Branch | Dependencies | Parallel-safe | Modules | Status |
 | -------- | ----------- | ------ | ------------ | ------------- | ------- | ------ |
 | 01-001 | Test Nested Virtualization Support | feature/current/isolation-vm/story-01-001-test-nested-virtualization | None | Parallel-safe: true | host-system | [x] Done |
-| 01-002 | Install KVM/libvirt/QEMU Stack | feature/current/isolation-vm/story-01-002-install-hypervisor | None | Parallel-safe: true | host-system | [~] In-Progress |
+| 01-002 | Install KVM/libvirt/QEMU Stack | feature/current/isolation-vm/story-01-002-install-hypervisor | None | Parallel-safe: true | host-system | [x] Done |
 | 01-003 | Configure NAT Bridge Network | feature/current/isolation-vm/story-01-003-nat-bridge-network | None | Parallel-safe: true | networking | [ ] Todo |
 | 01-004 | Configure Routed Bridge Network | feature/current/isolation-vm/story-01-004-routed-bridge-network | None | Parallel-safe: true | networking | [ ] Todo |
 | 01-005 | Configure Storage Pools | feature/current/isolation-vm/story-01-005-storage-pools | None | Parallel-safe: true | storage | [ ] Todo |
