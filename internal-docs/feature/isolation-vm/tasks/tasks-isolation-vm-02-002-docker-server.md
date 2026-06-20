@@ -27,30 +27,34 @@ Install and configure Docker server inside the Isolation VM. This provides the c
 
 ## Sub-Tasks
 
-- [ ] Create Ansible role for Docker installation inside VM
-- [ ] Install Docker dependencies and Docker CE package
-- [ ] Enable and start Docker service
-- [ ] Add non-root user (cuser) to docker group
-- [ ] Configure Docker daemon settings (log rotation, storage driver)
-- [ ] Test Docker installation with hello-world container
-- [ ] Configure Docker socket permissions for agent containers
-- [ ] Create variables for Docker configuration
+- [x] Create Ansible role for Docker installation inside VM
+- [x] Install Docker dependencies and Docker CE package
+- [x] Enable and start Docker service
+- [x] Add non-root user (cuser) to docker group
+- [x] Configure Docker daemon settings (log rotation, storage driver)
+- [x] Test Docker installation with hello-world container
+- [x] Create variables for Docker configuration
+- [x] Configure Docker socket permissions for agent containers
 
 ## Relevant Files
 
 - `shared/active/02-config/ansible/roles/isolation-vm-docker/` - New Ansible role for Docker in VM
 - `shared/active/02-config/ansible/roles/isolation-vm-docker/tasks/main.yml` - Docker installation tasks
-- `shared/active/02-config/ansible/roles/isolation-vm-docker/templates/daemon.json` - Docker daemon configuration
-- `shared/active/02-config/ansible/inventory/group_vars/isolation_vm.yml` - VM-specific variables
+- `shared/active/02-config/ansible/roles/isolation-vm-docker/templates/daemon.json.j2` - Docker daemon configuration template
+- `shared/active/02-config/ansible/roles/isolation-vm-docker/defaults/main.yml` - Docker configuration variables
+- `shared/active/02-config/ansible/roles/isolation-vm-docker/handlers/main.yml` - Docker service handlers
+- `shared/active/02-config/ansible/roles/isolation-vm-docker/meta/main.yml` - Role metadata
+- `shared/active/02-config/ansible/roles/isolation-vm-docker/README.md` - Role documentation
+- `shared/active/02-config/ansible/playbooks/install-docker-in-vm.yml` - Playbook to install Docker in VM
 
 ## Acceptance Criteria
 
-- [ ] Docker CE is installed inside the Isolation VM
-- [ ] Docker service is running and enabled
-- [ ] Non-root user can run Docker commands without sudo
-- [ ] Docker socket is accessible to agent containers
-- [ ] Docker hello-world container runs successfully
-- [ ] Docker configuration is variable-driven
+- [x] Docker CE is installed inside the Isolation VM
+- [x] Docker service is running and enabled
+- [x] Non-root user can run Docker commands without sudo
+- [x] Docker socket is accessible to agent containers
+- [x] Docker hello-world container runs successfully
+- [x] Docker configuration is variable-driven
 
 ## Test Plan
 

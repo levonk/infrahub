@@ -25,7 +25,7 @@ This document provides an index of all tasks for implementing the Isolation VM f
 | 01-004 | Configure Routed Bridge Network | feature/current/isolation-vm/story-01-004-routed-bridge-network | None | Parallel-safe: true | networking | [x] Done |
 | 01-005 | Configure Storage Pools | feature/current/isolation-vm/story-01-005-storage-pools | None | Parallel-safe: true | storage | [x] Done |
 | 02-001 | Create Debian Minimal VM | feature/current/isolation-vm/story-02-001-debian-vm | 01-001, 01-002, 01-003, 01-004, 01-005 | Parallel-safe: true | vm-provisioning | [x] Done |
-| 02-002 | Install Docker Server in VM | feature/current/isolation-vm/story-02-002-docker-server | 02-001 | Parallel-safe: true | vm-services | [ ] Todo |
+| 02-002 | Install Docker Server in VM | feature/current/isolation-vm/story-02-002-docker-server | 02-001 | Parallel-safe: true | vm-services | [~] In-Progress |
 | 02-003 | Configure VM Networking and User Access | feature/current/isolation-vm/story-02-003-vm-networking-users | 02-001 | Parallel-safe: true | vm-config | [ ] Todo |
 | 03-001 | Deploy Nix Sidecar Container | feature/current/isolation-vm/story-03-001-nix-sidecar | 02-002, 02-003 | Parallel-safe: true | containers | [ ] Todo |
 | 03-002 | Deploy Base KaliNix Container | feature/current/isolation-vm/story-03-002-base-kalinix | 03-001 | Parallel-safe: true | containers | [ ] Todo |
