@@ -1,0 +1,53 @@
+---
+# defaults file for proxy-headroom
+# Neutral, overridable defaults. No localnet-specific paths.
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Headroom Container
+# ---------------------------------------------------------------------------
+proxy_headroom_enabled: true
+proxy_headroom_version: "0.26.0"
+proxy_headroom_image: "headroom:{{ proxy_headroom_version }}"
+
+# ---------------------------------------------------------------------------
+# Headroom Configuration
+# ---------------------------------------------------------------------------
+proxy_headroom_host_port: "{{ cloud_server_headroom_host_port | default('8787') }}"
+proxy_headroom_container_port: "8787"
+proxy_headroom_host_ip: "{{ cloud_server_headroom_host_ip | default('0.0.0.0') }}"
+proxy_headroom_container_ip: "{{ cloud_server_headroom_container_ip | default('0.0.0.0') }}"
+
+# ---------------------------------------------------------------------------
+# Upstream Proxy Configuration
+# ---------------------------------------------------------------------------
+proxy_headroom_upstream_proxy: ""
+
+# ---------------------------------------------------------------------------
+# Output Token Reduction
+# ---------------------------------------------------------------------------
+proxy_headroom_output_shaper: "{{ cloud_server_headroom_output_shaper | default('0') }}"
+
+# ---------------------------------------------------------------------------
+# Data Directory
+# ---------------------------------------------------------------------------
+proxy_headroom_data_dir: "{{ cloud_server_proxy_data_dir | default('/opt/proxy') }}/headroom"
+
+# ---------------------------------------------------------------------------
+# Docker Network & Volumes
+# ---------------------------------------------------------------------------
+proxy_headroom_docker_network_name: "{{ cloud_server_proxy_network_name | default('proxy-chain-network') }}"
+proxy_headroom_volume_name: "localnet-headroom-data-volume"
+
+# ---------------------------------------------------------------------------
+# User Configuration
+# ---------------------------------------------------------------------------
+proxy_headroom_puid: "1000"
+proxy_headroom_pgid: "1000"
+proxy_headroom_tz: "UTC"
+
+# ---------------------------------------------------------------------------
+# Feature Flags
+# ---------------------------------------------------------------------------
+proxy_headroom_verify_health: true
+proxy_headroom_verify_timeout_seconds: 30

@@ -4,6 +4,9 @@
 
 FROM ironsh/iron-proxy:latest AS runtime
 
+# Install openssl for CA certificate generation
+RUN apk add --no-cache openssl
+
 # Labels for metadata and security scanning
 LABEL org.opencontainers.image.title="Iron-Proxy" \
       org.opencontainers.image.description="Egress firewall for untrusted workloads" \
@@ -22,8 +25,13 @@ RUN addgroup -g ${PGID} appuser && \
     mkdir -p /etc/iron-proxy /var/log/iron-proxy && \
     chown -R appuser:appuser /etc/iron-proxy /var/log/iron-proxy
 
-# Copy configuration files
-COPY proxy.yaml /etc/iron-proxy/proxy.yaml
+# Generate CA certificates for TLS
+RUN openssl req -x509 -newkey rsa:4096 -keyout /etc/iron-proxy/ca.key \
+    -out /etc/iron-proxy/ca.crt -days 3650 -nodes \
+    -subj "/CN=iron-proxy CA/O=iron-proxy/C=US" \
+    -addext "basicConstraints=critical,CA:TRUE" \
+    -addext "keyUsage=critical,digitalSignature,keyCertSign" && \
+    chown appuser:appuser /etc/iron-proxy/ca.key /etc/iron-proxy/ca.crt
 
 # Switch to non-root user for security
 USER appuser
@@ -36,8 +44,8 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
 	CMD pgrep -f iron-proxy || exit 1
 
-# Start iron-proxy with config file
-CMD ["iron-proxy", "-config", "/etc/iron-proxy/proxy.yaml"]
+# Start iron-proxy with default configuration
+CMD ["iron-proxy"]
 
 FROM runtime AS debug
 

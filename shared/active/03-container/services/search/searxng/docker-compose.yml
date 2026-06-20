@@ -1,0 +1,112 @@
+---
+# SearXNG Docker Compose Configuration
+# Privacy-respecting metasearch engine - routes through NordVPN, exposed via Traefik
+# Proxy Chain: Tailscale Clients → Traefik → SearXNG → NordVPN → Internet
+
+# Default logging configuration - use json-file with rotation
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "5"
+    tag: "{{.Name}}"
+    labels: "service"
+
+services:
+  searxng:
+    build:
+      context: .
+      dockerfile: ./Dockerfile.searxng
+    container_name: searxng
+    restart: unless-stopped
+    logging: *default-logging
+    user: "$SEARCH_SEARXNG_PUID:-1000}:$SEARCH_SEARXNG_PGID:-1000}"
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "$SEARCH_SEARXNG_HOST_IP:-0.0.0.0}:$SEARCH_SEARXNG_HOST_PORT:-8080:$SEARCH_SEARXNG_CONTAINER_IP:-0.0.0.0}:$SEARCH_SEARXNG_CONTAINER_PORT:-8080}"
+    environment:
+      - PUID=$SEARCH_SEARXNG_PUID:-1000}
+      - PGID=$SEARCH_SEARXNG_PGID:-1000}
+      - TZ=$SEARCH_SEARXNG_TZ:-UTC}
+      - SEARXNG_BIND_ADDRESS=$SEARCH_SEARXNG_CONTAINER_IP:-0.0.0.0}
+      - SEARXNG_PORT=$SEARCH_SEARXNG_CONTAINER_PORT:-8080}
+      # NordVPN proxy configuration
+      - HTTP_PROXY=$SEARCH_SEARXNG_HTTP_PROXY:-http://nordvpn:1080}
+      - HTTPS_PROXY=$SEARCH_SEARXNG_HTTPS_PROXY:-http://nordvpn:1080}
+      - SEARCH_SEARXNG_HOST_IP=$SEARCH_SEARXNG_HOST_IP:-0.0.0.0}
+      - SEARCH_SEARXNG_HOST_PORT=$SEARCH_SEARXNG_HOST_PORT:-8080}
+      - SEARCH_SEARXNG_CONTAINER_IP=$SEARCH_SEARXNG_CONTAINER_IP:-0.0.0.0}
+      - SEARCH_SEARXNG_CONTAINER_PORT=$SEARCH_SEARXNG_CONTAINER_PORT:-8080}
+    volumes:
+      - searxng-config:/etc/searxng
+      - searxng-cache:/var/cache/searxng
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - searxng-network
+      - vpn-network
+    labels:
+      # Traefik labels for automatic routing
+      - "traefik.enable=true"
+      - "traefik.http.routers.searxng.rule=PathPrefix(`/searxng`)"
+      - "traefik.http.routers.searxng.entryPoints=websecure"
+      - "traefik.http.routers.searxng.middlewares=strip-searxng"
+      - "traefik.http.services.searxng.loadbalancer.server.port=8080"
+      - "traefik.http.middlewares.strip-searxng.stripprefix.prefixes=/searxng"
+
+  searxng-debug:
+    build:
+      context: .
+      dockerfile: Dockerfile.searxng
+    logging: *default-logging
+    restart: unless-stopped
+    profiles: ["debug"]
+    stdin_open: true
+    tty: true
+    command: ["sleep", "infinity"]
+    environment:
+      - PUID=$SEARCH_SEARXNG_PUID:-1000}
+      - PGID=$SEARCH_SEARXNG_PGID:-1000}
+      - TZ=$SEARCH_SEARXNG_TZ:-UTC}
+      - SEARXNG_BIND_ADDRESS=$SEARCH_SEARXNG_CONTAINER_IP:-0.0.0.0}
+      - SEARXNG_PORT=$SEARCH_SEARXNG_CONTAINER_PORT:-8080}
+      - HTTP_PROXY=$SEARCH_SEARXNG_HTTP_PROXY:-http://nordvpn:1080}
+      - HTTPS_PROXY=$SEARCH_SEARXNG_HTTPS_PROXY:-http://nordvpn:1080}
+      - SEARCH_SEARXNG_HOST_IP=$SEARCH_SEARXNG_HOST_IP:-0.0.0.0}
+      - SEARCH_SEARXNG_HOST_PORT=$SEARCH_SEARXNG_HOST_PORT:-8080}
+      - SEARCH_SEARXNG_CONTAINER_IP=$SEARCH_SEARXNG_CONTAINER_IP:-0.0.0.0}
+      - SEARCH_SEARXNG_CONTAINER_PORT=$SEARCH_SEARXNG_CONTAINER_PORT:-8080}
+    volumes:
+      - searxng-config:/etc/searxng
+      - searxng-cache:/var/cache/searxng
+    networks:
+      - searxng-network
+      - vpn-network
+
+volumes:
+  searxng-config:
+    name: localnet-searxng-config-volume
+    external: false
+  searxng-cache:
+    name: localnet-searxng-cache-volume
+    external: false
+
+networks:
+  searxng-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.22.0.0/16
+  vpn-network:
+    external: true
+    name: vpn-network

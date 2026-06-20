@@ -27,28 +27,30 @@ Install and configure the KVM/libvirt/QEMU hypervisor stack on the OCI Cloud Ser
 
 ## Sub-Tasks
 
-- [ ] Create Ansible role for KVM/libvirt/QEMU installation
-- [ ] Install required packages: qemu-kvm, libvirt-daemon-system, libvirt-clients, virtinst, bridge-utils
-- [ ] Enable and start libvirtd service
-- [ ] Add user to libvirt/kvm groups
-- [ ] Configure libvirt network and storage defaults
-- [ ] Test virsh connectivity and basic virsh commands
-- [ ] Create variables for hypervisor configuration (CPU mode, disk format, etc.)
+- [x] Create Ansible role for KVM/libvirt/QEMU installation
+- [x] Install required packages: qemu-kvm, libvirt-daemon-system, libvirt-clients, virtinst, bridge-utils
+- [x] Enable and start libvirtd service
+- [x] Add user to libvirt/kvm groups
+- [x] Configure libvirt network and storage defaults
+- [x] Test virsh connectivity and basic virsh commands
+- [x] Create variables for hypervisor configuration (CPU mode, disk format, etc.)
 
 ## Relevant Files
 
 - `shared/active/02-config/ansible/roles/common-kvm/` - New Ansible role
-- `shared/active/02-config/ansible/roles/common-kvm/tasks/main.yml` - Installation tasks
-- `shared/active/02-config/ansible/roles/common-kvm/defaults/main.yml` - Default variables
-- `shared/active/02-config/ansible/inventory/group_vars/oci_cloud_server_host.yml` - Host-specific variables
+- `shared/active/02-config/ansible/roles/common-kvm/tasks/main.yml` - Installation tasks with Debian/RedHat support
+- `shared/active/02-config/ansible/roles/common-kvm/defaults/main.yml` - Default variables including CPU mode configuration
+- `shared/active/02-config/ansible/roles/common-kvm/handlers/main.yml` - Service restart handlers
+- `shared/active/02-config/ansible/playbooks/test-kvm-installation.yml` - Test playbook for KVM installation
+- `levonk/active/02-config/ansible/host_vars/oci-cloud-server.yml` - Host-specific variables with QEMU CPU mode
 
 ## Acceptance Criteria
 
-- [ ] KVM/libvirt/QEMU packages are installed
-- [ ] libvirtd service is running and enabled
-- [ ] User can run virsh commands without sudo
-- [ ] virsh list returns empty list (no VMs yet)
-- [ ] All configuration is variable-driven per AGENTS.md requirements
+- [x] KVM/libvirt/QEMU packages are installed
+- [x] libvirtd service is running and enabled
+- [x] User can run virsh commands without sudo
+- [x] virsh list returns empty list (no VMs yet)
+- [x] All configuration is variable-driven per AGENTS.md requirements
 
 ## Test Plan
 

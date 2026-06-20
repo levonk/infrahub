@@ -1,60 +1,33 @@
 ---
-# defaults file for common-kvm
-# Neutral, overridable defaults. No localnet-specific paths.
+# KVM/libvirt/QEMU Configuration Variables
 
-# ---------------------------------------------------------------------------
-# Virtualization Support
-# ---------------------------------------------------------------------------
-common_kvm_skip_virtualization_check: false
+# Target user to add to libvirt/kvm groups
+kvm_target_user: "{{ ansible_user | default('ubuntu') }}"
 
-# ---------------------------------------------------------------------------
-# KVM/QEMU Packages
-# ---------------------------------------------------------------------------
-common_kvm_packages:
-  - qemu-kvm
-  - libvirt-daemon
-  - virt-install
-  - virt-manager
-  - bridge-utils
-  - qemu-img
-  - libguestfs-tools
+# CPU mode configuration (will be set based on nested virtualization support)
+# Options: host-model, host-passthrough, custom, qemu (for non-KVM)
+kvm_cpu_mode: "qemu"
 
-# ---------------------------------------------------------------------------
-# Libvirtd Service
-# ---------------------------------------------------------------------------
-common_kvm_libvirtd_service_name: "libvirtd"
-common_kvm_libvirtd_socket_name: "libvirtd.socket"
+# Default disk format for VM images
+kvm_disk_format: "qcow2"
 
-# ---------------------------------------------------------------------------
-# Bridge Networks (subnets must be overridden in client group_vars)
-# ---------------------------------------------------------------------------
-common_kvm_nat_bridge_name: "kvm-nat-br0"
-common_kvm_nat_bridge_subnet: "{{ kvm_nat_bridge_subnet | default('192.168.100.0/24') }}"
-common_kvm_nat_bridge_gateway: "{{ kvm_nat_bridge_gateway | default('192.168.100.1') }}"
-common_kvm_nat_bridge_dhcp_start: "{{ kvm_nat_bridge_dhcp_start | default('192.168.100.100') }}"
-common_kvm_nat_bridge_dhcp_end: "{{ kvm_nat_bridge_dhcp_end | default('192.168.100.200') }}"
+# Default disk size for VM images (in GB)
+kvm_disk_size_gb: 20
 
-common_kvm_routed_bridge_name: "kvm-route-br0"
-common_kvm_routed_bridge_subnet: "{{ kvm_routed_bridge_subnet | default('192.168.101.0/24') }}"
-common_kvm_routed_bridge_gateway: "{{ kvm_routed_bridge_gateway | default('192.168.101.1') }}"
+# Default memory size for VMs (in MB)
+kvm_memory_mb: 2048
 
-# ---------------------------------------------------------------------------
-# VM Storage Pool
-# ---------------------------------------------------------------------------
-common_kvm_storage_pool_name: "default"
-common_kvm_storage_pool_path: "{{ kvm_storage_pool_path | default('/var/lib/libvirt/images') }}"
-common_kvm_storage_pool_type: "dir"
-common_kvm_storage_pool_mode: "0755"
+# Default CPU count for VMs
+kvm_cpu_count: 2
 
-# ---------------------------------------------------------------------------
-# VM Defaults
-# ---------------------------------------------------------------------------
-common_kvm_vm_default_memory_mb: 2048
-common_kvm_vm_default_vcpus: 2
-common_kvm_vm_default_disk_gb: 20
+# Default network type
+kvm_network_type: "bridge"
 
-# ---------------------------------------------------------------------------
-# Verification
-# ---------------------------------------------------------------------------
-common_kvm_verify_install: true
-common_kvm_verify_timeout_seconds: 30
+# Default storage pool path
+kvm_storage_pool_path: "/var/lib/libvirt/images"
+
+# Enable libvirt logging
+kvm_enable_logging: true
+
+# Libvirt log level
+kvm_log_level: 1

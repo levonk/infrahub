@@ -1,0 +1,129 @@
+---
+# SearXNG Deployment Tasks
+# Deploys SearXNG as a Docker container with NordVPN proxy integration
+# All ports are variable-driven per AGENTS.md rules.
+
+# ---------------------------------------------------------------------------
+# Prerequisites
+# ---------------------------------------------------------------------------
+- name: Ensure SearXNG data directory exists
+  ansible.builtin.file:
+    path: "{{ search_searxng_data_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+
+- name: Ensure SearXNG configuration directories exist
+  ansible.builtin.file:
+    path: "{{ search_searxng_data_dir }}/{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+  loop:
+    - mounts
+    - mounts/config
+
+# ---------------------------------------------------------------------------
+# Docker Networks
+# ---------------------------------------------------------------------------
+- name: Ensure SearXNG Docker network exists
+  community.docker.docker_network:
+    name: "{{ search_searxng_network_name }}"
+    state: present
+    driver: bridge
+  become: true
+
+- name: Ensure VPN network exists (external)
+  community.docker.docker_network:
+    name: "{{ search_searxng_vpn_network }}"
+    state: present
+  ignore_errors: true  # Network may be managed by NordVPN service
+  become: true
+
+# ---------------------------------------------------------------------------
+# Docker Volumes
+# ---------------------------------------------------------------------------
+- name: Ensure SearXNG config volume exists
+  community.docker.docker_volume:
+    name: "{{ search_searxng_config_volume }}"
+    state: present
+  become: true
+
+- name: Ensure SearXNG cache volume exists
+  community.docker.docker_volume:
+    name: "{{ search_searxng_cache_volume }}"
+    state: present
+  become: true
+
+# ---------------------------------------------------------------------------
+# SearXNG Container
+# ---------------------------------------------------------------------------
+- name: Deploy SearXNG container
+  community.docker.docker_container:
+    name: "{{ search_searxng_container_name }}"
+    image: "{{ search_searxng_image }}:{{ search_searxng_image_tag }}"
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ search_searxng_network_name }}"
+      - name: "{{ search_searxng_vpn_network }}"
+    published_ports:
+      - "{{ search_searxng_host_ip }}:{{ search_searxng_host_port }}:{{ search_searxng_container_port }}/tcp"
+    volumes:
+      - "{{ search_searxng_config_volume }}:/etc/searxng"
+      - "{{ search_searxng_cache_volume }}:/var/cache/searxng"
+    env:
+      PUID: "{{ search_searxng_puid | string }}"
+      PGID: "{{ search_searxng_pgid | string }}"
+      TZ: "{{ search_searxng_tz }}"
+      SEARXNG_BIND_ADDRESS: "{{ search_searxng_container_ip }}"
+      SEARXNG_PORT: "{{ search_searxng_container_port | string }}"
+      HTTP_PROXY: "{{ search_searxng_http_proxy }}"
+      HTTPS_PROXY: "{{ search_searxng_https_proxy }}"
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=100m
+    log_driver: json-file
+    log_opt:
+      max-size: "10m"
+      max-file: "5"
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.searxng.rule: "PathPrefix(`/searxng`)"
+      traefik.http.routers.searxng.entryPoints: "websecure"
+      traefik.http.routers.searxng.middlewares: "strip-searxng"
+      traefik.http.services.searxng.loadbalancer.server.port: "{{ search_searxng_container_port }}"
+      traefik.http.middlewares.strip-searxng.stripprefix.prefixes: "/searxng"
+  become: true
+  when: search_searxng_enabled | bool
+
+# ---------------------------------------------------------------------------
+# Health Verification
+# ---------------------------------------------------------------------------
+- name: Wait for SearXNG to be healthy
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ search_searxng_host_port }}{{ search_searxng_health_endpoint }}"
+    status_code: 200
+  register: searxng_health
+  until: searxng_health.status == 200
+  retries: 10
+  delay: 5
+  when:
+    - search_searxng_enabled | bool
+    - search_searxng_verify_health | bool
+
+# ---------------------------------------------------------------------------
+# Status Report
+# ---------------------------------------------------------------------------
+- name: Report SearXNG status
+  ansible.builtin.debug:
+    msg: |2
+      SearXNG deployed successfully:
+      - Web UI: http://{{ ansible_host | default('localhost') }}:{{ search_searxng_host_port }}
+      - Health: http://{{ ansible_host | default('localhost') }}:{{ search_searxng_host_port }}{{ search_searxng_health_endpoint }}
+      - Proxy: {{ search_searxng_http_proxy }}
+      - Networks: {{ search_searxng_network_name }}, {{ search_searxng_vpn_network }}
+  when: search_searxng_enabled | bool

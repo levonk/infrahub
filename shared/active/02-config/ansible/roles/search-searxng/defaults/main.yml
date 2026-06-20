@@ -1,0 +1,35 @@
+---
+# SearXNG Default Variables
+# Privacy-respecting metasearch engine deployment
+
+# Service Configuration
+search_searxng_enabled: true
+search_searxng_data_dir: "/opt/searxng"
+search_searxng_container_name: "searxng"
+search_searxng_image: "searxng/searxng"
+search_searxng_image_tag: "latest"
+
+# Network Configuration
+search_searxng_network_name: "searxng-network"
+search_searxng_vpn_network: "vpn-network"
+search_searxng_host_ip: "0.0.0.0"
+search_searxng_host_port: "8080"
+search_searxng_container_ip: "0.0.0.0"
+search_searxng_container_port: "8080"
+
+# User/Group Configuration
+search_searxng_puid: 1000
+search_searxng_pgid: 1000
+search_searxng_tz: "UTC"
+
+# NordVPN Proxy Configuration
+search_searxng_http_proxy: "http://nordvpn:1080"
+search_searxng_https_proxy: "http://nordvpn:1080"
+
+# Volume Configuration
+search_searxng_config_volume: "localnet-searxng-config-volume"
+search_searxng_cache_volume: "localnet-searxng-cache-volume"
+
+# Health Check Configuration
+search_searxng_verify_health: false
+search_searxng_health_endpoint: "/"

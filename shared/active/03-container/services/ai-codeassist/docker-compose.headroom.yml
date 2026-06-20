@@ -1,0 +1,58 @@
+---
+# Headroom Service Configuration
+# Context compression layer for AI agents - sits upstream of iron-proxy
+# Included in main docker-compose files for AI codeassist services
+
+services:
+  headroom:
+    build:
+      context: ./headroom
+      dockerfile: Dockerfile.headroom
+    container_name: headroom
+    restart: unless-stopped
+    user: "$AI_CODEASSIST_HEADROOM_PUID:-1000}:$AI_CODEASSIST_HEADROOM_PGID:-1000}"
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "$AI_CODEASSIST_HEADROOM_HOST_IP:-0.0.0.0}:$AI_CODEASSIST_HEADROOM_HOST_PORT:-8787:$AI_CODEASSIST_HEADROOM_CONTAINER_IP:-0.0.0.0}:$AI_CODEASSIST_HEADROOM_CONTAINER_PORT:-8787}"
+    environment:
+      - PUID=$AI_CODEASSIST_HEADROOM_PUID:-1000}
+      - PGID=$AI_CODEASSIST_HEADROOM_PGID:-1000}
+      - TZ=$AI_CODEASSIST_HEADROOM_TZ:-UTC}
+      - HEADROOM_PORT=$AI_CODEASSIST_HEADROOM_CONTAINER_PORT:-8787}
+      - HEADROOM_HOST=$AI_CODEASSIST_HEADROOM_CONTAINER_IP:-0.0.0.0}
+      - HEADROOM_DATA_DIR=/data
+      - UPSTREAM_PROXY=$AI_CODEASSIST_HEADROOM_UPSTREAM_PROXY:-http://iron-proxy:8080}
+      - HEADROOM_OUTPUT_SHAPER=$AI_CODEASSIST_HEADROOM_OUTPUT_SHAPER:-0}
+      - AI_CODEASSIST_HEADROOM_HOST_IP=$AI_CODEASSIST_HEADROOM_HOST_IP:-0.0.0.0}
+      - AI_CODEASSIST_HEADROOM_HOST_PORT=$AI_CODEASSIST_HEADROOM_HOST_PORT:-8787}
+      - AI_CODEASSIST_HEADROOM_CONTAINER_IP=$AI_CODEASSIST_HEADROOM_CONTAINER_IP:-0.0.0.0}
+      - AI_CODEASSIST_HEADROOM_CONTAINER_PORT=$AI_CODEASSIST_HEADROOM_CONTAINER_PORT:-8787}
+    volumes:
+      - headroom-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8787/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - localnet
+      - proxy-chain
+
+volumes:
+  headroom-data:
+    name: localnet-headroom-data-volume
+    external: false
+
+networks:
+  localnet:
+    external: true
+  proxy-chain:
+    external: true
+    name: proxy-chain-network

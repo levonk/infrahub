@@ -1,0 +1,49 @@
+---
+# SearXNG Docker Compose Include
+# Privacy-respecting metasearch engine with NordVPN proxy integration
+# Include this in your main docker-compose file
+
+services:
+  searxng:
+    build:
+      context: ./services/search/searxng
+      dockerfile: Dockerfile.searxng
+    container_name: searxng
+    restart: unless-stopped
+    user: "${SEARCH_SEARXNG_PUID:-1000}:${SEARCH_SEARXNG_PGID:-1000}"
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "${SEARCH_SEARXNG_HOST_IP:-0.0.0.0}:${SEARCH_SEARXNG_HOST_PORT:-8080}:${SEARCH_SEARXNG_CONTAINER_IP:-0.0.0.0}:${SEARCH_SEARXNG_CONTAINER_PORT:-8080}"
+    environment:
+      - PUID=${SEARCH_SEARXNG_PUID:-1000}
+      - PGID=${SEARCH_SEARXNG_PGID:-1000}
+      - TZ=${SEARCH_SEARXNG_TZ:-UTC}
+      - SEARXNG_BIND_ADDRESS=${SEARCH_SEARXNG_CONTAINER_IP:-0.0.0.0}
+      - SEARXNG_PORT=${SEARCH_SEARXNG_CONTAINER_PORT:-8080}
+      - HTTP_PROXY=${SEARCH_SEARXNG_HTTP_PROXY:-http://nordvpn:1080}
+      - HTTPS_PROXY=${SEARCH_SEARXNG_HTTPS_PROXY:-http://nordvpn:1080}
+    volumes:
+      - localnet-searxng-config-volume:/etc/searxng
+      - localnet-searxng-cache-volume:/var/cache/searxng
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - searxng-network
+      - vpn-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.searxng.rule=PathPrefix(`/searxng`)"
+      - "traefik.http.routers.searxng.entryPoints=websecure"
+      - "traefik.http.routers.searxng.middlewares=strip-searxng"
+      - "traefik.http.services.searxng.loadbalancer.server.port=8080"
+      - "traefik.http.middlewares.strip-searxng.stripprefix.prefixes=/searxng"

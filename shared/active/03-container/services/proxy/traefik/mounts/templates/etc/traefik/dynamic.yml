@@ -43,6 +43,13 @@ http:
         - internal
       middlewares:
         - strip-claude-code-intercept-ui
+    searxng:
+      rule: 'PathPrefix(`/searxng`)'
+      service: searxng
+      entryPoints:
+        - websecure
+      middlewares:
+        - strip-searxng
   services:
     vibe-kanban:
       loadBalancer:
@@ -68,6 +75,10 @@ http:
       loadBalancer:
         servers:
           - url: 'http://claude-code-intercept:5173'
+    searxng:
+      loadBalancer:
+        servers:
+          - url: 'http://searxng:8080'
   middlewares:
     strip-claude-code-ui:
       stripPrefix:
@@ -89,6 +100,10 @@ http:
       stripPrefix:
         prefixes:
           - '/claude-code-intercept/ui'
+    strip-searxng:
+      stripPrefix:
+        prefixes:
+          - '/searxng'
 
     # Plugin middlewares (configured via Traefik experimental plugins in compose)
     geoblock:

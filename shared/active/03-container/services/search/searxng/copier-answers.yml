@@ -1,0 +1,12 @@
+_service_name: searxng
+_service_description: "Privacy-respecting metasearch engine - users are neither tracked nor profiled"
+_service_port: "8080"
+_env_prefix: "SEARCH_SEARXNG"
+_service_health_endpoint: "/health"
+base_os: alpine
+_include_tests: true
+_include_ui: false
+_inherits_from_nix_sidecar: false
+_include_maintenance: false
+_include_dev_tools: false
+_build_stage: false

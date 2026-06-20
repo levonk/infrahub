@@ -1,65 +1,125 @@
 ---
-# defaults file for proxy-traefik
-# Neutral, overridable defaults. No localnet-specific paths.
-# ---------------------------------------------------------------------------
+# Traefik Proxy Default Variables
+# Reverse proxy with ACME, plugins, and security middleware
 
 # ---------------------------------------------------------------------------
-# Reverse Proxy (Traefik)
+# Service Configuration
 # ---------------------------------------------------------------------------
-proxy_traefik_version: "latest"
-proxy_traefik_image: "traefik:{{ proxy_traefik_version }}"
+proxy_traefik_enabled: true
+proxy_traefik_data_dir: "/opt/traefik"
+proxy_traefik_container_name: "traefik"
+proxy_traefik_image: "traefik"
+proxy_traefik_image_tag: "v3.0"
 
-proxy_traefik_http_host_port: "{{ cloud_server_proxy_http_host_port | default('80') }}"
-proxy_traefik_http_container_port: "{{ cloud_server_proxy_http_container_port | default('80') }}"
-proxy_traefik_https_host_port: "{{ cloud_server_proxy_https_host_port | default('443') }}"
-proxy_traefik_https_container_port: "{{ cloud_server_proxy_https_container_port | default('443') }}"
+# ---------------------------------------------------------------------------
+# Network Configuration
+# ---------------------------------------------------------------------------
+proxy_traefik_network_name: "traefik-network"
+proxy_traefik_network_subnet: "172.31.0.0/16"
+proxy_traefik_network_gateway: "172.31.0.1"
+proxy_traefik_host_ip: "0.0.0.0"
 
+# HTTP/HTTPS ports
+proxy_traefik_http_port: "80"
+proxy_traefik_http_container_port: "80"
+proxy_traefik_https_port: "443"
+proxy_traefik_https_container_port: "443"
+
+# Dashboard ports
+proxy_traefik_dashboard_port: "8882"
+proxy_traefik_dashboard_container_port: "8080"
+proxy_traefik_dashboard_endpoint: "/dashboard"
 proxy_traefik_dashboard_enabled: true
 proxy_traefik_dashboard_insecure: false
-proxy_traefik_api_entrypoint: "traefik"
-proxy_traefik_api_port: "{{ cloud_server_proxy_traefik_api_port | default('8080') }}"
-
-# ACME / Let's Encrypt
-proxy_traefik_acme_enabled: false
-proxy_traefik_acme_email: ""
-proxy_traefik_acme_storage: "/letsencrypt/acme.json"
-proxy_traefik_acme_challenge: "tlsChallenge"
 
 # ---------------------------------------------------------------------------
-# Caching Proxy (Squid)
+# Docker Configuration
 # ---------------------------------------------------------------------------
-proxy_squid_enabled: true
-proxy_squid_version: "latest"
-proxy_squid_image: "ubuntu/squid:{{ proxy_squid_version }}"
-
-proxy_squid_host_port: "{{ cloud_server_proxy_squid_host_port | default('3128') }}"
-proxy_squid_container_port: "{{ cloud_server_proxy_squid_container_port | default('3128') }}"
-
-proxy_squid_cache_size_mb: 1024
-proxy_squid_max_object_size_mb: 256
+proxy_traefik_docker_expose_default: false
+proxy_traefik_dynamic_config_watch: true
 
 # ---------------------------------------------------------------------------
-# Tor Relay / Onion Service
+# ACME/Let's Encrypt Configuration
 # ---------------------------------------------------------------------------
-proxy_tor_enabled: true
-proxy_tor_version: "latest"
-proxy_tor_image: "dperson/torproxy:{{ proxy_tor_version }}"
-
-proxy_tor_socks_host_port: "{{ cloud_server_tor_socks_host_port | default('9050') }}"
-proxy_tor_socks_container_port: "{{ cloud_server_tor_socks_container_port | default('9050') }}"
-proxy_tor_dns_host_port: "{{ cloud_server_tor_dns_host_port | default('9053') }}"
-proxy_tor_dns_container_port: "{{ cloud_server_tor_dns_container_port | default('53') }}"
-
-proxy_tor_exit_relay_allowed: false
+proxy_traefik_acme_enabled: true
+proxy_traefik_acme_email: "{{ cloud_server_acme_email | default('admin@example.com') }}"
+proxy_traefik_acme_dns_provider: "cloudflare"
+proxy_traefik_acme_delay_before_check: 30
+proxy_traefik_acme_resolver_1: "1.1.1.1:53"
+proxy_traefik_acme_resolver_2: "8.8.8.8:53"
+proxy_traefik_acme_staging: false
 
 # ---------------------------------------------------------------------------
-# Docker Network & Volumes
+# Plugin Configuration
 # ---------------------------------------------------------------------------
-proxy_docker_network_name: "{{ cloud_server_proxy_network_name | default('proxy-network') }}"
-proxy_data_dir: "{{ cloud_server_proxy_data_dir | default('/opt/proxy') }}"
+proxy_traefik_plugins_enabled: true
+proxy_traefik_crowdsec_plugin_version: "v1.4.4"
+proxy_traefik_geoblock_plugin_version: "v0.3.3"
 
 # ---------------------------------------------------------------------------
-# Feature Flags
+# CrowdSec Bouncer Configuration
 # ---------------------------------------------------------------------------
-proxy_verify_health: true
-proxy_verify_timeout_seconds: 30
+proxy_traefik_crowdsec_enabled: true
+proxy_traefik_crowdsec_mode: "alive"
+proxy_traefik_crowdsec_lapi_scheme: "http"
+proxy_traefik_crowdsec_lapi_host: "crowdsec"
+proxy_traefik_crowdsec_lapi_port: 8080
+proxy_traefik_crowdsec_lapi_ca_cert_path: "/etc/ssl/certs/ca-certificates.crt"
+proxy_traefik_crowdsec_lapi_cert_path: ""
+proxy_traefik_crowdsec_lapi_key_path: ""
+proxy_traefik_crowdsec_lapi_insecure_skip_verify: true
+proxy_traefik_crowdsec_forwarded_header: "X-Forwarded-For"
+proxy_traefik_crowdsec_trusted_ips:
+  - "127.0.0.1"
+  - "{{ proxy_traefik_network_gateway }}"
+proxy_traefik_crowdsec_update_interval: 60
+proxy_traefik_crowdsec_default_decision_seconds: 30
+
+# ---------------------------------------------------------------------------
+# GeoBlock Configuration
+# ---------------------------------------------------------------------------
+proxy_traefik_geoblock_enabled: true
+proxy_traefik_geoblock_allow_local: true
+proxy_traefik_geoblock_log_local: false
+proxy_traefik_geoblock_api_url: "http://ip-api.com/json/"
+proxy_traefik_geoblock_strict: true
+proxy_traefik_geoblock_silent_startup: false
+proxy_traefik_geoblock_allowed_countries:
+  - "US"
+
+# ---------------------------------------------------------------------------
+# Authelia Configuration (for future integration)
+# ---------------------------------------------------------------------------
+proxy_traefik_authelia_address: "http://authelia:9091/api/verify"
+proxy_traefik_authelia_trust_forward_header: true
+
+# ---------------------------------------------------------------------------
+# Volume Configuration
+# ---------------------------------------------------------------------------
+proxy_traefik_ssl_volume: "localnet-traefik-ssl-volume"
+proxy_traefik_config_volume: "localnet-traefik-config-volume"
+
+# ---------------------------------------------------------------------------
+# Logging Configuration
+# ---------------------------------------------------------------------------
+proxy_traefik_log_level: "INFO"
+proxy_traefik_log_format: "json"
+proxy_traefik_access_log_format: "json"
+proxy_traefik_log_max_size: "10m"
+proxy_traefik_log_max_file: "5"
+
+# ---------------------------------------------------------------------------
+# Global Configuration
+# ---------------------------------------------------------------------------
+proxy_traefik_check_new_version: true
+proxy_traefik_send_anonymous_usage: false
+
+# ---------------------------------------------------------------------------
+# Timezone
+# ---------------------------------------------------------------------------
+proxy_traefik_tz: "UTC"
+
+# ---------------------------------------------------------------------------
+# Health Check Configuration
+# ---------------------------------------------------------------------------
+proxy_traefik_verify_health: false

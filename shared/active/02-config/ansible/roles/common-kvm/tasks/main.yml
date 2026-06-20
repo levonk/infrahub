@@ -1,264 +1,124 @@
 ---
-# tasks file for common-kvm
-
-# ---------------------------------------------------------------------------
-# Check CPU virtualization support
-# ---------------------------------------------------------------------------
-- name: Check CPU architecture
-  ansible.builtin.command:
-    cmd: uname -m
-  register: common_kvm_arch_check
-  changed_when: false
-  become: true
-
-- name: Check CPU flags for Intel VT-x
-  ansible.builtin.command:
-    cmd: grep -c vmx /proc/cpuinfo
-  register: common_kvm_vmx_check
-  changed_when: false
-  failed_when: false
-  become: true
-  when: "'x86_64' in common_kvm_arch_check.stdout"
-
-- name: Check CPU flags for AMD-V
-  ansible.builtin.command:
-    cmd: grep -c svm /proc/cpuinfo
-  register: common_kvm_svm_check
-  changed_when: false
-  failed_when: false
-  become: true
-  when: "'x86_64' in common_kvm_arch_check.stdout"
-
-- name: Assert virtualization support is present (x86_64)
-  ansible.builtin.assert:
-    that:
-      - common_kvm_vmx_check.stdout | int > 0 or common_kvm_svm_check.stdout | int > 0
-    fail_msg: "CPU does not support virtualization (Intel VT-x or AMD-V). Cannot install KVM."
-    success_msg: "CPU virtualization support detected."
-  when:
-    - not common_kvm_skip_virtualization_check | bool
-    - "'x86_64' in common_kvm_arch_check.stdout"
-
-- name: Note ARM architecture will use QEMU software virtualization
-  ansible.builtin.debug:
-    msg: "ARM architecture detected. Using QEMU software virtualization instead of KVM."
-  when: "'aarch64' in common_kvm_arch_check.stdout"
-
-# ---------------------------------------------------------------------------
-# Install KVM packages
-# ---------------------------------------------------------------------------
 - name: Update apt cache
   ansible.builtin.apt:
     update_cache: true
     cache_valid_time: 3600
-  become: true
   when: ansible_facts['os_family'] == "Debian"
+  become: true
 
-- name: Install KVM packages
-  ansible.builtin.package:
-    name: "{{ common_kvm_packages }}"
+- name: Install KVM/libvirt/QEMU packages (Debian/Ubuntu)
+  ansible.builtin.apt:
+    name:
+      - qemu-kvm
+      - libvirt-daemon-system
+      - libvirt-clients
+      - virtinst
+      - bridge-utils
+      - cpu-checker
+      - virt-manager
     state: present
+  when: ansible_facts['os_family'] == "Debian"
   become: true
 
-# ---------------------------------------------------------------------------
-# Enable and start libvirtd service
-# ---------------------------------------------------------------------------
-- name: Ensure libvirtd service is enabled and running
-  ansible.builtin.systemd:
-    name: "{{ common_kvm_libvirtd_service_name }}"
-    state: started
-    enabled: true
+- name: Install KVM/libvirt/QEMU packages (Red Hat family)
+  ansible.builtin.dnf:
+    name:
+      - qemu-kvm
+      - libvirt-daemon
+      - libvirt-client
+      - virt-install
+      - bridge-utils
+      - virt-manager
+    state: present
+  when: ansible_facts['os_family'] == "RedHat"
   become: true
-  failed_when: false
 
-- name: Ensure libvirt socket is active
-  ansible.builtin.systemd:
-    name: "{{ common_kvm_libvirtd_socket_name }}"
-    state: started
-    enabled: true
-  become: true
-  failed_when: false
-
-# ---------------------------------------------------------------------------
-# Add admin user to libvirt group
-# ---------------------------------------------------------------------------
 - name: Ensure libvirt group exists
   ansible.builtin.group:
     name: libvirt
     state: present
   become: true
-  failed_when: false
 
-- name: Add admin user to libvirt group
+- name: Ensure kvm group exists
+  ansible.builtin.group:
+    name: kvm
+    state: present
+  become: true
+
+- name: Add target user to libvirt group
   ansible.builtin.user:
-    name: "{{ host_os_bootstrap_admin_user | default('cuser') }}"
+    name: "{{ kvm_target_user }}"
     groups: libvirt
     append: true
   become: true
-  failed_when: false
 
-# ---------------------------------------------------------------------------
-# Create NAT bridge network
-# ---------------------------------------------------------------------------
-- name: Deploy NAT bridge network XML
-  ansible.builtin.template:
-    src: network-nat.xml.j2
-    dest: "/tmp/{{ common_kvm_nat_bridge_name }}.xml"
-    mode: "0644"
+- name: Add target user to kvm group
+  ansible.builtin.user:
+    name: "{{ kvm_target_user }}"
+    groups: kvm
+    append: true
   become: true
 
-- name: Define NAT bridge network
-  ansible.builtin.command:
-    cmd: "virsh net-define /tmp/{{ common_kvm_nat_bridge_name }}.xml"
-  register: common_kvm_nat_define
-  changed_when: "'Network .* defined from' in common_kvm_nat_define.stdout"
-  failed_when:
-    - common_kvm_nat_define.rc != 0
-    - "'already exists' not in common_kvm_nat_define.stderr"
+- name: Enable and start libvirtd service (Debian/Ubuntu)
+  ansible.builtin.systemd:
+    name: libvirtd
+    state: started
+    enabled: true
+  when: ansible_facts['os_family'] == "Debian"
   become: true
 
-- name: Autostart NAT bridge network
-  ansible.builtin.command:
-    cmd: "virsh net-autostart {{ common_kvm_nat_bridge_name }}"
-  register: common_kvm_nat_autostart
-  changed_when: "'Network .* marked as autostarted' in common_kvm_nat_autostart.stdout"
-  failed_when:
-    - common_kvm_nat_autostart.rc != 0
-    - "'already marked' not in common_kvm_nat_autostart.stderr"
+- name: Enable and start libvirtd service (Red Hat family)
+  ansible.builtin.systemd:
+    name: libvirtd
+    state: started
+    enabled: true
+  when: ansible_facts['os_family'] == "RedHat"
   become: true
 
-- name: Start NAT bridge network
-  ansible.builtin.command:
-    cmd: "virsh net-start {{ common_kvm_nat_bridge_name }}"
-  register: common_kvm_nat_start
-  changed_when: "'Network .* started' in common_kvm_nat_start.stdout"
-  failed_when:
-    - common_kvm_nat_start.rc != 0
-    - "'already active' not in common_kvm_nat_start.stderr"
+- name: Configure libvirt network defaults
+  ansible.builtin.blockinfile:
+    path: /etc/libvirt/libvirtd.conf
+    block: |
+      unix_sock_group = "libvirt"
+      unix_sock_rw_perms = "0770"
+      auth_unix_ro = "none"
+      auth_unix_rw = "none"
+    create: true
+    backup: true
+  become: true
+  notify: restart libvirtd
+
+- name: Configure libvirt QEMU defaults
+  ansible.builtin.blockinfile:
+    path: /etc/libvirt/qemu.conf
+    block: |
+      user = "root"
+      group = "root"
+      dynamic_ownership = 0
+      cgroup_device_acl = [
+          "/dev/null", "/dev/full", "/dev/zero",
+          "/dev/random", "/dev/urandom",
+          "/dev/ptmx", "/dev/kvm", "/dev/kqemu",
+          "/dev/rtc", "/dev/hpet", "/dev/vfio/vfio"
+      ]
+    create: true
+    backup: true
+  become: true
+  notify: restart libvirtd
+
+- name: Wait for libvirtd to be ready
+  ansible.builtin.wait_for:
+    path: /var/run/libvirt/libvirt-sock
+    timeout: 30
   become: true
 
-# ---------------------------------------------------------------------------
-# Create routed bridge network
-# ---------------------------------------------------------------------------
-- name: Deploy routed bridge network XML
-  ansible.builtin.template:
-    src: network-routed.xml.j2
-    dest: "/tmp/{{ common_kvm_routed_bridge_name }}.xml"
-    mode: "0644"
+- name: Test virsh connectivity
+  ansible.builtin.command: virsh version
+  register: virsh_version_output
   become: true
-
-- name: Define routed bridge network
-  ansible.builtin.command:
-    cmd: "virsh net-define /tmp/{{ common_kvm_routed_bridge_name }}.xml"
-  register: common_kvm_routed_define
-  changed_when: "'Network .* defined from' in common_kvm_routed_define.stdout"
-  failed_when:
-    - common_kvm_routed_define.rc != 0
-    - "'already exists' not in common_kvm_routed_define.stderr"
-  become: true
-
-- name: Autostart routed bridge network
-  ansible.builtin.command:
-    cmd: "virsh net-autostart {{ common_kvm_routed_bridge_name }}"
-  register: common_kvm_routed_autostart
-  changed_when: "'Network .* marked as autostarted' in common_kvm_routed_autostart.stdout"
-  failed_when:
-    - common_kvm_routed_autostart.rc != 0
-    - "'already marked' not in common_kvm_routed_autostart.stderr"
-  become: true
-
-- name: Start routed bridge network
-  ansible.builtin.command:
-    cmd: "virsh net-start {{ common_kvm_routed_bridge_name }}"
-  register: common_kvm_routed_start
-  changed_when: "'Network .* started' in common_kvm_routed_start.stdout"
-  failed_when:
-    - common_kvm_routed_start.rc != 0
-    - "'already active' not in common_kvm_routed_start.stderr"
-  become: true
-
-# ---------------------------------------------------------------------------
-# Configure VM storage pool
-# ---------------------------------------------------------------------------
-- name: Ensure VM storage directory exists
-  ansible.builtin.file:
-    path: "{{ common_kvm_storage_pool_path }}"
-    state: directory
-    owner: root
-    group: root
-    mode: "{{ common_kvm_storage_pool_mode }}"
-  become: true
-
-- name: Define storage pool
-  ansible.builtin.command:
-    cmd: >
-      virsh pool-define-as
-      {{ common_kvm_storage_pool_name }}
-      {{ common_kvm_storage_pool_type }}
-      --target {{ common_kvm_storage_pool_path }}
-  register: common_kvm_pool_define
-  changed_when: "'Pool .* defined' in common_kvm_pool_define.stdout"
-  failed_when:
-    - common_kvm_pool_define.rc != 0
-    - "'already exists' not in common_kvm_pool_define.stderr"
-  become: true
-
-- name: Autostart storage pool
-  ansible.builtin.command:
-    cmd: "virsh pool-autostart {{ common_kvm_storage_pool_name }}"
-  register: common_kvm_pool_autostart
-  changed_when: "'Pool .* marked as autostarted' in common_kvm_pool_autostart.stdout"
-  failed_when:
-    - common_kvm_pool_autostart.rc != 0
-    - "'already marked' not in common_kvm_pool_autostart.stderr"
-  become: true
-
-- name: Build and start storage pool
-  ansible.builtin.command:
-    cmd: "virsh pool-start {{ common_kvm_storage_pool_name }}"
-  register: common_kvm_pool_start
-  changed_when: "'Pool .* started' in common_kvm_pool_start.stdout"
-  failed_when:
-    - common_kvm_pool_start.rc != 0
-    - "'already active' not in common_kvm_pool_start.stderr"
-  become: true
-
-# ---------------------------------------------------------------------------
-# Verify virsh CLI works
-# ---------------------------------------------------------------------------
-- name: Verify virsh list --all returns without errors
-  ansible.builtin.command:
-    cmd: virsh list --all
-  register: common_kvm_virsh_check
   changed_when: false
-  become: true
+  failed_when: virsh_version_output.rc != 0
 
-- name: Verify KVM capabilities are present
-  ansible.builtin.command:
-    cmd: virsh capabilities
-  register: common_kvm_capabilities_check
-  changed_when: false
-  become: true
-
-- name: Assert KVM is available in capabilities (x86_64)
-  ansible.builtin.assert:
-    that:
-      - "'kvm' in common_kvm_capabilities_check.stdout"
-    fail_msg: "KVM not found in virsh capabilities. Nested virtualization may not be supported."
-    success_msg: "KVM capability verified."
-  when:
-    - common_kvm_verify_install | bool
-    - "'x86_64' in common_kvm_arch_check.stdout"
-
-- name: Note QEMU software virtualization on ARM
+- name: Display virsh version
   ansible.builtin.debug:
-    msg: "ARM architecture: Using QEMU software virtualization. KVM capability check skipped."
-  when:
-    - common_kvm_verify_install | bool
-    - "'aarch64' in common_kvm_arch_check.stdout"
-
-- name: Log virsh status
-  ansible.builtin.debug:
-    msg: >
-      virsh is functional.
-      Active VMs: {{ common_kvm_virsh_check.stdout_lines | select('match', '^ *[0-9]+') | list | length }}
+    var: virsh_version_output.stdout_lines

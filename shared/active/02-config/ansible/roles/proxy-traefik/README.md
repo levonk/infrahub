@@ -1,57 +1,111 @@
 # proxy-traefik
 
-Deploy Traefik reverse proxy, Squid caching proxy, and Tor relay as Docker containers.
+Deploy Traefik reverse proxy with ACME/Let's Encrypt, experimental plugins (CrowdSec Bouncer, GeoBlock), and security middleware. This role follows the docker-linux boilerplate patterns and uses variable-driven configuration per AGENTS.md guidelines.
 
 ## Requirements
 
 - Ansible >= 2.15
-- Docker engine on target host
 - Target host: Debian 12 (bookworm) or Ubuntu 22.04/24.04
+- Docker Engine installed (dependency: docker-engine role)
+- Internet connectivity for ACME challenges and plugin downloads
 
 ## Role Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `proxy_traefik_version` | `latest` | Traefik image tag |
-| `proxy_traefik_http_host_port` | `{{ cloud_server_proxy_http_host_port \| default('80') }}` | Host HTTP port |
-| `proxy_traefik_http_container_port` | `{{ cloud_server_proxy_http_container_port \| default('80') }}` | Container HTTP port |
-| `proxy_traefik_https_host_port` | `{{ cloud_server_proxy_https_host_port \| default('443') }}` | Host HTTPS port |
-| `proxy_traefik_https_container_port` | `{{ cloud_server_proxy_https_container_port \| default('443') }}` | Container HTTPS port |
-| `proxy_traefik_api_port` | `{{ cloud_server_proxy_traefik_api_port \| default('8080') }}` | Traefik API/dashboard port |
-| `proxy_traefik_dashboard_enabled` | `true` | Enable Traefik dashboard |
-| `proxy_traefik_acme_enabled` | `false` | Enable ACME/Let's Encrypt |
-| `proxy_squid_enabled` | `true` | Deploy Squid caching proxy |
-| `proxy_squid_host_port` | `{{ cloud_server_proxy_squid_host_port \| default('3128') }}` | Host Squid port |
-| `proxy_squid_container_port` | `{{ cloud_server_proxy_squid_container_port \| default('3128') }}` | Container Squid port |
-| `proxy_squid_cache_size_mb` | `1024` | Squid cache size in MB |
-| `proxy_tor_enabled` | `true` | Deploy Tor relay |
-| `proxy_tor_socks_host_port` | `{{ cloud_server_tor_socks_host_port \| default('9050') }}` | Host Tor SOCKS port |
-| `proxy_tor_socks_container_port` | `{{ cloud_server_tor_socks_container_port \| default('9050') }}` | Container Tor SOCKS port |
-| `proxy_docker_network_name` | `{{ cloud_server_proxy_network_name \| default('proxy-network') }}` | Docker network name |
-| `proxy_data_dir` | `{{ cloud_server_proxy_data_dir \| default('/opt/proxy') }}` | Data directory on host |
+| `proxy_traefik_enabled` | `true` | Enable Traefik deployment |
+| `proxy_traefik_data_dir` | `/opt/traefik` | Traefik data directory |
+| `proxy_traefik_container_name` | `traefik` | Docker container name |
+| `proxy_traefik_image` | `traefik` | Docker image name |
+| `proxy_traefik_image_tag` | `v3.0` | Docker image tag |
+| `proxy_traefik_network_name` | `traefik-network` | Docker network name |
+| `proxy_traefik_network_subnet` | `172.31.0.0/16` | Network subnet |
+| `proxy_traefik_network_gateway` | `172.31.0.1` | Network gateway |
+| `proxy_traefik_http_port` | `80` | HTTP host port |
+| `proxy_traefik_https_port` | `443` | HTTPS host port |
+| `proxy_traefik_dashboard_port` | `8882` | Dashboard host port |
+| `proxy_traefik_dashboard_enabled` | `true` | Enable dashboard |
+| `proxy_traefik_acme_enabled` | `true` | Enable ACME/Let's Encrypt |
+| `proxy_traefik_acme_email` | `{{ cloud_server_acme_email }}` | ACME email for notifications |
+| `proxy_traefik_acme_dns_provider` | `cloudflare` | DNS challenge provider |
+| `proxy_traefik_plugins_enabled` | `true` | Enable experimental plugins |
+| `proxy_traefik_crowdsec_enabled` | `true` | Enable CrowdSec Bouncer middleware |
+| `proxy_traefik_geoblock_enabled` | `true` | Enable GeoBlock middleware |
+| `proxy_traefik_geoblock_allowed_countries` | `["US"]` | Allowed country codes |
+
+## Client Overrides
+
+Override defaults in `group_vars/cloud_server.yml` or `host_vars/oci-cloud-server.yml`:
+
+```yaml
+proxy_traefik_acme_email: "admin@yourdomain.com"
+proxy_traefik_acme_staging: true  # Use staging for testing
+proxy_traefik_geoblock_allowed_countries:
+  - "US"
+  - "CA"
+  - "GB"
+proxy_traefik_dashboard_enabled: false  # Disable dashboard in production
+```
 
 ## Dependencies
 
-None.
+- `docker-engine` - Installs Docker Engine and Compose plugin
 
 ## Example Playbook
 
 ```yaml
-- hosts: proxy_servers
+- hosts: cloud_servers
   become: true
   roles:
     - role: proxy-traefik
       vars:
-        proxy_traefik_acme_enabled: true
         proxy_traefik_acme_email: "admin@example.com"
-        proxy_squid_cache_size_mb: 2048
+        proxy_traefik_acme_staging: false
+        proxy_traefik_geoblock_allowed_countries:
+          - "US"
 ```
 
-## Security Notes
+## Plugin Configuration
 
-- All ports are variable-driven per AGENTS.md rules. No hardcoded IPs or ports.
-- Traefik dashboard is disabled by default in insecure mode. Use a reverse proxy or VPN for access.
-- Tor exit relay is disabled by default.
+### CrowdSec Bouncer (v1.4.4)
+The CrowdSec Bouncer middleware integrates with CrowdSec security engine for IP-based protection. Configure via:
+
+```yaml
+proxy_traefik_crowdsec_lapi_host: "crowdsec"
+proxy_traefik_crowdsec_lapi_port: 8080
+proxy_traefik_crowdsec_trusted_ips:
+  - "127.0.0.1"
+  - "172.31.0.1"
+```
+
+### GeoBlock (v0.3.3)
+The GeoBlock middleware restricts access based on country codes. Configure via:
+
+```yaml
+proxy_traefik_geoblock_allowed_countries:
+  - "US"
+  - "CA"
+proxy_traefik_geoblock_strict: true
+```
+
+## Security Middleware Chain
+
+The middleware chain order is critical for proper security:
+1. **GeoBlock** - Geographic filtering (first layer)
+2. **CrowdSec Bouncer** - IP reputation filtering (second layer)
+3. **Authelia** - Authentication (third layer, future integration)
+
+## ACME Configuration
+
+Traefik uses DNS challenge for Let's Encrypt certificate generation. Requires:
+- Valid DNS provider credentials (Cloudflare API token)
+- Proper DNS records pointing to the server
+- Ports 80 and 443 accessible from the internet
+
+For testing, use staging environment:
+```yaml
+proxy_traefik_acme_staging: true
+```
 
 ## License
 

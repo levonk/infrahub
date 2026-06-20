@@ -81,6 +81,12 @@
     - role: proxy-iron-proxy
       tags: ["infra", "proxy", "iron-proxy", "firewall"]
 
+    - role: proxy-headroom
+      tags: ["infra", "proxy", "headroom", "compression"]
+
+    - role: search-searxng
+      tags: ["infra", "search", "searxng", "privacy"]
+
     - role: proxy-authelia
       tags: ["infra", "proxy", "authelia", "sso"]
 
@@ -191,6 +197,38 @@
         msg: "WARNING: iron-proxy container (iron-proxy) is not running."
       when: iron_proxy_container_check.rc != 0 or iron_proxy_container_check.stdout != "running"
       tags: ["verify", "proxy", "iron-proxy", "containers"]
+
+    - name: "Verify headroom container is running"
+      ansible.builtin.command:
+        cmd: "docker inspect --format='{{ '{{' }} .State.Status {{ '}}' }}' headroom"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: headroom_container_check
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "proxy", "headroom", "containers"]
+
+    - name: "Warn if headroom container is not running"
+      ansible.builtin.debug:
+        msg: "WARNING: headroom container (headroom) is not running."
+      when: headroom_container_check.rc != 0 or headroom_container_check.stdout != "running"
+      tags: ["verify", "proxy", "headroom", "containers"]
+
+    - name: "Verify SearXNG container is running"
+      ansible.builtin.command:
+        cmd: "docker inspect --format='{{ '{{' }} .State.Status {{ '}}' }}' searxng"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: searxng_container_check
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "search", "searxng", "containers"]
+
+    - name: "Warn if SearXNG container is not running"
+      ansible.builtin.debug:
+        msg: "WARNING: SearXNG container (searxng) is not running."
+      when: searxng_container_check.rc != 0 or searxng_container_check.stdout != "running"
+      tags: ["verify", "search", "searxng", "containers"]
 
     - name: "Verify Authelia container is running"
       ansible.builtin.command:
