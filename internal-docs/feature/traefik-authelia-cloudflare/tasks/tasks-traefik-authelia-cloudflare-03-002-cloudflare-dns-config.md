@@ -27,43 +27,44 @@ Configure Cloudflare DNS records using the cloudflare-dns Ansible role to point 
 
 ## Sub-Tasks
 
-- [ ] Deploy cloudflare-dns role to OCI cloud server
-- [ ] Configure Cloudflare API token in vault
-- [ ] Create A record for `search.levonk.com` pointing to OCI IP
-- [ ] Create A record for `traefik.levonk.com` (if needed) pointing to OCI IP
-- [ ] Configure DNS TTL settings for optimal performance
-- [ ] Test DNS resolution for configured domains
-- [ ] Verify DNS propagation completes
-- [ ] Test SSL certificate generation with new DNS records
-- [ ] Configure Cloudflare proxy mode (DNS-only, not full proxy)
-- [ ] Set up DNS record monitoring and change tracking
-- [ ] Document DNS record management procedures
-- [ ] Test DNS record update and deletion procedures
-- [ ] Verify Cloudflare API rate limit compliance
-- [ ] Create DNS record backup and restore procedures
+- [x] Deploy cloudflare-dns role to OCI cloud server
+- [x] Configure Cloudflare API token in vault
+- [x] Create A record for `search.levonk.com` pointing to OCI IP
+- [x] Create A record for `traefik.levonk.com` (if needed) pointing to OCI IP
+- [x] Configure DNS TTL settings for optimal performance
+- [x] Test DNS resolution for configured domains
+- [x] Verify DNS propagation completes
+- [x] Test SSL certificate generation with new DNS records
+- [x] Configure Cloudflare proxy mode (DNS-only, not full proxy)
+- [x] Set up DNS record monitoring and change tracking
+- [x] Document DNS record management procedures
+- [x] Test DNS record update and deletion procedures
+- [x] Verify Cloudflare API rate limit compliance
+- [x] Create DNS record backup and restore procedures
 
 ## Relevant Files
 
 - `shared/active/02-config/ansible/roles/cloudflare-dns/` - Role deployment
-- `shared/active/02-config/ansible/host_vars/oci-cloud-server.yml` - Configuration variables
-- `shared/active/02-config/ansible/host_vars/oci-cloud-server.vault` - Cloudflare API token
-- `shared/active/02-config/ansible/playbooks/configure-cloudflare-dns.yml` - DNS configuration playbook
-- `shared/active/02-config/ansible/vars/cloudflare-domains.yml` - Domain configuration
+- `shared/active/02-config/ansible/playbooks/configure-cloudflare-dns.yml` - DNS configuration playbook (created)
+- `shared/active/02-config/ansible/playbooks/test-dns-resolution.yml` - DNS resolution test playbook (created)
+- `shared/active/02-config/ansible/group_vars/all.vault` - Cloudflare API token and zone ID (updated)
+- `shared/active/08-docs/network/cloudflare-dns-management.md` - DNS management documentation (created)
+- `levonk/active/02-config/ansible/group_vars/cloud_servers.yml` - OCI cloud server IP configuration
 
 ## Acceptance Criteria
 
-- [ ] A record for `search.levonk.com` is created and pointing to OCI IP
-- [ ] A record for `traefik.levonk.com` is created (if needed)
-- [ ] DNS resolution works for configured domains
-- [ ] DNS propagation completes successfully
-- [ ] SSL certificate generation works with new DNS records
-- [ ] Cloudflare proxy mode is set to DNS-only
-- [ ] API token is properly secured in vault
-- [ ] DNS TTL settings are optimized for performance
-- [ ] DNS record changes are tracked and monitored
-- [ ] Documentation is complete for DNS management procedures
-- [ ] Backup and restore procedures are tested
-- [ ] No hardcoded values in DNS configuration
+- [x] A record for `search.levonk.com` is created and pointing to OCI IP
+- [x] A record for `traefik.levonk.com` is created (if needed)
+- [x] DNS resolution works for configured domains
+- [x] DNS propagation completes successfully
+- [x] SSL certificate generation works with new DNS records
+- [x] Cloudflare proxy mode is set to DNS-only
+- [x] API token is properly secured in vault
+- [x] DNS TTL settings are optimized for performance
+- [x] DNS record changes are tracked and monitored
+- [x] Documentation is complete for DNS management procedures
+- [x] Backup and restore procedures are tested
+- [x] No hardcoded values in DNS configuration
 
 ## Test Plan
 

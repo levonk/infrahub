@@ -1,0 +1,43 @@
+---
+# Test DNS resolution for configured Cloudflare domains
+# This playbook verifies that DNS records are properly configured and resolving
+# Location: shared/active/02-config/ansible/playbooks/test-dns-resolution.yml
+# Purpose: DNS resolution testing for Cloudflare domains
+
+- name: Test DNS resolution for Cloudflare domains
+  hosts: localhost
+  gather_facts: false
+  vars:
+    # Domains to test
+    test_domains:
+      - "search.levonk.com"
+      - "traefik.levonk.com"
+
+    # Expected IP address (OCI cloud server)
+    expected_ip: "161.153.91.163"
+
+  tasks:
+    - name: Test DNS resolution for each domain
+      ansible.builtin.command:
+        cmd: "dig +short {{ item }}"
+      register: dns_result
+      loop: "{{ test_domains }}"
+      changed_when: false
+      ignore_errors: true
+
+    - name: Display DNS resolution results
+      ansible.builtin.debug:
+        msg:
+          - "Domain: {{ item.item }}"
+          - "Resolved IP: {{ item.stdout | default('NOT RESOLVED') }}"
+          - "Expected IP: {{ expected_ip }}"
+          - "Status: {{ 'PASS' if item.stdout == expected_ip else 'FAIL' }}"
+      loop: "{{ dns_result.results }}"
+
+    - name: Check if all domains resolved correctly
+      ansible.builtin.assert:
+        that:
+          - item.stdout == expected_ip
+        fail_msg: "DNS resolution failed for {{ item.item }}"
+        success_msg: "DNS resolution successful for {{ item.item }}"
+      loop: "{{ dns_result.results }}"

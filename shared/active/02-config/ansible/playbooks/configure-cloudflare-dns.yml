@@ -1,0 +1,46 @@
+---
+# Configure Cloudflare DNS records for Traefik proxy stack
+# This playbook creates A records for domains pointing to the OCI cloud server
+# Location: shared/active/02-config/ansible/playbooks/configure-cloudflare-dns.yml
+# Purpose: DNS configuration for external service access via Traefik
+
+- name: Configure Cloudflare DNS records for proxy stack
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - "../../levonk/active/02-config/ansible/group_vars/cloud_servers.yml"
+    - "group_vars/all.vault"
+  vars:
+    # Cloudflare API Configuration (from vault)
+    cloudflare_api_token: "{{ vault_cloudflare_api_token }}"
+    cloudflare_zone_id: "{{ vault_cloudflare_zone_id }}"
+
+    # DNS Record Configuration
+    cloudflare_dns_state: "present"
+    cloudflare_dns_ttl: 300
+    cloudflare_dns_proxied: false  # DNS-only mode, not full proxy
+    cloudflare_dns_verify: true
+    cloudflare_dns_verify_propagation: false
+    cloudflare_dns_validate_ip: true
+    cloudflare_dns_allow_private_ip: false
+
+    # Multiple DNS Records for proxy stack domains
+    cloudflare_dns_records:
+      # SearXNG search service
+      - name: "search.levonk.com"
+        type: "A"
+        content: "{{ cloud_server_ansible_host_ip }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      # Traefik dashboard (optional, for management access)
+      - name: "traefik.levonk.com"
+        type: "A"
+        content: "{{ cloud_server_ansible_host_ip }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+  roles:
+    - cloudflare-dns
