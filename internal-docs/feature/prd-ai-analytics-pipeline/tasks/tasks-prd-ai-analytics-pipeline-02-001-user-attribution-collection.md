@@ -7,7 +7,7 @@ prd_file: "internal-docs/feature/prd-ai-analytics-pipeline/prd-ai-analytics-pipe
 phase: 2
 parallel_id: 1
 branch: "feature/current/prd-ai-analytics-pipeline/story-02-001-user-attribution-collection"
-status: "todo"
+status: "in-progress"
 assignee: ""
 reviewer: ""
 dependencies: ["01-002"]
@@ -27,37 +27,40 @@ Implement user-level attribution collection in the collectors to track which use
 
 ## Sub-Tasks
 
-- [ ] Design user attribution extraction logic
-- [ ] Implement user identification from requests
-- [ ] Add machine fingerprinting
-- [ ] Create client key extraction and validation
-- [ ] Implement attribution metadata enrichment
-- [ ] Add user/machine/client key lookup or creation
-- [ ] Create attribution context for requests
-- [ ] Implement privacy controls for user data
-- [ ] Add attribution to message queue format
-- [ ] Create attribution testing utilities
+- [x] Design user attribution extraction logic
+- [x] Implement user identification from requests
+- [x] Add machine fingerprinting
+- [x] Create client key extraction and validation
+- [x] Implement attribution metadata enrichment
+- [x] Add user/machine/client key lookup or creation
+- [x] Create attribution context for requests
+- [x] Implement privacy controls for user data
+- [x] Add attribution to message queue format
+- [x] Create attribution testing utilities
 
 ## Relevant Files
 
 - `collectors/attribution.py` - User attribution logic
 - `collectors/fingerprint.py` - Machine fingerprinting
 - `collectors/client_keys.py` - Client key handling
-- `models/user.py` - User data models
-- `tests/test_attribution.py` - Attribution tests
+- `collectors/database.py` - Database operations for attribution
+- `collectors/enrichment.py` - Attribution metadata enrichment
+- `collectors/proxy.py` - Updated with attribution integration
+- `collectors/tests/test_attribution.py` - Comprehensive pytest tests
+- `collectors/tests/test_attribution_simple.py` - Simple test runner without pytest
 
 ## Acceptance Criteria
 
-- [ ] User identification works reliably from requests
-- [ ] Machine fingerprinting is consistent
-- [ ] Client keys are extracted and validated
-- [ ] Attribution metadata is enriched in requests
-- [ ] User/machine/client key records created as needed
-- [ ] Privacy controls allow user data anonymization
-- [ ] Attribution data flows through message queue
-- [ ] Performance impact is minimal (<1ms additional latency)
-- [ ] Attribution works across different client types
-- [ ] Testing utilities validate attribution accuracy
+- [x] User identification works reliably from requests
+- [x] Machine fingerprinting is consistent
+- [x] Client keys are extracted and validated
+- [x] Attribution metadata is enriched in requests
+- [x] User/machine/client key records created as needed
+- [x] Privacy controls allow user data anonymization
+- [x] Attribution data flows through message queue
+- [x] Performance impact is minimal (<1ms additional latency)
+- [x] Attribution works across different client types
+- [x] Testing utilities validate attribution accuracy
 
 ## Test Plan
 

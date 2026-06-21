@@ -25,6 +25,7 @@ from .base import (
     sanitize_headers,
     extract_client_ip
 )
+from .enrichment import AttributionEnricher, EnrichmentConfig, PrivacyLevel
 
 
 @dataclass
@@ -37,6 +38,9 @@ class ProxyConfig:
     timeout: float = 5.0
     max_request_size: int = 10 * 1024 * 1024  # 10MB
     enable_metrics: bool = True
+    enable_attribution: bool = True
+    privacy_level: str = "full"  # full, anonymized, minimal, none
+    db_path: str = "analytics.db"
 
 
 class HTTPProxyCollector(BaseCollector):
@@ -56,6 +60,20 @@ class HTTPProxyCollector(BaseCollector):
         self._request_count = 0
         self._error_count = 0
         self._total_latency_ms = 0.0
+        
+        # Initialize attribution enricher if enabled
+        self.attribution_enricher: Optional[AttributionEnricher] = None
+        if config.enable_attribution:
+            enrichment_config = EnrichmentConfig(
+                enable_user_attribution=True,
+                enable_machine_fingerprinting=True,
+                enable_client_key_extraction=True,
+                enable_database_lookup=True,
+                privacy_level=PrivacyLevel(config.privacy_level),
+                db_path=config.db_path,
+                enrichment_timeout_ms=1.0
+            )
+            self.attribution_enricher = AttributionEnricher(enrichment_config)
         
     async def start(self):
         """Start the HTTP proxy server."""
@@ -124,6 +142,11 @@ class HTTPProxyCollector(BaseCollector):
                 response_metadata=response_metadata,
                 position=self.position
             )
+            
+            # Enrich with attribution if enabled
+            if self.attribution_enricher:
+                event = self.attribution_enricher.enrich_analytics_event(event)
+            
             asyncio.create_task(self._queue_analytics_async(event))
             
             # Send response to client
