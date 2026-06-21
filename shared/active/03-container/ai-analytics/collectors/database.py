@@ -40,8 +40,8 @@ class MachineRecord:
 class ClientKeyRecord:
     """Database record for a client key."""
     id: int
-    key_id: Optional[str] = None
     key_hash: str
+    key_id: Optional[str] = None
     user_id: Optional[int] = None
     machine_id: Optional[int] = None
     key_type: str = None

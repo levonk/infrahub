@@ -27,40 +27,40 @@ Implement subagent attribution to track which AI agents (Claude Code, Codex, Pi,
 
 ## Sub-Tasks
 
-- [ ] Design subagent identification logic
-- [ ] Implement subagent type detection from requests
-- [ ] Create subagent instance tracking
-- [ ] Add tool call extraction and parsing
-- [ ] Implement tool usage pattern analysis
-- [ ] Create tool result size measurement
-- [ ] Add tool cost calculation
-- [ ] Implement tool invocation frequency tracking
-- [ ] Create subagent performance metrics
-- [ ] Add tool/subagent analytics to database
-- [ ] Create testing utilities for tool/subagent detection
+- [x] Design subagent identification logic
+- [x] Implement subagent type detection from requests
+- [x] Create subagent instance tracking
+- [x] Add tool call extraction and parsing
+- [x] Implement tool usage pattern analysis
+- [x] Create tool result size measurement
+- [x] Add tool cost calculation
+- [x] Implement tool invocation frequency tracking
+- [x] Create subagent performance metrics
+- [x] Add tool/subagent analytics to database
+- [x] Create testing utilities for tool/subagent detection
 
 ## Relevant Files
 
-- `analytics/subagent.py` - Subagent identification and tracking
-- `analytics/tools.py` - Tool usage analytics
-- `collectors/subagent_parser.py` - Subagent detection from requests
+- `collectors/subagent.py` - Subagent identification and tracking
+- `collectors/tools.py` - Tool usage analytics
 - `models/subagent.py` - Subagent data models
 - `models/tool.py` - Tool analytics models
-- `tests/test_subagent.py` - Subagent analytics tests
-- `tests/test_tools.py` - Tool analytics tests
+- `collectors/tests/test_subagent.py` - Subagent analytics tests
+- `collectors/tests/test_tools.py` - Tool analytics tests
+- `collectors/database.py` - Fixed dataclass field ordering
 
 ## Acceptance Criteria
 
-- [ ] Subagent types are detected accurately (Claude Code, Codex, Pi, Devin)
-- [ ] Subagent instances are tracked for session analysis
-- [ ] Tool calls are extracted and parsed correctly
-- [ ] Tool usage patterns are analyzed and stored
-- [ ] Tool result sizes are measured accurately
-- [ ] Tool costs are calculated based on usage
-- [ ] Tool invocation frequency is tracked over time
-- [ ] Subagent performance metrics are calculated
-- [ ] Analytics data is stored efficiently
-- [ ] Testing utilities validate detection accuracy
+- [x] Subagent types are detected accurately (Claude Code, Codex, Pi, Devin)
+- [x] Subagent instances are tracked for session analysis
+- [x] Tool calls are extracted and parsed correctly
+- [x] Tool usage patterns are analyzed and stored
+- [x] Tool result sizes are measured accurately
+- [x] Tool costs are calculated based on usage
+- [x] Tool invocation frequency is tracked over time
+- [x] Subagent performance metrics are calculated
+- [x] Analytics data is stored efficiently
+- [x] Testing utilities validate detection accuracy
 
 ## Test Plan
 
