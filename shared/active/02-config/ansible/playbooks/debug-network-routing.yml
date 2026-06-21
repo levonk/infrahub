@@ -1,0 +1,100 @@
+---
+# Playbook to debug network routing between host and VM
+
+- name: Debug Network Routing
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Check VM status
+      ansible.builtin.command:
+        cmd: "virsh list --all"
+      register: vm_list
+      changed_when: false
+
+    - name: Display VM list
+      ansible.builtin.debug:
+        var: vm_list.stdout_lines
+
+    - name: Get VM network interfaces
+      ansible.builtin.command:
+        cmd: "virsh domiflist isolation-vm"
+      register: vm_interfaces
+      changed_when: false
+
+    - name: Display VM interfaces
+      ansible.builtin.debug:
+        var: vm_interfaces.stdout_lines
+
+    - name: Check bridge network status
+      ansible.builtin.command:
+        cmd: "virsh net-info kvm-nat-br0"
+      register: nat_bridge_info
+      changed_when: false
+
+    - name: Display NAT bridge info
+      ansible.builtin.debug:
+        var: nat_bridge_info.stdout_lines
+
+    - name: Check routed bridge network status
+      ansible.builtin.command:
+        cmd: "virsh net-info kvm-route-br0"
+      register: route_bridge_info
+      changed_when: false
+
+    - name: Display routed bridge info
+      ansible.builtin.debug:
+        var: route_bridge_info.stdout_lines
+
+    - name: Check host network interfaces
+      ansible.builtin.command:
+        cmd: "ip addr show"
+      register: host_interfaces
+      changed_when: false
+
+    - name: Display host interfaces
+      ansible.builtin.debug:
+        var: host_interfaces.stdout_lines
+
+    - name: Check host routing table
+      ansible.builtin.command:
+        cmd: "ip route show"
+      register: host_routes
+      changed_when: false
+
+    - name: Display host routing table
+      ansible.builtin.debug:
+        var: host_routes.stdout_lines
+
+    - name: Check firewall rules
+      ansible.builtin.command:
+        cmd: "iptables -L -v -n"
+      register: firewall_rules
+      changed_when: false
+
+    - name: Display firewall rules
+      ansible.builtin.debug:
+        var: firewall_rules.stdout_lines
+
+    - name: Check if VM IP is reachable
+      ansible.builtin.command:
+        cmd: "ping -c 3 192.168.100.147"
+      register: ping_result
+      changed_when: false
+      failed_when: false
+
+    - name: Display ping result
+      ansible.builtin.debug:
+        var: ping_result
+
+    - name: Check SSH connection to VM
+      ansible.builtin.command:
+        cmd: "ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no root@192.168.100.147 'echo SSH successful'"
+      register: ssh_result
+      changed_when: false
+      failed_when: false
+
+    - name: Display SSH result
+      ansible.builtin.debug:
+        var: ssh_result
