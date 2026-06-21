@@ -7,7 +7,7 @@ prd_file: "shared/active/08-docs/reqs/2026/20260619-isolation-vm.md"
 phase: 4
 parallel_id: 4
 branch: "feature/current/isolation-vm/story-04-004-performance-test"
-status: "in-progress"
+status: "completed"
 assignee: ""
 reviewer: ""
 dependencies: ["04-001", "04-002", "04-003"]

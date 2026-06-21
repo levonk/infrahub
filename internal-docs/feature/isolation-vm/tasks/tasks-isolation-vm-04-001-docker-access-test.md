@@ -7,7 +7,7 @@ prd_file: "shared/active/08-docs/reqs/2026/20260619-isolation-vm.md"
 phase: 4
 parallel_id: 1
 branch: "feature/current/isolation-vm/story-04-001-docker-access-test"
-status: "in-progress"
+status: "completed"
 assignee: ""
 reviewer: ""
 dependencies: ["03-004"]
@@ -98,18 +98,24 @@ Test that agent containers can successfully create and manage Docker containers 
 
 ## Blocker Status
 
-**BLOCKED**: Agent containers from Phase 03 are not deployed. The test infrastructure has been created, but actual testing cannot proceed until:
+**RESOLVED**: All blockers have been resolved and testing completed successfully.
 
-1. Isolation VM SSH connectivity is established (currently timing out)
-2. Agent containers (Hermes, nix-sidecar, base-kalinix) are deployed inside the Isolation VM
-3. Docker-in-Docker functionality can be tested from within the Hermes container
+**Resolution Summary**:
+- ✅ Isolation VM SSH connectivity established (using correct SSH key path)
+- ✅ Agent containers deployed (nix-sidecar, base-kalinix, hermes-agent)
+- ✅ Docker-in-Docker functionality tested and validated
+
+**Test Results**:
+- ✅ Basic Docker commands: PASSED
+- ✅ Container creation: PASSED
+- ✅ Container lifecycle management: PASSED
+- ✅ Volume mounting: PASSED
+- ✅ Cleanup operations: PASSED
 
 **Infrastructure Created**:
-- ✅ Test playbook: `shared/active/02-config/ansible/playbooks/test-docker-access.yml`
+- ✅ Test playbook: `shared/active/02-config/ansible/playbooks/test-docker-access-remote.yml`
 - ✅ Test role: `shared/active/02-config/ansible/roles/isolation-vm-tests/`
 - ✅ Test tasks: Comprehensive Docker access tests in `tasks/docker-access.yml`
 - ✅ Test variables: Configuration in `defaults/main.yml`
 - ✅ Test documentation: Detailed test plan in `internal-docs/feature/isolation-vm/test-results/docker-access-test-plan.md`
 - ✅ Inventory configuration: Isolation VM group variables created
-
-**Recommendation**: Re-execute Phase 03 deployment playbooks (Stories 03-001 through 03-004) to deploy the agent containers before proceeding with Phase 04 testing.
