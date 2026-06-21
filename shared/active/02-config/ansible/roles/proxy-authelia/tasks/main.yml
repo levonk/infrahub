@@ -72,6 +72,17 @@
   become: true
   notify: restart proxy-authelia
 
+- name: Validate Authelia secrets are set
+  ansible.builtin.assert:
+    that:
+      - proxy_authelia_jwt_secret | length >= 20
+      - proxy_authelia_session_secret | length >= 20
+      - proxy_authelia_storage_encryption_key | length >= 20
+      - proxy_authelia_admin_password is defined
+      - proxy_authelia_admin_password | length > 0
+    fail_msg: "Authelia secrets must be at least 20 characters long. Set proxy_authelia_jwt_secret, proxy_authelia_session_secret, proxy_authelia_storage_encryption_key, and proxy_authelia_admin_password in host_vars."
+    success_msg: "All Authelia secrets are properly configured."
+
 - name: Create secret files for Authelia
   ansible.builtin.copy:
     content: "{{ item.value }}"
@@ -81,6 +92,7 @@
     mode: "0644"
   become: true
   loop:
+    - { file: "jwt_secret", value: "{{ proxy_authelia_jwt_secret }}" }
     - { file: "session_secret", value: "{{ proxy_authelia_session_secret }}" }
     - { file: "storage_encryption_key", value: "{{ proxy_authelia_storage_encryption_key }}" }
   notify: restart proxy-authelia

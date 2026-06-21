@@ -19,9 +19,24 @@ proxy_authelia_redis_container_port: "{{ cloud_server_authelia_redis_container_p
 # ---------------------------------------------------------------------------
 # Authelia Configuration
 # ---------------------------------------------------------------------------
-proxy_authelia_jwt_secret: "change-me-in-vault"
-proxy_authelia_session_secret: "change-me-in-vault"
-proxy_authelia_storage_encryption_key: "change-me-in-vault"
+# Note: These should be overridden in host_vars or vault
+# Default secrets for testing (MUST be overridden in production)
+proxy_authelia_jwt_secret: "default_jwt_secret_change_in_production_at_least_20_chars"
+proxy_authelia_session_secret: "default_session_secret_change_in_production_at_least_20_chars"
+proxy_authelia_storage_encryption_key: "default_encryption_key_change_in_production_at_least_20_chars"
+
+# Session / Storage
+proxy_authelia_session_name: "authelia_session"
+proxy_authelia_session_expiration: "1h"
+proxy_authelia_session_inactivity: "5m"
+proxy_authelia_session_redis_enabled: true
+
+# Storage backend (PostgreSQL for production)
+proxy_authelia_storage_backend: "postgres"
+
+# Notifications (using filesystem to avoid SMTP requirement for testing)
+proxy_authelia_notifier_backend: "filesystem"
+proxy_authelia_notifier_fs_path: "/config/notification.txt"
 
 proxy_authelia_log_level: "info"
 proxy_authelia_log_format: "json"
@@ -30,8 +45,10 @@ proxy_authelia_log_max_file: "5"
 proxy_authelia_theme: "light"
 
 # Default admin user (password MUST be overridden via vault)
+# Note: Password must be a hash generated with: docker run --rm authelia/authelia:latest authelia crypto hash generate argon2 --password 'yourpassword'
 proxy_authelia_admin_user: "admin"
-proxy_authelia_admin_password: "change-me-in-vault"
+proxy_authelia_admin_password: "$argon2id$v=19$m=65536,t=3,p=4$s7tNXjVewNMPStiSd7IXcA$Y5YsedFEDkvnidKb70WNTM7y9B+e30y05g4wJRFgkEQ"
+proxy_authelia_admin_display_name: "Administrator"
 proxy_authelia_admin_email: "admin@example.com"
 
 # Access Control — default one_factor, allow localhost for testing
@@ -41,15 +58,6 @@ proxy_authelia_rules:
     policy: "one_factor"
   - domain: "localhost"
     policy: "bypass"
-
-# Session / Storage
-proxy_authelia_session_name: "authelia_session"
-proxy_authelia_session_expiration: "1h"
-proxy_authelia_session_inactivity: "5m"
-proxy_authelia_session_redis_enabled: true
-
-# Storage backend (SQLite for simpler deployment)
-proxy_authelia_storage_backend: "sqlite"
 
 # ---------------------------------------------------------------------------
 # PostgreSQL Database (for Authelia storage)
@@ -62,10 +70,6 @@ proxy_authelia_postgres_port: "5432"
 proxy_authelia_postgres_user: "authelia"
 proxy_authelia_postgres_password: "change-me-in-vault"
 proxy_authelia_postgres_database: "authelia"
-
-# Notifications
-proxy_authelia_notifier_backend: "filesystem"
-proxy_authelia_notifier_fs_path: "/config/notification.txt"
 
 # ---------------------------------------------------------------------------
 # Redis Sidecar (for sessions)

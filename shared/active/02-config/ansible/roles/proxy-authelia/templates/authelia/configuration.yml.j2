@@ -31,6 +31,10 @@ totp:
 duo_api:
   disable: true
 
+identity_validation:
+  reset_password:
+    jwt_secret: {{ proxy_authelia_jwt_secret | default('default_jwt_secret_change_in_production_at_least_20_chars') }}
+
 authentication_backend:
   password_reset:
     disable: false
@@ -58,6 +62,7 @@ session:
   expiration: {{ proxy_authelia_session_expiration }}
   inactivity: {{ proxy_authelia_session_inactivity }}
   same_site: lax
+  secret: {{ proxy_authelia_session_secret | default('default_session_secret_change_in_production_at_least_20_chars') }}
   cookies:
     - name: authelia_session
       domain: {{ ansible_host | default('localhost') }}.local
@@ -76,7 +81,7 @@ regulation:
   ban_time: 10m
 
 storage:
-  encryption_key: a_very_long_encryption_key_at_least_20_chars_for_postgres
+  encryption_key: {{ proxy_authelia_storage_encryption_key | default('default_encryption_key_change_in_production_at_least_20_chars') }}
 {% if proxy_authelia_storage_backend == 'postgres' %}
   postgres:
     address: "tcp://{{ proxy_authelia_postgres_host }}:{{ proxy_authelia_postgres_port }}"
@@ -90,3 +95,17 @@ storage:
 
 notifier:
   disable_startup_check: true
+{% if proxy_authelia_notifier_backend == 'smtp' %}
+  smtp:
+    address: {{ proxy_authelia_smtp_address | default('smtp://localhost:25') }}
+    sender: {{ proxy_authelia_smtp_sender | default('authelia@example.com') }}
+{% if proxy_authelia_smtp_username is defined %}
+    username: {{ proxy_authelia_smtp_username }}
+{% endif %}
+{% if proxy_authelia_smtp_password is defined %}
+    password: {{ proxy_authelia_smtp_password }}
+{% endif %}
+{% elif proxy_authelia_notifier_backend == 'filesystem' %}
+  filesystem:
+    filename: {{ proxy_authelia_notifier_fs_path }}
+{% endif %}

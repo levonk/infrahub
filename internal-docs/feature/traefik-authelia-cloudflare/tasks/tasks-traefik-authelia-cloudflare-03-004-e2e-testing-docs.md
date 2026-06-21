@@ -27,7 +27,7 @@ Perform comprehensive end-to-end testing of the entire Traefik proxy stack and c
 
 ## Sub-Tasks
 
-- [ ] Test complete authentication flow from external access
+- [x] Test complete authentication flow from external access
 - [ ] Test SearXNG access via `search.levonk.com` with authentication
 - [ ] Test US-only geographic access control
 - [ ] Test CrowdSec IP filtering and ban enforcement

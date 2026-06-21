@@ -41,16 +41,17 @@ Design and implement the SQLite database schema with user-level attribution (use
 - [x] Implement database migration system
 - [x] Create database initialization scripts
 - [x] Add database indexes for performance
-- [~] Implement data retention and pruning logic
+- [x] Implement data retention and pruning logic
 
 ## Relevant Files
 
 **Project: /Users/micro/p/gh/levonk/infrahub**
-- `shared/active/03-container/services/ai-analytics/schema.sql` - Complete database schema definition with all tables, indexes, triggers, and views
-- `shared/active/03-container/services/ai-analytics/migrations/001_initial_schema.sql` - Initial schema migration with idempotent execution
-- `shared/active/03-container/services/ai-analytics/migrations/migrate.py` - Migration system with version tracking and rollback support
-- `shared/active/03-container/services/ai-analytics/init_db.py` - Database initialization script with schema verification
-- `shared/active/03-container/services/ai-analytics/data_retention.py` - Data retention and pruning logic with configurable policies
+- `shared/active/03-container/ai-analytics/schema.sql` - Main database schema definition
+- `shared/active/03-container/ai-analytics/migrations/0000_schema_migrations_table.sql` - Schema migrations table creation
+- `shared/active/03-container/ai-analytics/migrations/0001_initial_schema.sql` - Initial schema migration
+- `shared/active/03-container/ai-analytics/migrate.py` - Database migration system
+- `shared/active/03-container/ai-analytics/init_db.py` - Database initialization script
+- `shared/active/03-container/ai-analytics/retention.py` - Data retention and pruning system
 
 ## Acceptance Criteria
 

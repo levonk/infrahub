@@ -7,7 +7,7 @@ prd_file: "internal-docs/feature/prd-ai-analytics-pipeline/prd-ai-analytics-pipe
 phase: 1
 parallel_id: 1
 branch: "feature/current/prd-ai-analytics-pipeline/story-01-001-project-setup-licensing"
-status: "todo"
+status: "done"
 assignee: ""
 reviewer: ""
 dependencies: []
