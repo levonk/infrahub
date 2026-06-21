@@ -27,40 +27,38 @@ Implement downstream tracking to capture which AI providers and models are being
 
 ## Sub-Tasks
 
-- [ ] Design provider identification logic
-- [ ] Implement provider detection from responses
-- [ ] Create model identification and parsing
-- [ ] Add model version tracking
-- [ ] Implement historical model change tracking
-- [ ] Create provider performance metrics collection
-- [ ] Add model-specific analytics
-- [ ] Implement provider routing metadata capture
-- [ ] Create provider/model cost tracking
-- [ ] Add downstream analytics to database
-- [ ] Create testing utilities for provider/model detection
+- [x] Design provider identification logic
+- [x] Implement provider detection from responses
+- [x] Create model identification and parsing
+- [x] Add model version tracking
+- [x] Implement historical model change tracking
+- [x] Create provider performance metrics collection
+- [x] Add model-specific analytics
+- [x] Implement provider routing metadata capture
+- [x] Create provider/model cost tracking
+- [x] Add downstream analytics to database
+- [x] Create testing utilities for provider/model detection
 
 ## Relevant Files
 
-- `analytics/providers.py` - Provider identification and tracking
-- `analytics/models.py` - Model identification and versioning
-- `collectors/provider_parser.py` - Provider detection from responses
+- `collectors/providers.py` - Provider identification and tracking
 - `models/provider.py` - Provider data models
 - `models/model.py` - Model analytics models
-- `tests/test_providers.py` - Provider analytics tests
-- `tests/test_models.py` - Model analytics tests
+- `collectors/tests/test_providers.py` - Provider analytics tests
+- `migrations/0001_initial_schema.sql` - Added provider and model tables
 
 ## Acceptance Criteria
 
-- [ ] Providers are detected accurately (Anthropic, OpenAI, Google, etc.)
-- [ ] Models are identified and parsed correctly
-- [ ] Model versions are tracked over time
-- [ ] Historical model changes are recorded
-- [ ] Provider performance metrics are collected
-- [ ] Model-specific analytics are captured
-- [ ] Provider routing metadata is extracted
-- [ ] Provider/model costs are tracked
-- [ ] Analytics data supports historical analysis
-- [ ] Testing utilities validate detection accuracy
+- [x] Providers are detected accurately (Anthropic, OpenAI, Google, etc.)
+- [x] Models are identified and parsed correctly
+- [x] Model versions are tracked over time
+- [x] Historical model changes are recorded
+- [x] Provider performance metrics are collected
+- [x] Model-specific analytics are captured
+- [x] Provider routing metadata is extracted
+- [x] Provider/model costs are tracked
+- [x] Analytics data supports historical analysis
+- [x] Testing utilities validate detection accuracy
 
 ## Test Plan
 

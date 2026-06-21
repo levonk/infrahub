@@ -119,6 +119,102 @@ CREATE TABLE subagent_events (
 );
 
 -- ============================================================================
+-- PROVIDER AND MODEL ANALYTICS TABLES
+-- ============================================================================
+
+-- Provider types: Different AI providers
+CREATE TABLE provider_types (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    type_name TEXT NOT NULL UNIQUE,
+    description TEXT,
+    api_endpoint TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Provider events: Tracking provider usage within requests
+CREATE TABLE provider_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_id TEXT NOT NULL UNIQUE,
+    request_event_id TEXT NOT NULL,
+    provider_type TEXT NOT NULL,
+    provider_name TEXT NOT NULL,
+    model_id TEXT NOT NULL,
+    model_name TEXT NOT NULL,
+    model_version TEXT,
+    start_time TEXT NOT NULL,
+    end_time TEXT,
+    duration_ms INTEGER,
+    input_tokens INTEGER,
+    output_tokens INTEGER,
+    total_tokens INTEGER,
+    cost_usd REAL,
+    status TEXT NOT NULL,
+    error_message TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (request_event_id) REFERENCES request_events(event_id) ON DELETE CASCADE
+);
+
+-- Models: AI models and their metadata
+CREATE TABLE models (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    model_id TEXT NOT NULL UNIQUE,
+    model_name TEXT NOT NULL,
+    provider_type_id INTEGER,
+    model_category TEXT,
+    version TEXT,
+    context_window INTEGER,
+    max_tokens INTEGER,
+    pricing_input REAL,
+    pricing_output REAL,
+    is_deprecated INTEGER NOT NULL DEFAULT 0,
+    deprecation_date TEXT,
+    replacement_model_id TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (provider_type_id) REFERENCES provider_types(id) ON DELETE SET NULL
+);
+
+-- Model versions: Historical version tracking
+CREATE TABLE model_versions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    model_id TEXT NOT NULL,
+    version TEXT NOT NULL,
+    first_seen TEXT NOT NULL,
+    last_seen TEXT NOT NULL,
+    request_count INTEGER NOT NULL DEFAULT 0,
+    total_tokens INTEGER DEFAULT 0,
+    total_cost REAL DEFAULT 0.0,
+    is_deprecated INTEGER NOT NULL DEFAULT 0,
+    deprecation_date TEXT,
+    replacement_model_id TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(model_id, version),
+    FOREIGN KEY (model_id) REFERENCES models(model_id) ON DELETE CASCADE
+);
+
+-- Model performance: Aggregated performance metrics
+CREATE TABLE model_performance (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    model_id TEXT NOT NULL,
+    version TEXT NOT NULL,
+    provider_type TEXT NOT NULL,
+    total_requests INTEGER NOT NULL DEFAULT 0,
+    successful_requests INTEGER DEFAULT 0,
+    failed_requests INTEGER DEFAULT 0,
+    avg_latency_ms REAL DEFAULT 0.0,
+    avg_input_tokens INTEGER DEFAULT 0,
+    avg_output_tokens INTEGER DEFAULT 0,
+    total_cost REAL DEFAULT 0.0,
+    cost_per_1k_tokens REAL DEFAULT 0.0,
+    period_start TEXT NOT NULL,
+    period_end TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(model_id, version, period_start, period_end)
+);
+
+-- ============================================================================
 -- TOOL ANALYTICS TABLES
 -- ============================================================================
 

@@ -18,8 +18,8 @@ This index provides a summary of all development stories for the AI Analytics Pi
 | 01-003 | Basic Collector Framework | feature/current/prd-ai-analytics-pipeline/story-01-003-collector-framework | None | [x] Done | Parallel-safe: true | collectors, framework |
 | 01-004 | Message Queue and Basic Processor | feature/current/prd-ai-analytics-pipeline/story-01-004-message-queue-processor | 01-003 | [x] Done | Parallel-safe: true | queue, processor |
 | 02-001 | User Attribution Collection | feature/current/prd-ai-analytics-pipeline/story-02-001-user-attribution-collection | 01-002 | [x] Done | Parallel-safe: true | collectors, attribution |
-| 02-002 | Subagent and Tool Analytics | feature/current/prd-ai-analytics-pipeline/story-02-002-subagent-tool-analytics | 01-002 | [~] In-Progress | Parallel-safe: true | analytics, subagent |
-| 02-003 | Downstream Provider and Model Tracking | feature/current/prd-ai-analytics-pipeline/story-02-003-downstream-tracking | 01-002 | [ ] Todo | Parallel-safe: true | analytics, tracking |
+| 02-002 | Subagent and Tool Analytics | feature/current/prd-ai-analytics-pipeline/story-02-002-subagent-tool-analytics | 01-002 | [x] Done | Parallel-safe: true | analytics, subagent |
+| 02-003 | Downstream Provider and Model Tracking | feature/current/prd-ai-analytics-pipeline/story-02-003-downstream-tracking | 01-002 | [~] In-Progress | Parallel-safe: true | analytics, tracking |
 | 02-004 | Pipeline Collectors Integration | feature/current/prd-ai-analytics-pipeline/story-02-004-pipeline-collectors | 01-003, 02-001 | [ ] Todo | Parallel-safe: true | collectors, integration |
 | 03-001 | Multi-Dimensional Aggregation | feature/current/prd-ai-analytics-pipeline/story-03-001-multi-dimensional-aggregation | 02-001 | [ ] Todo | Parallel-safe: true | analytics, aggregation |
 | 03-002 | Time Granularity and Period Analysis | feature/current/prd-ai-analytics-pipeline/story-03-002-time-granularity-analysis | 02-001 | [ ] Todo | Parallel-safe: true | analytics, time |
