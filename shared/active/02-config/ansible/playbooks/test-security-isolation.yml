@@ -6,8 +6,6 @@
   hosts: isolation_vms
   become: true
   gather_facts: true
-  vars_files:
-    - levonk/active/02-config/ansible/group_vars/isolation_vms.yml
   
   roles:
     - role: isolation-vm-tests

@@ -254,6 +254,58 @@ For any security vulnerabilities found:
 
 ## Test Results Documentation
 
+### Test Execution Status
+**Date**: 2026-06-20  
+**Status**: Test infrastructure created, execution blocked  
+**Blocker**: Phase 03 agent containers (nix-sidecar, base-kalinix, hermes-agent) are not deployed despite being marked complete in task index
+
+### Test Infrastructure Created
+- ✅ Security test plan document created with 8 comprehensive test cases
+- ✅ Ansible security isolation test tasks created (`security-isolation.yml`)
+- ✅ Security test playbook created (`test-security-isolation.yml`)
+- ✅ Test role updated to include security isolation tests
+- ✅ Configuration variables added for security testing
+
+### Test Cases Ready for Execution
+All 8 test cases are defined and ready for execution once containers are deployed:
+1. TC-001: VM Docker Socket Isolation (Critical)
+2. TC-002: Agent Container Host Network Isolation (Critical)
+3. TC-003: VPN Credential Exposure Test (Critical)
+4. TC-004: VM Network Firewall Validation (High)
+5. TC-005: Privilege Escalation Boundaries (High)
+6. TC-006: Resource Isolation Validation (Medium)
+7. TC-007: Inter-Container Isolation (Medium)
+8. TC-008: Security Configuration Audit (High)
+
+### Execution Instructions
+Once Phase 03 containers are deployed, execute the security tests using:
+
+```bash
+cd ~/p/gh/levonk/infrahub
+just ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
+  shared/active/02-config/ansible/playbooks/test-security-isolation.yml \
+  --vault-password-file ~/.ansible/vault_password
+```
+
+### Expected Test Coverage
+The security tests will validate:
+- VM cannot access host Docker socket
+- Agent containers cannot access host networks
+- VPN credentials are not exposed to agent containers
+- VM network is properly firewalled from host services
+- Privilege escalation is prevented
+- Resource isolation is enforced
+- Inter-container isolation is maintained
+- Security configurations follow best practices
+
+### Current Blocker Resolution
+To proceed with actual security testing:
+1. Re-deploy Phase 03 agent containers (Stories 03-001 through 03-004)
+2. Verify all containers are running and healthy
+3. Execute the security test playbook
+4. Document actual test results and any vulnerabilities found
+
+### Test Results Documentation (Post-Execution)
 After test execution, document:
 - Test execution date and time
 - Tester name

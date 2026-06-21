@@ -198,7 +198,6 @@
         docker exec {{ isolation_vm_nix_sidecar_container_name }} sh -c "nc -z -w2 {{ isolation_vm_base_kalinix_container_name }} 22 || echo 'Port closed (expected)'"
       register: inter_container_test
       failed_when: false
-      delegate_to: "{{ isolation_vm_ip_address }}"
       become: true
 
     - name: Record inter-container isolation results
@@ -215,7 +214,6 @@
         grep -E "PermitRootLogin|PasswordAuthentication" /etc/ssh/sshd_config
       register: ssh_config_test
       failed_when: false
-      delegate_to: "{{ isolation_vm_ip_address }}"
       become: true
 
     - name: Check Docker daemon security settings
@@ -223,7 +221,6 @@
         docker info | grep -E "userns-remap|no-new-privileges" || echo "Security features not configured"
       register: docker_security_test
       failed_when: false
-      delegate_to: "{{ isolation_vm_ip_address }}"
       become: true
 
     - name: Record configuration audit results
