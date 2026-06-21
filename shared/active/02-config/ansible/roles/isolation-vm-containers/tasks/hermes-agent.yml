@@ -12,7 +12,18 @@
   loop:
     - "{{ isolation_vm_hermes_agent_volume_path }}/data"
     - "{{ isolation_vm_hermes_agent_volume_path }}/config"
+    - "{{ isolation_vm_hermes_agent_volume_path }}/ssh"
   become: true
+
+- name: Configure SSH authorized keys for hermes-agent
+  ansible.builtin.copy:
+    content: "{{ isolation_vm_hermes_agent_ssh_public_key }}"
+    dest: "{{ isolation_vm_hermes_agent_volume_path }}/ssh/authorized_keys"
+    mode: '0600'
+    owner: "{{ isolation_vm_user }}"
+    group: "{{ isolation_vm_user }}"
+  become: true
+  when: isolation_vm_hermes_agent_ssh_public_key is defined
 
 - name: Copy hermes-agent Dockerfile to VM
   ansible.builtin.copy:
@@ -55,9 +66,12 @@
     restart_policy: unless-stopped
     networks:
       - name: "{{ isolation_vm_nix_sidecar_network_name }}"
+    ports:
+      - "{{ isolation_vm_hermes_agent_ssh_host_port }}:{{ isolation_vm_hermes_agent_ssh_container_port }}/tcp"
     volumes:
       - "{{ isolation_vm_hermes_agent_volume_path }}/data:{{ isolation_vm_hermes_agent_data_dir }}"
       - "{{ isolation_vm_hermes_agent_volume_path }}/config:{{ isolation_vm_hermes_agent_config_dir }}"
+      - "{{ isolation_vm_hermes_agent_volume_path }}/ssh:/home/{{ isolation_vm_user }}/.ssh"
       - "{{ isolation_vm_nix_sidecar_volume_path }}/nix-store:/nix:ro"
       - "{{ isolation_vm_nix_sidecar_volume_path }}/nix-config:/etc/nix:ro"
       - "{{ isolation_vm_nix_sidecar_volume_path }}/nix-cache:/root/.cache/nix"
@@ -69,6 +83,9 @@
       USERNAME: "{{ isolation_vm_user }}"
       HERMES_DATA_DIR: "{{ isolation_vm_hermes_agent_data_dir }}"
       HERMES_CONFIG_DIR: "{{ isolation_vm_hermes_agent_config_dir }}"
+      SSH_PORT: "{{ isolation_vm_hermes_agent_ssh_container_port }}"
+      TAILSCALE_AUTH_KEY: "{{ isolation_vm_hermes_agent_tailscale_auth_key | default('') }}"
+      NETBIRD_SETUP_KEY: "{{ isolation_vm_hermes_agent_netbird_setup_key | default('') }}"
     healthcheck:
       test: ["CMD", "/bin/sh", "-c", "/hermes-agent/healthcheck-hermes-agent.sh"]
       interval: "{{ isolation_vm_hermes_agent_healthcheck_interval }}"

@@ -88,6 +88,17 @@ isolation_vm_hermes_agent_startup_timeout: 300
 isolation_vm_hermes_agent_mem_limit: 2g
 isolation_vm_hermes_agent_cpu_limit: 1.0
 
+# Hermes agent SSH configuration
+isolation_vm_hermes_agent_ssh_host_port: 2222
+isolation_vm_hermes_agent_ssh_container_port: 22
+
+# Hermes agent VPN configuration
+isolation_vm_hermes_agent_tailscale_auth_key: ""
+isolation_vm_hermes_agent_netbird_setup_key: ""
+
+# Hermes agent SSH configuration
+isolation_vm_hermes_agent_ssh_public_key: ""
+
 # Network configuration
 isolation_vm_network_subnet: "172.28.0.0/16"
 isolation_vm_network_gateway: "172.28.0.1"
