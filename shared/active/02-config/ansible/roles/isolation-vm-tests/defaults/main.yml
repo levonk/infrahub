@@ -1,27 +1,37 @@
 ---
 # Default variables for isolation-vm-tests role
+# All configuration values are variable-driven per AGENTS.md requirements
 
-# Test execution flags
+# Test execution control
+isolation_vm_test_vpn_routing: true
 isolation_vm_test_docker_access: true
-isolation_vm_test_vpn_routing: false
-isolation_vm_test_isolation: false
-isolation_vm_test_performance: false
+isolation_vm_test_network_isolation: true
 
-# Container names (should match deployment variables)
-isolation_vm_hermes_container_name: "hermes-agent"
+# Test targets
+isolation_vm_test_target_host: "localhost"
+isolation_vm_test_timeout: 30
 
-# Test resource limits
-isolation_vm_test_memory_limit: "512m"
-isolation_vm_test_cpu_limit: "0.5"
+# VPN routing test configuration
+isolation_vm_vpn_routing_test_target: "https://www.google.com"
+isolation_vm_vpn_routing_test_dns_target: "google.com"
+isolation_vm_vpn_routing_test_ip_service: "ifconfig.me"
 
-# Test network configuration
-isolation_vm_test_network_subnet: "172.29.0.0/16"
-isolation_vm_test_network_gateway: "172.29.0.1"
+# Network isolation test configuration
+isolation_vm_isolation_test_internal_network: "172.28.0.0/16"
+isolation_vm_isolation_test_gateway: "172.28.0.1"
 
-# Test volumes
-isolation_vm_test_volume_host_path: "/tmp"
-isolation_vm_test_volume_container_path: "/tmp"
+# Docker access test configuration
+isolation_vm_docker_test_image: "alpine:latest"
+isolation_vm_docker_test_container_name: "test-container"
 
-# Test cleanup
-isolation_vm_test_cleanup_on_failure: true
-isolation_vm_test_cleanup_on_success: true
+# Test result storage
+isolation_vm_test_results_path: "/tmp/isolation-vm-test-results"
+
+# Container configuration (from isolation-vm-containers role)
+isolation_vm_nix_sidecar_container_name: "isolation-vm-nix-sidecar"
+isolation_vm_base_kalinix_container_name: "isolation-vm-base-kalinix"
+isolation_vm_hermes_agent_container_name: "isolation-vm-hermes-agent"
+isolation_vm_network_subnet: "172.28.0.0/16"
+isolation_vm_network_gateway: "172.28.0.1"
+isolation_vm_enable_vpn_routing: false
+isolation_vm_vpn_gateway: "192.168.101.1"

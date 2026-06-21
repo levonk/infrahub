@@ -32,7 +32,7 @@ This document provides an index of all tasks for implementing the Isolation VM f
 | 03-003 | Deploy Hermes Agent Container | feature/current/isolation-vm/story-03-003-hermes-agent | 03-001, 03-002 | Parallel-safe: true | containers | [x] Done |
 | 03-004 | Configure Volume Mounts and Networking | feature/current/isolation-vm/story-03-004-volume-network-config | 03-001, 03-002, 03-003 | Parallel-safe: true | container-config | [x] Done |
 | 04-001 | Test Agent Container Docker Access | feature/current/isolation-vm/story-04-001-docker-access-test | 03-004 | Parallel-safe: true | testing | [!] Blocked |
-| 04-002 | Verify Network Routing Through VPN | feature/current/isolation-vm/story-04-002-vpn-routing-test | 03-004 | Parallel-safe: true | testing | [ ] Todo |
+| 04-002 | Verify Network Routing Through VPN | feature/current/isolation-vm/story-04-002-vpn-routing-test | 03-004 | Parallel-safe: true | testing | [~] In-Progress |
 | 04-003 | Test Isolation and Security Boundaries | feature/current/isolation-vm/story-04-003-isolation-security-test | 03-004 | Parallel-safe: true | testing | [ ] Todo |
 | 04-004 | Performance Testing and Optimization | feature/current/isolation-vm/story-04-004-performance-test | 04-001, 04-002, 04-003 | Parallel-safe: false | testing | [ ] Todo |
 

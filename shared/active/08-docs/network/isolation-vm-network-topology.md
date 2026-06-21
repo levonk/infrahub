@@ -139,6 +139,41 @@ Containers use Docker's embedded DNS server (127.0.0.11:53) for:
 - **Optional routing**: VPN routing can be enabled/disabled via configuration
 - **Traffic segregation**: Container traffic can be forced through VPN gateway
 - **Fallback support**: Direct routing available when VPN is disabled
+- **Current state**: VPN routing disabled (`isolation_vm_enable_vpn_routing: false`)
+- **VPN gateway**: 192.168.101.1 (routed bridge kvm-route-br0)
+- **Custom routing table**: Table 200 (isolation-vm) when VPN routing enabled
+
+## VPN Routing Testing
+
+### Test Infrastructure
+- **Test playbook**: `shared/active/02-config/ansible/playbooks/test-vpn-routing.yml`
+- **Test role**: `shared/active/02-config/ansible/roles/isolation-vm-tests/tasks/vpn-routing.yml`
+- **Test plan**: `internal-docs/feature/isolation-vm/test-results/vpn-routing-test-plan.md`
+
+### Test Coverage
+- Basic connectivity from all containers to external networks
+- External IP verification (NAT masquerading vs VPN gateway)
+- DNS resolution through Docker embedded DNS
+- Split-tunneling configuration (local vs external routing)
+- Firewall rules enforcement (iptables/firewalld)
+- VPN fallback behavior (manual test documented)
+- Packet capture capability (tcpdump for advanced routing verification)
+
+### Test Execution
+```bash
+# Run VPN routing tests
+ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
+  shared/active/02-config/ansible/playbooks/test-vpn-routing.yml \
+  --vault-password-file ~/.ansible/vault_password
+```
+
+### Expected Results (VPN Disabled)
+- All containers can reach external networks
+- External IP matches host public IP (NAT masquerading)
+- DNS resolution works via Docker embedded DNS
+- Local network traffic uses Docker bridge routing
+- External traffic uses host default gateway
+- Firewall rules allow container network communication
 
 ## Testing and Validation
 
