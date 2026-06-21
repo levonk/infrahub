@@ -24,6 +24,9 @@ proxy_authelia_session_secret: "change-me-in-vault"
 proxy_authelia_storage_encryption_key: "change-me-in-vault"
 
 proxy_authelia_log_level: "info"
+proxy_authelia_log_format: "json"
+proxy_authelia_log_max_size: "10m"
+proxy_authelia_log_max_file: "5"
 proxy_authelia_theme: "light"
 
 # Default admin user (password MUST be overridden via vault)
@@ -83,3 +86,16 @@ proxy_authelia_data_dir: "{{ cloud_server_authelia_data_dir | default('/opt/auth
 # ---------------------------------------------------------------------------
 proxy_authelia_verify_health: true
 proxy_authelia_verify_timeout_seconds: 30
+
+# ---------------------------------------------------------------------------
+# Metrics Configuration
+# ---------------------------------------------------------------------------
+proxy_authelia_metrics_enabled: true
+proxy_authelia_metrics_port: "9092"
+proxy_authelia_metrics_container_port: "9092"
+
+# ---------------------------------------------------------------------------
+# Log Retention Configuration
+# ---------------------------------------------------------------------------
+proxy_authelia_log_retention_days: 30
+proxy_authelia_log_retention_compression: true

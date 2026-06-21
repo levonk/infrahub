@@ -118,6 +118,7 @@
       - "{{ proxy_traefik_host_ip }}:{{ proxy_traefik_http_port }}:{{ proxy_traefik_http_container_port }}/tcp"
       - "{{ proxy_traefik_host_ip }}:{{ proxy_traefik_https_port }}:{{ proxy_traefik_https_container_port }}/tcp"
       - "{{ proxy_traefik_host_ip }}:{{ proxy_traefik_dashboard_port }}:{{ proxy_traefik_dashboard_container_port }}/tcp"
+      - "{{ proxy_traefik_host_ip }}:{{ proxy_traefik_metrics_port }}:{{ proxy_traefik_metrics_container_port }}/tcp"
     volumes:
       - "{{ proxy_traefik_ssl_volume }}:/letsencrypt"
       - "{{ proxy_traefik_config_volume }}:/etc/traefik"
@@ -132,6 +133,19 @@
       max-file: "{{ proxy_traefik_log_max_file }}"
     labels:
       traefik.enable: "false"
+  become: true
+  when: proxy_traefik_enabled | bool
+
+# ---------------------------------------------------------------------------
+# Log Retention Configuration
+# ---------------------------------------------------------------------------
+- name: Deploy logrotate configuration for Traefik
+  ansible.builtin.template:
+    src: logrotate/traefik.j2
+    dest: /etc/logrotate.d/traefik
+    owner: root
+    group: root
+    mode: "0644"
   become: true
   when: proxy_traefik_enabled | bool
 

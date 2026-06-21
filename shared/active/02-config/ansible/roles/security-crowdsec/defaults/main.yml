@@ -49,6 +49,7 @@ security_crowdsec_config_volume: "localnet-crowdsec-config-volume"
 # CrowdSec Configuration
 # ---------------------------------------------------------------------------
 security_crowdsec_log_level: "info"
+security_crowdsec_log_format: "json"
 security_crowdsec_offline_mode: false
 security_crowdsec_disable_online_components: false
 security_crowdsec_db_update_interval: "4h"
@@ -68,6 +69,8 @@ security_crowdsec_tls_insecure_skip_verify: true
 security_crowdsec_prometheus_enabled: true
 security_crowdsec_prometheus_level: "full"
 security_crowdsec_prometheus_port: "6060"
+security_crowdsec_prometheus_host_port: "6060"
+security_crowdsec_prometheus_container_port: "6060"
 
 # ---------------------------------------------------------------------------
 # Enrollment Configuration
@@ -152,6 +155,8 @@ security_crowdsec_slack_channel: "#security"
 # ---------------------------------------------------------------------------
 security_crowdsec_log_max_size: "10m"
 security_crowdsec_log_max_file: "5"
+security_crowdsec_log_retention_days: 30
+security_crowdsec_log_retention_compression: true
 
 # ---------------------------------------------------------------------------
 # Timezone

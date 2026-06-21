@@ -115,6 +115,7 @@
       - name: "{{ security_crowdsec_traefik_network_name }}"
     published_ports:
       - "{{ security_crowdsec_host_ip }}:{{ security_crowdsec_lapi_port }}:{{ security_crowdsec_lapi_container_port }}/tcp"
+      - "{{ security_crowdsec_host_ip }}:{{ security_crowdsec_prometheus_host_port }}:{{ security_crowdsec_prometheus_container_port }}/tcp"
     volumes:
       - "{{ security_crowdsec_db_volume }}:/var/lib/crowdsec/data"
       - "{{ security_crowdsec_config_volume }}:/etc/crowdsec"
@@ -172,6 +173,19 @@
   when:
     - security_crowdsec_enabled | bool
     - security_crowdsec_bouncer_enabled | bool
+
+# ---------------------------------------------------------------------------
+# Log Retention Configuration
+# ---------------------------------------------------------------------------
+- name: Deploy logrotate configuration for CrowdSec
+  ansible.builtin.template:
+    src: logrotate/crowdsec.j2
+    dest: /etc/logrotate.d/crowdsec
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  when: security_crowdsec_enabled | bool
 
 # ---------------------------------------------------------------------------
 # Health Verification

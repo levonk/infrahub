@@ -103,9 +103,9 @@
     volumes:
       - proxy-authelia-postgres:/var/lib/postgresql/data
     log_driver: json-file
-    log_options:
-      max-size: "10m"
-      max-file: "5"
+    log_opt:
+      max-size: "{{ proxy_authelia_log_max_size }}"
+      max-file: "{{ proxy_authelia_log_max_file }}"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U {{ proxy_authelia_postgres_user }}"]
       interval: 10s
@@ -148,9 +148,9 @@
       - --requirepass
       - "{{ proxy_authelia_redis_password }}"
     log_driver: json-file
-    log_options:
-      max-size: "10m"
-      max-file: "5"
+    log_opt:
+      max-size: "{{ proxy_authelia_log_max_size }}"
+      max-file: "{{ proxy_authelia_log_max_file }}"
     healthcheck:
       test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
       interval: 10s
@@ -174,18 +174,32 @@
       - name: "{{ proxy_authelia_docker_network_name }}"
     ports:
       - "{{ proxy_authelia_web_host_port }}:{{ proxy_authelia_web_container_port }}/tcp"
+      - "{{ proxy_authelia_metrics_port }}:{{ proxy_authelia_metrics_container_port }}/tcp"
     volumes:
       - "{{ proxy_authelia_data_dir }}/config:/config"
     log_driver: json-file
-    log_options:
-      max-size: "10m"
-      max-file: "5"
+    log_opt:
+      max-size: "{{ proxy_authelia_log_max_size }}"
+      max-file: "{{ proxy_authelia_log_max_file }}"
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:{{ proxy_authelia_web_container_port }}/api/health"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 10s
+  become: true
+  when: proxy_authelia_enabled | bool
+
+# ---------------------------------------------------------------------------
+# Log Retention Configuration
+# ---------------------------------------------------------------------------
+- name: Deploy logrotate configuration for Authelia
+  ansible.builtin.template:
+    src: logrotate/authelia.j2
+    dest: /etc/logrotate.d/authelia
+    owner: root
+    group: root
+    mode: "0644"
   become: true
   when: proxy_authelia_enabled | bool
 

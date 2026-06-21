@@ -33,6 +33,11 @@ entryPoints:
         - crowdsec-bouncer
         {% endif %}
 
+{% if proxy_traefik_metrics_enabled %}
+  metrics:
+    address: ":{{ proxy_traefik_metrics_container_port }}"
+{% endif %}
+
 # Docker provider
 providers:
   docker:
@@ -90,3 +95,12 @@ accessLog:
         User-Agent: keep
         Authorization: drop
         Content-Type: keep
+
+# Metrics configuration
+{% if proxy_traefik_metrics_enabled %}
+metrics:
+  prometheus:
+    entryPoint: metrics
+    addEntryPointsLabels: true
+    addServicesLabels: true
+{% endif %}

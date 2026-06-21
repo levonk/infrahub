@@ -1,0 +1,133 @@
+---
+# Test Metrics Endpoints for Traefik Proxy Stack
+# Verifies that all metrics endpoints are accessible and returning data
+# All ports are variable-driven per AGENTS.md rules
+
+- name: Test Traefik Authelia Cloudflare Metrics Endpoints
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+  
+  vars:
+    test_timeout: 10
+    test_retries: 3
+    test_delay: 2
+
+  tasks:
+    # ---------------------------------------------------------------------------
+    # Traefik Metrics Test
+    # ---------------------------------------------------------------------------
+    - name: Test Traefik metrics endpoint
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ proxy_traefik_metrics_port }}/metrics"
+        method: GET
+        return_content: true
+        timeout: "{{ test_timeout }}"
+      register: traefik_metrics
+      until: traefik_metrics.status == 200
+      retries: "{{ test_retries }}"
+      delay: "{{ test_delay }}"
+      when: proxy_traefik_metrics_enabled | bool
+      ignore_errors: true
+
+    - name: Verify Traefik metrics contain expected data
+      ansible.builtin.assert:
+        that:
+          - traefik_metrics.status == 200
+          - "'traefik_' in traefik_metrics.content"
+          - "'entrypoint' in traefik_metrics.content or 'service' in traefik_metrics.content"
+        fail_msg: "Traefik metrics endpoint is not returning expected data"
+        success_msg: "Traefik metrics endpoint is working correctly"
+      when:
+        - proxy_traefik_metrics_enabled | bool
+        - traefik_metrics.status is defined
+
+    # ---------------------------------------------------------------------------
+    # Authelia Metrics Test
+    # ---------------------------------------------------------------------------
+    - name: Test Authelia metrics endpoint
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ proxy_authelia_metrics_port }}/metrics"
+        method: GET
+        return_content: true
+        timeout: "{{ test_timeout }}"
+      register: authelia_metrics
+      until: authelia_metrics.status == 200
+      retries: "{{ test_retries }}"
+      delay: "{{ test_delay }}"
+      when: proxy_authelia_metrics_enabled | bool
+      ignore_errors: true
+
+    - name: Verify Authelia metrics contain expected data
+      ansible.builtin.assert:
+        that:
+          - authelia_metrics.status == 200
+          - "'authelia_' in authelia_metrics.content"
+          - "'request' in authelia_metrics.content or 'authentication' in authelia_metrics.content"
+        fail_msg: "Authelia metrics endpoint is not returning expected data"
+        success_msg: "Authelia metrics endpoint is working correctly"
+      when:
+        - proxy_authelia_metrics_enabled | bool
+        - authelia_metrics.status is defined
+
+    # ---------------------------------------------------------------------------
+    # CrowdSec Metrics Test
+    # ---------------------------------------------------------------------------
+    - name: Test CrowdSec metrics endpoint
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ security_crowdsec_prometheus_host_port }}/metrics"
+        method: GET
+        return_content: true
+        timeout: "{{ test_timeout }}"
+      register: crowdsec_metrics
+      until: crowdsec_metrics.status == 200
+      retries: "{{ test_retries }}"
+      delay: "{{ test_delay }}"
+      when: security_crowdsec_prometheus_enabled | bool
+      ignore_errors: true
+
+    - name: Verify CrowdSec metrics contain expected data
+      ansible.builtin.assert:
+        that:
+          - crowdsec_metrics.status == 200
+          - "'crowdsec_' in crowdsec_metrics.content"
+          - "'decision' in crowdsec_metrics.content or 'alert' in crowdsec_metrics.content"
+        fail_msg: "CrowdSec metrics endpoint is not returning expected data"
+        success_msg: "CrowdSec metrics endpoint is working correctly"
+      when:
+        - security_crowdsec_prometheus_enabled | bool
+        - crowdsec_metrics.status is defined
+
+    # ---------------------------------------------------------------------------
+    # Summary Report
+    # ---------------------------------------------------------------------------
+    - name: Generate metrics test summary
+      ansible.builtin.debug:
+        msg: |2
+          Metrics Endpoints Test Summary:
+          
+          Traefik Metrics (port {{ proxy_traefik_metrics_port }}):
+            Status: {{ 'PASS' if (proxy_traefik_metrics_enabled | bool and traefik_metrics.status == 200) else 'SKIP' if not (proxy_traefik_metrics_enabled | bool) else 'FAIL' }}
+            {% if proxy_traefik_metrics_enabled | bool %}
+            Response Time: {{ traefik_metrics.elapsed | default('N/A') }}s
+            {% endif %}
+          
+          Authelia Metrics (port {{ proxy_authelia_metrics_port }}):
+            Status: {{ 'PASS' if (proxy_authelia_metrics_enabled | bool and authelia_metrics.status == 200) else 'SKIP' if not (proxy_authelia_metrics_enabled | bool) else 'FAIL' }}
+            {% if proxy_authelia_metrics_enabled | bool %}
+            Response Time: {{ authelia_metrics.elapsed | default('N/A') }}s
+            {% endif %}
+          
+          CrowdSec Metrics (port {{ security_crowdsec_prometheus_host_port }}):
+            Status: {{ 'PASS' if (security_crowdsec_prometheus_enabled | bool and crowdsec_metrics.status == 200) else 'SKIP' if not (security_crowdsec_prometheus_enabled | bool) else 'FAIL' }}
+            {% if security_crowdsec_prometheus_enabled | bool %}
+            Response Time: {{ crowdsec_metrics.elapsed | default('N/A') }}s
+            {% endif %}
+
+    - name: Fail if any critical metrics endpoint is not accessible
+      ansible.builtin.fail:
+        msg: "One or more critical metrics endpoints are not accessible"
+      when:
+        - (proxy_traefik_metrics_enabled | bool and traefik_metrics.status != 200) or
+          (proxy_authelia_metrics_enabled | bool and authelia_metrics.status != 200) or
+          (security_crowdsec_prometheus_enabled | bool and crowdsec_metrics.status != 200)

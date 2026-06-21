@@ -117,6 +117,20 @@ proxy_traefik_log_max_size: "10m"
 proxy_traefik_log_max_file: "5"
 
 # ---------------------------------------------------------------------------
+# Metrics Configuration
+# ---------------------------------------------------------------------------
+proxy_traefik_metrics_enabled: true
+proxy_traefik_metrics_port: "8883"
+proxy_traefik_metrics_container_port: "8883"
+proxy_traefik_metrics_prometheus_enabled: true
+
+# ---------------------------------------------------------------------------
+# Log Retention Configuration
+# ---------------------------------------------------------------------------
+proxy_traefik_log_retention_days: 30
+proxy_traefik_log_retention_compression: true
+
+# ---------------------------------------------------------------------------
 # Global Configuration
 # ---------------------------------------------------------------------------
 proxy_traefik_check_new_version: true

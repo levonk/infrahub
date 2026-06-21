@@ -23,8 +23,8 @@ This index provides a comprehensive overview of all stories for the Traefik Prox
 | 02-002 | Deploy Authelia with database and session management | feature/current/traefik-authelia-cloudflare/story-02-002-deploy-authelia | 01-002, 01-005 | Parallel-safe: true | proxy-authelia, docker-compose | [x] Done |
 | 02-003 | Deploy CrowdSec security engine and bouncer | feature/current/traefik-authelia-cloudflare/story-02-003-deploy-crowdsec | 01-003, 01-005 | Parallel-safe: true | security-crowdsec, docker-compose | [x] Done |
 | 03-001 | Integrate SearXNG with Traefik routing and security middleware | feature/current/traefik-authelia-cloudflare/story-03-001-integrate-searxng | 02-001, 02-002, 02-003 | Parallel-safe: true | search-searxng, traefik-dynamic-config | [x] Done |
-| 03-002 | Configure Cloudflare DNS records | feature/current/traefik-authelia-cloudflare/story-03-002-cloudflare-dns-config | 01-004, 03-001 | Parallel-safe: true | cloudflare-dns, cloudflare-api | [~] In-Progress |
-| 03-003 | Set up monitoring and logging | feature/current/traefik-authelia-cloudflare/story-03-003-monitoring-logging | 02-001, 02-002, 02-003 | Parallel-safe: true | docker-logging, monitoring | [ ] Todo |
+| 03-002 | Configure Cloudflare DNS records | feature/current/traefik-authelia-cloudflare/story-03-002-cloudflare-dns-config | 01-004, 03-001 | Parallel-safe: true | cloudflare-dns, cloudflare-api | [x] Done |
+| 03-003 | Set up monitoring and logging | feature/current/traefik-authelia-cloudflare/story-03-003-monitoring-logging | 02-001, 02-002, 02-003 | Parallel-safe: true | docker-logging, monitoring | [~] In-Progress |
 | 03-004 | End-to-end testing and documentation | feature/current/traefik-authelia-cloudflare/story-03-004-e2e-testing-docs | 03-001, 03-002, 03-003 | Parallel-safe: false | testing, documentation | [ ] Todo |
 
 ## Development Workflow

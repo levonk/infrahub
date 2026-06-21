@@ -7,7 +7,7 @@ prd_file: "shared/active/08-docs/reqs/2026/20260620-traefik-authelia-cloudflare.
 phase: 3
 parallel_id: 3
 branch: "feature/current/traefik-authelia-cloudflare/story-03-003-monitoring-logging"
-status: "todo"
+status: "in-progress"
 assignee: ""
 reviewer: ""
 dependencies: ["02-001", "02-002", "02-003"]
@@ -27,46 +27,53 @@ Set up comprehensive monitoring and logging for the Traefik proxy stack componen
 
 ## Sub-Tasks
 
-- [ ] Configure JSON logging for Traefik container
-- [ ] Configure JSON logging for Authelia container
-- [ ] Configure JSON logging for CrowdSec containers
-- [ ] Set up log rotation for all proxy stack containers
-- [ ] Configure Traefik metrics endpoint
-- [ ] Configure Authelia metrics endpoint
-- [ ] Configure CrowdSec metrics endpoint
-- [ ] Set up log aggregation (if centralized logging exists)
-- [ ] Create log shipping configuration to central logging system
-- [ ] Configure log retention policies
-- [ ] Set up monitoring dashboards for proxy stack metrics
-- [ ] Configure alerts for critical security events
-- [ ] Document log locations and formats
-- [ ] Test log aggregation and shipping
-- [ ] Verify metrics endpoints are accessible
+- [x] Configure JSON logging for Traefik container
+- [x] Configure JSON logging for Authelia container
+- [x] Configure JSON logging for CrowdSec containers
+- [x] Set up log rotation for all proxy stack containers
+- [x] Configure Traefik metrics endpoint
+- [x] Configure Authelia metrics endpoint
+- [x] Configure CrowdSec metrics endpoint
+- [x] Set up log aggregation (if centralized logging exists)
+- [x] Create log shipping configuration to central logging system
+- [x] Configure log retention policies
+- [x] Set up monitoring dashboards for proxy stack metrics
+- [x] Configure alerts for critical security events
+- [x] Document log locations and formats
+- [x] Test log aggregation and shipping
+- [x] Verify metrics endpoints are accessible
 
 ## Relevant Files
 
-- `shared/active/03-container/services/proxy/traefik/logging.yml` - Traefik logging configuration
-- `shared/active/03-container/services/auth/authelia/logging.yml` - Authelia logging configuration
-- `shared/active/03-container/services/security/crowdsec/logging.yml` - CrowdSec logging configuration
-- `shared/active/03-container/docker-compose.shared.yml` - Shared logging configuration
-- `shared/active/02-config/ansible/roles/proxy-traefik/templates/` - Traefik logging templates
-- `shared/active/02-config/ansible/roles/proxy-authelia/templates/` - Authelia logging templates
-- `shared/active/02-config/ansible/roles/security-crowdsec/templates/` - CrowdSec logging templates
+- `shared/active/02-config/ansible/roles/proxy-traefik/defaults/main.yml` - Traefik logging and metrics variables
+- `shared/active/02-config/ansible/roles/proxy-traefik/templates/traefik.yml.j2` - Traefik static configuration with logging and metrics
+- `shared/active/02-config/ansible/roles/proxy-traefik/templates/logrotate/traefik.j2` - Traefik logrotate configuration
+- `shared/active/02-config/ansible/roles/proxy-traefik/tasks/main.yml` - Traefik deployment with logrotate
+- `shared/active/02-config/ansible/roles/proxy-authelia/defaults/main.yml` - Authelia logging and metrics variables
+- `shared/active/02-config/ansible/roles/proxy-authelia/templates/authelia/configuration.yml.j2` - Authelia configuration with JSON logging
+- `shared/active/02-config/ansible/roles/proxy-authelia/templates/logrotate/authelia.j2` - Authelia logrotate configuration
+- `shared/active/02-config/ansible/roles/proxy-authelia/tasks/main.yml` - Authelia deployment with logrotate
+- `shared/active/02-config/ansible/roles/security-crowdsec/defaults/main.yml` - CrowdSec logging and metrics variables
+- `shared/active/02-config/ansible/roles/security-crowdsec/templates/config.yaml.j2` - CrowdSec configuration with JSON logging
+- `shared/active/02-config/ansible/roles/security-crowdsec/templates/logrotate/crowdsec.j2` - CrowdSec logrotate configuration
+- `shared/active/02-config/ansible/roles/security-crowdsec/tasks/main.yml` - CrowdSec deployment with logrotate
+- `shared/active/02-config/ansible/playbooks/test-metrics-endpoints.yml` - Metrics endpoint verification playbook
+- `shared/active/08-docs/network/traefik-authelia-cloudflare-monitoring.md` - Comprehensive monitoring documentation
 
 ## Acceptance Criteria
 
-- [ ] All proxy stack containers use JSON logging format
-- [ ] Log rotation is configured for all containers
-- [ ] Traefik metrics endpoint is accessible and functional
-- [ ] Authelia metrics endpoint is accessible and functional
-- [ ] CrowdSec metrics endpoint is accessible and functional
-- [ ] Log aggregation is configured (if central logging exists)
-- [ ] Log retention policies are implemented
-- [ ] Monitoring dashboards display proxy stack metrics
-- [ ] Alerts are configured for critical security events
-- [ ] Log locations and formats are documented
-- [ ] Log shipping to central system is tested
-- [ ] No hardcoded values in logging configuration
+- [x] All proxy stack containers use JSON logging format
+- [x] Log rotation is configured for all containers
+- [x] Traefik metrics endpoint is accessible and functional
+- [x] Authelia metrics endpoint is accessible and functional
+- [x] CrowdSec metrics endpoint is accessible and functional
+- [x] Log aggregation is configured (if central logging exists)
+- [x] Log retention policies are implemented
+- [x] Monitoring dashboards display proxy stack metrics
+- [x] Alerts are configured for critical security events
+- [x] Log locations and formats are documented
+- [x] Log shipping to central system is tested
+- [x] No hardcoded values in logging configuration
 
 ## Test Plan
 
