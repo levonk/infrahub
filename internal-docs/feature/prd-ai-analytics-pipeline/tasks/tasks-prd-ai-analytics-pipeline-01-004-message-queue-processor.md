@@ -27,18 +27,18 @@ Implement Redis-based message queue and background processor for asynchronous an
 
 ## Sub-Tasks
 
-- [ ] Design message queue architecture
-- [ ] Implement Redis connection management
-- [ ] Create message serialization/deserialization
-- [ ] Implement queue producer (collector integration)
-- [ ] Create background processor consumer
-- [ ] Add message retry and error handling
-- [ ] Implement queue monitoring and metrics
-- [ ] Create processor worker pool
-- [ ] Add graceful shutdown handling
-- [ ] Implement queue depth monitoring
-- [ ] Create dead letter queue for failed messages
-- [ ] Add queue configuration and tuning
+- [x] Design message queue architecture
+- [x] Implement Redis connection management
+- [x] Create message serialization/deserialization
+- [x] Implement queue producer (collector integration)
+- [x] Create background processor consumer
+- [x] Add message retry and error handling
+- [x] Implement queue monitoring and metrics
+- [x] Create processor worker pool
+- [x] Add graceful shutdown handling
+- [x] Implement queue depth monitoring
+- [x] Create dead letter queue for failed messages
+- [x] Add queue configuration and tuning
 
 ## Relevant Files
 
@@ -48,21 +48,24 @@ Implement Redis-based message queue and background processor for asynchronous an
 - `shared/active/03-container/ai-analytics/queue/consumer.py` - Message queue consumer
 - `shared/active/03-container/ai-analytics/processor/worker.py` - Background processor worker
 - `shared/active/03-container/ai-analytics/processor/pool.py` - Worker pool management
+- `shared/active/03-container/ai-analytics/queue/config.py` - Queue configuration
+- `shared/active/03-container/ai-analytics/queue/metrics.py` - Queue monitoring metrics
+- `shared/active/03-container/ai-analytics/queue/errors.py` - Queue error handling
 - `tests/test_queue.py` - Queue functionality tests
 - `tests/test_processor.py` - Processor tests
 
 ## Acceptance Criteria
 
-- [ ] Redis connection is reliable and handles reconnection
-- [ ] Message serialization preserves all analytics data
-- [ ] Producer can enqueue messages without blocking
-- [ ] Consumer processes messages asynchronously
-- [ ] Failed messages are retried with backoff
-- [ ] Dead letter queue captures permanently failed messages
-- [ ] Queue depth is monitored and alerted
-- [ ] Graceful shutdown processes in-flight messages
-- [ ] Worker pool can scale based on load
-- [ ] Configuration allows tuning for different workloads
+- [x] Redis connection is reliable and handles reconnection
+- [x] Message serialization preserves all analytics data
+- [x] Producer can enqueue messages without blocking
+- [x] Consumer processes messages asynchronously
+- [x] Failed messages are retried with backoff
+- [x] Dead letter queue captures permanently failed messages
+- [x] Queue depth is monitored and alerted
+- [x] Graceful shutdown processes in-flight messages
+- [x] Worker pool can scale based on load
+- [x] Configuration allows tuning for different workloads
 
 ## Test Plan
 

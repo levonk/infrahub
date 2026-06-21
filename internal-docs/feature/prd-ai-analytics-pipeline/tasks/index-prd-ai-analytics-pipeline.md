@@ -16,7 +16,7 @@ This index provides a summary of all development stories for the AI Analytics Pi
 | 01-001 | Project Setup and Licensing Framework | feature/current/prd-ai-analytics-pipeline/story-01-001-project-setup-licensing | None | [x] Done | Parallel-safe: true | project-root, licensing |
 | 01-002 | User-Level Data Model | feature/current/prd-ai-analytics-pipeline/story-01-002-user-data-model | None | [x] Done | Parallel-safe: true | database, schema |
 | 01-003 | Basic Collector Framework | feature/current/prd-ai-analytics-pipeline/story-01-003-collector-framework | None | [x] Done | Parallel-safe: true | collectors, framework |
-| 01-004 | Message Queue and Basic Processor | feature/current/prd-ai-analytics-pipeline/story-01-004-message-queue-processor | 01-003 | [ ] Todo | Parallel-safe: true | queue, processor |
+| 01-004 | Message Queue and Basic Processor | feature/current/prd-ai-analytics-pipeline/story-01-004-message-queue-processor | 01-003 | [~] In-Progress | Parallel-safe: true | queue, processor |
 | 02-001 | User Attribution Collection | feature/current/prd-ai-analytics-pipeline/story-02-001-user-attribution-collection | 01-002 | [ ] Todo | Parallel-safe: true | collectors, attribution |
 | 02-002 | Subagent and Tool Analytics | feature/current/prd-ai-analytics-pipeline/story-02-002-subagent-tool-analytics | 01-002 | [ ] Todo | Parallel-safe: true | analytics, subagent |
 | 02-003 | Downstream Provider and Model Tracking | feature/current/prd-ai-analytics-pipeline/story-02-003-downstream-tracking | 01-002 | [ ] Todo | Parallel-safe: true | analytics, tracking |
