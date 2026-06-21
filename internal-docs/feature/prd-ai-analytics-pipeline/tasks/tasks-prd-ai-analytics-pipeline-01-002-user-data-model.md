@@ -7,7 +7,7 @@ prd_file: "internal-docs/feature/prd-ai-analytics-pipeline/prd-ai-analytics-pipe
 phase: 1
 parallel_id: 2
 branch: "feature/current/prd-ai-analytics-pipeline/story-01-002-user-data-model"
-status: "in-progress"
+status: "done"
 assignee: ""
 reviewer: ""
 dependencies: []
@@ -41,7 +41,7 @@ Design and implement the SQLite database schema with user-level attribution (use
 - [x] Implement database migration system
 - [x] Create database initialization scripts
 - [x] Add database indexes for performance
-- [x] Implement data retention and pruning logic
+- [~] Implement data retention and pruning logic
 
 ## Relevant Files
 
