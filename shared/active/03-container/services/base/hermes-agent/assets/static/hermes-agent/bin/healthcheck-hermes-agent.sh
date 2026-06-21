@@ -29,6 +29,31 @@ else
     echo "Warning: Nix store not mounted"
 fi
 
+# Check SSH server (optional warning)
+if pgrep -x sshd > /dev/null; then
+    echo "SSH server is running"
+else
+    echo "Warning: SSH server is not running"
+fi
+
+# Check Tailscale (optional, if configured)
+if command -v tailscale > /dev/null 2>&1; then
+    if tailscale status > /dev/null 2>&1; then
+        echo "Tailscale is connected"
+    else
+        echo "Tailscale is installed but not connected (optional)"
+    fi
+fi
+
+# Check Netbird (optional, if configured)
+if command -v netbird > /dev/null 2>&1; then
+    if netbird status > /dev/null 2>&1; then
+        echo "Netbird is connected"
+    else
+        echo "Netbird is installed but not connected (optional)"
+    fi
+fi
+
 # Check data directories
 if [ ! -d "${HERMES_DATA_DIR}" ]; then
     echo "ERROR: Data directory not found: ${HERMES_DATA_DIR}"
