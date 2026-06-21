@@ -143,6 +143,24 @@ Containers use Docker's embedded DNS server (127.0.0.11:53) for:
 - **VPN gateway**: 192.168.101.1 (routed bridge kvm-route-br0)
 - **Custom routing table**: Table 200 (isolation-vm) when VPN routing enabled
 
+## Enhanced Container Access
+
+The hermes-agent container has been enhanced with direct network access capabilities:
+
+### New Capabilities
+- **SSH Server**: Direct SSH access on port 2222 (host) → 22 (container)
+- **Tailscale Client**: Container can join Tailscale mesh VPN
+- **Netbird Client**: Alternative VPN solution for redundancy
+- **Terminal Tools**: tmux for session management, zsh for modern shell
+- **Direct Access**: Container acts as first-class network citizen
+
+### Access Patterns
+1. **Direct Tailscale to Container**: SSH directly via Tailscale IP (recommended)
+2. **Tailscale to VM + SSH**: Use VM as gateway, then SSH to container
+3. **Traditional Multi-Hop**: OCI → VM → docker exec (fallback)
+
+**Documentation**: See `shared/active/08-docs/network/hermes-agent-access-patterns.md` for detailed access patterns and configuration.
+
 ## VPN Routing Testing
 
 ### Test Infrastructure
