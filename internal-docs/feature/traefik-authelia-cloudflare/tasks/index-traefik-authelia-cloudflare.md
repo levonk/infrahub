@@ -25,7 +25,7 @@ This index provides a comprehensive overview of all stories for the Traefik Prox
 | 03-001 | Integrate SearXNG with Traefik routing and security middleware | feature/current/traefik-authelia-cloudflare/story-03-001-integrate-searxng | 02-001, 02-002, 02-003 | Parallel-safe: true | search-searxng, traefik-dynamic-config | [x] Done |
 | 03-002 | Configure Cloudflare DNS records | feature/current/traefik-authelia-cloudflare/story-03-002-cloudflare-dns-config | 01-004, 03-001 | Parallel-safe: true | cloudflare-dns, cloudflare-api | [x] Done |
 | 03-003 | Set up monitoring and logging | feature/current/traefik-authelia-cloudflare/story-03-003-monitoring-logging | 02-001, 02-002, 02-003 | Parallel-safe: true | docker-logging, monitoring | [x] Done |
-| 03-004 | End-to-end testing and documentation | feature/current/traefik-authelia-cloudflare/story-03-004-e2e-testing-docs | 03-001, 03-002, 03-003 | Parallel-safe: false | testing, documentation | [~] In-Progress |
+| 03-004 | End-to-end testing and documentation | feature/current/traefik-authelia-cloudflare/story-03-004-e2e-testing-docs | 03-001, 03-002, 03-003 | Parallel-safe: false | testing, documentation | [!] Blocked |
 
 ## Development Workflow
 

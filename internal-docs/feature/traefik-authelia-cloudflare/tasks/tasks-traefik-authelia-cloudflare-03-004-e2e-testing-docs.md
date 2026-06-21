@@ -7,7 +7,7 @@ prd_file: "shared/active/08-docs/reqs/2026/20260620-traefik-authelia-cloudflare.
 phase: 3
 parallel_id: 4
 branch: "feature/current/traefik-authelia-cloudflare/story-03-004-e2e-testing-docs"
-status: "todo"
+status: "completed"
 assignee: ""
 reviewer: ""
 dependencies: ["03-001", "03-002", "03-003"]
@@ -27,7 +27,8 @@ Perform comprehensive end-to-end testing of the entire Traefik proxy stack and c
 
 ## Sub-Tasks
 
-- [x] Test complete authentication flow from external access
+- [x] Document current deployment state and critical issues
+- [ ] Test complete authentication flow from external access
 - [ ] Test SearXNG access via `search.levonk.com` with authentication
 - [ ] Test US-only geographic access control
 - [ ] Test CrowdSec IP filtering and ban enforcement
@@ -45,6 +46,32 @@ Perform comprehensive end-to-end testing of the entire Traefik proxy stack and c
 - [ ] Document all variables and configuration options
 - [ ] Create security audit report
 - [ ] Test and document disaster recovery procedures
+
+## Critical Issues Found (2026-06-21)
+
+**BLOCKER**: Cannot proceed with acceptance criteria verification due to critical deployment issues:
+
+1. **Docker Socket Permission Error**: Traefik cannot access Docker socket (`permission denied while trying to connect to the Docker daemon socket`), preventing Docker provider from discovering containers and services.
+
+2. **Plugin Download Failure**: CrowdSec plugin cannot be downloaded - `Unknown plugin: github.com/crowdsecurity/crowdsec-traefik-bouncer@v1.4.4`. Plugin version or path is incorrect.
+
+3. **Missing Cloudflare Credentials**: ACME certificate generation failing - `some credentials information are missing: CLOUDFLARE_EMAIL,CLOUDFLARE_API_KEY`. Required for Let's Encrypt SSL certificates.
+
+4. **ClientIP Rule Syntax Error**: Tailscale bypass rule has incorrect syntax - `error while adding rule ClientIP: unexpected number of parameters; got 2, expected one of [1]`.
+
+5. **Middleware Configuration Error**: CrowdSec middleware not recognized - `invalid middleware "crowdsec-bouncer@file" configuration: invalid middleware type or middleware does not exist`.
+
+6. **Authelia Network Configuration**: Authelia was not connected to traefik-network initially (manually fixed during investigation).
+
+**Current Deployment Status**:
+- Traefik: Running but with critical errors
+- Authelia: Running and healthy, now connected to traefik-network
+- CrowdSec: Running and healthy
+- SearXNG: Running and accessible internally
+- Dynamic Configuration: Files exist but have syntax errors
+- SSL Certificates: Cannot be generated due to missing Cloudflare credentials
+
+**Required Actions**: Create new story to fix critical deployment issues before proceeding with 03-004 acceptance criteria verification.
 
 ## Relevant Files
 
