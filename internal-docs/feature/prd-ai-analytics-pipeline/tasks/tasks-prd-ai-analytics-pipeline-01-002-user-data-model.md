@@ -7,7 +7,7 @@ prd_file: "internal-docs/feature/prd-ai-analytics-pipeline/prd-ai-analytics-pipe
 phase: 1
 parallel_id: 2
 branch: "feature/current/prd-ai-analytics-pipeline/story-01-002-user-data-model"
-status: "todo"
+status: "in-progress"
 assignee: ""
 reviewer: ""
 dependencies: []
@@ -27,44 +27,43 @@ Design and implement the SQLite database schema with user-level attribution (use
 
 ## Sub-Tasks
 
-- [ ] Design database schema for request/response events
-- [ ] Create user attribution tables (users, machines, client_keys)
-- [ ] Design subagent attribution schema
-- [ ] Create tool-level analytics tables
-- [ ] Design file-level analytics schema
-- [ ] Create session data tables
-- [ ] Design cache analytics schema
-- [ ] Create skills analytics tables
-- [ ] Implement derived metrics tables
-- [ ] Create time-series aggregation tables
-- [ ] Design configuration data tables
-- [ ] Implement database migration system
-- [ ] Create database initialization scripts
-- [ ] Add database indexes for performance
-- [ ] Implement data retention and pruning logic
+- [x] Design database schema for request/response events
+- [x] Create user attribution tables (users, machines, client_keys)
+- [x] Design subagent attribution schema
+- [x] Create tool-level analytics tables
+- [x] Design file-level analytics schema
+- [x] Create session data tables
+- [x] Design cache analytics schema
+- [x] Create skills analytics tables
+- [x] Implement derived metrics tables
+- [x] Create time-series aggregation tables
+- [x] Design configuration data tables
+- [x] Implement database migration system
+- [x] Create database initialization scripts
+- [x] Add database indexes for performance
+- [x] Implement data retention and pruning logic
 
 ## Relevant Files
 
 **Project: /Users/micro/p/gh/levonk/infrahub**
-- `shared/active/03-container/ai-analytics/schema.sql` - Main database schema definition
-- `shared/active/03-container/ai-analytics/migrations/` - Database migration files
-- `shared/active/03-container/ai-analytics/models/` - ORM models or database access layer
-- `shared/active/03-container/ai-analytics/db.py` - Database connection and utilities
-- `shared/active/03-container/ai-analytics/init_db.py` - Database initialization script
-- `tests/test_schema.py` - Schema validation tests
+- `shared/active/03-container/services/ai-analytics/schema.sql` - Complete database schema definition with all tables, indexes, triggers, and views
+- `shared/active/03-container/services/ai-analytics/migrations/001_initial_schema.sql` - Initial schema migration with idempotent execution
+- `shared/active/03-container/services/ai-analytics/migrations/migrate.py` - Migration system with version tracking and rollback support
+- `shared/active/03-container/services/ai-analytics/init_db.py` - Database initialization script with schema verification
+- `shared/active/03-container/services/ai-analytics/data_retention.py` - Data retention and pruning logic with configurable policies
 
 ## Acceptance Criteria
 
-- [ ] Database schema supports all PRD data requirements
-- [ ] User attribution properly modeled (user, machine, client key)
-- [ ] Subagent tracking tables support multiple agent types
-- [ ] Tool analytics capture usage patterns and costs
-- [ ] File analytics track access patterns and token usage
-- [ ] Session data supports turn-by-turn analysis
-- [ ] Cache analytics capture hit/miss ratios and savings
-- [ ] Migration system allows schema evolution
-- [ ] Performance indexes on frequently queried fields
-- [ ] Data retention logic can prune old data
+- [x] Database schema supports all PRD data requirements
+- [x] User attribution properly modeled (user, machine, client key)
+- [x] Subagent tracking tables support multiple agent types
+- [x] Tool analytics capture usage patterns and costs
+- [x] File analytics track access patterns and token usage
+- [x] Session data supports turn-by-turn analysis
+- [x] Cache analytics capture hit/miss ratios and savings
+- [x] Migration system allows schema evolution
+- [x] Performance indexes on frequently queried fields
+- [x] Data retention logic can prune old data
 
 ## Test Plan
 
