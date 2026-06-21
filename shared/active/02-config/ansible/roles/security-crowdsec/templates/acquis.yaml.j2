@@ -3,17 +3,18 @@
 # Configures log sources for CrowdSec security analysis
 # All values are variable-driven per AGENTS.md rules
 
-# Traefik Container Logs
-{% if security_crowdsec_traefik_log_acquisition_enabled %}
-filenames:
-  - /var/log/containers/{{ security_crowdsec_traefik_container_name }}*.log
+# Traefik Container Logs via Docker socket
+{% if security_crowdsec_traefik_log_acquisition_enabled | default(false) %}
+source: docker
+container_name:
+  - {{ security_crowdsec_traefik_container_name }}
 labels:
   type: traefik
-  container_name: {{ security_crowdsec_traefik_container_name }}
 {% endif %}
 
 # System Logs (optional)
-{% if security_crowdsec_system_log_acquisition_enabled %}
+{% if security_crowdsec_system_log_acquisition_enabled | default(false) %}
+source: file
 filenames:
   - /var/log/auth.log
   - /var/log/syslog
@@ -22,9 +23,8 @@ labels:
 {% endif %}
 
 # Docker Container Logs (optional)
-{% if security_crowdsec_docker_log_acquisition_enabled %}
-filenames:
-  - /var/log/containers/*.log
+{% if security_crowdsec_docker_log_acquisition_enabled | default(false) %}
+source: docker
 labels:
   type: docker
 {% endif %}

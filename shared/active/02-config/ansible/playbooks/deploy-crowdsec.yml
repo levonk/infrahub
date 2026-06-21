@@ -1,0 +1,178 @@
+---
+# CrowdSec Deployment Playbook
+# Deploys CrowdSec security engine and Traefik bouncer
+# Usage: ansible-playbook -i ../../../levonk/active/02-config/ansible/inventories/oci.yml playbooks/deploy-crowdsec.yml --vault-password-file ~/.ansible/vault_password
+# Story: 02-003 - Deploy CrowdSec security engine and bouncer
+
+- name: "Deploy CrowdSec Security Engine and Traefik Bouncer"
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: "Gather ansible_facts"
+      ansible.builtin.setup:
+        gather_subset: ["all"]
+      tags: ["always"]
+
+    - name: "Validate required CrowdSec variables are defined"
+      ansible.builtin.assert:
+        that:
+          - security_crowdsec_enabled is defined
+          - security_crowdsec_bouncer_api_key is defined
+          - security_crowdsec_bouncer_api_key != "change-me-in-vault"
+        fail_msg: "Missing required CrowdSec variables or API key not set in vault. Check host_vars/oci-cloud-server.yml and vault. Variables: security_crowdsec_enabled={{ security_crowdsec_enabled | default('undefined') }}, security_crowdsec_bouncer_api_key={{ security_crowdsec_bouncer_api_key | default('undefined') }}"
+        success_msg: "All required CrowdSec variables are defined."
+      tags: ["always", "validate"]
+
+    - name: "Verify Docker CLI is installed"
+      ansible.builtin.command:
+        cmd: "docker --version"
+      become: true
+      become_user: "{{ ansible_user }}"
+      register: docker_cli_check
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "docker"]
+
+    - name: "Fail if Docker CLI is not installed"
+      ansible.builtin.fail:
+        msg: |
+          Docker prerequisite failed: Docker CLI is not installed.
+          Ensure Docker engine is deployed before running this playbook.
+      when: docker_cli_check.rc != 0
+      tags: ["verify", "docker"]
+
+    - name: "Verify Docker daemon is responsive"
+      ansible.builtin.command:
+        cmd: "docker info --format '{{ '{{' }} .ServerVersion {{ '}}' }}'"
+      become: true
+      register: docker_daemon_check
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "docker"]
+
+    - name: "Fail if Docker daemon is not responsive"
+      ansible.builtin.fail:
+        msg: |
+          Docker prerequisite failed: Docker daemon is not running or
+          not accessible. Ensure Docker service is started.
+      when: docker_daemon_check.rc != 0
+      tags: ["verify", "docker"]
+
+    - name: "Verify Traefik is deployed"
+      ansible.builtin.command:
+        cmd: "docker inspect --format='{{ '{{' }} .State.Status {{ '}}' }}' {{ security_crowdsec_traefik_container_name }}"
+      become: true
+      register: traefik_check
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "traefik"]
+
+    - name: "Fail if Traefik is not running"
+      ansible.builtin.fail:
+        msg: |
+          Traefik prerequisite failed: Traefik container is not running.
+          Ensure Traefik is deployed before running this playbook.
+      when: traefik_check.rc != 0 or traefik_check.stdout != "running"
+      tags: ["verify", "traefik"]
+
+  roles:
+    - role: security-crowdsec
+      tags: ["crowdsec", "security"]
+
+  post_tasks:
+    - name: "Verify CrowdSec container is running"
+      ansible.builtin.command:
+        cmd: "docker inspect --format='{{ '{{' }} .State.Status {{ '}}' }}' {{ security_crowdsec_container_name }}"
+      become: true
+      register: crowdsec_container_check
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "crowdsec", "containers"]
+
+    - name: "Report CrowdSec container status"
+      ansible.builtin.debug:
+        msg: |
+          CrowdSec container status: {{ crowdsec_container_check.stdout | default('not found') }}
+      tags: ["verify", "crowdsec", "containers"]
+
+    - name: "Verify CrowdSec is connected to traefik-network"
+      ansible.builtin.command:
+        cmd: "docker network inspect {{ security_crowdsec_network_name }} --format='{{ '{{' }} range .Containers }}{{ .Name }} {{ end }}{{ '}}' }}"
+      become: true
+      register: crowdsec_network_check
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "crowdsec", "network"]
+
+    - name: "Report CrowdSec network connection"
+      ansible.builtin.debug:
+        msg: |
+          CrowdSec network connection: {{ 'connected' if security_crowdsec_container_name in crowdsec_network_check.stdout else 'not connected' }}
+      tags: ["verify", "crowdsec", "network"]
+
+    - name: "Check CrowdSec LAPI port accessibility"
+      ansible.builtin.wait_for:
+        host: "{{ ansible_host | default('localhost') }}"
+        port: "{{ security_crowdsec_lapi_port }}"
+        timeout: 10
+      delegate_to: localhost
+      become: false
+      ignore_errors: true
+      register: crowdsec_lapi_port_check
+      tags: ["verify", "crowdsec", "ports"]
+
+    - name: "Report LAPI port status"
+      ansible.builtin.debug:
+        msg: |
+          CrowdSec LAPI port {{ security_crowdsec_lapi_port }}: {{ 'accessible' if crowdsec_lapi_port_check.failed is false else 'not accessible' }}
+      tags: ["verify", "crowdsec", "ports"]
+
+    - name: "Get CrowdSec container logs (last 20 lines)"
+      ansible.builtin.command:
+        cmd: "docker logs --tail 20 {{ security_crowdsec_container_name }}"
+      become: true
+      register: crowdsec_logs
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "crowdsec", "logs"]
+
+    - name: "Report CrowdSec logs"
+      ansible.builtin.debug:
+        msg: |
+          CrowdSec container logs:
+          {{ crowdsec_logs.stdout | default('no logs available') }}
+      tags: ["verify", "crowdsec", "logs"]
+
+    - name: "Test CrowdSec metrics endpoint"
+      ansible.builtin.command:
+        cmd: "docker exec {{ security_crowdsec_container_name }} cscli metrics"
+      become: true
+      register: crowdsec_metrics
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "crowdsec", "metrics"]
+
+    - name: "Report CrowdSec metrics"
+      ansible.builtin.debug:
+        msg: |
+          CrowdSec metrics:
+          {{ crowdsec_metrics.stdout | default('metrics not available') }}
+      tags: ["verify", "crowdsec", "metrics"]
+
+    - name: "Check CrowdSec acquisition status"
+      ansible.builtin.command:
+        cmd: "docker exec {{ security_crowdsec_container_name }} cscli acqui list"
+      become: true
+      register: crowdsec_acqui
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "crowdsec", "acquisition"]
+
+    - name: "Report CrowdSec acquisition status"
+      ansible.builtin.debug:
+        msg: |
+          CrowdSec acquisition status:
+          {{ crowdsec_acqui.stdout | default('acquisition not available') }}
+      tags: ["verify", "crowdsec", "acquisition"]

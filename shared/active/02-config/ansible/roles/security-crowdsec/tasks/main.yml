@@ -118,6 +118,8 @@
     volumes:
       - "{{ security_crowdsec_db_volume }}:/var/lib/crowdsec/data"
       - "{{ security_crowdsec_config_volume }}:/etc/crowdsec"
+      - "{{ security_crowdsec_data_dir }}/config:/etc/crowdsec/config"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
       - "/var/log:/var/log:ro"
     env:
       TZ: "{{ security_crowdsec_tz }}"
@@ -138,6 +140,14 @@
 # ---------------------------------------------------------------------------
 # CrowdSec Bouncer Container
 # ---------------------------------------------------------------------------
+- name: Remove existing CrowdSec Bouncer container if present
+  community.docker.docker_container:
+    name: "{{ security_crowdsec_bouncer_container_name }}"
+    state: absent
+  become: true
+  when: security_crowdsec_enabled | bool
+  ignore_errors: true
+
 - name: Deploy CrowdSec Bouncer container
   community.docker.docker_container:
     name: "{{ security_crowdsec_bouncer_container_name }}"
@@ -151,9 +161,7 @@
       CROWDSEC_LAPI_URL: "http://{{ security_crowdsec_container_name }}:{{ security_crowdsec_lapi_container_port }}"
       CROWDSEC_BOUNCER_API_KEY: "{{ security_crowdsec_bouncer_api_key }}"
       CROWDSEC_BOUNCER_FORWARD_HEADERS: "true"
-    command:
-      - "--config"
-      - "/etc/crowdsec/bouncer.yaml"
+      CROWDSEC_AGENT_HOST: "{{ security_crowdsec_container_name }}"
     log_driver: json-file
     log_opt:
       max-size: "{{ security_crowdsec_log_max_size }}"
