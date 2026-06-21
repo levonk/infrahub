@@ -14,8 +14,9 @@
     isolation_vm_memory_mb: 4096
     isolation_vm_vcpus: 2
     isolation_vm_disk_gb: 20
-    isolation_vm_ip_address: "192.168.101.10"
-    isolation_vm_gateway_ip: "192.168.101.1"
+    isolation_vm_ip_address: "192.168.100.147"
+    isolation_vm_gateway_ip: "192.168.100.1"
+    isolation_vm_mac_address: "52:54:00:36:e0:0d"
     isolation_vm_nat_bridge: "kvm-nat-br0"
     isolation_vm_routed_bridge: "kvm-route-br0"
     isolation_vm_debian_version: "bookworm"
@@ -24,67 +25,8 @@
     isolation_vm_osinfo: "debian12"
     kvm_storage_pool_path: "/var/lib/libvirt/images"
     kvm_cpu_mode: "qemu"
+    # SSH configuration
+    isolation_vm_ssh_public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEWRbHy2sWZLKET/74zvt0rZa4ET2zjes/SB+Y/3BmKp lzkmbp2016-micro-oracle"
 
-  tasks:
-    - name: Ensure storage pool directory exists
-      ansible.builtin.file:
-        path: "{{ kvm_storage_pool_path }}"
-        state: directory
-        mode: '0755'
-
-    - name: Download Debian minimal cloud image
-      ansible.builtin.get_url:
-        url: "{{ isolation_vm_image_url }}"
-        dest: "{{ kvm_storage_pool_path }}/{{ isolation_vm_name }}.qcow2"
-        mode: '0644'
-        timeout: 600
-      register: download_result
-
-    - name: Resize VM disk to specified size
-      ansible.builtin.command:
-        cmd: "qemu-img resize {{ kvm_storage_pool_path }}/{{ isolation_vm_name }}.qcow2 {{ isolation_vm_disk_gb }}G"
-      when: download_result is succeeded
-      register: resize_result
-      failed_when: false
-
-    - name: Create VM using virt-install
-      ansible.builtin.command:
-        cmd: >
-          virt-install
-          --name {{ isolation_vm_name }}
-          --memory {{ isolation_vm_memory_mb }}
-          --vcpus {{ isolation_vm_vcpus }}
-          --disk path={{ kvm_storage_pool_path }}/{{ isolation_vm_name }}.qcow2,format=qcow2
-          --network network={{ isolation_vm_nat_bridge }},model=virtio
-          --network network={{ isolation_vm_routed_bridge }},model=virtio
-          --graphics vnc,listen=0.0.0.0
-          --noautoconsole
-          --osinfo {{ isolation_vm_osinfo }}
-          --import
-      register: install_result
-
-    - name: Display virt-install result
-      ansible.builtin.debug:
-        var: install_result
-
-    - name: Set VM to autostart
-      ansible.builtin.command:
-        cmd: "virsh autostart {{ isolation_vm_name }}"
-      register: autostart_result
-      failed_when: false
-      when: install_result is succeeded
-
-    - name: Wait for VM to boot and get IP
-      ansible.builtin.pause:
-        seconds: 30
-      when: install_result is succeeded
-
-    - name: Verify VM is running
-      ansible.builtin.command:
-        cmd: "virsh list --all"
-      register: vm_list
-      changed_when: false
-
-    - name: Display VM status
-      ansible.builtin.debug:
-        var: vm_list.stdout_lines
+  roles:
+    - role: isolation-vm

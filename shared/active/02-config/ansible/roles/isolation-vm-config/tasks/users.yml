@@ -32,7 +32,6 @@
     mode: '0600'
     owner: "{{ isolation_vm_user }}"
     group: "{{ isolation_vm_user_gid }}"
-  when: isolation_vm_ssh_public_key is defined
   tags:
     - users
 

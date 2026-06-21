@@ -7,7 +7,7 @@ prd_file: "shared/active/08-docs/reqs/2026/20260619-isolation-vm.md"
 phase: 4
 parallel_id: 3
 branch: "feature/current/isolation-vm/story-04-003-isolation-security-test"
-status: "todo"
+status: "in-progress"
 assignee: ""
 reviewer: ""
 dependencies: ["03-004"]
@@ -27,15 +27,15 @@ Test the isolation and security boundaries between the Isolation VM, agent conta
 
 ## Sub-Tasks
 
-- [ ] Create security test plan based on PRD security considerations
-- [ ] Test that VM cannot access host Docker socket
-- [ ] Test that agent containers cannot access host networks
-- [ ] Test that VPN credentials are not exposed to agent containers
-- [ ] Test that VM network is firewalled from host services
-- [ ] Test privilege escalation boundaries
-- [ ] Test resource isolation (CPU, memory, disk)
-- [ ] Test inter-container isolation
-- [ ] Perform security audit of configurations
+- [x] Create security test plan based on PRD security considerations
+- [x] Test that VM cannot access host Docker socket
+- [~] Test that agent containers cannot access host networks
+- [x] Test that VPN credentials are not exposed to agent containers
+- [x] Test that VM network is firewalled from host services
+- [x] Test privilege escalation boundaries
+- [x] Test resource isolation (CPU, memory, disk)
+- [x] Test inter-container isolation
+- [~] Perform security audit of configurations
 - [ ] Document security test results and any vulnerabilities
 
 ## Relevant Files
@@ -44,6 +44,7 @@ Test the isolation and security boundaries between the Isolation VM, agent conta
 - `shared/active/02-config/ansible/roles/isolation-vm-tests/` - Test role
 - `shared/active/02-config/ansible/roles/isolation-vm-tests/tasks/security-isolation.yml` - Security tests
 - `internal-docs/feature/isolation-vm/test-results/security-audit.md` - Security audit results
+- `shared/active/02-config/ansible/roles/isolation-vm-tests/tasks/main.yml` - Main test tasks entry point
 
 ## Acceptance Criteria
 

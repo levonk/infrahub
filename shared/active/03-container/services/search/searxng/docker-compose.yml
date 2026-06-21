@@ -56,13 +56,23 @@ services:
       - searxng-network
       - vpn-network
     labels:
-      # Traefik labels for automatic routing
+      # Traefik labels for automatic routing with security middleware chain
       - "traefik.enable=true"
-      - "traefik.http.routers.searxng.rule=PathPrefix(`/searxng`)"
-      - "traefik.http.routers.searxng.entryPoints=websecure"
-      - "traefik.http.routers.searxng.middlewares=strip-searxng"
+      # HTTP router (redirects to HTTPS)
+      - "traefik.http.routers.searxng-http.rule=Host(`search.levonk.com`)"
+      - "traefik.http.routers.searxng-http.entryPoints=web"
+      - "traefik.http.routers.searxng-http.middlewares=redirect-to-https"
+      # HTTPS router with security middleware chain
+      - "traefik.http.routers.searxng-https.rule=Host(`search.levonk.com`)"
+      - "traefik.http.routers.searxng-https.entryPoints=websecure"
+      - "traefik.http.routers.searxng-https.middlewares=geoblock,crowdsec-bouncer,authelia"
+      - "traefik.http.routers.searxng-https.tls=true"
+      - "traefik.http.routers.searxng-https.tls.certresolver=letsencrypt"
+      # Service configuration
       - "traefik.http.services.searxng.loadbalancer.server.port=8080"
-      - "traefik.http.middlewares.strip-searxng.stripprefix.prefixes=/searxng"
+      # HTTPS redirect middleware
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true"
 
   searxng-debug:
     build:

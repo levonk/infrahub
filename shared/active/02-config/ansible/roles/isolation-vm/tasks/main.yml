@@ -26,38 +26,52 @@
   register: resize_result
   failed_when: false
 
-- name: Create libvirt VM XML template
+- name: Create cloud-init user data
   ansible.builtin.template:
-    src: isolation-vm.xml.j2
-    dest: "/tmp/{{ isolation_vm_name }}.xml"
+    src: cloud-init-user-data.yml.j2
+    dest: "/tmp/{{ isolation_vm_name }}-user-data.yml"
     mode: '0644'
   become: true
 
-- name: Define VM in libvirt
+- name: Configure DHCP reservation for static IP
   ansible.builtin.command:
-    cmd: "virsh define /tmp/{{ isolation_vm_name }}.xml"
+    cmd: "virsh net-update {{ isolation_vm_nat_bridge }} add-last ip-dhcp-host --xml \"<host mac='{{ isolation_vm_mac_address }}' name='{{ isolation_vm_name }}' ip='{{ isolation_vm_ip_address }}'/>\" --config --live"
   become: true
-  register: define_result
+  register: dhcp_config
   failed_when: false
+  when: isolation_vm_mac_address is defined and isolation_vm_mac_address | length > 0
 
-- name: Start VM
+- name: Define VM in libvirt with cloud-init
   ansible.builtin.command:
-    cmd: "virsh start {{ isolation_vm_name }}"
-  become: true
-  register: start_result
+    cmd: >
+      virt-install
+      --name {{ isolation_vm_name }}
+      --memory {{ isolation_vm_memory_mb }}
+      --vcpus {{ isolation_vm_vcpus }}
+      --disk path={{ kvm_storage_pool_path }}/{{ isolation_vm_name }}.qcow2,format=qcow2
+      --network network={{ isolation_vm_nat_bridge }},model=virtio{% if isolation_vm_mac_address is defined %},mac={{ isolation_vm_mac_address }}{% endif %}
+      --network network={{ isolation_vm_routed_bridge }},model=virtio
+      --graphics vnc,listen=0.0.0.0
+      --noautoconsole
+      --osinfo {{ isolation_vm_osinfo }}
+      --cloud-init user-data=/tmp/{{ isolation_vm_name }}-user-data.yml
+      --import
+    become: true
+  register: install_result
   failed_when: false
 
 - name: Set VM to autostart
   ansible.builtin.command:
     cmd: "virsh autostart {{ isolation_vm_name }}"
-  become: true
+    become: true
   register: autostart_result
   failed_when: false
+  when: install_result is succeeded
 
 - name: Wait for VM to boot and get IP
   ansible.builtin.pause:
     seconds: 30
-  when: start_result is succeeded
+  when: install_result is succeeded
 
 - name: Verify VM is running
   ansible.builtin.command:

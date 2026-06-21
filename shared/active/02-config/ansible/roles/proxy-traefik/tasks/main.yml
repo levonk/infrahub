@@ -92,6 +92,17 @@
   become: true
   notify: reload traefik
 
+- name: Deploy SearXNG dynamic configuration template
+  ansible.builtin.template:
+    src: dynamic/search-levonk-com.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/search-levonk-com.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: reload traefik
+  when: search_searxng_enabled | bool
+
 # ---------------------------------------------------------------------------
 # Traefik Container
 # ---------------------------------------------------------------------------

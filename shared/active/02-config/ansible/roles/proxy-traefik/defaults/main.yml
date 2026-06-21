@@ -50,6 +50,14 @@ proxy_traefik_acme_resolver_2: "8.8.8.8:53"
 proxy_traefik_acme_staging: false
 
 # ---------------------------------------------------------------------------
+# SearXNG Integration Configuration
+# ---------------------------------------------------------------------------
+search_searxng_enabled: true
+search_searxng_container_ip: "172.22.0.2"
+search_searxng_container_port: "8080"
+search_searxng_domain: "search.levonk.com"
+
+# ---------------------------------------------------------------------------
 # Plugin Configuration
 # ---------------------------------------------------------------------------
 proxy_traefik_plugins_enabled: true

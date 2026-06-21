@@ -1,6 +1,6 @@
 ---
 # Main tasks file for isolation-vm-tests role
-# Tests for Isolation VM functionality including VPN routing, Docker access, and network isolation
+# Tests for Isolation VM functionality including VPN routing, Docker access, network isolation, and security
 
 - name: Include VPN routing tests
   ansible.builtin.include_tasks: vpn-routing.yml
@@ -13,3 +13,7 @@
 - name: Include network isolation tests
   ansible.builtin.include_tasks: network-isolation.yml
   when: isolation_vm_test_network_isolation | default(true) | bool
+
+- name: Include security isolation tests
+  ansible.builtin.include_tasks: security-isolation.yml
+  when: isolation_vm_test_security_isolation | default(true) | bool

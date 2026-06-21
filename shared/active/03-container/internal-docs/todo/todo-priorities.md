@@ -281,7 +281,7 @@ Ventoy USB Booter
 
 _Goal: Privacy, Resilience, Ad-blocking_
 
-- [ ] Security for Untrusted Workloads: https://github.com/ironsh/iron-proxy?tab=readme-ov-file
+- [ ] security for untrusted workloads: https://github.com/ironsh/iron-proxy?tab=readme-ov-file
 - [ ] **High Availability**: `keepalived` for critical DNS endpoints
 - [ ] **Layer 1 (Filtering)**: AdGuard Home + keepalived https://github.com/AdguardTeam/AdGuardHome
 - [ ] **Layer 2 (Routing)**: DNSDist + keepalived https://github.com/PowerDNS/pdns

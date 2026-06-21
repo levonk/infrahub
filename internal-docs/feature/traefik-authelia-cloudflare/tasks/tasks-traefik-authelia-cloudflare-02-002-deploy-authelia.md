@@ -7,7 +7,7 @@ prd_file: "shared/active/08-docs/reqs/2026/20260620-traefik-authelia-cloudflare.
 phase: 2
 parallel_id: 2
 branch: "feature/current/traefik-authelia-cloudflare/story-02-002-deploy-authelia"
-status: "in-progress"
+status: "done"
 assignee: ""
 reviewer: ""
 dependencies: ["01-002", "01-005"]

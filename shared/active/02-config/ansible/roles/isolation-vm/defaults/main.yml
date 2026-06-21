@@ -11,8 +11,9 @@ isolation_vm_disk_gb: 20
 
 # VM Network Configuration
 # All IPs and network values are variables per AGENTS.md requirements
-isolation_vm_ip_address: "192.168.101.10"
-isolation_vm_gateway_ip: "192.168.101.1"
+isolation_vm_ip_address: "192.168.100.147"
+isolation_vm_gateway_ip: "192.168.100.1"
+isolation_vm_mac_address: "52:54:00:36:e0:0d"
 isolation_vm_nat_bridge: "{{ common_kvm_nat_bridge_name | default('kvm-nat-br0') }}"
 isolation_vm_routed_bridge: "{{ common_kvm_routed_bridge_name | default('kvm-route-br0') }}"
 
@@ -27,3 +28,17 @@ kvm_storage_pool_path: "/var/lib/libvirt/images"
 kvm_cpu_mode: "{{ kvm_cpu_mode | default('host-passthrough') }}"
 common_kvm_nat_bridge_name: "kvm-nat-br0"
 common_kvm_routed_bridge_name: "kvm-route-br0"
+
+# VM User Configuration
+isolation_vm_user: "cuser"
+isolation_vm_user_uid: 1000
+isolation_vm_user_gid: 1000
+isolation_vm_user_shell: "/bin/bash"
+isolation_vm_user_home: "/home/cuser"
+isolation_vm_sudo_groups: "sudo"
+isolation_vm_sudo_enabled: true
+isolation_vm_sudo_password_required: false
+isolation_vm_ssh_public_key: ""
+isolation_vm_ssh_password_auth: false
+isolation_vm_ssh_permit_root_login: "no"
+isolation_vm_ssh_port: 22
