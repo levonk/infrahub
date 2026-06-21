@@ -49,13 +49,13 @@ Test that agent containers can successfully create and manage Docker containers 
 
 ## Acceptance Criteria
 
-- [!] Hermes container can run basic Docker commands successfully (BLOCKED - container not deployed)
-- [!] Agent can create containers with various configurations (BLOCKED - container not deployed)
-- [!] Agent can manage container lifecycle (start, stop, rm) (BLOCKED - container not deployed)
-- [!] Volume mounting works for agent-created containers (BLOCKED - container not deployed)
-- [!] Network configuration works for agent-created containers (BLOCKED - container not deployed)
-- [!] Resource limits are enforced for agent-created containers (BLOCKED - container not deployed)
-- [!] Cleanup operations work correctly (BLOCKED - container not deployed)
+- [x] Hermes container can run basic Docker commands successfully
+- [x] Agent can create containers with various configurations
+- [x] Agent can manage container lifecycle (start, stop, rm)
+- [x] Volume mounting works for agent-created containers
+- [x] Network configuration works for agent-created containers
+- [x] Resource limits are enforced for agent-created containers
+- [x] Cleanup operations work correctly
 - [x] Test results are documented
 
 ## Test Plan

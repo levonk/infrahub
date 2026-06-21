@@ -33,6 +33,13 @@
     mode: '0644'
   become: true
 
+- name: Create cloud-init meta data
+  ansible.builtin.template:
+    src: cloud-init-meta-data.yml.j2
+    dest: "/tmp/{{ isolation_vm_name }}-meta-data.yml"
+    mode: '0644'
+  become: true
+
 - name: Configure DHCP reservation for static IP
   ansible.builtin.command:
     cmd: "virsh net-update {{ isolation_vm_nat_bridge }} add-last ip-dhcp-host --xml \"<host mac='{{ isolation_vm_mac_address }}' name='{{ isolation_vm_name }}' ip='{{ isolation_vm_ip_address }}'/>\" --config --live"
@@ -41,7 +48,7 @@
   failed_when: false
   when: isolation_vm_mac_address is defined and isolation_vm_mac_address | length > 0
 
-- name: Define VM in libvirt with cloud-init
+- name: Define VM in libvirt
   ansible.builtin.command:
     cmd: >
       virt-install
@@ -54,7 +61,6 @@
       --graphics vnc,listen=0.0.0.0
       --noautoconsole
       --osinfo {{ isolation_vm_osinfo }}
-      --cloud-init user-data=/tmp/{{ isolation_vm_name }}-user-data.yml
       --import
     become: true
   register: install_result
@@ -66,6 +72,16 @@
     become: true
   register: autostart_result
   failed_when: false
+  when: install_result is succeeded
+
+- name: Clean up cloud-init user data files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  become: true
+  loop:
+    - "/tmp/{{ isolation_vm_name }}-user-data.yml"
+    - "/tmp/{{ isolation_vm_name }}-meta-data.yml"
   when: install_result is succeeded
 
 - name: Wait for VM to boot and get IP

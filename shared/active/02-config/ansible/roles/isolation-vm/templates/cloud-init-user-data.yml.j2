@@ -10,6 +10,7 @@ users:
     sudo: ALL=(ALL) {{ 'NOPASSWD:ALL' if not isolation_vm_sudo_password_required else 'ALL' }}
     ssh_authorized_keys:
       - {{ isolation_vm_ssh_public_key }}
+    lock_passwd: true
 
 ssh_pwauth: {{ 'true' if isolation_vm_ssh_password_auth else 'false' }}
 
@@ -19,3 +20,4 @@ runcmd:
   - sed -i 's/^#?PermitRootLogin.*/PermitRootLogin {{ isolation_vm_ssh_permit_root_login }}/' /etc/ssh/sshd_config
   - sed -i 's/^#?Port.*/Port {{ isolation_vm_ssh_port }}/' /etc/ssh/sshd_config
   - systemctl restart ssh
+  - echo "Cloud-init completed at $(date)" >> /var/log/cloud-init.log

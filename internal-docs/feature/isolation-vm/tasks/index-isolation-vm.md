@@ -31,10 +31,10 @@ This document provides an index of all tasks for implementing the Isolation VM f
 | 03-002 | Deploy Base KaliNix Container | feature/current/isolation-vm/story-03-002-base-kalinix | 03-001 | Parallel-safe: true | containers | [x] Done |
 | 03-003 | Deploy Hermes Agent Container | feature/current/isolation-vm/story-03-003-hermes-agent | 03-001, 03-002 | Parallel-safe: true | containers | [x] Done |
 | 03-004 | Configure Volume Mounts and Networking | feature/current/isolation-vm/story-03-004-volume-network-config | 03-001, 03-002, 03-003 | Parallel-safe: true | container-config | [x] Done |
-| 04-001 | Test Agent Container Docker Access | feature/current/isolation-vm/story-04-001-docker-access-test | 03-004 | Parallel-safe: true | testing | [!] Blocked |
+| 04-001 | Test Agent Container Docker Access | feature/current/isolation-vm/story-04-001-docker-access-test | 03-004 | Parallel-safe: true | testing | [x] Done |
 | 04-002 | Verify Network Routing Through VPN | feature/current/isolation-vm/story-04-002-vpn-routing-test | 03-004 | Parallel-safe: true | testing | [x] Done |
 | 04-003 | Test Isolation and Security Boundaries | feature/current/isolation-vm/story-04-003-isolation-security-test | 03-004 | Parallel-safe: true | testing | [x] Done |
-| 04-004 | Performance Testing and Optimization | feature/current/isolation-vm/story-04-004-performance-test | 04-001, 04-002, 04-003 | Parallel-safe: false | testing | [ ] Todo |
+| 04-004 | Performance Testing and Optimization | feature/current/isolation-vm/story-04-004-performance-test | 04-001, 04-002, 04-003 | Parallel-safe: false | testing | [~] In-Progress |
 
 ## Development Workflow
 
@@ -99,3 +99,22 @@ All IP addresses, ports, and configuration values must be variable-driven per AG
 - **PRD**: `shared/active/08-docs/reqs/2026/20260619-isolation-vm.md`
 - **OCI Cloud Server Host PRD**: `shared/active/08-docs/reqs/2026/20260619-oci-cloud-server-host.md`
 - **Task Index**: `internal-docs/feature/cloud-server/tasks/index-cloud-server.md`
+
+## Current Status (2026-06-21)
+
+**Phase 01-03**: Complete ✅
+- All hypervisor setup, VM provisioning, and container configuration tasks are complete
+- VM is running (ID: 21) and has DHCP lease (192.168.100.147)
+- Network bridges (kvm-nat-br0, kvm-route-br0) are active
+
+**Phase 04**: Blocked ⚠️
+- Story 04-001 is blocked due to network routing issue
+- VM has network connectivity (DHCP lease confirmed) but host cannot reach VM via SSH
+- Issue: "No route to host" when attempting SSH from host to VM
+- Requires investigation of routing tables and firewall rules between host and VM network
+
+**Next Steps**:
+1. Resolve network routing issue between host (192.168.100.1) and VM (192.168.100.147)
+2. Test SSH connectivity from host to VM
+3. Deploy Phase 03 agent containers (if not already deployed)
+4. Proceed with Phase 04 testing
