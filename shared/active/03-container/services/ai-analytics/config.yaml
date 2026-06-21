@@ -1,0 +1,128 @@
+# AI Analytics Pipeline - Main Configuration File
+# This file contains the core configuration for the analytics pipeline
+
+# Database Configuration
+database:
+  type: postgresql  # postgresql | sqlite
+  host: analytics-db
+  port: 5432
+  name: analytics
+  user: analytics
+  password: ${ANALYTICS_DB_PASSWORD}
+  pool_size: 10
+  max_overflow: 20
+  pool_timeout: 30
+
+# Message Queue Configuration
+queue:
+  type: redis  # redis | rabbitmq
+  host: analytics-queue
+  port: 6379
+  db: 0
+  max_connections: 50
+  socket_timeout: 5
+  socket_connect_timeout: 5
+
+# Collector Configuration
+collector:
+  enabled: true
+  batch_size: 1000
+  flush_interval: 60  # seconds
+  max_retries: 3
+  retry_delay: 5  # seconds
+  buffer_size: 10000
+
+# Processor Configuration
+processor:
+  enabled: true
+  workers: 4
+  batch_size: 500
+  processing_interval: 60  # seconds
+  max_retries: 3
+  retry_delay: 10  # seconds
+
+# API Configuration
+api:
+  enabled: true
+  host: 0.0.0.0
+  port: 8080
+  workers: 4
+  secret_key: ${ANALYTICS_API_SECRET_KEY}
+  cors_origins:
+    - http://localhost:3000
+    - http://localhost:8080
+  rate_limit:
+    enabled: true
+    requests_per_minute: 100
+    burst: 20
+
+# Logging Configuration
+logging:
+  level: INFO  # DEBUG | INFO | WARNING | ERROR | CRITICAL
+  format: json  # json | text
+  file:
+    enabled: true
+    path: /var/log/analytics
+    max_size: 10MB
+    backup_count: 5
+  console:
+    enabled: true
+
+# Data Retention Configuration
+retention:
+  enabled: true
+  raw_events_days: 30
+  aggregated_data_days: 365
+  audit_log_days: 90
+  cleanup_interval: 86400  # seconds (daily)
+
+# Analytics Configuration
+analytics:
+  dimensions:
+    - client
+    - ai_client
+    - team
+    - pipeline_stage
+    - provider
+    - model
+    - input_type
+  time_granularities:
+    - hour
+    - day
+    - week
+    - month
+  aggregation_interval: 3600  # seconds (hourly)
+
+# Security Configuration
+security:
+  encryption:
+    enabled: true
+    algorithm: AES-256-GCM
+    key_rotation_days: 90
+  authentication:
+    enabled: false  # Enable for multi-tenant
+    method: jwt  # jwt | api_key
+    token_expiry: 3600  # seconds
+  audit:
+    enabled: true
+    log_all_access: true
+
+# Monitoring Configuration
+monitoring:
+  enabled: true
+  metrics:
+    enabled: true
+    port: 9090
+  health_check:
+    enabled: true
+    interval: 30  # seconds
+  alerts:
+    enabled: false
+    webhook_url: ${ALERT_WEBHOOK_URL}
+
+# Development Configuration
+development:
+  mode: ${DEV_MODE:-false}
+  debug: false
+  hot_reload: false
+  test_data: false

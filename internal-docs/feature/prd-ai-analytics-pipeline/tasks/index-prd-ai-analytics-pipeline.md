@@ -13,7 +13,7 @@ This index provides a summary of all development stories for the AI Analytics Pi
 
 | Story ID | Story Title | Branch | Dependencies | Parallel-safe | Modules |
 | -------- | ----------- | ------ | ------------ | ------------- | ------- |
-| 01-001 | Project Setup and Licensing Framework | feature/current/prd-ai-analytics-pipeline/story-01-001-project-setup-licensing | None | Parallel-safe: true | project-root, licensing |
+| 01-001 | Project Setup and Licensing Framework | feature/current/prd-ai-analytics-pipeline/story-01-001-project-setup-licensing | None | [~] In-Progress | Parallel-safe: true | project-root, licensing |
 | 01-002 | User-Level Data Model | feature/current/prd-ai-analytics-pipeline/story-01-002-user-data-model | None | Parallel-safe: true | database, schema |
 | 01-003 | Basic Collector Framework | feature/current/prd-ai-analytics-pipeline/story-01-003-collector-framework | None | Parallel-safe: true | collectors, framework |
 | 01-004 | Message Queue and Basic Processor | feature/current/prd-ai-analytics-pipeline/story-01-004-message-queue-processor | 01-003 | Parallel-safe: true | queue, processor |
