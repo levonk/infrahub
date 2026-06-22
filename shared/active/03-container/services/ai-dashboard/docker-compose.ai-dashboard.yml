@@ -1,0 +1,71 @@
+---
+# AI Dashboard - Docker Compose Configuration
+# This service integrates the ai-dashboard project as external containers
+# Reference: https://github.com/levonk/ai-dashboard
+
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "5"
+    tag: "{{.Name}}"
+    labels: "service"
+
+networks:
+  ai-dashboard:
+    name: ai-dashboard-network
+    driver: bridge
+    external: false
+
+volumes:
+  ai-dashboard-data:
+    driver: local
+
+services:
+  # AI Dashboard Proxy Service (Rust-based analytics proxy)
+  ai-dashboard-proxy:
+    build:
+      context: /Users/micro/p/gh/levonk/ai-dashboard/apps/proxy
+      dockerfile: Dockerfile
+    image: ai-dashboard-proxy:latest
+    command: ["ai-analytics-proxy", "serve", "--port", "8080"]
+    container_name: ai-dashboard-proxy
+    restart: unless-stopped
+    networks:
+      ai-dashboard:
+        ipv4_address: ${AI_DASHBOARD_PROXY_CONTAINER_IP:-172.28.0.10}
+    environment:
+      - DATABASE_URL=${AI_DASHBOARD_DATABASE_URL:-postgresql://postgres:postgres@ai-dashboard-db:5432/analytics}
+      - AI_ANALYTICS_PROXY_MODE=analytics
+      - LOG_LEVEL=${AI_DASHBOARD_LOG_LEVEL:-INFO}
+    ports:
+      - "${AI_DASHBOARD_PROXY_HOST_PORT:-8080}:${AI_DASHBOARD_PROXY_CONTAINER_PORT:-8080}/tcp"
+    volumes:
+      - ai-dashboard-data:/var/lib/analytics
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # AI Dashboard Database (PostgreSQL)
+  ai-dashboard-db:
+    image: postgres:15-alpine
+    container_name: ai-dashboard-db
+    restart: unless-stopped
+    networks:
+      ai-dashboard:
+        ipv4_address: ${AI_DASHBOARD_DB_CONTAINER_IP:-172.28.0.20}
+    environment:
+      POSTGRES_DB: ${AI_DASHBOARD_DB_NAME:-analytics}
+      POSTGRES_USER: ${AI_DASHBOARD_DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${AI_DASHBOARD_DB_PASSWORD:-postgres}
+    volumes:
+      - ai-dashboard-data:/var/lib/postgresql/data
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${AI_DASHBOARD_DB_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
