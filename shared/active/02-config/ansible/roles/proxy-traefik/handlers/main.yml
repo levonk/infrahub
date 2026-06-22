@@ -9,8 +9,6 @@
   become: true
 
 - name: reload traefik
-  community.docker.docker_container:
-    name: "{{ proxy_traefik_container_name }}"
-    state: started
-    signal: SIGHUP
+  ansible.builtin.command:
+    cmd: "docker kill --signal=SIGHUP {{ proxy_traefik_container_name }}"
   become: true

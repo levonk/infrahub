@@ -79,3 +79,7 @@ vault_cloudflare_api_token: "change-me-in-vault-generate-in-cloudflare-dashboard
 
 # Cloudflare Account Email
 vault_cloudflare_account_email: "admin@levonk.com"
+
+# Cloudflare API Key (legacy, for ACME DNS challenge)
+# TODO: Generate in Cloudflare dashboard
+vault_cloudflare_api_key: "change-me-in-vault-generate-in-cloudflare-dashboard"

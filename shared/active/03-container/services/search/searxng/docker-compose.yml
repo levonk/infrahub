@@ -55,6 +55,7 @@ services:
     networks:
       - searxng-network
       - vpn-network
+      - traefik-network
     labels:
       # Traefik labels for automatic routing with security middleware chain
       - "traefik.enable=true"
@@ -120,3 +121,6 @@ networks:
   vpn-network:
     external: true
     name: vpn-network
+  traefik-network:
+    external: true
+    name: traefik-network

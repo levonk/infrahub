@@ -47,27 +47,44 @@ proxy_traefik_acme_dns_provider: "cloudflare"
 proxy_traefik_acme_delay_before_check: 30
 proxy_traefik_acme_resolver_1: "1.1.1.1:53"
 proxy_traefik_acme_resolver_2: "8.8.8.8:53"
-proxy_traefik_acme_staging: false
+proxy_traefik_acme_staging: true
+
+# Cloudflare ACME Configuration
+proxy_traefik_acme_cloudflare_email: "{{ vault_cloudflare_account_email | default('admin@example.com') }}"
+proxy_traefik_acme_cloudflare_api_key: "{{ vault_cloudflare_api_key | default('change-me') }}"
 
 # ---------------------------------------------------------------------------
 # SearXNG Integration Configuration
 # ---------------------------------------------------------------------------
 search_searxng_enabled: true
-search_searxng_container_ip: "172.22.0.2"
+search_searxng_container_ip: "172.31.0.5"
 search_searxng_container_port: "8080"
 search_searxng_domain: "search.levonk.com"
 
 # ---------------------------------------------------------------------------
+# Tailscale/NetBird Bypass Configuration
+# ---------------------------------------------------------------------------
+cloud_server_tailscale_subnet: "100.64.0.0/10"
+cloud_server_netbird_subnet: "100.100.0.0/14"
+
+# ---------------------------------------------------------------------------
 # Plugin Configuration
 # ---------------------------------------------------------------------------
+# Template rendering fixed - using correct module names and latest versions
+# GeoBlock: github.com/PascalMinder/geoblock (latest: v0.3.7)
+# CrowdSec: github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin (latest: v1.6.0)
 proxy_traefik_plugins_enabled: true
-proxy_traefik_crowdsec_plugin_version: "v1.4.4"
-proxy_traefik_geoblock_plugin_version: "v0.3.3"
+proxy_traefik_crowdsec_plugin_version: "v1.6.0"
+proxy_traefik_geoblock_plugin_version: "v0.3.7"
+
+# NOTE: CrowdSec is deployed as standalone bouncer container, not as Traefik plugin
+# The plugin configuration is disabled to avoid download errors
+proxy_traefik_crowdsec_use_plugin: false
 
 # ---------------------------------------------------------------------------
 # CrowdSec Bouncer Configuration
 # ---------------------------------------------------------------------------
-proxy_traefik_crowdsec_enabled: true
+proxy_traefik_crowdsec_enabled: false
 proxy_traefik_crowdsec_mode: "alive"
 proxy_traefik_crowdsec_lapi_scheme: "http"
 proxy_traefik_crowdsec_lapi_host: "crowdsec"
@@ -86,7 +103,7 @@ proxy_traefik_crowdsec_default_decision_seconds: 30
 # ---------------------------------------------------------------------------
 # GeoBlock Configuration
 # ---------------------------------------------------------------------------
-proxy_traefik_geoblock_enabled: true
+proxy_traefik_geoblock_enabled: false
 proxy_traefik_geoblock_allow_local: true
 proxy_traefik_geoblock_log_local: false
 proxy_traefik_geoblock_api_url: "http://ip-api.com/json/"

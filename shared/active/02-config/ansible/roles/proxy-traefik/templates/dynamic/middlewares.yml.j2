@@ -3,6 +3,12 @@
 
 http:
   middlewares:
+    # Forwarded headers middleware for Tailscale bypass
+    forwarded-headers:
+      forwardedHeaders:
+        trustedIPs:
+          - "172.31.0.1"
+          - "100.64.0.0/10"
     {% if proxy_traefik_geoblock_enabled %}
     # GeoBlock middleware configuration
     geoblock:
@@ -21,36 +27,11 @@ http:
               - {{ country | to_json }}
               {% endfor %}
     {% endif %}
-
-    {% if proxy_traefik_crowdsec_enabled %}
-    # CrowdSec Bouncer middleware configuration
-    crowdsec-bouncer:
-      plugin:
-        crowdsec-bouncer:
-          enabled: {{ proxy_traefik_crowdsec_enabled | lower }}
-          crowdsecMode: {{ proxy_traefik_crowdsec_mode | to_json }}
-          crowdsecLapiScheme: {{ proxy_traefik_crowdsec_lapi_scheme | to_json }}
-          crowdsecLapiHost: {{ proxy_traefik_crowdsec_lapi_host | to_json }}
-          crowdsecLapiPort: {{ proxy_traefik_crowdsec_lapi_port }}
-          crowdsecLapiTLS:
-            caCertPath: {{ proxy_traefik_crowdsec_lapi_ca_cert_path | to_json }}
-            certPath: {{ proxy_traefik_crowdsec_lapi_cert_path | to_json }}
-            keyPath: {{ proxy_traefik_crowdsec_lapi_key_path | to_json }}
-            insecureSkipVerify: {{ proxy_traefik_crowdsec_lapi_insecure_skip_verify | lower }}
-          forwardedHeadersHeaderName: {{ proxy_traefik_crowdsec_forwarded_header | to_json }}
-          clientTrustedIPs:
-            {% for ip in proxy_traefik_crowdsec_trusted_ips %}
-            - {{ ip | to_json }}
-            {% endfor %}
-          updateIntervalSeconds: {{ proxy_traefik_crowdsec_update_interval }}
-          defaultDecisionSeconds: {{ proxy_traefik_crowdsec_default_decision_seconds }}
-    {% endif %}
-
     # Authelia middleware (for future integration)
     authelia:
       forwardAuth:
-        address: {{ proxy_traefik_authelia_address | to_json }}
-        trustForwardHeader: {{ proxy_traefik_authelia_trust_forward_header | lower }}
+        address: "{{ proxy_traefik_authelia_address | default('http://172.31.0.6:9091/api/verify') }}"
+        trustForwardHeader: {{ proxy_traefik_authelia_trust_forward_header | default(true) | lower }}
         authResponseHeaders:
           - Remote-User
           - Remote-Group

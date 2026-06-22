@@ -15,15 +15,17 @@ http:
         - redirect-to-https
       service: searxng
 
-    # HTTPS router for Tailscale/NetBird bypass (no authentication, higher priority)
+    # HTTPS router with Tailscale bypass (no authentication)
     searxng-tailscale:
-      rule: "Host(`search.levonk.com`) && ClientIP(`{{ cloud_server_tailscale_subnet }}`, `{{ cloud_server_netbird_subnet }}`)"
+      rule: "Host(`search.levonk.com`) && ClientIP(`{{ cloud_server_tailscale_subnet | default('100.64.0.0/10') }}`)"
       entryPoints:
         - websecure
+      middlewares:
+        - forwarded-headers
       service: searxng
       tls:
         certResolver: letsencrypt
-      priority: 100  # Higher priority than searxng-https
+      priority: 100
 
     # HTTPS router with security middleware chain (external access)
     searxng-https:
@@ -31,12 +33,7 @@ http:
       entryPoints:
         - websecure
       middlewares:
-        {% if proxy_traefik_geoblock_enabled %}
-        - geoblock
-        {% endif %}
-        {% if proxy_traefik_crowdsec_enabled %}
-        - crowdsec-bouncer
-        {% endif %}
+        - forwarded-headers
         - authelia
       service: searxng
       tls:
@@ -46,7 +43,7 @@ http:
     searxng:
       loadBalancer:
         servers:
-          - url: "http://{{ search_searxng_container_ip | default('172.22.0.2') }}:{{ search_searxng_container_port | default('8080') }}"
+          - url: "http://{{ search_searxng_container_ip | default('172.31.0.5') }}:{{ search_searxng_container_port | default('8080') }}"
         passHostHeader: true
 
   middlewares:
@@ -55,3 +52,5 @@ http:
       redirectScheme:
         scheme: https
         permanent: true
+
+

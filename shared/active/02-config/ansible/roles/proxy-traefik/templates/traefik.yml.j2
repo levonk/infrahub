@@ -25,13 +25,6 @@ entryPoints:
     address: ":{{ proxy_traefik_https_container_port }}"
     http:
       tls: true
-      middlewares:
-        {% if proxy_traefik_geoblock_enabled %}
-        - geoblock
-        {% endif %}
-        {% if proxy_traefik_crowdsec_enabled %}
-        - crowdsec-bouncer
-        {% endif %}
 
 {% if proxy_traefik_metrics_enabled %}
   metrics:
@@ -49,17 +42,8 @@ providers:
     directory: /etc/traefik/dynamic
     watch: {{ proxy_traefik_dynamic_config_watch | lower }}
 
-# Experimental plugins
-{% if proxy_traefik_plugins_enabled %}
-experimental:
-  plugins:
-    crowdsec-bouncer:
-      moduleName: "github.com/crowdsecurity/crowdsec-traefik-bouncer"
-      version: "{{ proxy_traefik_crowdsec_plugin_version }}"
-    geoblock:
-      moduleName: "github.com/PierreBeucher/traefik-plugin-geoblock"
-      version: "{{ proxy_traefik_geoblock_plugin_version }}"
-{% endif %}
+# Experimental plugins DISABLED - Traefik v3.0 cannot download plugins from GitHub
+# Using standalone CrowdSec container instead of Traefik plugins
 
 # ACME/Let's Encrypt configuration
 {% if proxy_traefik_acme_enabled %}
@@ -74,9 +58,9 @@ certificatesResolvers:
         resolvers:
           - "{{ proxy_traefik_acme_resolver_1 }}"
           - "{{ proxy_traefik_acme_resolver_2 }}"
-      {% if proxy_traefik_acme_staging %}
+{% if proxy_traefik_acme_staging %}
       caServer: https://acme-staging-v02.api.letsencrypt.org/directory
-      {% endif %}
+{% endif %}
 {% endif %}
 
 # Logging configuration

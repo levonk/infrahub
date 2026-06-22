@@ -63,7 +63,7 @@
 - name: Deploy traefik.yml static configuration
   ansible.builtin.template:
     src: traefik.yml.j2
-    dest: "{{ proxy_traefik_data_dir }}/config/static/traefik.yml"
+    dest: "{{ proxy_traefik_data_dir }}/config/traefik.yml"
     owner: root
     group: root
     mode: "0644"
@@ -121,7 +121,7 @@
       - "{{ proxy_traefik_host_ip }}:{{ proxy_traefik_metrics_port }}:{{ proxy_traefik_metrics_container_port }}/tcp"
     volumes:
       - "{{ proxy_traefik_ssl_volume }}:/letsencrypt"
-      - "{{ proxy_traefik_config_volume }}:/etc/traefik"
+      - "{{ proxy_traefik_data_dir }}/config:/etc/traefik:ro"
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
     env:
       TZ: "{{ proxy_traefik_tz }}"
@@ -133,6 +133,8 @@
       max-file: "{{ proxy_traefik_log_max_file }}"
     labels:
       traefik.enable: "false"
+    groups:
+      - "{{ docker_group_gid | default('0') }}"
   become: true
   when: proxy_traefik_enabled | bool
 
