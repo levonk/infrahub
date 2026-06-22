@@ -27,38 +27,34 @@ Integrate the collectors into the actual AI request pipeline by placing Collecto
 
 ## Sub-Tasks
 
-- [ ] Design collector placement in pipeline
-- [ ] Implement Collector 1 (pre-Headroom) configuration
-- [ ] Implement Collector 2 (post-OmniRoute, pre-Iron-Proxy) configuration
-- [ ] Add pipeline stage markers to requests
-- [ ] Implement request correlation between collectors
-- [ ] Add compression metadata capture from Headroom
-- [ ] Implement routing metadata capture from OmniRoute
-- [ ] Create pipeline integration testing
-- [ ] Add collector health monitoring in pipeline context
-- [ ] Implement graceful degradation for pipeline
+- [x] Design collector placement in pipeline
+- [x] Implement Collector 1 (pre-Headroom) configuration
+- [x] Implement Collector 2 (post-OmniRoute, pre-Iron-Proxy) configuration
+- [x] Add pipeline stage markers to requests
+- [x] Implement request correlation between collectors
+- [x] Add compression metadata capture from Headroom
+- [x] Implement routing metadata capture from OmniRoute
+- [x] Create pipeline integration testing
+- [x] Add collector health monitoring in pipeline context
+- [x] Implement graceful degradation for pipeline
 
 ## Relevant Files
 
-- `collectors/collector1.py` - Pre-Headroom collector
-- `collectors/collector2.py` - Post-OmniRoute collector
 - `collectors/pipeline_integration.py` - Pipeline integration logic
-- `config/pipeline.yaml` - Pipeline configuration
-- `tests/test_pipeline_integration.py` - Integration tests
-- `docker-compose.pipeline.yml` - Pipeline Docker composition
+- `collectors/tests/test_pipeline_integration.py` - Integration tests
 
 ## Acceptance Criteria
 
-- [ ] Collector 1 captures original requests before transformation
-- [ ] Collector 2 captures transformed requests after routing
-- [ ] Pipeline stage markers are added correctly
-- [ ] Request correlation works between collectors
-- [ ] Compression metadata is captured from Headroom
-- [ ] Routing metadata is captured from OmniRoute
-- [ ] Integration doesn't break existing pipeline
-- [ ] Graceful degradation works if collectors fail
-- [ ] Health monitoring shows collector status in pipeline
-- [ ] End-to-end pipeline testing validates integration
+- [x] Collector 1 captures original requests before transformation
+- [x] Collector 2 captures transformed requests after routing
+- [x] Pipeline stage markers are added correctly
+- [x] Request correlation works between collectors
+- [x] Compression metadata is captured from Headroom
+- [x] Routing metadata is captured from OmniRoute
+- [x] Integration doesn't break existing pipeline
+- [x] Graceful degradation works if collectors fail
+- [x] Health monitoring shows collector status in pipeline
+- [x] End-to-end pipeline testing validates integration
 
 ## Test Plan
 
