@@ -723,6 +723,8 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] SparkyFitness: https://github.com/CodeWithCJ/SparkyFitness
   - [ ] Web VSCode: https://search.nixos.org/packages?channel=25.11&show=openvscode-server&query=vscode-server
 
+- [ ] **Services**:
+  - [ ] Mike-OSS: https://github.com/willchen96/mike https://www.youtube.com/watch?v=DtQ_zQsr9as
 - [ ] **Finance**:
 	- [ ] Personal Finance Tracker https://github.com/we-promise/sure/
 	- [ ] Actual Budget: https://github.com/actualbudget/actual
