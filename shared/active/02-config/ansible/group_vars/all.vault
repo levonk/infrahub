@@ -65,21 +65,3 @@ vault_crowdsec_api_token: "f19e22ab9f94517f0a56258b7f177d267d8504400498f8d7de70d
 
 # Bouncer API Key for Traefik integration
 vault_crowdsec_bouncer_api_key: "f19e22ab9f94517f0a56258b7f177d267d8504400498f8d7de70de7883a72e35"
-
-# ---------------------------------------------------------------------------
-# Cloudflare Configuration
-# ---------------------------------------------------------------------------
-# Cloudflare Zone ID (from Cloudflare dashboard)
-# TODO: Update with actual zone ID from Cloudflare dashboard
-vault_cloudflare_zone_id: "change-me-in-vault-get-from-cloudflare-dashboard"
-
-# Cloudflare API Token (with Zone:DNS:Edit permissions)
-# TODO: Generate in Cloudflare dashboard with Zone:DNS:Edit and Zone:Zone:Read permissions
-vault_cloudflare_api_token: "change-me-in-vault-generate-in-cloudflare-dashboard"
-
-# Cloudflare Account Email
-vault_cloudflare_account_email: "admin@levonk.com"
-
-# Cloudflare API Key (legacy, for ACME DNS challenge)
-# TODO: Generate in Cloudflare dashboard
-vault_cloudflare_api_key: "change-me-in-vault-generate-in-cloudflare-dashboard"

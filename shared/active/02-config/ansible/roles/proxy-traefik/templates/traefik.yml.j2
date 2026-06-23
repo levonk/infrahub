@@ -60,6 +60,8 @@ certificatesResolvers:
           - "{{ proxy_traefik_acme_resolver_2 }}"
 {% if proxy_traefik_acme_staging %}
       caServer: https://acme-staging-v02.api.letsencrypt.org/directory
+{% else %}
+      caServer: https://acme-v02.api.letsencrypt.org/directory
 {% endif %}
 {% endif %}
 

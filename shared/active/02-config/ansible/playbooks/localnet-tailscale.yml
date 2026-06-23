@@ -4,7 +4,7 @@
 # Usage:
 #   ansible-playbook -i inventories/localnet.yml playbooks/localnet-tailscale.yml --vault-password-file
 #   ansible-playbook -i inventories/localnet.yml playbooks/localnet-tailscale.yml --ask-vault-pass
-# Note: Uses cloud_servers.vault.yml for Tailscale auth key
+# Note: Uses shared/infrahub-levonk-all.vault.yml for Tailscale auth key
 
 - name: "Deploy Tailscale to Local Network Hosts"
   hosts: vpn_tailscale_clients

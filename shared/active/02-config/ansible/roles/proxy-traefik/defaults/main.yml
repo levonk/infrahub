@@ -47,7 +47,7 @@ proxy_traefik_acme_dns_provider: "cloudflare"
 proxy_traefik_acme_delay_before_check: 30
 proxy_traefik_acme_resolver_1: "1.1.1.1:53"
 proxy_traefik_acme_resolver_2: "8.8.8.8:53"
-proxy_traefik_acme_staging: true
+proxy_traefik_acme_staging: false
 
 # Cloudflare ACME Configuration
 proxy_traefik_acme_cloudflare_email: "{{ vault_cloudflare_account_email | default('admin@example.com') }}"
