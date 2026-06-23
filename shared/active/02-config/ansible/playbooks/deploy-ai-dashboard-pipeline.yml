@@ -1,0 +1,239 @@
+---
+# AI Dashboard Pipeline Deployment Playbook
+# Deploys the multi-stage AI analytics pipeline to cloud servers
+# Pipeline: AI Dashboard Proxy 1 → Headroom → OmniRoute → AI Dashboard Proxy 2 → Iron-Proxy → NordVPN → Internet
+#
+# Usage:
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-ai-dashboard-pipeline.yml \
+#     --vault-password-file ~/.ansible/vault_password
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-ai-dashboard-pipeline.yml \
+#     --check --diff --vault-password-file ~/.ansible/vault_password
+
+- name: "Deploy AI Dashboard Pipeline"
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: "Display deployment start information"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          AI Dashboard Pipeline Deployment Started
+          ========================================
+          Target: {{ inventory_hostname }}
+          User: {{ ansible_user_id }}
+          OS: {{ ansible_distribution }} {{ ansible_distribution_version }}
+          Architecture: {{ ansible_facts['architecture'] }}
+          Timestamp: {{ ansible_date_time.iso8601 }}
+          ========================================
+      tags: ["always", "info"]
+
+    - name: "Validate required AI dashboard variables are defined"
+      ansible.builtin.assert:
+        that:
+          - localnet_services_dir is defined
+          - shared_container_services_dir is defined
+        fail_msg: >-
+          Missing required AI dashboard variables. Check
+          levonk/active/02-config/ansible/group_vars/cloud_servers.yml
+          and group_vars/all.yml.
+        success_msg: "All required AI dashboard variables are defined."
+      tags: ["always", "validate"]
+
+    - name: "Create AI dashboard services directory"
+      ansible.builtin.file:
+        path: "{{ localnet_services_dir }}/ai-dashboard"
+        state: directory
+        owner: "{{ cloud_server_admin_user }}"
+        group: "{{ cloud_server_admin_user }}"
+        mode: '0755'
+      tags: ["always", "setup"]
+
+    - name: "Create AI services directory"
+      ansible.builtin.file:
+        path: "{{ localnet_services_dir }}/ai-services"
+        state: directory
+        owner: "{{ cloud_server_admin_user }}"
+        group: "{{ cloud_server_admin_user }}"
+        mode: '0755'
+      tags: ["always", "setup"]
+
+  roles:
+    # Skip common role to avoid network conflicts
+    # - role: common
+    #   tags: ["always", "common"]
+
+  tasks:
+    - name: "Copy AI dashboard pipeline docker-compose file"
+      ansible.builtin.copy:
+        src: "{{ shared_container_services_dir }}/ai-dashboard/docker-compose.ai-dashboard-pipeline.yml"
+        dest: "{{ localnet_services_dir }}/ai-dashboard/docker-compose.ai-dashboard-pipeline.yml"
+        owner: "{{ cloud_server_admin_user }}"
+        group: "{{ cloud_server_admin_user }}"
+        mode: '0644'
+      tags: ["config", "docker-compose"]
+
+    - name: "Copy AI dashboard pipeline environment file"
+      ansible.builtin.copy:
+        src: "{{ shared_container_services_dir }}/ai-dashboard/.env.pipeline"
+        dest: "{{ localnet_services_dir }}/ai-dashboard/.env.pipeline"
+        owner: "{{ cloud_server_admin_user }}"
+        group: "{{ cloud_server_admin_user }}"
+        mode: '0600'
+      tags: ["config", "environment"]
+
+    - name: "Copy OmniRoute docker-compose file with compression disabled"
+      ansible.builtin.copy:
+        src: "{{ shared_container_services_dir }}/ai-services/docker-compose.ai.yml"
+        dest: "{{ localnet_services_dir }}/ai-services/docker-compose.ai.yml"
+        owner: "{{ cloud_server_admin_user }}"
+        group: "{{ cloud_server_admin_user }}"
+        mode: '0644'
+      tags: ["config", "docker-compose"]
+
+    - name: "Restart OmniRoute service with new compression configuration"
+      ansible.builtin.shell:
+        cmd: "docker compose -f docker-compose.ai.yml --profile all up omniroute -d --force-recreate"
+        chdir: "{{ localnet_services_dir }}/ai-services"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      tags: ["deploy", "omniroute"]
+
+    - name: "Create proxy-chain-network if it doesn't exist"
+      ansible.builtin.shell:
+        cmd: "docker network create proxy-chain-network --driver bridge --subnet 172.29.0.0/16 --gateway 172.29.0.1 || echo 'Network already exists'"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      ignore_errors: true
+      tags: ["network", "setup"]
+
+    - name: "Stop existing AI dashboard containers if present"
+      ansible.builtin.shell:
+        cmd: "docker compose -f docker-compose.ai-dashboard-pipeline.yml --env-file .env.pipeline down"
+        chdir: "{{ localnet_services_dir }}/ai-dashboard"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      ignore_errors: true
+      tags: ["cleanup", "docker"]
+
+    - name: "Deploy AI dashboard pipeline containers"
+      ansible.builtin.shell:
+        cmd: "docker compose -f docker-compose.ai-dashboard-pipeline.yml --env-file .env.pipeline pull && docker compose -f docker-compose.ai-dashboard-pipeline.yml --env-file .env.pipeline up -d"
+        chdir: "{{ localnet_services_dir }}/ai-dashboard"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      tags: ["deploy", "docker"]
+
+    - name: "Wait for AI dashboard database to be ready"
+      ansible.builtin.shell:
+        cmd: "docker exec ai-dashboard-db pg_isready -U {{ ai_dashboard_db_user | default('postgres') }}"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: db_ready
+      until: db_ready.rc == 0
+      retries: 10
+      delay: 5
+      tags: ["verify", "database"]
+
+    - name: "Wait for AI dashboard proxy 1 to be running"
+      ansible.builtin.shell:
+        cmd: "docker inspect ai-dashboard-proxy-1 --format '{% raw %}{{.State.Running}}{% endraw %}'"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: proxy1_health
+      until: proxy1_health.stdout == "true"
+      retries: 10
+      delay: 5
+      tags: ["verify", "health"]
+
+    - name: "Wait for AI dashboard proxy 2 to be running"
+      ansible.builtin.shell:
+        cmd: "docker inspect ai-dashboard-proxy-2 --format '{% raw %}{{.State.Running}}{% endraw %}'"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: proxy2_health
+      until: proxy2_health.stdout == "true"
+      retries: 10
+      delay: 5
+      tags: ["verify", "health"]
+
+    - name: "Verify AI dashboard containers are running"
+      ansible.builtin.shell:
+        cmd: "docker inspect {{ item }} --format '{% raw %}{{.State.Status}}{% endraw %}'"
+      register: container_status
+      loop:
+        - ai-dashboard-proxy-1
+        - ai-dashboard-proxy-2
+        - ai-dashboard-db
+      changed_when: false
+      tags: ["verify", "containers"]
+
+    - name: "Display container status"
+      ansible.builtin.debug:
+        msg: "Container {{ item.item }} is {{ item.stdout }}"
+      loop: "{{ container_status.results }}"
+      tags: ["verify", "containers"]
+
+    - name: "Check AI dashboard proxy 1 logs for errors"
+      ansible.builtin.shell:
+        cmd: "docker logs ai-dashboard-proxy-1 --tail=50 2>&1 || echo 'Placeholder container - no logs to check'"
+      register: proxy1_logs
+      changed_when: false
+      tags: ["verify", "logs"]
+
+    - name: "Check AI dashboard proxy 2 logs for errors"
+      ansible.builtin.shell:
+        cmd: "docker logs ai-dashboard-proxy-2 --tail=50 2>&1 || echo 'Placeholder container - no logs to check'"
+      register: proxy2_logs
+      changed_when: false
+      tags: ["verify", "logs"]
+
+    - name: "Check AI dashboard database logs for errors"
+      ansible.builtin.shell:
+        cmd: "docker logs ai-dashboard-db --tail=50 2>&1 | grep -i error || echo 'No errors found'"
+      register: db_logs
+      changed_when: false
+      failed_when: "'error' in db_logs.stdout.lower() and 'No errors found' not in db_logs.stdout"
+      tags: ["verify", "logs"]
+
+  post_tasks:
+    - name: "Display deployment summary"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          AI Dashboard Pipeline Deployment Complete
+          ========================================
+          Target: {{ inventory_hostname }}
+          Timestamp: {{ ansible_date_time.iso8601 }}
+          ----------------------------------------
+          Deployed Services:
+          - AI Dashboard Proxy 1 (Entry): http://172.35.0.11:9081 (placeholder)
+          - AI Dashboard Proxy 2 (Pre-Egress): http://172.35.0.12:9082 (placeholder)
+          - AI Dashboard Database: postgresql://postgres:postgres@172.35.0.20:5432/analytics
+          - Headroom: http://172.29.0.13:8787 (compression service)
+          - OmniRoute: http://172.29.0.14:20128 (routing only, compression disabled)
+          ----------------------------------------
+          Pipeline Flow:
+          AI Dashboard Proxy 1 → Headroom → OmniRoute → AI Dashboard Proxy 2 → Iron-Proxy → NordVPN → Internet
+          Compression Strategy: Headroom-primary (Headroom handles compression, OmniRoute focuses on routing)
+          ----------------------------------------
+          Next Steps:
+          1. Verify pipeline connectivity: docker ps | grep ai-dashboard
+          2. Verify database connectivity: docker exec ai-dashboard-db pg_isready -U postgres
+          3. Replace placeholder containers with actual AI Dashboard proxy images when available
+          4. Configure AI clients to use entry point: http://172.35.0.11:9081
+          5. Monitor analytics: Access database or API endpoints
+          ========================================
+      tags: ["always", "summary"]
+
+    - name: "Log deployment completion to system"
+      ansible.builtin.shell:
+        cmd: >-
+          echo 'AI dashboard pipeline deployment completed at
+          {{ ansible_date_time.iso8601 }}' >> /var/log/ai-dashboard-deploy.log
+      changed_when: false
+      failed_when: false
+      tags: ["always", "logging"]

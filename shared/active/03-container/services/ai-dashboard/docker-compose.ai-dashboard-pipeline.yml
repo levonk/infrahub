@@ -1,0 +1,184 @@
+---
+# AI Dashboard Pipeline - Multi-Stage Analytics Collection
+# This configuration wires up the AI analytics pipeline with multiple stages:
+# AI Dashboard Proxy 1 → Headroom → OmniRoute → AI Dashboard Proxy 2 → Iron-Proxy → NordVPN → Internet
+# Dual AI Dashboard proxy collectors for entry and pre-egress analytics
+# Compression Strategy: Headroom handles all compression, OmniRoute focuses on routing
+
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "5"
+    tag: "{{.Name}}"
+    labels: "service"
+
+networks:
+  ai-dashboard:
+    name: ai-dashboard-network
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.35.0.0/16
+          gateway: 172.35.0.1
+    external: false
+  proxy-chain-network:
+    external: true
+    name: proxy-chain-network
+
+volumes:
+  ai-dashboard-data:
+    driver: local
+  ai-dashboard-proxy-1-data:
+    driver: local
+  ai-dashboard-proxy-2-data:
+    driver: local
+  headroom-data:
+    external: true
+    name: localnet-headroom-data-volume
+  omniroute-data:
+    external: true
+    name: localnet-ai-omniroute
+
+services:
+  # AI Dashboard Proxy Collector 1 - Entry Stage
+  # First stage in pipeline: collects analytics on all incoming requests
+  ai-dashboard-proxy-1:
+    image: alpine:latest
+    command: ["sh", "-c", "echo 'AI Dashboard Proxy 1 - Entry Stage placeholder' && sleep infinity"]
+    container_name: ai-dashboard-proxy-1
+    restart: unless-stopped
+    networks:
+      ai-dashboard:
+        ipv4_address: ${AI_DASHBOARD_PROXY_1_CONTAINER_IP:-172.35.0.11}
+      proxy-chain-network:
+        ipv4_address: ${AI_DASHBOARD_PROXY_1_CHAIN_IP:-172.29.0.11}
+    environment:
+      - DATABASE_URL=${AI_DASHBOARD_DATABASE_URL:-postgresql://postgres:postgres@ai-dashboard-db:5432/analytics}
+      - AI_ANALYTICS_PROXY_MODE=analytics
+      - AI_ANALYTICS_PROXY_STAGE=entry
+      - AI_ANALYTICS_PROXY_COLLECTOR_ID=proxy-collector-1
+      - LOG_LEVEL=${AI_DASHBOARD_LOG_LEVEL:-INFO}
+      - AI_ANALYTICS_UPSTREAM_URL=http://headroom:8787
+      - COMPRESSION_STRATEGY=headroom-primary
+    ports:
+      - "${AI_DASHBOARD_PROXY_1_HOST_PORT:-9081}:${AI_DASHBOARD_PROXY_1_CONTAINER_PORT:-8081}/tcp"
+    volumes:
+      - ai-dashboard-proxy-1-data:/var/lib/analytics
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD", "sh", "-c", "exit 0"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    depends_on:
+      - ai-dashboard-db
+
+  # AI Dashboard Proxy Collector 2 - Pre-Egress Stage
+  # Second-to-last stage: collects analytics after OmniRoute, before Iron-Proxy
+  ai-dashboard-proxy-2:
+    image: alpine:latest
+    command: ["sh", "-c", "echo 'AI Dashboard Proxy 2 - Pre-Egress Stage placeholder' && sleep infinity"]
+    container_name: ai-dashboard-proxy-2
+    restart: unless-stopped
+    networks:
+      ai-dashboard:
+        ipv4_address: ${AI_DASHBOARD_PROXY_2_CONTAINER_IP:-172.35.0.12}
+      proxy-chain-network:
+        ipv4_address: ${AI_DASHBOARD_PROXY_2_CHAIN_IP:-172.29.0.12}
+    environment:
+      - DATABASE_URL=${AI_DASHBOARD_DATABASE_URL:-postgresql://postgres:postgres@ai-dashboard-db:5432/analytics}
+      - AI_ANALYTICS_PROXY_MODE=analytics
+      - AI_ANALYTICS_PROXY_STAGE=pre-egress
+      - AI_ANALYTICS_PROXY_COLLECTOR_ID=proxy-collector-2
+      - LOG_LEVEL=${AI_DASHBOARD_LOG_LEVEL:-INFO}
+      - AI_ANALYTICS_UPSTREAM_URL=http://omniroute:20128
+      - COMPRESSION_STRATEGY=headroom-primary
+    ports:
+      - "${AI_DASHBOARD_PROXY_2_HOST_PORT:-9082}:${AI_DASHBOARD_PROXY_2_CONTAINER_PORT:-8082}/tcp"
+    volumes:
+      - ai-dashboard-proxy-2-data:/var/lib/analytics
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD", "sh", "-c", "exit 0"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    depends_on:
+      - ai-dashboard-db
+
+  # Headroom Context Compression Service
+  # Compresses LLM requests before they reach OmniRoute
+  headroom:
+    image: localnet-headroom:latest
+    command: ["headroom", "serve", "--port", "8787"]
+    container_name: headroom
+    restart: unless-stopped
+    networks:
+      proxy-chain-network:
+        ipv4_address: 172.29.0.13
+    environment:
+      - HEADROOM_PORT=8787
+      - HEADROOM_HOST=0.0.0.0
+      - HEADROOM_DATA_DIR=/data
+      - UPSTREAM_PROXY=http://omniroute:20128
+      - HEADROOM_OUTPUT_SHAPER=0
+    ports:
+      - "8787:8787/tcp"
+    volumes:
+      - headroom-data:/data
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8787/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # OmniRoute AI Gateway Service
+  # Smart routing across 177+ AI providers (compression disabled)
+  omniroute:
+    image: localnet-ai-omniroute:latest
+    command: ["omniroute", "serve", "--port", "20128"]
+    container_name: omniroute
+    restart: unless-stopped
+    networks:
+      proxy-chain-network:
+        ipv4_address: 172.29.0.14
+    environment:
+      - PORT=20128
+      - NODE_ENV=production
+      - OMNIROUTE_COMPRESSION_ENABLED=false
+      - OMNIROUTE_RTK_ENABLED=false
+      - OMNIROUTE_CAVEMAN_ENABLED=false
+    ports:
+      - "20128:20128/tcp"
+    volumes:
+      - omniroute-data:/app/data
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:20128/v1/models"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # AI Dashboard Database (PostgreSQL)
+  # Shared database for all collectors
+  ai-dashboard-db:
+    image: postgres:15-alpine
+    container_name: ai-dashboard-db
+    restart: unless-stopped
+    networks:
+      ai-dashboard:
+        ipv4_address: ${AI_DASHBOARD_DB_CONTAINER_IP:-172.35.0.20}
+    environment:
+      POSTGRES_DB: ${AI_DASHBOARD_DB_NAME:-analytics}
+      POSTGRES_USER: ${AI_DASHBOARD_DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${AI_DASHBOARD_DB_PASSWORD:-postgres}
+    volumes:
+      - ai-dashboard-data:/var/lib/postgresql/data
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${AI_DASHBOARD_DB_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
