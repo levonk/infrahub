@@ -68,6 +68,28 @@ devbox run -- rtk ansible-playbook -i inventory.yml playbook.yml --vault-passwor
 
 This is the standard location for Ansible vault passwords in this project.
 
+### CRITICAL: Secret/Key Handling Policy
+
+**NEVER** share API keys, passwords, tokens, or any secret/private information in open communication unless explicitly requested by the user.
+
+**When referring to vault credentials or secrets:**
+- ✅ **DO**: Provide the exact command with full paths for the user to retrieve the key themselves
+- ✅ **DO**: Reference variable names or configuration keys without revealing their values
+- ❌ **DO NOT**: Display actual secret values in responses
+- ❌ **DO NOT**: Log or output secrets in command results
+- ❌ **DO NOT**: Include secrets in documentation or comments
+
+**Example - Correct approach:**
+```bash
+# To view the CrowdSec bouncer API key:
+devbox run -- ansible-vault view /Users/micro/p/gh/levonk/infrahub/shared/active/02-config/ansible/group_vars/infrahub-levonk-all.vault.yml --vault-password-file ~/.ansible/vault_password
+```
+
+**Example - Incorrect approach:**
+❌ "The CrowdSec API key is: 03d8c0b493fb43238d739904dfe548577f69f9d81f2ef25d4b74e73695338649"
+
+**Exception**: Only reveal secret values when the user explicitly asks for them (e.g., "show me the API key", "what is the password?").
+
 ### Verification
 
 Before running any devbox command, verify:
