@@ -15,8 +15,8 @@ This configuration implements a multi-stage AI analytics pipeline with comprehen
 ## Pipeline Architecture
 
 ```
-AI Dashboard Proxy 1 → Privacy Orchestrator → Headroom → OmniRoute → AI Dashboard Proxy 2 → Iron-Proxy → NordVPN → Internet
-        (Entry)              (PII Detection)    (Compression)   (Routing)       (Pre-Egress)    (Security)    (Privacy)
+AI Dashboard Proxy 1 → Privacy Orchestrator → Forge -> Headroom → OmniRoute → AI Dashboard Proxy 2 → Iron-Proxy → NordVPN → Internet
+        (Entry)              (PII Detection) (Tool Calling Fixer)    (Compression)   (Routing)       (Pre-Egress)    (Security)    (Privacy)
 ```
 
 ### Compression Strategy
@@ -50,14 +50,19 @@ AI Dashboard Proxy 1 → Privacy Orchestrator → Headroom → OmniRoute → AI 
    - **Downstream to**: Headroom
    - **Status**: **IMPLEMENTED** - deployed as Rust service
 
-3. **Headroom (Context Compression)**
+3. **Tool Calling Fixer**
+   - Fixes tool calling issues in AI requests
+   - **Status**: **NOT IMPLEMENTED** - placeholder for future implementation
+   - https://github.com/antoinezambelli/forge#proxy-server
+
+4. **Headroom (Context Compression)**
    - Compresses LLM context to reduce token usage
    - Applies RTK+Caveman stacked compression (15-95% token savings)
    - **Port**: 8787
    - **Upstream from**: Privacy Filter
    - **Downstream to**: OmniRoute
 
-4. **OmniRoute (AI Gateway)**
+5. **OmniRoute (AI Gateway)**
    - Smart routing across 177+ AI providers (50+ free)
    - Automatic provider selection and fallback
    - Format translation between different AI APIs
@@ -68,7 +73,7 @@ AI Dashboard Proxy 1 → Privacy Orchestrator → Headroom → OmniRoute → AI 
    - **Upstream from**: Headroom
    - **Downstream to**: AI Dashboard Proxy 2
 
-5. **AI Dashboard Proxy 2 (Pre-Egress Stage)**
+6. **AI Dashboard Proxy 2 (Pre-Egress Stage)**
    - Collects analytics after routing and optimization
    - Measures compression effectiveness
    - Records provider selection and routing decisions
@@ -78,7 +83,7 @@ AI Dashboard Proxy 1 → Privacy Orchestrator → Headroom → OmniRoute → AI 
    - **Upstream from**: OmniRoute
    - **Downstream to**: Iron-Proxy
 
-6. **Iron-Proxy (Egress Firewall)**
+7. **Iron-Proxy (Egress Firewall)**
    - Default-deny egress filtering
    - Secret injection at boundary
    - Per-request audit trail
@@ -86,7 +91,7 @@ AI Dashboard Proxy 1 → Privacy Orchestrator → Headroom → OmniRoute → AI 
    - **Upstream from**: AI Dashboard Proxy 2
    - **Downstream to**: NordVPN
 
-7. **NordVPN (Privacy Layer)**
+8. **NordVPN (Privacy Layer)**
    - VPN tunnel for privacy and geo-obfuscation
    - Routes all egress traffic through VPN
    - **Port**: 1080

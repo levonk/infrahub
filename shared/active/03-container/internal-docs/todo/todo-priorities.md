@@ -636,6 +636,8 @@ _Goal: Privacy, Resilience, Ad-blocking_
     - [ ] https://github.com/rtk-ai/rtk
     - [ ] https://github.com/johunsang/semble_rs
     - [ ] https://github.com/yvgude/lean-ctx
+- [ ] **Tool Call Fixer**:
+  - [ ] https://github.com/antoinezambelli/forge#proxy-server
 - [ ] **AI Metrics Dashboards**:
   - [ ] https://github.com/nateherkai/token-dashboard
   - [ ] https://github.com/router-for-me/Cli-Proxy-API-Management-Center
