@@ -1,0 +1,8 @@
+---
+# SearXNG Handlers
+# Restart and reload operations for SearXNG service
+
+- name: restart search searxng
+  community.docker.docker_compose_v2:
+    project_src: "{{ search_searxng_service_dir }}"
+    state: restarted

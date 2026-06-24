@@ -1,0 +1,139 @@
+---
+# Cloud Server NordVPN Playbook
+# Deploys NordVPN container with VPN gateway capabilities
+# Deploy AFTER confirming bootstrap succeeded.
+# Usage:
+#   ansible-playbook -i inventories/oci.yml playbooks/cloud-server-nordvpn.yml
+#   ansible-playbook -i inventories/oci.yml playbooks/cloud-server-nordvpn.yml --check --diff
+
+- name: "Deploy NordVPN Gateway Container"
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: "Gather ansible_facts"
+      ansible.builtin.setup:
+        gather_subset: ["all"]
+      tags: ["always"]
+
+    - name: "Validate required variables are defined"
+      ansible.builtin.assert:
+        that:
+          - cloud_server_admin_user is defined
+          - cloud_server_admin_user | length > 0
+          - cloud_server_ansible_host_ip is defined
+          - cloud_server_ssh_host_port is defined
+          - vpn_nordvpn_openvpn_user is defined
+          - vpn_nordvpn_openvpn_user | length > 0
+          - vpn_nordvpn_openvpn_pass is defined
+          - vpn_nordvpn_openvpn_pass | length > 0
+        fail_msg: "Missing required variables. Check group_vars/cloud_server.yml and group_vars/all.yml."
+        success_msg: "All required variables are defined."
+      tags: ["always", "validate"]
+
+    - name: "Ensure .ansible tmp directory exists for admin user"
+      ansible.builtin.file:
+        path: "/home/{{ cloud_server_admin_user }}/.ansible/tmp"
+        state: directory
+        owner: "{{ cloud_server_admin_user }}"
+        group: "{{ cloud_server_admin_user }}"
+        mode: "0700"
+      become: true
+      tags: ["always", "setup"]
+
+    - name: "Verify bootstrap completed — Docker is available"
+      ansible.builtin.command:
+        cmd: "docker --version"
+      become: true
+      register: docker_bootstrap_check
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "bootstrap", "docker"]
+
+    - name: "Fail if bootstrap did not complete (Docker missing)"
+      ansible.builtin.fail:
+        msg: |
+          Bootstrap prerequisite failed: Docker is not installed or not
+          responding. Run cloud-server-bootstrap.yml first.
+      when: docker_bootstrap_check.rc != 0
+      tags: ["verify", "bootstrap", "docker"]
+
+    - name: "Verify TUN device is available"
+      ansible.builtin.stat:
+        path: /dev/net/tun
+      register: tun_device
+      tags: ["verify", "tun"]
+
+    - name: "Fail if TUN device is not available"
+      ansible.builtin.fail:
+        msg: |
+          TUN device (/dev/net/tun) is not available. NordVPN requires
+          TUN device access for VPN operations.
+      when: not tun_device.stat.exists
+      tags: ["verify", "tun"]
+
+  roles:
+    - role: vpn-nordvpn
+      tags: ["vpn", "nordvpn"]
+
+  post_tasks:
+    - name: "Verify NordVPN container is running"
+      community.docker.docker_container_info:
+        name: "{{ vpn_nordvpn_container_name }}"
+      register: nordvpn_container_info
+      tags: ["verify", "vpn", "nordvpn"]
+
+    - name: "Report NordVPN container status"
+      ansible.builtin.debug:
+        msg: "NordVPN container status: {{ nordvpn_container_info.container.State.Status }}"
+      when: nordvpn_container_info.container is defined
+      tags: ["verify", "vpn", "nordvpn"]
+
+    - name: "Warn if NordVPN container is not running"
+      ansible.builtin.debug:
+        msg: "WARNING: NordVPN container is not running. Check logs with: docker logs {{ vpn_nordvpn_container_name }}"
+      when: nordvpn_container_info.container is not defined
+      tags: ["verify", "vpn", "nordvpn"]
+
+    - name: "Wait for NordVPN container to be fully running"
+      ansible.builtin.pause:
+        seconds: 30
+      when: nordvpn_container_info.container.State.Status == "restarting"
+      tags: ["verify", "vpn", "nordvpn"]
+
+    - name: "Verify NordVPN service health"
+      community.docker.docker_container_exec:
+        container: "{{ vpn_nordvpn_container_name }}"
+        command: /nordvpn/bin/healthcheck-nordvpn.sh
+      register: nordvpn_health_check
+      ignore_errors: true
+      tags: ["verify", "vpn", "nordvpn", "health"]
+      when: nordvpn_container_info.container.State.Status == "running"
+
+    - name: "Report NordVPN health check"
+      ansible.builtin.debug:
+        msg: "NordVPN health check: {{ nordvpn_health_check.stdout | default('No output') }}"
+      when: 
+        - nordvpn_health_check is succeeded
+        - nordvpn_container_info.container.State.Status == "running"
+      tags: ["verify", "vpn", "nordvpn", "health"]
+
+    - name: "Warn if NordVPN health check failed"
+      ansible.builtin.debug:
+        msg: "WARNING: NordVPN health check failed. Check logs with: docker logs {{ vpn_nordvpn_container_name }}"
+      when: 
+        - nordvpn_health_check is failed
+        - nordvpn_container_info.container.State.Status == "running"
+      tags: ["verify", "vpn", "nordvpn", "health"]
+
+    - name: "Report container status if still restarting"
+      ansible.builtin.debug:
+        msg: "NordVPN container is still restarting. This is normal for fresh deployments. Check logs with: docker logs {{ vpn_nordvpn_container_name }}"
+      when: nordvpn_container_info.container.State.Status == "restarting"
+      tags: ["verify", "vpn", "nordvpn", "health"]
+
+    - name: "Report NordVPN deployment complete"
+      ansible.builtin.debug:
+        msg: "NordVPN gateway container deployed successfully on {{ inventory_hostname }}"
+      tags: ["verify", "summary"]

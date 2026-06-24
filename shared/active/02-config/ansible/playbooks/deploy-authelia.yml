@@ -1,0 +1,166 @@
+---
+# Authelia Deployment Playbook
+# Deploys Authelia SSO with PostgreSQL database and Redis session storage
+# Usage: ansible-playbook -i ../../../levonk/active/02-config/ansible/inventories/oci.yml playbooks/deploy-authelia.yml
+# Story: 02-002 - Deploy Authelia with database and session management
+
+- name: "Deploy Authelia SSO Service"
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: "Gather ansible_facts"
+      ansible.builtin.setup:
+        gather_subset: ["all"]
+      tags: ["always"]
+
+    - name: "Validate required Authelia variables are defined"
+      ansible.builtin.assert:
+        that:
+          - proxy_authelia_enabled is defined
+          - proxy_authelia_admin_password is defined
+          - proxy_authelia_jwt_secret is defined
+          - proxy_authelia_session_secret is defined
+          - proxy_authelia_storage_encryption_key is defined
+          - proxy_authelia_postgres_password is defined
+        fail_msg: "Missing required Authelia variables. Check host_vars/oci-cloud-server.yml and vault. Variables: proxy_authelia_enabled={{ proxy_authelia_enabled | default('undefined') }}, proxy_authelia_admin_password={{ proxy_authelia_admin_password | default('undefined') }}, proxy_authelia_jwt_secret={{ proxy_authelia_jwt_secret | default('undefined') }}"
+        success_msg: "All required Authelia variables are defined."
+      tags: ["always", "validate"]
+
+    - name: "Verify Docker CLI is installed"
+      ansible.builtin.command:
+        cmd: "docker --version"
+      become: true
+      become_user: "{{ ansible_user }}"
+      register: docker_cli_check
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "docker"]
+
+    - name: "Fail if Docker CLI is not installed"
+      ansible.builtin.fail:
+        msg: |
+          Docker prerequisite failed: Docker CLI is not installed.
+          Ensure Docker engine is deployed before running this playbook.
+      when: docker_cli_check.rc != 0
+      tags: ["verify", "docker"]
+
+    - name: "Verify Docker daemon is responsive"
+      ansible.builtin.command:
+        cmd: "docker info --format '{{ '{{' }} .ServerVersion {{ '}}' }}'"
+      become: true
+      register: docker_daemon_check
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "docker"]
+
+    - name: "Fail if Docker daemon is not responsive"
+      ansible.builtin.fail:
+        msg: |
+          Docker prerequisite failed: Docker daemon is not running or
+          not accessible. Ensure Docker service is started.
+      when: docker_daemon_check.rc != 0
+      tags: ["verify", "docker"]
+
+  roles:
+    - role: proxy-authelia
+      tags: ["authelia", "proxy"]
+
+  post_tasks:
+    - name: "Verify Authelia container is running"
+      ansible.builtin.command:
+        cmd: "docker inspect --format='{{ '{{' }} .State.Status {{ '}}' }}' proxy-authelia"
+      become: true
+      register: authelia_container_check
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "authelia", "containers"]
+
+    - name: "Report Authelia container status"
+      ansible.builtin.debug:
+        msg: |
+          Authelia container status: {{ authelia_container_check.stdout | default('not found') }}
+      tags: ["verify", "authelia", "containers"]
+
+    - name: "Verify PostgreSQL container is running"
+      ansible.builtin.command:
+        cmd: "docker inspect --format='{{ '{{' }} .State.Status {{ '}}' }}' proxy-authelia-postgres"
+      become: true
+      register: postgres_container_check
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "authelia", "containers"]
+      when: proxy_authelia_postgres_enabled | bool
+
+    - name: "Report PostgreSQL container status"
+      ansible.builtin.debug:
+        msg: |
+          PostgreSQL container status: {{ postgres_container_check.stdout | default('not found') }}
+      tags: ["verify", "authelia", "containers"]
+      when: proxy_authelia_postgres_enabled | bool
+
+    - name: "Verify Redis container is running"
+      ansible.builtin.command:
+        cmd: "docker inspect --format='{{ '{{' }} .State.Status {{ '}}' }}' proxy-authelia-redis"
+      become: true
+      register: redis_container_check
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "authelia", "containers"]
+      when: proxy_authelia_redis_enabled | bool
+
+    - name: "Report Redis container status"
+      ansible.builtin.debug:
+        msg: |
+          Redis container status: {{ redis_container_check.stdout | default('not found') }}
+      tags: ["verify", "authelia", "containers"]
+      when: proxy_authelia_redis_enabled | bool
+
+    - name: "Verify Authelia network exists"
+      ansible.builtin.command:
+        cmd: "docker network inspect {{ proxy_authelia_docker_network_name }}"
+      become: true
+      register: authelia_network_check
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "authelia", "network"]
+
+    - name: "Report Authelia network status"
+      ansible.builtin.debug:
+        msg: |
+          Authelia network status: {{ 'exists' if authelia_network_check.rc == 0 else 'not found' }}
+      tags: ["verify", "authelia", "network"]
+
+    - name: "Check Authelia web port accessibility"
+      ansible.builtin.wait_for:
+        host: "{{ ansible_host | default('localhost') }}"
+        port: "{{ proxy_authelia_web_host_port }}"
+        timeout: 10
+      delegate_to: localhost
+      become: false
+      ignore_errors: true
+      register: authelia_port_check
+      tags: ["verify", "authelia", "ports"]
+
+    - name: "Report Authelia web port status"
+      ansible.builtin.debug:
+        msg: |
+          Authelia web port {{ proxy_authelia_web_host_port }}: {{ 'accessible' if authelia_port_check.failed is false else 'not accessible' }}
+      tags: ["verify", "authelia", "ports"]
+
+    - name: "Get Authelia container logs (last 20 lines)"
+      ansible.builtin.command:
+        cmd: "docker logs --tail 20 proxy-authelia"
+      become: true
+      register: authelia_logs
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "authelia", "logs"]
+
+    - name: "Report Authelia logs"
+      ansible.builtin.debug:
+        msg: |
+          Authelia container logs:
+          {{ authelia_logs.stdout | default('no logs available') }}
+      tags: ["verify", "authelia", "logs"]

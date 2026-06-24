@@ -1,0 +1,19 @@
+---
+# Main tasks file for cloudflare-dns role
+# Manages Cloudflare DNS records using Cloudflare API v4
+
+- name: Include DNS record creation tasks
+  ansible.builtin.include_tasks: create_record.yml
+  when: cloudflare_dns_state | default('present') != 'absent'
+
+- name: Include DNS record update tasks
+  ansible.builtin.include_tasks: update_record.yml
+  when: cloudflare_dns_state | default('present') != 'absent'
+
+- name: Include DNS record deletion tasks
+  ansible.builtin.include_tasks: delete_record.yml
+  when: cloudflare_dns_state | default('present') == 'absent'
+
+- name: Verify DNS record changes
+  ansible.builtin.include_tasks: verify_record.yml
+  when: cloudflare_dns_verify | default(true)

@@ -2,26 +2,21 @@
 # Authelia configuration
 # Managed by Ansible — do not edit manually.
 
-theme:
-  default_theme: {{ proxy_authelia_theme }}
-
-jwt_secret: {{ proxy_authelia_jwt_secret }}
-
-default_redirection_url: https://{{ ansible_host | default('localhost') }}:{{ proxy_authelia_web_host_port }}
+theme: {{ proxy_authelia_theme }}
 
 server:
   address: "tcp://0.0.0.0:{{ proxy_authelia_web_container_port }}"
   buffers:
     read: 4096
     write: 4096
-  enable_pprof: false
-  enable_expvars: false
-disable_keepalive: false
+  endpoints:
+    enable_pprof: false
+    enable_expvars: false
   asset_path: ""
 
 log:
   level: {{ proxy_authelia_log_level }}
-  format: text
+  format: {{ proxy_authelia_log_format }}
   file_path: ""
   keep_stdout: true
 
@@ -36,8 +31,13 @@ totp:
 duo_api:
   disable: true
 
+identity_validation:
+  reset_password:
+    jwt_secret: {{ proxy_authelia_jwt_secret | default('default_jwt_secret_change_in_production_at_least_20_chars') }}
+
 authentication_backend:
-  disable_reset_password: false
+  password_reset:
+    disable: false
   refresh_interval: 5m
   file:
     path: /config/users_database.yml
@@ -53,17 +53,21 @@ access_control:
   default_policy: {{ proxy_authelia_default_policy }}
   rules:
 {% for rule in proxy_authelia_rules %}
-    - domain: {{ rule.domain }}
+    - domain: {{ rule.domain | quote }}
       policy: {{ rule.policy }}
 {% endfor %}
 
 session:
   name: {{ proxy_authelia_session_name }}
-  secret: {{ proxy_authelia_session_secret }}
   expiration: {{ proxy_authelia_session_expiration }}
   inactivity: {{ proxy_authelia_session_inactivity }}
-  domain: {{ ansible_host | default('localhost') }}
   same_site: lax
+  secret: {{ proxy_authelia_session_secret | default('default_session_secret_change_in_production_at_least_20_chars') }}
+  cookies:
+    - name: authelia_session
+      domain: {{ proxy_authelia_session_domain | default(ansible_host | default('localhost') + '.local') }}
+      same_site: lax
+      authelia_url: {{ proxy_authelia_url | default('https://oci.local:9091') }}
 {% if proxy_authelia_session_redis_enabled | bool %}
   redis:
     host: proxy-authelia-redis
@@ -77,15 +81,31 @@ regulation:
   ban_time: 10m
 
 storage:
-  encryption_key: {{ proxy_authelia_storage_encryption_key }}
-{% if proxy_authelia_storage_backend == 'sqlite' %}
+  encryption_key: {{ proxy_authelia_storage_encryption_key | default('default_encryption_key_change_in_production_at_least_20_chars') }}
+{% if proxy_authelia_storage_backend == 'postgres' %}
+  postgres:
+    address: "tcp://{{ proxy_authelia_postgres_host }}:{{ proxy_authelia_postgres_port }}"
+    database: {{ proxy_authelia_postgres_database }}
+    username: {{ proxy_authelia_postgres_user }}
+    password: {{ proxy_authelia_postgres_password }}
+{% elif proxy_authelia_storage_backend == 'sqlite' %}
   local:
     path: /config/db.sqlite3
 {% endif %}
 
 notifier:
-  disable_startup_check: false
-{% if proxy_authelia_notifier_backend == 'filesystem' %}
+  disable_startup_check: true
+{% if proxy_authelia_notifier_backend == 'smtp' %}
+  smtp:
+    address: {{ proxy_authelia_smtp_address | default('smtp://localhost:25') }}
+    sender: {{ proxy_authelia_smtp_sender | default('authelia@example.com') }}
+{% if proxy_authelia_smtp_username is defined %}
+    username: {{ proxy_authelia_smtp_username }}
+{% endif %}
+{% if proxy_authelia_smtp_password is defined %}
+    password: {{ proxy_authelia_smtp_password }}
+{% endif %}
+{% elif proxy_authelia_notifier_backend == 'filesystem' %}
   filesystem:
     filename: {{ proxy_authelia_notifier_fs_path }}
 {% endif %}

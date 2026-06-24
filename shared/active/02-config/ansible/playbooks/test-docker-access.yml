@@ -1,0 +1,17 @@
+---
+# Test playbook for Docker access in Isolation VM
+# Tests Docker-in-Docker functionality from agent containers
+
+- name: "Test Docker Access in Isolation VM"
+  hosts: isolation_vms
+  become: true
+  gather_facts: true
+  
+  vars:
+    # Test execution flags
+    isolation_vm_test_docker_access: true
+    
+  roles:
+    - role: isolation-vm-tests
+      tags:
+        - docker-access

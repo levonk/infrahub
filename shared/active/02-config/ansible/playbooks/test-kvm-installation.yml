@@ -1,0 +1,10 @@
+---
+- name: Test KVM/libvirt/QEMU Installation
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+  
+  roles:
+    - role: common-kvm
+      vars:
+        kvm_target_user: "{{ ansible_user }}"

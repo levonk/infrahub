@@ -1,0 +1,19 @@
+# ---------------------------------------------------------------------------
+# fail2ban jail.local
+# Variable-driven configuration for SSH brute-force protection.
+# Do not edit manually — managed by Ansible.
+# ---------------------------------------------------------------------------
+
+[DEFAULT]
+bantime  = {{ fail2ban_bantime }}
+maxretry = {{ fail2ban_maxretry }}
+findtime = {{ fail2ban_findtime }}
+ignoreip = {{ fail2ban_ignoreip | join(' ') }}
+backend  = {{ fail2ban_backend }}
+
+[sshd]
+enabled = true
+port    = {{ fail2ban_sshd_port }}
+filter  = sshd
+logpath = /var/log/auth.log
+maxretry = {{ fail2ban_maxretry }}

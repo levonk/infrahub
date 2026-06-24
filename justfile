@@ -9,6 +9,7 @@ INFRAHUB_ROOT := justfile_directory()
 ANSIBLE_ROOT := INFRAHUB_ROOT + "/shared/active/02-config/ansible"
 CONTAINER_ROOT := INFRAHUB_ROOT + "/shared/active/03-container"
 INVENTORY := INFRAHUB_ROOT + "/levonk/active/02-config/ansible/inventories/oci.yml"
+LOCALNET_INVENTORY := INFRAHUB_ROOT + "/levonk/active/02-config/ansible/inventories/localnet.yml"
 GROUP_VARS := INFRAHUB_ROOT + "/levonk/active/02-config/ansible/group_vars"
 PACKER_DIR := INFRAHUB_ROOT + "/shared/active/01-build/packer"
 MOLECULE_DIR := ANSIBLE_ROOT + "/roles"
@@ -16,15 +17,18 @@ MOLECULE_DIR := ANSIBLE_ROOT + "/roles"
 # Ansible playbooks
 PB_BOOTSTRAP := ANSIBLE_ROOT + "/playbooks/cloud-server-bootstrap.yml"
 PB_VPN := ANSIBLE_ROOT + "/playbooks/cloud-server-vpn.yml"
+PB_NORDVPN := ANSIBLE_ROOT + "/playbooks/cloud-server-nordvpn.yml"
 PB_INFRA := ANSIBLE_ROOT + "/playbooks/cloud-server-infra.yml"
 PB_VMS := ANSIBLE_ROOT + "/playbooks/cloud-server-vms.yml"
 PB_SITE := ANSIBLE_ROOT + "/playbooks/cloud-server-site.yml"
+PB_LOCALNET_TAILSCALE := ANSIBLE_ROOT + "/playbooks/localnet-tailscale.yml"
 
 # Validation playbooks
 PB_VAL_BOOTSTRAP := ANSIBLE_ROOT + "/playbooks/validate-bootstrap.yml"
 PB_VAL_VPN := ANSIBLE_ROOT + "/playbooks/validate-vpn.yml"
 PB_VAL_INFRA := ANSIBLE_ROOT + "/playbooks/validate-infra.yml"
 PB_VAL_VMS := ANSIBLE_ROOT + "/playbooks/validate-vms.yml"
+PB_FINAL_AUDIT := ANSIBLE_ROOT + "/playbooks/final-audit.yml"
 
 # Docker commands for Ansible test containers
 ANSIBLE_TEST_IMAGE := "ansible-test-runner:latest"
@@ -162,6 +166,61 @@ molecule-verify role:
     @echo "Running Molecule verify for role: {{role}}..."
     cd {{MOLECULE_DIR}}/{{role}} && molecule verify
 
+# -- Docker-based Molecule Tests (bypass Nix dependency issues) --
+
+MOLECULE_DOCKER_IMAGE := "molecule-test-runner:latest"
+MOLECULE_DOCKER_CONTAINER := "molecule-test-env"
+MOLECULE_DOCKERFILE := CONTAINER_ROOT + "/Dockerfile.molecule"
+
+molecule-docker-build:
+    @echo "Building Molecule Docker image..."
+    docker build -t {{MOLECULE_DOCKER_IMAGE}} -f {{MOLECULE_DOCKERFILE}} {{CONTAINER_ROOT}}
+
+molecule-docker-test role:
+    @echo "Running Molecule test for role: {{role}} in Docker container..."
+    docker run --rm \
+        -v {{INFRAHUB_ROOT}}:/workspace \
+        -v /var/run/docker.sock:/var/run/docker.sock \
+        --privileged \
+        {{MOLECULE_DOCKER_IMAGE}} \
+        bash -c "cd /workspace/shared/active/02-config/ansible/roles/{{role}} && molecule test"
+
+molecule-docker-converge role:
+    @echo "Running Molecule converge for role: {{role}} in Docker container..."
+    docker run --rm \
+        -v {{INFRAHUB_ROOT}}:/workspace \
+        -v /var/run/docker.sock:/var/run/docker.sock \
+        --privileged \
+        {{MOLECULE_DOCKER_IMAGE}} \
+        bash -c "cd /workspace/shared/active/02-config/ansible/roles/{{role}} && molecule converge"
+
+molecule-docker-verify role:
+    @echo "Running Molecule verify for role: {{role}} in Docker container..."
+    docker run --rm \
+        -v {{INFRAHUB_ROOT}}:/workspace \
+        -v /var/run/docker.sock:/var/run/docker.sock \
+        --privileged \
+        {{MOLECULE_DOCKER_IMAGE}} \
+        bash -c "cd /workspace/shared/active/02-config/ansible/roles/{{role}} && molecule verify"
+
+molecule-docker-destroy role:
+    @echo "Destroying Molecule environment for role: {{role}} in Docker container..."
+    docker run --rm \
+        -v {{INFRAHUB_ROOT}}:/workspace \
+        -v /var/run/docker.sock:/var/run/docker.sock \
+        --privileged \
+        {{MOLECULE_DOCKER_IMAGE}} \
+        bash -c "cd /workspace/shared/active/02-config/ansible/roles/{{role}} && molecule destroy"
+
+molecule-docker-shell:
+    @echo "Starting interactive shell in Molecule Docker container..."
+    docker run --rm -it \
+        -v {{INFRAHUB_ROOT}}:/workspace \
+        -v /var/run/docker.sock:/var/run/docker.sock \
+        --privileged \
+        {{MOLECULE_DOCKER_IMAGE}} \
+        bash
+
 # -- Docker Test Environment for Ansible --
 
 ansible-test-env-build:
@@ -199,7 +258,14 @@ ansible-deploy-vpn:
 
 ansible-deploy-vpn-internal:
     @echo "Deploying VPN playbook..."
-    ansible-playbook -i {{INVENTORY}} {{PB_VPN}}
+    ansible-playbook -i {{INVENTORY}} {{PB_VPN}} --ask-vault-pass
+
+ansible-deploy-nordvpn:
+    devbox run ansible-deploy-nordvpn
+
+ansible-deploy-nordvpn-internal:
+    @echo "Deploying NordVPN playbook..."
+    bash scripts/deploy-nordvpn.sh
 
 ansible-deploy-infra:
     devbox run ansible-deploy-infra
@@ -221,6 +287,15 @@ ansible-deploy-site:
 ansible-deploy-site-internal:
     @echo "Deploying site playbook (full stack)..."
     ansible-playbook -i {{INVENTORY}} {{PB_SITE}}
+
+# -- Local Network Deployment --
+
+ansible-deploy-localnet-tailscale:
+    devbox run ansible-deploy-localnet-tailscale
+
+ansible-deploy-localnet-tailscale-internal:
+    @echo "Deploying Tailscale to local network hosts..."
+    ansible-playbook -i {{LOCALNET_INVENTORY}} {{PB_LOCALNET_TAILSCALE}} --ask-vault-pass
 
 # -- Validation Playbooks --
 
@@ -258,6 +333,13 @@ ansible-validate-all:
     just ansible-validate-vpn-internal
     just ansible-validate-infra-internal
     just ansible-validate-vms-internal
+
+ansible-final-audit:
+    devbox run ansible-final-audit
+
+ansible-final-audit-internal:
+    @echo "Running final security audit..."
+    ansible-playbook -i {{INVENTORY}} {{PB_FINAL_AUDIT}}
 
 # === Packer VM Image Creation ===
 

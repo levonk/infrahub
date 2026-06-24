@@ -1,0 +1,23 @@
+#cloud-config
+# Cloud-init configuration for Isolation VM
+# This configures the cuser with SSH access and sudo permissions
+
+users:
+  - name: {{ isolation_vm_user }}
+    uid: {{ isolation_vm_user_uid }}
+    gid: {{ isolation_vm_user_gid }}
+    shell: {{ isolation_vm_user_shell }}
+    sudo: ALL=(ALL) {{ 'NOPASSWD:ALL' if not isolation_vm_sudo_password_required else 'ALL' }}
+    ssh_authorized_keys:
+      - {{ isolation_vm_ssh_public_key }}
+    lock_passwd: true
+
+ssh_pwauth: {{ 'true' if isolation_vm_ssh_password_auth else 'false' }}
+
+# Configure SSH daemon
+runcmd:
+  - sed -i 's/^#?PasswordAuthentication.*/PasswordAuthentication {{ 'yes' if isolation_vm_ssh_password_auth else 'no' }}/' /etc/ssh/sshd_config
+  - sed -i 's/^#?PermitRootLogin.*/PermitRootLogin {{ isolation_vm_ssh_permit_root_login }}/' /etc/ssh/sshd_config
+  - sed -i 's/^#?Port.*/Port {{ isolation_vm_ssh_port }}/' /etc/ssh/sshd_config
+  - systemctl restart ssh
+  - echo "Cloud-init completed at $(date)" >> /var/log/cloud-init.log

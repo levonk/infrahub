@@ -1,11 +1,13 @@
 # proxy-authelia
 
-Ansible role to deploy [Authelia](https://www.authelia.com/) as a Docker container for Single Sign-On (SSO).
+Ansible role to deploy [Authelia](https://www.authelia.com/) as a Docker container for Single Sign-On (SSO) with PostgreSQL database and Redis session storage.
 
 ## Requirements
 
 - Docker Engine (role `docker-engine`)
 - `community.docker` Ansible collection
+- PostgreSQL database (deployed as sidecar container)
+- Redis session storage (deployed as sidecar container)
 
 ## Role Variables
 
@@ -21,9 +23,22 @@ See `defaults/main.yml` for full list. Key variables:
 | `proxy_authelia_jwt_secret` | `change-me-in-vault` | **Must be overridden via vault** |
 | `proxy_authelia_session_secret` | `change-me-in-vault` | **Must be overridden via vault** |
 | `proxy_authelia_storage_encryption_key` | `change-me-in-vault` | **Must be overridden via vault** |
+| `proxy_authelia_storage_backend` | `postgres` | Storage backend (postgres or sqlite) |
+| `proxy_authelia_postgres_enabled` | `true` | Enable PostgreSQL sidecar container |
+| `proxy_authelia_postgres_user` | `authelia` | PostgreSQL username |
+| `proxy_authelia_postgres_password` | `change-me-in-vault` | **Must be overridden via vault** |
+| `proxy_authelia_postgres_database` | `authelia` | PostgreSQL database name |
 | `proxy_authelia_redis_enabled` | `true` | Enable Redis session sidecar |
 | `proxy_authelia_redis_host_port` | `6379` | Host port for Redis |
 | `proxy_authelia_redis_password` | `change-me-in-vault` | **Must be overridden via vault** |
+
+## Security Considerations
+
+- **Passwords are hashed using Argon2id** - never stored in plaintext
+- **All secrets must be stored in Ansible vault** - never in plain variables
+- **PostgreSQL database runs in isolated container** with separate volume
+- **Redis session storage requires authentication** via password
+- **Traefik forward auth middleware** included for integration
 
 ## Dependencies
 
@@ -41,13 +56,29 @@ None.
         proxy_authelia_jwt_secret: "{{ vault_authelia_jwt_secret }}"
         proxy_authelia_session_secret: "{{ vault_authelia_session_secret }}"
         proxy_authelia_storage_encryption_key: "{{ vault_authelia_storage_key }}"
+        proxy_authelia_postgres_password: "{{ vault_authelia_postgres_password }}"
+        proxy_authelia_redis_password: "{{ vault_authelia_redis_password }}"
 ```
+
+## Traefik Integration
+
+The role generates a Traefik forward auth middleware configuration at:
+`{{ proxy_authelia_data_dir }}/config/traefik_authelia_middleware.yml`
+
+This can be used in Traefik dynamic configuration to enable authentication for protected services.
 
 ## Testing
 
 ```bash
 ansible-playbook -i localhost, -c local tests/test.yml --check --diff
 ```
+
+## Compliance
+
+- Follows AGENTS.md guidelines for variable-driven configuration
+- No hardcoded IPs, ports, or credentials
+- Password hashing uses Argon2id (no plaintext storage)
+- All sensitive data must be managed via Ansible vault
 
 ## License
 

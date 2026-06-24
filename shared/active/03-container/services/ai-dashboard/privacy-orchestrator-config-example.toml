@@ -1,0 +1,174 @@
+# Privacy Orchestrator Pipeline Configuration Example
+# This configuration is optimized for integration in the AI Dashboard pipeline
+# Pipeline: AI Dashboard Proxy 1 → Privacy Orchestrator → Headroom → OmniRoute → AI Dashboard Proxy 2
+
+[server]
+# Server configuration for HTTP proxy interface
+host = "0.0.0.0"
+port = 9090
+max_connections = 1000
+timeout_seconds = 30
+
+[detection]
+# PII detection configuration
+enabled = true
+confidence_threshold = 0.7
+# PII categories to detect (22+ categories available)
+categories = [
+  "EMAIL",
+  "PHONE", 
+  "SSN",
+  "CREDIT_CARD",
+  "IP_ADDRESS",
+  "URL",
+  "DATE_OF_BIRTH",
+  "PASSPORT",
+  "DRIVER_LICENSE",
+  "BANK_ACCOUNT",
+  "MEDICAL_RECORD",
+  "INSURANCE_NUMBER"
+]
+# Multi-language support
+languages = ["en", "es", "fr", "de", "it"]
+# Detection model settings
+model_path = "/models/privacy-model.gguf"
+use_gpu = true
+gpu_device_id = 0
+
+[transformation]
+# Transformation mode configuration
+mode = "redaction"  # Options: redaction, masking, tokenization
+preserve_format = true
+# Redaction settings
+redaction_char = "*"
+min_mask_length = 3
+# Masking settings  
+mask_char = "X"
+preserve_length = true
+# Tokenization settings
+tokenization_salt = "pipeline-salt-2024"
+reversible = false
+
+[upstream]
+# Upstream service configuration (Headroom)
+url = "http://headroom:8787"
+timeout_seconds = 30
+retry_attempts = 3
+retry_delay_seconds = 1
+circuit_breaker_enabled = true
+circuit_breaker_threshold = 5
+circuit_breaker_timeout_seconds = 60
+
+[downstream]
+# Downstream service configuration (AI Dashboard Proxy 1)
+enable_analytics = true
+analytics_endpoint = "http://ai-dashboard-proxy-1:8081/analytics"
+batch_size = 100
+flush_interval_seconds = 5
+
+[logging]
+# Logging configuration
+level = "INFO"  # Options: DEBUG, INFO, WARN, ERROR
+format = "json"  # Options: json, text
+# Log file settings
+log_file = "/var/log/privacy-orchestrator/privacy.log"
+max_file_size_mb = 100
+max_files = 5
+# Structured logging fields
+include_timestamp = true
+include_request_id = true
+include pii_category = true
+
+[analytics]
+# Analytics configuration
+enabled = true
+# Database connection
+database_url = "postgresql://postgres:postgres@ai-dashboard-db:5432/analytics"
+# Metrics collection
+collect_detection_metrics = true
+collect_transformation_metrics = true
+collect_performance_metrics = true
+collect_error_metrics = true
+# Metrics retention
+metrics_retention_days = 30
+# Real-time monitoring
+enable_prometheus = true
+prometheus_port = 9091
+enable_grafana_dashboard = true
+
+[cache]
+# Caching configuration for improved performance
+enabled = true
+cache_type = "memory"  # Options: memory, redis
+max_cache_size_mb = 100
+cache_ttl_seconds = 3600
+# Redis configuration (if cache_type = redis)
+redis_url = "redis://localhost:6379"
+redis_password = ""
+
+[security]
+# Security configuration
+enable_tls = false  # Set to true for production
+tls_cert_path = "/etc/privacy-orchestrator/cert.pem"
+tls_key_path = "/etc/privacy-orchestrator/key.pem"
+# Rate limiting
+rate_limit_enabled = true
+rate_limit_requests_per_minute = 1000
+# IP whitelist (empty = allow all)
+allowed_ips = []
+# Request validation
+validate_content_type = true
+max_request_size_mb = 10
+
+[monitoring]
+# Health check configuration
+health_check_enabled = true
+health_check_path = "/health"
+health_check_interval_seconds = 30
+# Startup probe
+startup_probe_enabled = true
+startup_probe_path = "/health"
+startup_probe_interval_seconds = 10
+startup_probe_failure_threshold = 30
+# Liveness probe
+liveness_probe_enabled = true
+liveness_probe_path = "/health"
+liveness_probe_interval_seconds = 30
+liveness_probe_failure_threshold = 3
+# Readiness probe
+readiness_probe_enabled = true
+readiness_probe_path = "/ready"
+readiness_probe_interval_seconds = 10
+readiness_probe_failure_threshold = 3
+
+[performance]
+# Performance tuning
+worker_threads = 4
+request_queue_size = 1000
+connection_pool_size = 100
+# Memory management
+max_memory_mb = 2048
+gc_interval_seconds = 300
+# CPU affinity
+cpu_affinity = []  # Empty = use all available cores
+
+[exceptions]
+# Exception handling configuration
+enabled = true
+# Exception rules
+exception_rules_path = "/config/exception-rules.toml"
+# Context awareness
+context_awareness_enabled = true
+context_window_size = 100
+# Exception logging
+log_exceptions = true
+exception_retention_days = 90
+
+[output_formats]
+# Output format configuration (TOON format support)
+default_format = "json"
+supported_formats = ["json", "toon"]
+# TOON format settings
+toon_version = "1.0"
+toon_compression = true
+toon_metadata_enabled = true

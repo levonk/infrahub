@@ -1,0 +1,24 @@
+---
+# VPN Routing Test Playbook for Isolation VM
+# Tests network routing from agent containers through VPN/proxy services
+
+- name: Test VPN Routing for Isolation VM
+  hosts: isolation_vms
+  become: true
+  gather_facts: true
+  vars:
+    # Test execution control
+    isolation_vm_test_vpn_routing: true
+    isolation_vm_test_docker_access: false
+    isolation_vm_test_network_isolation: false
+    
+  tasks:
+    - name: Include isolation-vm-tests role
+      ansible.builtin.include_role:
+        name: isolation-vm-tests
+    
+    - name: Display test summary
+      ansible.builtin.debug:
+        msg:
+          - "VPN routing tests completed"
+          - "Check /tmp/vpn-routing-test-results-*.txt for detailed results"

@@ -1,6 +1,10 @@
 <network>
   <name>{{ common_kvm_routed_bridge_name }}</name>
-  <forward mode='route' dev='{{ ansible_default_ipv4.interface | default("eth0") }}'/>
+  <forward mode='route' dev='{{ common_kvm_routed_bridge_interface }}'/>
   <bridge name='{{ common_kvm_routed_bridge_name }}' stp='on' delay='0'/>
-  <ip address='{{ common_kvm_routed_bridge_gateway }}' netmask='255.255.255.0'/>
+  <ip address='{{ common_kvm_routed_bridge_gateway }}' netmask='255.255.255.0'>
+    <dhcp>
+      <range start='{{ common_kvm_routed_bridge_dhcp_start }}' end='{{ common_kvm_routed_bridge_dhcp_end }}'/>
+    </dhcp>
+  </ip>
 </network>

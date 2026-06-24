@@ -348,6 +348,208 @@ docker compose logs prometheus
 
 ---
 
+### AI Dashboard Pipeline Issues
+
+#### Pipeline Services Not Starting
+
+**Symptoms:**
+```
+Error response from daemon: No such container: privacy-orchestrator
+Error: network not found: proxy-chain-network
+```
+
+**Solution:**
+
+1. **Check network configuration:**
+```bash
+# Verify proxy-chain-network exists
+docker network ls | grep proxy-chain-network
+
+# If missing, create it
+docker network create --driver bridge --subnet 172.29.0.0/16 --gateway 172.29.0.1 proxy-chain-network
+```
+
+2. **Check AI Dashboard network:**
+```bash
+# Verify ai-dashboard-network exists
+docker network ls | grep ai-dashboard-network
+
+# If missing, create it
+docker network create --driver bridge --subnet 172.35.0.0/16 --gateway 172.35.0.1 ai-dashboard-network
+```
+
+3. **Start pipeline services:**
+```bash
+cd /Users/micro/p/gh/levonk/infrahub/shared/active/03-container/services/ai-dashboard
+docker compose -f docker-compose.ai-dashboard-pipeline.yml --env-file .env.pipeline up -d
+```
+
+#### Privacy Orchestrator Health Check Failing
+
+**Symptoms:**
+```
+privacy-orchestrator: unhealthy
+Container health check failed
+```
+
+**Solution:**
+
+1. **Check Privacy Orchestrator logs:**
+```bash
+docker logs privacy-orchestrator --tail=50
+```
+
+2. **Verify health endpoint:**
+```bash
+curl http://localhost:9090/health
+```
+
+3. **Check configuration:**
+```bash
+# Verify config file exists
+ls -la ./config/config.toml
+
+# Check environment variables
+docker exec privacy-orchestrator env | grep PRIVACY
+```
+
+4. **Restart service:**
+```bash
+docker compose -f docker-compose.ai-dashboard-pipeline.yml restart privacy-orchestrator
+```
+
+#### Pipeline Service Communication Issues
+
+**Symptoms:**
+```
+Connection refused to privacy-orchestrator:9090
+DNS resolution failed for headroom
+```
+
+**Solution:**
+
+1. **Check service connectivity:**
+```bash
+# Test from AI Dashboard Proxy 1
+docker exec ai-dashboard-proxy-1 ping privacy-orchestrator
+docker exec ai-dashboard-proxy-1 ping headroom
+
+# Test HTTP connectivity
+docker exec ai-dashboard-proxy-1 wget -O- http://privacy-orchestrator:9090/health
+```
+
+2. **Verify network IP assignments:**
+```bash
+# Check container IPs
+docker inspect ai-dashboard-proxy-1 | grep IPAddress
+docker inspect privacy-orchestrator | grep IPAddress
+docker inspect headroom | grep IPAddress
+```
+
+3. **Check proxy-chain-network connectivity:**
+```bash
+# List containers on proxy-chain-network
+docker network inspect proxy-chain-network
+```
+
+#### Pipeline Database Connection Issues
+
+**Symptoms:**
+```
+Connection refused to ai-dashboard-db:5432
+FATAL: database "analytics" does not exist
+```
+
+**Solution:**
+
+1. **Check database status:**
+```bash
+docker ps | grep ai-dashboard-db
+docker logs ai-dashboard-db --tail=50
+```
+
+2. **Test database connection:**
+```bash
+docker exec ai-dashboard-db pg_isready -U postgres
+docker exec ai-dashboard-db psql -U postgres -c "\l"
+```
+
+3. **Verify database exists:**
+```bash
+docker exec ai-dashboard-db psql -U postgres -c "SELECT datname FROM pg_database WHERE datname='analytics';"
+```
+
+4. **Create database if missing:**
+```bash
+docker exec ai-dashboard-db psql -U postgres -c "CREATE DATABASE analytics;"
+```
+
+#### Pipeline Performance Issues
+
+**Symptoms:**
+```
+High latency in pipeline stages
+Requests timing out
+Slow PII detection
+```
+
+**Solution:**
+
+1. **Check resource usage:**
+```bash
+docker stats privacy-orchestrator headroom omniroute
+```
+
+2. **Check service logs for errors:**
+```bash
+docker logs privacy-orchestrator --tail=100 | grep -i error
+docker logs headroom --tail=100 | grep -i error
+```
+
+3. **Verify compression strategy:**
+```bash
+# Check if Headroom compression is enabled
+docker exec headroom env | grep COMPRESSION
+```
+
+4. **Monitor pipeline flow:**
+```bash
+# Test end-to-end flow
+curl -X POST http://localhost:9081/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"model":"test","messages":[{"role":"user","content":"Hello"}]}'
+```
+
+#### Pipeline Rollback Procedures
+
+**If pipeline integration causes issues:**
+
+1. **Stop pipeline services:**
+```bash
+cd /Users/micro/p/gh/levonk/infrahub/shared/active/03-container/services/ai-dashboard
+docker compose -f docker-compose.ai-dashboard-pipeline.yml down
+```
+
+2. **Remove pipeline network:**
+```bash
+docker network rm proxy-chain-network
+docker network rm ai-dashboard-network
+```
+
+3. **Restore previous configuration:**
+```bash
+# Restore from git
+git checkout HEAD~1 -- docker-compose.ai-dashboard-pipeline.yml
+git checkout HEAD~1 -- .env.pipeline
+```
+
+4. **Restart with previous configuration:**
+```bash
+docker compose -f docker-compose.ai-dashboard-pipeline.yml --env-file .env.pipeline up -d
+```
+
+---
+
 ### Performance Issues
 
 #### High CPU Usage

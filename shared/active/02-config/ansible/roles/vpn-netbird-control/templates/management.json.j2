@@ -1,0 +1,18 @@
+{
+  "LogLevel": "{{ netbird_control_mgmt_log_level }}",
+  "ListenAddress": "0.0.0.0:{{ netbird_control_mgmt_container_port }}",
+  "SignalAddress": "{{ netbird_control_signal_url }}",
+  "RelayAddress": "{{ netbird_control_relay_url }}",
+  "IdpManager": {
+    "Provider": "{{ netbird_control_mgmt_idp_provider }}",
+    "ClientId": "{{ netbird_control_mgmt_idp_client_id | default('') }}",
+    "ClientSecret": "{{ netbird_control_mgmt_idp_client_secret | default('') }}",
+    "AuthorizationEndpoint": "{{ netbird_control_mgmt_idp_authorization_endpoint | default('') }}",
+    "TokenEndpoint": "{{ netbird_control_mgmt_idp_token_endpoint | default('') }}",
+    "JwksUri": "{{ netbird_control_mgmt_idp_jwks_uri | default('') }}"
+  },
+  "Storage": {
+    "Engine": "sqlite",
+    "DSN": "/var/lib/netbird/management.db"
+  }
+}

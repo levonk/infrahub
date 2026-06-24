@@ -1,0 +1,290 @@
+---
+# Nested Virtualization Support Test Playbook
+# Tests whether the OCI Cloud Server Host hardware supports nested KVM virtualization
+# This is a critical decision point for KVM vs QEMU hypervisor choice
+# Usage:
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/playbooks/test-nested-virtualization.yml
+
+- name: "Test Nested Virtualization Support"
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+
+  vars:
+    nested_virt_results: {}
+
+  pre_tasks:
+    - name: "Gather ansible_facts"
+      ansible.builtin.setup:
+        gather_subset: ["all"]
+      tags: ["always"]
+
+    - name: "Initialize nested virtualization test results"
+      ansible.builtin.set_fact:
+        nested_virt_results:
+          cpu_architecture: ""
+          virtualization_supported: false
+          kvm_module_loaded: false
+          nested_virtualization_enabled: false
+          nested_virtualization_supported: false
+          cpu_vendor: ""
+          test_timestamp: ""
+
+  tasks:
+    - name: "Get CPU architecture"
+      ansible.builtin.command:
+        cmd: uname -m
+      register: nested_virt_arch
+      changed_when: false
+      tags: ["test", "cpu"]
+
+    - name: "Record CPU architecture"
+      ansible.builtin.set_fact:
+        nested_virt_results: "{{ nested_virt_results | combine({'cpu_architecture': nested_virt_arch.stdout}) }}"
+      tags: ["test", "cpu"]
+
+    - name: "Get CPU vendor"
+      ansible.builtin.command:
+        cmd: grep -m 1 vendor_id /proc/cpuinfo | awk '{print $3}'
+      register: nested_virt_vendor
+      changed_when: false
+      failed_when: false
+      tags: ["test", "cpu"]
+
+    - name: "Record CPU vendor"
+      ansible.builtin.set_fact:
+        nested_virt_results: "{{ nested_virt_results | combine({'cpu_vendor': nested_virt_vendor.stdout | default('unknown')}) }}"
+      tags: ["test", "cpu"]
+
+    - name: "Check CPU virtualization flags (Intel VT-x)"
+      ansible.builtin.command:
+        cmd: grep -c vmx /proc/cpuinfo
+      register: nested_virt_vmx
+      changed_when: false
+      failed_when: false
+      when: "'x86_64' in nested_virt_arch.stdout"
+      tags: ["test", "cpu"]
+
+    - name: "Check CPU virtualization flags (AMD-V)"
+      ansible.builtin.command:
+        cmd: grep -c svm /proc/cpuinfo
+      register: nested_virt_svm
+      changed_when: false
+      failed_when: false
+      when: "'x86_64' in nested_virt_arch.stdout"
+      tags: ["test", "cpu"]
+
+    - name: "Record virtualization support"
+      ansible.builtin.set_fact:
+        nested_virt_results: "{{ nested_virt_results | combine({'virtualization_supported': (nested_virt_vmx.stdout | int > 0 or nested_virt_svm.stdout | int > 0) if 'x86_64' in nested_virt_arch.stdout else false}) }}"
+      when: "'x86_64' in nested_virt_arch.stdout"
+      tags: ["test", "cpu"]
+
+    - name: "Note ARM architecture virtualization"
+      ansible.builtin.debug:
+        msg: "ARM architecture detected. Virtualization support may differ from x86_64."
+      when: "'aarch64' in nested_virt_arch.stdout"
+      tags: ["test", "cpu"]
+
+    - name: "Check if KVM module is loaded"
+      ansible.builtin.command:
+        cmd: lsmod | grep kvm
+      register: nested_virt_kvm_loaded
+      changed_when: false
+      failed_when: false
+      tags: ["test", "kvm"]
+
+    - name: "Record KVM module loaded status"
+      ansible.builtin.set_fact:
+        nested_virt_results: "{{ nested_virt_results | combine({'kvm_module_loaded': nested_virt_kvm_loaded.rc == 0}) }}"
+      tags: ["test", "kvm"]
+
+    - name: "Test KVM module loading (Intel)"
+      ansible.builtin.command:
+        cmd: modprobe kvm_intel
+      register: nested_virt_modprobe_intel
+      changed_when: false
+      failed_when: false
+      when:
+        - "'x86_64' in nested_virt_arch.stdout"
+        - nested_virt_vendor.stdout == "GenuineIntel"
+      tags: ["test", "kvm"]
+
+    - name: "Test KVM module loading (AMD)"
+      ansible.builtin.command:
+        cmd: modprobe kvm_amd
+      register: nested_virt_modprobe_amd
+      changed_when: false
+      failed_when: false
+      when:
+        - "'x86_64' in nested_virt_arch.stdout"
+        - nested_virt_vendor.stdout == "AuthenticAMD"
+      tags: ["test", "kvm"]
+
+    - name: "Check nested virtualization parameter (Intel)"
+      ansible.builtin.command:
+        cmd: cat /sys/module/kvm_intel/parameters/nested
+      register: nested_virt_intel_param
+      changed_when: false
+      failed_when: false
+      when:
+        - "'x86_64' in nested_virt_arch.stdout"
+        - nested_virt_vendor.stdout == "GenuineIntel"
+      tags: ["test", "nested"]
+
+    - name: "Check nested virtualization parameter (AMD)"
+      ansible.builtin.command:
+        cmd: cat /sys/module/kvm_amd/parameters/nested
+      register: nested_virt_amd_param
+      changed_when: false
+      failed_when: false
+      when:
+        - "'x86_64' in nested_virt_arch.stdout"
+        - nested_virt_vendor.stdout == "AuthenticAMD"
+      tags: ["test", "nested"]
+
+    - name: "Record nested virtualization enabled status (Intel)"
+      ansible.builtin.set_fact:
+        nested_virt_results: "{{ nested_virt_results | combine({'nested_virtualization_enabled': nested_virt_intel_param.stdout.strip() == '1' or nested_virt_intel_param.stdout.strip() == 'Y'}) }}"
+      when:
+        - "'x86_64' in nested_virt_arch.stdout"
+        - nested_virt_vendor.stdout == "GenuineIntel"
+        - nested_virt_intel_param.rc == 0
+      tags: ["test", "nested"]
+
+    - name: "Record nested virtualization enabled status (AMD)"
+      ansible.builtin.set_fact:
+        nested_virt_results: "{{ nested_virt_results | combine({'nested_virtualization_enabled': nested_virt_amd_param.stdout.strip() == '1' or nested_virt_amd_param.stdout.strip() == 'Y'}) }}"
+      when:
+        - "'x86_64' in nested_virt_arch.stdout"
+        - nested_virt_vendor.stdout == "AuthenticAMD"
+        - nested_virt_amd_param.rc == 0
+      tags: ["test", "nested"]
+
+    - name: "Enable nested virtualization (Intel)"
+      ansible.builtin.command:
+        cmd: "{{ item }}"
+      register: nested_virt_enable_intel
+      changed_when: false
+      failed_when: false
+      with_items:
+        - "modprobe -r kvm_intel"
+        - "modprobe kvm_intel nested=1"
+      when:
+        - "'x86_64' in nested_virt_arch.stdout"
+        - nested_virt_vendor.stdout == "GenuineIntel"
+        - nested_virt_intel_param.rc == 0
+        - nested_virt_intel_param.stdout.strip() != '1' and nested_virt_intel_param.stdout.strip() != 'Y'
+      tags: ["test", "nested", "enable"]
+
+    - name: "Enable nested virtualization (AMD)"
+      ansible.builtin.command:
+        cmd: "{{ item }}"
+      register: nested_virt_enable_amd
+      changed_when: false
+      failed_when: false
+      with_items:
+        - "modprobe -r kvm_amd"
+        - "modprobe kvm_amd nested=1"
+      when:
+        - "'x86_64' in nested_virt_arch.stdout"
+        - nested_virt_vendor.stdout == "AuthenticAMD"
+        - nested_virt_amd_param.rc == 0
+        - nested_virt_amd_param.stdout.strip() != '1' and nested_virt_amd_param.stdout.strip() != 'Y'
+      tags: ["test", "nested", "enable"]
+
+    - name: "Re-check nested virtualization parameter after enable (Intel)"
+      ansible.builtin.command:
+        cmd: cat /sys/module/kvm_intel/parameters/nested
+      register: nested_virt_intel_param_after
+      changed_when: false
+      failed_when: false
+      when:
+        - "'x86_64' in nested_virt_arch.stdout"
+        - nested_virt_vendor.stdout == "GenuineIntel"
+        - nested_virt_enable_intel is defined
+      tags: ["test", "nested", "enable"]
+
+    - name: "Re-check nested virtualization parameter after enable (AMD)"
+      ansible.builtin.command:
+        cmd: cat /sys/module/kvm_amd/parameters/nested
+      register: nested_virt_amd_param_after
+      changed_when: false
+      failed_when: false
+      when:
+        - "'x86_64' in nested_virt_arch.stdout"
+        - nested_virt_vendor.stdout == "AuthenticAMD"
+        - nested_virt_enable_amd is defined
+      tags: ["test", "nested", "enable"]
+
+    - name: "Update nested virtualization enabled status after enable (Intel)"
+      ansible.builtin.set_fact:
+        nested_virt_results: "{{ nested_virt_results | combine({'nested_virtualization_enabled': nested_virt_intel_param_after.stdout.strip() == '1' or nested_virt_intel_param_after.stdout.strip() == 'Y'}) }}"
+      when:
+        - "'x86_64' in nested_virt_arch.stdout"
+        - nested_virt_vendor.stdout == "GenuineIntel"
+        - nested_virt_intel_param_after is defined
+        - nested_virt_intel_param_after.rc == 0
+      tags: ["test", "nested", "enable"]
+
+    - name: "Update nested virtualization enabled status after enable (AMD)"
+      ansible.builtin.set_fact:
+        nested_virt_results: "{{ nested_virt_results | combine({'nested_virtualization_enabled': nested_virt_amd_param_after.stdout.strip() == '1' or nested_virt_amd_param_after.stdout.strip() == 'Y'}) }}"
+      when:
+        - "'x86_64' in nested_virt_arch.stdout"
+        - nested_virt_vendor.stdout == "AuthenticAMD"
+        - nested_virt_amd_param_after is defined
+        - nested_virt_amd_param_after.rc == 0
+      tags: ["test", "nested", "enable"]
+
+    - name: "Determine nested virtualization support"
+      ansible.builtin.set_fact:
+        nested_virt_results: "{{ nested_virt_results | combine({'nested_virtualization_supported': nested_virt_results.virtualization_supported and nested_virt_results.kvm_module_loaded and nested_virt_results.nested_virtualization_enabled}) }}"
+      tags: ["test", "final"]
+
+    - name: "Record test timestamp"
+      ansible.builtin.set_fact:
+        nested_virt_results: "{{ nested_virt_results | combine({'test_timestamp': ansible_date_time.iso8601}) }}"
+      tags: ["test", "final"]
+
+    - name: "Display nested virtualization test results"
+      ansible.builtin.debug:
+        msg: "{{ nested_virt_results }}"
+      tags: ["test", "final"]
+
+    - name: "Create results directory"
+      ansible.builtin.file:
+        path: /tmp/nested-virtualization-test
+        state: directory
+        mode: "0755"
+      become: true
+      tags: ["test", "final"]
+
+    - name: "Save test results to file"
+      ansible.builtin.copy:
+        content: "{{ nested_virt_results | to_nice_json }}"
+        dest: /tmp/nested-virtualization-test/results.json
+        mode: "0644"
+      become: true
+      tags: ["test", "final"]
+
+    - name: "Generate summary report"
+      ansible.builtin.debug:
+        msg: |
+          Nested Virtualization Support Test Summary
+          ============================================
+          CPU Architecture: {{ nested_virt_results.cpu_architecture }}
+          CPU Vendor: {{ nested_virt_results.cpu_vendor }}
+          Virtualization Supported: {{ nested_virt_results.virtualization_supported }}
+          KVM Module Loaded: {{ nested_virt_results.kvm_module_loaded }}
+          Nested Virtualization Enabled: {{ nested_virt_results.nested_virtualization_enabled }}
+          Nested Virtualization Supported: {{ nested_virt_results.nested_virtualization_supported }}
+          Test Timestamp: {{ nested_virt_results.test_timestamp }}
+
+          Recommendation: {% if nested_virt_results.nested_virtualization_supported %}Use KVM with nested virtualization for optimal performance{% else %}Use QEMU without KVM acceleration (nested virtualization not supported){% endif %}
+      tags: ["test", "final"]
+
+    - name: "Set Ansible fact for nested virtualization support"
+      ansible.builtin.set_fact:
+        nested_virtualization_supported: "{{ nested_virt_results.nested_virtualization_supported }}"
+      tags: ["test", "final"]

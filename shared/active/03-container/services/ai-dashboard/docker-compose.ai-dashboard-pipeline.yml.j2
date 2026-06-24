@@ -1,0 +1,123 @@
+---
+# AI Dashboard Pipeline - Multi-Stage Analytics Collection
+# This configuration wires up the AI analytics pipeline with multiple stages:
+# AI Dashboard Proxy 1 → Headroom → OmniRoute → AI Dashboard Proxy 2 → Iron-Proxy → NordVPN → Internet
+# Dual AI Dashboard proxy collectors for entry and pre-egress analytics
+
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "5"
+    tag: "{{.Name}}"
+    labels: "service"
+
+networks:
+  ai-dashboard:
+    name: ai-dashboard-network
+    driver: bridge
+    external: false
+  proxy-chain-network:
+    external: true
+    name: proxy-chain-network
+
+volumes:
+  ai-dashboard-data:
+    driver: local
+  ai-dashboard-proxy-1-data:
+    driver: local
+  ai-dashboard-proxy-2-data:
+    driver: local
+
+services:
+  # AI Dashboard Proxy Collector 1 - Entry Stage
+  # First stage in pipeline: collects analytics on all incoming requests
+  ai-dashboard-proxy-1:
+    build:
+      context: /Users/micro/p/gh/levonk/ai-dashboard/apps/proxy
+      dockerfile: Dockerfile
+    image: ai-dashboard-proxy-1:latest
+    command: ["ai-analytics-proxy", "serve", "--port", "8081"]
+    container_name: ai-dashboard-proxy-1
+    restart: unless-stopped
+    networks:
+      ai-dashboard:
+        ipv4_address: {{ ai_dashboard_proxy_1_container_ip }}
+      proxy-chain-network:
+        ipv4_address: {{ ai_dashboard_proxy_1_chain_ip }}
+    environment:
+      - DATABASE_URL={{ ai_dashboard_database_url }}
+      - AI_ANALYTICS_PROXY_MODE={{ ai_analytics_proxy_mode }}
+      - AI_ANALYTICS_PROXY_STAGE={{ ai_analytics_proxy_stage_1 }}
+      - AI_ANALYTICS_PROXY_COLLECTOR_ID={{ ai_analytics_proxy_collector_id_1 }}
+      - LOG_LEVEL={{ ai_dashboard_log_level }}
+      - AI_ANALYTICS_UPSTREAM_URL={{ ai_analytics_upstream_headroom }}
+    ports:
+      - "{{ ai_dashboard_proxy_1_host_port }}:{{ ai_dashboard_proxy_1_container_port }}/tcp"
+    volumes:
+      - ai-dashboard-proxy-1-data:/var/lib/analytics
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    depends_on:
+      - ai-dashboard-db
+
+  # AI Dashboard Proxy Collector 2 - Pre-Egress Stage
+  # Second-to-last stage: collects analytics after OmniRoute, before Iron-Proxy
+  ai-dashboard-proxy-2:
+    build:
+      context: /Users/micro/p/gh/levonk/ai-dashboard/apps/proxy
+      dockerfile: Dockerfile
+    image: ai-dashboard-proxy-2:latest
+    command: ["ai-analytics-proxy", "serve", "--port", "8082"]
+    container_name: ai-dashboard-proxy-2
+    restart: unless-stopped
+    networks:
+      ai-dashboard:
+        ipv4_address: {{ ai_dashboard_proxy_2_container_ip }}
+      proxy-chain-network:
+        ipv4_address: {{ ai_dashboard_proxy_2_chain_ip }}
+    environment:
+      - DATABASE_URL={{ ai_dashboard_database_url }}
+      - AI_ANALYTICS_PROXY_MODE={{ ai_analytics_proxy_mode }}
+      - AI_ANALYTICS_PROXY_STAGE={{ ai_analytics_proxy_stage_2 }}
+      - AI_ANALYTICS_PROXY_COLLECTOR_ID={{ ai_analytics_proxy_collector_id_2 }}
+      - LOG_LEVEL={{ ai_dashboard_log_level }}
+      - AI_ANALYTICS_UPSTREAM_URL={{ ai_analytics_upstream_iron_proxy }}
+    ports:
+      - "{{ ai_dashboard_proxy_2_host_port }}:{{ ai_dashboard_proxy_2_container_port }}/tcp"
+    volumes:
+      - ai-dashboard-proxy-2-data:/var/lib/analytics
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8082/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    depends_on:
+      - ai-dashboard-db
+
+  # AI Dashboard Database (PostgreSQL)
+  # Shared database for all collectors
+  ai-dashboard-db:
+    image: postgres:15-alpine
+    container_name: ai-dashboard-db
+    restart: unless-stopped
+    networks:
+      ai-dashboard:
+        ipv4_address: {{ ai_dashboard_db_container_ip }}
+    environment:
+      POSTGRES_DB: {{ ai_dashboard_db_name }}
+      POSTGRES_USER: {{ ai_dashboard_db_user }}
+      POSTGRES_PASSWORD: {{ ai_dashboard_db_password }}
+    volumes:
+      - ai-dashboard-data:/var/lib/postgresql/data
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U {{ ai_dashboard_db_user }}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5

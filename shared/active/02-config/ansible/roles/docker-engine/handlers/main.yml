@@ -1,0 +1,12 @@
+---
+# handlers file for docker-engine
+
+- name: Restart docker service
+  ansible.builtin.systemd:
+    name: "{{ docker_engine_service_name }}"
+    state: restarted
+    enabled: true
+    listen: restart docker
+  become: true
+  when: not docker_engine_skip_installation | default(false) | bool
+  ignore_errors: true

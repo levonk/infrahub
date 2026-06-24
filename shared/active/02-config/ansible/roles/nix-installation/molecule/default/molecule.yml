@@ -1,0 +1,31 @@
+---
+dependency:
+  name: galaxy
+driver:
+  name: docker
+platforms:
+  - name: instance
+    image: debian:bookworm-slim
+    pre_build_image: true
+    privileged: true
+    command: sleep infinity
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+    tmpfs:
+      - /run
+      - /tmp
+provisioner:
+  name: ansible
+  config_options:
+    defaults:
+      remote_tmp: /tmp/.ansible/tmp
+      ALLOW_BROKEN_CONDITIONS: true
+      roles_path: "/workspace/shared/active/02-config/ansible/roles:/workspace/levonk/active/02-config/ansible/roles"
+  env:
+    ANSIBLE_ROLES_PATH: "/workspace/shared/active/02-config/ansible/roles:/workspace/levonk/active/02-config/ansible/roles"
+  inventory:
+    group_vars:
+      all:
+        nix_installation_skip_installation: true
+verifier:
+  name: ansible

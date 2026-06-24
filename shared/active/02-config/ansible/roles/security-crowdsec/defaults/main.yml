@@ -1,0 +1,169 @@
+---
+# CrowdSec Security Engine Default Variables
+# IP-based threat protection with Traefik integration
+# All values are variable-driven per AGENTS.md rules
+
+# ---------------------------------------------------------------------------
+# Service Configuration
+# ---------------------------------------------------------------------------
+security_crowdsec_enabled: true
+security_crowdsec_data_dir: "/opt/crowdsec"
+security_crowdsec_container_name: "crowdsec"
+security_crowdsec_image: "crowdsecurity/crowdsec"
+security_crowdsec_image_tag: "latest"
+
+# ---------------------------------------------------------------------------
+# Network Configuration
+# ---------------------------------------------------------------------------
+security_crowdsec_traefik_network_name: "traefik-network"
+security_crowdsec_traefik_network_subnet: "172.31.0.0/16"
+security_crowdsec_traefik_network_gateway: "172.31.0.1"
+security_crowdsec_traefik_network_create: false  # Assume network exists from Traefik role
+security_crowdsec_host_ip: "0.0.0.0"
+
+# LAPI ports
+security_crowdsec_lapi_port: "8081"
+security_crowdsec_lapi_container_port: "8081"
+security_crowdsec_lapi_health_endpoint: "/v1/health"
+
+# ---------------------------------------------------------------------------
+# Bouncer Configuration
+# ---------------------------------------------------------------------------
+security_crowdsec_bouncer_enabled: true
+security_crowdsec_bouncer_container_name: "crowdsec-bouncer"
+security_crowdsec_bouncer_image: "fbonalair/traefik-crowdsec-bouncer"
+security_crowdsec_bouncer_image_tag: "latest"
+security_crowdsec_bouncer_name: "traefik-bouncer"
+security_crowdsec_bouncer_mode: "traefik"
+security_crowdsec_bouncer_daemon: true
+security_crowdsec_bouncer_api_key: "change-me-in-vault"
+security_crowdsec_lapi_url: "http://crowdsec:8081"
+
+# ---------------------------------------------------------------------------
+# Docker Volume Configuration
+# ---------------------------------------------------------------------------
+security_crowdsec_db_volume: "localnet-crowdsec-db-volume"
+security_crowdsec_config_volume: "localnet-crowdsec-config-volume"
+
+# ---------------------------------------------------------------------------
+# CrowdSec Configuration
+# ---------------------------------------------------------------------------
+security_crowdsec_log_level: "info"
+security_crowdsec_log_format: "json"
+security_crowdsec_offline_mode: false
+security_crowdsec_disable_online_components: false
+security_crowdsec_db_update_interval: "4h"
+
+# ---------------------------------------------------------------------------
+# API Configuration
+# ---------------------------------------------------------------------------
+security_crowdsec_api_insecure_skip_verify: true
+security_crowdsec_tls_cert_file: ""
+security_crowdsec_tls_key_file: ""
+security_crowdsec_tls_ca_cert_file: ""
+security_crowdsec_tls_insecure_skip_verify: true
+
+# ---------------------------------------------------------------------------
+# Prometheus Configuration
+# ---------------------------------------------------------------------------
+security_crowdsec_prometheus_enabled: true
+security_crowdsec_prometheus_level: "full"
+security_crowdsec_prometheus_port: "6060"
+security_crowdsec_prometheus_host_port: "6060"
+security_crowdsec_prometheus_container_port: "6060"
+
+# ---------------------------------------------------------------------------
+# Enrollment Configuration
+# ---------------------------------------------------------------------------
+security_crowdsec_enroll_enabled: false
+security_crowdsec_enrollment_token: "{{ vault_crowdsec_enrollment_token | default('change-me-in-vault') }}"
+security_crowdsec_enrollment_url: "https://api.crowdsec.net"
+security_crowdsec_enrollment_force: false
+
+# ---------------------------------------------------------------------------
+# Log Acquisition Configuration
+# ---------------------------------------------------------------------------
+security_crowdsec_traefik_log_acquisition_enabled: true
+security_crowdsec_traefik_container_name: "traefik"
+security_crowdsec_system_log_acquisition_enabled: false
+security_crowdsec_docker_log_acquisition_enabled: false
+
+# ---------------------------------------------------------------------------
+# Remediation Profiles Configuration
+# ---------------------------------------------------------------------------
+security_crowdsec_default_ban_duration: "672h"  # 28 days
+security_crowdsec_default_on_duration: "4h"
+security_crowdsec_default_on_alert: true
+security_crowdsec_default_alert_filter: "crowdsecurity/.*"
+
+# Custom profiles
+security_crowdsec_custom_profiles_enabled: false
+security_crowdsec_custom_profiles: []
+
+# Severity-based profiles
+security_crowdsec_severity_profiles_enabled: false
+security_crowdsec_critical_ban_duration: "720h"  # 30 days
+security_crowdsec_critical_severity_threshold: 8
+security_crowdsec_high_ban_duration: "168h"  # 7 days
+security_crowdsec_high_severity_threshold: 5
+security_crowdsec_medium_ban_duration: "24h"
+security_crowdsec_medium_severity_threshold: 3
+security_crowdsec_low_ban_duration: "4h"
+security_crowdsec_low_severity_threshold: 1
+
+# ---------------------------------------------------------------------------
+# Bouncer Configuration
+# ---------------------------------------------------------------------------
+security_crowdsec_bouncer_log_level: "info"
+security_crowdsec_bouncer_log_file: "/var/log/crowdsec-bouncer.log"
+security_crowdsec_bouncer_log_format: "json"
+security_crowdsec_bouncer_log_max_size: "10m"
+security_crowdsec_bouncer_log_max_age: "30d"
+security_crowdsec_bouncer_log_max_backups: "5"
+security_crowdsec_bouncer_insecure_skip_verify: true
+security_crowdsec_bouncer_update_frequency: "60s"
+security_crowdsec_bouncer_update_strategy: "keep_local"
+security_crowdsec_bouncer_decision_timeout: "100ms"
+security_crowdsec_bouncer_fail_open: true
+security_crowdsec_bouncer_forward_headers: true
+security_crowdsec_bouncer_forwarded_headers_header: "X-Forwarded-For"
+
+# ---------------------------------------------------------------------------
+# Redis Cache Configuration (Optional)
+# ---------------------------------------------------------------------------
+security_crowdsec_bouncer_redis_enabled: false
+security_crowdsec_bouncer_redis_host: "redis"
+security_crowdsec_bouncer_redis_port: "6379"
+security_crowdsec_bouncer_redis_db: "0"
+security_crowdsec_bouncer_redis_password: "{{ vault_crowdsec_bouncer_redis_password | default('change-me-in-vault') }}"
+security_crowdsec_bouncer_redis_expiration: "60s"
+
+# ---------------------------------------------------------------------------
+# Collections Configuration
+# ---------------------------------------------------------------------------
+security_crowdsec_collections: "crowdsecurity/linux crowdsecurity/traefik crowdsecurity/http-cve crowdsecurity/whitelist-good-actors"
+
+# ---------------------------------------------------------------------------
+# Slack Notification Configuration
+# ---------------------------------------------------------------------------
+security_crowdsec_slack_webhook_url: ""
+security_crowdsec_slack_username: "CrowdSec"
+security_crowdsec_slack_channel: "#security"
+
+# ---------------------------------------------------------------------------
+# Logging Configuration
+# ---------------------------------------------------------------------------
+security_crowdsec_log_max_size: "10m"
+security_crowdsec_log_max_file: "5"
+security_crowdsec_log_retention_days: 30
+security_crowdsec_log_retention_compression: true
+
+# ---------------------------------------------------------------------------
+# Timezone
+# ---------------------------------------------------------------------------
+security_crowdsec_tz: "UTC"
+
+# ---------------------------------------------------------------------------
+# Health Check Configuration
+# ---------------------------------------------------------------------------
+security_crowdsec_verify_health: false

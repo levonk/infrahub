@@ -1,0 +1,43 @@
+---
+# ansible-lint configuration for infrahub cloud server project
+# Enforces AGENTS.md standards: no hardcoded IPs/ports, proper naming, etc.
+
+# Enable rules that catch hardcoded values
+enable_list:
+  - no-log-password
+  - no-same-owner
+  - package-latest
+  - role-name
+  - yaml
+
+# Skip rules that are not applicable or cause false positives
+skip_list:
+  - name[casing]  # Some role names use hyphens for functional-group prefixes
+  - jinja[spacing]  # Allow flexible Jinja2 spacing
+  - ignore-errors  # Don't fail on parse errors during development
+  - yaml[line-length]  # Allow longer lines for readability
+  - no-changed-when  # Allow commands without changed_when for idempotent operations
+
+# Profile: strict but practical
+profile: production
+
+# Paths to lint
+use_default_rules: true
+verbosity: 1
+
+# Custom rules for infrahub standards
+warn_list:
+  - experimental  # Warn about experimental rules
+  - ignore-errors  # Warn about parse errors instead of failing
+
+# Exclude paths from linting
+exclude_paths:
+  - .cache/
+  - .git/
+  - .venv/
+  - .vagrant/
+  - build/
+  - dist/
+  - levonk/active/02-config/ansible/group_vars/all.vault  # Encrypted files
+  - shared/active/02-config/ansible/collections/  # Galaxy collections
+

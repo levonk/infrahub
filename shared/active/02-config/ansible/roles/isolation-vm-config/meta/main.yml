@@ -1,0 +1,25 @@
+---
+# Role metadata for isolation-vm-config
+galaxy_info:
+  role_name: isolation_vm_config
+  author: levonk
+  description: Configure networking, users, and CLI tools inside the Isolation VM
+  company: levonk
+  license: MIT
+  min_ansible_version: "2.9"
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+    - name: Ubuntu
+      versions:
+        - focal
+        - jammy
+  galaxy_tags:
+    - networking
+    - users
+    - vm
+    - isolation
+    - debian
+
+dependencies: []

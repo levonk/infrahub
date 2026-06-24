@@ -29,11 +29,20 @@
         success_msg: "All required variables are defined."
       tags: ["always", "validate"]
 
+    - name: "Ensure .ansible tmp directory exists for admin user"
+      ansible.builtin.file:
+        path: "/home/{{ cloud_server_admin_user }}/.ansible/tmp"
+        state: directory
+        owner: "{{ cloud_server_admin_user }}"
+        group: "{{ cloud_server_admin_user }}"
+        mode: "0700"
+      become: true
+      tags: ["always", "setup"]
+
     - name: "Verify bootstrap completed — Docker is available"
       ansible.builtin.command:
         cmd: "docker --version"
       become: true
-      become_user: "{{ cloud_server_admin_user }}"
       register: docker_bootstrap_check
       changed_when: false
       ignore_errors: true
@@ -57,6 +66,7 @@
       register: nix_bootstrap_check
       changed_when: false
       ignore_errors: true
+      when: ansible_facts.os_family != "RedHat"
       tags: ["verify", "bootstrap", "nix"]
 
     - name: "Fail if bootstrap did not complete (Nix missing)"
@@ -64,14 +74,21 @@
         msg: |
           Bootstrap prerequisite failed: Nix is not installed or not
           responding. Run cloud-server-bootstrap.yml first.
-      when: nix_bootstrap_check.rc != 0
+      when:
+        - ansible_facts.os_family != "RedHat"
+        - nix_bootstrap_check.rc != 0
+      tags: ["verify", "bootstrap", "nix"]
+
+    - name: "Skip Nix check for RedHat family systems (intentionally not installed)"
+      ansible.builtin.debug:
+        msg: "Skipping Nix bootstrap check for {{ ansible_facts.os_family }} systems (Nix installation skipped due to ACL issues)"
+      when: ansible_facts.os_family == "RedHat"
       tags: ["verify", "bootstrap", "nix"]
 
     - name: "SSH hardening pre-check — verify passwordless sudo works"
       ansible.builtin.command:
         cmd: "sudo -n true"
       become: true
-      become_user: "{{ cloud_server_admin_user }}"
       register: ssh_sudo_check
       changed_when: false
       ignore_errors: true

@@ -36,7 +36,8 @@
   become: true
   loop:
     - proxy-authelia-config
-    - proxy-authelia-sqlite
+    - proxy-authelia-postgres
+    - proxy-authelia-redis
 
 # ---------------------------------------------------------------------------
 # Configuration Templates
@@ -61,6 +62,84 @@
   become: true
   notify: restart proxy-authelia
 
+- name: Deploy Traefik Authelia middleware configuration
+  ansible.builtin.template:
+    src: traefik/authelia_middleware.yml.j2
+    dest: "{{ proxy_authelia_data_dir }}/config/traefik_authelia_middleware.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: restart proxy-authelia
+
+- name: Validate Authelia secrets are set
+  ansible.builtin.assert:
+    that:
+      - proxy_authelia_jwt_secret | length >= 20
+      - proxy_authelia_session_secret | length >= 20
+      - proxy_authelia_storage_encryption_key | length >= 20
+      - proxy_authelia_admin_password is defined
+      - proxy_authelia_admin_password | length > 0
+    fail_msg: "Authelia secrets must be at least 20 characters long. Set proxy_authelia_jwt_secret, proxy_authelia_session_secret, proxy_authelia_storage_encryption_key, and proxy_authelia_admin_password in host_vars."
+    success_msg: "All Authelia secrets are properly configured."
+
+- name: Create secret files for Authelia
+  ansible.builtin.copy:
+    content: "{{ item.value }}"
+    dest: "{{ proxy_authelia_data_dir }}/config/{{ item.file }}"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  loop:
+    - { file: "jwt_secret", value: "{{ proxy_authelia_jwt_secret }}" }
+    - { file: "session_secret", value: "{{ proxy_authelia_session_secret }}" }
+    - { file: "storage_encryption_key", value: "{{ proxy_authelia_storage_encryption_key }}" }
+  notify: restart proxy-authelia
+
+# ---------------------------------------------------------------------------
+# PostgreSQL Database (for Authelia storage)
+# ---------------------------------------------------------------------------
+- name: Deploy Authelia PostgreSQL container
+  community.docker.docker_container:
+    name: proxy-authelia-postgres
+    image: "{{ proxy_authelia_postgres_image }}"
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ proxy_authelia_docker_network_name }}"
+    env:
+      POSTGRES_USER: "{{ proxy_authelia_postgres_user }}"
+      POSTGRES_PASSWORD: "{{ proxy_authelia_postgres_password }}"
+      POSTGRES_DB: "{{ proxy_authelia_postgres_database }}"
+    volumes:
+      - proxy-authelia-postgres:/var/lib/postgresql/data
+    log_driver: json-file
+    log_opt:
+      max-size: "{{ proxy_authelia_log_max_size }}"
+      max-file: "{{ proxy_authelia_log_max_file }}"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U {{ proxy_authelia_postgres_user }}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+  become: true
+  when: proxy_authelia_postgres_enabled | bool
+  notify: restart proxy-authelia-postgres
+
+- name: Wait for PostgreSQL to be ready
+  ansible.builtin.command:
+    cmd: "docker inspect --format='{{ '{{' }} .State.Health.Status {{ '}}' }}' proxy-authelia-postgres"
+  become: true
+  register: postgres_health
+  until: postgres_health.stdout == "healthy"
+  retries: 10
+  delay: 5
+  when:
+    - proxy_authelia_postgres_enabled | bool
+    - proxy_authelia_verify_health | bool
+
 # ---------------------------------------------------------------------------
 # Redis Session Store (Sidecar)
 # ---------------------------------------------------------------------------
@@ -81,9 +160,9 @@
       - --requirepass
       - "{{ proxy_authelia_redis_password }}"
     log_driver: json-file
-    log_options:
-      max-size: "10m"
-      max-file: "5"
+    log_opt:
+      max-size: "{{ proxy_authelia_log_max_size }}"
+      max-file: "{{ proxy_authelia_log_max_file }}"
     healthcheck:
       test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
       interval: 10s
@@ -92,6 +171,7 @@
       start_period: 5s
   become: true
   when: proxy_authelia_redis_enabled | bool
+  notify: restart proxy-authelia-redis
 
 # ---------------------------------------------------------------------------
 # Authelia SSO Container
@@ -106,24 +186,32 @@
       - name: "{{ proxy_authelia_docker_network_name }}"
     ports:
       - "{{ proxy_authelia_web_host_port }}:{{ proxy_authelia_web_container_port }}/tcp"
+      - "{{ proxy_authelia_metrics_port }}:{{ proxy_authelia_metrics_container_port }}/tcp"
     volumes:
       - "{{ proxy_authelia_data_dir }}/config:/config"
-      - proxy-authelia-sqlite:/config/db
-    env:
-      AUTHELIA_JWT_SECRET_FILE: "/config/jwt_secret"
-      AUTHELIA_SESSION_SECRET_FILE: "/config/session_secret"
-      AUTHELIA_STORAGE_ENCRYPTION_KEY_FILE: "/config/storage_encryption_key"
-      AUTHELIA_NOTIFIER_SMTP_PASSWORD_FILE: "/config/smtp_password"
     log_driver: json-file
-    log_options:
-      max-size: "10m"
-      max-file: "5"
+    log_opt:
+      max-size: "{{ proxy_authelia_log_max_size }}"
+      max-file: "{{ proxy_authelia_log_max_file }}"
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:{{ proxy_authelia_web_container_port }}/api/health"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 10s
+  become: true
+  when: proxy_authelia_enabled | bool
+
+# ---------------------------------------------------------------------------
+# Log Retention Configuration
+# ---------------------------------------------------------------------------
+- name: Deploy logrotate configuration for Authelia
+  ansible.builtin.template:
+    src: logrotate/authelia.j2
+    dest: /etc/logrotate.d/authelia
+    owner: root
+    group: root
+    mode: "0644"
   become: true
   when: proxy_authelia_enabled | bool
 
@@ -141,6 +229,7 @@
   when:
     - proxy_authelia_enabled | bool
     - proxy_authelia_verify_health | bool
+  ignore_errors: true
 
 # ---------------------------------------------------------------------------
 # Status Report

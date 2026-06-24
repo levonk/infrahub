@@ -1,0 +1,63 @@
+---
+# Playbook to configure Isolation VM networking, users, and CLI tools
+# This playbook uses the isolation-vm-config role to configure the VM
+
+- name: Configure Isolation VM
+  hosts: isolation_vms
+  become: true
+  gather_facts: true
+
+  vars:
+    # VM User Configuration
+    isolation_vm_user: "cuser"
+    isolation_vm_user_uid: 1000
+    isolation_vm_user_gid: 1000
+    isolation_vm_user_shell: "/bin/zsh"
+    isolation_vm_user_home: "/home/cuser"
+
+    # SSH Configuration
+    isolation_vm_ssh_enabled: true
+    isolation_vm_ssh_port: 22
+    isolation_vm_ssh_password_auth: false
+    isolation_vm_ssh_permit_root_login: "no"
+    isolation_vm_ssh_public_key: "{{ vault_isolation_vm_ssh_public_key | default('') }}"
+
+    # Network Configuration
+    isolation_vm_nat_bridge: "kvm-nat-br0"
+    isolation_vm_routed_bridge: "kvm-route-br0"
+    isolation_vm_dns_servers:
+      - "192.168.101.1"
+      - "8.8.8.8"
+      - "8.8.4.4"
+    isolation_vm_dns_search_domains:
+      - "localnet"
+
+    # CLI Tools Configuration
+    isolation_vm_cli_tools:
+      - "zsh"
+      - "tmux"
+      - "curl"
+      - "git"
+      - "vim"
+      - "wget"
+      - "htop"
+      - "net-tools"
+      - "iputils-ping"
+      - "dnsutils"
+
+    # Locale and Timezone
+    isolation_vm_timezone: "UTC"
+    isolation_vm_locale: "en_US.UTF-8"
+
+    # Sudo Configuration
+    isolation_vm_sudo_enabled: true
+    isolation_vm_sudo_password_required: true
+    isolation_vm_sudo_groups:
+      - "sudo"
+      - "docker"
+
+    # Gateway Configuration
+    isolation_vm_gateway: "192.168.101.1"
+
+  roles:
+    - role: isolation-vm-config

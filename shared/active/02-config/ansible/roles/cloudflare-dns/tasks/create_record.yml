@@ -1,0 +1,51 @@
+---
+# Create DNS record in Cloudflare
+# Uses Cloudflare API v4 for record creation
+
+- name: Check if DNS record already exists
+  ansible.builtin.uri:
+    url: "https://api.cloudflare.com/client/v4/zones/{{ cloudflare_zone_id }}/dns_records"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ cloudflare_api_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    return_content: true
+  register: existing_records
+  no_log: true
+
+- name: Set fact for existing record check
+  ansible.builtin.set_fact:
+    record_exists: "{{ existing_records.json.result | selectattr('name', 'equalto', cloudflare_dns_record_name) | selectattr('type', 'equalto', cloudflare_dns_record_type) | list | length > 0 }}"
+    existing_record_id: "{{ existing_records.json.result | selectattr('name', 'equalto', cloudflare_dns_record_name) | selectattr('type', 'equalto', cloudflare_dns_record_type) | map(attribute='id') | first | default('') }}"
+
+- name: Create DNS record if it doesn't exist
+  ansible.builtin.uri:
+    url: "https://api.cloudflare.com/client/v4/zones/{{ cloudflare_zone_id }}/dns_records"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ cloudflare_api_token }}"
+      Content-Type: "application/json"
+    body:
+      type: "{{ cloudflare_dns_record_type }}"
+      name: "{{ cloudflare_dns_record_name }}"
+      content: "{{ cloudflare_dns_record_content }}"
+      ttl: "{{ cloudflare_dns_ttl | default(300) }}"
+      proxied: "{{ cloudflare_dns_proxied | default(false) }}"
+    body_format: json
+    return_content: true
+    status_code: [200, 201]
+  register: create_result
+  when: not record_exists
+  no_log: true
+  notify: Notify DNS record created
+
+- name: Log DNS record creation
+  ansible.builtin.debug:
+    msg: "DNS record {{ cloudflare_dns_record_name }} created successfully"
+  when: not record_exists and create_result is succeeded
+
+- name: Skip record creation if it already exists
+  ansible.builtin.debug:
+    msg: "DNS record {{ cloudflare_dns_record_name }} already exists (idempotent)"
+  when: record_exists

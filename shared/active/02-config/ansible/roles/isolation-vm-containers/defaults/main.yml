@@ -1,0 +1,108 @@
+---
+# Default variables for isolation-vm-containers role
+# All configuration values are variable-driven per AGENTS.md requirements
+
+# Nix sidecar deployment control
+isolation_vm_deploy_nix_sidecar: true
+isolation_vm_deploy_base_kalinix: true
+isolation_vm_deploy_hermes_agent: true
+
+# User configuration (from isolation-vm-config role)
+isolation_vm_user: cuser
+isolation_vm_user_uid: 1000
+isolation_vm_user_gid: 1000
+isolation_vm_timezone: UTC
+
+# Nix sidecar container configuration
+isolation_vm_nix_sidecar_container_name: isolation-vm-nix-sidecar
+isolation_vm_nix_sidecar_image_name: isolation-vm-nix-sidecar:latest
+isolation_vm_nix_sidecar_network_name: isolation-vm-network
+
+# Nix sidecar volume configuration
+isolation_vm_nix_sidecar_volume_path: /var/lib/isolation-vm/nix-sidecar
+
+# Nix sidecar build configuration
+isolation_vm_nix_sidecar_build_path: /tmp/nix-sidecar-build
+isolation_vm_nix_sidecar_dockerfile_path: "{{ playbook_dir }}/../active/03-container/services/base/nix-sidecar/Dockerfile.nix-sidecar"
+isolation_vm_nix_sidecar_assets_path: "{{ playbook_dir }}/../active/03-container/services/base/nix-sidecar/assets"
+
+# Nix sidecar healthcheck configuration
+isolation_vm_nix_sidecar_healthcheck_interval: 240s
+isolation_vm_nix_sidecar_healthcheck_timeout: 120s
+isolation_vm_nix_sidecar_healthcheck_retries: 3
+isolation_vm_nix_sidecar_healthcheck_start_period: 240s
+isolation_vm_nix_sidecar_startup_timeout: 600
+
+# Nix sidecar resource limits
+isolation_vm_nix_sidecar_mem_limit: 2g
+isolation_vm_nix_sidecar_cpu_limit: 2.0
+
+# Base KaliNix container configuration
+isolation_vm_base_kalinix_container_name: isolation-vm-base-kalinix
+isolation_vm_base_kalinix_image_name: isolation-vm-base-kalinix:latest
+isolation_vm_base_kali_image_name: isolation-vm-base-kali:latest
+
+# Base KaliNix volume configuration
+isolation_vm_base_kalinix_volume_path: /var/lib/isolation-vm/base-kalinix
+
+# Base KaliNix build configuration
+isolation_vm_base_kalinix_build_path: /tmp/base-kalinix-build
+isolation_vm_base_kalinix_dockerfile_path: "{{ playbook_dir }}/../active/03-container/services/base/base-kalinix/Dockerfile.base-kalinix"
+isolation_vm_base_kalinix_assets_path: "{{ playbook_dir }}/../active/03-container/services/base/base-kalinix/assets"
+isolation_vm_base_kali_dockerfile_path: "{{ playbook_dir }}/../active/03-container/services/base/base-kali/Dockerfile.base-kali"
+isolation_vm_base_kali_assets_path: "{{ playbook_dir }}/../active/03-container/services/base/base-kali/assets"
+
+# Base KaliNix healthcheck configuration
+isolation_vm_base_kalinix_healthcheck_interval: 30s
+isolation_vm_base_kalinix_healthcheck_timeout: 30s
+isolation_vm_base_kalinix_healthcheck_retries: 3
+isolation_vm_base_kalinix_healthcheck_start_period: 60s
+isolation_vm_base_kalinix_startup_timeout: 300
+
+# Base KaliNix resource limits
+isolation_vm_base_kalinix_mem_limit: 2g
+isolation_vm_base_kalinix_cpu_limit: 1.0
+
+# Hermes agent container configuration
+isolation_vm_hermes_agent_container_name: isolation-vm-hermes-agent
+isolation_vm_hermes_agent_image_name: isolation-vm-hermes-agent:latest
+
+# Hermes agent volume configuration
+isolation_vm_hermes_agent_volume_path: /var/lib/isolation-vm/hermes-agent
+isolation_vm_hermes_agent_data_dir: /data/hermes-agent
+isolation_vm_hermes_agent_config_dir: /config/hermes-agent
+
+# Hermes agent build configuration
+isolation_vm_hermes_agent_build_path: /tmp/hermes-agent-build
+isolation_vm_hermes_agent_dockerfile_path: "{{ playbook_dir }}/../active/03-container/services/base/hermes-agent/Dockerfile.hermes-agent"
+isolation_vm_hermes_agent_assets_path: "{{ playbook_dir }}/../active/03-container/services/base/hermes-agent/assets"
+
+# Hermes agent healthcheck configuration
+isolation_vm_hermes_agent_healthcheck_interval: 30s
+isolation_vm_hermes_agent_healthcheck_timeout: 10s
+isolation_vm_hermes_agent_healthcheck_retries: 3
+isolation_vm_hermes_agent_healthcheck_start_period: 60s
+isolation_vm_hermes_agent_startup_timeout: 300
+
+# Hermes agent resource limits
+isolation_vm_hermes_agent_mem_limit: 2g
+isolation_vm_hermes_agent_cpu_limit: 1.0
+
+# Hermes agent SSH configuration
+isolation_vm_hermes_agent_ssh_host_port: 2222
+isolation_vm_hermes_agent_ssh_container_port: 22
+
+# Hermes agent VPN configuration
+isolation_vm_hermes_agent_tailscale_auth_key: ""
+isolation_vm_hermes_agent_netbird_setup_key: ""
+
+# Hermes agent SSH configuration
+isolation_vm_hermes_agent_ssh_public_key: ""
+
+# Network configuration
+isolation_vm_network_subnet: "172.28.0.0/16"
+isolation_vm_network_gateway: "172.28.0.1"
+isolation_vm_network_subnet_size: 24
+isolation_vm_enable_vpn_routing: false
+isolation_vm_vpn_gateway: "192.168.101.1"
+isolation_vm_docker_metrics_address: "127.0.0.1:9323"

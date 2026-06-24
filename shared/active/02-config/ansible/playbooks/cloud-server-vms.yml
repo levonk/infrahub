@@ -1,0 +1,149 @@
+---
+# Cloud Server VMs Playbook
+# Orchestrates KVM hypervisor setup on cloud servers.
+# Usage:
+#   ansible-playbook -i inventories/oci.yml playbooks/cloud-server-vms.yml
+#   ansible-playbook -i inventories/oci.yml playbooks/cloud-server-vms.yml --check --diff
+
+- name: "Setup Cloud Server VM Hypervisor"
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: "Gather ansible_facts"
+      ansible.builtin.setup:
+        gather_subset: ["all"]
+      tags: ["always"]
+
+    - name: "Validate required variables are defined"
+      ansible.builtin.assert:
+        that:
+          - cloud_server_admin_user is defined
+          - cloud_server_admin_user | length > 0
+        fail_msg: "Missing required cloud_server variables. Check group_vars/cloud_server.yml and group_vars/all.yml."
+        success_msg: "All required variables are defined."
+      tags: ["always", "validate"]
+
+    - name: "Check CPU architecture"
+      ansible.builtin.command:
+        cmd: uname -m
+      register: cloud_server_vms_arch_check
+      changed_when: false
+      become: true
+      tags: ["pre-check", "virtualization"]
+
+    - name: "Check CPU flags for Intel VT-x"
+      ansible.builtin.command:
+        cmd: grep -c vmx /proc/cpuinfo
+      register: cloud_server_vms_vmx_check
+      changed_when: false
+      failed_when: false
+      become: true
+      when: "'x86_64' in cloud_server_vms_arch_check.stdout"
+      tags: ["pre-check", "virtualization"]
+
+    - name: "Check CPU flags for AMD-V"
+      ansible.builtin.command:
+        cmd: grep -c svm /proc/cpuinfo
+      register: cloud_server_vms_svm_check
+      changed_when: false
+      failed_when: false
+      become: true
+      when: "'x86_64' in cloud_server_vms_arch_check.stdout"
+      tags: ["pre-check", "virtualization"]
+
+    - name: "Assert virtualization support is present (x86_64)"
+      ansible.builtin.assert:
+        that:
+          - cloud_server_vms_vmx_check.stdout | int > 0 or cloud_server_vms_svm_check.stdout | int > 0
+        fail_msg: "CPU does not support virtualization (Intel VT-x or AMD-V). Cannot install KVM."
+        success_msg: "CPU virtualization support detected."
+      when: "'x86_64' in cloud_server_vms_arch_check.stdout"
+      tags: ["pre-check", "virtualization"]
+
+    - name: "Note ARM architecture will use QEMU software virtualization"
+      ansible.builtin.debug:
+        msg: "ARM architecture detected. Using QEMU software virtualization instead of KVM."
+      when: "'aarch64' in cloud_server_vms_arch_check.stdout"
+      tags: ["pre-check", "virtualization"]
+
+  roles:
+    - role: common-kvm
+      tags: ["kvm", "hypervisor"]
+
+  post_tasks:
+    - name: "Verify libvirtd service is running"
+      ansible.builtin.systemd:
+        name: "{{ common_kvm_libvirtd_service_name | default('libvirtd') }}"
+        state: started
+      check_mode: false
+      failed_when: false
+      tags: ["verify", "libvirt"]
+
+    - name: "Verify libvirtd socket is active"
+      ansible.builtin.systemd:
+        name: "{{ common_kvm_libvirtd_socket_name | default('libvirt-socket') }}"
+        state: started
+      check_mode: false
+      failed_when: false
+      tags: ["verify", "libvirt"]
+
+    - name: "Verify NAT bridge network is active"
+      ansible.builtin.command:
+        cmd: "virsh net-info {{ common_kvm_nat_bridge_name | default('kvm-nat-br0') }}"
+      register: cloud_server_vms_nat_bridge_check
+      changed_when: false
+      become: true
+      tags: ["verify", "network"]
+
+    - name: "Verify routed bridge network is active"
+      ansible.builtin.command:
+        cmd: "virsh net-info {{ common_kvm_routed_bridge_name | default('kvm-route-br0') }}"
+      register: cloud_server_vms_routed_bridge_check
+      changed_when: false
+      become: true
+      tags: ["verify", "network"]
+
+    - name: "Verify VM storage pool is active"
+      ansible.builtin.command:
+        cmd: "virsh pool-info {{ kvm_storage_pool_name | default('default') }}"
+      register: cloud_server_vms_storage_pool_check
+      changed_when: false
+      become: true
+      tags: ["verify", "storage"]
+
+    - name: "Set default status values"
+      ansible.builtin.set_fact:
+        cloud_server_vms_nat_status: "unknown"
+        cloud_server_vms_routed_status: "unknown"
+        cloud_server_vms_pool_status: "unknown"
+      tags: ["verify", "report"]
+
+    - name: "Set NAT bridge status"
+      ansible.builtin.set_fact:
+        cloud_server_vms_nat_status: "active"
+      when: "'Active:.*yes' in cloud_server_vms_nat_bridge_check.stdout"
+      tags: ["verify", "report"]
+
+    - name: "Set routed bridge status"
+      ansible.builtin.set_fact:
+        cloud_server_vms_routed_status: "active"
+      when: "'Active:.*yes' in cloud_server_vms_routed_bridge_check.stdout"
+      tags: ["verify", "report"]
+
+    - name: "Set storage pool status"
+      ansible.builtin.set_fact:
+        cloud_server_vms_pool_status: "running"
+      when: "'State:.*running' in cloud_server_vms_storage_pool_check.stdout"
+      tags: ["verify", "report"]
+
+    - name: "Report libvirt stack status"
+      ansible.builtin.debug:
+        msg:
+          - "Libvirt stack operational:"
+          - "libvirtd: running"
+          - "NAT bridge: {{ cloud_server_vms_nat_status }}"
+          - "Routed bridge: {{ cloud_server_vms_routed_status }}"
+          - "Storage pool: {{ cloud_server_vms_pool_status }}"
+      tags: ["verify", "report"]

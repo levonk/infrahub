@@ -1,0 +1,90 @@
+---
+# tasks file for proxy-tor
+# Deploys Tor proxy container for anonymous routing
+
+- name: "Ensure proxy service directory exists on target"
+  ansible.builtin.file:
+    path: "{{ localnet_services_dir }}/proxy/tor"
+    state: directory
+    mode: "0755"
+
+- name: "Copy Tor container files to target"
+  ansible.builtin.copy:
+    src: "/Users/micro/p/gh/levonk/infrahub/shared/active/03-container/services/proxy/tor/"
+    dest: "{{ localnet_services_dir }}/proxy/tor/"
+    mode: preserve
+  when: proxy_tor_enabled
+
+- name: "Copy base-alpine container files to target"
+  ansible.builtin.copy:
+    src: "/Users/micro/p/gh/levonk/infrahub/shared/active/03-container/services/base/base-alpine/"
+    dest: "{{ localnet_services_dir }}/base/base-alpine/"
+    mode: preserve
+  when: proxy_tor_enabled
+
+- name: "Build base-alpine Docker image"
+  community.docker.docker_image:
+    name: "localnet-base-alpine"
+    build:
+      path: "{{ localnet_services_dir }}/base/base-alpine"
+      dockerfile: "Dockerfile.base-alpine"
+      pull: false
+    source: build
+    state: present
+  when: proxy_tor_enabled
+
+- name: "Build Tor Docker image"
+  community.docker.docker_image:
+    name: "localnet-proxy-tor"
+    build:
+      path: "{{ localnet_services_dir }}/proxy/tor"
+      dockerfile: "docker/Dockerfile.tor"
+      pull: false
+    source: build
+    state: present
+  when: proxy_tor_enabled
+
+- name: "Remove existing Tor container if present"
+  community.docker.docker_container:
+    name: "{{ proxy_tor_container_name }}"
+    state: absent
+    force_kill: true
+  when: proxy_tor_enabled
+  ignore_errors: true
+
+- name: "Deploy Tor container"
+  community.docker.docker_container:
+    name: "{{ proxy_tor_container_name }}"
+    image: "{{ proxy_tor_image }}"
+    state: started
+    restart_policy: unless-stopped
+    capabilities:
+      - NET_ADMIN
+    cap_drop:
+      - ALL
+    env:
+      PROXY_TOR_SOCKS5_CONTAINER_PORT: "{{ proxy_tor_socks5_container_port | default('9050') }}"
+      TZ: "{{ localnet_tz | default('UTC') }}"
+    ports:
+      - "{{ proxy_tor_socks5_host_port | default('9050') }}:{{ proxy_tor_socks5_container_port | default('9050') }}/tcp"
+    sysctls:
+      net.ipv4.ip_forward: "1"
+    security_opts:
+      - no-new-privileges:true
+    volumes:
+      - "{{ proxy_tor_config_volume_name }}:/etc/service/config"
+      - "{{ proxy_tor_data_volume_name }}:/var/lib/tor"
+  when: proxy_tor_enabled
+
+- name: "Verify Tor container is running"
+  community.docker.docker_container_info:
+    name: "{{ proxy_tor_container_name }}"
+  register: tor_container_info
+  when: proxy_tor_enabled
+
+- name: "Report Tor container status"
+  ansible.builtin.debug:
+    msg: "Tor container is running: {{ tor_container_info.container.State.Status }}"
+  when:
+    - proxy_tor_enabled
+    - tor_container_info.container is defined

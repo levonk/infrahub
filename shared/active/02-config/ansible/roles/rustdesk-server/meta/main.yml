@@ -1,0 +1,25 @@
+---
+galaxy_info:
+  role_name: rustdesk_server
+  author: infrahub
+  description: Deploys RustDesk server (hbbs and hbbr) as Docker containers for remote desktop access
+  company: levonk
+  license: MIT
+  min_ansible_version: "2.9"
+  
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+    - name: RedHat
+      versions:
+        - "9"
+  
+  galaxy_tags:
+    - rustdesk
+    - remote-desktop
+    - docker
+    - vpn
+    - security
+
+dependencies: []

@@ -1,0 +1,66 @@
+---
+# Privacy Orchestrator Service - PII Detection and Transformation
+# This configuration deploys the Privacy Orchestrator service between AI Dashboard Proxy 1 and Headroom
+# Pipeline: AI Dashboard Proxy 1 → Privacy Orchestrator → Headroom → OmniRoute → AI Dashboard Proxy 2
+
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "5"
+    tag: "{{.Name}}"
+    labels: "service"
+
+networks:
+  ai-dashboard:
+    name: ai-dashboard-network
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.35.0.0/16
+          gateway: 172.35.0.1
+    external: false
+  proxy-chain-network:
+    external: false
+    name: proxy-chain-network
+
+volumes:
+  privacy-orchestrator-data:
+    driver: local
+  ai-dashboard-data:
+    driver: local
+
+services:
+  # Privacy Orchestrator - PII Detection and Transformation Service
+  # Second stage in pipeline: detects and transforms PII before Headroom compression
+  privacy-orchestrator:
+    image: localnet-privacy-orchestrator:latest
+    command: ["privacy-orchestrator", "serve", "--port", "9090"]
+    container_name: privacy-orchestrator
+    restart: unless-stopped
+    networks:
+      ai-dashboard:
+        ipv4_address: ${PRIVACY_ORCHESTRATOR_CONTAINER_IP:-172.35.0.15}
+      proxy-chain-network:
+        ipv4_address: ${PRIVACY_ORCHESTRATOR_CHAIN_IP:-172.29.0.15}
+    environment:
+      - PRIVACY_ORCHESTRATOR_PORT=9090
+      - PRIVACY_ORCHESTRATOR_HOST=0.0.0.0
+      - PRIVACY_ORCHESTRATOR_DATA_DIR=/data
+      - PRIVACY_ORCHESTRATOR_CONFIG_FILE=/config/config.toml
+      - PRIVACY_ORCHESTRATOR_LOG_LEVEL=${PRIVACY_ORCHESTRATOR_LOG_LEVEL:-INFO}
+      - PRIVACY_ORCHESTRATOR_MODE=${PRIVACY_ORCHESTRATOR_MODE:-proxy}
+      - UPSTREAM_PROXY=http://headroom:8787
+      - DATABASE_URL=${PRIVACY_ORCHESTRATOR_DATABASE_URL:-postgresql://postgres:postgres@ai-dashboard-db:5432/analytics}
+    ports:
+      - "${PRIVACY_ORCHESTRATOR_HOST_PORT:-9090}:${PRIVACY_ORCHESTRATOR_CONTAINER_PORT:-9090}/tcp"
+    volumes:
+      - privacy-orchestrator-data:/data
+      - ${PRIVACY_ORCHESTRATOR_CONFIG_PATH:-./config}:/config:ro
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

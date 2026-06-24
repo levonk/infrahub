@@ -1,0 +1,16 @@
+---
+# Test playbook for common-ssh-hardening role
+# Run with: ansible-playbook -i localhost, -c local tests/test.yml --check --diff
+#
+# WARNING: This is a dry-run test only. A full apply test must run in an
+# isolated environment (e.g., Molecule Docker container) because this role
+# modifies live SSH configuration.
+
+- name: "Test common-ssh-hardening role (dry-run)"
+  hosts: all
+  become: true
+  vars:
+    ssh_hardening_verify_passwordless: false
+    ssh_hardening_backup_config: false
+  roles:
+    - role: ../common-ssh-hardening

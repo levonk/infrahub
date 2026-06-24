@@ -1,0 +1,49 @@
+---
+# Simple playbook to test SSH connection to VM
+
+- name: Test VM SSH Connection
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Ping VM from host
+      ansible.builtin.command:
+        cmd: "ping -c 2 192.168.100.147"
+      register: ping_result
+      changed_when: false
+
+    - name: Display ping result
+      ansible.builtin.debug:
+        var: ping_result.stdout
+
+    - name: Check VM network configuration
+      ansible.builtin.shell:
+        cmd: "virsh dumpxml isolation-vm | grep -A 5 'interface'"
+      register: vm_xml
+      changed_when: false
+
+    - name: Display VM network config
+      ansible.builtin.debug:
+        var: vm_xml.stdout_lines
+
+    - name: Get VM IP address from DHCP
+      ansible.builtin.command:
+        cmd: "virsh net-dhcp-leases kvm-nat-br0"
+      register: dhcp_leases
+      changed_when: false
+
+    - name: Display DHCP leases
+      ansible.builtin.debug:
+        var: dhcp_leases.stdout_lines
+
+    - name: Test SSH connection to VM
+      ansible.builtin.command:
+        cmd: "ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null cuser@192.168.100.147 'echo SSH successful'"
+      register: ssh_result
+      changed_when: false
+      failed_when: false
+
+    - name: Display SSH result
+      ansible.builtin.debug:
+        var: ssh_result

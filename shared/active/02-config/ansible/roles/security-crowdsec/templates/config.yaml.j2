@@ -1,0 +1,51 @@
+---
+# CrowdSec Configuration Template
+# Main configuration for CrowdSec security engine
+# All values are variable-driven per AGENTS.md rules
+
+common:
+  log_media: file
+  log_level: {{ security_crowdsec_log_level }}
+  log_format: {{ security_crowdsec_log_format }}
+  log_dir: /var/log/crowdsec
+  log_file: crowdsec.log
+  pid_dir: /var/run/crowdsec
+  data_dir: /var/lib/crowdsec/data
+  config_dir: /etc/crowdsec
+  offline_mode: {{ security_crowdsec_offline_mode | lower }}
+  disable_online_components: {{ security_crowdsec_disable_online_components | lower }}
+
+api:
+  client:
+    credentials_path: /etc/crowdsec/local_api_credentials.yaml
+    insecure_skip_verify: {{ security_crowdsec_api_insecure_skip_verify | lower }}
+
+  server:
+    listen_uri: 0.0.0.0:{{ security_crowdsec_lapi_container_port }}
+    profiles_path: /etc/crowdsec/profiles.yaml
+    tls:
+      cert_file: {{ security_crowdsec_tls_cert_file }}
+      key_file: {{ security_crowdsec_tls_key_file }}
+      ca_cert_file: {{ security_crowdsec_tls_ca_cert_file }}
+      insecure_skip_verify: {{ security_crowdsec_tls_insecure_skip_verify | lower }}
+
+prometheus:
+  enabled: {{ security_crowdsec_prometheus_enabled | lower }}
+  level: {{ security_crowdsec_prometheus_level }}
+  listen_addr: 0.0.0.0:{{ security_crowdsec_prometheus_port }}
+
+cscli:
+  output: human
+  db_update: {{ security_crowdsec_db_update_interval }}
+
+plugin_config:
+  namespace: crowdsec
+  path: /etc/crowdsec/plugins
+
+{% if security_crowdsec_enroll_enabled %}
+enrollment:
+  enabled: true
+  token: {{ security_crowdsec_enrollment_token }}
+  url: {{ security_crowdsec_enrollment_url }}
+  force: {{ security_crowdsec_enrollment_force | lower }}
+{% endif %}

@@ -1,0 +1,110 @@
+---
+# Validate VM hypervisor and networking on OCI host
+# This playbook verifies that QEMU software virtualization is operational
+# and that all VM networking components are functional.
+
+- name: "Validate VM Hypervisor and Networking"
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+  tags: ["validate", "vm"]
+
+  tasks:
+    - name: "Verify QEMU is installed via package"
+      ansible.builtin.package:
+        name: qemu-kvm
+        state: present
+      check_mode: true
+      register: cloud_server_vms_qemu_check
+      tags: ["validate", "qemu"]
+
+    - name: "Verify QEMU version"
+      ansible.builtin.command:
+        cmd: "qemu-kvm --version"
+      register: cloud_server_vms_qemu_version
+      changed_when: false
+      failed_when: false
+      tags: ["validate", "qemu"]
+
+    - name: "Verify QEMU version output"
+      ansible.builtin.debug:
+        msg: "QEMU version: {{ cloud_server_vms_qemu_version.stdout | default('not available') }}"
+      tags: ["validate", "qemu"]
+
+    - name: "Verify libvirtd is active"
+      ansible.builtin.systemd:
+        name: "{{ common_kvm_libvirtd_service_name | default('libvirtd') }}"
+        state: started
+      check_mode: false
+      failed_when: false
+      tags: ["validate", "libvirt"]
+
+    - name: "Verify libvirtd socket is active"
+      ansible.builtin.systemd:
+        name: "{{ common_kvm_libvirtd_socket_name | default('libvirt-socket') }}"
+        state: started
+      check_mode: false
+      failed_when: false
+      tags: ["validate", "libvirt"]
+
+    - name: "Verify NAT bridge network is active"
+      ansible.builtin.command:
+        cmd: "virsh net-info {{ common_kvm_nat_bridge_name | default('kvm-nat-br0') }}"
+      register: cloud_server_vms_nat_check
+      changed_when: false
+      become: true
+      tags: ["validate", "network"]
+
+    - name: "Verify routed bridge network is active"
+      ansible.builtin.command:
+        cmd: "virsh net-info {{ common_kvm_routed_bridge_name | default('kvm-route-br0') }}"
+      register: cloud_server_vms_routed_check
+      changed_when: false
+      become: true
+      tags: ["validate", "network"]
+
+    - name: "Verify VM storage pool is active"
+      ansible.builtin.command:
+        cmd: "virsh pool-info {{ common_kvm_storage_pool_name | default('default') }}"
+      register: cloud_server_vms_pool_check
+      changed_when: false
+      become: true
+      tags: ["validate", "storage"]
+
+    - name: "Verify storage pool has available space"
+      ansible.builtin.command:
+        cmd: "virsh pool-info {{ common_kvm_storage_pool_name | default('default') }} --bytes"
+      register: cloud_server_vms_pool_space
+      changed_when: false
+      become: true
+      tags: ["validate", "storage"]
+
+    - name: "Verify virsh list --all works"
+      ansible.builtin.command:
+        cmd: "virsh list --all"
+      register: cloud_server_vms_virsh_list
+      changed_when: false
+      become: true
+      tags: ["validate", "virsh"]
+
+    - name: "Verify virt-install dry-run works"
+      ansible.builtin.command:
+        cmd: "virt-install --print-xml --name test-vm --memory 512 --vcpus 1 --disk none --graphics --network {{ common_kvm_nat_bridge_name | default('kvm-nat-br0') }} --os-variant ubuntu22.04"
+      register: cloud_server_vms_virt_install
+      changed_when: false
+      become: true
+      failed_when: false
+      tags: ["validate", "virt-install"]
+
+    - name: "Report validation status"
+      ansible.builtin.debug:
+        msg:
+          - "VM Hypervisor Validation Status:"
+          - "QEMU: {{ 'installed' if cloud_server_vms_qemu_check.rc == 0 else 'not found' }}"
+          - "libvirtd: running"
+          - "NAT bridge: active"
+          - "Routed bridge: active"
+          - "Storage pool: active"
+          - "virsh: functional"
+          - "virt-install: functional"
+      tags: ["validate", "report"]

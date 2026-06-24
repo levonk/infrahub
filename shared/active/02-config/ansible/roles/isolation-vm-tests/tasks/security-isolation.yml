@@ -1,0 +1,246 @@
+---
+# Security isolation tests for Isolation VM
+# Tests VM and container isolation boundaries per security requirements
+
+- name: "Security Test: VM Docker Socket Isolation"
+  block:
+    - name: Check if VM is accessible
+      ansible.builtin.wait_for:
+        host: "{{ inventory_hostname }}"
+        port: 22
+        timeout: 30
+      delegate_to: localhost
+      become: false
+
+    - name: Test VM cannot access host Docker socket
+      ansible.builtin.shell: |
+        # Attempt to access host Docker socket from VM
+        if [ -S /var/run/docker.sock ]; then
+          echo "FAIL: Docker socket found in VM"
+          exit 1
+        else
+          echo "PASS: Docker socket not found in VM"
+          exit 0
+        fi
+      register: docker_socket_test
+      failed_when: false
+      become: true
+
+    - name: Test VM cannot list host containers
+      ansible.builtin.shell: docker ps
+      register: docker_ps_test
+      failed_when: false
+      become: true
+
+    - name: Record Docker socket isolation results
+      ansible.builtin.set_fact:
+        security_test_results:
+          docker_socket_isolation:
+            socket_not_found: "{{ docker_socket_test.rc == 0 }}"
+            cannot_list_containers: "{{ docker_ps_test.rc != 0 }}"
+            overall_status: "{{ 'PASS' if (docker_socket_test.rc == 0 and docker_ps_test.rc != 0) else 'FAIL' }}"
+
+- name: "Security Test: Agent Container Network Isolation"
+  block:
+    - name: Check if agent containers are running
+      ansible.builtin.shell: |
+        docker ps --filter "name={{ item }}" --format "{{ '{' }}{.Names}{{ '}' }}"
+      register: container_check
+      failed_when: false
+      loop:
+        - "{{ isolation_vm_nix_sidecar_container_name }}"
+        - "{{ isolation_vm_base_kalinix_container_name }}"
+        - "{{ isolation_vm_hermes_agent_container_name }}"
+      become: true
+
+    - name: Test agent containers cannot access host networks
+      ansible.builtin.shell: |
+        # Test from within container if host network is accessible
+        docker exec {{ item.container_name }} sh -c "ping -c 1 -W 2 {{ host_test_ip }} || echo 'Host unreachable (expected)'"
+      register: network_isolation_test
+      failed_when: false
+      loop:
+        - container_name: "{{ isolation_vm_nix_sidecar_container_name }}"
+          host_test_ip: "{{ isolation_vm_security_test_host_ip }}"
+        - container_name: "{{ isolation_vm_base_kalinix_container_name }}"
+          host_test_ip: "{{ isolation_vm_security_test_host_ip }}"
+        - container_name: "{{ isolation_vm_hermes_agent_container_name }}"
+          host_test_ip: "{{ isolation_vm_security_test_host_ip }}"
+      become: true
+      when: container_check.results | selectattr('stdout', 'defined') | list | length > 0
+
+    - name: Record network isolation results
+      ansible.builtin.set_fact:
+        security_test_results:
+          network_isolation:
+            containers_tested: "{{ container_check.results | selectattr('stdout', 'defined') | list | length if container_check.results is defined else 0 }}"
+            host_unreachable_from_containers: "{{ network_isolation_test.results | selectattr('rc', 'equalto', 0) | list | length == 0 if network_isolation_test.results is defined else true }}"
+            overall_status: "{{ 'PASS' if (network_isolation_test.results | selectattr('rc', 'equalto', 0) | list | length == 0 if network_isolation_test.results is defined else true) else 'FAIL' }}"
+
+- name: "Security Test: VPN Credential Exposure"
+  block:
+    - name: Test VPN credentials not exposed in containers
+      ansible.builtin.shell: |
+        # Check for VPN-related environment variables
+        docker exec {{ item }} env | grep -i vpn || echo "No VPN env vars found"
+      register: vpn_env_test
+      failed_when: false
+      loop:
+        - "{{ isolation_vm_nix_sidecar_container_name }}"
+        - "{{ isolation_vm_base_kalinix_container_name }}"
+        - "{{ isolation_vm_hermes_agent_container_name }}"
+      become: true
+
+    - name: Test VPN credential files not accessible
+      ansible.builtin.shell: |
+        # Search for VPN credential files
+        docker exec {{ item }} find / -name "*vpn*" -o -name "*cred*" 2>/dev/null | head -5 || echo "No VPN/cred files found"
+      register: vpn_file_test
+      failed_when: false
+      loop:
+        - "{{ isolation_vm_nix_sidecar_container_name }}"
+        - "{{ isolation_vm_base_kalinix_container_name }}"
+        - "{{ isolation_vm_hermes_agent_container_name }}"
+      become: true
+
+    - name: Record VPN credential exposure results
+      ansible.builtin.set_fact:
+        security_test_results:
+          vpn_credential_protection:
+            no_vpn_env_vars: "{{ vpn_env_test.results | selectattr('stdout', 'search', 'No VPN env vars found') | list | length == 3 if vpn_env_test.results is defined else true }}"
+            no_vpn_files: "{{ vpn_file_test.results | selectattr('stdout', 'search', 'No VPN/cred files found') | list | length == 3 if vpn_file_test.results is defined else true }}"
+            overall_status: "{{ 'PASS' if ((vpn_env_test.results | selectattr('stdout', 'search', 'No VPN env vars found') | list | length == 3 if vpn_env_test.results is defined else true) and (vpn_file_test.results | selectattr('stdout', 'search', 'No VPN/cred files found') | list | length == 3 if vpn_file_test.results is defined else true)) else 'FAIL' }}"
+
+- name: "Security Test: VM Network Firewall"
+  block:
+    - name: Test VM network firewall from host
+      ansible.builtin.shell: |
+        # Scan VM network from host
+        nmap -sS --max-retries 1 --host-timeout 5s {{ isolation_vm_nat_bridge_subnet }} | grep -E "open|closed" || echo "No open ports found (expected)"
+      register: firewall_test
+      failed_when: false
+      become: true
+
+    - name: Check firewall rules on host
+      ansible.builtin.shell: firewall-cmd --list-all
+      register: host_firewall_rules
+      become: true
+
+    - name: Check firewall rules in VM
+      ansible.builtin.shell: firewall-cmd --list-all
+      register: vm_firewall_rules
+      become: true
+
+    - name: Record firewall results
+      ansible.builtin.set_fact:
+        security_test_results:
+          firewall_isolation:
+            host_firewall_active: "{{ host_firewall_rules.rc == 0 }}"
+            vm_firewall_active: "{{ vm_firewall_rules.rc == 0 }}"
+            overall_status: "{{ 'PASS' if (host_firewall_rules.rc == 0 and vm_firewall_rules.rc == 0) else 'FAIL' }}"
+
+- name: "Security Test: Privilege Escalation Boundaries"
+  block:
+    - name: Test sudo access restrictions in VM
+      ansible.builtin.shell: sudo -l
+      register: sudo_test
+      failed_when: false
+      become: false
+
+    - name: Test container breakout prevention
+      ansible.builtin.shell: |
+        # Test if container can mount host filesystems
+        docker run --rm -v /:/host-root alpine sh -c "ls /host-root" 2>&1 || echo "Mount blocked (expected)"
+      register: breakout_test
+      failed_when: false
+      become: true
+
+    - name: Record privilege escalation results
+      ansible.builtin.set_fact:
+        security_test_results:
+          privilege_escalation_prevention:
+            sudo_restricted: "{{ sudo_test.rc != 0 or 'may not run sudo' in sudo_test.stdout }}"
+            breakout_prevented: "{{ breakout_test.rc != 0 or 'Mount blocked' in breakout_test.stdout }}"
+            overall_status: "{{ 'PASS' if (sudo_test.rc != 0 or 'may not run sudo' in sudo_test.stdout) and (breakout_test.rc != 0 or 'Mount blocked' in breakout_test.stdout) else 'FAIL' }}"
+
+- name: "Security Test: Resource Isolation"
+  block:
+    - name: Check VM resource limits
+      ansible.builtin.shell: virsh dominfo {{ isolation_vm_name }} | grep -E "CPU|Memory"
+      register: vm_resource_info
+      failed_when: false
+      become: true
+
+    - name: Check container resource limits
+      ansible.builtin.shell: |
+        docker inspect {{ item }} --format '{{ '{' }}.HostConfig.Memory{{ '}' }} {{ '{' }}.HostConfig.NanoCpus{{ '}' }}'
+      register: container_resource_info
+      failed_when: false
+      loop:
+        - "{{ isolation_vm_nix_sidecar_container_name }}"
+        - "{{ isolation_vm_base_kalinix_container_name }}"
+        - "{{ isolation_vm_hermes_agent_container_name }}"
+      become: true
+
+    - name: Record resource isolation results
+      ansible.builtin.set_fact:
+        security_test_results:
+          resource_isolation:
+            vm_limits_configured: "{{ vm_resource_info.rc == 0 }}"
+            container_limits_configured: "{{ container_resource_info.results | selectattr('rc', 'equalto', 0) | list | length == 3 if container_resource_info.results is defined else false }}"
+            overall_status: "{{ 'PASS' if (vm_resource_info.rc == 0 and (container_resource_info.results | selectattr('rc', 'equalto', 0) | list | length == 3 if container_resource_info.results is defined else false)) else 'FAIL' }}"
+
+- name: "Security Test: Inter-Container Isolation"
+  block:
+    - name: Test inter-container network isolation
+      ansible.builtin.shell: |
+        # Test if one container can access another's ports
+        docker exec {{ isolation_vm_nix_sidecar_container_name }} sh -c "nc -z -w2 {{ isolation_vm_base_kalinix_container_name }} 22 || echo 'Port closed (expected)'"
+      register: inter_container_test
+      failed_when: false
+      become: true
+
+    - name: Record inter-container isolation results
+      ansible.builtin.set_fact:
+        security_test_results:
+          inter_container_isolation:
+            network_isolation_enforced: "{{ inter_container_test.rc != 0 or 'Port closed' in inter_container_test.stdout }}"
+            overall_status: "{{ 'PASS' if (inter_container_test.rc != 0 or 'Port closed' in inter_container_test.stdout) else 'FAIL' }}"
+
+- name: "Security Test: Configuration Audit"
+  block:
+    - name: Check SSH hardening in VM
+      ansible.builtin.shell: |
+        grep -E "PermitRootLogin|PasswordAuthentication" /etc/ssh/sshd_config
+      register: ssh_config_test
+      failed_when: false
+      become: true
+
+    - name: Check Docker daemon security settings
+      ansible.builtin.shell: |
+        docker info | grep -E "userns-remap|no-new-privileges" || echo "Security features not configured"
+      register: docker_security_test
+      failed_when: false
+      become: true
+
+    - name: Record configuration audit results
+      ansible.builtin.set_fact:
+        security_test_results:
+          configuration_audit:
+            ssh_hardening: "{{ 'PermitRootLogin no' in ssh_config_test.stdout or 'PermitRootLogin prohibit-password' in ssh_config_test.stdout }}"
+            docker_security: "{{ docker_security_test.rc == 0 }}"
+            overall_status: "{{ 'PASS' if ('PermitRootLogin no' in ssh_config_test.stdout or 'PermitRootLogin prohibit-password' in ssh_config_test.stdout) else 'FAIL' }}"
+
+- name: Generate security test report
+  ansible.builtin.debug:
+    msg: |
+      Security Isolation Test Results
+      =================================
+      Docker Socket Isolation: {{ security_test_results.docker_socket_isolation.overall_status | default('NOT TESTED') }}
+      Network Isolation: {{ security_test_results.network_isolation.overall_status | default('NOT TESTED') }}
+      VPN Credential Protection: {{ security_test_results.vpn_credential_protection.overall_status | default('NOT TESTED') }}
+      Firewall Isolation: {{ security_test_results.firewall_isolation.overall_status | default('NOT TESTED') }}
+      Privilege Escalation Prevention: {{ security_test_results.privilege_escalation_prevention.overall_status | default('NOT TESTED') }}
+      Resource Isolation: {{ security_test_results.resource_isolation.overall_status | default('NOT TESTED') }}
+      Inter-Container Isolation: {{ security_test_results.inter_container_isolation.overall_status | default('NOT TESTED') }}
+      Configuration Audit: {{ security_test_results.configuration_audit.overall_status | default('NOT TESTED') }}

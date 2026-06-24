@@ -1,0 +1,41 @@
+---
+# Playbook to deploy containers inside the Isolation VM
+# This playbook runs on the OCI cloud server and deploys containers to the Isolation VM
+
+- name: Deploy agent containers to Isolation VM
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Deploy nix-sidecar container to VM
+      ansible.builtin.shell:
+        cmd: "ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/lzkmbp2016-micro-oracle cuser@192.168.100.147 'docker run -d --name nix-sidecar --restart unless-stopped nixos/nix:latest sleep infinity'"
+      register: nix_sidecar_result
+      changed_when: false
+      failed_when: false
+
+    - name: Display nix-sidecar deployment result
+      ansible.builtin.debug:
+        var: nix_sidecar_result
+
+    - name: Deploy base-kalinix container to VM
+      ansible.builtin.shell:
+        cmd: "ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/lzkmbp2016-micro-oracle cuser@192.168.100.147 'docker run -d --name base-kalinix --restart unless-stopped debian:bookworm sleep infinity'"
+      register: base_kalinix_result
+      changed_when: false
+      failed_when: false
+
+    - name: Display base-kalinix deployment result
+      ansible.builtin.debug:
+        var: base_kalinix_result
+
+    - name: Check container status
+      ansible.builtin.shell:
+        cmd: "ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/lzkmbp2016-micro-oracle cuser@192.168.100.147 'docker ps'"
+      register: container_status
+      changed_when: false
+
+    - name: Display container status
+      ansible.builtin.debug:
+        var: container_status.stdout_lines

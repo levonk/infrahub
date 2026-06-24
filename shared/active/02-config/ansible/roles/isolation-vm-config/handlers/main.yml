@@ -1,0 +1,15 @@
+---
+# Handlers for isolation-vm-config role
+# Purpose: Restart services when configuration changes
+
+- name: restart networking
+  ansible.builtin.systemd:
+    name: networking
+    state: restarted
+  when: ansible_service_mgr == "systemd"
+
+- name: restart sshd
+  ansible.builtin.systemd:
+    name: ssh
+    state: restarted
+  when: ansible_service_mgr == "systemd"

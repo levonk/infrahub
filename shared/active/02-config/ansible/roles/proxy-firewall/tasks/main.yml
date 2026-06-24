@@ -14,38 +14,6 @@
   when: ansible_facts.default_ipv4 is not defined
 
 # ---------------------------------------------------------------------------
-# Lockout Prevention — temporary allow current management IP
-# ---------------------------------------------------------------------------
-- name: Detect current management IP for lockout prevention
-  ansible.builtin.set_fact:
-    _proxy_firewall_mgmt_ip: >-
-      {{ ansible_env.SSH_CONNECTION.split(' ')[0]
-      | default(ansible_ssh_host | default(ansible_host | default(''))) }}
-  when: proxy_firewall_prevent_lockout | bool
-
-- name: Add temporary allow rule for management IP (nftables)
-  ansible.builtin.command:
-    cmd: >-
-      nft add rule inet filter input
-      ip saddr {{ _proxy_firewall_mgmt_ip }} accept
-  become: true
-  when:
-    - proxy_firewall_prevent_lockout | bool
-    - _proxy_firewall_mgmt_ip | length > 0
-    - proxy_firewall_type == 'nftables'
-  changed_when: true
-
-- name: Add temporary allow rule for management IP (ufw)
-  ansible.builtin.command:
-    cmd: "ufw allow from {{ _proxy_firewall_mgmt_ip }} to any"
-  become: true
-  when:
-    - proxy_firewall_prevent_lockout | bool
-    - _proxy_firewall_mgmt_ip | length > 0
-    - proxy_firewall_type == 'ufw'
-  changed_when: true
-
-# ---------------------------------------------------------------------------
 # nftables Path
 # ---------------------------------------------------------------------------
 - name: Install nftables
@@ -160,6 +128,39 @@
     cmd: ufw --force enable
   become: true
   when: proxy_firewall_type == 'ufw'
+  changed_when: true
+
+# ---------------------------------------------------------------------------
+# Lockout Prevention — temporary allow current management IP
+# ---------------------------------------------------------------------------
+- name: Detect current management IP for lockout prevention
+  ansible.builtin.set_fact:
+    _proxy_firewall_mgmt_ip: >-
+      {{ ansible_env.SSH_CONNECTION.split(' ')[0]
+      | default(ansible_ssh_host | default(ansible_host | default(''))) }}
+  when: proxy_firewall_prevent_lockout | bool
+
+- name: Add temporary allow rule for management IP (nftables)
+  ansible.builtin.command:
+    cmd: >-
+      nft add rule inet filter input
+      ip saddr {{ _proxy_firewall_mgmt_ip }} accept
+  become: true
+  when:
+    - proxy_firewall_prevent_lockout | bool
+    - _proxy_firewall_mgmt_ip | length > 0
+    - proxy_firewall_type == 'nftables'
+  changed_when: true
+  ignore_errors: true
+
+- name: Add temporary allow rule for management IP (ufw)
+  ansible.builtin.command:
+    cmd: "ufw allow from {{ _proxy_firewall_mgmt_ip }} to any"
+  become: true
+  when:
+    - proxy_firewall_prevent_lockout | bool
+    - _proxy_firewall_mgmt_ip | length > 0
+    - proxy_firewall_type == 'ufw'
   changed_when: true
 
 # ---------------------------------------------------------------------------

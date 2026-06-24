@@ -1,0 +1,8 @@
+---
+# handlers file for isolation-vm-docker
+
+- name: restart docker
+  ansible.builtin.systemd:
+    name: "{{ isolation_vm_docker_service_name }}"
+    state: restarted
+  become: true

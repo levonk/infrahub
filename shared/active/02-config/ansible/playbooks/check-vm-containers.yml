@@ -1,0 +1,41 @@
+---
+# Check if agent containers are deployed in the VM
+
+- name: Check VM Container Status
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Check Docker containers in VM
+      ansible.builtin.shell:
+        cmd: "ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/lzkmbp2016-micro-oracle cuser@192.168.100.147 'docker ps -a'"
+      register: vm_containers
+      changed_when: false
+      failed_when: false
+
+    - name: Display VM containers
+      ansible.builtin.debug:
+        var: vm_containers.stdout_lines
+
+    - name: Check Docker images in VM
+      ansible.builtin.shell:
+        cmd: "ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/lzkmbp2016-micro-oracle cuser@192.168.100.147 'docker images'"
+      register: vm_images
+      changed_when: false
+      failed_when: false
+
+    - name: Display VM images
+      ansible.builtin.debug:
+        var: vm_images.stdout_lines
+
+    - name: Check Docker networks in VM
+      ansible.builtin.shell:
+        cmd: "ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/lzkmbp2016-micro-oracle cuser@192.168.100.147 'docker network ls'"
+      register: vm_networks
+      changed_when: false
+      failed_when: false
+
+    - name: Display VM networks
+      ansible.builtin.debug:
+        var: vm_networks.stdout_lines

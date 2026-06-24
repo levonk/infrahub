@@ -187,8 +187,6 @@ services:
       - localnet
     volumes:
       - ./configs/web/privoxy:/etc/privoxy:ro
-    depends_on:
-      - tor-proxy
 #    profiles:
 #      - proxy  # Core proxy chain
     healthcheck:
@@ -275,20 +273,29 @@ services:
 
 volumes:
   web-cache:
-    driver: local
-  crowdsec-data:
-    driver: local
-  crowdsec-config:
-    driver: local
-  crowdsec-db:
-    driver: local
+    external: true
+    name: localnet-web-cache-volume
   traefik-acme:
-    driver: local
-  traefik-access-logs:
-    driver: local
-  authelia-db:
     driver: local
   9router-data:
     driver: local
   9router-config:
     driver: local
+  crowdsec-data:
+    external: true
+    name: localnet-security-crowdsec-data-volume
+  crowdsec-config:
+    external: true
+    name: localnet-security-crowdsec-config-volume
+  crowdsec-db:
+    external: true
+    name: localnet-security-crowdsec-db-volume
+  traefik-access-logs:
+    external: true
+    name: localnet-security-traefik-accesslog-volume
+  dockerproxy-ro:
+    external: true
+    name: localnet-dockerproxy-ro-volume
+  dockerproxy-rw:
+    external: true
+    name: localnet-dockerproxy-rw-volume

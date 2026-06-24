@@ -1,0 +1,53 @@
+---
+# defaults file for isolation-vm-docker
+# Purpose: Docker installation and configuration inside Isolation VM
+
+# ---------------------------------------------------------------------------
+# Docker Installation Configuration
+# ---------------------------------------------------------------------------
+isolation_vm_docker_version: ""
+isolation_vm_docker_install_method: "repo"
+isolation_vm_docker_skip_installation: false
+
+# ---------------------------------------------------------------------------
+# User & Groups
+# ---------------------------------------------------------------------------
+isolation_vm_docker_user: "{{ isolation_vm_user | default('cuser') }}"
+isolation_vm_docker_group: "docker"
+isolation_vm_docker_gid: ""
+
+# ---------------------------------------------------------------------------
+# Daemon Configuration
+# ---------------------------------------------------------------------------
+isolation_vm_docker_daemon_config_path: "/etc/docker/daemon.json"
+isolation_vm_docker_daemon_config_owner: "root"
+isolation_vm_docker_daemon_config_group: "root"
+isolation_vm_docker_daemon_config_mode: "0644"
+
+# Docker daemon settings
+isolation_vm_docker_log_driver: "json-file"
+isolation_vm_docker_log_opts:
+  max-size: "10m"
+  max-file: "3"
+isolation_vm_docker_live_restore: true
+isolation_vm_docker_storage_driver: "overlay2"
+
+# Additional daemon.json settings (merged with defaults)
+isolation_vm_docker_extra_daemon_config: {}
+
+# ---------------------------------------------------------------------------
+# Service Configuration
+# ---------------------------------------------------------------------------
+isolation_vm_docker_service_name: "docker"
+
+# ---------------------------------------------------------------------------
+# Verification
+# ---------------------------------------------------------------------------
+isolation_vm_docker_verify_install: true
+
+# ---------------------------------------------------------------------------
+# Docker Socket Configuration
+# ---------------------------------------------------------------------------
+isolation_vm_docker_socket_path: "/var/run/docker.sock"
+isolation_vm_docker_socket_group: "docker"
+isolation_vm_docker_socket_mode: "0660"

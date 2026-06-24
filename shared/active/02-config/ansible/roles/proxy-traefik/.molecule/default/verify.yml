@@ -1,0 +1,43 @@
+---
+- name: Verify
+  hosts: all
+  become: true
+  tasks:
+    - name: Check Traefik container is running
+      community.docker.docker_container:
+        name: traefik
+        state: present
+      register: traefik_container
+
+    - name: Assert Traefik container is running
+      ansible.builtin.assert:
+        that:
+          - traefik_container.container.State.Status == "running"
+        fail_msg: "Traefik container is not running"
+        success_msg: "Traefik container is running"
+
+    - name: Check Traefik network exists
+      community.docker.docker_network:
+        name: traefik-network
+        state: present
+      register: traefik_network
+
+    - name: Assert Traefik network exists
+      ansible.builtin.assert:
+        that:
+          - traefik_network.exists
+        fail_msg: "Traefik network does not exist"
+        success_msg: "Traefik network exists"
+
+    - name: Check Traefik SSL volume exists
+      community.docker.docker_volume:
+        name: localnet-traefik-ssl-volume
+        state: present
+      register: traefik_ssl_volume
+
+    - name: Assert Traefik SSL volume exists
+      ansible.builtin.assert:
+        that:
+          - traefik_ssl_volume.exists
+        fail_msg: "Traefik SSL volume does not exist"
+        success_msg: "Traefik SSL volume exists"

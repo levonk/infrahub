@@ -1,0 +1,59 @@
+# Headroom - Context Compression Layer for AI Agents
+# Alpine-based container with Python and headroom-ai proxy support
+# Sits upstream of iron-proxy to compress LLM requests before they reach the proxy
+
+FROM python:3.12-slim AS base
+
+# Create non-root user
+RUN groupadd -g 1000 headroom && \
+    useradd -r -u 1000 -g headroom headroom
+
+# Install headroom with proxy dependencies
+# Includes: fastapi, uvicorn, httpx, openai, mcp, magika, zstandard, websockets, onnxruntime, transformers, watchdog, sqlite-vec
+RUN pip3 install --no-cache-dir "headroom-ai[proxy]"==0.26.0
+
+# Runtime stage
+FROM python:3.12-slim AS runtime
+
+# Install runtime dependencies only
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    curl \
+    ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN groupadd -g 1000 headroom && \
+    useradd -r -u 1000 -g headroom headroom
+
+# Copy headroom installation from base stage
+COPY --from=base /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=base /usr/local/bin /usr/local/bin
+
+# Create application directory
+RUN mkdir -p /app /data && \
+    chown -R headroom:headroom /app /data
+
+# Copy assets
+COPY assets/headroom/entrypoint/entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
+# Switch to non-root user
+USER headroom
+WORKDIR /app
+
+# Environment variables
+ENV PYTHONUNBUFFERED=1 \
+    HEADROOM_PORT=8787 \
+    HEADROOM_HOST=0.0.0.0 \
+    HEADROOM_DATA_DIR=/data
+
+# Expose headroom proxy port
+EXPOSE 8787
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:8787/health || exit 1
+
+# Run headroom proxy
+CMD ["/app/entrypoint.sh"]

@@ -1,0 +1,20 @@
+# SearXNG - Privacy-respecting metasearch engine
+# Uses official SearXNG image with proxy support via environment variables
+# Routes through NordVPN for privacy, exposed via Traefik for Tailscale clients
+
+FROM searxng/searxng:latest
+
+# Environment variables for proxy configuration
+ENV PYTHONUNBUFFERED=1 \
+    SEARXNG_BIND_ADDRESS=0.0.0.0 \
+    SEARXNG_PORT=8080
+
+# Expose SearXNG port
+EXPOSE 8080
+
+# Use the official image's health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD wget -qO- http://localhost:8080/health || exit 1
+
+# Use the official image's entrypoint
+CMD ["/usr/local/searxng/docker-entrypoint.sh"]

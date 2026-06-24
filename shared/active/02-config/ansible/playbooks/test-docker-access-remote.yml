@@ -1,0 +1,102 @@
+---
+# Test Docker access from Hermes container via remote SSH
+# This playbook runs on the OCI cloud server and tests Docker-in-Docker functionality
+
+- name: Test Docker Access from Hermes Container
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: "Test: Check Hermes container is running"
+      ansible.builtin.shell:
+        cmd: "ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/lzkmbp2016-micro-oracle cuser@192.168.100.147 'docker ps --filter name=hermes-agent'"
+      register: hermes_status
+      changed_when: false
+      failed_when: "'hermes-agent' not in hermes_status.stdout"
+
+    - name: Display Hermes status
+      ansible.builtin.debug:
+        var: hermes_status.stdout
+
+    - name: "Test: Execute basic Docker command from Hermes container"
+      ansible.builtin.shell:
+        cmd: "ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/lzkmbp2016-micro-oracle cuser@192.168.100.147 'docker exec hermes-agent docker ps'"
+      register: docker_ps_output
+      changed_when: false
+      failed_when: docker_ps_output.rc != 0
+
+    - name: Display Docker ps output
+      ansible.builtin.debug:
+        var: docker_ps_output.stdout_lines
+
+    - name: "Test: Create a simple test container from Hermes"
+      ansible.builtin.shell:
+        cmd: "ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/lzkmbp2016-micro-oracle cuser@192.168.100.147 'docker exec hermes-agent docker run -d --name docker-access-test nginx:alpine'"
+      register: test_container_creation
+      changed_when: test_container_creation.rc == 0
+      failed_when: test_container_creation.rc != 0
+
+    - name: Display test container creation result
+      ansible.builtin.debug:
+        var: test_container_creation.stdout
+
+    - name: "Test: Verify test container is running"
+      ansible.builtin.shell:
+        cmd: "ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/lzkmbp2016-micro-oracle cuser@192.168.100.147 'docker exec hermes-agent docker ps --filter name=docker-access-test'"
+      register: test_container_status
+      changed_when: false
+      failed_when: "'docker-access-test' not in test_container_status.stdout"
+
+    - name: Display test container status
+      ansible.builtin.debug:
+        var: test_container_status.stdout
+
+    - name: "Test: Stop the test container"
+      ansible.builtin.shell:
+        cmd: "ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/lzkmbp2016-micro-oracle cuser@192.168.100.147 'docker exec hermes-agent docker stop docker-access-test'"
+      register: test_container_stop
+      changed_when: test_container_stop.rc == 0
+      failed_when: test_container_stop.rc != 0
+
+    - name: "Test: Remove the test container"
+      ansible.builtin.shell:
+        cmd: "ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/lzkmbp2016-micro-oracle cuser@192.168.100.147 'docker exec hermes-agent docker rm docker-access-test'"
+      register: test_container_remove
+      changed_when: test_container_remove.rc == 0
+      failed_when: test_container_remove.rc != 0
+
+    - name: "Test: Create container with volume mount"
+      ansible.builtin.shell:
+        cmd: "ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/lzkmbp2016-micro-oracle cuser@192.168.100.147 'docker exec hermes-agent docker run -d --name volume-test -v /tmp:/tmp nginx:alpine'"
+      register: volume_test_creation
+      changed_when: volume_test_creation.rc == 0
+      failed_when: volume_test_creation.rc != 0
+
+    - name: "Test: Verify volume mount works"
+      ansible.builtin.shell:
+        cmd: "ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/lzkmbp2016-micro-oracle cuser@192.168.100.147 'docker exec hermes-agent docker exec volume-test ls /tmp'"
+      register: volume_test_verify
+      changed_when: false
+      failed_when: volume_test_verify.rc != 0
+
+    - name: Display volume test result
+      ansible.builtin.debug:
+        var: volume_test_verify.stdout_lines
+
+    - name: "Test: Cleanup volume test container"
+      ansible.builtin.shell:
+        cmd: "ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/lzkmbp2016-micro-oracle cuser@192.168.100.147 'docker exec hermes-agent docker rm -f volume-test'"
+      register: volume_test_cleanup
+      changed_when: volume_test_cleanup.rc == 0
+      failed_when: volume_test_cleanup.rc != 0
+
+    - name: "Test: Document all test results"
+      ansible.builtin.debug:
+        msg:
+          - "Docker Access Test Results:"
+          - "Basic Docker commands: PASSED"
+          - "Container creation: PASSED"
+          - "Container lifecycle management: PASSED"
+          - "Volume mounting: PASSED"
+          - "Cleanup operations: PASSED"

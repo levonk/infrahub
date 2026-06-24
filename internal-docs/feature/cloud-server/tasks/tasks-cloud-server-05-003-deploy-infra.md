@@ -7,7 +7,7 @@ prd_file: "shared/active/08-docs/reqs/2026/20260529-cloud-server.md"
 phase: 5
 parallel_id: 3
 branch: "feature/current/cloud-server/story-05-003-deploy-infra"
-status: "todo"
+status: "in_progress"
 assignee: ""
 reviewer: ""
 dependencies: ["03-003", "05-002"]
@@ -27,17 +27,17 @@ Execute the `cloud-server-infra.yml` playbook against the OCI host to deploy the
 
 ## Sub-Tasks
 
-- [ ] Verify Docker is running and VPN layer is stable
-- [ ] Run playbook with `--check --diff` first
-- [ ] Execute: `devbox run ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/playbooks/cloud-server-infra.yml`
-- [ ] Monitor container startup and health
-- [ ] Validate post-conditions:
-  - Netbird management container responds on variable-driven port
-  - DNS container responds to queries
-  - Reverse proxy container is running
-  - SSO web interface is accessible
-  - All container ports match variable definitions
-- [ ] Add deployment notes to ticket
+- [x] Verify Docker is running and VPN layer is stable
+- [x] Run playbook with `--check --diff` first
+- [x] Execute: `devbox run ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/playbooks/cloud-server-infra.yml`
+- [x] Monitor container startup and health - PARTIAL SUCCESS
+- [x] Validate post-conditions:
+  - [x] DNS container responds to queries (CoreDNS deployed successfully)
+  - [ ] Netbird management container responds on variable-driven port (SKIPPED: NetBird OIDC bug)
+  - [ ] Reverse proxy container is running (BLOCKED: Traefik configuration invalid)
+  - [ ] SSO web interface is accessible (NOT DEPLOYED: depends on proxy)
+  - [x] All container ports match variable definitions (verified for deployed services)
+- [x] Add deployment notes to ticket
 
 ## Relevant Files
 
@@ -78,6 +78,33 @@ Execute the `cloud-server-infra.yml` playbook against the OCI host to deploy the
 
 - Risk: Service startup ordering issues — Mitigation: Verify Docker Compose `depends_on` or add retry logic
 - Risk: Port conflicts with VPN services — Mitigation: Use distinct port ranges per service
+
+## Blocker Notes
+
+**RESOLVED (2026-06-07)**: NetBird control plane containers configuration file issue has been fixed.
+
+**Fix Applied**: The `vpn-netbird-control` role now includes:
+1. Configuration file templates for NetBird management, signal, and relay services (management.json.j2, signal.json.j2, relay.json.j2)
+2. Tasks to deploy these configuration files to the host
+3. Docker volume mounts to mount the configuration files into the containers at /etc/netbird/
+
+**NEW BLOCKER (2026-06-07)**: Traefik container fails to start due to invalid configuration file.
+
+**Current Status**: PARTIAL SUCCESS
+- ✅ CoreDNS deployed successfully and responding to DNS queries on port 53
+- ✅ Tor proxy deployed and healthy
+- ⚠️ Squid proxy deployed but unhealthy
+- ❌ Traefik proxy failing with "no valid configuration found in file: /etc/traefik/traefik.yml"
+- ❌ NetBird control plane disabled due to OIDC configuration bug in NetBird application
+- ❌ Authelia SSO not deployed (depends on proxy services)
+
+**Traefik Issue**: The proxy-traefik role deploys a Traefik configuration file that the Traefik container doesn't recognize. This is a similar pattern to the NetBird issue where the role's configuration approach doesn't match the container's expectations.
+
+**Additional Fixes Applied**:
+- Fixed security_opt -> security_opts parameter name across all roles (dns-coredns, forward-proxy, omniroute, netbird-*)
+- Added Docker network creation to dns-coredns role
+- Fixed Squid CACHE_SIZE_MB environment variable quoting issue
+- Temporarily disabled NetBird control plane in playbook due to OIDC bug
 
 ## Dependencies & Sequencing
 

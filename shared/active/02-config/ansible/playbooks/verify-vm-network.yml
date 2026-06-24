@@ -1,0 +1,43 @@
+---
+# Playbook to verify VM network configuration and static IP
+
+- name: Verify VM Network Configuration
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+
+  vars:
+    isolation_vm_ip_address: "192.168.101.10"
+
+  tasks:
+    - name: Get VM network interfaces
+      ansible.builtin.command:
+        cmd: "virsh domiflist isolation-vm"
+      register: vm_interfaces
+      changed_when: false
+
+    - name: Display VM network interfaces
+      ansible.builtin.debug:
+        var: vm_interfaces.stdout_lines
+
+    - name: Get VM IP addresses
+      ansible.builtin.command:
+        cmd: "virsh domifaddr isolation-vm"
+      register: vm_ips
+      changed_when: false
+
+    - name: Display VM IP addresses
+      ansible.builtin.debug:
+        var: vm_ips.stdout_lines
+
+    - name: Check if VM has expected IP on routed network
+      ansible.builtin.command:
+        cmd: "arp -n | grep {{ isolation_vm_ip_address }}"
+      register: arp_check
+      changed_when: false
+      failed_when: false
+
+    - name: Display ARP check result
+      ansible.builtin.debug:
+        var: arp_check.stdout_lines
+      when: arp_check is succeeded

@@ -1,0 +1,10 @@
+---
+# handlers file for common-ssh-hardening
+
+- name: Restart ssh
+  ansible.builtin.systemd:
+    name: "{{ ssh_hardening_service_name }}"
+    state: restarted
+    enabled: true
+  listen: restart ssh
+  become: true

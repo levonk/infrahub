@@ -75,7 +75,7 @@ netbird_control_relay_log_level: info
 # ---------------------------------------------------------------------------
 # Healthcheck Configuration
 # ---------------------------------------------------------------------------
-netbird_control_healthcheck_interval: 30
-netbird_control_healthcheck_timeout: 10
+netbird_control_healthcheck_interval: 30s
+netbird_control_healthcheck_timeout: 10s
 netbird_control_healthcheck_retries: 3
-netbird_control_healthcheck_start_period: 40
+netbird_control_healthcheck_start_period: 40s

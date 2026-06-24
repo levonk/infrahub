@@ -1,0 +1,19 @@
+---
+# Test SSH connection to VM with correct SSH key
+
+- name: Test VM SSH Connection with Key
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Test SSH connection to VM with SSH key
+      ansible.builtin.shell:
+        cmd: "ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/lzkmbp2016-micro-oracle cuser@192.168.100.147 'echo SSH successful'"
+      register: ssh_result
+      changed_when: false
+      failed_when: false
+
+    - name: Display SSH result
+      ansible.builtin.debug:
+        var: ssh_result

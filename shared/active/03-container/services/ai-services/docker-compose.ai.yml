@@ -252,6 +252,9 @@ services:
     environment:
       - PORT=${AI_OMNIROUTE_CONTAINER_PORT:-20128}
       - NODE_ENV=production
+      - OMNIROUTE_COMPRESSION_ENABLED=false
+      - OMNIROUTE_RTK_ENABLED=false
+      - OMNIROUTE_CAVEMAN_ENABLED=false
     ports:
       - "${AI_OMNIROUTE_HOST_PORT:-20128}:${AI_OMNIROUTE_CONTAINER_PORT:-20128}"
     volumes:

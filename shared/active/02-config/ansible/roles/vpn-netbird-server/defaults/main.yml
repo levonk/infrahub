@@ -1,0 +1,19 @@
+---
+# defaults file for vpn-netbird-server
+
+# Netbird Configuration
+vpn_netbird_enabled: false
+vpn_netbird_setup_key: ""
+vpn_netbird_management_url: "https://api.netbird.io"
+vpn_netbird_hostname: "{{ inventory_hostname }}"
+
+# Container Configuration
+vpn_netbird_container_name: "vpn-netbird"
+vpn_netbird_config_volume_name: "localnet-netbird-config-volume"
+vpn_netbird_data_volume_name: "localnet-netbird-data-volume"
+vpn_netbird_image: "vpn-netbird:latest"
+vpn_netbird_port: "8084"
+
+# Service Directories
+localnet_services_dir: "/opt/localnet/services"
+localnet_tz: "UTC"

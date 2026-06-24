@@ -1,0 +1,15 @@
+---
+# Test playbook for vpn-nordvpn role
+# Usage: ansible-playbook tests/test.yml -i localhost, --connection local
+
+- name: "Test NordVPN Role"
+  hosts: localhost
+  become: true
+  gather_facts: true
+  
+  roles:
+    - role: vpn-nordvpn
+      vars:
+        vpn_nordvpn_enabled: true
+        vpn_nordvpn_token: "test_token"
+        vpn_nordvpn_country: "United_States"

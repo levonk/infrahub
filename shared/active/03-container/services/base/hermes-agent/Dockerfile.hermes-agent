@@ -1,0 +1,76 @@
+FROM localnet-base-kalinix:latest
+
+# Create hermes-agent user with proper UID/GID (inheriting from base-kalinix)
+ARG PUID=1000
+ARG PGID=1000
+ARG USERNAME=cuser
+
+# Set working directory
+WORKDIR /opt/hermes-agent
+
+# Install Docker CLI, SSH server, Tailscale, Netbird, tmux, and zsh
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        docker-cli \
+        docker-compose-plugin \
+        openssh-server \
+        tailscale \
+        tmux \
+        zsh \
+        curl \
+        gnupg \
+        ca-certificates \
+        && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install Netbird client
+RUN curl -fsSL https://pkgs.netbird.io/debian/gpg.key | gpg --dearmor -o /usr/share/keyrings/netbird-archive-keyring.gpg && \
+    echo "deb [signed-by=/usr/share/keyrings/netbird-archive-keyring.gpg] https://pkgs.netbird.io/debian stable main" > /etc/apt/sources.list.d/netbird.list && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends netbird && \
+    rm -rf /var/lib/apt/lists/*
+
+# Configure SSH server
+RUN mkdir -p /var/run/sshd && \
+    sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin no/' /etc/ssh/sshd_config && \
+    sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config && \
+    sed -i 's/#PubkeyAuthentication yes/PubkeyAuthentication yes/' /etc/ssh/sshd_config && \
+    echo "AllowUsers ${USERNAME}" >> /etc/ssh/sshd_config && \
+    echo "X11Forwarding no" >> /etc/ssh/sshd_config && \
+    echo "AllowTcpForwarding yes" >> /etc/ssh/sshd_config
+
+# Configure zsh as default shell for user
+RUN chsh -s /bin/zsh ${USERNAME} || true
+
+# Create .ssh directory for user
+RUN mkdir -p /home/${USERNAME}/.ssh && \
+    chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}/.ssh && \
+    chmod 700 /home/${USERNAME}/.ssh
+
+# Copy static assets to mirror container filesystem
+COPY assets/static/hermes-agent/ /hermes-agent/
+
+# Set up environment
+ENV PATH=/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/nix/var/nix/profiles/default/bin
+ENV HERMES_DATA_DIR=/data/hermes-agent
+ENV HERMES_CONFIG_DIR=/config/hermes-agent
+ENV TZ=UTC
+ENV DEBIAN_FRONTEND=noninteractive
+ENV SSH_PORT=22
+
+# Create data and config directories
+RUN mkdir -p ${HERMES_DATA_DIR} ${HERMES_CONFIG_DIR} && \
+    chown -R ${USERNAME}:${USERNAME} ${HERMES_DATA_DIR} ${HERMES_CONFIG_DIR}
+
+# Make scripts executable
+RUN chmod +x /hermes-agent/entrypoint-hermes-agent.sh /hermes-agent/healthcheck-hermes-agent.sh
+
+# Switch to non-root user
+USER ${USERNAME}
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD ["/bin/sh", "-c", "/hermes-agent/healthcheck-hermes-agent.sh > /dev/null 2>&1"]
+
+# Set entrypoint
+ENTRYPOINT ["/bin/sh", "/hermes-agent/entrypoint-hermes-agent.sh"]

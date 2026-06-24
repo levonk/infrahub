@@ -2,7 +2,7 @@
 galaxy_info:
   role_name: proxy_authelia
   author: levonk
-  description: Deploy Authelia SSO service with Redis session store as Docker containers.
+  description: Deploy Authelia SSO with PostgreSQL database and Redis session storage
   company: levonk
   license: MIT
   min_ansible_version: "2.15"
@@ -15,11 +15,13 @@ galaxy_info:
         - jammy
         - noble
   galaxy_tags:
-    - proxy
     - authelia
     - sso
     - authentication
+    - postgresql
+    - redis
     - docker
     - security
 
-dependencies: []
+dependencies:
+  - role: docker-engine

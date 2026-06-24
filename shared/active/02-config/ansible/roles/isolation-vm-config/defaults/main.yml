@@ -1,0 +1,64 @@
+---
+# Default variables for isolation-vm-config role
+# These variables configure networking, users, and CLI tools inside the Isolation VM
+# All IPs, ports, and configuration values are variables per AGENTS.md requirements
+
+# VM User Configuration
+isolation_vm_user: "cuser"
+isolation_vm_user_uid: 1000
+isolation_vm_user_gid: 1000
+isolation_vm_user_shell: "/bin/zsh"
+isolation_vm_user_home: "/home/{{ isolation_vm_user }}"
+
+# SSH Configuration
+isolation_vm_ssh_enabled: true
+isolation_vm_ssh_port: "{{ ansible_ssh_port | default(22) }}"
+isolation_vm_ssh_password_auth: false
+isolation_vm_ssh_permit_root_login: "no"
+
+# Network Configuration
+# All network values are variables per AGENTS.md requirements
+isolation_vm_nat_bridge: "{{ common_kvm_nat_bridge_name | default('kvm-nat-br0') }}"
+isolation_vm_routed_bridge: "{{ common_kvm_routed_bridge_name | default('kvm-route-br0') }}"
+isolation_vm_dns_servers:
+  - "{{ isolation_vm_gateway_ip }}"
+  - "8.8.8.8"
+  - "8.8.4.4"
+isolation_vm_dns_search_domains:
+  - "localnet"
+
+# CLI Tools Configuration
+isolation_vm_cli_tools:
+  - "zsh"
+  - "tmux"
+  - "curl"
+  - "git"
+  - "vim"
+  - "wget"
+  - "htop"
+  - "net-tools"
+  - "iputils-ping"
+  - "dnsutils"
+
+# Locale and Timezone
+isolation_vm_timezone: "UTC"
+isolation_vm_locale: "en_US.UTF-8"
+
+# Sudo Configuration
+isolation_vm_sudo_enabled: true
+isolation_vm_sudo_password_required: true
+isolation_vm_sudo_groups:
+  - "sudo"
+  - "docker"
+
+# Network Interface Configuration
+isolation_vm_network_interfaces:
+  - name: "eth0"
+    bridge: "{{ isolation_vm_nat_bridge }}"
+    dhcp: true
+  - name: "eth1"
+    bridge: "{{ isolation_vm_routed_bridge }}"
+    dhcp: true
+
+# Gateway Configuration
+isolation_vm_gateway: "{{ isolation_vm_gateway_ip | default('192.168.101.1') }}"

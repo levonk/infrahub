@@ -1,0 +1,17 @@
+# Traefik logrotate configuration
+# Managed by Ansible - DO NOT EDIT MANUALLY
+
+/var/log/traefik/*.log {
+    daily
+    rotate {{ proxy_traefik_log_retention_days }}
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+    create 0644 root root
+    sharedscripts
+    postrotate
+        docker exec traefik kill -USR1 1 || true
+    endscript
+}

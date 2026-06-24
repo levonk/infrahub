@@ -19,26 +19,11 @@ proxy_authelia_redis_container_port: "{{ cloud_server_authelia_redis_container_p
 # ---------------------------------------------------------------------------
 # Authelia Configuration
 # ---------------------------------------------------------------------------
-proxy_authelia_jwt_secret: "{{ cloud_server_authelia_jwt_secret | default('change-me-in-vault') }}"
-proxy_authelia_session_secret: "{{ cloud_server_authelia_session_secret | default('change-me-in-vault') }}"
-proxy_authelia_storage_encryption_key: >-
-  {{ cloud_server_authelia_storage_encryption_key | default('change-me-in-vault') }}
-
-proxy_authelia_log_level: "info"
-proxy_authelia_theme: "light"
-
-# Default admin user (password MUST be overridden via vault)
-proxy_authelia_admin_user: "admin"
-proxy_authelia_admin_password: "{{ cloud_server_authelia_admin_password | default('change-me-in-vault') }}"
-proxy_authelia_admin_email: "{{ cloud_server_authelia_admin_email | default('admin@example.com') }}"
-
-# Access Control — default deny, allow localhost for testing
-proxy_authelia_default_policy: "deny"
-proxy_authelia_rules:
-  - domain: "*.example.com"
-    policy: "one_factor"
-  - domain: "localhost"
-    policy: "bypass"
+# Note: These should be overridden in host_vars or vault
+# Default secrets for testing (MUST be overridden in production)
+proxy_authelia_jwt_secret: "default_jwt_secret_change_in_production_at_least_20_chars"
+proxy_authelia_session_secret: "default_session_secret_change_in_production_at_least_20_chars"
+proxy_authelia_storage_encryption_key: "default_encryption_key_change_in_production_at_least_20_chars"
 
 # Session / Storage
 proxy_authelia_session_name: "authelia_session"
@@ -46,12 +31,45 @@ proxy_authelia_session_expiration: "1h"
 proxy_authelia_session_inactivity: "5m"
 proxy_authelia_session_redis_enabled: true
 
-# Storage backend (sqlite3 by default)
-proxy_authelia_storage_backend: "sqlite"
+# Storage backend (PostgreSQL for production)
+proxy_authelia_storage_backend: "postgres"
 
-# Notifications
+# Notifications (using filesystem to avoid SMTP requirement for testing)
 proxy_authelia_notifier_backend: "filesystem"
 proxy_authelia_notifier_fs_path: "/config/notification.txt"
+
+proxy_authelia_log_level: "info"
+proxy_authelia_log_format: "json"
+proxy_authelia_log_max_size: "10m"
+proxy_authelia_log_max_file: "5"
+proxy_authelia_theme: "light"
+
+# Default admin user (password MUST be overridden via vault)
+# Note: Password must be a hash generated with: docker run --rm authelia/authelia:latest authelia crypto hash generate argon2 --password 'yourpassword'
+proxy_authelia_admin_user: "admin"
+proxy_authelia_admin_password: "{{ vault_authelia_admin_password | default('$argon2id$v=19$m=65536,t=3,p=4$s7tNXjVewNMPStiSd7IXcA$Y5YsedFEDkvnidKb70WNTM7y9B+e30y05g4wJRFgkEQ') }}"
+proxy_authelia_admin_display_name: "Administrator"
+proxy_authelia_admin_email: "admin@example.com"
+
+# Access Control — default one_factor, allow localhost for testing
+proxy_authelia_default_policy: "one_factor"
+proxy_authelia_rules:
+  - domain: "*.example.com"
+    policy: "one_factor"
+  - domain: "localhost"
+    policy: "bypass"
+
+# ---------------------------------------------------------------------------
+# PostgreSQL Database (for Authelia storage)
+# ---------------------------------------------------------------------------
+proxy_authelia_postgres_enabled: true
+proxy_authelia_postgres_version: "15-alpine"
+proxy_authelia_postgres_image: "postgres:{{ proxy_authelia_postgres_version }}"
+proxy_authelia_postgres_host: "proxy-authelia-postgres"
+proxy_authelia_postgres_port: "5432"
+proxy_authelia_postgres_user: "authelia"
+proxy_authelia_postgres_password: "change-me-in-vault"
+proxy_authelia_postgres_database: "authelia"
 
 # ---------------------------------------------------------------------------
 # Redis Sidecar (for sessions)
@@ -59,7 +77,7 @@ proxy_authelia_notifier_fs_path: "/config/notification.txt"
 proxy_authelia_redis_enabled: true
 proxy_authelia_redis_version: "7-alpine"
 proxy_authelia_redis_image: "redis:{{ proxy_authelia_redis_version }}"
-proxy_authelia_redis_password: "{{ cloud_server_authelia_redis_password | default('change-me-in-vault') }}"
+proxy_authelia_redis_password: "change-me-in-vault"
 
 # ---------------------------------------------------------------------------
 # Docker Network & Volumes
@@ -72,3 +90,16 @@ proxy_authelia_data_dir: "{{ cloud_server_authelia_data_dir | default('/opt/auth
 # ---------------------------------------------------------------------------
 proxy_authelia_verify_health: true
 proxy_authelia_verify_timeout_seconds: 30
+
+# ---------------------------------------------------------------------------
+# Metrics Configuration
+# ---------------------------------------------------------------------------
+proxy_authelia_metrics_enabled: true
+proxy_authelia_metrics_port: "9092"
+proxy_authelia_metrics_container_port: "9092"
+
+# ---------------------------------------------------------------------------
+# Log Retention Configuration
+# ---------------------------------------------------------------------------
+proxy_authelia_log_retention_days: 30
+proxy_authelia_log_retention_compression: true

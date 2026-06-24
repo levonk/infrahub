@@ -1,0 +1,85 @@
+---
+# iron-proxy - Default-deny egress firewall for untrusted workloads
+# https://github.com/ironsh/iron-proxy
+#
+# This service provides TLS-terminating proxy with allowlist enforcement and
+# on-the-fly credential injection for secure API access.
+
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "5"
+    tag: "{{.Name}}"
+    labels: "service"
+
+services:
+  iron-proxy:
+    image: ghcr.io/ironsh/iron-proxy:latest
+    container_name: localnet-proxy-iron-proxy
+    logging: *default-logging
+    networks:
+      - localnet
+    ports:
+      - "${IRON_PROXY_DNS_HOST_PORT:-53}:53/udp"     # DNS server
+      - "${IRON_PROXY_DNS_HOST_PORT:-53}:53/tcp"     # DNS server (TCP fallback)
+      - "${IRON_PROXY_HTTP_HOST_PORT:-8080}:${IRON_PROXY_HTTP_CONTAINER_PORT:-80}/tcp"    # HTTP proxy
+      - "${IRON_PROXY_HTTPS_HOST_PORT:-8443}:${IRON_PROXY_HTTPS_CONTAINER_PORT:-443}/tcp"  # HTTPS proxy
+    volumes:
+      - ./mounts/etc/iron-proxy:/etc/iron-proxy:ro
+      - iron-proxy-ca:/etc/iron-proxy-ca
+    environment:
+      # DNS configuration
+      - IRON_DNS_ENABLED=${IRON_PROXY_DNS_ENABLED:-true}
+      - IRON_DNS_LISTEN=:53
+      - IRON_DNS_PROXY_IP=${IRON_PROXY_DNS_PROXY_IP:-${DOCKER_NETWORK_GATEWAY}}
+      
+      # Proxy configuration
+      - IRON_PROXY_HTTP_LISTEN=:${IRON_PROXY_HTTP_CONTAINER_PORT:-80}
+      - IRON_PROXY_HTTPS_LISTEN=:${IRON_PROXY_HTTPS_CONTAINER_PORT:-443}
+      
+      # TLS configuration
+      - IRON_TLS_MODE=${IRON_PROXY_TLS_MODE:-mitm}
+      - IRON_TLS_CA_CERT=/etc/iron-proxy/ca.crt
+      - IRON_TLS_CA_KEY=/etc/iron-proxy/ca.key
+      - IRON_TLS_CERT_CACHE_SIZE=${IRON_PROXY_CERT_CACHE_SIZE:-1000}
+      - IRON_TLS_LEAF_CERT_EXPIRY_HOURS=${IRON_PROXY_LEAF_CERT_EXPIRY_HOURS:-72}
+      
+      # API keys (injected via secrets transform)
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+      
+      # Optional upstream proxy for corporate networks
+      - HTTP_PROXY=${HTTP_PROXY:-}
+      - HTTPS_PROXY=${HTTPS_PROXY:-}
+      - NO_PROXY=${NO_PROXY:-}
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+      - CHOWN
+      - DAC_OVERRIDE
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=100m
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:${IRON_PROXY_HTTP_CONTAINER_PORT:-80}/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    profiles:
+      - all
+
+networks:
+  localnet:
+    external: true
+
+volumes:
+  iron-proxy-ca:
+    driver: local

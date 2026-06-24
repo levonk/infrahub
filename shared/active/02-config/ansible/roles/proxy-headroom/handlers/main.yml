@@ -1,0 +1,8 @@
+---
+# handlers file for proxy-headroom
+
+- name: restart headroom
+  community.docker.docker_container:
+    name: headroom
+    state: restarted
+  become: true

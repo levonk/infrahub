@@ -1,0 +1,127 @@
+---
+# Base KaliNix container deployment tasks
+# Deploys base-kalinix to provide Kali Linux + Nix environment for agent operations
+
+- name: Create base-kalinix volume directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+    owner: "{{ isolation_vm_user }}"
+    group: "{{ isolation_vm_user }}"
+  loop:
+    - "{{ isolation_vm_base_kalinix_volume_path }}/home"
+    - "{{ isolation_vm_base_kalinix_volume_path }}/tmp"
+  become: true
+
+- name: Copy base-kalinix Dockerfile to VM
+  ansible.builtin.copy:
+    src: "{{ isolation_vm_base_kalinix_dockerfile_path }}"
+    dest: "{{ isolation_vm_base_kalinix_build_path }}/Dockerfile.base-kalinix"
+    mode: '0644'
+    owner: "{{ isolation_vm_user }}"
+    group: "{{ isolation_vm_user }}"
+  become: true
+
+- name: Copy base-kalinix assets to VM
+  ansible.builtin.synchronize:
+    src: "{{ isolation_vm_base_kalinix_assets_path }}/"
+    dest: "{{ isolation_vm_base_kalinix_build_path }}/assets/"
+    delete: true
+    recursive: true
+  become: true
+
+- name: Copy base-kali Dockerfile to VM (dependency)
+  ansible.builtin.copy:
+    src: "{{ isolation_vm_base_kali_dockerfile_path }}"
+    dest: "{{ isolation_vm_base_kalinix_build_path }}/Dockerfile.base-kali"
+    mode: '0644'
+    owner: "{{ isolation_vm_user }}"
+    group: "{{ isolation_vm_user }}"
+  become: true
+
+- name: Copy base-kali assets to VM (dependency)
+  ansible.builtin.synchronize:
+    src: "{{ isolation_vm_base_kali_assets_path }}/"
+    dest: "{{ isolation_vm_base_kalinix_build_path }}/base-kali-assets/"
+    delete: true
+    recursive: true
+  become: true
+
+- name: Build base-kali container image (dependency)
+  community.docker.docker_image:
+    name: "{{ isolation_vm_base_kali_image_name }}"
+    source: build
+    build:
+      path: "{{ isolation_vm_base_kalinix_build_path }}"
+      dockerfile: Dockerfile.base-kali
+      context: .
+    state: present
+  become: true
+  register: base_kali_build
+
+- name: Build base-kalinix container image
+  community.docker.docker_image:
+    name: "{{ isolation_vm_base_kalinix_image_name }}"
+    source: build
+    build:
+      path: "{{ isolation_vm_base_kalinix_build_path }}"
+      dockerfile: Dockerfile.base-kalinix
+      args:
+        PUID: "{{ isolation_vm_user_uid }}"
+        PGID: "{{ isolation_vm_user_gid }}"
+        TZ: "{{ isolation_vm_timezone }}"
+        USERNAME: "{{ isolation_vm_user }}"
+    state: present
+  become: true
+  register: base_kalinix_build
+
+- name: Create base-kalinix container
+  community.docker.docker_container:
+    name: "{{ isolation_vm_base_kalinix_container_name }}"
+    image: "{{ isolation_vm_base_kalinix_image_name }}"
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ isolation_vm_nix_sidecar_network_name }}"
+    volumes:
+      - "{{ isolation_vm_base_kalinix_volume_path }}/home:/home/{{ isolation_vm_user }}"
+      - "{{ isolation_vm_nix_sidecar_volume_path }}/nix-store:/nix:ro"
+      - "{{ isolation_vm_nix_sidecar_volume_path }}/nix-config:/etc/nix:ro"
+      - "{{ isolation_vm_nix_sidecar_volume_path }}/nix-cache:/root/.cache/nix"
+    env:
+      PUID: "{{ isolation_vm_user_uid }}"
+      PGID: "{{ isolation_vm_user_gid }}"
+      TZ: "{{ isolation_vm_timezone }}"
+      USERNAME: "{{ isolation_vm_user }}"
+    healthcheck:
+      test: ["CMD", "/bin/sh", "-c", "/base-kalinix/bin/healthcheck-base-kalinix.sh"]
+      interval: "{{ isolation_vm_base_kalinix_healthcheck_interval }}"
+      timeout: "{{ isolation_vm_base_kalinix_healthcheck_timeout }}"
+      retries: "{{ isolation_vm_base_kalinix_healthcheck_retries }}"
+      start_period: "{{ isolation_vm_base_kalinix_healthcheck_start_period }}"
+    user: "{{ isolation_vm_user_uid }}:{{ isolation_vm_user_gid }}"
+    mem_limit: "{{ isolation_vm_base_kalinix_mem_limit }}"
+    cpus: "{{ isolation_vm_base_kalinix_cpu_limit }}"
+  become: true
+  register: base_kalinix_container
+
+- name: Wait for base-kalinix to become healthy
+  ansible.builtin.wait_for:
+    timeout: "{{ isolation_vm_base_kalinix_startup_timeout }}"
+  delegate_to: localhost
+  when: base_kalinix_container.changed
+
+- name: Verify base-kalinix container is running
+  community.docker.docker_container_info:
+    name: "{{ isolation_vm_base_kalinix_container_name }}"
+  register: base_kalinix_info
+  become: true
+
+- name: Check base-kalinix health status
+  ansible.builtin.assert:
+    that:
+      - base_kalinix_info.container.State.Status == "running"
+      - base_kalinix_info.container.State.Health.Status == "healthy"
+    fail_msg: "base-kalinix container is not healthy"
+    success_msg: "base-kalinix container is running and healthy"

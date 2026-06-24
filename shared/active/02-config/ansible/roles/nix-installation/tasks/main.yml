@@ -1,0 +1,239 @@
+---
+# tasks file for nix-installation
+
+# ---------------------------------------------------------------------------
+# Prerequisites
+# ---------------------------------------------------------------------------
+- name: Ensure required packages are present (Debian/Ubuntu)
+  ansible.builtin.apt:
+    name: "{{ nix_installation_packages_debian }}"
+    state: present
+  when: ansible_facts['os_family'] == "Debian"
+  become: true
+
+- name: Ensure required packages are present (Red Hat family)
+  ansible.builtin.dnf:
+    name: "{{ nix_installation_packages_redhat }}"
+    state: present
+  when: ansible_facts['os_family'] == "RedHat"
+  become: true
+
+# ---------------------------------------------------------------------------
+# Check for existing Nix installation
+# ---------------------------------------------------------------------------
+- name: Check if Nix is already installed
+  ansible.builtin.stat:
+    path: /nix
+  register: nix_installation_nix_dir
+
+- name: Check if nix command is available
+  ansible.builtin.command:
+    cmd: which nix
+  register: nix_installation_nix_cmd
+  changed_when: false
+  failed_when: false
+
+# ---------------------------------------------------------------------------
+# Download and run official Nix installer (multi-user daemon mode)
+# ---------------------------------------------------------------------------
+- name: Download Nix installer
+  ansible.builtin.get_url:
+    url: "{{ nix_installation_installer_url }}"
+    dest: /tmp/nix-installer.sh
+    mode: "0755"
+  when: 
+    - not nix_installation_nix_dir.stat.exists
+    - not nix_installation_skip_installation | bool
+
+- name: Run Nix multi-user installer (daemon mode as per requirements)
+  ansible.builtin.command:
+    cmd: bash /tmp/nix-installer.sh --daemon
+  args:
+    creates: /nix
+  become: true
+  when: 
+    - not nix_installation_nix_dir.stat.exists
+    - not nix_installation_container_mode | bool
+    - not nix_installation_skip_installation | bool
+  register: nix_installation_daemon_result
+
+- name: Download Nix tarball for manual installation (container compatibility)
+  ansible.builtin.get_url:
+    url: "https://releases.nixos.org/nix/nix-{{ nix_installation_version }}/nix-{{ nix_installation_version }}-x86_64-linux.tar.xz"
+    dest: /tmp/nix.tar.xz
+    mode: "0644"
+  when: 
+    - not nix_installation_nix_dir.stat.exists
+    - nix_installation_container_mode | bool
+    - not nix_installation_skip_installation | bool
+
+- name: Create temporary directory for extraction
+  ansible.builtin.file:
+    path: /tmp/nix-install
+    state: directory
+    mode: "0755"
+  when: 
+    - not nix_installation_nix_dir.stat.exists
+    - nix_installation_container_mode | bool
+    - not nix_installation_skip_installation | bool
+
+- name: Extract Nix tarball
+  ansible.builtin.command:
+    cmd: tar -xf /tmp/nix.tar.xz -C /tmp/nix-install
+  when: 
+    - not nix_installation_nix_dir.stat.exists
+    - nix_installation_container_mode | bool
+    - not nix_installation_skip_installation | bool
+
+- name: Find install script path
+  ansible.builtin.find:
+    paths: /tmp/nix-install
+    patterns: "install"
+    file_type: file
+  register: nix_install_script
+  when: 
+    - not nix_installation_nix_dir.stat.exists
+    - nix_installation_container_mode | bool
+    - not nix_installation_skip_installation | bool
+
+- name: Debug install script path
+  ansible.builtin.debug:
+    msg: "Install script found: {{ nix_install_script.files }}"
+  when: 
+    - not nix_installation_nix_dir.stat.exists
+    - nix_installation_container_mode | bool
+    - not nix_installation_skip_installation | bool
+
+- name: Fix execute permissions on extracted binaries
+  ansible.builtin.command:
+    cmd: chmod -R +x /tmp/nix-install
+  when: 
+    - not nix_installation_nix_dir.stat.exists
+    - nix_installation_container_mode | bool
+    - not nix_installation_skip_installation | bool
+
+- name: Run Nix install script with fixed permissions
+  ansible.builtin.command:
+    cmd: bash {{ nix_install_script.files[0].path }} --no-daemon
+  args:
+    creates: /root/.nix-profile
+  become: true
+  when: 
+    - not nix_installation_nix_dir.stat.exists
+    - nix_installation_container_mode | bool
+    - nix_install_script.files | length > 0
+    - not nix_installation_skip_installation | bool
+  register: nix_installation_single_user_result
+
+- name: Remove installer script and temporary files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  become: true
+  loop:
+    - /tmp/nix-installer.sh
+    - /tmp/nix.tar.xz
+    - /tmp/nix-install
+  when: 
+    - not nix_installation_nix_dir.stat.exists
+    - not nix_installation_skip_installation | bool
+
+# ---------------------------------------------------------------------------
+# Ensure nixbld group exists
+# ---------------------------------------------------------------------------
+- name: Ensure nixbld group exists
+  ansible.builtin.group:
+    name: "{{ nix_installation_nixbld_group }}"
+    gid: "{{ nix_installation_nixbld_gid | int }}"
+    state: present
+  become: true
+
+# ---------------------------------------------------------------------------
+# Add admin user to nixbld group
+# ---------------------------------------------------------------------------
+- name: Add admin user to nixbld group
+  ansible.builtin.user:
+    name: "{{ nix_installation_admin_user }}"
+    groups: "{{ nix_installation_nixbld_group }}"
+    append: true
+  become: true
+
+# ---------------------------------------------------------------------------
+# Create /etc/nix/nix.conf
+# ---------------------------------------------------------------------------
+- name: Ensure /etc/nix directory exists
+  ansible.builtin.file:
+    path: /etc/nix
+    state: directory
+    owner: "{{ nix_installation_nix_conf_owner }}"
+    group: "{{ nix_installation_nix_conf_group }}"
+    mode: "0755"
+  become: true
+
+- name: Deploy nix.conf
+  ansible.builtin.template:
+    src: nix.conf.j2
+    dest: "{{ nix_installation_nix_conf_path }}"
+    owner: "{{ nix_installation_nix_conf_owner }}"
+    group: "{{ nix_installation_nix_conf_group }}"
+    mode: "{{ nix_installation_nix_conf_mode }}"
+  become: true
+  notify:
+    - restart nix-daemon
+
+# ---------------------------------------------------------------------------
+# Configure Nix daemon service
+# ---------------------------------------------------------------------------
+- name: Ensure nix-daemon service is enabled and running
+  ansible.builtin.systemd:
+    name: "{{ nix_installation_daemon_service_name }}"
+    state: started
+    enabled: true
+    daemon_reload: true
+  become: true
+  when: nix_installation_daemon_mode | bool
+  ignore_errors: true
+
+# ---------------------------------------------------------------------------
+# Verify nix CLI is available and functional
+# ---------------------------------------------------------------------------
+- name: Verify nix --version returns expected output
+  ansible.builtin.command:
+    cmd: nix --version
+  become: true
+  environment:
+    PATH: "{{ ansible_env.PATH }}:/root/.nix-profile/bin"
+  register: nix_installation_version_check
+  changed_when: false
+  ignore_errors: true
+
+- name: Assert Nix version matches expected
+  ansible.builtin.assert:
+    that:
+      - "'{{ nix_installation_version }}' in nix_installation_version_check.stdout"
+    fail_msg: >-
+      Nix version mismatch. Expected {{ nix_installation_version }},
+      got {{ nix_installation_version_check.stdout }}
+    success_msg: "Nix version verified: {{ nix_installation_version_check.stdout }}"
+  when:
+    - nix_installation_verify_nix_version | bool
+    - nix_installation_version_check.rc == 0
+  ignore_errors: true
+
+- name: Log Nix version
+  ansible.builtin.debug:
+    msg: "Nix installed: {{ nix_installation_version_check.stdout | default('Nix not found') }}"
+
+- name: Verify flakes are enabled
+  ansible.builtin.command:
+    cmd: nix --extra-experimental-features nix-command registry list
+  register: nix_installation_flakes_check
+  changed_when: false
+  become: true
+  environment:
+    PATH: "{{ ansible_env.PATH }}:/root/.nix-profile/bin"
+  ignore_errors: true
+
+- name: Log flake status
+  ansible.builtin.debug:
+    msg: "Nix flakes enabled: {{ nix_installation_flakes_check.stdout | default('unknown') }}"

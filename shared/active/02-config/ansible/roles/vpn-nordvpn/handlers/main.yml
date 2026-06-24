@@ -1,0 +1,13 @@
+---
+# handlers file for vpn-nordvpn
+
+- name: restart nordvpn
+  community.docker.docker_container:
+    name: "{{ vpn_nordvpn_container_name }}"
+    state: restarted
+  when: vpn_nordvpn_enabled
+
+- name: wait for nordvpn
+  ansible.builtin.pause:
+    seconds: 10
+  when: vpn_nordvpn_enabled

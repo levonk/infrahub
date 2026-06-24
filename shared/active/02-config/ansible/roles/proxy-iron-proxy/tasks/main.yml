@@ -1,0 +1,172 @@
+---
+# tasks file for proxy-iron-proxy
+# Deploys iron-proxy egress firewall for untrusted workloads.
+# All ports are variable-driven per AGENTS.md rules.
+
+# ---------------------------------------------------------------------------
+# Prerequisites
+# ---------------------------------------------------------------------------
+- name: Ensure iron-proxy data directory exists
+  ansible.builtin.file:
+    path: "{{ proxy_iron_proxy_data_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+
+- name: Ensure iron-proxy configuration directories exist
+  ansible.builtin.file:
+    path: "{{ proxy_iron_proxy_data_dir }}/{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+  loop:
+    - mounts
+    - mounts/etc
+    - mounts/etc/iron-proxy
+
+# ---------------------------------------------------------------------------
+# Docker Network
+# ---------------------------------------------------------------------------
+- name: Ensure proxy Docker network exists
+  community.docker.docker_network:
+    name: "{{ proxy_iron_proxy_docker_network_name }}"
+    state: present
+    driver: bridge
+  become: true
+
+# ---------------------------------------------------------------------------
+# Docker Volumes
+# ---------------------------------------------------------------------------
+- name: Ensure iron-proxy CA volume exists
+  community.docker.docker_volume:
+    name: iron-proxy-ca
+    state: present
+  become: true
+
+# ---------------------------------------------------------------------------
+# Configuration Templates
+# ---------------------------------------------------------------------------
+- name: Deploy iron-proxy configuration
+  ansible.builtin.template:
+    src: iron-proxy.yml.j2
+    dest: "{{ proxy_iron_proxy_data_dir }}/mounts/etc/iron-proxy/iron-proxy.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: restart iron-proxy
+
+# ---------------------------------------------------------------------------
+# CA Certificate Generation (if not exists)
+# ---------------------------------------------------------------------------
+- name: Check if CA certificate exists
+  ansible.builtin.stat:
+    path: "{{ proxy_iron_proxy_data_dir }}/mounts/etc/iron-proxy/ca.crt"
+  register: ca_cert
+  become: true
+
+- name: Generate CA certificate for MITM mode
+  ansible.builtin.command:
+    cmd: >
+      openssl req -x509 -newkey rsa:4096 -keyout {{ proxy_iron_proxy_data_dir }}/mounts/etc/iron-proxy/ca.key
+      -out {{ proxy_iron_proxy_data_dir }}/mounts/etc/iron-proxy/ca.crt -days 3650 -nodes
+      -subj "/CN=iron-proxy CA/O=iron-proxy/C=US"
+  become: true
+  when:
+    - proxy_iron_proxy_tls_mode == "mitm"
+    - not ca_cert.stat.exists
+  notify: restart iron-proxy
+
+# ---------------------------------------------------------------------------
+# iron-proxy Container
+# ---------------------------------------------------------------------------
+- name: Deploy iron-proxy container
+  community.docker.docker_container:
+    name: iron-proxy
+    image: "{{ proxy_iron_proxy_image }}"
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ proxy_iron_proxy_docker_network_name }}"
+    ports:
+      - "{{ proxy_iron_proxy_dns_host_port }}:{{ proxy_iron_proxy_dns_container_port }}/udp"
+      - "{{ proxy_iron_proxy_dns_host_port }}:{{ proxy_iron_proxy_dns_container_port }}/tcp"
+      - "{{ proxy_iron_proxy_http_host_port }}:{{ proxy_iron_proxy_http_container_port }}/tcp"
+      - "{{ proxy_iron_proxy_https_host_port }}:{{ proxy_iron_proxy_https_container_port }}/tcp"
+    volumes:
+      - "{{ proxy_iron_proxy_data_dir }}/mounts/etc/iron-proxy:/etc/iron-proxy:ro"
+      - iron-proxy-ca:/etc/iron-proxy-ca
+    env:
+      IRON_DNS_ENABLED: "{{ proxy_iron_proxy_dns_enabled | ternary('true', 'false') }}"
+      IRON_DNS_LISTEN: ":{{ proxy_iron_proxy_dns_container_port }}"
+      IRON_DNS_PROXY_IP: "{{ proxy_iron_proxy_dns_proxy_ip }}"
+      IRON_PROXY_HTTP_LISTEN: ":{{ proxy_iron_proxy_http_container_port }}"
+      IRON_PROXY_HTTPS_LISTEN: ":{{ proxy_iron_proxy_https_container_port }}"
+      IRON_TLS_MODE: "{{ proxy_iron_proxy_tls_mode }}"
+      IRON_TLS_CA_CERT: "/etc/iron-proxy/ca.crt"
+      IRON_TLS_CA_KEY: "/etc/iron-proxy/ca.key"
+      IRON_TLS_CERT_CACHE_SIZE: "{{ proxy_iron_proxy_cert_cache_size | string }}"
+      IRON_TLS_LEAF_CERT_EXPIRY_HOURS: "{{ proxy_iron_proxy_leaf_cert_expiry_hours | string }}"
+      OPENAI_API_KEY: "{{ proxy_iron_proxy_openai_api_key | default('') }}"
+      ANTHROPIC_API_KEY: "{{ proxy_iron_proxy_anthropic_api_key | default('') }}"
+      GOOGLE_API_KEY: "{{ proxy_iron_proxy_google_api_key | default('') }}"
+      GITHUB_TOKEN: "{{ proxy_iron_proxy_github_token | default('') }}"
+      HTTP_PROXY: "{{ proxy_iron_proxy_http_proxy | default('') }}"
+      HTTPS_PROXY: "{{ proxy_iron_proxy_https_proxy | default('') }}"
+      NO_PROXY: "{{ proxy_iron_proxy_no_proxy | default('') }}"
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+      - CHOWN
+      - DAC_OVERRIDE
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=100m
+    log_driver: json-file
+    log_options:
+      max-size: "10m"
+      max-file: "5"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:{{ proxy_iron_proxy_http_container_port }}/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+  become: true
+  when: proxy_iron_proxy_enabled | bool
+
+# ---------------------------------------------------------------------------
+# Health Verification
+# ---------------------------------------------------------------------------
+- name: Wait for iron-proxy to be healthy
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ proxy_iron_proxy_http_host_port }}/health"
+    status_code: 200
+  register: iron_proxy_health
+  until: iron_proxy_health.status == 200
+  retries: 10
+  delay: 5
+  when:
+    - proxy_iron_proxy_enabled | bool
+    - proxy_iron_proxy_verify_health | bool
+
+# ---------------------------------------------------------------------------
+# Status Report
+# ---------------------------------------------------------------------------
+- name: Report iron-proxy status
+  ansible.builtin.debug:
+    msg: |2
+      iron-proxy deployed successfully:
+      - DNS: {{ ansible_host | default('localhost') }}:{{ proxy_iron_proxy_dns_host_port }}
+      - HTTP Proxy: http://{{ ansible_host | default('localhost') }}:{{ proxy_iron_proxy_http_host_port }}
+      - HTTPS Proxy: https://{{ ansible_host | default('localhost') }}:{{ proxy_iron_proxy_https_host_port }}
+      - TLS Mode: {{ proxy_iron_proxy_tls_mode }}
+      - Configuration: {{ proxy_iron_proxy_data_dir }}/mounts/etc/iron-proxy/iron-proxy.yml
+  when: proxy_iron_proxy_enabled | bool

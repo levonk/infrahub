@@ -1,0 +1,127 @@
+---
+# Docker Access Tests for Isolation VM
+# Tests Docker-in-Docker functionality from agent containers
+
+- name: "Test: Check Hermes container is running"
+  ansible.builtin.command:
+    cmd: "docker ps --filter name={{ isolation_vm_hermes_container_name }} --format '{% raw %}{{.Status}}{% endraw %}'"
+  register: hermes_status
+  changed_when: false
+  failed_when: "'Up' not in hermes_status.stdout"
+
+- name: "Test: Execute basic Docker command from Hermes container"
+  ansible.builtin.command:
+    cmd: "docker exec {{ isolation_vm_hermes_container_name }} docker ps"
+  register: docker_ps_output
+  changed_when: false
+  failed_when: docker_ps_output.rc != 0
+
+- name: "Test: Create a simple test container from Hermes"
+  ansible.builtin.command:
+    cmd: "docker exec {{ isolation_vm_hermes_container_name }} docker run -d --name docker-access-test-{{ ansible_date_time.epoch }} nginx:alpine"
+  register: test_container_creation
+  changed_when: test_container_creation.rc == 0
+  failed_when: test_container_creation.rc != 0
+
+- name: "Test: Verify test container is running"
+  ansible.builtin.command:
+    cmd: "docker exec {{ isolation_vm_hermes_container_name }} docker ps --filter name=docker-access-test --format '{% raw %}{{.Status}}{% endraw %}'"
+  register: test_container_status
+  changed_when: false
+  failed_when: "'Up' not in test_container_status.stdout"
+
+- name: "Test: Stop the test container"
+  ansible.builtin.command:
+    cmd: "docker exec {{ isolation_vm_hermes_container_name }} docker stop docker-access-test-{{ ansible_date_time.epoch }}"
+  register: test_container_stop
+  changed_when: test_container_stop.rc == 0
+  failed_when: test_container_stop.rc != 0
+
+- name: "Test: Remove the test container"
+  ansible.builtin.command:
+    cmd: "docker exec {{ isolation_vm_hermes_container_name }} docker rm docker-access-test-{{ ansible_date_time.epoch }}"
+  register: test_container_remove
+  changed_when: test_container_remove.rc == 0
+  failed_when: test_container_remove.rc != 0
+
+- name: "Test: Create container with volume mount"
+  ansible.builtin.command:
+    cmd: "docker exec {{ isolation_vm_hermes_container_name }} docker run -d --name volume-test-{{ ansible_date_time.epoch }} -v /tmp:/tmp nginx:alpine"
+  register: volume_test_creation
+  changed_when: volume_test_creation.rc == 0
+  failed_when: volume_test_creation.rc != 0
+
+- name: "Test: Verify volume mount works"
+  ansible.builtin.command:
+    cmd: "docker exec {{ isolation_vm_hermes_container_name }} docker exec volume-test-{{ ansible_date_time.epoch }} ls /tmp"
+  register: volume_test_verify
+  changed_when: false
+  failed_when: volume_test_verify.rc != 0
+
+- name: "Test: Cleanup volume test container"
+  ansible.builtin.command:
+    cmd: "docker exec {{ isolation_vm_hermes_container_name }} docker rm -f volume-test-{{ ansible_date_time.epoch }}"
+  register: volume_test_cleanup
+  changed_when: volume_test_cleanup.rc == 0
+  failed_when: volume_test_cleanup.rc != 0
+
+- name: "Test: Create container with resource limits"
+  ansible.builtin.command:
+    cmd: "docker exec {{ isolation_vm_hermes_container_name }} docker run -d --name resource-test-{{ ansible_date_time.epoch }} --memory={{ isolation_vm_test_memory_limit }} --cpus={{ isolation_vm_test_cpu_limit }} nginx:alpine"
+  register: resource_test_creation
+  changed_when: resource_test_creation.rc == 0
+  failed_when: resource_test_creation.rc != 0
+
+- name: "Test: Verify resource limits are applied"
+  ansible.builtin.command:
+    cmd: "docker exec {{ isolation_vm_hermes_container_name }} docker inspect resource-test-{{ ansible_date_time.epoch }} --format '{% raw %}{{.HostConfig.Memory}}{% endraw %}'"
+  register: resource_test_verify
+  changed_when: false
+  failed_when: resource_test_verify.rc != 0
+
+- name: "Test: Cleanup resource test container"
+  ansible.builtin.command:
+    cmd: "docker exec {{ isolation_vm_hermes_container_name }} docker rm -f resource-test-{{ ansible_date_time.epoch }}"
+  register: resource_test_cleanup
+  changed_when: resource_test_cleanup.rc == 0
+  failed_when: resource_test_cleanup.rc != 0
+
+- name: "Test: Create container with custom network"
+  ansible.builtin.command:
+    cmd: "docker exec {{ isolation_vm_hermes_container_name }} docker network create test-network-{{ ansible_date_time.epoch }}"
+  register: network_creation
+  changed_when: network_creation.rc == 0
+  failed_when: network_creation.rc != 0
+
+- name: "Test: Run container on custom network"
+  ansible.builtin.command:
+    cmd: "docker exec {{ isolation_vm_hermes_container_name }} docker run -d --name network-test-{{ ansible_date_time.epoch }} --network test-network-{{ ansible_date_time.epoch }} nginx:alpine"
+  register: network_test_creation
+  changed_when: network_test_creation.rc == 0
+  failed_when: network_test_creation.rc != 0
+
+- name: "Test: Verify container network connectivity"
+  ansible.builtin.command:
+    cmd: "docker exec {{ isolation_vm_hermes_container_name }} docker inspect network-test-{{ ansible_date_time.epoch }} --format '{% raw %}{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}{% endraw %}'"
+  register: network_test_verify
+  changed_when: false
+  failed_when: network_test_verify.rc != 0
+
+- name: "Test: Cleanup network test"
+  ansible.builtin.command:
+    cmd: "docker exec {{ isolation_vm_hermes_container_name }} docker rm -f network-test-{{ ansible_date_time.epoch }} && docker exec {{ isolation_vm_hermes_container_name }} docker network rm test-network-{{ ansible_date_time.epoch }}"
+  register: network_test_cleanup
+  changed_when: network_test_cleanup.rc == 0
+  failed_when: network_test_cleanup.rc != 0
+
+- name: "Test: Document all test results"
+  ansible.builtin.debug:
+    msg:
+      - "Docker Access Test Results:"
+      - "Basic Docker commands: PASSED"
+      - "Container creation: PASSED"
+      - "Container lifecycle management: PASSED"
+      - "Volume mounting: PASSED"
+      - "Resource limits: PASSED"
+      - "Network configuration: PASSED"
+      - "Cleanup operations: PASSED"

@@ -1,0 +1,32 @@
+---
+# SearXNG Role Metadata
+# Ansible Galaxy role information
+
+galaxy_info:
+  role_name: search_searxng
+  author: levonk
+  description: Deploy SearXNG privacy-respecting metasearch engine with NordVPN proxy integration
+  company: levonk
+  license: MIT
+  min_ansible_version: "2.13"
+  
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+        - bullseye
+    - name: Ubuntu
+      versions:
+        - jammy
+        - focal
+  
+  galaxy_tags:
+    - search
+    - privacy
+    - metasearch
+    - searxng
+    - vpn
+    - docker
+    - proxy
+
+dependencies: []

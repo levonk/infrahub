@@ -1,0 +1,230 @@
+---
+# VPN Validation Playbook
+# Validates that the VPN mesh layer and security hardening are functioning correctly
+# Usage:
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/playbooks/validate-vpn.yml
+
+- name: "Validate VPN Mesh Connectivity & Security"
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+
+  vars:
+    validation_results: {}
+
+  pre_tasks:
+    - name: "Gather ansible_facts"
+      ansible.builtin.setup:
+        gather_subset: ["all"]
+      tags: ["always"]
+
+    - name: "Initialize validation results"
+      ansible.builtin.set_fact:
+        validation_results:
+          tailscale_connected: false
+          tailscale_ip: null
+          tailscale_peer_ping: false
+          netbird_connected: false
+          netbird_peers_count: 0
+          firewall_default_deny: false
+          ssh_accessible: false
+          ssh_password_auth: false
+          ssh_root_login: false
+          fail2ban_active: false
+          fail2ban_bantime: null
+          vpn_routing: false
+
+  tasks:
+    - name: "Check Tailscale status"
+      ansible.builtin.command:
+        cmd: tailscale status --json
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: tailscale_status
+      changed_when: false
+      failed_when: false
+      tags: ["validate", "tailscale"]
+
+    - name: "Parse Tailscale status"
+      ansible.builtin.set_fact:
+        tailscale_data: "{{ tailscale_status.stdout | from_json | default({}) }}"
+      when: tailscale_status.rc == 0
+      tags: ["validate", "tailscale"]
+
+    - name: "Record Tailscale connectivity"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'tailscale_connected': tailscale_data.BackendState == 'Running' if tailscale_data is defined else false, 'tailscale_ip': tailscale_data.Self.TailscaleIPs[0] if (tailscale_data is defined and tailscale_data.Self.TailscaleIPs | length > 0) else null}) }}"
+      tags: ["validate", "tailscale"]
+
+    - name: "Check Tailscale peer ping (if test peer available)"
+      ansible.builtin.command:
+        cmd: tailscale ping {{ tailscale_test_peer | default('') }}
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: tailscale_ping
+      changed_when: false
+      failed_when: false
+      when: tailscale_test_peer is defined and tailscale_test_peer != ''
+      tags: ["validate", "tailscale"]
+
+    - name: "Record Tailscale peer ping result"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'tailscale_peer_ping': tailscale_ping.rc == 0}) }}"
+      when: tailscale_test_peer is defined and tailscale_test_peer != ''
+      tags: ["validate", "tailscale"]
+
+    - name: "Check Netbird status"
+      ansible.builtin.command:
+        cmd: netbird status
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: netbird_status
+      changed_when: false
+      failed_when: false
+      tags: ["validate", "netbird"]
+
+    - name: "Record Netbird connectivity"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'netbird_connected': 'Connected' in netbird_status.stdout if netbird_status.rc == 0 else false}) }}"
+      tags: ["validate", "netbird"]
+
+    - name: "Check Netbird peers list"
+      ansible.builtin.command:
+        cmd: netbird peers list
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: netbird_peers
+      changed_when: false
+      failed_when: false
+      tags: ["validate", "netbird"]
+
+    - name: "Count Netbird peers"
+      ansible.builtin.set_fact:
+        netbird_peers_count: "{{ (netbird_peers.stdout_lines | length - 1) if netbird_peers.rc == 0 else 0 }}"
+      tags: ["validate", "netbird"]
+
+    - name: "Record Netbird peers count"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'netbird_peers_count': netbird_peers_count}) }}"
+      tags: ["validate", "netbird"]
+
+    - name: "Check firewall default-deny policy (iptables)"
+      ansible.builtin.command:
+        cmd: iptables -L INPUT -n -v | head -20
+      register: iptables_input
+      changed_when: false
+      failed_when: false
+      tags: ["validate", "firewall"]
+
+    - name: "Check firewall default-deny policy (nftables)"
+      ansible.builtin.command:
+        cmd: nft list ruleset
+      register: nft_ruleset
+      changed_when: false
+      failed_when: false
+      tags: ["validate", "firewall"]
+
+    - name: "Record firewall default-deny status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'firewall_default_deny': ('DROP' in iptables_input.stdout or 'policy drop' in nft_ruleset.stdout | lower)}) }}"
+      tags: ["validate", "firewall"]
+
+    - name: "Check SSH accessibility from management IP"
+      ansible.builtin.wait_for:
+        host: "{{ ansible_facts['default_ipv4']['address'] }}"
+        port: 22
+        timeout: 5
+      delegate_to: localhost
+      become: false
+      register: ssh_accessible
+      failed_when: false
+      tags: ["validate", "ssh"]
+
+    - name: "Record SSH accessibility"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'ssh_accessible': ssh_accessible.elapsed < 5}) }}"
+      tags: ["validate", "ssh"]
+
+    - name: "Check SSH password authentication setting"
+      ansible.builtin.command:
+        cmd: grep -E "^PasswordAuthentication" /etc/ssh/sshd_config
+      register: ssh_password_auth
+      changed_when: false
+      failed_when: false
+      tags: ["validate", "ssh"]
+
+    - name: "Record SSH password auth status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'ssh_password_auth': 'no' in ssh_password_auth.stdout | lower if ssh_password_auth.rc == 0 else false}) }}"
+      tags: ["validate", "ssh"]
+
+    - name: "Check SSH root login setting"
+      ansible.builtin.command:
+        cmd: grep -E "^PermitRootLogin" /etc/ssh/sshd_config
+      register: ssh_root_login
+      changed_when: false
+      failed_when: false
+      tags: ["validate", "ssh"]
+
+    - name: "Record SSH root login status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'ssh_root_login': 'no' in ssh_root_login.stdout | lower if ssh_root_login.rc == 0 else false}) }}"
+      tags: ["validate", "ssh"]
+
+    - name: "Check fail2ban status for sshd"
+      ansible.builtin.command:
+        cmd: fail2ban-client status sshd
+      register: fail2ban_status
+      changed_when: false
+      failed_when: false
+      tags: ["validate", "fail2ban"]
+
+    - name: "Parse fail2ban status"
+      ansible.builtin.set_fact:
+        fail2ban_data: "{{ fail2ban_status.stdout | regex_search('bantime:\\s+(\\d+)', '\\1') | default('') }}"
+      when: fail2ban_status.rc == 0
+      tags: ["validate", "fail2ban"]
+
+    - name: "Record fail2ban status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'fail2ban_active': fail2ban_status.rc == 0, 'fail2ban_bantime': fail2ban_data | default(null)}) }}"
+      tags: ["validate", "fail2ban"]
+
+    - name: "Test VPN subnet routing (ping across VPN)"
+      ansible.builtin.command:
+        cmd: ping -c 3 {{ vpn_test_target | default('8.8.8.8') }} -W 2
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: vpn_ping
+      changed_when: false
+      failed_when: false
+      tags: ["validate", "routing"]
+
+    - name: "Record VPN routing status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'vpn_routing': vpn_ping.rc == 0}) }}"
+      tags: ["validate", "routing"]
+
+  post_tasks:
+    - name: "Display validation results"
+      ansible.builtin.debug:
+        msg: "{{ validation_results | to_nice_json }}"
+      tags: ["always"]
+
+    - name: "Display validation summary"
+      ansible.builtin.debug:
+        msg:
+          "VPN Validation Summary:\n
+          - Tailscale Connected: {{ validation_results.tailscale_connected }}\n
+          - Tailscale IP: {{ validation_results.tailscale_ip }}\n
+          - Tailscale Peer Ping: {{ validation_results.tailscale_peer_ping }}\n
+          - Netbird Connected: {{ validation_results.netbird_connected }}\n
+          - Netbird Peers: {{ validation_results.netbird_peers_count }}\n
+          - Firewall Default-Deny: {{ validation_results.firewall_default_deny }}\n
+          - SSH Accessible: {{ validation_results.ssh_accessible }}\n
+          - SSH Password Auth Disabled: {{ validation_results.ssh_password_auth }}\n
+          - SSH Root Login Disabled: {{ validation_results.ssh_root_login }}\n
+          - Fail2ban Active: {{ validation_results.fail2ban_active }}\n
+          - Fail2ban Bantime: {{ validation_results.fail2ban_bantime }}\n
+          - VPN Routing: {{ validation_results.vpn_routing }}"
+      tags: ["always"]

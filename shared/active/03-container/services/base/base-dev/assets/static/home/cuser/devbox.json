@@ -45,6 +45,7 @@
     "markdownlint-cli2", # better than `markdownlint`
     "mdbook", # better than `pandoc`
     "gitui", # better than `git-cli`
+    "github:kunchenguid/treehouse", # better than `worktrunk`
     "tig", # better than `git log`
 
     # Shell Scripting Tools
@@ -72,6 +73,9 @@
     # Better nerge
     "mergiraf", "odiff",
     "quilt", "guilt",
+    # Code review
+    "github:agavra/tuicr",
+    "github:modem-dev/hunk",
 
     # Development Infrastructure
     "chezmoi", "universal-ctags",                   # Dotfile management and code indexing
@@ -96,6 +100,7 @@
 
     # Network & Security Tools
     "nmap", "tcpdump", "mtr", "whois", "rhash",    # Network analysis and security
+    "oniux",                                     # wrap any cli, incl. shell, with a tor exit only option.
 
     # Data Processing & Databases
     "duckdb", "sqlite",       # Databases
@@ -172,6 +177,11 @@
     #
 
   ],
+  "hooks": {
+    "on_create": [
+      "curl ifconfig.me"
+    ]
+  },
   "shell": {
     "init_hook": [
       "echo '🤖 Dev Base: Development environment ready'",

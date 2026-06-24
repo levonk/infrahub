@@ -1,0 +1,105 @@
+---
+# tasks file for vpn-nordvpn
+# Deploys NordVPN container with VPN gateway capabilities using docker_container module
+
+- name: "Ensure VPN service directory exists on target"
+  ansible.builtin.file:
+    path: "{{ localnet_services_dir }}/vpn/nordvpn"
+    state: directory
+    mode: "0755"
+
+- name: "Ensure NordVPN volumes exist"
+  community.docker.docker_volume:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - "{{ vpn_nordvpn_config_volume_name }}"
+    - "{{ vpn_nordvpn_data_volume_name }}"
+
+- name: "Remove existing VPN network if it exists"
+  community.docker.docker_network:
+    name: "{{ vpn_nordvpn_network_name }}"
+    state: absent
+  when: vpn_nordvpn_enabled
+  ignore_errors: true
+
+- name: "Create dedicated VPN network"
+  community.docker.docker_network:
+    name: "{{ vpn_nordvpn_network_name }}"
+    state: present
+    driver: bridge
+    ipam_config:
+      - subnet: "{{ vpn_nordvpn_network_subnet }}"
+        gateway: "{{ vpn_nordvpn_network_gateway }}"
+  when: vpn_nordvpn_enabled
+
+- name: "Pull gluetun NordVPN image"
+  community.docker.docker_image:
+    name: "qmcgaw/gluetun:latest"
+    source: pull
+    state: present
+  when: vpn_nordvpn_enabled
+
+- name: "Remove existing NordVPN container for gluetun migration"
+  community.docker.docker_container:
+    name: "{{ vpn_nordvpn_container_name }}"
+    state: absent
+    force_kill: true
+  when: vpn_nordvpn_enabled
+
+- name: "Deploy NordVPN container"
+  community.docker.docker_container:
+    name: "{{ vpn_nordvpn_container_name }}"
+    image: "qmcgaw/gluetun:latest"
+    state: started
+    restart_policy: unless-stopped
+    capabilities:
+      - NET_ADMIN
+      - NET_RAW
+    devices:
+      - /dev/net/tun
+    env:
+      VPN_SERVICE_PROVIDER: "nordvpn"
+      OPENVPN_VERSION: "2.6"
+      SERVER_COUNTRIES: "{{ vpn_nordvpn_country }}"
+      OPENVPN_USER: "{{ vpn_nordvpn_openvpn_user }}"
+      OPENVPN_PASSWORD: "{{ vpn_nordvpn_openvpn_pass }}"
+      FIREWALL: "on"
+      DOT: "on"
+      TZ: "{{ localnet_tz }}"
+      HTTPPROXY: "on"
+      HTTPPROXY_PORT: "{{ vpn_nordvpn_http_container_port | string }}"
+      HTTPSPROXY: "on"
+      HTTPSPROXY_PORT: "{{ vpn_nordvpn_https_container_port | string }}"
+      SHADOWSOCKS: "on"
+      SHADOWSOCKS_PORT: "{{ vpn_nordvpn_shadowsocks_container_port | string }}"
+    ports:
+      - "{{ vpn_nordvpn_socks_host_port }}:{{ vpn_nordvpn_socks_container_port }}"
+      - "{{ vpn_nordvpn_http_host_port }}:{{ vpn_nordvpn_http_container_port }}"
+      - "{{ vpn_nordvpn_https_host_port }}:{{ vpn_nordvpn_https_container_port }}"
+      - "{{ vpn_nordvpn_shadowsocks_host_port }}:{{ vpn_nordvpn_shadowsocks_container_port }}"
+    networks:
+      - name: "{{ vpn_nordvpn_network_name }}"
+    sysctls:
+      net.ipv4.ip_forward: "1"
+      net.ipv6.conf.all.forwarding: "1"
+    security_opts:
+      - no-new-privileges:true
+    volumes:
+      - "{{ vpn_nordvpn_config_volume_name }}:/gluetun"
+      - "{{ vpn_nordvpn_data_volume_name }}:/var/lib/nordvpn"
+  when: vpn_nordvpn_enabled
+  notify: wait for nordvpn
+
+- name: "Verify NordVPN container is running"
+  community.docker.docker_container_info:
+    name: "{{ vpn_nordvpn_container_name }}"
+  register: nordvpn_container_info
+  when: vpn_nordvpn_enabled
+
+- name: "Report NordVPN container status"
+  ansible.builtin.debug:
+    msg: "NordVPN container is running: {{ nordvpn_container_info.container.State.Status }}"
+  when:
+    - vpn_nordvpn_enabled
+    - nordvpn_container_info.container is defined

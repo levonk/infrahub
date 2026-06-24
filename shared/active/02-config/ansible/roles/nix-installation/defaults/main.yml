@@ -1,0 +1,59 @@
+---
+# defaults file for nix-installation
+# Neutral, overridable defaults. No localnet-specific paths.
+
+# ---------------------------------------------------------------------------
+# Nix Installer Configuration
+# ---------------------------------------------------------------------------
+nix_installation_version: "2.34.7"
+nix_installation_installer_url: "https://nixos.org/nix/install"
+nix_installation_installer_checksum: ""
+nix_installation_daemon_mode: true
+nix_installation_container_mode: false
+nix_installation_skip_installation: false
+
+# ---------------------------------------------------------------------------
+# Admin User & Groups
+# ---------------------------------------------------------------------------
+nix_installation_admin_user: "{{ cloud_server_admin_user | default('cuser') }}"
+nix_installation_nixbld_group: "nixbld"
+nix_installation_nixbld_gid: 30000
+
+# ---------------------------------------------------------------------------
+# Nix Configuration
+# ---------------------------------------------------------------------------
+nix_installation_nix_conf_path: "/etc/nix/nix.conf"
+nix_installation_nix_conf_owner: "root"
+nix_installation_nix_conf_group: "root"
+nix_installation_nix_conf_mode: "0644"
+
+# Nix experimental features to enable
+nix_installation_experimental_features:
+  - nix-command
+  - flakes
+
+# Additional nix.conf settings (key: value)
+nix_installation_extra_nix_conf: {}
+
+# ---------------------------------------------------------------------------
+# Nix Daemon Configuration
+# ---------------------------------------------------------------------------
+nix_installation_daemon_service_name: "nix-daemon"
+nix_installation_daemon_socket_path: "/nix/var/nix/daemon-socket/socket"
+
+# ---------------------------------------------------------------------------
+# Prerequisites
+# ---------------------------------------------------------------------------
+nix_installation_packages_debian:
+  - curl
+  - xz-utils
+
+nix_installation_packages_redhat:
+  - curl
+  - xz
+
+# ---------------------------------------------------------------------------
+# Verification
+# ---------------------------------------------------------------------------
+nix_installation_verify_nix_version: true
+nix_installation_verify_timeout_seconds: 30

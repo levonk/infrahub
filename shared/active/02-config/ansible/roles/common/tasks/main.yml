@@ -5,12 +5,12 @@
   ansible.builtin.apt:
     update_cache: true
     cache_valid_time: 3600
-  when: ansible_os_family == "Debian"
+  when: ansible_facts['os_family'] == "Debian"
 
 - name: Ensure required packages are installed
   ansible.builtin.package:
     name:
-      - "{{ 'python3-docker' if ansible_os_family == 'Debian' else 'python3-podman' }}"
+      - "{{ 'python3-docker' if ansible_facts['os_family'] == 'Debian' else 'python3-podman' }}"
       - curl
       - jq
       - git
@@ -32,7 +32,7 @@
 
 - name: Install docker-compose plugin if missing
   ansible.builtin.get_url:
-    url: "https://github.com/docker/compose/releases/download/v{{ docker_compose_version }}/docker-compose-linux-{{ ansible_architecture }}"
+    url: "https://github.com/docker/compose/releases/download/v{{ docker_compose_version }}/docker-compose-linux-{{ ansible_facts['architecture'] }}"
     dest: /usr/local/lib/docker/cli-plugins/docker-compose
     mode: "0755"
   when: docker_compose_check.rc != 0

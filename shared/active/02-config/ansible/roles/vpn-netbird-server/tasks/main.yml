@@ -1,0 +1,47 @@
+---
+# tasks file for vpn-netbird-server
+# Deploys Netbird server container for VPN mesh network
+
+- name: "Ensure VPN service directory exists on target"
+  ansible.builtin.file:
+    path: "{{ localnet_services_dir }}/vpn/netbird"
+    state: directory
+    mode: "0755"
+
+- name: "Ensure Netbird volumes exist"
+  community.docker.docker_volume:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - "{{ vpn_netbird_config_volume_name }}"
+    - "{{ vpn_netbird_data_volume_name }}"
+
+- name: "Create Netbird docker-compose.yml from template"
+  ansible.builtin.template:
+    src: docker-compose.netbird.yml.j2
+    dest: "{{ localnet_services_dir }}/vpn/netbird/docker-compose.yml"
+    mode: "0644"
+  notify: restart netbird
+
+- name: "Deploy Netbird container"
+  community.docker.docker_compose_v2:
+    project_src: "{{ localnet_services_dir }}/vpn/netbird"
+    state: present
+    pull: always
+  environment:
+    NETBIRD_SETUP_KEY: "{{ vpn_netbird_setup_key }}"
+    NETBIRD_MANAGEMENT_URL: "{{ vpn_netbird_management_url }}"
+    NETBIRD_HOSTNAME: "{{ vpn_netbird_hostname }}"
+    TZ: "{{ localnet_tz }}"
+  notify: restart netbird
+
+- name: "Verify Netbird container is running"
+  ansible.builtin.command:
+    cmd: docker ps --filter "name={{ vpn_netbird_container_name }}" --format "{{.Status}}"
+  register: vpn_netbird_container_status
+  changed_when: false
+  failed_when: "'Up' not in vpn_netbird_container_status.stdout"
+
+- name: "Report Netbird status"
+  ansible.builtin.debug:
+    msg: "Netbird container is running: {{ vpn_netbird_container_status.stdout }}"

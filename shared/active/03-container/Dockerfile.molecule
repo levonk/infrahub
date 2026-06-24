@@ -1,0 +1,47 @@
+# Dockerfile for Ansible Molecule test environment
+# This container provides a complete Ansible + Molecule + Docker environment
+# to bypass Nix OS dependency issues in the devbox environment
+
+FROM python:3.13-slim
+
+# Set environment variables
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    sudo \
+    openssh-client \
+    openssh-server \
+    vim \
+    jq \
+    yamllint \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Docker CLI (for Docker-in-Docker)
+RUN curl -fsSL https://get.docker.com -o get-docker.sh && \
+    sh get-docker.sh && \
+    rm get-docker.sh
+
+# Install Ansible and Molecule via pip
+RUN pip install --no-cache-dir \
+    ansible \
+    ansible-lint \
+    molecule \
+    molecule-docker \
+    molecule-podman \
+    docker \
+    pytest-testinfra \
+    yamllint
+
+# Create a non-root user for Ansible to use
+RUN useradd -m -s /bin/bash ansible && \
+    echo "ansible ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# Set working directory
+WORKDIR /workspace
+
+# Default command
+CMD ["/bin/bash"]

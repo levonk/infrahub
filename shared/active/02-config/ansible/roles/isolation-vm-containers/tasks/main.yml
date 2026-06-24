@@ -1,0 +1,36 @@
+---
+# Main tasks file for isolation-vm-containers role
+# Deploys containers inside the Isolation VM for AI agent operations
+
+- name: Include volume configuration tasks
+  ansible.builtin.include_tasks: volumes.yml
+  tags:
+    - volumes
+    - containers
+
+- name: Include network configuration tasks
+  ansible.builtin.include_tasks: networking.yml
+  tags:
+    - networking
+    - containers
+
+- name: Include nix-sidecar deployment tasks
+  ansible.builtin.include_tasks: nix-sidecar.yml
+  when: isolation_vm_deploy_nix_sidecar | default(true)
+  tags:
+    - nix-sidecar
+    - containers
+
+- name: Include base-kalinix deployment tasks
+  ansible.builtin.include_tasks: base-kalinix.yml
+  when: isolation_vm_deploy_base_kalinix | default(true)
+  tags:
+    - base-kalinix
+    - containers
+
+- name: Include hermes-agent deployment tasks
+  ansible.builtin.include_tasks: hermes-agent.yml
+  when: isolation_vm_deploy_hermes_agent | default(true)
+  tags:
+    - hermes-agent
+    - containers

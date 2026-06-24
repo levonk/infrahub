@@ -1,0 +1,101 @@
+---
+# Task file for isolation-vm role
+# Purpose: Provision Debian minimal VM for AI agent isolation
+
+- name: Ensure storage pool directory exists
+  ansible.builtin.file:
+    path: "{{ kvm_storage_pool_path }}"
+    state: directory
+    mode: '0755'
+  become: true
+
+- name: Download Debian minimal cloud image
+  ansible.builtin.get_url:
+    url: "{{ isolation_vm_image_url }}"
+    dest: "{{ kvm_storage_pool_path }}/{{ isolation_vm_name }}.qcow2"
+    mode: '0644'
+    timeout: 600
+  become: true
+  register: download_result
+
+- name: Resize VM disk to specified size
+  ansible.builtin.command:
+    cmd: "qemu-img resize {{ kvm_storage_pool_path }}/{{ isolation_vm_name }}.qcow2 {{ isolation_vm_disk_gb }}G"
+  become: true
+  when: download_result is succeeded
+  register: resize_result
+  failed_when: false
+
+- name: Create cloud-init user data
+  ansible.builtin.template:
+    src: cloud-init-user-data.yml.j2
+    dest: "/tmp/{{ isolation_vm_name }}-user-data.yml"
+    mode: '0644'
+  become: true
+
+- name: Create cloud-init meta data
+  ansible.builtin.template:
+    src: cloud-init-meta-data.yml.j2
+    dest: "/tmp/{{ isolation_vm_name }}-meta-data.yml"
+    mode: '0644'
+  become: true
+
+- name: Configure DHCP reservation for static IP
+  ansible.builtin.command:
+    cmd: "virsh net-update {{ isolation_vm_nat_bridge }} add-last ip-dhcp-host --xml \"<host mac='{{ isolation_vm_mac_address }}' name='{{ isolation_vm_name }}' ip='{{ isolation_vm_ip_address }}'/>\" --config --live"
+  become: true
+  register: dhcp_config
+  failed_when: false
+  when: isolation_vm_mac_address is defined and isolation_vm_mac_address | length > 0
+
+- name: Define VM in libvirt
+  ansible.builtin.command:
+    cmd: >
+      virt-install
+      --name {{ isolation_vm_name }}
+      --memory {{ isolation_vm_memory_mb }}
+      --vcpus {{ isolation_vm_vcpus }}
+      --disk path={{ kvm_storage_pool_path }}/{{ isolation_vm_name }}.qcow2,format=qcow2
+      --network network={{ isolation_vm_nat_bridge }},model=virtio{% if isolation_vm_mac_address is defined %},mac={{ isolation_vm_mac_address }}{% endif %}
+      --network network={{ isolation_vm_routed_bridge }},model=virtio
+      --graphics vnc,listen=0.0.0.0
+      --noautoconsole
+      --osinfo {{ isolation_vm_osinfo }}
+      --import
+    become: true
+  register: install_result
+  failed_when: false
+
+- name: Set VM to autostart
+  ansible.builtin.command:
+    cmd: "virsh autostart {{ isolation_vm_name }}"
+    become: true
+  register: autostart_result
+  failed_when: false
+  when: install_result is succeeded
+
+- name: Clean up cloud-init user data files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  become: true
+  loop:
+    - "/tmp/{{ isolation_vm_name }}-user-data.yml"
+    - "/tmp/{{ isolation_vm_name }}-meta-data.yml"
+  when: install_result is succeeded
+
+- name: Wait for VM to boot and get IP
+  ansible.builtin.pause:
+    seconds: 30
+  when: install_result is succeeded
+
+- name: Verify VM is running
+  ansible.builtin.command:
+    cmd: "virsh list --all"
+  become: true
+  register: vm_list
+  changed_when: false
+
+- name: Display VM status
+  ansible.builtin.debug:
+    var: vm_list.stdout_lines

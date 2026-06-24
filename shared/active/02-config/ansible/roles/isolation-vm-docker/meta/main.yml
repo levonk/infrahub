@@ -1,0 +1,22 @@
+---
+galaxy_info:
+  role_name: isolation_vm_docker
+  author: levonk
+  description: Install and configure Docker inside Isolation VM for AI agent containers
+  company: levonk
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+    - name: Ubuntu
+      versions:
+        - jammy
+  galaxy_tags:
+    - docker
+    - containers
+    - isolation
+    - vm
+
+dependencies: []

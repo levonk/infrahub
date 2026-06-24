@@ -1,26 +1,14 @@
 ---
 # handlers file for proxy-traefik
 
-- name: Restart proxy-traefik
+- name: restart traefik
   community.docker.docker_container:
-    name: proxy-traefik
+    name: "{{ proxy_traefik_container_name }}"
     state: started
     restart: true
-  listen: restart proxy-traefik
   become: true
 
-- name: Restart proxy-squid
-  community.docker.docker_container:
-    name: proxy-squid
-    state: started
-    restart: true
-  listen: restart proxy-squid
-  become: true
-
-- name: Restart proxy-tor
-  community.docker.docker_container:
-    name: proxy-tor
-    state: started
-    restart: true
-  listen: restart proxy-tor
+- name: reload traefik
+  ansible.builtin.command:
+    cmd: "docker kill --signal=SIGHUP {{ proxy_traefik_container_name }}"
   become: true

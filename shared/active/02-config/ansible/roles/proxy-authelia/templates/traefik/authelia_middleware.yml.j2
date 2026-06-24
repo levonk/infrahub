@@ -1,0 +1,15 @@
+---
+# Traefik forward auth middleware configuration for Authelia
+# Managed by Ansible — do not edit manually.
+
+http:
+  middlewares:
+    authelia-forwardauth:
+      forwardAuth:
+        address: "http://proxy-authelia:{{ proxy_authelia_web_container_port }}/api/verify?rd=https://{{ ansible_host | default('localhost') }}{% if proxy_authelia_web_host_port != '443' %}:{{ proxy_authelia_web_host_port }}{% endif %}"
+        trustForwardHeader: true
+        authResponseHeaders:
+          - "Remote-User"
+          - "Remote-Group"
+          - "Remote-Name"
+          - "Remote-Email"

@@ -1,0 +1,71 @@
+---
+# Networking configuration tasks for Isolation VM
+# Purpose: Configure network interfaces, DNS, and routing
+
+- name: Configure network interfaces for both bridges
+  ansible.builtin.template:
+    src: interfaces.j2
+    dest: "/etc/network/interfaces"
+    mode: '0644'
+  notify:
+    - restart networking
+  tags:
+    - networking
+
+- name: Set up DNS resolution inside VM
+  ansible.builtin.template:
+    src: resolv.conf.j2
+    dest: "/etc/resolv.conf"
+    mode: '0644'
+  tags:
+    - networking
+
+- name: Configure routing table for external access via routed bridge
+  ansible.builtin.template:
+    src: routes.j2
+    dest: "/etc/network/routes"
+    mode: '0644'
+  notify:
+    - restart networking
+  tags:
+    - networking
+
+- name: Ensure network is restarted to apply configuration
+  ansible.builtin.systemd:
+    name: networking
+    state: restarted
+  when: ansible_service_mgr == "systemd"
+  tags:
+    - networking
+
+- name: Wait for network to stabilize
+  ansible.builtin.pause:
+    seconds: 5
+  tags:
+    - networking
+
+- name: Test network connectivity on NAT bridge
+  ansible.builtin.command:
+    cmd: "ping -c 3 {{ isolation_vm_gateway }}"
+  register: nat_ping_test
+  failed_when: false
+  changed_when: false
+  tags:
+    - networking
+
+- name: Test network connectivity on routed bridge
+  ansible.builtin.command:
+    cmd: "ping -c 3 8.8.8.8"
+  register: routed_ping_test
+  failed_when: false
+  changed_when: false
+  tags:
+    - networking
+
+- name: Display network connectivity test results
+  ansible.builtin.debug:
+    msg:
+      - "NAT Bridge Connectivity: {{ 'SUCCESS' if nat_ping_test.rc == 0 else 'FAILED' }}"
+      - "Routed Bridge Connectivity: {{ 'SUCCESS' if routed_ping_test.rc == 0 else 'FAILED' }}"
+  tags:
+    - networking

@@ -1,0 +1,33 @@
+---
+# Security isolation test playbook for Isolation VM
+# Tests isolation and security boundaries between VM, containers, and host
+
+- name: "Security Isolation Tests - Isolation VM"
+  hosts: isolation_vms
+  become: true
+  gather_facts: true
+  
+  roles:
+    - role: isolation-vm-tests
+      tasks_from: security-isolation.yml
+
+  post_tasks:
+    - name: "Generate security test summary"
+      ansible.builtin.debug:
+        msg: |
+          Security Isolation Test Summary
+          ===============================
+          Test Date: {{ ansible_date_time.iso8601 }}
+          Target VM: {{ inventory_hostname }}
+          
+          Test Results:
+          - Docker Socket Isolation: {{ security_test_results.docker_socket_isolation.overall_status | default('NOT TESTED') }}
+          - Network Isolation: {{ security_test_results.network_isolation.overall_status | default('NOT TESTED') }}
+          - VPN Credential Protection: {{ security_test_results.vpn_credential_protection.overall_status | default('NOT TESTED') }}
+          - Firewall Isolation: {{ security_test_results.firewall_isolation.overall_status | default('NOT TESTED') }}
+          - Privilege Escalation Prevention: {{ security_test_results.privilege_escalation_prevention.overall_status | default('NOT TESTED') }}
+          - Resource Isolation: {{ security_test_results.resource_isolation.overall_status | default('NOT TESTED') }}
+          - Inter-Container Isolation: {{ security_test_results.inter_container_isolation.overall_status | default('NOT TESTED') }}
+          - Configuration Audit: {{ security_test_results.configuration_audit.overall_status | default('NOT TESTED') }}
+          
+          Detailed results have been logged to the task output.

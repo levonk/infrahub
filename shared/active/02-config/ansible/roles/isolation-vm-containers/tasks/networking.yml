@@ -1,0 +1,127 @@
+---
+# Network configuration tasks for isolation-vm containers
+# Configures Docker networks with proper isolation and routing
+
+- name: Create isolation-vm Docker network with subnet configuration
+  community.docker.docker_network:
+    name: "{{ isolation_vm_nix_sidecar_network_name }}"
+    state: present
+    driver: bridge
+    driver_options:
+      com.docker.network.bridge.name: isolation-vm-br0
+    ipam_config:
+      - subnet: "{{ isolation_vm_network_subnet }}"
+        gateway: "{{ isolation_vm_network_gateway }}"
+  become: true
+  register: isolation_vm_network
+
+- name: Create network routing rules for container egress
+  ansible.builtin.copy:
+    dest: /etc/docker/daemon.json
+    content: |
+      {
+        "iptables": true,
+        "ip-masq": true,
+        "userland-proxy": false,
+        "default-address-pools": [
+          {
+            "base": "{{ isolation_vm_network_subnet }}",
+            "size": {{ isolation_vm_network_subnet_size }}
+          }
+        ]
+      }
+    mode: '0644'
+  become: true
+  notify: restart docker
+  when: isolation_vm_network.changed
+
+- name: Configure firewall rules for container network isolation
+  ansible.posix.firewalld:
+    zone: trusted
+    interface: isolation-vm-br0
+    permanent: true
+    state: enabled
+  become: true
+  when: ansible_facts['services']['firewalld'] is defined
+
+- name: Allow container network communication
+  ansible.posix.firewalld:
+    zone: trusted
+    source: "{{ isolation_vm_network_subnet }}"
+    permanent: true
+    state: enabled
+  become: true
+  when: ansible_facts['services']['firewalld'] is defined
+
+- name: Log network configuration
+  ansible.builtin.debug:
+    msg:
+      - "Network: {{ isolation_vm_nix_sidecar_network_name }}"
+      - "Subnet: {{ isolation_vm_network_subnet }}"
+      - "Gateway: {{ isolation_vm_network_gateway }}"
+      - "Bridge: isolation-vm-br0"
+
+- name: Set up network routing rules for container egress
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/99-isolation-vm-networking.conf
+    content: |
+      # Enable IP forwarding for container networking
+      net.ipv4.ip_forward = 1
+      # Enable bridge netfilter for firewall rules
+      net.bridge.bridge-nf-call-iptables = 1
+      net.bridge.bridge-nf-call-ip6tables = 1
+    mode: '0644'
+  become: true
+  notify: reload sysctl
+
+- name: Configure container egress routing via VPN/proxy
+  ansible.builtin.copy:
+    dest: /etc/docker/daemon.json
+    content: |
+      {
+        "iptables": true,
+        "ip-masq": true,
+        "userland-proxy": false,
+        "default-address-pools": [
+          {
+            "base": "{{ isolation_vm_network_subnet }}",
+            "size": {{ isolation_vm_network_subnet_size }}
+          }
+        ],
+        "metrics-addr": "{{ isolation_vm_docker_metrics_address | default('127.0.0.1:9323') }}",
+        "experimental": false
+      }
+    mode: '0644'
+  become: true
+  notify: restart docker
+
+- name: Create custom routing table for container traffic
+  ansible.builtin.copy:
+    dest: /etc/iproute2/rt_tables
+    content: |
+      #
+      # reserved values
+      #
+      255	local
+      254	main
+      253	default
+      0	unspec
+      #
+      # local
+      #
+      #1	inr.ruhep
+      200	isolation-vm
+    mode: '0644'
+  become: true
+
+- name: Configure routing rules for VPN/proxy egress
+  ansible.builtin.copy:
+    dest: /etc/network/interfaces.d/isolation-vm-routing
+    content: |
+      # Routing rules for isolation-vm container egress
+      post-up ip route add {{ isolation_vm_network_subnet }} dev isolation-vm-br0 src {{ isolation_vm_network_gateway }} table isolation-vm
+      post-up ip route add default via {{ isolation_vm_vpn_gateway | default('192.168.101.1') }} table isolation-vm
+      post-up ip rule add from {{ isolation_vm_network_subnet }} table isolation-vm
+    mode: '0644'
+  become: true
+  when: isolation_vm_enable_vpn_routing | default(false)

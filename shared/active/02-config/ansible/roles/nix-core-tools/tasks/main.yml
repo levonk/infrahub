@@ -16,33 +16,18 @@
 # ---------------------------------------------------------------------------
 # Install core tools via Nix
 # ---------------------------------------------------------------------------
-- name: Check if Nix packages are installed
+
+
+- name: Install Nix packages
   ansible.builtin.command:
-    cmd: "{{ nix_core_tools_nix_bin_path }}/nix-env -q {{ item }}"
-  become_user: "{{ nix_core_tools_admin_user }}"
+    cmd: "nix-env -iA nixpkgs.{{ item }}"
   become: true
   environment:
-    PATH: "{{ nix_core_tools_nix_bin_path }}:{{ ansible_env.PATH | default('/usr/local/bin:/usr/bin:/bin') }}"
-  changed_when: false
-  failed_when: false
-  register: nix_core_tools_pkg_check
+    PATH: "/nix/var/nix/profiles/default/bin:{{ ansible_env.PATH | default('/usr/local/bin:/usr/bin:/bin') }}"
   loop: "{{ nix_core_tools_packages }}"
   loop_control:
     label: "{{ item }}"
-
-- name: Install missing Nix packages
-  ansible.builtin.command:
-    cmd: "{{ nix_core_tools_nix_bin_path }}/nix-env -iA nixpkgs.{{ item.item }}"
-  become_user: "{{ nix_core_tools_admin_user }}"
-  become: true
-  environment:
-    PATH: "{{ nix_core_tools_nix_bin_path }}:{{ ansible_env.PATH | default('/usr/local/bin:/usr/bin:/bin') }}"
-  when:
-    - nix_core_tools_pkg_check.results is defined
-    - item.rc != 0
-  loop: "{{ nix_core_tools_pkg_check.results }}"
-  loop_control:
-    label: "{{ item.item }}"
+  failed_when: false
 
 # ---------------------------------------------------------------------------
 # Set zsh as default shell for admin user
@@ -85,7 +70,6 @@
 - name: Verify zsh is available
   ansible.builtin.command:
     cmd: "{{ nix_core_tools_zsh_path }} --version"
-  become_user: "{{ nix_core_tools_admin_user }}"
   become: true
   changed_when: false
   when:
@@ -95,7 +79,6 @@
 - name: Verify neovim is available
   ansible.builtin.command:
     cmd: "{{ nix_core_tools_nix_profile_bin }}/nvim --version"
-  become_user: "{{ nix_core_tools_admin_user }}"
   become: true
   changed_when: false
   when:
@@ -105,7 +88,6 @@
 - name: Verify mosh is available
   ansible.builtin.command:
     cmd: "{{ nix_core_tools_nix_profile_bin }}/mosh --version"
-  become_user: "{{ nix_core_tools_admin_user }}"
   become: true
   changed_when: false
   when:
@@ -114,8 +96,7 @@
 
 - name: Verify devbox is available
   ansible.builtin.command:
-    cmd: "{{ nix_core_tools_nix_profile_bin }}/devbox --version"
-  become_user: "{{ nix_core_tools_admin_user }}"
+    cmd: "{{ nix_core_tools_nix_profile_bin }}/devbox help"
   become: true
   changed_when: false
   when:

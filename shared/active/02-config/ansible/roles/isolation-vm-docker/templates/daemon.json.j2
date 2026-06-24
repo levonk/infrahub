@@ -1,0 +1,14 @@
+{
+  "log-driver": "{{ isolation_vm_docker_log_driver }}",
+  "log-opts": {
+    "max-size": "{{ isolation_vm_docker_log_opts.max_size }}",
+    "max-file": "{{ isolation_vm_docker_log_opts.max_file }}"
+  },
+  "live-restore": {{ isolation_vm_docker_live_restore | lower }},
+  "storage-driver": "{{ isolation_vm_docker_storage_driver }}"
+  {% if isolation_vm_docker_extra_daemon_config is defined and isolation_vm_docker_extra_daemon_config is mapping %}
+  {% for key, value in isolation_vm_docker_extra_daemon_config.items() %}
+  , "{{ key }}": {{ value | to_json }}
+  {% endfor %}
+  {% endif %}
+}

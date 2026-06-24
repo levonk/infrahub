@@ -74,6 +74,33 @@ networks:
         - subnet: 172.21.0.0/16
           gateway: 172.21.0.1
 
+  proxy-chain:
+    name: proxy-chain-network
+    driver: bridge
+    external: false
+    ipam:
+      config:
+        - subnet: 172.29.0.0/16
+          gateway: 172.29.0.1
+
+  searxng-network:
+    name: searxng-network
+    driver: bridge
+    external: false
+    ipam:
+      config:
+        - subnet: 172.23.0.0/16
+          gateway: 172.23.0.1
+
+  vpn-network:
+    name: vpn-network
+    driver: bridge
+    external: false
+    ipam:
+      config:
+        - subnet: 172.24.0.0/16
+          gateway: 172.24.0.1
+
 volumes:
   # Base volumes
   nix-cache:
@@ -293,6 +320,18 @@ volumes:
   ai-codeassist-gh-config:
     name: localnet-ai-codeassist-gh-config-volume
     external: false
+  headroom-data:
+    name: localnet-headroom-data-volume
+    external: false
+
+  # Search Services
+  searxng-config:
+    name: localnet-searxng-config-volume
+    external: false
+  searxng-cache:
+    name: localnet-searxng-cache-volume
+    external: false
+
   ai-codeassist-cache:
     name: localnet-ai-codeassist-cache-volume
     external: false

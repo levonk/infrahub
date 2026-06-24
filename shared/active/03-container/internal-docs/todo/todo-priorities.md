@@ -273,11 +273,15 @@ Ventoy USB Booter
   - [ ] Time Tracking (automated) https://github.com/ActivityWatch
   - [ ] Activity Tracking (excersize) https://github.com/myfear/open-pace
 
+### Email Architecture
+- [ ]  https://github.com/toinbox/simplerelay to allow for all local apops to communicate with this, and it authenticates with the actual outbound
+
+
 ### DNS Architecture (Tiered Fallback)
 
 _Goal: Privacy, Resilience, Ad-blocking_
 
-- [ ] Security for Untrusted Workloads: https://github.com/ironsh/iron-proxy?tab=readme-ov-file
+- [ ] security for untrusted workloads: https://github.com/ironsh/iron-proxy?tab=readme-ov-file
 - [ ] **High Availability**: `keepalived` for critical DNS endpoints
 - [ ] **Layer 1 (Filtering)**: AdGuard Home + keepalived https://github.com/AdguardTeam/AdGuardHome
 - [ ] **Layer 2 (Routing)**: DNSDist + keepalived https://github.com/PowerDNS/pdns
@@ -438,6 +442,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
 - [ ] **Data Tooling**: Goose https://github.com/block/goose
 - [ ] **Notebooks**: JupyterLab https://github.com/jupyterlab/jupyterlab
 - [ ] **Project Mgmt**: Focalboard (Trello alt) https://github.com/mattermost-community/focalboard
+- [ ] **UI/UX Design Figma**: https://github.com/penpot/penpot
 - [ ] **API / App Building**: NocoDB (Airtable alt) https://github.com/nocodb/nocodb
 - [ ] Understanding
   - [ ] **repo-swarm**: https://github.com/royosherove/repo-swarm
@@ -593,7 +598,11 @@ _Goal: Privacy, Resilience, Ad-blocking_
     - [ ] https://github.com/element-hq/dendrite
     - [ ] https://git.telodendria.io/Telodendria/Telodendria
 - [ ] **Social**: Mastodon https://github.com/mastodon/mastodon
+- [ ] **Video**:
+  - [ ] AI Video Editor: https://github.com/calesthio/OpenMontage
 - [ ] **Video/Voice**:
+  - [ ] Voice Receptionist: https://github.com/dograh-hq/dograh
+  - [ ] Voice Clone: https://github.com/jamiepine/voicebox
   - [ ] Video Meet: https://jitsi.org/jitsi-meet/
   - [ ] Video Meetings: https://github.com/miroslavpejic85/mirotalk https://p2p.mirotalk.com/
   - [ ] Text to Voice:
@@ -618,7 +627,20 @@ _Goal: Privacy, Resilience, Ad-blocking_
 
 - [ ] **AI API Routers**:
   - [ ] https://github.com/diegosouzapw/OmniRoute
-    - [ ] https://github.com/decolua/9router
+    - [ ] https://github.com/maximhq/bifrost
+    - [ ] https://github.com/decolua/9router (OmniRoute seems way better than this)
+    - [ ] https://github.com/seakee/CPA-Manager-Plus
+      - [ ] https://github.com/router-for-me/CLIProxyAPI
+- [ ] **Token Optimization**:
+  - [ ] https://github.com/chopratejas/headroom
+    - [ ] https://github.com/rtk-ai/rtk
+    - [ ] https://github.com/johunsang/semble_rs
+    - [ ] https://github.com/yvgude/lean-ctx
+- [ ] **Tool Call Fixer**:
+  - [ ] https://github.com/antoinezambelli/forge#proxy-server
+- [ ] **AI Metrics Dashboards**:
+  - [ ] https://github.com/nateherkai/token-dashboard
+  - [ ] https://github.com/router-for-me/Cli-Proxy-API-Management-Center
 - [ ] **Inference Engines**:
   - [ ] **Ollama**: LLM Runner https://github.com/ollama/ollama
   - [ ] **LocalAI**: OpenAI compatible API
@@ -646,6 +668,8 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] **LiteLLM**: LLM Proxy/Router https://github.com/BerriAI/litellm
   - [ ] **ArchGW**: AI Gateway https://github.com/katanemo/archgw
   - [ ] **n8n AI**: AI workflows
+- Connectors
+  - [ ] https://github.com/Panniantong/Agent-Reach/blob/main/docs/README_en.md
 
 ### Proxies & Registries (Caching/Mirroring)
 
@@ -708,6 +732,8 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] SparkyFitness: https://github.com/CodeWithCJ/SparkyFitness
   - [ ] Web VSCode: https://search.nixos.org/packages?channel=25.11&show=openvscode-server&query=vscode-server
 
+- [ ] **Services**:
+  - [ ] Mike-OSS: https://github.com/willchen96/mike https://www.youtube.com/watch?v=DtQ_zQsr9as
 - [ ] **Finance**:
 	- [ ] Personal Finance Tracker https://github.com/we-promise/sure/
 	- [ ] Actual Budget: https://github.com/actualbudget/actual

@@ -44,7 +44,7 @@
   post_tasks:
     - name: "Verify SSH service is running"
       ansible.builtin.systemd:
-        name: "{{ 'ssh' if ansible_os_family == 'Debian' else 'sshd' }}"
+        name: "{{ 'ssh' if ansible_facts['os_family'] == 'Debian' else 'sshd' }}"
         state: started
       check_mode: false
       tags: ["verify", "ssh"]

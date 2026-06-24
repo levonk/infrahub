@@ -1,0 +1,136 @@
+---
+# Test playbook for isolation-vm container networking and volume mounts
+# Validates inter-container communication, volume mounts, and network routing
+
+- name: Test isolation-vm container networking and volumes
+  hosts: isolation_vms
+  become: true
+  gather_facts: true
+  vars:
+    test_results: []
+
+  tasks:
+    - name: Check if nix-sidecar container is running
+      community.docker.docker_container_info:
+        name: "{{ isolation_vm_nix_sidecar_container_name }}"
+      register: nix_sidecar_info
+
+    - name: Check if base-kalinix container is running
+      community.docker.docker_container_info:
+        name: "{{ isolation_vm_base_kalinix_container_name }}"
+      register: base_kalinix_info
+
+    - name: Check if hermes-agent container is running
+      community.docker.docker_container_info:
+        name: "{{ isolation_vm_hermes_agent_container_name }}"
+      register: hermes_agent_info
+
+    - name: Test nix-sidecar volume mounts
+      ansible.builtin.command: >
+        docker exec {{ isolation_vm_nix_sidecar_container_name }}
+        /bin/sh -c "for mount in /nix /etc/nix /root/.cache/nix; do mountpoint -q $mount && echo $mount: OK || echo $mount: FAIL; done"
+      register: nix_sidecar_volumes
+      ignore_errors: true
+
+    - name: Test base-kalinix volume mounts
+      ansible.builtin.command: >
+        docker exec {{ isolation_vm_base_kalinix_container_name }}
+        /bin/sh -c "for mount in /nix /etc/nix /root/.cache/nix /home/{{ isolation_vm_user }}; do mountpoint -q $mount && echo $mount: OK || echo $mount: FAIL; done"
+      register: base_kalinix_volumes
+      ignore_errors: true
+
+    - name: Test hermes-agent volume mounts
+      ansible.builtin.command: >
+        docker exec {{ isolation_vm_hermes_agent_container_name }}
+        /bin/sh -c "for mount in /nix /etc/nix /root/.cache/nix {{ isolation_vm_hermes_agent_data_dir }} {{ isolation_vm_hermes_agent_config_dir }} /var/run/docker.sock; do mountpoint -q $mount && echo $mount: OK || echo $mount: FAIL; done"
+      register: hermes_agent_volumes
+      ignore_errors: true
+
+    - name: Test inter-container communication (base-kalinix to nix-sidecar)
+      ansible.builtin.command: >
+        docker exec {{ isolation_vm_base_kalinix_container_name }}
+        ping -c 2 {{ isolation_vm_nix_sidecar_container_name }}
+      register: base_to_nix_ping
+      ignore_errors: true
+
+    - name: Test inter-container communication (hermes-agent to nix-sidecar)
+      ansible.builtin.command: >
+        docker exec {{ isolation_vm_hermes_agent_container_name }}
+        ping -c 2 {{ isolation_vm_nix_sidecar_container_name }}
+      register: hermes_to_nix_ping
+      ignore_errors: true
+
+    - name: Test inter-container communication (hermes-agent to base-kalinix)
+      ansible.builtin.command: >
+        docker exec {{ isolation_vm_hermes_agent_container_name }}
+        ping -c 2 {{ isolation_vm_base_kalinix_container_name }}
+      register: hermes_to_base_ping
+      ignore_errors: true
+
+    - name: Test Nix access from base-kalinix
+      ansible.builtin.command: >
+        docker exec {{ isolation_vm_base_kalinix_container_name }}
+        /bin/sh -c "command -v nix && nix --version || echo 'Nix not accessible'"
+      register: base_kalinix_nix
+      ignore_errors: true
+
+    - name: Test Nix access from hermes-agent
+      ansible.builtin.command: >
+        docker exec {{ isolation_vm_hermes_agent_container_name }}
+        /bin/sh -c "command -v nix && nix --version || echo 'Nix not accessible'"
+      register: hermes_agent_nix
+      ignore_errors: true
+
+    - name: Test Docker socket access from hermes-agent
+      ansible.builtin.command: >
+        docker exec {{ isolation_vm_hermes_agent_container_name }}
+        /bin/sh -c "docker ps || echo 'Docker socket not accessible'"
+      register: hermes_agent_docker
+      ignore_errors: true
+
+    - name: Test external network connectivity from containers
+      ansible.builtin.command: >
+        docker exec {{ isolation_vm_base_kalinix_container_name }}
+        ping -c 2 8.8.8.8
+      register: external_connectivity
+      ignore_errors: true
+
+    - name: Display test results
+      ansible.builtin.debug:
+        msg:
+          - "=== Container Status ==="
+          - "nix-sidecar: {{ 'Running' if nix_sidecar_info.container.State.Status == 'running' else 'Not Running' }}"
+          - "base-kalinix: {{ 'Running' if base_kalinix_info.container.State.Status == 'running' else 'Not Running' }}"
+          - "hermes-agent: {{ 'Running' if hermes_agent_info.container.State.Status == 'running' else 'Not Running' }}"
+          - ""
+          - "=== Volume Mount Tests ==="
+          - "nix-sidecar volumes: {{ nix_sidecar_volumes.stdout | default('Test failed') }}"
+          - "base-kalinix volumes: {{ base_kalinix_volumes.stdout | default('Test failed') }}"
+          - "hermes-agent volumes: {{ hermes_agent_volumes.stdout | default('Test failed') }}"
+          - ""
+          - "=== Inter-Container Communication ==="
+          - "base-kalinix -> nix-sidecar: {{ 'OK' if base_to_nix_ping.rc == 0 else 'FAIL' }}"
+          - "hermes-agent -> nix-sidecar: {{ 'OK' if hermes_to_nix_ping.rc == 0 else 'FAIL' }}"
+          - "hermes-agent -> base-kalinix: {{ 'OK' if hermes_to_base_ping.rc == 0 else 'FAIL' }}"
+          - ""
+          - "=== Nix Access Tests ==="
+          - "base-kalinix Nix: {{ base_kalinix_nix.stdout | default('Not accessible') }}"
+          - "hermes-agent Nix: {{ hermes_agent_nix.stdout | default('Not accessible') }}"
+          - ""
+          - "=== Docker Socket Access ==="
+          - "hermes-agent Docker: {{ hermes_agent_docker.stdout | default('Not accessible') }}"
+          - ""
+          - "=== External Connectivity ==="
+          - "Container external access: {{ 'OK' if external_connectivity.rc == 0 else 'FAIL' }}"
+
+    - name: Assert all critical tests pass
+      ansible.builtin.assert:
+        that:
+          - nix_sidecar_info.container.State.Status == "running"
+          - base_kalinix_info.container.State.Status == "running"
+          - hermes_agent_info.container.State.Status == "running"
+          - base_to_nix_ping.rc == 0
+          - hermes_to_nix_ping.rc == 0
+          - hermes_to_base_ping.rc == 0
+        fail_msg: "Critical networking tests failed"
+        success_msg: "All critical networking tests passed"

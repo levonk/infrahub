@@ -1,0 +1,124 @@
+---
+# Test playbook for base-kalinix container
+# Verifies Kali Linux tools and Nix integration
+
+- name: Test base-kalinix container
+  hosts: isolation_vms
+  become: true
+  gather_facts: true
+  vars:
+    test_results: {}
+
+  tasks:
+    - name: Check if base-kalinix container is running
+      community.docker.docker_container_info:
+        name: isolation-vm-base-kalinix
+      register: container_info
+
+    - name: Assert container is running
+      ansible.builtin.assert:
+        that:
+          - container_info.container.State.Status == "running"
+        fail_msg: "base-kalinix container is not running"
+        success_msg: "base-kalinix container is running"
+
+    - name: Check container health status
+      ansible.builtin.assert:
+        that:
+          - container_info.container.State.Health.Status == "healthy"
+        fail_msg: "base-kalinix container is not healthy"
+        success_msg: "base-kalinix container is healthy"
+
+    - name: Test Nix availability in container
+      community.docker.docker_container_exec:
+        container: isolation-vm-base-kalinix
+        command: /bin/sh -c "nix --version"
+      register: nix_version
+      ignore_errors: true
+
+    - name: Assert Nix is available
+      ansible.builtin.assert:
+        that:
+          - nix_version.rc == 0
+        fail_msg: "Nix is not available in base-kalinix container"
+        success_msg: "Nix is available: {{ nix_version.stdout }}"
+
+    - name: Test Kali tool availability (nmap)
+      community.docker.docker_container_exec:
+        container: isolation-vm-base-kalinix
+        command: /bin/sh -c "which nmap"
+      register: nmap_check
+      ignore_errors: true
+
+    - name: Assert nmap is available
+      ansible.builtin.assert:
+        that:
+          - nmap_check.rc == 0
+        fail_msg: "nmap is not available in base-kalinix container"
+        success_msg: "nmap is available: {{ nmap_check.stdout }}"
+
+    - name: Test Kali tool availability (netcat)
+      community.docker.docker_container_exec:
+        container: isolation-vm-base-kalinix
+        command: /bin/sh -c "which nc"
+      register: netcat_check
+      ignore_errors: true
+
+    - name: Assert netcat is available
+      ansible.builtin.assert:
+        that:
+          - netcat_check.rc == 0
+        fail_msg: "netcat is not available in base-kalinix container"
+        success_msg: "netcat is available: {{ netcat_check.stdout }}"
+
+    - name: Test Nix package installation
+      community.docker.docker_container_exec:
+        container: isolation-vm-base-kalinix
+        command: /bin/sh -c "nix profile install nixpkgs#hello"
+      register: nix_install
+      ignore_errors: true
+
+    - name: Assert Nix package installation works
+      ansible.builtin.assert:
+        that:
+          - nix_install.rc == 0
+        fail_msg: "Nix package installation failed"
+        success_msg: "Nix package installation works"
+
+    - name: Test installed Nix package
+      community.docker.docker_container_exec:
+        container: isolation-vm-base-kalinix
+        command: /bin/sh -c "hello"
+      register: hello_test
+      ignore_errors: true
+
+    - name: Assert installed package works
+      ansible.builtin.assert:
+        that:
+          - hello_test.rc == 0
+        fail_msg: "Installed Nix package does not work"
+        success_msg: "Installed Nix package works: {{ hello_test.stdout }}"
+
+    - name: Verify volume mounts
+      community.docker.docker_container_exec:
+        container: isolation-vm-base-kalinix
+        command: /bin/sh -c "mount | grep /nix"
+      register: mount_check
+      ignore_errors: true
+
+    - name: Assert Nix volume is mounted
+      ansible.builtin.assert:
+        that:
+          - mount_check.rc == 0
+        fail_msg: "Nix volume is not mounted"
+        success_msg: "Nix volume is mounted: {{ mount_check.stdout }}"
+
+    - name: Display test results
+      ansible.builtin.debug:
+        msg:
+          - "base-kalinix container tests completed successfully"
+          - "Container status: {{ container_info.container.State.Status }}"
+          - "Health status: {{ container_info.container.State.Health.Status }}"
+          - "Nix version: {{ nix_version.stdout }}"
+          - "nmap available: {{ nmap_check.stdout }}"
+          - "netcat available: {{ netcat_check.stdout }}"

@@ -1,0 +1,224 @@
+---
+# tasks file for docker-engine
+
+# ---------------------------------------------------------------------------
+# Gather facts for OS detection
+# ---------------------------------------------------------------------------
+- name: Gather ansible_facts
+  ansible.builtin.setup:
+    gather_subset: ["all"]
+
+# ---------------------------------------------------------------------------
+# Prerequisites
+# ---------------------------------------------------------------------------
+- name: Ensure required packages are present
+  ansible.builtin.package:
+    name:
+      - ca-certificates
+      - curl
+      - gnupg
+      - software-properties-common
+    state: present
+  become: true
+  when: 
+    - ansible_facts['os_family'] == "Debian"
+    - not docker_engine_skip_installation | default(false) | bool
+
+# ---------------------------------------------------------------------------
+# Add Docker apt repository (Debian/Ubuntu)
+# ---------------------------------------------------------------------------
+- name: Ensure apt keyrings directory exists
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+  become: true
+  when:
+    - ansible_facts['os_family'] == "Debian"
+    - docker_engine_install_method == "repo"
+    - not docker_engine_skip_installation | default(false) | bool
+
+- name: Add Docker GPG key
+  ansible.builtin.get_url:
+    url: https://download.docker.com/linux/debian/gpg
+    dest: /etc/apt/keyrings/docker.asc
+    mode: "0644"
+  become: true
+  when:
+    - ansible_facts['os_family'] == "Debian"
+    - docker_engine_install_method == "repo"
+    - not docker_engine_skip_installation | default(false) | bool
+
+- name: Add Docker apt repository
+  ansible.builtin.deb822_repository:
+    name: docker
+    types: deb
+    uris: https://download.docker.com/linux/debian
+    suites: bookworm
+    components: stable
+    signed_by: /etc/apt/keyrings/docker.asc
+    architecture: "{{ ansible_facts['architecture'] }}"
+    state: present
+  become: true
+  when:
+    - ansible_facts['os_family'] == "Debian"
+    - docker_engine_install_method == "repo"
+    - not docker_engine_skip_installation | default(false) | bool
+
+- name: Update apt cache after adding Docker repository
+  ansible.builtin.apt:
+    update_cache: true
+  become: true
+  when:
+    - ansible_facts['os_family'] == "Debian"
+    - docker_engine_install_method == "repo"
+    - not docker_engine_skip_installation | default(false) | bool
+
+# ---------------------------------------------------------------------------
+# Install Docker Engine and Compose plugin
+# ---------------------------------------------------------------------------
+- name: Install Docker packages
+  ansible.builtin.package:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-compose-plugin
+    state: present
+  become: true
+  when: not docker_engine_skip_installation | default(false) | bool
+
+# ---------------------------------------------------------------------------
+# Configure userns-remap
+# ---------------------------------------------------------------------------
+- name: Ensure dockremap group exists for userns-remap
+  ansible.builtin.group:
+    name: dockremap
+    gid: 100000
+    state: present
+  become: true
+  when: 
+    - docker_engine_userns_remap | length > 0
+    - not docker_engine_skip_installation | default(false) | bool
+
+- name: Ensure dockremap user exists for userns-remap
+  ansible.builtin.user:
+    name: dockremap
+    uid: 100000
+    group: dockremap
+    home: /var/lib/dockremap
+    create_home: true
+    shell: /usr/sbin/nologin
+    system: true
+    state: present
+  become: true
+  when: 
+    - docker_engine_userns_remap | length > 0
+    - not docker_engine_skip_installation | default(false) | bool
+
+- name: Ensure userns-remap subordinate UID range exists
+  ansible.builtin.lineinfile:
+    path: /etc/subuid
+    line: "dockremap:100000:65536"
+    create: true
+    mode: "0644"
+  become: true
+  when: 
+    - docker_engine_userns_remap | length > 0
+    - not docker_engine_skip_installation | default(false) | bool
+
+- name: Ensure userns-remap subordinate GID range exists
+  ansible.builtin.lineinfile:
+    path: /etc/subgid
+    line: "dockremap:100000:65536"
+    create: true
+    mode: "0644"
+  become: true
+  when: 
+    - docker_engine_userns_remap | length > 0
+    - not docker_engine_skip_installation | default(false) | bool
+
+# ---------------------------------------------------------------------------
+# Deploy hardened daemon.json
+# ---------------------------------------------------------------------------
+- name: Ensure Docker configuration directory exists
+  ansible.builtin.file:
+    path: "{{ docker_engine_daemon_config_path | dirname }}"
+    state: directory
+    owner: "{{ docker_engine_daemon_config_owner }}"
+    group: "{{ docker_engine_daemon_config_group }}"
+    mode: "0755"
+  become: true
+  when: not docker_engine_skip_installation | default(false) | bool
+
+- name: Deploy daemon.json
+  ansible.builtin.template:
+    src: daemon.json.j2
+    dest: "{{ docker_engine_daemon_config_path }}"
+    owner: "{{ docker_engine_daemon_config_owner }}"
+    group: "{{ docker_engine_daemon_config_group }}"
+    mode: "{{ docker_engine_daemon_config_mode }}"
+  become: true
+  when: not docker_engine_skip_installation | default(false) | bool
+  notify:
+    - restart docker
+
+# ---------------------------------------------------------------------------
+# Add admin user to docker group
+# ---------------------------------------------------------------------------
+- name: Ensure docker group exists
+  ansible.builtin.group:
+    name: "{{ docker_engine_group }}"
+    gid: "{{ docker_engine_gid | int if docker_engine_gid | length > 0 else omit }}"
+    state: present
+  become: true
+  when: not docker_engine_skip_installation | default(false) | bool
+
+- name: Add admin user to docker group
+  ansible.builtin.user:
+    name: "{{ docker_engine_admin_user }}"
+    groups: "{{ docker_engine_group }}"
+    append: true
+  become: true
+  when: not docker_engine_skip_installation | default(false) | bool
+
+# ---------------------------------------------------------------------------
+# Enable and start Docker service
+# ---------------------------------------------------------------------------
+- name: Ensure Docker service is enabled and running
+  ansible.builtin.systemd:
+    name: "{{ docker_engine_service_name }}"
+    state: started
+    enabled: true
+  become: true
+  when: not docker_engine_skip_installation | default(false) | bool
+  ignore_errors: true
+
+# ---------------------------------------------------------------------------
+# Verify Docker CLI works
+# ---------------------------------------------------------------------------
+- name: Verify docker --version returns expected output
+  ansible.builtin.command:
+    cmd: docker --version
+  register: docker_engine_version_check
+  changed_when: false
+  become: true
+  when: not docker_engine_skip_installation | default(false) | bool
+  ignore_errors: true
+
+- name: Log Docker version
+  ansible.builtin.debug:
+    msg: "Docker installed: {{ docker_engine_version_check.stdout | default('Docker not installed') }}"
+
+- name: Verify docker compose plugin is available
+  ansible.builtin.command:
+    cmd: docker compose version
+  register: docker_engine_compose_check
+  changed_when: false
+  become: true
+  when: not docker_engine_skip_installation | default(false) | bool
+  ignore_errors: true
+
+- name: Log Docker Compose version
+  ansible.builtin.debug:
+    msg: "Docker Compose installed: {{ docker_engine_compose_check.stdout | default('Docker Compose not installed') }}"

@@ -1,0 +1,18 @@
+---
+- name: Converge
+  hosts: all
+  gather_facts: false
+  vars:
+    cloudflare_api_token: "test-token"
+    cloudflare_zone_id: "test-zone-id"
+    cloudflare_dns_record_name: "test.example.com"
+    cloudflare_dns_record_type: "A"
+    cloudflare_dns_record_content: "192.0.2.1"
+    cloudflare_dns_ttl: 300
+    cloudflare_dns_proxied: false
+    cloudflare_dns_verify: false
+
+  tasks:
+    - name: Include cloudflare-dns role
+      ansible.builtin.include_role:
+        name: cloudflare-dns

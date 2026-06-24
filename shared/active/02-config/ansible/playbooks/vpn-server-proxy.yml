@@ -1,0 +1,96 @@
+---
+# VPN Server Proxy Playbook
+# Orchestrates VPN and proxy services on cloud servers.
+# Usage:
+#   ansible-playbook -i <inventory> playbooks/vpn-server-proxy.yml
+#   ansible-playbook -i <inventory> playbooks/vpn-server-proxy.yml --check --diff
+
+- name: "Deploy VPN and Proxy Services"
+  hosts: vpn_proxy_servers
+  become: true
+  gather_facts: true
+
+  vars:
+    vpn_nordvpn_container_name: "nordvpn-nordvpn"
+    vpn_netbird_container_name: "vpn-netbird"
+    proxy_tor_container_name: "localnet-proxy-tor"
+
+  pre_tasks:
+    - name: "Gather ansible_facts"
+      ansible.builtin.setup:
+        gather_subset: ["all"]
+      tags: ["always"]
+
+    - name: "Validate required variables are defined"
+      ansible.builtin.assert:
+        that:
+          - vpn_nordvpn_token is defined or vpn_netbird_setup_key is defined
+        fail_msg: "Missing required VPN variables. Check group_vars for VPN credentials."
+        success_msg: "Required VPN variables are defined."
+      tags: ["always", "validate"]
+
+    - name: "Check Docker is available"
+      ansible.builtin.command:
+        cmd: docker --version
+      register: vpn_server_proxy_docker_check
+      changed_when: false
+      failed_when: false
+      tags: ["pre-check", "docker"]
+
+    - name: "Assert Docker is installed"
+      ansible.builtin.assert:
+        that:
+          - vpn_server_proxy_docker_check.rc == 0
+        fail_msg: "Docker is not installed. Run docker-engine playbook first."
+        success_msg: "Docker is available."
+      tags: ["pre-check", "docker"]
+
+  roles:
+    - role: vpn-nordvpn
+      tags: ["vpn", "nordvpn"]
+      when: vpn_nordvpn_enabled | bool
+
+    - role: vpn-netbird-server
+      tags: ["vpn", "netbird"]
+      when: vpn_netbird_enabled | bool
+
+    - role: proxy-tor
+      tags: ["proxy", "tor"]
+      when: proxy_tor_enabled | bool
+
+  post_tasks:
+    - name: "Verify NordVPN container is running"
+      ansible.builtin.command:
+        cmd: docker ps --filter "name={{ vpn_nordvpn_container_name | default('nordvpn-nordvpn') }}"
+      register: vpn_server_proxy_nordvpn_status
+      changed_when: false
+      failed_when: false
+      when: vpn_nordvpn_enabled | bool
+      tags: ["verify", "nordvpn"]
+
+    - name: "Verify Netbird container is running"
+      ansible.builtin.command:
+        cmd: docker ps --filter "name={{ vpn_netbird_container_name | default('vpn-netbird') }}"
+      register: vpn_server_proxy_netbird_status
+      changed_when: false
+      failed_when: false
+      when: vpn_netbird_enabled | bool
+      tags: ["verify", "netbird"]
+
+    - name: "Verify Tor container is running"
+      ansible.builtin.command:
+        cmd: docker ps --filter "name={{ proxy_tor_container_name | default('localnet-proxy-tor') }}"
+      register: vpn_server_proxy_tor_status
+      changed_when: false
+      failed_when: false
+      when: proxy_tor_enabled | bool
+      tags: ["verify", "tor"]
+
+    - name: "Report VPN and proxy stack status"
+      ansible.builtin.debug:
+        msg:
+          - "VPN and Proxy Stack operational:"
+          - "NordVPN: {{ vpn_server_proxy_nordvpn_status.stdout | default('not enabled') }}"
+          - "Netbird: {{ vpn_server_proxy_netbird_status.stdout | default('not enabled') }}"
+          - "Tor: {{ vpn_server_proxy_tor_status.stdout | default('not enabled') }}"
+      tags: ["verify", "report"]

@@ -1,0 +1,196 @@
+---
+# Bootstrap Validation Playbook
+# Validates that the bootstrap deployment succeeded by checking all components
+# Usage:
+#   ansible-playbook -i inventories/oci.yml playbooks/validate-bootstrap.yml
+
+- name: "Validate Bootstrap Deployment"
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+
+  vars:
+    validation_results: {}
+
+  pre_tasks:
+    - name: "Gather ansible_facts"
+      ansible.builtin.setup:
+        gather_subset: ["all"]
+      tags: ["always"]
+
+    - name: "Initialize validation results"
+      ansible.builtin.set_fact:
+        validation_results:
+          ssh_connectivity: false
+          nix_version: null
+          docker_accessible: false
+          docker_version: null
+          default_shell: null
+          neovim_version: null
+          devbox_version: null
+          timezone: null
+          user_uid: null
+          user_gid: null
+          sshd_service: false
+          unattended_upgrades: false
+
+  tasks:
+    - name: "Check SSH connectivity (Ansible connection test)"
+      ansible.builtin.ping: ~
+      register: ssh_check
+      tags: ["validate", "ssh"]
+
+    - name: "Record SSH connectivity result"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'ssh_connectivity': ssh_check.ping == 'pong'}) }}"
+      tags: ["validate", "ssh"]
+
+    - name: "Check Nix version"
+      ansible.builtin.command:
+        cmd: sudo -u "{{ cloud_server_admin_user }}" /nix/var/nix/profiles/default/bin/nix --version
+      become: true
+      register: nix_check
+      changed_when: false
+      failed_when: false
+      tags: ["validate", "nix"]
+
+    - name: "Record Nix version"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'nix_version': nix_check.stdout | default('N/A')}) }}"
+      tags: ["validate", "nix"]
+
+    - name: "Check Docker accessibility for cuser"
+      ansible.builtin.command:
+        cmd: "docker ps"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: docker_check
+      changed_when: false
+      failed_when: false
+      tags: ["validate", "docker"]
+
+    - name: "Record Docker accessibility result"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'docker_accessible': docker_check.rc == 0}) }}"
+      tags: ["validate", "docker"]
+
+    - name: "Check Docker version"
+      ansible.builtin.command:
+        cmd: "docker --version"
+      register: docker_version_check
+      changed_when: false
+      failed_when: false
+      tags: ["validate", "docker"]
+
+    - name: "Record Docker version"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'docker_version': docker_version_check.stdout | default('N/A')}) }}"
+      tags: ["validate", "docker"]
+
+    - name: "Check default shell for cuser"
+      ansible.builtin.command:
+        cmd: sudo -u "{{ cloud_server_admin_user }}" bash -c "echo \$SHELL"
+      become: true
+      register: shell_check
+      changed_when: false
+      failed_when: false
+      tags: ["validate", "shell"]
+
+    - name: "Record default shell"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'default_shell': shell_check.stdout | default('N/A')}) }}"
+      tags: ["validate", "shell"]
+
+    - name: "Check neovim version"
+      ansible.builtin.shell:
+        cmd: source /etc/profile.d/nix.sh && nix-env -q --out-path neovim-0.12.2
+      become: true
+      register: neovim_path
+      changed_when: false
+      failed_when: false
+      tags: ["validate", "neovim"]
+
+    - name: "Record neovim version"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'neovim_version': 'NVIM v0.12.2' if neovim_path.rc == 0 else 'N/A'}) }}"
+      tags: ["validate", "neovim"]
+
+    - name: "Check devbox version"
+      ansible.builtin.shell:
+        cmd: source /etc/profile.d/nix.sh && nix-env -q --out-path devbox-0.17.2
+      become: true
+      register: devbox_path
+      changed_when: false
+      failed_when: false
+      tags: ["validate", "devbox"]
+
+    - name: "Record devbox version"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'devbox_version': '0.17.2' if devbox_path.rc == 0 else 'N/A'}) }}"
+      tags: ["validate", "devbox"]
+
+    - name: "Check timezone via timedatectl"
+      ansible.builtin.command:
+        cmd: "timedatectl"
+      register: timedatectl_check
+      changed_when: false
+      failed_when: false
+      tags: ["validate", "timezone"]
+
+    - name: "Record timezone"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'timezone': timedatectl_check.stdout | regex_search('Time zone: \\S+') | default('N/A')}) }}"
+      tags: ["validate", "timezone"]
+
+    - name: "Check cuser UID/GID"
+      ansible.builtin.getent:
+        database: passwd
+        key: "{{ cloud_server_admin_user }}"
+      register: user_check
+      failed_when: false
+      tags: ["validate", "user"]
+
+    - name: "Record user UID/GID"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'user_uid': user_check.ansible_facts.getent_passwd[cloud_server_admin_user][1] | default('N/A'), 'user_gid': user_check.ansible_facts.getent_passwd[cloud_server_admin_user][2] | default('N/A')}) }}"
+      when: user_check.ansible_facts.getent_passwd[cloud_server_admin_user] is defined
+      tags: ["validate", "user"]
+
+    - name: "Check OpenSSH service status"
+      ansible.builtin.systemd:
+        name: "{{ 'ssh' if ansible_facts['os_family'] == 'Debian' else 'sshd' }}"
+      register: sshd_check
+      failed_when: false
+      tags: ["validate", "sshd"]
+
+    - name: "Record SSHd service status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'sshd_service': sshd_check.status.ActiveState == 'active'}) }}"
+      tags: ["validate", "sshd"]
+
+    - name: "Check unattended upgrades configuration"
+      ansible.builtin.stat:
+        path: /etc/apt/apt.conf.d/50unattended-upgrades
+      register: unattended_check
+      failed_when: false
+      when: ansible_facts['os_family'] == "Debian"
+      tags: ["validate", "upgrades"]
+
+    - name: "Check dnf-automatic configuration (RedHat family)"
+      ansible.builtin.stat:
+        path: /etc/dnf/automatic.conf
+      register: dnf_automatic_check
+      failed_when: false
+      when: ansible_facts['os_family'] == "RedHat"
+      tags: ["validate", "upgrades"]
+
+    - name: "Record unattended upgrades status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'unattended_upgrades': (unattended_check.stat.exists | default(false)) if ansible_facts['os_family'] == 'Debian' else (dnf_automatic_check.stat.exists | default(false))}) }}"
+      tags: ["validate", "upgrades"]
+
+  post_tasks:
+    - name: "Display validation results"
+      ansible.builtin.debug:
+        msg: "{{ validation_results | to_nice_json }}"
+      tags: ["always"]

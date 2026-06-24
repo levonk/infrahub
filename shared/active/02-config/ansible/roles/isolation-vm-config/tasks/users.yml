@@ -1,0 +1,89 @@
+---
+# User configuration tasks for Isolation VM
+# Purpose: Create non-root user with sudo access and SSH configuration
+
+- name: Create non-root user (cuser) with sudo access
+  ansible.builtin.user:
+    name: "{{ isolation_vm_user }}"
+    uid: "{{ isolation_vm_user_uid }}"
+    group: "{{ isolation_vm_user_gid }}"
+    shell: "{{ isolation_vm_user_shell }}"
+    home: "{{ isolation_vm_user_home }}"
+    create_home: true
+    groups: "{{ isolation_vm_sudo_groups | join(',') }}"
+    append: true
+  tags:
+    - users
+
+- name: Create .ssh directory for cuser
+  ansible.builtin.file:
+    path: "{{ isolation_vm_user_home }}/.ssh"
+    state: directory
+    mode: '0700'
+    owner: "{{ isolation_vm_user }}"
+    group: "{{ isolation_vm_user_gid }}"
+  tags:
+    - users
+
+- name: Configure SSH access for cuser user
+  ansible.builtin.copy:
+    content: "{{ isolation_vm_ssh_public_key }}"
+    dest: "{{ isolation_vm_user_home }}/.ssh/authorized_keys"
+    mode: '0600'
+    owner: "{{ isolation_vm_user }}"
+    group: "{{ isolation_vm_user_gid }}"
+  tags:
+    - users
+
+- name: Configure sudo access for cuser
+  ansible.builtin.copy:
+    content: "{{ isolation_vm_user }} ALL=(ALL) {{ 'NOPASSWD:ALL' if not isolation_vm_sudo_password_required else 'ALL' }}"
+    dest: "/etc/sudoers.d/{{ isolation_vm_user }}"
+    mode: '0440'
+    validate: 'visudo -cf %s'
+  when: isolation_vm_sudo_enabled
+  tags:
+    - users
+
+- name: Configure SSH daemon settings
+  ansible.builtin.lineinfile:
+    path: "/etc/ssh/sshd_config"
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+    state: present
+  loop:
+    - regexp: '^#?PasswordAuthentication'
+      line: "PasswordAuthentication {{ 'yes' if isolation_vm_ssh_password_auth else 'no' }}"
+    - regexp: '^#?PermitRootLogin'
+      line: "PermitRootLogin {{ isolation_vm_ssh_permit_root_login }}"
+    - regexp: '^#?Port'
+      line: "Port {{ isolation_vm_ssh_port }}"
+  notify:
+    - restart sshd
+  tags:
+    - users
+
+- name: Ensure SSH service is running
+  ansible.builtin.systemd:
+    name: ssh
+    state: started
+    enabled: true
+  when: ansible_service_mgr == "systemd"
+  tags:
+    - users
+
+- name: Verify sudo access for cuser
+  ansible.builtin.command:
+    cmd: "sudo -l -U {{ isolation_vm_user }}"
+  register: sudo_check
+  failed_when: false
+  changed_when: false
+  become: true
+  tags:
+    - users
+
+- name: Display sudo access verification
+  ansible.builtin.debug:
+    msg: "Sudo access for {{ isolation_vm_user }}: {{ 'CONFIGURED' if sudo_check.rc == 0 else 'FAILED' }}"
+  tags:
+    - users

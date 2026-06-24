@@ -1,0 +1,244 @@
+---
+# CrowdSec Security Engine and Bouncer Deployment Tasks
+# Deploys CrowdSec security engine with Traefik log acquisition and bouncer integration
+# All ports are variable-driven per AGENTS.md rules.
+
+# ---------------------------------------------------------------------------
+# Prerequisites
+# ---------------------------------------------------------------------------
+- name: Ensure CrowdSec data directory exists
+  ansible.builtin.file:
+    path: "{{ security_crowdsec_data_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+
+- name: Ensure CrowdSec configuration directories exist
+  ansible.builtin.file:
+    path: "{{ security_crowdsec_data_dir }}/{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+  loop:
+    - config
+    - data
+
+# ---------------------------------------------------------------------------
+# Docker Networks
+# ---------------------------------------------------------------------------
+- name: Ensure CrowdSec is connected to Traefik network
+  community.docker.docker_network:
+    name: "{{ security_crowdsec_traefik_network_name }}"
+    state: present
+    driver: bridge
+    ipam_config:
+      - subnet: "{{ security_crowdsec_traefik_network_subnet }}"
+        gateway: "{{ security_crowdsec_traefik_network_gateway }}"
+  become: true
+  when: security_crowdsec_traefik_network_create | bool
+
+# ---------------------------------------------------------------------------
+# Docker Volumes
+# ---------------------------------------------------------------------------
+- name: Ensure CrowdSec database volume exists
+  community.docker.docker_volume:
+    name: "{{ security_crowdsec_db_volume }}"
+    state: present
+  become: true
+
+- name: Ensure CrowdSec configuration volume exists
+  community.docker.docker_volume:
+    name: "{{ security_crowdsec_config_volume }}"
+    state: present
+  become: true
+
+# ---------------------------------------------------------------------------
+# Deploy CrowdSec Configuration Templates
+# ---------------------------------------------------------------------------
+- name: Deploy CrowdSec configuration (config.yaml)
+  ansible.builtin.template:
+    src: config.yaml.j2
+    dest: "{{ security_crowdsec_data_dir }}/config/config.yaml"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: restart crowdsec
+
+- name: Deploy CrowdSec log acquisition configuration (acquis.yaml)
+  ansible.builtin.template:
+    src: acquis.yaml.j2
+    dest: "{{ security_crowdsec_data_dir }}/config/acquis.yaml"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: restart crowdsec
+
+- name: Deploy CrowdSec remediation profiles
+  ansible.builtin.template:
+    src: profiles.yaml.j2
+    dest: "{{ security_crowdsec_data_dir }}/config/profiles.yaml"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: restart crowdsec
+
+# ---------------------------------------------------------------------------
+# Deploy CrowdSec Bouncer Configuration
+# ---------------------------------------------------------------------------
+- name: Deploy CrowdSec Bouncer configuration
+  ansible.builtin.template:
+    src: bouncer.yaml.j2
+    dest: "{{ security_crowdsec_data_dir }}/config/bouncer.yaml"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: restart crowdsec-bouncer
+
+# ---------------------------------------------------------------------------
+# CrowdSec Security Engine Container
+# ---------------------------------------------------------------------------
+- name: Deploy CrowdSec Security Engine container
+  community.docker.docker_container:
+    name: "{{ security_crowdsec_container_name }}"
+    image: "{{ security_crowdsec_image }}:{{ security_crowdsec_image_tag }}"
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ security_crowdsec_traefik_network_name }}"
+    published_ports:
+      - "{{ security_crowdsec_host_ip }}:{{ security_crowdsec_lapi_port }}:{{ security_crowdsec_lapi_container_port }}/tcp"
+      - "{{ security_crowdsec_host_ip }}:{{ security_crowdsec_prometheus_host_port }}:{{ security_crowdsec_prometheus_container_port }}/tcp"
+    volumes:
+      - "{{ security_crowdsec_db_volume }}:/var/lib/crowdsec/data"
+      - "{{ security_crowdsec_config_volume }}:/etc/crowdsec"
+      - "{{ security_crowdsec_data_dir }}/config:/etc/crowdsec/config"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "/var/log:/var/log:ro"
+    env:
+      TZ: "{{ security_crowdsec_tz }}"
+      COLLECTIONS: "{{ security_crowdsec_collections }}"
+    command:
+      - "-c"
+      - "/etc/crowdsec/config/config.yaml"
+      - "-t"
+    log_driver: json-file
+    log_opt:
+      max-size: "{{ security_crowdsec_log_max_size }}"
+      max-file: "{{ security_crowdsec_log_max_file }}"
+    labels:
+      crowdsec.enable: "true"
+  become: true
+  when: security_crowdsec_enabled | bool
+
+# ---------------------------------------------------------------------------
+# CrowdSec Bouncer Container
+# ---------------------------------------------------------------------------
+- name: Remove existing CrowdSec Bouncer container if present
+  community.docker.docker_container:
+    name: "{{ security_crowdsec_bouncer_container_name }}"
+    state: absent
+  become: true
+  when: security_crowdsec_enabled | bool
+  ignore_errors: true
+
+- name: Deploy CrowdSec Bouncer container
+  community.docker.docker_container:
+    name: "{{ security_crowdsec_bouncer_container_name }}"
+    image: "{{ security_crowdsec_bouncer_image }}:{{ security_crowdsec_bouncer_image_tag }}"
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ security_crowdsec_traefik_network_name }}"
+    env:
+      TZ: "{{ security_crowdsec_tz }}"
+      CROWDSEC_LAPI_URL: "http://{{ security_crowdsec_container_name }}:{{ security_crowdsec_lapi_container_port }}"
+      CROWDSEC_BOUNCER_API_KEY: "{{ security_crowdsec_bouncer_api_key }}"
+      CROWDSEC_BOUNCER_FORWARD_HEADERS: "true"
+      CROWDSEC_AGENT_HOST: "{{ security_crowdsec_container_name }}"
+    log_driver: json-file
+    log_opt:
+      max-size: "{{ security_crowdsec_log_max_size }}"
+      max-file: "{{ security_crowdsec_log_max_file }}"
+    labels:
+      crowdsec-bouncer.enable: "true"
+  become: true
+  when:
+    - security_crowdsec_enabled | bool
+    - security_crowdsec_bouncer_enabled | bool
+
+# ---------------------------------------------------------------------------
+# Log Retention Configuration
+# ---------------------------------------------------------------------------
+- name: Deploy logrotate configuration for CrowdSec
+  ansible.builtin.template:
+    src: logrotate/crowdsec.j2
+    dest: /etc/logrotate.d/crowdsec
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  when: security_crowdsec_enabled | bool
+
+# ---------------------------------------------------------------------------
+# Health Verification
+# ---------------------------------------------------------------------------
+- name: Wait for CrowdSec LAPI to be healthy
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ security_crowdsec_lapi_port }}{{ security_crowdsec_lapi_health_endpoint }}"
+    status_code: [200]
+    return_content: false
+  register: crowdsec_health
+  until: crowdsec_health.status == 200
+  retries: 10
+  delay: 5
+  when:
+    - security_crowdsec_enabled | bool
+    - security_crowdsec_verify_health | bool
+
+# ---------------------------------------------------------------------------
+# API Token Generation (if not provided)
+# ---------------------------------------------------------------------------
+- name: Generate CrowdSec bouncer API token if not provided
+  ansible.builtin.command:
+    cmd: docker exec {{ security_crowdsec_container_name }} cscli bouncers add {{ security_crowdsec_bouncer_name }}
+  register: bouncer_token
+  changed_when: false
+  failed_when: false
+  become: true
+  when:
+    - security_crowdsec_enabled | bool
+    - security_crowdsec_bouncer_enabled | bool
+    - security_crowdsec_bouncer_api_key == "change-me-in-vault"
+
+- name: Display generated bouncer token
+  ansible.builtin.debug:
+    msg: "Generated bouncer API token: {{ bouncer_token.stdout }}"
+  when:
+    - security_crowdsec_enabled | bool
+    - security_crowdsec_bouncer_enabled | bool
+    - security_crowdsec_bouncer_api_key == "change-me-in-vault"
+    - bouncer_token.stdout is defined
+
+# ---------------------------------------------------------------------------
+# Status Report
+# ---------------------------------------------------------------------------
+- name: Report CrowdSec status
+  ansible.builtin.debug:
+    msg: |2
+      CrowdSec deployed successfully:
+      - LAPI: http://{{ ansible_host | default('localhost') }}:{{ security_crowdsec_lapi_port }}
+      - Network: {{ security_crowdsec_traefik_network_name }}
+      - Database Volume: {{ security_crowdsec_db_volume }}
+      - Config Volume: {{ security_crowdsec_config_volume }}
+      - Collections: {{ security_crowdsec_collections }}
+      - Bouncer: {{ security_crowdsec_bouncer_enabled }}
+      - Default Ban Duration: {{ security_crowdsec_default_ban_duration }}
+  when: security_crowdsec_enabled | bool

@@ -1,8 +1,38 @@
-# Cloud Server Requirements
+# Cloud Server Requirements (ARCHIVED)
 
 **Date**: 2026-05-29  
+**Archived**: 2026-06-19  
+**Reason**: Split into separate PRDs for clarity - see `20260619-oci-cloud-server-host.md` and `20260619-isolation-vm.md`  
 **Source**: `shared/active/03-container/internal-docs/todo/todo-priorities.md` (Cloud Server section)  
 **Approach**: Phased rollout — each step builds on the previous, deployable independently.
+
+---
+
+## ⚠️ ARCHIVED DOCUMENT
+
+This PRD has been split into two separate documents for better clarity:
+
+1. **OCI Cloud Server Host**: `20260619-oci-cloud-server-host.md`
+   - Focuses on the Oracle Cloud VM host
+   - Docker containers for VPN, proxy, DNS, etc.
+   - Current deployment state and completed items
+
+2. **Isolation VM**: `20260619-isolation-vm.md`
+   - Focuses on the nested QEMU VM for AI agent isolation
+   - Docker-in-Docker capabilities for agent workloads
+   - Kali + Nix + Hermes agent stack
+
+Please refer to the updated documents for current requirements.
+
+---
+
+## Dependencies
+
+- **Updated PRDs**: Refer to `20260619-oci-cloud-server-host.md` and `20260619-isolation-vm.md`
+- **Guidelines**: 
+  - `/AGENTS.md` - Root project guidelines (IP/port rules, security audits)
+  - `shared/active/02-config/ansible/AGENTS.md` - Ansible-specific guidelines
+  - `shared/active/03-container/AGENTS.md` - Container-specific guidelines
 
 ---
 
@@ -24,6 +54,7 @@
 
 ### Nix Foundation (Install First)
 - [ ] Nix multi-user installation (daemon mode)
+  - **Note**: On RedHat family systems (e.g., Oracle Linux), SELinux must be set to permissive mode for multi-user Nix to work. Nix does not support SELinux enforcing mode yet (see https://github.com/NixOS/nix/issues/2374)
 - [ ] Add admin user to `nixbld` group
 - [ ] Enable flakes: `experimental-features = nix-command flakes` in `/etc/nix/nix.conf`
 - [ ] Verify `nix` CLI works for admin user
@@ -189,7 +220,7 @@ Items that span multiple steps and should be revisited at each phase:
 
 ## Variable Checklist (Ansible / Compose)
 
-Per `AGENTS.md` IP/port rules — all values below **must** be variables, never hardcoded:
+Per `/AGENTS.md` IP/port rules — all values below **must** be variables, never hardcoded:
 
 - `cloud_server_ansible_host_ip`
 - `cloud_server_ssh_host_port`

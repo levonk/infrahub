@@ -1,0 +1,87 @@
+#!/usr/sbin/nft -f
+# {{ ansible_managed }}
+# Default-deny host firewall for {{ inventory_hostname }}
+# Role: proxy-firewall
+
+flush ruleset
+
+table inet filter {
+    chain input {
+        type filter hook input priority 0; policy drop;
+
+        # Allow loopback
+        iif "lo" accept
+
+        # Allow established and related connections
+        ct state established,related accept
+
+        # Drop invalid packets
+        ct state invalid drop
+
+        # Rate limit SSH
+{% if proxy_firewall_rate_limit_ssh | bool %}
+        tcp dport {{ proxy_firewall_ssh_port }} ct state new limit rate {{ proxy_firewall_rate_limit_connections }}/{{ proxy_firewall_rate_limit_interval }} accept
+{% else %}
+        tcp dport {{ proxy_firewall_ssh_port }} ct state new accept
+{% endif %}
+
+        # Allow mosh (UDP port range)
+{% if proxy_firewall_mosh_port | length > 0 %}
+        udp dport {{ proxy_firewall_mosh_port }} ct state new accept
+{% endif %}
+
+        # Allow VPN subnets
+{% for subnet in proxy_firewall_vpn_subnets %}
+        ip saddr {{ subnet }} accept
+{% endfor %}
+
+        # Allow RustDesk ports from VPN subnets only
+{% if rustdesk_server_vpn_only | default(false) %}
+{% for subnet in rustdesk_server_allowed_vpn_subnets | default(proxy_firewall_vpn_subnets) %}
+        ip saddr {{ subnet }} tcp dport {{ rustdesk_server_hbbs_nat_test_host_port | default('21115') }} accept
+        ip saddr {{ subnet }} tcp dport {{ rustdesk_server_hbbs_id_reg_host_port | default('21116') }} accept
+        ip saddr {{ subnet }} udp dport {{ rustdesk_server_hbbs_id_reg_host_port | default('21116') }} accept
+        ip saddr {{ subnet }} tcp dport {{ rustdesk_server_hbbr_relay_host_port | default('21117') }} accept
+{% if rustdesk_server_enable_web_client | default(false) %}
+        ip saddr {{ subnet }} tcp dport {{ rustdesk_server_hbbs_web_host_port | default('21118') }} accept
+        ip saddr {{ subnet }} tcp dport {{ rustdesk_server_hbbr_web_host_port | default('21119') }} accept
+{% endif %}
+{% endfor %}
+{% endif %}
+
+        # Log and drop everything else
+        log prefix "nftables dropped: " limit rate 5/minute
+        drop
+    }
+
+    chain forward {
+        type filter hook forward priority 0; policy {{ 'accept' if proxy_firewall_enable_forwarding | bool else 'drop' }};
+
+{% if proxy_firewall_enable_forwarding | bool %}
+        # Allow established and related
+        ct state established,related accept
+
+        # Allow forwarding from VPN subnets
+{% for subnet in proxy_firewall_vpn_subnets %}
+        ip saddr {{ subnet }} accept
+{% endfor %}
+{% endif %}
+    }
+
+    chain output {
+        type filter hook output priority 0; policy accept;
+    }
+}
+
+{% if proxy_firewall_enable_masquerade | bool and proxy_firewall_vpn_subnets | length > 0 %}
+table ip nat {
+    chain postrouting {
+        type nat hook postrouting priority 100;
+
+        # Masquerade VPN subnet traffic
+{% for subnet in proxy_firewall_vpn_subnets %}
+        ip saddr {{ subnet }} masquerade
+{% endfor %}
+    }
+}
+{% endif %}

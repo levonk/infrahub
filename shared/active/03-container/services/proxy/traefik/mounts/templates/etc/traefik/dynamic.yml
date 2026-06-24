@@ -8,6 +8,8 @@ http:
       middlewares:
         - authelia
         - local-ip-whitelist
+      tls:
+        certResolver: letsencrypt
     claude-code-ui:
       rule: 'PathPrefix(`/claude-code-ui`)'
       service: claude-code-ui
@@ -43,6 +45,15 @@ http:
         - internal
       middlewares:
         - strip-claude-code-intercept-ui
+    searxng:
+      rule: 'Host(`search.levonk.com`)'
+      service: searxng
+      entryPoints:
+        - websecure
+      middlewares:
+        - authelia
+      tls:
+        certResolver: letsencrypt
   services:
     vibe-kanban:
       loadBalancer:
@@ -68,6 +79,10 @@ http:
       loadBalancer:
         servers:
           - url: 'http://claude-code-intercept:5173'
+    searxng:
+      loadBalancer:
+        servers:
+          - url: 'http://searxng:8080'
   middlewares:
     strip-claude-code-ui:
       stripPrefix:
@@ -120,6 +135,17 @@ http:
       forwardauth:
         address: http://crowdsec-bouncer:8080/api/v1/forwardAuth
         trustForwardHeader: true
+
+    # Authelia forward authentication middleware
+    authelia:
+      forwardAuth:
+        address: http://authelia:9091/api/verify?rd=https://auth.levonk.com/
+        trustForwardHeader: true
+        authResponseHeaders:
+          - Remote-User
+          - Remote-Groups
+          - Remote-Name
+          - Remote-Email
 
     # Compose plugins into a single chain for easy reuse
     security-chain:

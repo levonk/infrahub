@@ -1,0 +1,53 @@
+---
+# Default variables for isolation-vm-tests role
+# All configuration values are variable-driven per AGENTS.md requirements
+
+# Test execution control
+isolation_vm_test_vpn_routing: true
+isolation_vm_test_docker_access: true
+isolation_vm_test_network_isolation: true
+isolation_vm_test_security_isolation: true
+
+# Test targets
+isolation_vm_test_target_host: "localhost"
+isolation_vm_test_timeout: 30
+
+# VPN routing test configuration
+isolation_vm_vpn_routing_test_target: "https://www.google.com"
+isolation_vm_vpn_routing_test_dns_target: "google.com"
+isolation_vm_vpn_routing_test_ip_service: "ifconfig.me"
+
+# Network isolation test configuration
+isolation_vm_isolation_test_internal_network: "172.28.0.0/16"
+isolation_vm_isolation_test_gateway: "172.28.0.1"
+
+# Docker access test configuration
+isolation_vm_docker_test_image: "alpine:latest"
+isolation_vm_docker_test_container_name: "test-container"
+
+# Test result storage
+isolation_vm_test_results_path: "/tmp/isolation-vm-test-results"
+
+# Container configuration (from isolation-vm-containers role)
+isolation_vm_nix_sidecar_container_name: "isolation-vm-nix-sidecar"
+isolation_vm_base_kalinix_container_name: "isolation-vm-base-kalinix"
+isolation_vm_hermes_agent_container_name: "isolation-vm-hermes-agent"
+isolation_vm_network_subnet: "172.28.0.0/16"
+isolation_vm_network_gateway: "172.28.0.1"
+isolation_vm_enable_vpn_routing: false
+isolation_vm_vpn_gateway: "192.168.101.1"
+
+# Security isolation test configuration
+isolation_vm_security_test_host_ip: "{{ ansible_host }}"
+isolation_vm_security_test_ssh_port: 22
+isolation_vm_security_test_docker_socket_path: "/var/run/docker.sock"
+
+# Container names for security tests (matching isolation-vm-containers role)
+isolation_vm_containers_nix_sidecar_name: "{{ isolation_vm_nix_sidecar_container_name }}"
+isolation_vm_containers_base_kalinix_name: "{{ isolation_vm_base_kalinix_container_name }}"
+isolation_vm_containers_hermes_agent_name: "{{ isolation_vm_hermes_agent_container_name }}"
+
+# VM configuration for security tests
+isolation_vm_name: "isolation-vm"
+isolation_vm_ip_address: "{{ ansible_host }}"
+isolation_vm_nat_bridge_subnet: "192.168.100.0/24"

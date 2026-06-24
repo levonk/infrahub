@@ -1,0 +1,283 @@
+---
+# VPN Routing Test Tasks for Isolation VM
+# Tests network routing from agent containers through VPN/proxy services
+
+- name: Test basic connectivity from nix-sidecar container
+  ansible.builtin.command: "docker exec {{ isolation_vm_nix_sidecar_container_name }} curl -I https://www.google.com"
+  register: nix_sidecar_connectivity
+  failed_when: nix_sidecar_connectivity.rc != 0
+  changed_when: false
+  timeout: 30
+  when: isolation_vm_nix_sidecar_container_name is defined
+
+- name: Test basic connectivity from base-kalinix container
+  ansible.builtin.command: "docker exec {{ isolation_vm_base_kalinix_container_name }} curl -I https://www.google.com"
+  register: base_kalinix_connectivity
+  failed_when: base_kalinix_connectivity.rc != 0
+  changed_when: false
+  timeout: 30
+  when: isolation_vm_base_kalinix_container_name is defined
+
+- name: Test basic connectivity from hermes-agent container
+  ansible.builtin.command: "docker exec {{ isolation_vm_hermes_agent_container_name }} curl -I https://www.google.com"
+  register: hermes_agent_connectivity
+  failed_when: hermes_agent_connectivity.rc != 0
+  changed_when: false
+  timeout: 30
+  when: isolation_vm_hermes_agent_container_name is defined
+
+- name: Check external IP from nix-sidecar container
+  ansible.builtin.command: "docker exec {{ isolation_vm_nix_sidecar_container_name }} curl ifconfig.me"
+  register: nix_sidecar_external_ip
+  changed_when: false
+  timeout: 30
+  when: isolation_vm_nix_sidecar_container_name is defined
+
+- name: Check external IP from base-kalinix container
+  ansible.builtin.command: "docker exec {{ isolation_vm_base_kalinix_container_name }} curl ifconfig.me"
+  register: base_kalinix_external_ip
+  changed_when: false
+  timeout: 30
+  when: isolation_vm_base_kalinix_container_name is defined
+
+- name: Check external IP from hermes-agent container
+  ansible.builtin.command: "docker exec {{ isolation_vm_hermes_agent_container_name }} curl ifconfig.me"
+  register: hermes_agent_external_ip
+  changed_when: false
+  timeout: 30
+  when: isolation_vm_hermes_agent_container_name is defined
+
+- name: Test DNS resolution from nix-sidecar container
+  ansible.builtin.command: "docker exec {{ isolation_vm_nix_sidecar_container_name }} nslookup google.com"
+  register: nix_sidecar_dns
+  failed_when: nix_sidecar_dns.rc != 0
+  changed_when: false
+  timeout: 30
+  when: isolation_vm_nix_sidecar_container_name is defined
+
+- name: Test DNS resolution from base-kalinix container
+  ansible.builtin.command: "docker exec {{ isolation_vm_base_kalinix_container_name }} nslookup google.com"
+  register: base_kalinix_dns
+  failed_when: base_kalinix_dns.rc != 0
+  changed_when: false
+  timeout: 30
+  when: isolation_vm_base_kalinix_container_name is defined
+
+- name: Test DNS resolution from hermes-agent container
+  ansible.builtin.command: "docker exec {{ isolation_vm_hermes_agent_container_name }} nslookup google.com"
+  register: hermes_agent_dns
+  failed_when: hermes_agent_dns.rc != 0
+  changed_when: false
+  timeout: 30
+  when: isolation_vm_hermes_agent_container_name is defined
+
+- name: Check routing table on host
+  ansible.builtin.command: ip route show
+  register: routing_table
+  changed_when: false
+
+- name: Check custom routing table (if VPN routing enabled)
+  ansible.builtin.command: ip route show table isolation-vm
+  register: custom_routing_table
+  failed_when: false
+  changed_when: false
+  when: isolation_vm_enable_vpn_routing | bool
+
+- name: Check IP forwarding status
+  ansible.builtin.command: sysctl net.ipv4.ip_forward
+  register: ip_forwarding
+  changed_when: false
+
+- name: Check bridge netfilter status
+  ansible.builtin.command: sysctl net.bridge.bridge-nf-call-iptables
+  register: bridge_netfilter
+  changed_when: false
+
+- name: Check if tcpdump is installed for packet capture capability
+  ansible.builtin.command: which tcpdump
+  register: tcpdump_check
+  failed_when: false
+  changed_when: false
+
+- name: Note packet capture capability
+  ansible.builtin.debug:
+    msg: "Packet capture capability: {{ 'AVAILABLE' if tcpdump_check.rc == 0 else 'NOT AVAILABLE (install tcpdump for advanced routing verification)' }}"
+
+- name: Test split-tunneling - local network routing
+  ansible.builtin.command: "docker exec {{ isolation_vm_nix_sidecar_container_name }} ping -c 2 {{ isolation_vm_network_gateway }}"
+  register: local_network_test
+  failed_when: false
+  changed_when: false
+  timeout: 10
+  when: isolation_vm_nix_sidecar_container_name is defined
+
+- name: Test split-tunneling - external network routing
+  ansible.builtin.command: "docker exec {{ isolation_vm_nix_sidecar_container_name }} ping -c 2 8.8.8.8"
+  register: external_network_test
+  failed_when: false
+  changed_when: false
+  timeout: 10
+  when: isolation_vm_nix_sidecar_container_name is defined
+
+- name: Display split-tunneling test results
+  ansible.builtin.debug:
+    msg:
+      - "Local network ({{ isolation_vm_network_gateway }}): {{ 'REACHABLE' if local_network_test.rc == 0 else 'UNREACHABLE' }}"
+      - "External network (8.8.8.8): {{ 'REACHABLE' if external_network_test.rc == 0 else 'UNREACHABLE' }}"
+      - "VPN routing enabled: {{ isolation_vm_enable_vpn_routing }}"
+      - "Expected behavior: {{ 'External traffic through VPN' if isolation_vm_enable_vpn_routing | bool else 'External traffic through default route' }}"
+
+- name: Check if firewalld is active
+  ansible.builtin.command: systemctl is-active firewalld
+  register: firewalld_status
+  failed_when: false
+  changed_when: false
+
+- name: Check iptables rules
+  ansible.builtin.command: iptables -L -n -v
+  register: iptables_rules
+  changed_when: false
+
+- name: Check firewalld rules if active
+  ansible.builtin.command: firewall-cmd --list-all --zone=trusted
+  register: firewalld_rules
+  failed_when: false
+  changed_when: false
+  when: firewalld_status.rc == 0
+
+- name: Check NAT rules
+  ansible.builtin.command: iptables -t nat -L -n -v
+  register: nat_rules
+  changed_when: false
+
+- name: Display firewall configuration
+  ansible.builtin.debug:
+    msg:
+      - "Firewalld status: {{ 'ACTIVE' if firewalld_status.rc == 0 else 'INACTIVE' }}"
+      - "Firewall system: {{ 'firewalld' if firewalld_status.rc == 0 else 'iptables' }}"
+      - "NAT masquerading: {{ 'CONFIGURED' if 'MASQUERADE' in nat_rules.stdout else 'NOT CONFIGURED' if nat_rules.stdout is defined else 'UNKNOWN' }}"
+
+- name: Check for container network firewall rules
+  ansible.builtin.debug:
+    msg: "{{ 'Container network ({{ isolation_vm_network_subnet }}) found in firewall rules' if isolation_vm_network_subnet in iptables_rules.stdout | default('') else 'Container network not explicitly found in firewall rules (may use Docker default rules)' }}"
+  when: firewalld_status.rc != 0
+
+- name: Test VPN fallback behavior documentation
+  ansible.builtin.debug:
+    msg:
+      - "VPN Fallback Test: SKIPPED (manual test required)"
+      - "To test VPN fallback behavior:"
+      - "1. Note current external IP: {{ nix_sidecar_external_ip.stdout | default('N/A') }}"
+      - "2. Simulate VPN failure by blocking VPN gateway access"
+      - "3. Test connectivity: curl -I https://www.google.com"
+      - "4. Verify fallback behavior (either fails securely or uses direct routing)"
+      - "5. Re-enable VPN gateway access"
+      - "6. Verify routing returns to VPN path"
+      - "Current VPN routing state: {{ 'ENABLED' if isolation_vm_enable_vpn_routing | bool else 'DISABLED' }}"
+      - "VPN gateway: {{ isolation_vm_vpn_gateway }}"
+  when: isolation_vm_enable_vpn_routing | bool
+
+- name: Set connectivity test results
+  ansible.builtin.set_fact:
+    nix_sidecar_result: "{{ 'SUCCESS' if nix_sidecar_connectivity.rc == 0 else 'FAILED' if nix_sidecar_connectivity is defined else 'SKIPPED' }}"
+    base_kalinix_result: "{{ 'SUCCESS' if base_kalinix_connectivity.rc == 0 else 'FAILED' if base_kalinix_connectivity is defined else 'SKIPPED' }}"
+    hermes_agent_result: "{{ 'SUCCESS' if hermes_agent_connectivity.rc == 0 else 'FAILED' if hermes_agent_connectivity is defined else 'SKIPPED' }}"
+
+- name: Display connectivity test results
+  ansible.builtin.debug:
+    msg:
+      - "nix-sidecar connectivity: {{ nix_sidecar_result }}"
+      - "base-kalinix connectivity: {{ base_kalinix_result }}"
+      - "hermes-agent connectivity: {{ hermes_agent_result }}"
+      - "nix-sidecar external IP: {{ nix_sidecar_external_ip.stdout | default('N/A') }}"
+      - "base-kalinix external IP: {{ base_kalinix_external_ip.stdout | default('N/A') }}"
+      - "hermes-agent external IP: {{ hermes_agent_external_ip.stdout | default('N/A') }}"
+
+- name: Set DNS test results
+  ansible.builtin.set_fact:
+    nix_sidecar_dns_result: "{{ 'SUCCESS' if nix_sidecar_dns.rc == 0 else 'FAILED' if nix_sidecar_dns is defined else 'SKIPPED' }}"
+    base_kalinix_dns_result: "{{ 'SUCCESS' if base_kalinix_dns.rc == 0 else 'FAILED' if base_kalinix_dns is defined else 'SKIPPED' }}"
+    hermes_agent_dns_result: "{{ 'SUCCESS' if hermes_agent_dns.rc == 0 else 'FAILED' if hermes_agent_dns is defined else 'SKIPPED' }}"
+
+- name: Display DNS test results
+  ansible.builtin.debug:
+    msg:
+      - "nix-sidecar DNS: {{ nix_sidecar_dns_result }}"
+      - "base-kalinix DNS: {{ base_kalinix_dns_result }}"
+      - "hermes-agent DNS: {{ hermes_agent_dns_result }}"
+
+- name: Display routing configuration
+  ansible.builtin.debug:
+    msg:
+      - "IP forwarding: {{ ip_forwarding.stdout }}"
+      - "Bridge netfilter: {{ bridge_netfilter.stdout }}"
+      - "VPN routing enabled: {{ isolation_vm_enable_vpn_routing }}"
+      - "Custom routing table: {{ custom_routing_table.stdout if isolation_vm_enable_vpn_routing | bool else 'N/A (VPN disabled)' }}"
+
+- name: Set result filename
+  ansible.builtin.set_fact:
+    result_filename: "/tmp/vpn-routing-test-results.txt"
+
+- name: Set firewall status
+  ansible.builtin.set_fact:
+    firewall_system: "{{ 'firewalld' if firewalld_status.rc == 0 else 'iptables' }}"
+    nat_masquerade: "{{ 'CONFIGURED' if 'MASQUERADE' in nat_rules.stdout else 'NOT CONFIGURED' if nat_rules.stdout is defined else 'UNKNOWN' }}"
+
+- name: Save test results to file
+  ansible.builtin.copy:
+    content: |
+      VPN Routing Test Results
+      ========================
+      Date: {{ ansible_date_time.iso8601 | default('N/A') }}
+      Host: {{ ansible_hostname | default('N/A') }}
+      
+      Connectivity Tests:
+      - nix-sidecar: {{ nix_sidecar_result }}
+      - base-kalinix: {{ base_kalinix_result }}
+      - hermes-agent: {{ hermes_agent_result }}
+      
+      External IPs:
+      - nix-sidecar: {{ nix_sidecar_external_ip.stdout | default('N/A') }}
+      - base-kalinix: {{ base_kalinix_external_ip.stdout | default('N/A') }}
+      - hermes-agent: {{ hermes_agent_external_ip.stdout | default('N/A') }}
+      
+      DNS Tests:
+      - nix-sidecar: {{ nix_sidecar_dns_result }}
+      - base-kalinix: {{ base_kalinix_dns_result }}
+      - hermes-agent: {{ hermes_agent_dns_result }}
+      
+      Split-Tunneling Tests:
+      - Local network ({{ isolation_vm_network_gateway }}): {{ 'REACHABLE' if local_network_test.rc == 0 else 'UNREACHABLE' if local_network_test is defined else 'SKIPPED' }}
+      - External network (8.8.8.8): {{ 'REACHABLE' if external_network_test.rc == 0 else 'UNREACHABLE' if external_network_test is defined else 'SKIPPED' }}
+      - VPN routing enabled: {{ isolation_vm_enable_vpn_routing }}
+      
+      Network Configuration:
+      - IP forwarding: {{ ip_forwarding.stdout }}
+      - Bridge netfilter: {{ bridge_netfilter.stdout }}
+      - VPN routing enabled: {{ isolation_vm_enable_vpn_routing }}
+      - Packet capture capability: {{ 'AVAILABLE' if tcpdump_check.rc == 0 else 'NOT AVAILABLE' }}
+      - Firewall system: {{ firewall_system }}
+      - NAT masquerading: {{ nat_masquerade }}
+      
+      Routing Table:
+      {{ routing_table.stdout }}
+      
+      {% if isolation_vm_enable_vpn_routing | bool %}
+      Custom Routing Table (isolation-vm):
+      {{ custom_routing_table.stdout }}
+      {% endif %}
+      
+      {% if iptables_rules.stdout is defined %}
+      Firewall Rules (iptables):
+      {{ iptables_rules.stdout }}
+      {% endif %}
+      
+      {% if firewalld_rules.stdout is defined %}
+      Firewall Rules (firewalld):
+      {{ firewalld_rules.stdout }}
+      {% else %}
+      Firewall Rules (iptables):
+      {{ iptables_rules.stdout | default('N/A') }}
+      {% endif %}
+    dest: "{{ result_filename }}"
+    mode: '0644'

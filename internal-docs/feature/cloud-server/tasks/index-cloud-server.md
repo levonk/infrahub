@@ -1,15 +1,28 @@
 ---
 prd_name: "cloud-server"
-prd_file: "shared/active/08-docs/reqs/2026/20260529-cloud-server.md"
+prd_file_host: "shared/active/08-docs/reqs/2026/20260619-oci-cloud-server-host.md"
+prd_file_isolation: "shared/active/08-docs/reqs/2026/20260619-isolation-vm.md"
 created_at: "2026-05-29"
-updated_at: "2026-06-01"
+updated_at: "2026-06-19"
 ---
 
 # Cloud Server — Task Index
 
 ## Overview
 
-Implementation of the cloud server requirements from `shared/active/08-docs/reqs/2026/20260529-cloud-server.md`, following the infrahub/ansible lifecycle: variables → roles → playbooks → lint/tests → deploy → validate.
+Implementation of the cloud server requirements, split into two layers:
+
+1. **OCI Cloud Server Host**: `shared/active/08-docs/reqs/2026/20260619-oci-cloud-server-host.md`
+   - Oracle Cloud VM host with Docker containers
+   - VPN, proxy, DNS, and infrastructure services
+   - Most workloads run here
+
+2. **Isolation VM**: `shared/active/08-docs/reqs/2026/20260619-isolation-vm.md`
+   - Nested QEMU VM for AI agent isolation
+   - Docker server for agent-managed containers
+   - Kali + Nix + Hermes agent stack
+
+Following the infrahub/ansible lifecycle: variables → roles → playbooks → lint/tests → deploy → validate.
 
 All development and deployment commands must work through `devbox run ...` per ADR-20260131001.
 
@@ -18,6 +31,11 @@ All development and deployment commands must work through `devbox run ...` per A
 **Docker Containers**: Ansible test environments use Docker containers (Molecule driver) via `just ansible-test-env-*` commands.
 
 **Packer VM Images**: OCI base VM image is created with Packer via `just packer-build` / `devbox run packer-build`.
+
+**Guidelines Compliance**: All work must follow:
+- `/AGENTS.md` - Root project guidelines (IP/port rules, security audits)
+- `shared/active/02-config/ansible/AGENTS.md` - Ansible-specific guidelines
+- `shared/active/03-container/AGENTS.md` - Container-specific guidelines
 
 ---
 
@@ -53,36 +71,36 @@ All development and deployment commands must work through `devbox run ...` per A
 | -------- | ----------- | ------ | ------ | ------------ | ------------- | ------- |
 | 03-001 | Playbook: cloud-server-bootstrap.yml | feature/current/cloud-server/story-03-001-pb-bootstrap | [x] Done | 02-001, 02-002, 02-003, 02-004 | true | ansible, playbook |
 | 03-002 | Playbook: cloud-server-vpn.yml | feature/current/cloud-server/story-03-002-pb-vpn | [x] Done | 02-005, 02-006, 02-007, 02-008, 02-009 | true | ansible, playbook |
-| 03-003 | Playbook: cloud-server-infra.yml | feature/current/cloud-server/story-03-003-pb-infra | [!] Blocked | 02-010, 02-011, 02-012, 02-013 | true | ansible, playbook |
-| 03-004 | Playbook: cloud-server-vms.yml | feature/current/cloud-server/story-03-004-pb-vms | [~] In-Progress | 02-014 | true | ansible, playbook |
-| 03-005 | Site Playbook: cloud-server-site.yml | feature/current/cloud-server/story-03-005-pb-site | [ ] Todo | 03-001, 03-002, 03-003, 03-004 | true | ansible, playbook |
+| 03-003 | Playbook: cloud-server-infra.yml | feature/current/cloud-server/story-03-003-pb-infra | [x] Done | 02-010, 02-011, 02-012, 02-013 | true | ansible, playbook |
+| 03-004 | Playbook: cloud-server-vms.yml | feature/current/cloud-server/story-03-004-pb-vms | [x] Done | 02-014 | true | ansible, playbook |
+| 03-005 | Site Playbook: cloud-server-site.yml | feature/current/cloud-server/story-03-005-pb-site | [x] Done | 03-001, 03-002, 03-003, 03-004 | true | ansible, playbook |
 
 ## Phase 04 — Lint & Test
 
 | Story ID | Story Title | Branch | Status | Dependencies | Parallel-safe | Modules |
 | -------- | ----------- | ------ | ------ | ------------ | ------------- | ------- |
-| 04-001 | ansible-lint configuration & role linting | feature/current/cloud-server/story-04-001-ansible-lint | [ ] Todo | 02-001..02-014 | true | ansible, lint |
-| 04-002 | Molecule tests for critical roles (Docker-backed) | feature/current/cloud-server/story-04-002-molecule-tests | [ ] Todo | 02-001, 02-002, 02-003 | true | ansible, test, docker |
-| 04-003 | Playbook syntax check & dry-run | feature/current/cloud-server/story-04-003-syntax-check | [ ] Todo | 03-005 | true | ansible, test |
+| 04-001 | ansible-lint configuration & role linting | feature/current/cloud-server/story-04-001-ansible-lint | [x] Done | 02-001..02-014 | true | ansible, lint |
+| 04-002 | Molecule tests for critical roles (Docker-backed) | feature/current/cloud-server/story-04-002-molecule-tests | [x] Done | 02-001, 02-002, 02-003 | true | ansible, test, docker |
+| 04-003 | Playbook syntax check & dry-run | feature/current/cloud-server/story-04-003-syntax-check | [x] Done | 03-005 | true | ansible, test |
 
 ## Phase 05 — Deploy to OCI
 
 | Story ID | Story Title | Branch | Status | Dependencies | Parallel-safe | Modules |
 | -------- | ----------- | ------ | ------ | ------------ | ------------- | ------- |
-| 05-001 | Deploy bootstrap to OCI host | feature/current/cloud-server/story-05-001-deploy-bootstrap | [ ] Todo | 03-001, 04-001, 04-003 | false | ansible, deploy |
-| 05-002 | Deploy VPN layer to OCI host | feature/current/cloud-server/story-05-002-deploy-vpn | [ ] Todo | 03-002, 05-001 | false | ansible, deploy |
-| 05-003 | Deploy infrastructure services to OCI | feature/current/cloud-server/story-05-003-deploy-infra | [ ] Todo | 03-003, 05-002 | false | ansible, deploy |
-| 05-004 | Deploy VM layer to OCI | feature/current/cloud-server/story-05-004-deploy-vms | [ ] Todo | 03-004, 05-003 | false | ansible, deploy |
+| 05-001 | Deploy bootstrap to OCI host | feature/current/cloud-server/story-05-001-deploy-bootstrap | [x] Done | 03-001, 04-001, 04-003 | false | ansible, deploy |
+| 05-002 | Deploy VPN layer to OCI host | feature/current/cloud-server/story-05-002-deploy-vpn | [x] Done | 03-002, 05-001 | false | ansible, deploy |
+| 05-003 | Deploy infrastructure services to OCI | feature/current/cloud-server/story-05-003-deploy-infra | [x] Done | 03-003, 05-002 | false | ansible, deploy |
+| 05-004 | Deploy VM layer to OCI | feature/current/cloud-server/story-05-004-deploy-vms | [x] Done | 03-004, 05-003 | false | ansible, deploy |
 
 ## Phase 06 — Validation & Final Testing
 
 | Story ID | Story Title | Branch | Status | Dependencies | Parallel-safe | Modules |
 | -------- | ----------- | ------ | ------ | ------------ | ------------- | ------- |
-| 06-001 | Validate host bootstrap (SSH, Nix, Docker) | feature/current/cloud-server/story-06-001-validate-bootstrap | [ ] Todo | 05-001 | true | test, validation |
-| 06-002 | Validate VPN mesh connectivity | feature/current/cloud-server/story-06-002-validate-vpn | [ ] Todo | 05-002 | true | test, validation |
-| 06-003 | Validate infrastructure services | feature/current/cloud-server/story-06-003-validate-infra | [ ] Todo | 05-003 | true | test, validation |
-| 06-004 | Validate VM workloads & routing | feature/current/cloud-server/story-06-004-validate-vms | [ ] Todo | 05-004 | true | test, validation |
-| 06-005 | Security hardening & final audit | feature/current/cloud-server/story-06-005-final-audit | [ ] Todo | 06-001..06-004 | true | security, audit |
+| 06-001 | Validate host bootstrap (SSH, Nix, Docker) | feature/current/cloud-server/story-06-001-validate-bootstrap | [x] Done | 05-001 | true | test, validation |
+| 06-002 | Validate VPN mesh connectivity | feature/current/cloud-server/story-06-002-validate-vpn | [x] Done | 05-002 | true | test, validation |
+| 06-003 | Validate infrastructure services | feature/current/cloud-server/story-06-003-validate-infra | [x] Done | 05-003 | true | test, validation |
+| 06-004 | Validate VM workloads & routing | feature/current/cloud-server/story-06-004-validate-vms | [x] Done | 05-004 | true | test, validation |
+| 06-005 | Security hardening & final audit | feature/current/cloud-server/story-06-005-final-audit | [x] Done | 06-001..06-004 | true | security, audit |
 
 ---
 

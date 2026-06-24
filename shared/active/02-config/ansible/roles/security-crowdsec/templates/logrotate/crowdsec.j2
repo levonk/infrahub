@@ -1,0 +1,17 @@
+# CrowdSec logrotate configuration
+# Managed by Ansible - DO NOT EDIT MANUALLY
+
+/var/log/crowdsec/*.log {
+    daily
+    rotate {{ security_crowdsec_log_retention_days }}
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+    create 0644 root root
+    sharedscripts
+    postrotate
+        docker exec crowdsec kill -USR1 1 || true
+    endscript
+}

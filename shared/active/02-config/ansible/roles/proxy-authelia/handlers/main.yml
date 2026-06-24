@@ -16,3 +16,11 @@
     restart: true
   listen: restart proxy-authelia-redis
   become: true
+
+- name: Restart proxy-authelia-postgres
+  community.docker.docker_container:
+    name: proxy-authelia-postgres
+    state: started
+    restart: true
+  listen: restart proxy-authelia-postgres
+  become: true
