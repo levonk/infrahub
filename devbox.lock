@@ -1,20 +1,6 @@
 {
   "lockfile_version": "1",
   "packages": {
-    "ansible": {
-      "resolved": "github:NixOS/nixpkgs/f9d8b65950353691ab56561e7c73d2e1063d810b#ansible",
-      "source": "nixpkg",
-      "systems": {
-        "x86_64-darwin": {
-          "outputs": [
-            {
-              "path": "/nix/store/wkfkm1yvr1qwzjbk851532bmdhdv0h9c-python3.13-ansible-core-2.21.0",
-              "default": true
-            }
-          ]
-        }
-      }
-    },
     "ansible-builder": {
       "resolved": "github:NixOS/nixpkgs/f9d8b65950353691ab56561e7c73d2e1063d810b#ansible-builder",
       "source": "nixpkg",
@@ -259,24 +245,8 @@
       }
     },
     "github:NixOS/nixpkgs/nixpkgs-unstable": {
-      "last_modified": "2026-06-16T10:57:20Z",
-      "resolved": "github:NixOS/nixpkgs/3e41b24abd260e8f71dbe2f5737d24122f972158?lastModified=1781607440"
-    },
-    "github:levonk/levonk-packages#bundle-devbox-auto-go": {
-      "last_modified": "2026-06-21T22:07:17Z",
-      "resolved": "github:levonk/levonk-packages/fdba0bbf092eb88ccd3cf858d94d2b4f44581835?lastModified=1782079637#bundle-devbox-auto-go"
-    },
-    "github:levonk/levonk-packages#bundle-devbox-auto-rust": {
-      "last_modified": "2026-06-21T22:07:17Z",
-      "resolved": "github:levonk/levonk-packages/fdba0bbf092eb88ccd3cf858d94d2b4f44581835?lastModified=1782079637#bundle-devbox-auto-rust"
-    },
-    "github:levonk/levonk-packages#bundle-rtk-cloud": {
-      "last_modified": "2026-06-21T22:07:17Z",
-      "resolved": "github:levonk/levonk-packages/fdba0bbf092eb88ccd3cf858d94d2b4f44581835?lastModified=1782079637#bundle-rtk-cloud"
-    },
-    "github:levonk/levonk-packages#bundle-rtk-core": {
-      "last_modified": "2026-06-21T22:07:17Z",
-      "resolved": "github:levonk/levonk-packages/fdba0bbf092eb88ccd3cf858d94d2b4f44581835?lastModified=1782079637#bundle-rtk-core"
+      "last_modified": "2026-06-22T09:00:13Z",
+      "resolved": "github:NixOS/nixpkgs/b3c092d3c36d91e2f61f3dfb39a159f180a56659?lastModified=1782118813"
     },
     "github:levonk/levonk-packages#devbox-rtk-nodejs-pnpm-force": {
       "last_modified": "2026-06-21T22:07:17Z",
@@ -285,58 +255,6 @@
     "github:levonk/levonk-packages#devbox-rtk-python-uv-force": {
       "last_modified": "2026-06-21T22:07:17Z",
       "resolved": "github:levonk/levonk-packages/fdba0bbf092eb88ccd3cf858d94d2b4f44581835?lastModified=1782079637#devbox-rtk-python-uv-force"
-    },
-    "github:levonk/levonk-packages#rtk-wrap-aws": {
-      "last_modified": "2026-06-21T22:07:17Z",
-      "resolved": "github:levonk/levonk-packages/fdba0bbf092eb88ccd3cf858d94d2b4f44581835?lastModified=1782079637#rtk-wrap-aws"
-    },
-    "github:levonk/levonk-packages#rtk-wrap-docker": {
-      "last_modified": "2026-06-21T22:07:17Z",
-      "resolved": "github:levonk/levonk-packages/fdba0bbf092eb88ccd3cf858d94d2b4f44581835?lastModified=1782079637#rtk-wrap-docker"
-    },
-    "github:levonk/levonk-packages#rtk-wrap-format": {
-      "last_modified": "2026-06-21T22:07:17Z",
-      "resolved": "github:levonk/levonk-packages/fdba0bbf092eb88ccd3cf858d94d2b4f44581835?lastModified=1782079637#rtk-wrap-format"
-    },
-    "github:levonk/levonk-packages#rtk-wrap-gh": {
-      "last_modified": "2026-06-21T22:07:17Z",
-      "resolved": "github:levonk/levonk-packages/fdba0bbf092eb88ccd3cf858d94d2b4f44581835?lastModified=1782079637#rtk-wrap-gh"
-    },
-    "github:levonk/levonk-packages#rtk-wrap-git": {
-      "last_modified": "2026-06-21T22:07:17Z",
-      "resolved": "github:levonk/levonk-packages/fdba0bbf092eb88ccd3cf858d94d2b4f44581835?lastModified=1782079637#rtk-wrap-git"
-    },
-    "github:levonk/levonk-packages#rtk-wrap-glab": {
-      "last_modified": "2026-06-21T22:07:17Z",
-      "resolved": "github:levonk/levonk-packages/fdba0bbf092eb88ccd3cf858d94d2b4f44581835?lastModified=1782079637#rtk-wrap-glab"
-    },
-    "github:levonk/levonk-packages#rtk-wrap-kubectl": {
-      "last_modified": "2026-06-21T22:07:17Z",
-      "resolved": "github:levonk/levonk-packages/fdba0bbf092eb88ccd3cf858d94d2b4f44581835?lastModified=1782079637#rtk-wrap-kubectl"
-    },
-    "github:levonk/levonk-packages#rtk-wrap-lint": {
-      "last_modified": "2026-06-21T22:07:17Z",
-      "resolved": "github:levonk/levonk-packages/fdba0bbf092eb88ccd3cf858d94d2b4f44581835?lastModified=1782079637#rtk-wrap-lint"
-    },
-    "github:levonk/levonk-packages#rtk-wrap-npx": {
-      "last_modified": "2026-06-21T22:07:17Z",
-      "resolved": "github:levonk/levonk-packages/fdba0bbf092eb88ccd3cf858d94d2b4f44581835?lastModified=1782079637#rtk-wrap-npx"
-    },
-    "github:levonk/levonk-packages#rtk-wrap-oc": {
-      "last_modified": "2026-06-21T22:07:17Z",
-      "resolved": "github:levonk/levonk-packages/fdba0bbf092eb88ccd3cf858d94d2b4f44581835?lastModified=1782079637#rtk-wrap-oc"
-    },
-    "github:levonk/levonk-packages#rtk-wrap-pytest": {
-      "last_modified": "2026-06-21T22:07:17Z",
-      "resolved": "github:levonk/levonk-packages/fdba0bbf092eb88ccd3cf858d94d2b4f44581835?lastModified=1782079637#rtk-wrap-pytest"
-    },
-    "github:levonk/levonk-packages#rtk-wrap-tsc": {
-      "last_modified": "2026-06-21T22:07:17Z",
-      "resolved": "github:levonk/levonk-packages/fdba0bbf092eb88ccd3cf858d94d2b4f44581835?lastModified=1782079637#rtk-wrap-tsc"
-    },
-    "github:levonk/levonk-packages#rtk-wrap-wget": {
-      "last_modified": "2026-06-21T22:07:17Z",
-      "resolved": "github:levonk/levonk-packages/fdba0bbf092eb88ccd3cf858d94d2b4f44581835?lastModified=1782079637#rtk-wrap-wget"
     },
     "github:levonk/tkr#tkr": {
       "last_modified": "2026-03-27T15:49:49Z",
@@ -419,13 +337,13 @@
         "x86_64-darwin": {
           "outputs": [
             {
-              "name": "bin",
-              "path": "/nix/store/pnm2frw3jwfrlycf730z5bfgixiyjal4-jq-1.8.1-bin",
+              "name": "man",
+              "path": "/nix/store/0yyamki3lhy0rp6vn45mn6cdhqb2c64a-jq-1.8.1-man",
               "default": true
             },
             {
-              "name": "man",
-              "path": "/nix/store/0yyamki3lhy0rp6vn45mn6cdhqb2c64a-jq-1.8.1-man",
+              "name": "bin",
+              "path": "/nix/store/pnm2frw3jwfrlycf730z5bfgixiyjal4-jq-1.8.1-bin",
               "default": true
             }
           ]
@@ -439,12 +357,12 @@
         "x86_64-darwin": {
           "outputs": [
             {
-              "path": "/nix/store/7ppiil9ycr565vqgbc18x4rpgbfgcnzy-just-1.51.0",
+              "name": "man",
+              "path": "/nix/store/144wqvh3s441y05xvzn8m16rhcqbki7d-just-1.51.0-man",
               "default": true
             },
             {
-              "name": "man",
-              "path": "/nix/store/144wqvh3s441y05xvzn8m16rhcqbki7d-just-1.51.0-man",
+              "path": "/nix/store/7ppiil9ycr565vqgbc18x4rpgbfgcnzy-just-1.51.0",
               "default": true
             }
           ]
@@ -696,12 +614,12 @@
         "x86_64-darwin": {
           "outputs": [
             {
-              "name": "man",
-              "path": "/nix/store/07xy08xjzmzlf9anga8jamm5dr6pgcn1-podman-5.8.2-man",
+              "path": "/nix/store/2rhv8lvphra17d6wr627kdpfg01kiy7v-podman-5.8.2",
               "default": true
             },
             {
-              "path": "/nix/store/2rhv8lvphra17d6wr627kdpfg01kiy7v-podman-5.8.2",
+              "name": "man",
+              "path": "/nix/store/07xy08xjzmzlf9anga8jamm5dr6pgcn1-podman-5.8.2-man",
               "default": true
             }
           ]
@@ -791,6 +709,10 @@
           ]
         }
       }
+    },
+    "python313Packages.ansible": {
+      "resolved": "github:NixOS/nixpkgs/b3c092d3c36d91e2f61f3dfb39a159f180a56659#python313Packages.ansible",
+      "source": "nixpkg"
     },
     "python313Packages.podman": {
       "resolved": "github:NixOS/nixpkgs/f9d8b65950353691ab56561e7c73d2e1063d810b#python313Packages.podman",

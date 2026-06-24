@@ -442,6 +442,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
 - [ ] **Data Tooling**: Goose https://github.com/block/goose
 - [ ] **Notebooks**: JupyterLab https://github.com/jupyterlab/jupyterlab
 - [ ] **Project Mgmt**: Focalboard (Trello alt) https://github.com/mattermost-community/focalboard
+- [ ] **UI/UX Design Figma**: https://github.com/penpot/penpot
 - [ ] **API / App Building**: NocoDB (Airtable alt) https://github.com/nocodb/nocodb
 - [ ] Understanding
   - [ ] **repo-swarm**: https://github.com/royosherove/repo-swarm
@@ -597,7 +598,11 @@ _Goal: Privacy, Resilience, Ad-blocking_
     - [ ] https://github.com/element-hq/dendrite
     - [ ] https://git.telodendria.io/Telodendria/Telodendria
 - [ ] **Social**: Mastodon https://github.com/mastodon/mastodon
+- [ ] **Video**:
+  - [ ] AI Video Editor: https://github.com/calesthio/OpenMontage
 - [ ] **Video/Voice**:
+  - [ ] Voice Receptionist: https://github.com/dograh-hq/dograh
+  - [ ] Voice Clone: https://github.com/jamiepine/voicebox
   - [ ] Video Meet: https://jitsi.org/jitsi-meet/
   - [ ] Video Meetings: https://github.com/miroslavpejic85/mirotalk https://p2p.mirotalk.com/
   - [ ] Text to Voice:
@@ -661,6 +666,8 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] **LiteLLM**: LLM Proxy/Router https://github.com/BerriAI/litellm
   - [ ] **ArchGW**: AI Gateway https://github.com/katanemo/archgw
   - [ ] **n8n AI**: AI workflows
+- Connectors
+  - [ ] https://github.com/Panniantong/Agent-Reach/blob/main/docs/README_en.md
 
 ### Proxies & Registries (Caching/Mirroring)
 

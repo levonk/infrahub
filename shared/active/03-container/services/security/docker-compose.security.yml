@@ -314,11 +314,11 @@ services:
       - "traefik.http.routers.authelia.tls=true"
       - "traefik.http.routers.authelia.middlewares=authelia@docker"
       - "traefik.http.middlewares.authelia.forwardAuth.address=http://authelia:9091/api/verify?rd=https%3A%2F%2F${LOCALNET_AUTH_HOSTNAME}%2F"
-      - "traefik.http.middlewares.authelia.fowardAuth.truestForwardHeader=true"
-      - "traefik.http.middlewares.authelia.fowardAuth.authResponseHeaders=Remote-User,Remote-Groups,Remote-Name,Remote-Email"
+      - "traefik.http.middlewares.authelia.forwardAuth.trustForwardHeader=true"
+      - "traefik.http.middlewares.authelia.forwardAuth.authResponseHeaders=Remote-User,Remote-Groups,Remote-Name,Remote-Email"
       - "traefik.http.middlewares.authelia-basic.forwardAuth.address=http://authelia:9091/api/verify?auth=basic"
-      - "traefik.http.middlewares.authelia-basic.forwardAuth.trustForwardheader=true"
-      - "traefik.http.middlewares.authelia-basic.fowardAuth.authResponseHeaders=Remote-User,Remote-Groups,Remote-Name,Remote-Email"
+      - "traefik.http.middlewares.authelia-basic.forwardAuth.trustForwardHeader=true"
+      - "traefik.http.middlewares.authelia-basic.forwardAuth.authResponseHeaders=Remote-User,Remote-Groups,Remote-Name,Remote-Email"
     expose:
       - 9091
     restart: unless-stopped
@@ -374,3 +374,32 @@ services:
       - "traefik.http.routers.wud.entrypoints=websecure"
       - "traefik.http.routers.wud.tls=true"
       - "traefik.http.services.wud.loadbalancer.server.port=${SECURITY_WUD_CONTAINER_PORT:-3000}"
+
+volumes:
+  dockerproxy-ro:
+    external: true
+    name: localnet-dockerproxy-ro-volume
+  dockerproxy-rw:
+    external: true
+    name: localnet-dockerproxy-rw-volume
+  tugtainer_data:
+    external: true
+    name: localnet-security-tugtainer-data-volume
+  crowdsec-data:
+    external: true
+    name: localnet-security-crowdsec-data-volume
+  crowdsec-config:
+    external: true
+    name: localnet-security-crowdsec-config-volume
+  crowdsec-db:
+    external: true
+    name: localnet-security-crowdsec-db-volume
+  traefik-access-logs:
+    external: true
+    name: localnet-security-traefik-accesslog-volume
+  authelia-db:
+    external: true
+    name: localnet-security-authelia-db-volume
+  wud-store:
+    external: true
+    name: localnet-security-wud-store-volume

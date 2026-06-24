@@ -1,0 +1,383 @@
+---
+# Host-Specific Variables: oci-cloud-server
+# Location: levonk/active/02-config/ansible/host_vars/oci-cloud-server.yml
+# Purpose: Overrides specific to the OCI cloud-server host.
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# SSH
+# ---------------------------------------------------------------------------
+# Override for bootstrap: use opc user initially, then switch to cuser
+ansible_user: "opc"
+ansible_ssh_user: "opc"
+cloud_server_ssh_host_port: 22
+
+# ---------------------------------------------------------------------------
+# VPN Mesh Priority
+# ---------------------------------------------------------------------------
+# Preference order for VPN mesh on this host.
+# Valid values: tailscale | netbird | wireguard
+cloud_server_vpn_primary: "tailscale"
+cloud_server_vpn_secondary: "netbird"
+
+# ---------------------------------------------------------------------------
+# Tailscale Configuration
+# ---------------------------------------------------------------------------
+# Advertise VM network routes for direct access to Isolation VM
+vpn_tailscale_advertise_routes:
+  - "192.168.100.0/24"  # NAT bridge network for VM
+  - "192.168.101.0/24"  # Routed bridge network for VM
+vpn_tailscale_accept_routes: true
+
+# ---------------------------------------------------------------------------
+# Packer / Image Reference
+# ---------------------------------------------------------------------------
+# OCID of the Packer-built base image deployed to this host.
+# Updated automatically after `just packer-build` or manually when
+# a new image is promoted.
+cloud_server_image_ocid: ""
+
+# ---------------------------------------------------------------------------
+# Dynamic DNS
+# ---------------------------------------------------------------------------
+cloud_server_ddns_enabled: true
+
+# ---------------------------------------------------------------------------
+# Host Labels / Metadata
+# ---------------------------------------------------------------------------
+cloud_server_role: "primary"
+cloud_server_environment: "production"
+
+# ---------------------------------------------------------------------------
+# NordVPN Configuration
+# ---------------------------------------------------------------------------
+vpn_nordvpn_enabled: true
+vpn_nordvpn_openvpn_user: "{{ vault_nordvpn_openvpn_user }}"
+vpn_nordvpn_openvpn_pass: "{{ vault_nordvpn_openvpn_pass }}"
+
+# ---------------------------------------------------------------------------
+# Nested Virtualization Support
+# ---------------------------------------------------------------------------
+# Test result from 2026-06-19: OCI ARM instance (aarch64) does NOT support nested KVM
+# Must use QEMU without KVM acceleration for Isolation VM
+nested_virtualization_supported: false
+
+# ---------------------------------------------------------------------------
+# KVM/libvirt/QEMU Configuration
+# ---------------------------------------------------------------------------
+# CPU mode set to qemu since nested KVM is not supported on OCI ARM
+kvm_cpu_mode: "qemu"
+kvm_target_user: "opc"
+
+# NAT Bridge Network Configuration
+common_kvm_nat_bridge_name: "kvm-nat-br0"
+common_kvm_nat_bridge_subnet: "192.168.100.0/24"
+common_kvm_nat_bridge_gateway: "192.168.100.1"
+common_kvm_nat_bridge_dhcp_start: "192.168.100.128"
+common_kvm_nat_bridge_dhcp_end: "192.168.100.254"
+
+# Routed Bridge Network Configuration
+common_kvm_routed_bridge_name: "kvm-route-br0"
+common_kvm_routed_bridge_subnet: "192.168.101.0/24"
+common_kvm_routed_bridge_gateway: "192.168.101.1"
+common_kvm_routed_bridge_dhcp_start: "192.168.101.128"
+common_kvm_routed_bridge_dhcp_end: "192.168.101.254"
+common_kvm_routed_bridge_interface: "ens3"
+
+# Storage Pool Configuration
+kvm_storage_pool_name: "default"
+kvm_storage_pool_path: "/var/lib/libvirt/images"
+
+# ---------------------------------------------------------------------------
+# Isolation VM Configuration
+# ---------------------------------------------------------------------------
+# Debian minimal VM for AI agent isolation
+# SECURITY: VM provides isolated environment for AI agents to run containers
+# SECURITY: All network configuration uses variables per AGENTS.md requirements
+isolation_vm_enabled: true
+isolation_vm_name: "isolation-vm"
+isolation_vm_memory_mb: 4096
+isolation_vm_vcpus: 2
+isolation_vm_disk_gb: 20
+# Isolation VM Configuration
+isolation_vm_ip_address: "192.168.100.147"
+isolation_vm_gateway_ip: "192.168.100.1"
+isolation_vm_mac_address: "52:54:00:36:e0:0d"
+isolation_vm_nat_bridge: "{{ common_kvm_nat_bridge_name }}"
+isolation_vm_routed_bridge: "{{ common_kvm_routed_bridge_name }}"
+isolation_vm_debian_version: "bookworm"
+isolation_vm_debian_arch: "arm64"
+isolation_vm_image_url: "https://cloud.debian.org/images/cloud/bookworm/daily/latest/debian-12-generic-arm64-daily.qcow2"
+isolation_vm_osinfo: "debian12"
+
+# Isolation VM User Configuration
+# SECURITY: SSH public key for cuser user access
+isolation_vm_ssh_public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEWRbHy2sWZLKET/74zvt0rZa4ET2zjes/SB+Y/3BmKp lzkmbp2016-micro-oracle"
+
+# Hermes Agent SSH Configuration
+# SECURITY: SSH public key for hermes-agent container access
+isolation_vm_hermes_agent_ssh_public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEWRbHy2sWZLKET/74zvt0rZa4ET2zjes/SB+Y/3BmKp lzkmbp2016-micro-oracle"
+
+# Hermes Agent VPN Configuration
+# SECURITY: VPN auth keys should be stored in vault
+isolation_vm_hermes_agent_tailscale_auth_key: "{{ vault_hermes_agent_tailscale_auth_key | default('') }}"
+isolation_vm_hermes_agent_netbird_setup_key: "{{ vault_hermes_agent_netbird_setup_key | default('') }}"
+
+# ---------------------------------------------------------------------------
+# Headroom Configuration
+# ---------------------------------------------------------------------------
+# Headroom context compression layer for AI agents
+# Sits upstream of iron-proxy in the proxy chain
+cloud_server_headroom_host_port: "8787"
+cloud_server_headroom_output_shaper: "0"
+
+# ---------------------------------------------------------------------------
+# AI Dashboard Pipeline Configuration
+# ---------------------------------------------------------------------------
+# Multi-stage analytics pipeline for AI usage tracking
+# Pipeline: AI Dashboard Proxy 1 → Headroom → OmniRoute → AI Dashboard Proxy 2 → Iron-Proxy → NordVPN → Internet
+ai_dashboard_pipeline_enabled: true
+
+# AI Dashboard Database Configuration
+ai_dashboard_db_container_ip: "172.35.0.20"
+ai_dashboard_db_name: "analytics"
+ai_dashboard_db_user: "postgres"
+ai_dashboard_db_password: "{{ vault_ai_dashboard_db_password | default('postgres') }}"
+ai_dashboard_database_url: "postgresql://{{ ai_dashboard_db_user }}:{{ ai_dashboard_db_password }}@ai-dashboard-db:5432/{{ ai_dashboard_db_name }}"
+
+# AI Dashboard Proxy Collector 1 - Entry Stage
+ai_dashboard_proxy_1_container_ip: "172.35.0.11"
+ai_dashboard_proxy_1_chain_ip: "172.29.0.11"
+ai_dashboard_proxy_1_host_port: "9081"
+ai_dashboard_proxy_1_container_port: "8081"
+
+# AI Dashboard Proxy Collector 2 - Pre-Egress Stage
+ai_dashboard_proxy_2_container_ip: "172.35.0.12"
+ai_dashboard_proxy_2_chain_ip: "172.29.0.12"
+ai_dashboard_proxy_2_host_port: "9082"
+ai_dashboard_proxy_2_container_port: "8082"
+
+# General AI Dashboard Configuration
+ai_dashboard_log_level: "INFO"
+ai_analytics_proxy_mode: "analytics"
+
+# Pipeline Stage Configuration
+ai_analytics_proxy_stage_1: "entry"
+ai_analytics_proxy_collector_id_1: "proxy-collector-1"
+ai_analytics_proxy_stage_2: "pre-egress"
+ai_analytics_proxy_collector_id_2: "proxy-collector-2"
+
+# Upstream Service Configuration
+ai_analytics_upstream_headroom: "http://headroom:8787"
+ai_analytics_upstream_omniroute: "http://omniroute:20128"
+ai_analytics_upstream_iron_proxy: "http://iron-proxy:8080"
+ai_analytics_upstream_nordvpn: "http://nordvpn:1080"
+
+# Compression Strategy Configuration
+# Headroom handles all compression (60-95% token savings)
+# OmniRoute compression disabled to avoid redundancy
+# OmniRoute focuses on intelligent provider routing
+compression_strategy: "headroom-primary"
+omniroute_compression_enabled: false
+omniroute_rtk_enabled: false
+omniroute_caveman_enabled: false
+
+# ---------------------------------------------------------------------------
+# SearXNG Configuration
+# ---------------------------------------------------------------------------
+# Privacy-respecting metasearch engine
+# Routes through NordVPN for privacy, exposed via Traefik
+search_searxng_enabled: true
+search_searxng_host_port: "8080"
+search_searxng_container_port: "8080"
+search_searxng_http_proxy: "http://nordvpn:1080"
+search_searxng_https_proxy: "http://nordvpn:1080"
+
+# ---------------------------------------------------------------------------
+# CrowdSec Configuration
+# ---------------------------------------------------------------------------
+# CrowdSec security engine and Traefik bouncer
+# SECURITY: Bouncer API key must be stored in vault
+security_crowdsec_enabled: true
+security_crowdsec_bouncer_api_key: "{{ vault_crowdsec_bouncer_api_key | default('change-me-in-vault') }}"
+security_crowdsec_traefik_container_name: "traefik"
+security_crowdsec_network_name: "traefik-network"
+
+# CrowdSec Bouncer Configuration
+proxy_traefik_crowdsec_enabled: false
+proxy_traefik_crowdsec_mode: "alive"
+proxy_traefik_crowdsec_lapi_scheme: "http"
+proxy_traefik_crowdsec_lapi_host: "crowdsec"
+proxy_traefik_crowdsec_lapi_port: 8080
+proxy_traefik_crowdsec_lapi_insecure_skip_verify: true
+proxy_traefik_crowdsec_forwarded_header: "X-Forwarded-For"
+proxy_traefik_crowdsec_trusted_ips:
+  - "127.0.0.1"
+  - "172.31.0.1"
+proxy_traefik_crowdsec_update_interval: 60
+proxy_traefik_crowdsec_default_decision_seconds: 30
+
+# Cloudflare ACME Configuration
+# SECURITY: Cloudflare credentials must be stored in vault
+# NOTE: For testing purposes, using staging CA server which doesn't require valid credentials
+# TODO: Add actual Cloudflare credentials to vault for production use
+cloud_server_acme_email: "admin@levonk.com"
+proxy_traefik_acme_email: "admin@levonk.com"
+
+# GeoBlock Configuration
+proxy_traefik_geoblock_enabled: false
+proxy_traefik_geoblock_allow_local: true
+proxy_traefik_geoblock_log_local: false
+proxy_traefik_geoblock_api_url: "http://ip-api.com/json/"
+proxy_traefik_geoblock_strict: true
+proxy_traefik_geoblock_silent_startup: false
+proxy_traefik_geoblock_allowed_countries:
+  - "US"
+
+# Volume Configuration
+proxy_traefik_ssl_volume: "localnet-traefik-ssl-volume"
+proxy_traefik_config_volume: "localnet-traefik-config-volume"
+
+# Logging Configuration
+proxy_traefik_log_level: "INFO"
+proxy_traefik_log_format: "json"
+proxy_traefik_access_log_format: "json"
+proxy_traefik_log_max_size: "10m"
+proxy_traefik_log_max_file: "5"
+
+# Global Configuration
+proxy_traefik_check_new_version: true
+proxy_traefik_send_anonymous_usage: false
+proxy_traefik_tz: "UTC"
+proxy_traefik_verify_health: true
+proxy_traefik_plugins_geoblock_version: "v0.3.3"
+
+# ---------------------------------------------------------------------------
+# Authelia Configuration
+# ---------------------------------------------------------------------------
+# Authentication and authorization service
+# SECURITY: Authelia is the authentication layer for all services
+# SECURITY: All credentials and secrets must be stored in vault
+# SECURITY: PostgreSQL database contains user data, requires strong password
+proxy_authelia_enabled: true
+proxy_authelia_container_name: "authelia"
+proxy_authelia_image: "authelia/authelia:{{ proxy_authelia_version }}"
+proxy_authelia_version: "4.38"
+proxy_authelia_host_port: "9091"
+proxy_authelia_container_port: "9091"
+proxy_authelia_network_name: "authelia-network"
+proxy_authelia_network_subnet: "172.32.0.0/16"
+proxy_authelia_network_gateway: "172.32.0.1"
+proxy_authelia_jwt_secret: "{{ vault_authelia_jwt_secret }}"
+proxy_authelia_session_secret: "{{ vault_authelia_session_secret }}"
+proxy_authelia_storage_encryption_key: "{{ vault_authelia_storage_encryption_key }}"
+
+# PostgreSQL Sidecar Configuration
+# SECURITY: PostgreSQL password must be strong and unique
+# SECURITY: Database contains sensitive user authentication data
+proxy_authelia_postgres_container_name: "authelia-postgres"
+proxy_authelia_postgres_image: "postgres:{{ proxy_authelia_postgres_version }}"
+proxy_authelia_postgres_version: "16-alpine"
+proxy_authelia_postgres_host_port: "5432"
+proxy_authelia_postgres_container_port: "5432"
+proxy_authelia_postgres_database: "authelia"
+proxy_authelia_postgres_user: "authelia"
+proxy_authelia_postgres_password: "{{ vault_authelia_postgres_password }}"
+
+# Redis Session Storage
+# SECURITY: Session hijacking risk if secret is compromised
+proxy_authelia_redis_volume_name: "authelia-redis-volume"
+proxy_authelia_redis_password: "{{ vault_authelia_redis_password }}"
+
+# Admin User Credentials
+# SECURITY: Admin password must be strong and unique
+# SECURITY: Admin email should be monitored for security alerts
+# SECURITY: Admin account has full system access
+proxy_authelia_admin_user: "admin"
+proxy_authelia_admin_password: "{{ vault_authelia_admin_password }}"
+proxy_authelia_admin_display_name: "Administrator"
+proxy_authelia_admin_email: "admin@levonk.com"
+
+# JWT Secret
+# SECURITY: JWT secret must be cryptographically secure random string
+# SECURITY: Token signing key compromise allows authentication bypass
+proxy_authelia_jwt_secret: "{{ vault_authelia_jwt_secret }}"
+
+# Session Secret
+# SECURITY: Session secret must be cryptographically secure random string
+# SECURITY: Session hijacking risk if secret is compromised
+proxy_authelia_session_secret: "{{ vault_authelia_session_secret }}"
+
+# Storage Encryption Key
+# SECURITY: Storage encryption key must be cryptographically secure random string
+# SECURITY: Key compromise allows database decryption
+proxy_authelia_storage_encryption_key: "{{ vault_authelia_storage_encryption_key }}"
+
+# Notifications (using filesystem to avoid SMTP requirement for testing)
+proxy_authelia_notifier_backend: "filesystem"
+proxy_authelia_notifier_fs_path: "/config/notification.txt"
+
+# ---------------------------------------------------------------------------
+# CrowdSec Configuration
+# ---------------------------------------------------------------------------
+# Security engine with Traefik integration
+# SECURITY: CrowdSec provides IP-based security and threat detection
+# SECURITY: API tokens must be unique and properly secured
+# SECURITY: Ban duration affects legitimate users if misconfigured
+security_crowdsec_enabled: true
+security_crowdsec_container_name: "crowdsec"
+security_crowdsec_image: "crowdsecurity/crowdsec:{{ security_crowdsec_version }}"
+security_crowdsec_version: "latest"
+security_crowdsec_host_port: "8080"
+security_crowdsec_container_port: "8080"
+security_crowdsec_network_name: "crowdsec-network"
+security_crowdsec_network_subnet: "172.33.0.0/16"
+security_crowdsec_network_gateway: "172.33.0.1"
+
+# Database Configuration
+# SECURITY: Database contains security events and IP reputation data
+# SECURITY: Volume persistence required for maintaining ban state
+security_crowdsec_db_volume_name: "crowdsec-db-volume"
+security_crowdsec_config_volume_name: "crowdsec-config-volume"
+
+# API Configuration
+# SECURITY: API token must be cryptographically secure random string
+# SECURITY: Bouncer API key must be unique for each Traefik instance
+# SECURITY: Token compromise allows unauthorized security rule modification
+security_crowdsec_api_token: "{{ vault_crowdsec_api_token }}"
+security_crowdsec_bouncer_api_key: "{{ vault_crowdsec_bouncer_api_key }}"
+
+# Remediation Configuration
+# SECURITY: Ban duration affects user experience and security posture
+# SECURITY: 672h (28 days) provides strong security but may impact legitimate users
+security_crowdsec_ban_duration: "672h"
+security_crowdsec_remediation_enabled: true
+
+# ---------------------------------------------------------------------------
+# Cloudflare DNS Configuration
+# ---------------------------------------------------------------------------
+# Cloudflare API for DNS management
+# SECURITY: Cloudflare API token has DNS edit permissions for the zone
+# SECURITY: Zone ID identifies the specific Cloudflare zone to manage
+# SECURITY: API token compromise allows unauthorized DNS modifications
+cloudflare_dns_enabled: true
+cloudflare_zone_id: "{{ vault_cloudflare_zone_id }}"
+cloudflare_api_token: "{{ vault_cloudflare_api_token }}"
+cloudflare_api_key: "{{ vault_cloudflare_api_key }}"
+cloudflare_account_email: "{{ vault_cloudflare_account_email }}"
+
+# Domain Configuration
+# SECURITY: Domain configuration affects SSL certificate scope
+# SECURITY: Subdomain naming should follow organizational standards
+cloudflare_domain: "levonk.com"
+cloudflare_subdomain_search: "search"
+cloudflare_search_fqdn: "{{ cloudflare_subdomain_search }}.{{ cloudflare_domain }}"
+
+# DNS Record Configuration
+# SECURITY: DNS record type must match service requirements
+# SECURITY: Proxied records use Cloudflare CDN, may affect IP visibility
+# SECURITY: TTL affects DNS propagation time and caching behavior
+cloudflare_dns_record_type: "A"
+cloudflare_dns_record_ttl: "300"
+cloudflare_dns_record_proxied: true
+cloudflare_dns_record_comment: "SearXNG search service via Traefik"

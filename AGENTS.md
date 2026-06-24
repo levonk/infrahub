@@ -82,7 +82,7 @@ This is the standard location for Ansible vault passwords in this project.
 **Example - Correct approach:**
 ```bash
 # To view the CrowdSec bouncer API key:
-devbox run -- ansible-vault view /Users/micro/p/gh/levonk/infrahub/shared/active/02-config/ansible/group_vars/infrahub-levonk-all.vault.yml --vault-password-file ~/.ansible/vault_password
+devbox run -- ansible-vault view /Users/micro/p/gh/levonk/infrahub/levonk/active/02-config/ansible/group_vars/infrahub-levonk-all.vault.yml --vault-password-file ~/.ansible/vault_password
 ```
 
 **Example - Incorrect approach:**

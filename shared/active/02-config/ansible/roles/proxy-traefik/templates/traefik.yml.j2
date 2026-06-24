@@ -31,13 +31,16 @@ entryPoints:
     address: ":{{ proxy_traefik_metrics_container_port }}"
 {% endif %}
 
-# Docker provider
-providers:
-  docker:
-    endpoint: "unix:///var/run/docker.sock"
-    exposedByDefault: {{ proxy_traefik_docker_expose_default | lower }}
-    network: "{{ proxy_traefik_network_name }}"
+# Docker provider DISABLED due to API version incompatibility with Traefik v3.0
+# Using file provider only for routing configuration
+# providers:
+#   docker:
+#     endpoint: "unix:///var/run/docker.sock"
+#     exposedByDefault: {{ proxy_traefik_docker_expose_default | lower }}
+#     network: "{{ proxy_traefik_network_name }}"
 
+# File provider
+providers:
   file:
     directory: /etc/traefik/dynamic
     watch: {{ proxy_traefik_dynamic_config_watch | lower }}
@@ -53,7 +56,7 @@ certificatesResolvers:
       email: {{ proxy_traefik_acme_email | to_json }}
       storage: /letsencrypt/acme.json
       dnsChallenge:
-        provider: {{ proxy_traefik_acme_dns_provider | to_json }}
+        provider: cloudflare
         delayBeforeCheck: {{ proxy_traefik_acme_delay_before_check }}
         resolvers:
           - "{{ proxy_traefik_acme_resolver_1 }}"

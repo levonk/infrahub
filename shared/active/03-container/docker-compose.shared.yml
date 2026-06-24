@@ -80,8 +80,8 @@ networks:
     external: false
     ipam:
       config:
-        - subnet: 172.22.0.0/16
-          gateway: 172.22.0.1
+        - subnet: 172.29.0.0/16
+          gateway: 172.29.0.1
 
   searxng-network:
     name: searxng-network

@@ -3,37 +3,14 @@
 
 http:
   middlewares:
-    # Forwarded headers middleware for Tailscale bypass
-    forwarded-headers:
-      forwardedHeaders:
-        trustedIPs:
-          - "172.31.0.1"
-          - "100.64.0.0/10"
-    {% if proxy_traefik_geoblock_enabled %}
-    # GeoBlock middleware configuration
-    geoblock:
-      plugin:
-        geoblock:
-          allowLocalRequests: {{ proxy_traefik_geoblock_allow_local | lower }}
-          logLocalRequests: {{ proxy_traefik_geoblock_log_local | lower }}
-          api:
-            apiURL: {{ proxy_traefik_geoblock_api_url | to_json }}
-            format: json
-          strict: {{ proxy_traefik_geoblock_strict | lower }}
-          silentStartUp: {{ proxy_traefik_geoblock_silent_startup | lower }}
-          allow:
-            countryCodes:
-              {% for country in proxy_traefik_geoblock_allowed_countries %}
-              - {{ country | to_json }}
-              {% endfor %}
-    {% endif %}
-    # Authelia middleware (for future integration)
+    # Authelia middleware with redirect support
     authelia:
       forwardAuth:
-        address: "{{ proxy_traefik_authelia_address | default('http://172.31.0.6:9091/api/verify') }}"
-        trustForwardHeader: {{ proxy_traefik_authelia_trust_forward_header | default(true) | lower }}
+        address: "http://{{ proxy_authelia_container_ip | default('172.31.0.6') }}:9091/api/verify?rd=https://auth.levonk.com"
+        trustForwardHeader: true
         authResponseHeaders:
           - Remote-User
           - Remote-Group
           - Remote-Name
           - Remote-Email
+          - Authorization

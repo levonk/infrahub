@@ -65,9 +65,9 @@ session:
   secret: {{ proxy_authelia_session_secret | default('default_session_secret_change_in_production_at_least_20_chars') }}
   cookies:
     - name: authelia_session
-      domain: {{ ansible_host | default('localhost') }}.local
+      domain: {{ proxy_authelia_session_domain | default(ansible_host | default('localhost') + '.local') }}
       same_site: lax
-      authelia_url: https://{{ ansible_host | default('localhost') }}.local:{{ proxy_authelia_web_host_port }}
+      authelia_url: {{ proxy_authelia_url | default('https://oci.local:9091') }}
 {% if proxy_authelia_session_redis_enabled | bool %}
   redis:
     host: proxy-authelia-redis

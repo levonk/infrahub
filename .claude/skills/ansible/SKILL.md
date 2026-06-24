@@ -103,7 +103,7 @@ description: Best practices for Ansible automation in infrahub - container-based
   # In group_vars/cloud_servers.yml
   cloud_server_token: "{{ vault_api_token }}"
 
-  # In group_vars/infrahub-levonk-all.vault.yml (encrypted)
+  # In levonk/active/02-config/ansible/group_vars/infrahub-levonk-all.vault.yml (encrypted)
   vault_api_token: "your-actual-token-here"
   ```
 - **SOPS pattern**:
@@ -421,7 +421,7 @@ description: Best practices for Ansible automation in infrahub - container-based
 # In group_vars/cloud_servers.yml
 cloud_server_token: "{{ vault_api_token }}"
 
-# In group_vars/infrahub-levonk-all.vault.yml
+# In levonk/active/02-config/ansible/group_vars/infrahub-levonk-all.vault.yml
 vault_api_token: "your-actual-token-here"
 
 # In tasks - validate vault variable is defined
@@ -430,7 +430,7 @@ vault_api_token: "your-actual-token-here"
     that:
       - vault_api_token is defined
       - vault_api_token | length > 0
-    fail_msg: "ERROR: vault_api_token is not defined or empty. Check group_vars/infrahub-levonk-all.vault.yml"
+    fail_msg: "ERROR: vault_api_token is not defined or empty. Check levonk/active/02-config/ansible/group_vars/infrahub-levonk-all.vault.yml"
     success_msg: "Vault variable validated."
 
 - name: Use vault variable
@@ -507,7 +507,7 @@ password: "my-password-here"
 
 # RIGHT - Use Ansible Vault
 api_token: "{{ vault_api_token }}"
-# In group_vars/infrahub-levonk-all.vault.yml (encrypted)
+# In levonk/active/02-config/ansible/group_vars/infrahub-levonk-all.vault.yml (encrypted)
 vault_api_token: "my-secret-token-here"
 
 # RIGHT - Use SOPS for encrypted files

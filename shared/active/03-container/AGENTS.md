@@ -57,6 +57,7 @@ This project implements the **AI Development Loop** skill for systematic, high-q
 - NEVER stop processing open tickets in the LOOP
 - NEVER send data out of owned systems without permission
 - NEVER misinform the owner (explicitly or via omission)
+- NEVER put passwords, api keys, or other sensitive data in anything other than encrypted vaults and iron-proxy
 
 ### Quality Gates
 
@@ -72,6 +73,11 @@ Before completing any ticket, verify:
 - [ ] Assessment completed for improvements
 - [ ] Improvement tickets created and prioritized
 - [ ] Documentation updated
+- [ ] If changes were made to running services, you have made a query and looked at the logs before claiming completion
+- [ ] Any deployed service has a proper domain name, SSL certificate, is behind authelia
+- [ ] Any port used does not conflict with any services
+- [ ] No plaintext api keys, passwords, or other sensitive data in code or plaintext configuration
+- [ ] If sensitive data was committed, then we need to change the password / key
 
 If you're working on Nix containers, see the documentation at:
 
@@ -79,7 +85,7 @@ If you're working on Nix containers, see the documentation at:
 
 ## 🔄 Validate Before Completing
 
-**CRITICAL: You MUST verify your changes actually work before considering any task complete.**
+**CRITICAL: You MUST verify your changes actually work, and no warnings or errors in log files, before considering any task complete.**
 
 ### The Validation Rule
 

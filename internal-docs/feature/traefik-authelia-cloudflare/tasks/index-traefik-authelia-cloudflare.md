@@ -26,7 +26,7 @@ This index provides a comprehensive overview of all stories for the Traefik Prox
 | 03-002 | Configure Cloudflare DNS records | feature/current/traefik-authelia-cloudflare/story-03-002-cloudflare-dns-config | 01-004, 03-001 | Parallel-safe: true | cloudflare-dns, cloudflare-api | [x] Done |
 | 03-003 | Set up monitoring and logging | feature/current/traefik-authelia-cloudflare/story-03-003-monitoring-logging | 02-001, 02-002, 02-003 | Parallel-safe: true | docker-logging, monitoring | [x] Done |
 | 03-004-1 | Fix critical deployment issues | feature/current/traefik-authelia-cloudflare/story-03-004-1-critical-deployment-fixes | 03-001, 03-002, 03-003 | Parallel-safe: false | traefik, authelia, crowdsec, docker, cloudflare | [x] Done |
-| 03-004 | End-to-end testing and documentation | feature/current/traefik-authelia-cloudflare/story-03-004-e2e-testing-docs | 03-001, 03-002, 03-003, 03-004-1 | Parallel-safe: false | testing, documentation | [x] Done (17/17 subtasks completed, comprehensive testing and documentation completed) |
+| 03-004 | End-to-end testing and documentation | feature/current/traefik-authelia-cloudflare/story-03-004-e2e-testing-docs | 03-001, 03-002, 03-003, 03-004-1 | Parallel-safe: false | testing, documentation | [x] Done (17/17 subtasks completed, comprehensive testing and documentation completed, Authelia integration fixed 2026-06-23) |
 
 ## Development Workflow
 

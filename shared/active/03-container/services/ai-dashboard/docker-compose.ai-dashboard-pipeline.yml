@@ -1,7 +1,7 @@
 ---
 # AI Dashboard Pipeline - Multi-Stage Analytics Collection
 # This configuration wires up the AI analytics pipeline with multiple stages:
-# AI Dashboard Proxy 1 → Headroom → OmniRoute → AI Dashboard Proxy 2 → Iron-Proxy → NordVPN → Internet
+# AI Dashboard Proxy 1 → Privacy Orchestrator → Headroom → OmniRoute → AI Dashboard Proxy 2 → Iron-Proxy → NordVPN → Internet
 # Dual AI Dashboard proxy collectors for entry and pre-egress analytics
 # Compression Strategy: Headroom handles all compression, OmniRoute focuses on routing
 
@@ -23,8 +23,13 @@ networks:
           gateway: 172.35.0.1
     external: false
   proxy-chain-network:
-    external: true
     name: proxy-chain-network
+    driver: bridge
+    external: false
+    ipam:
+      config:
+        - subnet: 172.29.0.0/16
+          gateway: 172.29.0.1
 
 volumes:
   ai-dashboard-data:
@@ -32,6 +37,8 @@ volumes:
   ai-dashboard-proxy-1-data:
     driver: local
   ai-dashboard-proxy-2-data:
+    driver: local
+  privacy-orchestrator-data:
     driver: local
   headroom-data:
     external: true
@@ -59,7 +66,7 @@ services:
       - AI_ANALYTICS_PROXY_STAGE=entry
       - AI_ANALYTICS_PROXY_COLLECTOR_ID=proxy-collector-1
       - LOG_LEVEL=${AI_DASHBOARD_LOG_LEVEL:-INFO}
-      - AI_ANALYTICS_UPSTREAM_URL=http://headroom:8787
+      - AI_ANALYTICS_UPSTREAM_URL=http://privacy-orchestrator:9090
       - COMPRESSION_STRATEGY=headroom-primary
     ports:
       - "${AI_DASHBOARD_PROXY_1_HOST_PORT:-9081}:${AI_DASHBOARD_PROXY_1_CONTAINER_PORT:-8081}/tcp"
@@ -71,6 +78,45 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    depends_on:
+      ai-dashboard-db:
+        condition: service_healthy
+
+  # Privacy Orchestrator - PII Detection and Transformation Service
+  # Second stage in pipeline: detects and transforms PII before Headroom compression
+  privacy-orchestrator:
+    image: localnet-privacy-orchestrator:latest
+    command: ["privacy-orchestrator", "serve", "--port", "9090"]
+    container_name: privacy-orchestrator
+    restart: unless-stopped
+    networks:
+      ai-dashboard:
+        ipv4_address: ${PRIVACY_ORCHESTRATOR_CONTAINER_IP:-172.35.0.15}
+      proxy-chain-network:
+        ipv4_address: ${PRIVACY_ORCHESTRATOR_CHAIN_IP:-172.29.0.15}
+    environment:
+      - PRIVACY_ORCHESTRATOR_PORT=9090
+      - PRIVACY_ORCHESTRATOR_HOST=0.0.0.0
+      - PRIVACY_ORCHESTRATOR_DATA_DIR=/data
+      - PRIVACY_ORCHESTRATOR_CONFIG_FILE=/config/config.toml
+      - PRIVACY_ORCHESTRATOR_LOG_LEVEL=${PRIVACY_ORCHESTRATOR_LOG_LEVEL:-INFO}
+      - PRIVACY_ORCHESTRATOR_MODE=${PRIVACY_ORCHESTRATOR_MODE:-proxy}
+      - DATABASE_URL=${PRIVACY_ORCHESTRATOR_DATABASE_URL:-postgresql://postgres:postgres@ai-dashboard-db:5432/analytics}
+    ports:
+      - "${PRIVACY_ORCHESTRATOR_HOST_PORT:-9090}:${PRIVACY_ORCHESTRATOR_CONTAINER_PORT:-9090}/tcp"
+    volumes:
+      - privacy-orchestrator-data:/data
+      - ${PRIVACY_ORCHESTRATOR_CONFIG_PATH:-./config}:/config:ro
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    depends_on:
+      ai-dashboard-db:
+        condition: service_healthy
     depends_on:
       - ai-dashboard-db
 
@@ -105,7 +151,10 @@ services:
       timeout: 10s
       retries: 3
     depends_on:
-      - ai-dashboard-db
+      ai-dashboard-db:
+        condition: service_healthy
+      omniroute:
+        condition: service_healthy
 
   # Headroom Context Compression Service
   # Compresses LLM requests before they reach OmniRoute
@@ -121,7 +170,6 @@ services:
       - HEADROOM_PORT=8787
       - HEADROOM_HOST=0.0.0.0
       - HEADROOM_DATA_DIR=/data
-      - UPSTREAM_PROXY=http://omniroute:20128
       - HEADROOM_OUTPUT_SHAPER=0
     ports:
       - "8787:8787/tcp"
@@ -133,6 +181,9 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    depends_on:
+      privacy-orchestrator:
+        condition: service_healthy
 
   # OmniRoute AI Gateway Service
   # Smart routing across 177+ AI providers (compression disabled)
@@ -160,6 +211,9 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    depends_on:
+      headroom:
+        condition: service_healthy
 
   # AI Dashboard Database (PostgreSQL)
   # Shared database for all collectors

@@ -76,7 +76,7 @@ security_crowdsec_prometheus_container_port: "6060"
 # Enrollment Configuration
 # ---------------------------------------------------------------------------
 security_crowdsec_enroll_enabled: false
-security_crowdsec_enrollment_token: "change-me-in-vault"
+security_crowdsec_enrollment_token: "{{ vault_crowdsec_enrollment_token | default('change-me-in-vault') }}"
 security_crowdsec_enrollment_url: "https://api.crowdsec.net"
 security_crowdsec_enrollment_force: false
 
@@ -135,7 +135,7 @@ security_crowdsec_bouncer_redis_enabled: false
 security_crowdsec_bouncer_redis_host: "redis"
 security_crowdsec_bouncer_redis_port: "6379"
 security_crowdsec_bouncer_redis_db: "0"
-security_crowdsec_bouncer_redis_password: "change-me-in-vault"
+security_crowdsec_bouncer_redis_password: "{{ vault_crowdsec_bouncer_redis_password | default('change-me-in-vault') }}"
 security_crowdsec_bouncer_redis_expiration: "60s"
 
 # ---------------------------------------------------------------------------

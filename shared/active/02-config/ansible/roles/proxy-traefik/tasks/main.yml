@@ -103,6 +103,17 @@
   notify: reload traefik
   when: search_searxng_enabled | bool
 
+- name: Deploy Authelia dynamic configuration template
+  ansible.builtin.template:
+    src: dynamic/auth-levonk-com.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/auth-levonk-com.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: reload traefik
+  when: proxy_authelia_enabled | bool
+
 # ---------------------------------------------------------------------------
 # Traefik Container
 # ---------------------------------------------------------------------------
@@ -122,9 +133,9 @@
     volumes:
       - "{{ proxy_traefik_ssl_volume }}:/letsencrypt"
       - "{{ proxy_traefik_data_dir }}/config:/etc/traefik:ro"
-      - "/var/run/docker.sock:/var/run/docker.sock:ro"
     env:
       TZ: "{{ proxy_traefik_tz }}"
+      CF_DNS_API_TOKEN: "{{ vault_cloudflare_api_token | default('change-me') }}"
     command:
       - "--configFile=/etc/traefik/traefik.yml"
     log_driver: json-file

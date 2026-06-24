@@ -2,11 +2,11 @@
 
 ## Recent Changes
 
-**2026-06-22**: Added Privacy Filter stage to pipeline architecture
+**2026-06-24**: Implemented Privacy Orchestrator stage in pipeline architecture
 - New stage between AI Dashboard Proxy 1 and Headroom
-- Implements PII detection and redaction using privacy-filter.cpp
-- **Status**: TO BE IMPLEMENTED - requires new proxy service project
-- See "Privacy Filter Implementation" section for details
+- Implements PII detection and transformation using Rust-based Privacy Orchestrator
+- **Status**: IMPLEMENTED - ai-privacy-proxy service deployed
+- See "Privacy Orchestrator Implementation" section for details
 
 ## Overview
 
@@ -15,8 +15,8 @@ This configuration implements a multi-stage AI analytics pipeline with comprehen
 ## Pipeline Architecture
 
 ```
-AI Dashboard Proxy 1 → Privacy Filter → Headroom → OmniRoute → AI Dashboard Proxy 2 → Iron-Proxy → NordVPN → Internet
-        (Entry)           (PII Redaction)    (Compression)   (Routing)       (Pre-Egress)    (Security)    (Privacy)
+AI Dashboard Proxy 1 → Privacy Orchestrator → Headroom → OmniRoute → AI Dashboard Proxy 2 → Iron-Proxy → NordVPN → Internet
+        (Entry)              (PII Detection)    (Compression)   (Routing)       (Pre-Egress)    (Security)    (Privacy)
 ```
 
 ### Compression Strategy
@@ -38,16 +38,17 @@ AI Dashboard Proxy 1 → Privacy Filter → Headroom → OmniRoute → AI Dashbo
    - **Container IP**: 172.28.0.11
    - **Chain IP**: 172.29.0.11
 
-2. **Privacy Filter (PII Redaction)**
-   - Detects and redacts PII (Personally Identifiable Information) from AI requests
-   - Uses OpenAI's privacy-filter model via privacy-filter.cpp
+2. **Privacy Orchestrator (PII Detection & Transformation)**
+   - Detects and transforms PII (Personally Identifiable Information) from AI requests
+   - Rust-based service with Candle ML framework integration
    - Supports 22+ PII categories across multiple languages
-   - Real-time PII detection with sub-millisecond latency
-   - **Implementation**: New service wrapping privacy-filter.cpp as HTTP proxy
-   - **Port**: TBD (recommended: 9090)
+   - Real-time PII detection with configurable transformation modes (redaction, masking, tokenization)
+   - CLI and HTTP proxy interfaces
+   - **Implementation**: ai-privacy-proxy service (https://github.com/levonk/ai-privacy-proxy)
+   - **Port**: 9090
    - **Upstream from**: AI Dashboard Proxy 1
    - **Downstream to**: Headroom
-   - **Status**: **TO BE IMPLEMENTED** - requires new proxy service project
+   - **Status**: **IMPLEMENTED** - deployed as Rust service
 
 3. **Headroom (Context Compression)**
    - Compresses LLM context to reduce token usage
@@ -112,12 +113,13 @@ The AI Dashboard collects multi-dimensional analytics across:
 - Request timing and latency
 - Input type classification
 
-### Privacy Filter Analytics
+### Privacy Orchestrator Analytics
 - PII detection rates and categories
-- Redaction effectiveness metrics
+- Transformation effectiveness metrics (redaction, masking, tokenization)
 - Processing latency (sub-millisecond expected)
 - False positive/negative rates
 - Multi-language coverage statistics
+- Transformation mode usage patterns
 
 ### Compression Analytics (Headroom comparison)
 - Token savings percentage (Headroom: 60-95%)
@@ -182,8 +184,8 @@ docker compose -f docker-compose.ai-dashboard-pipeline.yml --env-file .env.pipel
 # Entry stage collector
 docker logs ai-dashboard-proxy-1 --tail=50 -f
 
-# Privacy filter (TO BE IMPLEMENTED)
-docker logs privacy-filter --tail=50 -f
+# Privacy Orchestrator
+docker logs privacy-orchestrator --tail=50 -f
 
 # Pre-egress stage collector
 docker logs ai-dashboard-proxy-2 --tail=50 -f
@@ -198,7 +200,7 @@ docker logs ai-dashboard-db --tail=50 -f
 # Entry stage health
 curl http://localhost:8081/health
 
-# Privacy filter health (TO BE IMPLEMENTED)
+# Privacy Orchestrator health
 curl http://localhost:9090/health
 
 # Pre-egress stage health
@@ -211,7 +213,7 @@ docker exec ai-dashboard-db pg_isready -U postgres
 ### Access Analytics
 
 - **Entry Stage API**: http://localhost:8081
-- **Privacy Filter API**: http://localhost:9090 (TO BE IMPLEMENTED)
+- **Privacy Orchestrator API**: http://localhost:9090
 - **Pre-Egress Stage API**: http://localhost:8082
 - **Database**: postgresql://postgres:postgres@localhost:5432/analytics
 
@@ -220,7 +222,7 @@ docker exec ai-dashboard-db pg_isready -U postgres
 ### Local Development
 
 For local development, ensure all dependent services are running:
-- Privacy Filter service (TO BE IMPLEMENTED)
+- Privacy Orchestrator service (ai-privacy-proxy)
 - Headroom service
 - OmniRoute service
 - Iron-Proxy service
@@ -244,13 +246,15 @@ devbox run -- rtk ansible-playbook -i levonk/active/02-config/ansible/inventorie
 
 ### Proxy Chain Network
 - **Name**: proxy-chain-network
-- **Type**: external
+- **Type**: bridge
+- **Subnet**: 172.29.0.0/16
+- **Gateway**: 172.29.0.1
 - **Subnet**: 172.29.0.0/16
 - **Purpose**: Communication with pipeline services (Headroom, OmniRoute, Iron-Proxy, NordVPN)
 
 ## Security Considerations
 
-1. **PII Protection**: Privacy Filter removes PII before data leaves the system
+1. **PII Protection**: Privacy Orchestrator detects and transforms PII before data leaves the system
 2. **Default-Deny**: Iron-Proxy enforces default-deny egress policy
 3. **Secret Injection**: Credentials injected at boundary, not in workloads
 4. **Audit Trail**: Complete request logging at multiple stages
@@ -277,61 +281,63 @@ devbox run -- rtk ansible-playbook -i levonk/active/02-config/ansible/inventorie
 - Single compression point simplifies debugging and analytics
 - Cleaner separation of concerns (compression vs routing)
 
-## Privacy Filter Implementation
+## Privacy Orchestrator Implementation
 
 ### Current Status
-**TO BE IMPLEMENTED** - The Privacy Filter stage is currently planned but not yet implemented.
+**IMPLEMENTED** - The Privacy Orchestrator stage is fully implemented and deployed.
 
-### Implementation Requirements
+### Implementation Details
 
-A new proxy service needs to be created to wrap `privacy-filter.cpp` as an HTTP proxy service:
+The Privacy Orchestrator is a Rust-based service that provides PII detection and transformation capabilities:
 
 **Core Functionality:**
 - HTTP server/proxy that intercepts AI requests
-- Integration with privacy-filter.cpp C API for PII detection
-- Request/response processing with PII redaction
-- Support for multiple PII categories (22+ categories)
-- Multi-language support (via privacy-filter-multilingual model)
+- PII detection using Candle ML framework
+- Multiple transformation modes (redaction, masking, tokenization)
+- Support for 22+ PII categories across multiple languages
+- CLI and HTTP proxy interfaces
+- Real-time analytics and monitoring
 
-**Technical Requirements:**
-- HTTP proxy interface (similar to other pipeline services)
-- Integration with privacy-filter.cpp C API
+**Technical Stack:**
+- Rust with Candle ML framework
+- HTTP proxy interface (port 9090)
 - Docker containerization
 - Health check endpoints
-- Configuration for PII sensitivity thresholds
-- Logging and metrics for PII detection
-
-**Reference Implementation:**
-- Base library: https://github.com/localai-org/privacy-filter.cpp
-- Pre-converted models: LocalAI-io/privacy-filter-multilingual-GGUF
-- C API documentation: See `include/pf.h` in privacy-filter.cpp repository
-
-**Recommended Architecture:**
-- Rust-based proxy service (consistent with other pipeline services)
-- FFI binding to privacy-filter.cpp C API
-- HTTP proxy interface with request/response interception
 - Configurable PII detection thresholds
-- Analytics integration with AI Dashboard
+- Comprehensive logging and metrics
 
-### Benefits of Separate Privacy Filter Service
+**Repository:**
+- Project: https://github.com/levonk/ai-privacy-proxy
+- Documentation: See project README and internal docs
+
+**Architecture:**
+- Rust-based service (consistent with other pipeline services)
+- Candle ML framework for PII detection
+- HTTP proxy interface with request/response interception
+- Configurable transformation modes and thresholds
+- Analytics integration with AI Dashboard
+- TUI interface for monitoring and management
+
+### Benefits of Privacy Orchestrator Service
 
 **Architectural:**
-- Separation of concerns (privacy filtering vs analytics collection)
+- Separation of concerns (privacy transformation vs analytics collection)
 - Reusable across different pipelines/projects
 - Independent testing and validation
 - Follows microservices best practices
 
 **Operational:**
 - Can scale independently based on PII processing load
-- Privacy filtering updates don't affect analytics collection
+- Privacy transformation updates don't affect analytics collection
 - Easier to monitor and debug PII detection issues
 - Can be deployed/updated independently
+- TUI interface for real-time monitoring
 
 **Performance:**
-- Leverages privacy-filter.cpp's optimized GGML inference
+- Leverages Candle ML framework for efficient inference
 - Sub-millisecond PII detection latency
-- Efficient memory usage (~2.8 GiB VRAM for GPU inference)
-- CPU-only option available for edge deployments
+- Efficient memory usage
+- CPU and GPU inference options
 
 ## Troubleshooting
 
@@ -339,7 +345,7 @@ A new proxy service needs to be created to wrap `privacy-filter.cpp` as an HTTP 
 
 1. Check if all dependent services are running:
    ```bash
-   docker ps | grep -E "privacy-filter|headroom|omniroute|iron-proxy|nordvpn"
+   docker ps | grep -E "privacy-orchestrator|headroom|omniroute|iron-proxy|nordvpn"
    ```
 
 2. Verify network connectivity:
@@ -352,7 +358,103 @@ A new proxy service needs to be created to wrap `privacy-filter.cpp` as an HTTP 
    ```bash
    docker logs ai-dashboard-proxy-1
    docker logs ai-dashboard-proxy-2
+   docker logs privacy-orchestrator
    ```
+
+### Privacy Orchestrator Issues
+
+#### Privacy Orchestrator Not Starting
+
+1. Check container status:
+   ```bash
+   docker ps | grep privacy-orchestrator
+   docker logs privacy-orchestrator --tail=50
+   ```
+
+2. Verify configuration file:
+   ```bash
+   docker exec privacy-orchestrator cat /config/config.toml
+   ```
+
+3. Check database connectivity:
+   ```bash
+   docker exec privacy-orchestrator env | grep DATABASE_URL
+   docker exec ai-dashboard-db pg_isready -U postgres
+   ```
+
+4. Verify network configuration:
+   ```bash
+   docker inspect privacy-orchestrator | grep IPAddress
+   docker network inspect proxy-chain-network
+   ```
+
+#### PII Detection Not Working
+
+1. Check detection configuration:
+   ```bash
+   docker exec privacy-orchestrator cat /config/config.toml | grep -A 10 "\[detection\]"
+   ```
+
+2. Test detection endpoint:
+   ```bash
+   curl -X POST http://localhost:9090/detect \
+     -H "Content-Type: application/json" \
+     -d '{"text": "My email is test@example.com"}'
+   ```
+
+3. Check model availability:
+   ```bash
+   docker exec privacy-orchestrator ls -la /models/
+   ```
+
+4. Verify GPU/CPU configuration:
+   ```bash
+   docker exec privacy-orchestrator env | grep use_gpu
+   docker exec privacy-orchestrator nvidia-smi  # if GPU enabled
+   ```
+
+#### Transformation Not Applied
+
+1. Check transformation mode:
+   ```bash
+   docker exec privacy-orchestrator cat /config/config.toml | grep -A 5 "\[transformation\]"
+   ```
+
+2. Test transformation endpoint:
+   ```bash
+   curl -X POST http://localhost:9090/transform \
+     -H "Content-Type: application/json" \
+     -d '{"text": "My email is test@example.com", "mode": "redaction"}'
+   ```
+
+3. Verify upstream connection:
+   ```bash
+   docker exec privacy-orchestrator curl -f http://headroom:8787/health
+   ```
+
+#### High Latency Issues
+
+1. Check resource usage:
+   ```bash
+   docker stats privacy-orchestrator --no-stream
+   docker top privacy-orchestrator
+   ```
+
+2. Review performance metrics:
+   ```bash
+   curl http://localhost:9090/analytics
+   ```
+
+3. Check for bottlenecks:
+   ```bash
+   docker logs privacy-orchestrator | grep "latency"
+   ```
+
+4. Optimize configuration:
+   - Reduce detection categories if not all needed
+   - Enable GPU if available
+   - Increase worker threads
+   - Enable caching
 
 ### Database Connection Issues
 

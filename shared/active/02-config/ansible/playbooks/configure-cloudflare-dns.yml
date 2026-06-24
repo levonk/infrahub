@@ -7,13 +7,14 @@
 - name: Configure Cloudflare DNS records for proxy stack
   hosts: localhost
   gather_facts: false
+  become: false
   vars_files:
     - "../../levonk/active/02-config/ansible/group_vars/cloud_servers.yml"
-    - "group_vars/all.vault"
+    - "../../levonk/active/02-config/ansible/group_vars/infrahub-levonk-all.vault.yml"
   vars:
     # Cloudflare API Configuration (from vault)
-    cloudflare_api_token: "{{ vault_cloudflare_api_token }}"
-    cloudflare_zone_id: "{{ vault_cloudflare_zone_id }}"
+    cloudflare_api_token: "{{ vault_cloudflare_api_token | default('') }}"
+    cloudflare_zone_id: "{{ vault_cloudflare_zone_id | default('') }}"
 
     # DNS Record Configuration
     cloudflare_dns_state: "present"
@@ -29,7 +30,7 @@
       # SearXNG search service
       - name: "search.levonk.com"
         type: "A"
-        content: "{{ cloud_server_ansible_host_ip }}"
+        content: "100.90.22.85"
         ttl: "{{ cloudflare_dns_ttl }}"
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
@@ -37,7 +38,7 @@
       # Traefik dashboard (optional, for management access)
       - name: "traefik.levonk.com"
         type: "A"
-        content: "{{ cloud_server_ansible_host_ip }}"
+        content: "100.90.22.85"
         ttl: "{{ cloudflare_dns_ttl }}"
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"

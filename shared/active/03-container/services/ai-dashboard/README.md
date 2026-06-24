@@ -14,9 +14,24 @@ The ai-dashboard project provides comprehensive analytics for AI usage across mu
 
 This integration uses the ai-dashboard project as external containers:
 
-- **ai-dashboard-proxy**: Rust-based analytics proxy service
+- **ai-dashboard-proxy-1**: Entry stage analytics proxy (first stage in pipeline)
+- **ai-dashboard-proxy-2**: Pre-egress stage analytics proxy (second-to-last stage in pipeline)
+- **privacy-orchestrator**: PII detection and transformation service (second stage in pipeline)
 - **ai-dashboard-db**: PostgreSQL database for analytics storage
 - **ai-dashboard-web**: Next.js web application for dashboards (optional)
+
+## Pipeline Integration
+
+The AI Dashboard is integrated into a multi-stage analytics pipeline:
+
+```
+AI Dashboard Proxy 1 → Privacy Orchestrator → Headroom → OmniRoute → AI Dashboard Proxy 2 → Iron-Proxy → NordVPN → Internet
+        (Entry)              (PII Detection)    (Compression)   (Routing)       (Pre-Egress)    (Security)    (Privacy)
+```
+
+**Privacy Orchestrator**: The Privacy Orchestrator service (ai-privacy-proxy) provides PII detection and transformation capabilities between the entry stage proxy and Headroom compression. This ensures that PII is detected and transformed before data leaves the system.
+
+See [PIPELINE.md](PIPELINE.md) for detailed pipeline architecture and configuration.
 
 ## Replacement Note
 
@@ -42,26 +57,71 @@ AI_DASHBOARD_DB_PASSWORD=postgres
 AI_DASHBOARD_DATABASE_URL=postgresql://postgres:postgres@ai-dashboard-db:5432/analytics
 ```
 
+## Deployment
+
+### Local Development
+
+For local development, ensure all dependent services are running:
+- Privacy Orchestrator service (ai-privacy-proxy)
+- Headroom service
+- OmniRoute service
+- Iron-Proxy service
+- NordVPN service
+
+### Cloud Deployment (OCI)
+
+For deployment to the Levonk OCI cloud server, use the Ansible playbook:
+
+```bash
+cd /Users/micro/p/gh/levonk/infrahub
+devbox run -- ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
+  shared/active/02-config/ansible/playbooks/deploy-ai-dashboard-pipeline.yml \
+  --vault-password-file ~/.ansible/vault_password
+```
+
+For Privacy Orchestrator specific deployment:
+
+```bash
+cd /Users/micro/p/gh/levonk/infrahub
+devbox run -- ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
+  shared/active/02-config/ansible/playbooks/deploy-privacy-orchestrator.yml \
+  --vault-password-file ~/.ansible/vault_password
+```
+
 ## Usage
 
 ### Start services
 
 ```bash
 cd /Users/micro/p/gh/levonk/infrahub
-devbox run -- docker compose -f shared/active/03-container/docker-compose.localnet.yml --profile ai-dashboard up -d
+devbox run -- docker compose -f shared/active/03-container/docker-compose.localnet.yml --profile ai-dashboard-pipeline up -d
 ```
 
 ### View logs
 
 ```bash
-docker logs ai-dashboard-proxy --tail=50 -f
+# Entry stage collector
+docker logs ai-dashboard-proxy-1 --tail=50 -f
+
+# Privacy Orchestrator
+docker logs privacy-orchestrator --tail=50 -f
+
+# Pre-egress stage collector
+docker logs ai-dashboard-proxy-2 --tail=50 -f
+
+# Database
 docker logs ai-dashboard-db --tail=50 -f
 ```
 
 ### Access dashboard
 
-- **Proxy API**: http://localhost:8080
-- **Health check**: http://localhost:8080/health
+- **Entry Stage API**: http://localhost:9081
+- **Privacy Orchestrator API**: http://localhost:9090
+- **Pre-Egress Stage API**: http://localhost:9082
+- **Health checks**:
+  - Entry stage: http://localhost:9081/health
+  - Privacy Orchestrator: http://localhost:9090/health
+  - Pre-egress stage: http://localhost:9082/health
 
 ## Development
 

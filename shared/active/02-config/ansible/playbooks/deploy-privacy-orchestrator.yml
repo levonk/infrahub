@@ -1,0 +1,207 @@
+---
+# Privacy Orchestrator Deployment Playbook
+# Deploys the Privacy Orchestrator service to cloud servers
+# Pipeline: AI Dashboard Proxy 1 → Privacy Orchestrator → Headroom → OmniRoute → AI Dashboard Proxy 2
+#
+# Usage:
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-privacy-orchestrator.yml \
+#     --vault-password-file ~/.ansible/vault_password
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-privacy-orchestrator.yml \
+#     --check --diff --vault-password-file ~/.ansible/vault_password
+
+- name: "Deploy Privacy Orchestrator"
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: "Display deployment start information"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Privacy Orchestrator Deployment Started
+          ========================================
+          Target: {{ inventory_hostname }}
+          User: {{ ansible_user_id }}
+          OS: {{ ansible_distribution }} {{ ansible_distribution_version }}
+          Architecture: {{ ansible_facts['architecture'] }}
+          Timestamp: {{ ansible_date_time.iso8601 }}
+          ========================================
+      tags: ["always", "info"]
+
+    - name: "Validate required Privacy Orchestrator variables are defined"
+      ansible.builtin.assert:
+        that:
+          - localnet_services_dir is defined
+          - shared_container_services_dir is defined
+        fail_msg: >-
+          Missing required Privacy Orchestrator variables. Check
+          levonk/active/02-config/ansible/group_vars/cloud_servers.yml
+          and group_vars/all.yml.
+        success_msg: "All required Privacy Orchestrator variables are defined."
+      tags: ["always", "validate"]
+
+    - name: "Create Privacy Orchestrator services directory"
+      ansible.builtin.file:
+        path: "{{ localnet_services_dir }}/privacy-orchestrator"
+        state: directory
+        owner: "{{ cloud_server_admin_user }}"
+        group: "{{ cloud_server_admin_user }}"
+        mode: '0755'
+      tags: ["always", "setup"]
+
+    - name: "Create Privacy Orchestrator config directory"
+      ansible.builtin.file:
+        path: "{{ localnet_services_dir }}/privacy-orchestrator/config"
+        state: directory
+        owner: "{{ cloud_server_admin_user }}"
+        group: "{{ cloud_server_admin_user }}"
+        mode: '0755'
+      tags: ["always", "setup"]
+
+  roles:
+    # Skip common role to avoid network conflicts
+    # - role: common
+    #   tags: ["always", "common"]
+
+  tasks:
+    - name: "Copy Privacy Orchestrator docker-compose file"
+      ansible.builtin.copy:
+        src: "{{ shared_container_services_dir }}/docker-compose.privacy-orchestrator.yml"
+        dest: "{{ localnet_services_dir }}/privacy-orchestrator/docker-compose.privacy-orchestrator.yml"
+        owner: "{{ cloud_server_admin_user }}"
+        group: "{{ cloud_server_admin_user }}"
+        mode: '0644'
+      tags: ["config", "docker-compose"]
+
+    - name: "Copy Privacy Orchestrator environment file"
+      ansible.builtin.copy:
+        src: "{{ shared_container_services_dir }}/ai-dashboard/.env.pipeline"
+        dest: "{{ localnet_services_dir }}/privacy-orchestrator/.env"
+        owner: "{{ cloud_server_admin_user }}"
+        group: "{{ cloud_server_admin_user }}"
+        mode: '0600'
+      tags: ["config", "environment"]
+
+    - name: "Create Privacy Orchestrator config file"
+      ansible.builtin.copy:
+        dest: "{{ localnet_services_dir }}/privacy-orchestrator/config/config.toml"
+        content: |
+          # Privacy Orchestrator Configuration
+          # PII Detection and Transformation Service
+
+          [server]
+          host = "0.0.0.0"
+          port = 9090
+
+          [detection]
+          enabled = true
+          confidence_threshold = 0.7
+          categories = ["EMAIL", "PHONE", "SSN", "CREDIT_CARD", "IP_ADDRESS", "URL"]
+
+          [transformation]
+          mode = "redaction"
+          preserve_format = true
+
+          [logging]
+          level = "INFO"
+          format = "json"
+
+          [analytics]
+          enabled = true
+          database_url = "{{ privacy_orchestrator_database_url | default('postgresql://postgres:postgres@ai-dashboard-db:5432/analytics') }}"
+        owner: "{{ cloud_server_admin_user }}"
+        group: "{{ cloud_server_admin_user }}"
+        mode: '0644'
+      tags: ["config", "privacy-config"]
+
+    - name: "Create proxy-chain-network if it doesn't exist"
+      ansible.builtin.shell:
+        cmd: "docker network create proxy-chain-network --driver bridge --subnet 172.29.0.0/16 --gateway 172.29.0.1 || echo 'Network already exists'"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      ignore_errors: true
+      tags: ["network", "setup"]
+
+    - name: "Stop existing Privacy Orchestrator containers if present"
+      ansible.builtin.shell:
+        cmd: "docker compose -f docker-compose.privacy-orchestrator.yml --env-file .env down"
+        chdir: "{{ localnet_services_dir }}/privacy-orchestrator"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      ignore_errors: true
+      tags: ["cleanup", "docker"]
+
+    - name: "Deploy Privacy Orchestrator containers"
+      ansible.builtin.shell:
+        cmd: "docker compose -f docker-compose.privacy-orchestrator.yml --env-file .env pull && docker compose -f docker-compose.privacy-orchestrator.yml --env-file .env up -d"
+        chdir: "{{ localnet_services_dir }}/privacy-orchestrator"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      tags: ["deploy", "docker"]
+
+    - name: "Wait for Privacy Orchestrator to be running"
+      ansible.builtin.shell:
+        cmd: "docker inspect privacy-orchestrator --format '{% raw %}{{.State.Running}}{% endraw %}'"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: privacy_orchestrator_health
+      until: privacy_orchestrator_health.stdout == "true"
+      retries: 10
+      delay: 5
+      tags: ["verify", "health"]
+
+    - name: "Verify Privacy Orchestrator container is running"
+      ansible.builtin.shell:
+        cmd: "docker inspect privacy-orchestrator --format '{% raw %}{{.State.Status}}{% endraw %}'"
+      register: container_status
+      changed_when: false
+      tags: ["verify", "containers"]
+
+    - name: "Display container status"
+      ansible.builtin.debug:
+        msg: "Container privacy-orchestrator is {{ container_status.stdout }}"
+      tags: ["verify", "containers"]
+
+    - name: "Check Privacy Orchestrator health endpoint"
+      ansible.builtin.shell:
+        cmd: "docker exec privacy-orchestrator wget --spider -q http://localhost:9090/health || echo 'Health check not yet available'"
+      register: health_check
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "health"]
+
+    - name: "Display health check result"
+      ansible.builtin.debug:
+        msg: "Health check: {{ health_check.stdout }}"
+      tags: ["verify", "health"]
+
+    - name: "Check Privacy Orchestrator logs for errors"
+      ansible.builtin.shell:
+        cmd: "docker logs privacy-orchestrator --tail=50 2>&1 | grep -i error || echo 'No errors found'"
+      register: privacy_logs
+      changed_when: false
+      failed_when: "'error' in privacy_logs.stdout.lower() and 'No errors found' not in privacy_logs.stdout"
+      tags: ["verify", "logs"]
+
+  post_tasks:
+    - name: "Display deployment summary"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Privacy Orchestrator Deployment Complete
+          ========================================
+          Target: {{ inventory_hostname }}
+          Container Status: {{ container_status.stdout }}
+          Health Check: {{ health_check.stdout }}
+          Timestamp: {{ ansible_date_time.iso8601 }}
+          ========================================
+          Next Steps:
+          1. Verify Privacy Orchestrator is accessible: curl http://localhost:9090/health
+          2. Check logs: docker logs privacy-orchestrator --tail=50 -f
+          3. Test PII detection: curl -X POST http://localhost:9090/detect -d '{"text": "test"}'
+          4. Update AI Dashboard Proxy 1 to point to Privacy Orchestrator
+          ========================================
+      tags: ["always", "info"]

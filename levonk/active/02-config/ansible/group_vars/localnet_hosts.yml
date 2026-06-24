@@ -1,0 +1,58 @@
+---
+# Local Network Hosts Variable Schema
+# Location: levonk/active/02-config/ansible/group_vars/localnet_hosts.yml
+# Purpose: Client-specific variables for the localnet_hosts host group.
+# All IP addresses, ports, and service values are variables per AGENTS.md rules.
+#
+# Naming convention: {CATEGORY}_{SERVICE}_{SUB}_{HOST|CONTAINER}_{PORT|IP}
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Infrastructure Directories
+# ---------------------------------------------------------------------------
+localnet_base_dir: "/opt/localnet"
+localnet_container_dir: "/opt/localnet/container"
+localnet_services_dir: "/opt/localnet/services"
+localnet_config_dir: "/opt/localnet/config"
+localnet_network_name: "localnet"
+localnet_tz: "UTC"
+
+# ---------------------------------------------------------------------------
+# Connection - kckinai
+# ---------------------------------------------------------------------------
+localnet_kckinai_ansible_host_ip: "192.168.2.21"
+localnet_kckinai_ansible_user: "micro"
+localnet_kckinai_ssh_private_key_file: "~/.ssh/id_rsa"
+localnet_kckinai_ssh_host_port: 22
+
+# ---------------------------------------------------------------------------
+# SSH & Security
+# ---------------------------------------------------------------------------
+localnet_ssh_host_port: 22
+localnet_ssh_container_port: 22
+localnet_fail2ban_bantime: 3600
+localnet_fail2ban_maxretry: 5
+localnet_fail2ban_findtime: 600
+localnet_fail2ban_ignoreip:
+  - "127.0.0.1/8"
+  - "::1"
+  - "192.168.2.0/24"
+
+# ---------------------------------------------------------------------------
+# VPN
+# ---------------------------------------------------------------------------
+localnet_tailscale_port: 41641
+
+# ---------------------------------------------------------------------------
+# DNS
+# ---------------------------------------------------------------------------
+localnet_dns_host_port: 53
+localnet_dns_container_port: 53
+
+# ---------------------------------------------------------------------------
+# Proxy
+# ---------------------------------------------------------------------------
+localnet_proxy_http_host_port: 80
+localnet_proxy_http_container_port: 80
+localnet_proxy_https_host_port: 443
+localnet_proxy_https_container_port: 443

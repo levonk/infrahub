@@ -15,25 +15,12 @@ http:
         - redirect-to-https
       service: searxng
 
-    # HTTPS router with Tailscale bypass (no authentication)
-    searxng-tailscale:
-      rule: "Host(`search.levonk.com`) && ClientIP(`{{ cloud_server_tailscale_subnet | default('100.64.0.0/10') }}`)"
-      entryPoints:
-        - websecure
-      middlewares:
-        - forwarded-headers
-      service: searxng
-      tls:
-        certResolver: letsencrypt
-      priority: 100
-
     # HTTPS router with security middleware chain (external access)
     searxng-https:
       rule: "Host(`search.levonk.com`)"
       entryPoints:
         - websecure
       middlewares:
-        - forwarded-headers
         - authelia
       service: searxng
       tls:

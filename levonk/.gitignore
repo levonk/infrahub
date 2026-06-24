@@ -1,0 +1,11 @@
+# Private data — never commit secrets or real host IPs
+*.vault
+*.key
+*.pem
+*.crt
+vault_password
+.env
+.env.*
+
+# Symlinks that are created dynamically
+active/02-config/ansible/inventories/group_vars

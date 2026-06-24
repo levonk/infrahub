@@ -47,6 +47,9 @@ vault_traefik_acme_email: "admin@levonk.com"
 # PostgreSQL Database Password
 vault_authelia_postgres_password: "change-me-in-vault-generate-secure-password"
 
+# Redis Password
+vault_authelia_redis_password: "change-me-in-vault-generate-secure-password"
+
 # Session Secret for Redis
 vault_authelia_session_secret: "change-me-in-vault-generate-secure-random-string"
 
@@ -57,6 +60,9 @@ vault_authelia_admin_email: "admin@levonk.com"
 # JWT Secret for token signing
 vault_authelia_jwt_secret: "change-me-in-vault-generate-secure-random-string"
 
+# Storage Encryption Key
+vault_authelia_storage_encryption_key: "change-me-in-vault-generate-secure-random-string"
+
 # ---------------------------------------------------------------------------
 # CrowdSec Configuration
 # ---------------------------------------------------------------------------
@@ -65,3 +71,19 @@ vault_crowdsec_api_token: "f19e22ab9f94517f0a56258b7f177d267d8504400498f8d7de70d
 
 # Bouncer API Key for Traefik integration
 vault_crowdsec_bouncer_api_key: "f19e22ab9f94517f0a56258b7f177d267d8504400498f8d7de70de7883a72e35"
+
+# CrowdSec Additional Secrets
+vault_crowdsec_enrollment_token: "change-me-in-vault-generate-secure-token"
+vault_crowdsec_bouncer_redis_password: "change-me-in-vault-generate-secure-password"
+
+# Monitoring Stack Secrets
+vault_grafana_admin_password: "change-me-in-vault-generate-secure-password"
+vault_elasticsearch_password: "change-me-in-vault-generate-secure-password"
+
+# AI Services Secrets
+vault_ai_postgres_password: "change-me-in-vault-generate-secure-password"
+vault_ai_neo4j_password: "change-me-in-vault-generate-secure-password"
+vault_ai_openwebui_client_secret: "change-me-in-vault-generate-secure-random-string"
+
+# AI Dashboard Secrets
+vault_ai_dashboard_db_password: "change-me-in-vault-generate-secure-password"
