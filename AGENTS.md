@@ -72,12 +72,22 @@ This is the standard location for Ansible vault passwords in this project.
 
 **NEVER** share API keys, passwords, tokens, or any secret/private information in open communication unless explicitly requested by the user.
 
+**Secret Storage Strategy:**
+This project follows a hybrid secret storage approach as defined in [ADR-20260624001: Hybrid Sensitive Information Storage Strategy](shared/active/08-docs/adr/adr-20260624001-hybrid-sensitive-information-storage.md). Key principles:
+
+- **Per-Client Central Vault**: All shared secrets stored in client-specific vault files (e.g., `levonk/active/02-config/ansible/group_vars/infrahub-levonk-all.vault.yml`)
+- **Shared Path Clean**: The `shared/` directory must NEVER contain sensitive information
+- **In-Service Transient Secrets**: Service-specific transient secrets (JWT tokens, session keys) stored within service configurations
+- **Ansible Variable Distribution**: Use Ansible vault variables for secure distribution at runtime
+
 **When referring to vault credentials or secrets:**
 - ✅ **DO**: Provide the exact command with full paths for the user to retrieve the key themselves
 - ✅ **DO**: Reference variable names or configuration keys without revealing their values
+- ✅ **DO**: Follow the hybrid storage strategy defined in the ADR
 - ❌ **DO NOT**: Display actual secret values in responses
 - ❌ **DO NOT**: Log or output secrets in command results
 - ❌ **DO NOT**: Include secrets in documentation or comments
+- ❌ **DO NOT**: Place secrets in the `shared/` directory
 
 **Example - Correct approach:**
 ```bash
