@@ -1,2 +1,2 @@
 - Run the skill ~/p/gh/levonk/dotfiles/home/current/.chezmoitemplates/config/ai/skills/software-dev/git-repository-management/SKILL.md 
-- on the infrahub project
+- on the infrahub project and all the client submodules
