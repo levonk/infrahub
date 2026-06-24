@@ -117,8 +117,6 @@ services:
     depends_on:
       ai-dashboard-db:
         condition: service_healthy
-    depends_on:
-      - ai-dashboard-db
 
   # AI Dashboard Proxy Collector 2 - Pre-Egress Stage
   # Second-to-last stage: collects analytics after OmniRoute, before Iron-Proxy
