@@ -68,6 +68,35 @@ devbox run -- rtk ansible-playbook -i inventory.yml playbook.yml --vault-passwor
 
 This is the standard location for Ansible vault passwords in this project.
 
+### Vault Troubleshooting
+
+**Vault Corruption Issues:**
+If you encounter "Vault format unhexlify error: Odd-length string" or similar vault decryption errors:
+
+1. **Check git history for working versions:**
+   ```bash
+   cd levonk
+   git log --oneline --all -- active/02-config/ansible/group_vars/infrahub-levonk-all.vault.yml
+   ```
+
+2. **Restore from a known good commit:**
+   ```bash
+   git show <commit-hash>:active/02-config/ansible/group_vars/infrahub-levonk-all.vault.yml > /tmp/working-vault.yml
+   cp /tmp/working-vault.yml active/02-config/ansible/group_vars/infrahub-levonk-all.vault.yml
+   ```
+
+3. **Verify vault accessibility:**
+   ```bash
+   devbox run -- ansible-vault view levonk/active/02-config/ansible/group_vars/infrahub-levonk-all.vault.yml \
+     --vault-password-file ~/.ansible/vault_password
+   ```
+
+4. **Common vault issues:**
+   - **Odd-length hex strings**: File was corrupted during creation/editing
+   - **Mixed format**: File contains both encrypted content and inline encrypted values
+   - **Wrong password**: Vault password file doesn't match the encryption key
+   - **Version mismatch**: Ansible version incompatibility with vault format
+
 ### CRITICAL: Secret/Key Handling Policy
 
 **NEVER** share API keys, passwords, tokens, or any secret/private information in open communication unless explicitly requested by the user.
@@ -831,7 +860,7 @@ all:
 1. **Role defaults** (`roles/<role>/defaults/main.yml`): Neutral, overridable defaults. Must not reference `localnet_*` paths.
 2. **Client group_vars** (`<client>/group_vars/all.yml`): Client-specific overrides (IPs, ports, feature flags).
 3. **Client host_vars** (`<client>/host_vars/<host>.yml`): Host-specific overrides.
-4. **Vaulted secrets** (`<client>/group_vars/all.vault`): Encrypted secrets. Never in `shared/`.
+4. **Vaulted secrets** (`<client>/group_vars/infrahub-<client>-all.vault.yml`): Encrypted secrets. Never in `shared/`.
 
 **No `group_vars/all.yml` in `shared/`**. All variable data is client-scoped.
 
