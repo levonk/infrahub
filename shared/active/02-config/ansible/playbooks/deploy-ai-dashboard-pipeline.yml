@@ -218,7 +218,7 @@
 
     - name: "Deploy - Restart iron-proxy with updated configuration"
       ansible.builtin.shell:
-        cmd: "docker compose -f docker-compose.iron-proxy.yml up -d --force-recreate"
+        cmd: "docker compose -f docker-compose.iron-proxy.yml --profile all up -d --force-recreate"
         chdir: "{{ localnet_services_dir }}/proxy/iron-proxy"
       become: true
       become_user: "{{ cloud_server_admin_user }}"
