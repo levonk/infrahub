@@ -176,6 +176,14 @@
       when: network_removed.changed or network_removed.rc == 0
       tags: ["network", "setup"]
 
+    - name: "Network setup - Create localnet network if it doesn't exist"
+      ansible.builtin.shell:
+        cmd: "docker network create localnet --driver bridge || echo 'Network already exists'"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      ignore_errors: true
+      tags: ["network", "setup"]
+
     - name: "Network setup - Reconnect headroom to proxy-chain-network with correct IP"
       ansible.builtin.shell:
         cmd: "docker network disconnect proxy-chain-network headroom && docker network connect --ip 172.29.0.13 proxy-chain-network headroom"
