@@ -243,7 +243,7 @@
 
     - name: "Deploy AI dashboard pipeline containers"
       ansible.builtin.shell:
-        cmd: "docker compose -f docker-compose.ai-dashboard-pipeline.yml --env-file .env.pipeline pull && docker compose -f docker-compose.ai-dashboard-pipeline.yml --env-file .env.pipeline up -d"
+        cmd: "docker compose -f docker-compose.ai-dashboard-pipeline.yml --env-file .env.pipeline up -d"
         chdir: "{{ localnet_services_dir }}/ai-dashboard"
       become: true
       become_user: "{{ cloud_server_admin_user }}"
