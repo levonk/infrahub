@@ -131,6 +131,15 @@
         mode: '0644'
       tags: ["config", "docker-compose"]
 
+    - name: "Copy OmniRoute Dockerfile and assets"
+      ansible.builtin.copy:
+        src: "{{ shared_container_services_dir }}/ai-services/omniroute/"
+        dest: "{{ localnet_services_dir }}/ai-services/omniroute/"
+        owner: "{{ cloud_server_admin_user }}"
+        group: "{{ cloud_server_admin_user }}"
+        mode: '0644'
+      tags: ["config", "dockerfile"]
+
     - name: "Create proxy services directory"
       ansible.builtin.file:
         path: "{{ localnet_services_dir }}/proxy/iron-proxy"
