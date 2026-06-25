@@ -41,6 +41,13 @@ vpn_tailscale_enable_ssh: false
 vpn_tailscale_run_exit_node: false
 
 # ---------------------------------------------------------------------------
+# Tor Integration
+# ---------------------------------------------------------------------------
+vpn_tailscale_tor_enabled: false
+vpn_tailscale_tor_hostname: "{{ inventory_hostname | default('cloud-server') }}-tor"
+vpn_tailscale_tor_network_name: "tor-network"
+
+# ---------------------------------------------------------------------------
 # NordVPN Integration
 # ---------------------------------------------------------------------------
 vpn_nordvpn_network_name: "{{ cloud_server_nordvpn_network_name | default('vpn-network') }}"

@@ -1,0 +1,111 @@
+---
+# Tailscale over Tor Docker Compose Configuration
+# This configuration routes Tailscale traffic through Tor for enhanced privacy
+
+services:
+  # Tor exit node (optional - can be enabled via environment variable)
+  tor-exit:
+    build:
+      context: ../../proxy/tor
+      dockerfile: docker/Dockerfile.tor
+    container_name: tor-exit
+    restart: unless-stopped
+    ports:
+      - "9050:9050"  # SOCKS5 proxy
+      - "9001:9001"  # ORPort (exit node)
+      - "9030:9030"  # DirPort (exit node)
+    environment:
+      - PROXY_TOR_SOCKS5_CONTAINER_PORT=9050
+      - PROXY_TOR_EXIT_NODE_ENABLED=${TOR_EXIT_NODE_ENABLED:-false}
+      - PROXY_TOR_ORPORT=9001
+      - PROXY_TOR_DIRPORT=9030
+      - PROXY_TOR_NICKNAME=${TOR_NICKNAME:-levonk-tor-exit}
+      - PROXY_TOR_CONTACT_INFO=${TOR_CONTACT_INFO:-admin@levonk.com}
+      - PROXY_TOR_EXIT_POLICY=${TOR_EXIT_POLICY:-reject *:*}
+      - PROXY_TOR_BANDWIDTH_RATE=${TOR_BANDWIDTH_RATE:-100 KB}
+      - PROXY_TOR_BANDWIDTH_BURST=${TOR_BANDWIDTH_BURST:-200 KB}
+      - TZ=${TZ:-UTC}
+    cap_add:
+      - NET_ADMIN
+    cap_drop:
+      - ALL
+    sysctls:
+      - net.ipv4.ip_forward=1
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - tor-config:/etc/service/config
+      - tor-data:/var/lib/tor
+      - tor-logs:/var/log/tor
+    networks:
+      - tor-network
+    profiles:
+      - tor-exit
+
+  # Tailscale client configured to use Tor as proxy
+  tailscale-tor:
+    image: tailscale/tailscale:latest
+    container_name: tailscale-tor
+    restart: unless-stopped
+    hostname: tailscale-tor
+    environment:
+      - TS_AUTHKEY=${TS_AUTHKEY}
+      - TS_HOSTNAME=${TS_HOSTNAME:-oci-vpn-server-tor}
+      - TS_EXTRA_ARGS=--advertise-exit-node --accept-routes
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_SOCKET_DIR=/var/run/tailscale
+      - TZ=${TZ:-UTC}
+      - # Configure Tailscale to use Tor SOCKS proxy
+      - ALL_PROXY=socks5://tor-exit:9050
+      - all_proxy=socks5://tor-exit:9050
+    cap_add:
+      - NET_ADMIN
+    cap_drop:
+      - ALL
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    sysctls:
+      - net.ipv4.ip_forward=1
+      - net.ipv6.conf.all.forwarding=1
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - tailscale-tor-state:/var/lib/tailscale
+      - tailscale-tor-socket:/var/run/tailscale
+    networks:
+      - tor-network
+    depends_on:
+      tor-exit:
+        condition: service_healthy
+    command: >
+      sh -c "
+        tailscale up --authkey=$TS_AUTHKEY --hostname=$TS_HOSTNAME $TS_EXTRA_ARGS &&
+        tailscale ip -4 &&
+        echo 'Tailscale over Tor is running' &&
+        sleep infinity
+      "
+    healthcheck:
+      test: ["CMD-SHELL", "tailscale status || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+networks:
+  tor-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: ${TOR_NETWORK_SUBNET:-172.30.0.0/16}
+
+volumes:
+  tor-config:
+    external: false
+  tor-data:
+    external: false
+  tor-logs:
+    external: false
+  tailscale-tor-state:
+    external: false
+  tailscale-tor-socket:
+    external: false

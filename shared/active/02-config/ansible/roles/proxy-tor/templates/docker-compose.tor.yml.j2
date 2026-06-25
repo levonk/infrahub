@@ -9,8 +9,22 @@ services:
     restart: unless-stopped
     ports:
       - "{{ proxy_tor_socks5_host_port }}:{{ proxy_tor_socks5_container_port }}/tcp"
+      {% if proxy_tor_exit_node_enabled %}
+      - "{{ proxy_tor_orport_host }}:{{ proxy_tor_orport_container }}/tcp"
+      - "{{ proxy_tor_dirport_host }}:{{ proxy_tor_dirport_container }}/tcp"
+      {% endif %}
     environment:
       - PROXY_TOR_SOCKS5_CONTAINER_PORT={{ proxy_tor_socks5_container_port }}
+      - PROXY_TOR_EXIT_NODE_ENABLED={{ proxy_tor_exit_node_enabled | default(false) }}
+      {% if proxy_tor_exit_node_enabled %}
+      - PROXY_TOR_ORPORT={{ proxy_tor_orport_container }}
+      - PROXY_TOR_DIRPORT={{ proxy_tor_dirport_container }}
+      - PROXY_TOR_NICKNAME={{ proxy_tor_nickname }}
+      - PROXY_TOR_CONTACT_INFO={{ proxy_tor_contact_info }}
+      - PROXY_TOR_EXIT_POLICY={{ proxy_tor_exit_policy }}
+      - PROXY_TOR_BANDWIDTH_RATE={{ proxy_tor_bandwidth_rate }}
+      - PROXY_TOR_BANDWIDTH_BURST={{ proxy_tor_bandwidth_burst }}
+      {% endif %}
       - TZ={{ localnet_tz }}
     cap_add:
       - NET_ADMIN
@@ -23,6 +37,7 @@ services:
     volumes:
       - {{ proxy_tor_config_volume_name }}:/etc/service/config
       - {{ proxy_tor_data_volume_name }}:/var/lib/tor
+      - {{ proxy_tor_log_volume_name }}:/var/log/tor
     networks:
       - localnet
 
@@ -34,4 +49,6 @@ volumes:
   localnet-tor-config-volume:
     external: false
   localnet-tor-data-volume:
+    external: false
+  localnet-tor-log-volume:
     external: false

@@ -6,6 +6,7 @@ FROM localnet-base-alpine:latest
 USER root
 
 ENV PROXY_TOR_SOCKS5_CONTAINER_PORT=${PROXY_TOR_SOCKS5_CONTAINER_PORT:-9050}
+ENV PROXY_TOR_EXIT_NODE_ENABLED=${PROXY_TOR_EXIT_NODE_ENABLED:-false}
 
 RUN apk add --no-cache tor netcat-openbsd
 
@@ -16,6 +17,9 @@ RUN chmod +x /entrypoint.sh
 
 COPY healthcheck/check-health.sh /usr/local/bin/check-health.sh
 RUN chmod +x /usr/local/bin/check-health.sh
+
+# Expose ports for SOCKS proxy and optional exit node
+EXPOSE 9050 9001 9030
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD ["/usr/local/bin/check-health.sh"]

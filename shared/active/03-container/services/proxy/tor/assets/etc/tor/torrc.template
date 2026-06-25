@@ -4,3 +4,12 @@
 
 # Listen on all IPv4 interfaces for SOCKS5 connections
 SocksPort 0.0.0.0:{PROXY_TOR_SOCKS5_CONTAINER_PORT}
+
+# Exit Node Configuration (optional - requires PROXY_TOR_EXIT_NODE_ENABLED=true)
+{PROXY_TOR_EXIT_NODE_CONFIG}
+
+# Basic Tor configuration
+RunAsDaemon 0
+DataDirectory /var/lib/tor
+Log notice stdout
+Log notice file /var/log/tor/notice.log

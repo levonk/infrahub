@@ -223,6 +223,96 @@
   ignore_errors: true
 
 # ---------------------------------------------------------------------------
+# Deploy Tailscale over Tor configuration
+# ---------------------------------------------------------------------------
+- name: "Create Tor network for Tailscale integration"
+  community.docker.docker_network:
+    name: "{{ vpn_tailscale_tor_network_name }}"
+    driver: bridge
+    ipam_config:
+      - subnet: "{{ vpn_tailscale_tor_network_subnet | default('172.30.0.0/16') }}"
+  when:
+    - vpn_tailscale_tor_enabled | bool
+  become: true
+
+- name: "Deploy Tor exit node container"
+  community.docker.docker_container:
+    name: "tor-exit"
+    image: "localnet-proxy-tor:latest"
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ vpn_tailscale_tor_network_name }}"
+    capabilities:
+      - NET_ADMIN
+    published_ports:
+      - "9050:9050"  # SOCKS5 proxy
+      - "9001:9001"  # ORPort
+      - "9030:9030"  # DirPort
+    env:
+      PROXY_TOR_SOCKS5_CONTAINER_PORT: "9050"
+      PROXY_TOR_EXIT_NODE_ENABLED: "true"
+      PROXY_TOR_ORPORT: "9001"
+      PROXY_TOR_DIRPORT: "9030"
+      PROXY_TOR_NICKNAME: "{{ proxy_tor_nickname | default('levonk-tor-exit') }}"
+      PROXY_TOR_CONTACT_INFO: "{{ proxy_tor_contact_info | default('admin@levonk.com') }}"
+      PROXY_TOR_EXIT_POLICY: "{{ proxy_tor_exit_policy | default('reject *:*') }}"
+      PROXY_TOR_BANDWIDTH_RATE: "{{ proxy_tor_bandwidth_rate | default('100 KB') }}"
+      PROXY_TOR_BANDWIDTH_BURST: "{{ proxy_tor_bandwidth_burst | default('200 KB') }}"
+      TZ: "{{ localnet_tz | default('UTC') }}"
+    sysctls:
+      net.ipv4.ip_forward: "1"
+    security_opts:
+      - no-new-privileges:true
+    volumes:
+      - tor-config:/etc/service/config
+      - tor-data:/var/lib/tor
+      - tor-logs:/var/log/tor
+  when:
+    - vpn_tailscale_tor_enabled | bool
+  become: true
+
+- name: "Deploy Tailscale container configured to use Tor proxy"
+  community.docker.docker_container:
+    name: "tailscale-tor"
+    image: "tailscale/tailscale:latest"
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ vpn_tailscale_tor_network_name }}"
+    capabilities:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    env:
+      TS_AUTHKEY: "{{ vpn_tailscale_auth_key }}"
+      TS_HOSTNAME: "{{ vpn_tailscale_tor_hostname }}"
+      TS_EXTRA_ARGS: "--advertise-exit-node --accept-routes"
+      TS_STATE_DIR: "/var/lib/tailscale"
+      TS_SOCKET_DIR: "/var/run/tailscale"
+      ALL_PROXY: "socks5://tor-exit:9050"
+      all_proxy: "socks5://tor-exit:9050"
+      TZ: "{{ localnet_tz | default('UTC') }}"
+    sysctls:
+      net.ipv4.ip_forward: "1"
+      net.ipv6.conf.all.forwarding: "1"
+    security_opts:
+      - no-new-privileges:true
+    volumes:
+      - tailscale-tor-state:/var/lib/tailscale
+      - tailscale-tor-socket:/var/run/tailscale
+    command: >
+      sh -c "
+        tailscale up --authkey={{ vpn_tailscale_auth_key }} --hostname={{ vpn_tailscale_tor_hostname }} --advertise-exit-node --accept-routes &&
+        tailscale ip -4 &&
+        echo 'Tailscale over Tor is running' &&
+        sleep infinity
+      "
+  when:
+    - vpn_tailscale_tor_enabled | bool
+  become: true
+
+# ---------------------------------------------------------------------------
 # Verification
 # ---------------------------------------------------------------------------
 - name: Verify Tailscale status

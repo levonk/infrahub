@@ -6,10 +6,23 @@ proxy_tor_enabled: false
 proxy_tor_socks5_container_port: "9050"
 proxy_tor_socks5_host_port: "9050"
 
+# Tor Exit Node Configuration
+proxy_tor_exit_node_enabled: false
+proxy_tor_orport_container: "9001"
+proxy_tor_orport_host: "9001"
+proxy_tor_dirport_container: "9030"
+proxy_tor_dirport_host: "9030"
+proxy_tor_nickname: "levonk-tor-exit"
+proxy_tor_contact_info: "admin@levonk.com"
+proxy_tor_exit_policy: "reject *:*"
+proxy_tor_bandwidth_rate: "100 KB"
+proxy_tor_bandwidth_burst: "200 KB"
+
 # Container Configuration
 proxy_tor_container_name: "localnet-proxy-tor"
 proxy_tor_config_volume_name: "localnet-tor-config-volume"
 proxy_tor_data_volume_name: "localnet-tor-data-volume"
+proxy_tor_log_volume_name: "localnet-tor-log-volume"
 proxy_tor_image: "localnet-proxy-tor:latest"
 
 # Service Directories
