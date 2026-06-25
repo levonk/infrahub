@@ -15,6 +15,8 @@
   hosts: cloud_servers
   become: true
   gather_facts: true
+  vars:
+    cloud_server_admin_user: "{{ ansible_user }}"
 
   pre_tasks:
     - name: "Display deployment start information"
@@ -88,7 +90,7 @@
     - name: "Copy forge requirements.txt"
       ansible.builtin.copy:
         src: "{{ shared_container_services_dir }}/ai-codeassist/forge/requirements.txt"
-        dest: "{{ localnet_services_dir }}/ai-services/forge.requirements.txt"
+        dest: "{{ localnet_services_dir }}/ai-services/requirements.txt"
         owner: "{{ cloud_server_admin_user }}"
         group: "{{ cloud_server_admin_user }}"
         mode: '0644'
@@ -129,21 +131,89 @@
         mode: '0644'
       tags: ["config", "docker-compose"]
 
-    - name: "Restart OmniRoute service with new compression configuration"
+    - name: "Create proxy services directory"
+      ansible.builtin.file:
+        path: "{{ localnet_services_dir }}/proxy/iron-proxy"
+        state: directory
+        owner: "{{ cloud_server_admin_user }}"
+        group: "{{ cloud_server_admin_user }}"
+        mode: '0755'
+      tags: ["always", "setup"]
+
+    - name: "Copy updated iron-proxy docker-compose file with proxy-chain-network"
+      ansible.builtin.copy:
+        src: "{{ shared_container_services_dir }}/proxy/iron-proxy/docker-compose.iron-proxy.yml"
+        dest: "{{ localnet_services_dir }}/proxy/iron-proxy/docker-compose.iron-proxy.yml"
+        owner: "{{ cloud_server_admin_user }}"
+        group: "{{ cloud_server_admin_user }}"
+        mode: '0644'
+      tags: ["config", "docker-compose"]
+
+    - name: "Network setup - Remove existing proxy-chain-network if it has wrong subnet"
       ansible.builtin.shell:
-        cmd: "docker compose -f docker-compose.ai.yml --profile all up omniroute -d --force-recreate"
-        chdir: "{{ localnet_services_dir }}/ai-services"
+        cmd: "docker network inspect proxy-chain-network --format '{% raw %}{{json .IPAM.Config}}{% endraw %}' | grep -q '192.168.117' && docker network rm proxy-chain-network || echo 'Network already correct or does not exist'"
       become: true
       become_user: "{{ cloud_server_admin_user }}"
-      tags: ["deploy", "omniroute"]
+      ignore_errors: true
+      register: network_removed
+      tags: ["network", "setup"]
 
-    - name: "Create proxy-chain-network if it doesn't exist"
+    - name: "Network setup - Create proxy-chain-network with correct subnet"
       ansible.builtin.shell:
         cmd: "docker network create proxy-chain-network --driver bridge --subnet 172.29.0.0/16 --gateway 172.29.0.1 || echo 'Network already exists'"
       become: true
       become_user: "{{ cloud_server_admin_user }}"
       ignore_errors: true
+      when: network_removed.changed or network_removed.rc == 0
       tags: ["network", "setup"]
+
+    - name: "Network setup - Reconnect headroom to proxy-chain-network with correct IP"
+      ansible.builtin.shell:
+        cmd: "docker network disconnect proxy-chain-network headroom && docker network connect --ip 172.29.0.13 proxy-chain-network headroom"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      ignore_errors: true
+      tags: ["network", "setup"]
+
+    - name: "Network setup - Reconnect iron-proxy to proxy-chain-network with correct IP"
+      ansible.builtin.shell:
+        cmd: "docker network disconnect proxy-chain-network iron-proxy && docker network connect --ip 172.29.0.17 proxy-chain-network iron-proxy"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      ignore_errors: true
+      tags: ["network", "setup"]
+
+    - name: "Network setup - Fix iron-proxy health check to use correct port"
+      ansible.builtin.shell:
+        cmd: "echo 'Health check already configured in docker-compose file - skipping'"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      ignore_errors: true
+      tags: ["network", "setup"]
+
+    - name: "Deploy - Restart OmniRoute service with new compression configuration and proxy settings"
+      ansible.builtin.shell:
+        cmd: "docker compose -f docker-compose.ai.yml --profile all up omniroute -d --build"
+        chdir: "{{ localnet_services_dir }}/ai-services"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      tags: ["deploy", "omniroute"]
+
+    - name: "Deploy - Connect OmniRoute to proxy-chain-network with correct IP"
+      ansible.builtin.shell:
+        cmd: "docker network connect --ip 172.29.0.14 proxy-chain-network omniroute || echo 'Already connected'"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      ignore_errors: true
+      tags: ["deploy", "omniroute"]
+
+    - name: "Deploy - Restart iron-proxy with updated configuration"
+      ansible.builtin.shell:
+        cmd: "docker compose -f docker-compose.iron-proxy.yml up -d --force-recreate"
+        chdir: "{{ localnet_services_dir }}/proxy/iron-proxy"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      tags: ["deploy", "iron-proxy"]
 
     - name: "Stop existing AI dashboard containers if present"
       ansible.builtin.shell:
@@ -300,8 +370,9 @@
           - OmniRoute: http://172.29.0.14:20128 (routing only, compression disabled)
           ----------------------------------------
           Pipeline Flow:
-          AI Dashboard Proxy 1 → Headroom → OmniRoute → AI Dashboard Proxy 2 → Iron-Proxy → NordVPN → Internet
+          AI Dashboard Proxy 1 → Privacy Orchestrator → Headroom → OmniRoute → Forge → AI Dashboard Proxy 2 → Iron-Proxy → NordVPN → Internet
           Compression Strategy: Headroom-primary (Headroom handles compression, OmniRoute focuses on routing)
+          Network Configuration: proxy-chain-network (172.29.0.0/16)
           ----------------------------------------
           Next Steps:
           1. Verify pipeline connectivity: docker ps | grep ai-dashboard
