@@ -2,8 +2,15 @@
 
 ## Recent Changes
 
+**2026-06-24**: Repositioned Forge tool calling reliability layer in pipeline architecture
+- Moved from between Privacy Orchestrator and Headroom to after OmniRoute
+- Better positioning: Forge now operates on LLM responses after routing
+- Prevents compression from interfering with tool call fixes
+- **Status**: IMPLEMENTED - forge service deployed
+- See "Forge Implementation" section for details
+
 **2026-06-24**: Implemented Privacy Orchestrator stage in pipeline architecture
-- New stage between AI Dashboard Proxy 1 and Headroom
+- New stage between AI Dashboard Proxy 1 and Forge
 - Implements PII detection and transformation using Rust-based Privacy Orchestrator
 - **Status**: IMPLEMENTED - ai-privacy-proxy service deployed
 - See "Privacy Orchestrator Implementation" section for details
@@ -15,8 +22,8 @@ This configuration implements a multi-stage AI analytics pipeline with comprehen
 ## Pipeline Architecture
 
 ```
-AI Dashboard Proxy 1 → Privacy Orchestrator → Forge -> Headroom → OmniRoute → AI Dashboard Proxy 2 → Iron-Proxy → NordVPN → Internet
-        (Entry)              (PII Detection) (Tool Calling Fixer)    (Compression)   (Routing)       (Pre-Egress)    (Security)    (Privacy)
+AI Dashboard Proxy 1 → Privacy Orchestrator → Headroom → OmniRoute → Forge → AI Dashboard Proxy 2 → Iron-Proxy → NordVPN → Internet
+        (Entry)              (PII Detection) (Compression)   (Routing)       (Tool Calling Fixer)    (Pre-Egress)    (Security)    (Privacy)
 ```
 
 ### Compression Strategy
@@ -50,19 +57,14 @@ AI Dashboard Proxy 1 → Privacy Orchestrator → Forge -> Headroom → OmniRout
    - **Downstream to**: Headroom
    - **Status**: **IMPLEMENTED** - deployed as Rust service
 
-3. **Tool Calling Fixer**
-   - Fixes tool calling issues in AI requests
-   - **Status**: **NOT IMPLEMENTED** - placeholder for future implementation
-   - https://github.com/antoinezambelli/forge#proxy-server
-
-4. **Headroom (Context Compression)**
+3. **Headroom (Context Compression)**
    - Compresses LLM context to reduce token usage
    - Applies RTK+Caveman stacked compression (15-95% token savings)
    - **Port**: 8787
-   - **Upstream from**: Privacy Filter
+   - **Upstream from**: Privacy Orchestrator
    - **Downstream to**: OmniRoute
 
-5. **OmniRoute (AI Gateway)**
+4. **OmniRoute (AI Gateway)**
    - Smart routing across 177+ AI providers (50+ free)
    - Automatic provider selection and fallback
    - Format translation between different AI APIs
@@ -71,7 +73,18 @@ AI Dashboard Proxy 1 → Privacy Orchestrator → Forge -> Headroom → OmniRout
    - **Caveman disabled** (avoids redundancy with Headroom)
    - **Port**: 20128
    - **Upstream from**: Headroom
+   - **Downstream to**: Forge
+
+5. **Forge (Tool Calling Reliability Layer)**
+   - Fixes tool calling issues in AI requests
+   - Python-based service with guardrails for LLM tool calling
+   - Response validation, rescue parsing, retry loop with error tracking
+   - Synthetic `respond` tool injection for better model behavior
+   - **Implementation**: forge service (https://github.com/antoinezambelli/forge)
+   - **Port**: 8081
+   - **Upstream from**: OmniRoute
    - **Downstream to**: AI Dashboard Proxy 2
+   - **Status**: **IMPLEMENTED** - deployed as Python service
 
 6. **AI Dashboard Proxy 2 (Pre-Egress Stage)**
    - Collects analytics after routing and optimization
@@ -80,7 +93,7 @@ AI Dashboard Proxy 1 → Privacy Orchestrator → Forge -> Headroom → OmniRout
    - **Port**: 8082
    - **Container IP**: 172.28.0.12
    - **Chain IP**: 172.29.0.12
-   - **Upstream from**: OmniRoute
+   - **Upstream from**: Forge
    - **Downstream to**: Iron-Proxy
 
 7. **Iron-Proxy (Egress Firewall)**
@@ -117,6 +130,14 @@ The AI Dashboard collects multi-dimensional analytics across:
 - Client identification and authentication
 - Request timing and latency
 - Input type classification
+
+### Forge Analytics
+- Tool calling validation rates and categories
+- Rescue parsing effectiveness (JSON code fences, Mistral `[TOOL_CALLS]`, Qwen XML)
+- Retry loop statistics and success rates
+- Processing latency (sub-millisecond expected)
+- Synthetic `respond` tool usage patterns
+- Backend compatibility metrics (llama-server, Ollama, vLLM, Anthropic)
 
 ### Privacy Orchestrator Analytics
 - PII detection rates and categories
@@ -192,6 +213,9 @@ docker logs ai-dashboard-proxy-1 --tail=50 -f
 # Privacy Orchestrator
 docker logs privacy-orchestrator --tail=50 -f
 
+# Forge
+docker logs forge --tail=50 -f
+
 # Pre-egress stage collector
 docker logs ai-dashboard-proxy-2 --tail=50 -f
 
@@ -208,6 +232,9 @@ curl http://localhost:8081/health
 # Privacy Orchestrator health
 curl http://localhost:9090/health
 
+# Forge health
+curl http://localhost:8083/health
+
 # Pre-egress stage health
 curl http://localhost:8082/health
 
@@ -217,10 +244,99 @@ docker exec ai-dashboard-db pg_isready -U postgres
 
 ### Access Analytics
 
-- **Entry Stage API**: http://localhost:8081
+- **AI Dashboard Web Interface**: https://ai-dashboard.levonk.com (single interface for both proxy collectors)
+- **Entry Stage API**: http://localhost:9081
 - **Privacy Orchestrator API**: http://localhost:9090
-- **Pre-Egress Stage API**: http://localhost:8082
+- **Forge API**: http://localhost:8083
+- **Pre-Egress Stage API**: http://localhost:9082
 - **Database**: postgresql://postgres:postgres@localhost:5432/analytics
+
+## Forge Implementation
+
+### Overview
+Forge is a reliability layer for self-hosted LLM tool-calling that sits between OmniRoute and AI Dashboard Proxy 2 in the AI analytics pipeline. It applies guardrails to LLM tool calls to improve reliability and correctness.
+
+### Key Features
+- **Response Validation**: Each tool call is checked against the tools array in the request
+- **Rescue Parsing**: Extracts tool calls from wrong formats (JSON in code fences, Mistral `[TOOL_CALLS]`, Qwen XML)
+- **Retry Loop**: Retries inference with corrective messages on validation failure (up to 3 retries)
+- **Synthetic `respond` Tool**: Injects a synthetic tool the model calls instead of producing bare text
+
+### Configuration
+- **Backend URL**: Points to OmniRoute service (`http://omniroute:20128`)
+- **Max Retries**: 3 (configurable via `FORGE_MAX_RETRIES`)
+- **Reasoning Replay**: `none` (most token-efficient policy)
+- **Host Port**: 8083
+- **Container Port**: 8081
+- **Container IP**: 172.35.0.16
+- **Chain IP**: 172.29.0.16
+
+### Container Configuration
+The forge service is built from a Python 3.12 base image with the following structure:
+- **Dockerfile**: Multi-stage build with security hardening
+- **Requirements**: `forge-guardrails[anthropic]>=0.7.0`
+- **User**: Non-root execution (UID/GID 1000)
+- **Security**: Read-only filesystem, capability dropping, no-new-privileges
+
+### Deployment
+Forge is deployed via the AI dashboard pipeline playbook:
+```bash
+cd /Users/micro/p/gh/levonk/infrahub
+devbox run -- rtk ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
+  shared/active/02-config/ansible/playbooks/deploy-ai-dashboard-pipeline.yml \
+  --vault-password-file ~/.ansible/vault_password
+```
+
+### Verification
+```bash
+# Check forge container status
+docker ps | grep forge
+
+# View forge logs
+docker logs forge --tail=50 -f
+
+# Health check
+curl http://localhost:8081/health
+```
+
+### References
+- Project: https://github.com/antoinezambelli/forge
+- Documentation: https://github.com/antoinezambelli/forge#proxy-server
+- PyPI: https://pypi.org/project/forge-guardrails/
+
+## Domain Configuration and Traefik Routing
+
+### Web Interface Access
+
+The AI Dashboard web interface is accessible via Traefik with proper domain names and SSL certificates:
+
+- **AI Dashboard**: https://ai-dashboard.levonk.com
+  - Single web interface for both proxy collectors (entry and pre-egress)
+  - Displays comparative analytics between pipeline stages
+  - Authenticated via Authelia with security middleware chain
+  - SSL certificates managed by Let's Encrypt via Traefik
+
+- **OmniRoute Dashboard**: https://ai-gateway.levonk.com
+  - Provider management and configuration interface
+  - Auto-fallback chain configuration
+  - Usage analytics and provider performance metrics
+  - Authenticated via Authelia with security middleware chain
+  - SSL certificates managed by Let's Encrypt via Traefik
+
+### Security Middleware Chain
+
+Both web interfaces are protected by the same security middleware chain:
+1. **GeoBlock** - Restricts access to specific countries (US only)
+2. **CrowdSec Bouncer** - IP reputation filtering and threat protection
+3. **Authelia** - Single sign-on authentication with 2FA
+
+### DNS Configuration
+
+DNS records are managed via Cloudflare:
+- A records point to OCI cloud server IP (100.90.22.85)
+- DNS-only mode (not full proxy) for better performance
+- TTL: 300 seconds for quick propagation
+- Managed via Ansible playbook: `configure-cloudflare-dns.yml`
 
 ## Deployment
 

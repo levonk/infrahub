@@ -1,7 +1,7 @@
 ---
 # AI Dashboard Pipeline Deployment Playbook
 # Deploys the multi-stage AI analytics pipeline to cloud servers
-# Pipeline: AI Dashboard Proxy 1 → Headroom → OmniRoute → AI Dashboard Proxy 2 → Iron-Proxy → NordVPN → Internet
+# Pipeline: AI Dashboard Proxy 1 → Privacy Orchestrator → Headroom → OmniRoute → Forge → AI Dashboard Proxy 2 → Iron-Proxy → NordVPN → Internet
 #
 # Usage:
 #   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
@@ -67,6 +67,41 @@
     #   tags: ["always", "common"]
 
   tasks:
+    - name: "Copy forge service docker-compose file"
+      ansible.builtin.copy:
+        src: "{{ shared_container_services_dir }}/ai-codeassist/forge/docker-compose.yml"
+        dest: "{{ localnet_services_dir }}/ai-services/docker-compose.forge.yml"
+        owner: "{{ cloud_server_admin_user }}"
+        group: "{{ cloud_server_admin_user }}"
+        mode: '0644'
+      tags: ["config", "docker-compose"]
+
+    - name: "Copy forge Dockerfile"
+      ansible.builtin.copy:
+        src: "{{ shared_container_services_dir }}/ai-codeassist/forge/Dockerfile"
+        dest: "{{ localnet_services_dir }}/ai-services/forge.Dockerfile"
+        owner: "{{ cloud_server_admin_user }}"
+        group: "{{ cloud_server_admin_user }}"
+        mode: '0644'
+      tags: ["config", "dockerfile"]
+
+    - name: "Copy forge requirements.txt"
+      ansible.builtin.copy:
+        src: "{{ shared_container_services_dir }}/ai-codeassist/forge/requirements.txt"
+        dest: "{{ localnet_services_dir }}/ai-services/forge.requirements.txt"
+        owner: "{{ cloud_server_admin_user }}"
+        group: "{{ cloud_server_admin_user }}"
+        mode: '0644'
+      tags: ["config", "requirements"]
+
+    - name: "Build forge Docker image"
+      ansible.builtin.shell:
+        cmd: "docker build -f forge.Dockerfile -t localnet-forge:latest -t localnet-forge:{{ forge_version | default('0.7.0') }} ."
+        chdir: "{{ localnet_services_dir }}/ai-services"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      tags: ["build", "forge"]
+
     - name: "Copy AI dashboard pipeline docker-compose file"
       ansible.builtin.copy:
         src: "{{ shared_container_services_dir }}/ai-dashboard/docker-compose.ai-dashboard-pipeline.yml"
@@ -138,6 +173,50 @@
       delay: 5
       tags: ["verify", "database"]
 
+    - name: "Wait for Privacy Orchestrator to be running"
+      ansible.builtin.shell:
+        cmd: "docker inspect privacy-orchestrator --format '{% raw %}{{.State.Running}}{% endraw %}'"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: privacy_orchestrator_health
+      until: privacy_orchestrator_health.stdout == "true"
+      retries: 10
+      delay: 5
+      tags: ["verify", "health"]
+
+    - name: "Wait for Headroom to be running"
+      ansible.builtin.shell:
+        cmd: "docker inspect headroom --format '{% raw %}{{.State.Running}}{% endraw %}'"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: headroom_health
+      until: headroom_health.stdout == "true"
+      retries: 10
+      delay: 5
+      tags: ["verify", "health"]
+
+    - name: "Wait for OmniRoute to be running"
+      ansible.builtin.shell:
+        cmd: "docker inspect omniroute --format '{% raw %}{{.State.Running}}{% endraw %}'"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: omniroute_health
+      until: omniroute_health.stdout == "true"
+      retries: 10
+      delay: 5
+      tags: ["verify", "health"]
+
+    - name: "Wait for Forge to be running"
+      ansible.builtin.shell:
+        cmd: "docker inspect forge --format '{% raw %}{{.State.Running}}{% endraw %}'"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: forge_health
+      until: forge_health.stdout == "true"
+      retries: 10
+      delay: 5
+      tags: ["verify", "health"]
+
     - name: "Wait for AI dashboard proxy 1 to be running"
       ansible.builtin.shell:
         cmd: "docker inspect ai-dashboard-proxy-1 --format '{% raw %}{{.State.Running}}{% endraw %}'"
@@ -166,6 +245,10 @@
       register: container_status
       loop:
         - ai-dashboard-proxy-1
+        - privacy-orchestrator
+        - headroom
+        - omniroute
+        - forge
         - ai-dashboard-proxy-2
         - ai-dashboard-db
       changed_when: false

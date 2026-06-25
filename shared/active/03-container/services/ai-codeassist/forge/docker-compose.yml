@@ -1,0 +1,94 @@
+---
+# Forge Docker Compose Configuration
+# Tool calling reliability layer for LLMs - sits between Privacy Orchestrator and Headroom
+# Fixes tool calling issues in AI requests
+
+# Default logging configuration - use json-file with rotation
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "5"
+    tag: "{{.Name}}"
+    labels: "service"
+
+
+services:
+  forge:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    container_name: forge
+    restart: unless-stopped
+    logging: *default-logging
+    user: "${AI_CODEASSIST_FORGE_PUID:-1000}:${AI_CODEASSIST_FORGE_PGID:-1000}"
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "${AI_CODEASSIST_FORGE_HOST_PORT:-8083}:8081"
+    environment:
+      - PUID=${AI_CODEASSIST_FORGE_PUID:-1000}
+      - PGID=${AI_CODEASSIST_FORGE_PGID:-1000}
+      - TZ=${AI_CODEASSIST_FORGE_TZ:-UTC}
+      - FORGE_PORT=${AI_CODEASSIST_FORGE_CONTAINER_PORT:-8081}
+      - FORGE_HOST=${AI_CODEASSIST_FORGE_CONTAINER_IP:-0.0.0.0}
+      - FORGE_BACKEND_URL=${AI_CODEASSIST_FORGE_BACKEND_URL:-http://omniroute:20128}
+      - FORGE_MAX_RETRIES=${AI_CODEASSIST_FORGE_MAX_RETRIES:-3}
+      - FORGE_REASONING_REPLAY=${AI_CODEASSIST_FORGE_REASONING_REPLAY:-none}
+      - AI_CODEASSIST_FORGE_HOST_IP=${AI_CODEASSIST_FORGE_HOST_IP:-0.0.0.0}
+      - AI_CODEASSIST_FORGE_HOST_PORT=${AI_CODEASSIST_FORGE_HOST_PORT:-8083}
+      - AI_CODEASSIST_FORGE_CONTAINER_IP=${AI_CODEASSIST_FORGE_CONTAINER_IP:-0.0.0.0}
+      - AI_CODEASSIST_FORGE_CONTAINER_PORT=${AI_CODEASSIST_FORGE_CONTAINER_PORT:-8081}
+    volumes:
+      - forge-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - proxy-chain-network
+
+  forge-debug:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    logging: *default-logging
+    restart: unless-stopped
+    profiles: ["debug"]
+    stdin_open: true
+    tty: true
+    command: ["sleep", "infinity"]
+    environment:
+      - PUID=${AI_CODEASSIST_FORGE_PUID:-1000}
+      - PGID=${AI_CODEASSIST_FORGE_PGID:-1000}
+      - TZ=${AI_CODEASSIST_FORGE_TZ:-UTC}
+      - FORGE_PORT=${AI_CODEASSIST_FORGE_CONTAINER_PORT:-8081}
+      - FORGE_HOST=${AI_CODEASSIST_FORGE_CONTAINER_IP:-0.0.0.0}
+      - FORGE_BACKEND_URL=${AI_CODEASSIST_FORGE_BACKEND_URL:-http://omniroute:20128}
+      - FORGE_MAX_RETRIES=${AI_CODEASSIST_FORGE_MAX_RETRIES:-3}
+      - FORGE_REASONING_REPLAY=${AI_CODEASSIST_FORGE_REASONING_REPLAY:-none}
+      - AI_CODEASSIST_FORGE_HOST_IP=${AI_CODEASSIST_FORGE_HOST_IP:-0.0.0.0}
+      - AI_CODEASSIST_FORGE_HOST_PORT=${AI_CODEASSIST_FORGE_HOST_PORT:-8083}
+      - AI_CODEASSIST_FORGE_CONTAINER_IP=${AI_CODEASSIST_FORGE_CONTAINER_IP:-0.0.0.0}
+      - AI_CODEASSIST_FORGE_CONTAINER_PORT=${AI_CODEASSIST_FORGE_CONTAINER_PORT:-8081}
+    volumes:
+      - forge-data:/data
+    networks:
+      - proxy-chain-network
+
+volumes:
+  forge-data:
+    name: localnet-forge-data-volume
+    external: false
+
+networks:
+  proxy-chain-network:
+    external: true
+    name: proxy-chain-network

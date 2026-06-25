@@ -2,6 +2,9 @@
 # AI Dashboard - Docker Compose Configuration
 # This service integrates the ai-dashboard project as external containers
 # Reference: https://github.com/levonk/ai-dashboard
+#
+# Web Interface: https://ai-dashboard.levonk.com (via Traefik with Authelia)
+# Proxy Services: Entry and pre-egress analytics collectors
 
 x-logging: &default-logging
   driver: "json-file"
@@ -16,10 +19,17 @@ networks:
     name: ai-dashboard-network
     driver: bridge
     external: false
+  traefik-network:
+    external: true
+    name: traefik-network
 
 volumes:
   ai-dashboard-data:
     driver: local
+
+# Environment variables for AI Dashboard services
+env_file:
+  - .env.ai-dashboard
 
 services:
   # AI Dashboard Proxy Service (Rust-based analytics proxy)
@@ -48,6 +58,58 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+
+  # AI Dashboard Web Service (Next.js web application)
+  ai-dashboard-web:
+    build:
+      context: /Users/micro/p/gh/levonk/ai-dashboard/apps/web
+      dockerfile: Dockerfile
+    image: ai-dashboard-web:latest
+    command: ["node", "server.js"]
+    container_name: ai-dashboard-web
+    restart: unless-stopped
+    networks:
+      ai-dashboard:
+        ipv4_address: ${AI_DASHBOARD_WEB_CONTAINER_IP:-172.28.0.11}
+      traefik-network:
+        ipv4_address: ${AI_DASHBOARD_WEB_TRAEFIK_IP:-172.31.0.11}
+    environment:
+      - DATABASE_URL=${AI_DASHBOARD_DATABASE_URL:-postgresql://postgres:postgres@ai-dashboard-db:5432/analytics}
+      - NEXT_PUBLIC_API_URL=http://ai-dashboard-proxy:8080
+      - NODE_ENV=production
+    ports:
+      - "${AI_DASHBOARD_WEB_HOST_PORT:-3000}:3000/tcp"
+    volumes:
+      - ai-dashboard-data:/var/lib/analytics
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      # Traefik labels for automatic routing with security middleware chain
+      - "traefik.enable=true"
+      # HTTP router (redirects to HTTPS)
+      - "traefik.http.routers.ai-dashboard-web-http.rule=Host(`ai-dashboard.levonk.com`)"
+      - "traefik.http.routers.ai-dashboard-web-http.entryPoints=web"
+      - "traefik.http.routers.ai-dashboard-web-http.middlewares=redirect-to-https"
+      # HTTPS router with security middleware chain
+      - "traefik.http.routers.ai-dashboard-web-https.rule=Host(`ai-dashboard.levonk.com`)"
+      - "traefik.http.routers.ai-dashboard-web-https.entryPoints=websecure"
+      - "traefik.http.routers.ai-dashboard-web-https.middlewares=geoblock,crowdsec-bouncer,authelia"
+      - "traefik.http.routers.ai-dashboard-web-https.tls=true"
+      - "traefik.http.routers.ai-dashboard-web-https.tls.certresolver=letsencrypt"
+      # Service configuration
+      - "traefik.http.services.ai-dashboard-web.loadbalancer.server.port=3000"
+      # HTTPS redirect middleware
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true"
+    depends_on:
+      ai-dashboard-proxy:
+        condition: service_healthy
+      ai-dashboard-db:
+        condition: service_healthy
 
   # AI Dashboard Database (PostgreSQL)
   ai-dashboard-db:

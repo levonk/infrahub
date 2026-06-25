@@ -35,6 +35,22 @@
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
 
+      # AI Dashboard analytics service
+      - name: "ai-dashboard.levonk.com"
+        type: "A"
+        content: "100.90.22.85"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      # OmniRoute AI gateway service
+      - name: "ai-gateway.levonk.com"
+        type: "A"
+        content: "100.90.22.85"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
       # Traefik dashboard (optional, for management access)
       - name: "traefik.levonk.com"
         type: "A"

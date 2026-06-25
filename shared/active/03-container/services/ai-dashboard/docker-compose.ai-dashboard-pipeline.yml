@@ -1,7 +1,7 @@
 ---
 # AI Dashboard Pipeline - Multi-Stage Analytics Collection
 # This configuration wires up the AI analytics pipeline with multiple stages:
-# AI Dashboard Proxy 1 → Privacy Orchestrator → Headroom → OmniRoute → AI Dashboard Proxy 2 → Iron-Proxy → NordVPN → Internet
+# AI Dashboard Proxy 1 → Privacy Orchestrator → Headroom → OmniRoute → Forge → AI Dashboard Proxy 2 → Iron-Proxy → NordVPN → Internet
 # Dual AI Dashboard proxy collectors for entry and pre-egress analytics
 # Compression Strategy: Headroom handles all compression, OmniRoute focuses on routing
 
@@ -39,6 +39,8 @@ volumes:
   ai-dashboard-proxy-2-data:
     driver: local
   privacy-orchestrator-data:
+    driver: local
+  forge-data:
     driver: local
   headroom-data:
     external: true
@@ -118,42 +120,6 @@ services:
       ai-dashboard-db:
         condition: service_healthy
 
-  # AI Dashboard Proxy Collector 2 - Pre-Egress Stage
-  # Second-to-last stage: collects analytics after OmniRoute, before Iron-Proxy
-  ai-dashboard-proxy-2:
-    image: alpine:latest
-    command: ["sh", "-c", "echo 'AI Dashboard Proxy 2 - Pre-Egress Stage placeholder' && sleep infinity"]
-    container_name: ai-dashboard-proxy-2
-    restart: unless-stopped
-    networks:
-      ai-dashboard:
-        ipv4_address: ${AI_DASHBOARD_PROXY_2_CONTAINER_IP:-172.35.0.12}
-      proxy-chain-network:
-        ipv4_address: ${AI_DASHBOARD_PROXY_2_CHAIN_IP:-172.29.0.12}
-    environment:
-      - DATABASE_URL=${AI_DASHBOARD_DATABASE_URL:-postgresql://postgres:postgres@ai-dashboard-db:5432/analytics}
-      - AI_ANALYTICS_PROXY_MODE=analytics
-      - AI_ANALYTICS_PROXY_STAGE=pre-egress
-      - AI_ANALYTICS_PROXY_COLLECTOR_ID=proxy-collector-2
-      - LOG_LEVEL=${AI_DASHBOARD_LOG_LEVEL:-INFO}
-      - AI_ANALYTICS_UPSTREAM_URL=http://omniroute:20128
-      - COMPRESSION_STRATEGY=headroom-primary
-    ports:
-      - "${AI_DASHBOARD_PROXY_2_HOST_PORT:-9082}:${AI_DASHBOARD_PROXY_2_CONTAINER_PORT:-8082}/tcp"
-    volumes:
-      - ai-dashboard-proxy-2-data:/var/lib/analytics
-    logging: *default-logging
-    healthcheck:
-      test: ["CMD", "sh", "-c", "exit 0"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    depends_on:
-      ai-dashboard-db:
-        condition: service_healthy
-      omniroute:
-        condition: service_healthy
-
   # Headroom Context Compression Service
   # Compresses LLM requests before they reach OmniRoute
   headroom:
@@ -211,6 +177,78 @@ services:
       retries: 3
     depends_on:
       headroom:
+        condition: service_healthy
+
+  # Forge - Tool Calling Reliability Layer
+  # Fifth stage in pipeline: fixes tool calling issues after OmniRoute routing
+  forge:
+    image: localnet-forge:latest
+    command: ["python", "-m", "forge.proxy", "--backend-url", "http://omniroute:20128", "--port", "8081"]
+    container_name: forge
+    restart: unless-stopped
+    networks:
+      ai-dashboard:
+        ipv4_address: ${FORGE_CONTAINER_IP:-172.35.0.16}
+      proxy-chain-network:
+        ipv4_address: ${FORGE_CHAIN_IP:-172.29.0.16}
+    environment:
+      - FORGE_PORT=8081
+      - FORGE_HOST=0.0.0.0
+      - FORGE_BACKEND_URL=http://omniroute:20128
+      - FORGE_MAX_RETRIES=3
+      - FORGE_REASONING_REPLAY=none
+      - PUID=1000
+      - PGID=1000
+      - TZ=UTC
+    ports:
+      - "${FORGE_HOST_PORT:-8083}:${FORGE_CONTAINER_PORT:-8081}/tcp"
+    volumes:
+      - forge-data:/data
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      omniroute:
+        condition: service_healthy
+
+  # AI Dashboard Proxy Collector 2 - Pre-Egress Stage
+  # Second-to-last stage: collects analytics after Forge, before Iron-Proxy
+  ai-dashboard-proxy-2:
+    image: alpine:latest
+    command: ["sh", "-c", "echo 'AI Dashboard Proxy 2 - Pre-Egress Stage placeholder' && sleep infinity"]
+    container_name: ai-dashboard-proxy-2
+    restart: unless-stopped
+    networks:
+      ai-dashboard:
+        ipv4_address: ${AI_DASHBOARD_PROXY_2_CONTAINER_IP:-172.35.0.12}
+      proxy-chain-network:
+        ipv4_address: ${AI_DASHBOARD_PROXY_2_CHAIN_IP:-172.29.0.12}
+    environment:
+      - DATABASE_URL=${AI_DASHBOARD_DATABASE_URL:-postgresql://postgres:postgres@ai-dashboard-db:5432/analytics}
+      - AI_ANALYTICS_PROXY_MODE=analytics
+      - AI_ANALYTICS_PROXY_STAGE=pre-egress
+      - AI_ANALYTICS_PROXY_COLLECTOR_ID=proxy-collector-2
+      - LOG_LEVEL=${AI_DASHBOARD_LOG_LEVEL:-INFO}
+      - AI_ANALYTICS_UPSTREAM_URL=http://forge:8081
+      - COMPRESSION_STRATEGY=headroom-primary
+    ports:
+      - "${AI_DASHBOARD_PROXY_2_HOST_PORT:-9082}:${AI_DASHBOARD_PROXY_2_CONTAINER_PORT:-8082}/tcp"
+    volumes:
+      - ai-dashboard-proxy-2-data:/var/lib/analytics
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD", "sh", "-c", "exit 0"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    depends_on:
+      ai-dashboard-db:
+        condition: service_healthy
+      forge:
         condition: service_healthy
 
   # AI Dashboard Database (PostgreSQL)

@@ -11,6 +11,13 @@ x-logging: &default-logging
 
 # AI Services stack
 # Includes: Ollama (GPU), OpenWebUI, n8n, Postgres (pgvector), Neo4j, Langfuse, Airflow (K8s-ready)
+networks:
+  localnet:
+    driver: bridge
+  traefik-network:
+    external: true
+    name: traefik-network
+
 volumes:
   ai-ollama-models:
     driver: local
@@ -249,6 +256,7 @@ services:
     restart: unless-stopped
     networks:
       - localnet
+      - traefik-network
     environment:
       - PORT=${AI_OMNIROUTE_CONTAINER_PORT:-20128}
       - NODE_ENV=production
@@ -270,4 +278,22 @@ services:
     read_only: true
     tmpfs:
       - /tmp
+    labels:
+      # Traefik labels for automatic routing with security middleware chain
+      - "traefik.enable=true"
+      # HTTP router (redirects to HTTPS)
+      - "traefik.http.routers.omniroute-http.rule=Host(`ai-gateway.levonk.com`)"
+      - "traefik.http.routers.omniroute-http.entryPoints=web"
+      - "traefik.http.routers.omniroute-http.middlewares=redirect-to-https"
+      # HTTPS router with security middleware chain
+      - "traefik.http.routers.omniroute-https.rule=Host(`ai-gateway.levonk.com`)"
+      - "traefik.http.routers.omniroute-https.entryPoints=websecure"
+      - "traefik.http.routers.omniroute-https.middlewares=geoblock,crowdsec-bouncer,authelia"
+      - "traefik.http.routers.omniroute-https.tls=true"
+      - "traefik.http.routers.omniroute-https.tls.certresolver=letsencrypt"
+      # Service configuration
+      - "traefik.http.services.omniroute.loadbalancer.server.port=20128"
+      # HTTPS redirect middleware
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true"
     profiles: ["all"]

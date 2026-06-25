@@ -1,7 +1,7 @@
 ---
 # AI Dashboard Pipeline - Multi-Stage Analytics Collection
 # This configuration wires up the AI analytics pipeline with multiple stages:
-# AI Dashboard Proxy 1 → Headroom → OmniRoute → AI Dashboard Proxy 2 → Iron-Proxy → NordVPN → Internet
+# AI Dashboard Proxy 1 → Privacy Orchestrator → Headroom → OmniRoute → Forge → AI Dashboard Proxy 2 → Iron-Proxy → NordVPN → Internet
 # Dual AI Dashboard proxy collectors for entry and pre-egress analytics
 
 x-logging: &default-logging
@@ -28,6 +28,10 @@ volumes:
     driver: local
   ai-dashboard-proxy-2-data:
     driver: local
+  privacy-orchestrator-data:
+    driver: local
+  forge-data:
+    driver: local
 
 services:
   # AI Dashboard Proxy Collector 1 - Entry Stage
@@ -51,7 +55,7 @@ services:
       - AI_ANALYTICS_PROXY_STAGE={{ ai_analytics_proxy_stage_1 }}
       - AI_ANALYTICS_PROXY_COLLECTOR_ID={{ ai_analytics_proxy_collector_id_1 }}
       - LOG_LEVEL={{ ai_dashboard_log_level }}
-      - AI_ANALYTICS_UPSTREAM_URL={{ ai_analytics_upstream_headroom }}
+      - AI_ANALYTICS_UPSTREAM_URL=http://privacy-orchestrator:9090
     ports:
       - "{{ ai_dashboard_proxy_1_host_port }}:{{ ai_dashboard_proxy_1_container_port }}/tcp"
     volumes:
@@ -65,8 +69,139 @@ services:
     depends_on:
       - ai-dashboard-db
 
+  # Privacy Orchestrator - PII Detection and Transformation Service
+  # Second stage in pipeline: detects and transforms PII before Headroom
+  privacy-orchestrator:
+    image: localnet-privacy-orchestrator:latest
+    command: ["privacy-orchestrator", "serve", "--port", "9090"]
+    container_name: privacy-orchestrator
+    restart: unless-stopped
+    networks:
+      ai-dashboard:
+        ipv4_address: {{ privacy_orchestrator_container_ip }}
+      proxy-chain-network:
+        ipv4_address: {{ privacy_orchestrator_chain_ip }}
+    environment:
+      - PRIVACY_ORCHESTRATOR_PORT=9090
+      - PRIVACY_ORCHESTRATOR_HOST=0.0.0.0
+      - PRIVACY_ORCHESTRATOR_DATA_DIR=/data
+      - PRIVACY_ORCHESTRATOR_CONFIG_FILE=/config/config.toml
+      - PRIVACY_ORCHESTRATOR_LOG_LEVEL={{ privacy_orchestrator_log_level }}
+      - PRIVACY_ORCHESTRATOR_MODE={{ privacy_orchestrator_mode }}
+      - DATABASE_URL={{ privacy_orchestrator_database_url }}
+    ports:
+      - "{{ privacy_orchestrator_host_port }}:{{ privacy_orchestrator_container_port }}/tcp"
+    volumes:
+      - privacy-orchestrator-data:/data
+      - {{ privacy_orchestrator_config_path }}:/config:ro
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    depends_on:
+      - ai-dashboard-db
+
+  # Headroom Context Compression Service
+  # Third stage in pipeline: compresses LLM requests before OmniRoute
+  headroom:
+    image: localnet-headroom:latest
+    command: ["headroom", "serve", "--port", "8787"]
+    container_name: headroom
+    restart: unless-stopped
+    networks:
+      proxy-chain-network:
+        ipv4_address: 172.29.0.13
+    environment:
+      - HEADROOM_PORT=8787
+      - HEADROOM_HOST=0.0.0.0
+      - HEADROOM_DATA_DIR=/data
+      - HEADROOM_OUTPUT_SHAPER=0
+    ports:
+      - "8787:8787/tcp"
+    volumes:
+      - headroom-data:
+        external: true
+        name: localnet-headroom-data-volume
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8787/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    depends_on:
+      - privacy-orchestrator
+
+  # OmniRoute AI Gateway Service
+  # Fourth stage in pipeline: smart routing across AI providers
+  omniroute:
+    image: localnet-ai-omniroute:latest
+    command: ["omniroute", "serve", "--port", "20128"]
+    container_name: omniroute
+    restart: unless-stopped
+    networks:
+      proxy-chain-network:
+        ipv4_address: 172.29.0.14
+    environment:
+      - PORT=20128
+      - NODE_ENV=production
+      - OMNIROUTE_COMPRESSION_ENABLED=false
+      - OMNIROUTE_RTK_ENABLED=false
+      - OMNIROUTE_CAVEMAN_ENABLED=false
+    ports:
+      - "20128:20128/tcp"
+    volumes:
+      - omniroute-data:
+        external: true
+        name: localnet-ai-omniroute
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:20128/v1/models"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    depends_on:
+      - headroom
+
+  # Forge - Tool Calling Reliability Layer
+  # Fifth stage in pipeline: fixes tool calling issues after OmniRoute routing
+  forge:
+    image: localnet-forge:latest
+    command: ["python", "-m", "forge.proxy", "--backend-url", "http://omniroute:20128", "--port", "8081"]
+    container_name: forge
+    restart: unless-stopped
+    networks:
+      ai-dashboard:
+        ipv4_address: {{ forge_container_ip }}
+      proxy-chain-network:
+        ipv4_address: {{ forge_chain_ip }}
+    environment:
+      - FORGE_PORT=8081
+      - FORGE_HOST=0.0.0.0
+      - FORGE_BACKEND_URL=http://omniroute:20128
+      - FORGE_MAX_RETRIES={{ forge_max_retries }}
+      - FORGE_REASONING_REPLAY={{ forge_reasoning_replay }}
+      - PUID=1000
+      - PGID=1000
+      - TZ=UTC
+    ports:
+      - "8083:{{ forge_container_port }}/tcp"
+    volumes:
+      - forge-data:/data
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      - omniroute
+
   # AI Dashboard Proxy Collector 2 - Pre-Egress Stage
-  # Second-to-last stage: collects analytics after OmniRoute, before Iron-Proxy
+  # Second-to-last stage: collects analytics after Forge, before Iron-Proxy
   ai-dashboard-proxy-2:
     build:
       context: /Users/micro/p/gh/levonk/ai-dashboard/apps/proxy
@@ -86,7 +221,7 @@ services:
       - AI_ANALYTICS_PROXY_STAGE={{ ai_analytics_proxy_stage_2 }}
       - AI_ANALYTICS_PROXY_COLLECTOR_ID={{ ai_analytics_proxy_collector_id_2 }}
       - LOG_LEVEL={{ ai_dashboard_log_level }}
-      - AI_ANALYTICS_UPSTREAM_URL={{ ai_analytics_upstream_iron_proxy }}
+      - AI_ANALYTICS_UPSTREAM_URL=http://forge:8081
     ports:
       - "{{ ai_dashboard_proxy_2_host_port }}:{{ ai_dashboard_proxy_2_container_port }}/tcp"
     volumes:
@@ -99,6 +234,7 @@ services:
       retries: 3
     depends_on:
       - ai-dashboard-db
+      - forge
 
   # AI Dashboard Database (PostgreSQL)
   # Shared database for all collectors
