@@ -1,5 +1,5 @@
 # Core Dependencies
-python-dotenv
+python-dotenv>=1.2.2
 pyyaml
 click
 
@@ -34,12 +34,12 @@ anthropic
 tiktoken
 
 # API
-fastapi
-uvicorn
-pydantic
+fastapi>=0.138.0
+uvicorn>=0.49.0
+pydantic>=2.13.4
 flask
 flask-cors
-python-multipart
+python-multipart>=0.0.32
 
 # Utilities
 tqdm
