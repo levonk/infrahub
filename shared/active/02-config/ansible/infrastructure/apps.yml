@@ -1,0 +1,50 @@
+---
+# macOS Host Application Schema
+# Location: shared/active/02-config/ansible/infrastructure/apps.yml
+# Purpose: Shared app definitions for macOS host bootstrap.
+# Defines which apps are installed via Nix (flake.nix) vs Homebrew cask.
+# Client-specific values in <client>/active/02-config/ansible/infrastructure/apps.yml
+# ---------------------------------------------------------------------------
+# Variable Naming: infra_app_{CATEGORY}_{ATTRIBUTE}
+# Categories: nix, brew, builtin
+# Attributes: packages, casks, features
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Nix-managed packages (installed via shared/active/02-config/nix/flake.nix)
+# The flake outputs host-apps (buildEnv) and symlink-apps (script).
+# CLI tools go into the nix profile; GUI .app bundles are symlinked to /Applications.
+# ---------------------------------------------------------------------------
+infra_app_nix_cli_packages:
+  - git
+  - zsh
+  - tailscale
+  - netbird
+
+infra_app_nix_gui_packages:
+  - cmux
+  - firefox-devedition-bin
+  - raycast
+
+# ---------------------------------------------------------------------------
+# Homebrew cask apps (GUI apps not in nixpkgs or that need native installers)
+# Installed via: brew install --cask <name>
+# ---------------------------------------------------------------------------
+infra_app_brew_casks:
+  - orbstack      # Container runtime for x86 Macs (Apple Container needs macOS 26)
+  - rustdesk      # Remote desktop GUI app
+
+# ---------------------------------------------------------------------------
+# macOS built-in features (enabled via systemsetup or launchctl)
+# ---------------------------------------------------------------------------
+infra_app_builtin_features:
+  - remote-login  # SSH server (systemsetup -setremotelogin on)
+
+# ---------------------------------------------------------------------------
+# Container runtime selection
+# "auto" (default): playbook auto-detects based on macOS version + architecture
+#   macOS 26+ ARM  → Apple Container (native, no third-party runtime)
+#   otherwise      → OrbStack (free for personal use, works on x86 + ARM)
+# Override per-client or per-host if you want to force a specific runtime.
+# ---------------------------------------------------------------------------
+infra_app_container_runtime: "auto"  # "auto" | "orbstack" | "apple-container"

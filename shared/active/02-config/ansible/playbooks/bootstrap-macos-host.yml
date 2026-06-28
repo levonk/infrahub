@@ -1,0 +1,432 @@
+---
+# Bootstrap macOS Host
+# Location: shared/active/02-config/ansible/playbooks/bootstrap-macos-host.yml
+#
+# Installs and configures everything a fresh macOS machine needs to become
+# a managed host: Nix (multi-user daemon), Homebrew, container runtime,
+# SSH server, Tailscale, Netbird, and GUI/CLI apps.
+#
+# Architecture:
+#   - Nix (multi-user daemon mode) installs CLI tools + GUI apps via flake.nix
+#   - GUI .app bundles from Nix are symlinked to /Applications so they appear in Spotlight/Launchpad
+#   - Homebrew cask installs apps not available in nixpkgs (OrbStack, RustDesk)
+#   - Container runtime: OrbStack on x86/pre-macOS-26, Apple Container on macOS 26+ ARM
+#   - Tailscale + Netbird for mesh VPN connectivity
+#   - SSH server (Remote Login) enabled for Ansible management
+#
+# Prerequisites (manual — see manual-macos-host-install.md):
+#   1. SSH access to the Mac (either local or via Tailscale)
+#   2. Admin password available (become: true for system changes)
+#
+# Usage (example with levonk client inventory):
+#   ansible-playbook -i <client>/active/02-config/ansible/inventories/macos-hosts.yml \
+#     shared/active/02-config/ansible/playbooks/bootstrap-macos-host.yml \
+#     --vault-password-file ~/.ansible/vault_password \
+#     --ask-become-pass
+
+- name: "Bootstrap macOS Host — Install Nix, Homebrew, Containers, Apps, VPN"
+  hosts: macos_hosts
+  gather_facts: true
+  become: false  # macOS uses sudo per-task, not persistent become
+
+  pre_tasks:
+    - name: "Gather ansible_facts"
+      ansible.builtin.setup:
+        gather_subset: ["all"]
+      tags: ["always"]
+
+    - name: "Load shared infrastructure app defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/apps.yml"
+      tags: ["always"]
+
+    - name: "Validate required variables"
+      ansible.builtin.assert:
+        that:
+          - ansible_host is defined
+          - ansible_user is defined
+          - ansible_facts['distribution'] == "MacOSX"
+        fail_msg: "Missing connection variables or target is not macOS. Check inventories/macos-hosts.yml"
+        success_msg: "Connection variables OK — target is macOS."
+      tags: ["always", "validate"]
+
+    - name: "Auto-detect container runtime (macOS 26+ ARM → Apple Container, else OrbStack)"
+      ansible.builtin.set_fact:
+        infra_app_container_runtime: >-
+          {{ 'apple-container'
+             if (ansible_facts['distribution_version'] is version('26', '>=') and ansible_facts['architecture'] == 'arm64')
+             else 'orbstack' }}
+      when: infra_app_container_runtime is not defined or infra_app_container_runtime == "auto"
+      tags: ["always"]
+
+    - name: "Report target machine"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Bootstrap macOS Host
+          ========================================
+          Host: {{ inventory_hostname }}
+          Ansible Host: {{ ansible_host }}
+          User: {{ ansible_user }}
+          OS: macOS {{ ansible_facts['distribution_version'] }}
+          Architecture: {{ ansible_facts['architecture'] }}
+          Container runtime: {{ infra_app_container_runtime }}
+          ========================================
+      tags: ["always", "info"]
+
+  tasks:
+    # ---------------------------------------------------------------------------
+    # Admin user (auser) — dedicated admin account for Ansible management
+    # Mirrors the cuser pattern used on Linux hosts. The daily-use user
+    # (e.g. micro) can be a non-admin for safety.
+    # This user is in the admin group so Ansible can sudo for system changes.
+    # ---------------------------------------------------------------------------
+    - name: "Check if admin user (auser) exists"
+      ansible.builtin.command: dscl . -read /Users/{{ macos_auser }} UniqueID
+      register: auser_check
+      changed_when: false
+      failed_when: false
+      tags: ["auser", "check"]
+
+    - name: "Create admin user (auser)"
+      ansible.builtin.command: >
+        sysadminctl -addUser {{ macos_auser }}
+        -password {{ vault_macos_auser_password | default('-') }}
+        -admin -home /Users/{{ macos_auser }}
+      when: auser_check.rc != 0
+      become: true
+      no_log: true
+      tags: ["auser", "create"]
+
+    - name: "Ensure auser is in admin group"
+      ansible.builtin.command: dseditgroup -o edit -a {{ macos_auser }} -t user admin
+      become: true
+      changed_when: false
+      tags: ["auser", "configure"]
+
+    - name: "Create .ssh directory for auser"
+      ansible.builtin.file:
+        path: "/Users/{{ macos_auser }}/.ssh"
+        state: directory
+        owner: "{{ macos_auser }}"
+        group: "staff"
+        mode: "0700"
+      become: true
+      tags: ["auser", "ssh"]
+
+    - name: "Add SSH public key for auser"
+      ansible.builtin.copy:
+        content: "{{ macos_auser_ssh_public_key }}"
+        dest: "/Users/{{ macos_auser }}/.ssh/authorized_keys"
+        owner: "{{ macos_auser }}"
+        group: "staff"
+        mode: "0600"
+      become: true
+      when: macos_auser_ssh_public_key is defined
+      tags: ["auser", "ssh"]
+
+    # ---------------------------------------------------------------------------
+    # SSH Server (Remote Login)
+    # ---------------------------------------------------------------------------
+    - name: "Enable Remote Login (SSH server)"
+      ansible.builtin.command: systemsetup -setremotelogin on
+      become: true
+      changed_when: false
+      tags: ["ssh"]
+
+    - name: "Verify SSH server is running"
+      ansible.builtin.command: launchctl list com.openssh.sshd
+      register: sshd_status
+      changed_when: false
+      failed_when: false
+      tags: ["ssh"]
+
+    - name: "Report SSH status"
+      ansible.builtin.debug:
+        msg: "SSH server: {{ 'running' if sshd_status.rc == 0 else 'NOT running — check manually' }}"
+      tags: ["ssh"]
+
+    # ---------------------------------------------------------------------------
+    # Nix — multi-user daemon mode (official installer)
+    # Installs with: experimental-features = nix-command flakes
+    # ---------------------------------------------------------------------------
+    - name: "Check if Nix is installed"
+      ansible.builtin.command: /nix/var/nix/profiles/default/bin/nix --version
+      register: nix_check
+      changed_when: false
+      failed_when: false
+      tags: ["nix", "check"]
+
+    - name: "Install Nix (multi-user daemon, flakes enabled)"
+      ansible.builtin.shell:
+        cmd: |
+          sh <(curl -L https://nixos.org/nix/install) --daemon --yes \
+            --daemon-user-count 4 \
+            --nix-extra-conf 'experimental-features = nix-command flakes'
+      when: nix_check.rc != 0
+      become: true
+      tags: ["nix", "install"]
+
+    - name: "Ensure nix.conf has flakes + nix-command + optimisation enabled"
+      ansible.builtin.copy:
+        dest: /etc/nix/nix.conf
+        content: |
+          experimental-features = nix-command flakes
+          auto-optimise-store = true
+          keep-outputs = true
+          keep-derivations = true
+          accept-flake-config = true
+        mode: "0644"
+        owner: root
+        group: wheel
+      become: true
+      tags: ["nix", "configure"]
+
+    - name: "Restart nix-daemon to pick up config"
+      ansible.builtin.command: launchctl kickstart -k system/org.nixos.nix-daemon
+      become: true
+      changed_when: false
+      when: nix_check.rc != 0
+      tags: ["nix", "configure"]
+
+    - name: "Report Nix version"
+      ansible.builtin.command: /nix/var/nix/profiles/default/bin/nix --version
+      register: nix_version
+      changed_when: false
+      tags: ["nix", "verify"]
+
+    - name: "Show Nix version"
+      ansible.builtin.debug:
+        msg: "{{ nix_version.stdout }}"
+      tags: ["nix", "verify"]
+
+    # ---------------------------------------------------------------------------
+    # Homebrew — for cask apps not in nixpkgs
+    # ---------------------------------------------------------------------------
+    - name: "Check if Homebrew is installed"
+      ansible.builtin.command: brew --version
+      register: brew_check
+      changed_when: false
+      failed_when: false
+      tags: ["brew", "check"]
+
+    - name: "Install Homebrew"
+      ansible.builtin.shell:
+        cmd: |
+          NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+      when: brew_check.rc != 0
+      tags: ["brew", "install"]
+
+    - name: "Report Homebrew version"
+      ansible.builtin.command: brew --version
+      register: brew_version
+      changed_when: false
+      tags: ["brew", "verify"]
+
+    - name: "Show Homebrew version"
+      ansible.builtin.debug:
+        msg: "{{ brew_version.stdout_lines[0] }}"
+      tags: ["brew", "verify"]
+
+    # ---------------------------------------------------------------------------
+    # Nix flake — install CLI + GUI apps
+    # The flake is in shared/active/02-config/nix/flake.nix
+    # ---------------------------------------------------------------------------
+    - name: "Copy nix flake to target host"
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../nix/flake.nix"
+        dest: "{{ macos_nix_flake_dir }}/flake.nix"
+        mode: "0644"
+      tags: ["nix", "flake"]
+
+    - name: "Install host apps via nix flake (CLI + GUI packages)"
+      ansible.builtin.command: >
+        /nix/var/nix/profiles/default/bin/nix profile install
+        {{ macos_nix_flake_dir }}#host-apps
+      register: nix_profile_install
+      changed_when: "'installed' in nix_profile_install.stdout or 'built' in nix_profile_install.stdout"
+      tags: ["nix", "apps"]
+
+    - name: "Symlink GUI .app bundles to /Applications"
+      ansible.builtin.command: >
+        /nix/var/nix/profiles/default/bin/nix run
+        {{ macos_nix_flake_dir }}#symlink-apps
+      register: nix_symlink
+      changed_when: "'Done.' in nix_symlink.stdout"
+      tags: ["nix", "apps", "symlink"]
+
+    - name: "Report symlinked apps"
+      ansible.builtin.debug:
+        msg: "{{ nix_symlink.stdout }}"
+      tags: ["nix", "apps", "symlink"]
+
+    # ---------------------------------------------------------------------------
+    # Homebrew casks — apps not in nixpkgs
+    # OrbStack is only needed when container runtime is "orbstack"
+    # (Apple Container is built into macOS 26+ and needs no install)
+    # ---------------------------------------------------------------------------
+    - name: "Filter cask list — remove OrbStack if using Apple Container"
+      ansible.builtin.set_fact:
+        macos_brew_casks: >-
+          {{ infra_app_brew_casks | reject('search', 'orbstack') | list
+             if infra_app_container_runtime == "apple-container"
+             else infra_app_brew_casks }}
+      tags: ["brew", "casks"]
+
+    - name: "Install Homebrew cask apps"
+      community.general.homebrew_cask:
+        name: "{{ item }}"
+        state: present
+        install_options: "appdir=/Applications"
+      loop: "{{ macos_brew_casks }}"
+      tags: ["brew", "casks"]
+
+    # ---------------------------------------------------------------------------
+    # Container Runtime — auto-detected:
+    #   macOS 26+ ARM  → Apple Container (native, no third-party runtime)
+    #   otherwise      → OrbStack (installed via brew cask above)
+    # ---------------------------------------------------------------------------
+    - name: "Check if OrbStack is installed"
+      ansible.builtin.command: orbstack version
+      register: orbstack_check
+      changed_when: false
+      failed_when: false
+      when: infra_app_container_runtime == "orbstack"
+      tags: ["containers", "check"]
+
+    - name: "Report OrbStack status"
+      ansible.builtin.debug:
+        msg: "OrbStack: {{ orbstack_check.stdout if orbstack_check.rc == 0 else 'not installed' }}"
+      when: infra_app_container_runtime == "orbstack"
+      tags: ["containers", "check"]
+
+    - name: "Check if Apple Container CLI is available"
+      ansible.builtin.command: container --version
+      register: apple_container_check
+      changed_when: false
+      failed_when: false
+      when: infra_app_container_runtime == "apple-container"
+      tags: ["containers", "check"]
+
+    - name: "Report Apple Container status"
+      ansible.builtin.debug:
+        msg: "Apple Container: {{ apple_container_check.stdout if apple_container_check.rc == 0 else 'not installed — requires macOS 26+' }}"
+      when: infra_app_container_runtime == "apple-container"
+      tags: ["containers", "check"]
+
+    # OrbStack is installed via brew cask above (in infra_app_brew_casks).
+    # Apple Container is built into macOS 26+ (no install needed).
+
+    - name: "Verify container runtime is available"
+      ansible.builtin.command: docker --version
+      register: docker_check
+      changed_when: false
+      failed_when: false
+      tags: ["containers", "verify"]
+
+    - name: "Report container runtime"
+      ansible.builtin.debug:
+        msg: "Docker CLI: {{ docker_check.stdout if docker_check.rc == 0 else 'NOT available — OrbStack may need to be started' }}"
+      tags: ["containers", "verify"]
+
+    # ---------------------------------------------------------------------------
+    # Tailscale
+    # ---------------------------------------------------------------------------
+    - name: "Check if Tailscale is connected"
+      ansible.builtin.command: tailscale status
+      register: tailscale_status
+      changed_when: false
+      failed_when: false
+      tags: ["tailscale", "check"]
+
+    - name: "Join Tailscale network with auth key"
+      ansible.builtin.command: >
+        tailscale up
+        --authkey {{ vpn_tailscale_auth_key }}
+        --hostname {{ macos_tailscale_hostname }}
+        --accept-routes
+        --accept-dns
+      when:
+        - tailscale_status.rc != 0 or "Logged out" in tailscale_status.stdout
+        - vpn_tailscale_auth_key is defined
+        - vpn_tailscale_auth_key | length > 0
+      no_log: true
+      tags: ["tailscale", "configure"]
+
+    - name: "Report Tailscale status"
+      ansible.builtin.command: tailscale status
+      register: tailscale_final_status
+      changed_when: false
+      tags: ["tailscale", "verify"]
+
+    - name: "Show Tailscale status"
+      ansible.builtin.debug:
+        msg: "{{ tailscale_final_status.stdout_lines[:5] }}"
+      tags: ["tailscale", "verify"]
+
+    # ---------------------------------------------------------------------------
+    # Netbird — optional (skipped if no setup key in vault)
+    # ---------------------------------------------------------------------------
+    - name: "Check if Netbird setup key is available"
+      ansible.builtin.set_fact:
+        netbird_enabled: >-
+          {{ (vault_netbird_setup_key is defined) and (vault_netbird_setup_key | length > 0) }}
+      tags: ["netbird", "check"]
+
+    - name: "Report Netbird configuration status"
+      ansible.builtin.debug:
+        msg: "Netbird: {{ 'will configure (setup key found in vault)' if netbird_enabled | bool else 'skipped (no setup key in vault — not yet tested)' }}"
+      tags: ["netbird", "check"]
+
+    - name: "Check if Netbird is connected"
+      ansible.builtin.command: netbird status
+      register: netbird_status
+      changed_when: false
+      failed_when: false
+      when: netbird_enabled | bool
+      tags: ["netbird", "check"]
+
+    - name: "Join Netbird network with setup key"
+      ansible.builtin.command: >
+        netbird up
+        --managementURL {{ macos_netbird_management_url | default('https://api.netbird.io:443') }}
+        --setupKey {{ vault_netbird_setup_key }}
+        --hostname {{ macos_netbird_hostname }}
+      when:
+        - netbird_enabled | bool
+        - netbird_status.rc != 0
+      no_log: true
+      tags: ["netbird", "configure"]
+
+    - name: "Report Netbird status"
+      ansible.builtin.command: netbird status
+      register: netbird_final_status
+      changed_when: false
+      failed_when: false
+      when: netbird_enabled | bool
+      tags: ["netbird", "verify"]
+
+    - name: "Show Netbird status"
+      ansible.builtin.debug:
+        msg: "{{ netbird_final_status.stdout_lines[:5] if (netbird_enabled | bool and netbird_final_status.stdout) else 'Netbird not configured (no setup key)' }}"
+      tags: ["netbird", "verify"]
+
+    # ---------------------------------------------------------------------------
+    # Summary
+    # ---------------------------------------------------------------------------
+    - name: "Bootstrap complete — summary"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Bootstrap complete: {{ inventory_hostname }}
+          ========================================
+          Nix: {{ nix_version.stdout | default('check failed') }}
+          Homebrew: {{ brew_version.stdout_lines[0] | default('check failed') }}
+          Nix apps: installed via flake (CLI in profile, GUI symlinked to /Applications)
+          Brew casks: {{ macos_brew_casks | join(', ') }}
+          Container runtime: {{ infra_app_container_runtime }}
+          Tailscale: {{ 'connected' if tailscale_final_status.rc == 0 else 'NOT connected' }}
+          Netbird: {{ 'connected' if (netbird_enabled | bool and netbird_final_status.rc == 0) else ('skipped (no setup key)' if not (netbird_enabled | bool) else 'NOT connected') }}
+          SSH: enabled (Remote Login)
+          ========================================
+      tags: ["always", "summary"]

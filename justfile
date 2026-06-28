@@ -130,6 +130,10 @@ ansible-syntax-internal:
     ansible-playbook --syntax-check -i {{INVENTORY}} {{PB_INFRA}} || true
     ansible-playbook --syntax-check -i {{INVENTORY}} {{PB_VMS}} || true
     ansible-playbook --syntax-check -i {{INVENTORY}} {{PB_SITE}} || true
+    ansible-playbook --syntax-check -i {{WINDOWS_DOCKER_INVENTORY}} {{PB_WINDOWS_BOOTSTRAP}} || true
+    ansible-playbook --syntax-check -i {{WINDOWS_DOCKER_INVENTORY}} {{PB_WORLDMONITOR}} || true
+    ansible-playbook --syntax-check -i {{INVENTORY}} {{PB_LOCAL_REGISTRY}} || true
+    ansible-playbook --syntax-check -i {{MACOS_INVENTORY}} {{PB_MACOS_BOOTSTRAP}} || true
     @echo "Syntax check complete."
 
 # -- Molecule Tests (Docker-backed) --
@@ -328,6 +332,34 @@ ansible-deploy-worldmonitor-internal:
 ansible-deploy-worldmonitor-check:
     @echo "Dry-run WorldMonitor deployment (check mode)..."
     ansible-playbook -i {{WINDOWS_DOCKER_INVENTORY}} {{PB_WORLDMONITOR}} --check --diff --vault-password-file ~/.ansible/vault_password
+
+# -- macOS Host Deployment --
+
+MACOS_INVENTORY := INFRAHUB_ROOT + "/levonk/active/02-config/ansible/inventories/macos-hosts.yml"
+PB_MACOS_BOOTSTRAP := ANSIBLE_ROOT + "/playbooks/bootstrap-macos-host.yml"
+
+ansible-bootstrap-macos:
+    devbox run ansible-bootstrap-macos
+
+ansible-bootstrap-macos-internal:
+    @echo "Bootstrapping macOS host (Nix, Homebrew, OrbStack, apps, Tailscale, Netbird)..."
+    ansible-playbook -i {{MACOS_INVENTORY}} {{PB_MACOS_BOOTSTRAP}} --vault-password-file ~/.ansible/vault_password --ask-become-pass
+
+ansible-bootstrap-macos-check:
+    @echo "Dry-run macOS bootstrap (check mode)..."
+    ansible-playbook -i {{MACOS_INVENTORY}} {{PB_MACOS_BOOTSTRAP}} --check --diff --vault-password-file ~/.ansible/vault_password --ask-become-pass
+
+# Run the manual bootstrap script on a target Mac (run ON the target, not control machine)
+# Usage: just macos-manual-bootstrap --ssh-key ~/.ssh/lzkmbp2016-micro-oracle.pub
+macos-manual-bootstrap *ARGS:
+    @echo "Running manual bootstrap script..."
+    bash {{INFRAHUB_ROOT}}/shared/scripts/bootstrap-macos-manual.sh {{ARGS}}
+
+# Run the manual bootstrap script on a target Windows machine (run ON the target, not control machine)
+# Usage: just windows-manual-bootstrap -SshKey C:\Users\admin\.ssh\key.pub
+windows-manual-bootstrap *ARGS:
+    @echo "Run this on the target Windows machine in admin PowerShell:"
+    @echo "  powershell -ExecutionPolicy Bypass -File shared\scripts\bootstrap-windows-manual.ps1 {{ARGS}}"
 
 # -- Validation Playbooks --
 
