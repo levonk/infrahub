@@ -12,6 +12,26 @@
 >   reusable across clients. Client-specific values (hostnames, Tailscale
 >   names, SSH keys) are in the levonk client inventory.
 
+## Quick path — use the script
+
+Run this **on the target Windows machine** in an admin PowerShell:
+
+```powershell
+# If the key file is on the Windows machine:
+.\shared\scripts\bootstrap-windows-manual.ps1 -SshKey C:\Users\admin\.ssh\lzkmbp2016-micro-oracle.pub
+
+# Or pass the key string directly:
+.\shared\scripts\bootstrap-windows-manual.ps1 -SshKeyString "ssh-rsa AAAA... user@host"
+
+# Interactive mode (prompts for key paste):
+.\shared\scripts\bootstrap-windows-manual.ps1
+```
+
+The script does everything below automatically. Skip to
+[What Ansible does next](#what-ansible-does-next) after running it.
+
+## Manual steps (if you prefer to do it by hand)
+
 ## What this covers
 
 The chicken-and-egg problem: Ansible needs SSH + Python to connect, but
