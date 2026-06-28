@@ -297,6 +297,38 @@ ansible-deploy-localnet-tailscale-internal:
     @echo "Deploying Tailscale to local network hosts..."
     ansible-playbook -i {{LOCALNET_INVENTORY}} {{PB_LOCALNET_TAILSCALE}} --ask-vault-pass
 
+# -- Windows Docker Desktop Deployment --
+
+WINDOWS_DOCKER_INVENTORY := INFRAHUB_ROOT + "/levonk/active/02-config/ansible/inventories/windows-docker.yml"
+PB_WINDOWS_BOOTSTRAP := ANSIBLE_ROOT + "/playbooks/bootstrap-windows-docker-host.yml"
+PB_WORLDMONITOR := ANSIBLE_ROOT + "/playbooks/deploy-worldmonitor.yml"
+PB_LOCAL_REGISTRY := ANSIBLE_ROOT + "/playbooks/deploy-local-registry.yml"
+
+ansible-deploy-local-registry:
+    devbox run ansible-deploy-local-registry
+
+ansible-deploy-local-registry-internal:
+    @echo "Deploying local Docker registry on OCI cloud server..."
+    ansible-playbook -i {{INVENTORY}} {{PB_LOCAL_REGISTRY}} --vault-password-file ~/.ansible/vault_password
+
+ansible-bootstrap-windows-docker:
+    devbox run ansible-bootstrap-windows-docker
+
+ansible-bootstrap-windows-docker-internal:
+    @echo "Bootstrapping Windows Docker host (WSL2, Docker Desktop, Git, Tailscale, registry config)..."
+    ansible-playbook -i {{WINDOWS_DOCKER_INVENTORY}} {{PB_WINDOWS_BOOTSTRAP}} --vault-password-file ~/.ansible/vault_password
+
+ansible-deploy-worldmonitor:
+    devbox run ansible-deploy-worldmonitor
+
+ansible-deploy-worldmonitor-internal:
+    @echo "Building images on Mac, pushing to registry, deploying on Windows..."
+    ansible-playbook -i {{WINDOWS_DOCKER_INVENTORY}} {{PB_WORLDMONITOR}} --vault-password-file ~/.ansible/vault_password
+
+ansible-deploy-worldmonitor-check:
+    @echo "Dry-run WorldMonitor deployment (check mode)..."
+    ansible-playbook -i {{WINDOWS_DOCKER_INVENTORY}} {{PB_WORLDMONITOR}} --check --diff --vault-password-file ~/.ansible/vault_password
+
 # -- Validation Playbooks --
 
 ansible-validate-bootstrap:

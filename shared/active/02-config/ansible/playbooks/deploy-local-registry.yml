@@ -1,0 +1,90 @@
+---
+# Deploy Local Docker Registry
+# Location: shared/active/02-config/ansible/playbooks/deploy-local-registry.yml
+#
+# Deploys a local Docker registry on the cloud server to host built images
+# for deployment targets (Windows Docker Desktop, future CI/GitOps).
+#
+# The registry runs on the cloud server's Tailscale IP, accessible from
+# any machine on the Tailnet. HTTP only — Tailscale encrypts the transport.
+#
+# Deployment targets configure Docker to trust this registry via
+# insecure-registries (handled by bootstrap-windows-docker-host.yml).
+#
+# Usage:
+#   ansible-playbook -i <client>/active/02-config/ansible/inventories/oci.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-local-registry.yml \
+#     --vault-password-file ~/.ansible/vault_password
+
+- name: "Deploy Local Docker Registry"
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: "Gather ansible_facts"
+      ansible.builtin.setup:
+        gather_subset: ["all"]
+      tags: ["always"]
+
+    - name: "Load shared infrastructure port defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/ports.yml"
+      tags: ["always"]
+
+    - name: "Validate required variables"
+      ansible.builtin.assert:
+        that:
+          - infra_port_registry_host is defined
+          - ansible_facts['default_ipv4']['address'] is defined
+        fail_msg: "Missing infrastructure variables. Check shared/infrastructure/ports.yml"
+        success_msg: "Registry variables OK."
+      tags: ["always", "validate"]
+
+  tasks:
+    - name: "Create registry data volume"
+      community.docker.docker_volume:
+        name: "registry-data"
+        state: present
+      tags: ["deploy"]
+
+    - name: "Deploy registry container"
+      community.docker.docker_container:
+        name: "local-registry"
+        image: "docker.io/registry:2"
+        state: started
+        restart_policy: unless-stopped
+        ports:
+          - "{{ infra_port_registry_host }}:{{ infra_port_registry_container }}"
+        volumes:
+          - "registry-data:/var/lib/registry"
+        env:
+          REGISTRY_STORAGE_DELETE_ENABLED: "true"
+      tags: ["deploy"]
+
+  post_tasks:
+    - name: "Wait for registry to be ready"
+      ansible.builtin.uri:
+        url: "http://{{ ansible_facts['default_ipv4']['address'] }}:{{ infra_port_registry_host }}/v2/"
+        status_code: 200
+        timeout: 10
+      register: registry_check
+      retries: 5
+      delay: 3
+      until: registry_check is success
+      tags: ["verify"]
+
+    - name: "Report registry ready"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Local Docker Registry Ready
+          ========================================
+          URL: http://{{ ansible_facts['default_ipv4']['address'] }}:{{ infra_port_registry_host }}
+          Tailscale: http://{{ ansible_host }}:{{ infra_port_registry_host }}
+          ========================================
+          Configure deployment targets to use this registry:
+            docker tag <image> {{ ansible_host }}:{{ infra_port_registry_host }}/<image>
+            docker push {{ ansible_host }}:{{ infra_port_registry_host }}/<image>
+          ========================================
+      tags: ["verify", "summary"]

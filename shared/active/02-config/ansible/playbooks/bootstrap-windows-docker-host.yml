@@ -1,0 +1,369 @@
+---
+# Bootstrap Windows Docker Host
+# Location: shared/active/02-config/ansible/playbooks/bootstrap-windows-docker-host.yml
+#
+# Installs and configures everything Ansible needs on a fresh Windows machine
+# to make it a suitable Docker Desktop host for container deployments.
+#
+# Prerequisites (manual — see manual-windows-docker-host-install.md):
+#   1. OpenSSH server enabled
+#   2. Python 3 installed + docker pip package
+#   3. ansible user created with SSH key access
+#
+# This playbook does:
+#   - Enables WSL2 (reboots if needed)
+#   - Installs Docker Desktop, Git, Tailscale via winget
+#   - Joins Tailscale with auth key from vault
+#   - Adds ansible user to docker-users group
+#   - Creates C:\localnet\services directory structure
+#   - Starts Docker Desktop and waits for it to be ready
+#
+# Usage (example with levonk client inventory):
+#   ansible-playbook -i <client>/active/02-config/ansible/inventories/windows-docker.yml \
+#     shared/active/02-config/ansible/playbooks/bootstrap-windows-docker-host.yml \
+#     --vault-password-file ~/.ansible/vault_password
+
+- name: "Bootstrap Windows Docker Host — Install Packages"
+  hosts: windows_docker_hosts
+  gather_facts: true
+  become: false
+
+  pre_tasks:
+    - name: "Gather ansible_facts"
+      ansible.builtin.setup:
+        gather_subset: ["all"]
+      tags: ["always"]
+
+    - name: "Validate required variables"
+      ansible.builtin.assert:
+        that:
+          - ansible_host is defined
+          - ansible_user is defined
+          - docker_host is defined
+        fail_msg: "Missing connection variables. Check inventories/windows-docker.yml"
+        success_msg: "Connection variables OK."
+      tags: ["always", "validate"]
+
+    - name: "Report target machine"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Bootstrap Windows Docker Host
+          ========================================
+          Host: {{ inventory_hostname }}
+          Ansible Host: {{ ansible_host }}
+          User: {{ ansible_user }}
+          OS: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}
+          Architecture: {{ ansible_facts['architecture'] }}
+          ========================================
+      tags: ["always", "info"]
+
+  tasks:
+    # ---------------------------------------------------------------------------
+    # WSL2 — required for Docker Desktop on Windows
+    # ---------------------------------------------------------------------------
+    - name: "Check if WSL2 is enabled"
+      ansible.builtin.shell:
+        cmd: "wsl --status 2>$null; if ($LASTEXITCODE -ne 0) { Write-Output 'WSL_NOT_INSTALLED' } else { Write-Output 'WSL_INSTALLED' }"
+      register: wsl_status
+      changed_when: false
+      tags: ["wsl", "check"]
+
+    - name: "Enable WSL2 (no default distro — Docker Desktop provides its own)"
+      ansible.builtin.shell:
+        cmd: "wsl --install --no-distribution"
+      register: wsl_install
+      changed_when: wsl_install.rc == 0
+      when: "'WSL_NOT_INSTALLED' in wsl_status.stdout"
+      tags: ["wsl", "install"]
+
+    - name: "Reboot if WSL2 was just installed"
+      ansible.builtin.reboot:
+        reboot_timeout: 300
+        post_reboot_delay: 30
+      when: "'WSL_NOT_INSTALLED' in wsl_status.stdout"
+      tags: ["wsl", "reboot"]
+
+    # ---------------------------------------------------------------------------
+    # Docker Desktop
+    # ---------------------------------------------------------------------------
+    - name: "Check if Docker Desktop is installed"
+      ansible.builtin.shell:
+        cmd: "if (Get-Command docker -ErrorAction SilentlyContinue) { Write-Output 'INSTALLED' } else { Write-Output 'NOT_INSTALLED' }"
+      register: docker_check
+      changed_when: false
+      tags: ["docker", "check"]
+
+    - name: "Install Docker Desktop via winget"
+      ansible.builtin.shell:
+        cmd: "winget install Docker.DockerDesktop --silent --accept-package-agreements --accept-source-agreements"
+      register: docker_install
+      changed_when: docker_install.rc == 0
+      when: "'NOT_INSTALLED' in docker_check.stdout"
+      tags: ["docker", "install"]
+
+    - name: "Reboot if Docker Desktop was just installed"
+      ansible.builtin.reboot:
+        reboot_timeout: 300
+        post_reboot_delay: 60
+      when: "'NOT_INSTALLED' in docker_check.stdout"
+      tags: ["docker", "reboot"]
+
+    - name: "Start Docker Desktop"
+      ansible.builtin.shell:
+        cmd: |
+          $dockerPath = "C:\Program Files\Docker\Docker\Docker Desktop.exe"
+          if (Test-Path $dockerPath) {
+            if (-not (Get-Process "Docker Desktop" -ErrorAction SilentlyContinue)) {
+              Start-Process $dockerPath
+              Write-Output "Docker Desktop starting..."
+            } else {
+              Write-Output "Docker Desktop already running"
+            }
+          } else {
+            Write-Output "Docker Desktop not found at expected path"
+            exit 1
+          }
+      register: docker_start
+      changed_when: "'Docker Desktop starting' in docker_start.stdout"
+      tags: ["docker", "start"]
+
+    - name: "Wait for Docker daemon to be ready"
+      ansible.builtin.shell:
+        cmd: |
+          $maxAttempts = 60
+          $attempt = 0
+          while ($attempt -lt $maxAttempts) {
+              $attempt++
+              $result = docker info 2>$null
+              if ($LASTEXITCODE -eq 0) {
+                  Write-Output "Docker ready after $attempt attempts"
+                  exit 0
+              }
+              Start-Sleep -Seconds 10
+          }
+          Write-Output "Docker did not become ready within $maxAttempts attempts"
+          exit 1
+      register: docker_ready
+      changed_when: false
+      timeout: 600
+      tags: ["docker", "wait"]
+
+    - name: "Report Docker daemon ready"
+      ansible.builtin.debug:
+        msg: "{{ docker_ready.stdout }}"
+      tags: ["docker", "verify"]
+
+    # ---------------------------------------------------------------------------
+    # Git
+    # ---------------------------------------------------------------------------
+    - name: "Check if Git is installed"
+      ansible.builtin.shell:
+        cmd: "if (Get-Command git -ErrorAction SilentlyContinue) { Write-Output 'INSTALLED' } else { Write-Output 'NOT_INSTALLED' }"
+      register: git_check
+      changed_when: false
+      tags: ["git", "check"]
+
+    - name: "Install Git via winget"
+      ansible.builtin.shell:
+        cmd: "winget install Git.Git --silent --accept-package-agreements --accept-source-agreements"
+      register: git_install
+      changed_when: git_install.rc == 0
+      when: "'NOT_INSTALLED' in git_check.stdout"
+      tags: ["git", "install"]
+
+    # ---------------------------------------------------------------------------
+    # Tailscale
+    # ---------------------------------------------------------------------------
+    - name: "Check if Tailscale is installed"
+      ansible.builtin.shell:
+        cmd: "if (Get-Command tailscale -ErrorAction SilentlyContinue) { Write-Output 'INSTALLED' } else { Write-Output 'NOT_INSTALLED' }"
+      register: tailscale_check
+      changed_when: false
+      tags: ["tailscale", "check"]
+
+    - name: "Install Tailscale via winget"
+      ansible.builtin.shell:
+        cmd: "winget install Tailscale.Tailscale --silent --accept-package-agreements --accept-source-agreements"
+      register: tailscale_install
+      changed_when: tailscale_install.rc == 0
+      when: "'NOT_INSTALLED' in tailscale_check.stdout"
+      tags: ["tailscale", "install"]
+
+    - name: "Check if Tailscale is already connected"
+      ansible.builtin.shell:
+        cmd: |
+          $ts = & "C:\Program Files\Tailscale\tailscale.exe" status 2>$null
+          if ($LASTEXITCODE -eq 0 -and $ts -notmatch "Logged out") {
+            Write-Output "CONNECTED"
+          } else {
+            Write-Output "NOT_CONNECTED"
+          }
+      register: tailscale_status
+      changed_when: false
+      ignore_errors: true
+      tags: ["tailscale", "check"]
+
+    - name: "Join Tailscale network with auth key"
+      ansible.builtin.shell:
+        cmd: |
+          $authKey = "{{ vault_tailscale_auth_key }}"
+          & "C:\Program Files\Tailscale\tailscale.exe" up --authkey $authKey --hostname {{ windows_tailscale_hostname }} --accept-routes --accept-dns
+      register: tailscale_up
+      changed_when: tailscale_up.rc == 0
+      when:
+        - "'NOT_CONNECTED' in tailscale_status.stdout"
+        - vault_tailscale_auth_key is defined
+        - vault_tailscale_auth_key | length > 0
+      no_log: true
+      tags: ["tailscale", "configure"]
+
+    - name: "Report Tailscale status"
+      ansible.builtin.shell:
+        cmd: '& "C:\Program Files\Tailscale\tailscale.exe" status'
+      register: tailscale_final_status
+      changed_when: false
+      tags: ["tailscale", "verify"]
+
+    - name: "Show Tailscale status"
+      ansible.builtin.debug:
+        msg: "{{ tailscale_final_status.stdout }}"
+      tags: ["tailscale", "verify"]
+
+    # ---------------------------------------------------------------------------
+    # docker-users group — ansible user needs Docker access
+    # ---------------------------------------------------------------------------
+    - name: "Check if ansible user is in docker-users group"
+      ansible.builtin.shell:
+        cmd: |
+          $members = Get-LocalGroupMember -Group "docker-users" -ErrorAction SilentlyContinue
+          if ($members -and ($members.Name -contains "$env:COMPUTERNAME\{{ ansible_user }}")) {
+            Write-Output "MEMBER"
+          } else {
+            Write-Output "NOT_MEMBER"
+          }
+      register: docker_users_check
+      changed_when: false
+      ignore_errors: true
+      tags: ["docker-users", "check"]
+
+    - name: "Add ansible user to docker-users group"
+      ansible.builtin.shell:
+        cmd: "Add-LocalGroupMember -Group 'docker-users' -Member '{{ ansible_user }}'"
+      register: docker_users_add
+      changed_when: docker_users_add.rc == 0
+      when: "'NOT_MEMBER' in docker_users_check.stdout"
+      tags: ["docker-users", "configure"]
+
+    - name: "Report docker-users membership"
+      ansible.builtin.debug:
+        msg: "User {{ ansible_user }} is now in docker-users group"
+      when: "'NOT_MEMBER' in docker_users_check.stdout"
+      tags: ["docker-users", "verify"]
+
+    # ---------------------------------------------------------------------------
+    # Configure Docker Desktop insecure-registries
+    # The local registry runs on the OCI server over Tailscale (HTTP, no TLS).
+    # Docker Desktop needs to be configured to trust it.
+    # Tailscale encrypts the transport — no TLS needed on the registry itself.
+    # ---------------------------------------------------------------------------
+    - name: "Check current Docker daemon config"
+      ansible.builtin.shell:
+        cmd: |
+          $configPath = "$env:USERPROFILE\.docker\daemon.json"
+          if (Test-Path $configPath) {
+            Get-Content $configPath -Raw
+          } else {
+            Write-Output "NO_CONFIG"
+          }
+      register: docker_config_check
+      changed_when: false
+      tags: ["registry", "configure"]
+
+    - name: "Configure Docker Desktop insecure-registries for local registry"
+      ansible.builtin.shell: |
+        $configPath = "$env:USERPROFILE\.docker\daemon.json"
+        $registryUrl = "{{ windows_registry_url }}"
+
+        if (Test-Path $configPath) {
+          $config = Get-Content $configPath -Raw | ConvertFrom-Json
+        } else {
+          $config = @{}
+        }
+
+        # Add insecure-registries if not present
+        if (-not $config.'insecure-registries') {
+          $config | Add-Member -MemberType NoteProperty -Name 'insecure-registries' -Value @($registryUrl)
+        } elseif ($config.'insecure-registries' -notcontains $registryUrl) {
+          $config.'insecure-registries' += $registryUrl
+        }
+
+        $config | ConvertTo-Json -Depth 10 | Set-Content $configPath -Encoding UTF8
+        Write-Output "Configured insecure-registry: $registryUrl"
+      register: docker_config_update
+      changed_when: "'Configured insecure-registry' in docker_config_update.stdout"
+      when: "windows_registry_url is defined"
+      tags: ["registry", "configure"]
+
+    - name: "Restart Docker Desktop to apply registry config"
+      ansible.builtin.shell: |
+        Stop-Process -Name "Docker Desktop" -Force -ErrorAction SilentlyContinue
+        Stop-Process -Name "com.docker.backend" -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 5
+        Start-Process "C:\Program Files\Docker\Docker\Docker Desktop.exe"
+        Write-Output "Docker Desktop restarting..."
+      register: docker_restart
+      changed_when: "'restarting' in docker_restart.stdout"
+      when:
+        - docker_config_update is changed
+        - windows_registry_url is defined
+      tags: ["registry", "restart"]
+
+    - name: "Wait for Docker Desktop to be ready after restart"
+      ansible.builtin.shell: |
+        $maxAttempts = 60
+        $attempt = 0
+        while ($attempt -lt $maxAttempts) {
+            $attempt++
+            $result = docker info 2>$null
+            if ($LASTEXITCODE -eq 0) {
+                Write-Output "Docker ready after $attempt attempts"
+                exit 0
+            }
+            Start-Sleep -Seconds 10
+        }
+        Write-Output "Docker did not become ready"
+        exit 1
+      register: docker_ready_after_restart
+      changed_when: false
+      timeout: 600
+      when:
+        - docker_config_update is changed
+        - windows_registry_url is defined
+      tags: ["registry", "wait"]
+
+  post_tasks:
+    - name: "Verify Docker is accessible via named pipe"
+      ansible.builtin.shell:
+        cmd: "docker info --format '{{ '{{' }}.ServerVersion{{ '}}' }}'"
+      register: docker_version_check
+      changed_when: false
+      tags: ["verify", "docker"]
+
+    - name: "Report bootstrap complete"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Windows Docker Host Bootstrap Complete
+          ========================================
+          Host: {{ inventory_hostname }}
+          Docker: {{ docker_version_check.stdout | default('check failed') }}
+          Git: {{ 'installed' if 'INSTALLED' in git_check.stdout else 'check status' }}
+          Tailscale: {{ 'connected' if 'CONNECTED' in tailscale_status.stdout else 'check status' }}
+          docker-users: {{ ansible_user }} added
+          Services dir: {{ windows_services_dir }}
+          ========================================
+          Next: Run just ansible-deploy-worldmonitor
+          to deploy the WorldMonitor self-hosted stack.
+          ========================================
+      tags: ["verify", "summary"]

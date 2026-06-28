@@ -1,0 +1,350 @@
+---
+# Deploy WorldMonitor Self-Hosted Stack to Windows Docker Desktop
+# Location: shared/active/02-config/ansible/playbooks/deploy-worldmonitor.yml
+#
+# Two-phase deployment:
+#   Phase 1 (on control machine / localhost): clone repo, build images, push to registry
+#   Phase 2 (on Windows Docker host): pull images from registry, deploy containers
+#
+# No source code or building happens on the Windows machine.
+# The Windows machine only pulls pre-built images and runs containers.
+#
+# Registry: runs on the cloud server (deploy-local-registry.yml playbook).
+#   Images are pushed there from the build machine and pulled by Windows
+#   over Tailscale. HTTP only — Tailscale encrypts the transport.
+#
+# Prerequisites:
+#   1. Local registry deployed: just ansible-deploy-local-registry
+#   2. Docker running on the control machine (for building images)
+#   3. Bootstrap playbook run on Windows: just ansible-bootstrap-windows-docker
+#   4. Docker Desktop on Windows configured to trust the registry
+#      (handled by bootstrap playbook — insecure-registries setting)
+#
+# Usage (example with levonk client inventory):
+#   ansible-playbook -i <client>/active/02-config/ansible/inventories/windows-docker.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-worldmonitor.yml \
+#     --vault-password-file ~/.ansible/vault_password
+
+- name: "Phase 1 — Build and push WorldMonitor images"
+  hosts: localhost
+  gather_facts: true
+  connection: local
+  become: false
+
+  pre_tasks:
+    - name: "Load shared infrastructure port defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/ports.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure storage defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/storage.yml"
+      tags: ["always"]
+
+    - name: "Validate required variables"
+      ansible.builtin.assert:
+        that:
+          - worldmonitor_repo_url is defined
+          - worldmonitor_repo_branch is defined
+          - worldmonitor_registry_url is defined
+        fail_msg: >-
+          Missing required variables. Check the client's
+          group_vars/windows_docker_hosts.yml.
+        success_msg: "Build variables OK."
+      tags: ["always", "validate"]
+
+    - name: "Check Docker is available on control machine"
+      ansible.builtin.command:
+        cmd: "docker --version"
+      register: docker_check
+      changed_when: false
+      tags: ["always", "verify"]
+
+    - name: "Fail if Docker is not available"
+      ansible.builtin.fail:
+        msg: "Docker is not running on the control machine. Start Docker Desktop or colima."
+      when: docker_check.rc != 0
+      tags: ["always", "verify"]
+
+  tasks:
+    - name: "Clone WorldMonitor repository to temp build directory"
+      ansible.builtin.git:
+        repo: "{{ worldmonitor_repo_url }}"
+        dest: "/tmp/worldmonitor-build"
+        version: "{{ worldmonitor_repo_branch }}"
+        force: true
+      tags: ["build"]
+
+    - name: "Build WorldMonitor app image"
+      ansible.builtin.command:
+        cmd: "docker build -f Dockerfile -t {{ worldmonitor_registry_url }}/worldmonitor:latest ."
+        chdir: "/tmp/worldmonitor-build"
+      changed_when: true
+      tags: ["build"]
+
+    - name: "Build AIS relay image"
+      ansible.builtin.command:
+        cmd: "docker build -f Dockerfile.relay -t {{ worldmonitor_registry_url }}/worldmonitor-ais-relay:latest ."
+        chdir: "/tmp/worldmonitor-build"
+      changed_when: true
+      tags: ["build"]
+
+    - name: "Build Redis REST proxy image"
+      ansible.builtin.command:
+        cmd: "docker build -f docker/Dockerfile.redis-rest -t {{ worldmonitor_registry_url }}/worldmonitor-redis-rest:latest docker/"
+        chdir: "/tmp/worldmonitor-build"
+      changed_when: true
+      tags: ["build"]
+
+    - name: "Push WorldMonitor app image to registry"
+      ansible.builtin.command:
+        cmd: "docker push {{ worldmonitor_registry_url }}/worldmonitor:latest"
+      changed_when: true
+      tags: ["push"]
+
+    - name: "Push AIS relay image to registry"
+      ansible.builtin.command:
+        cmd: "docker push {{ worldmonitor_registry_url }}/worldmonitor-ais-relay:latest"
+      changed_when: true
+      tags: ["push"]
+
+    - name: "Push Redis REST proxy image to registry"
+      ansible.builtin.command:
+        cmd: "docker push {{ worldmonitor_registry_url }}/worldmonitor-redis-rest:latest"
+      changed_when: true
+      tags: ["push"]
+
+    - name: "Report build and push complete"
+      ansible.builtin.debug:
+        msg: "Images built and pushed to {{ worldmonitor_registry_url }}"
+      tags: ["summary"]
+
+
+- name: "Phase 2 — Deploy WorldMonitor containers on Windows"
+  hosts: windows_docker_hosts
+  gather_facts: true
+  become: false
+
+  pre_tasks:
+    - name: "Load shared infrastructure port defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/ports.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure storage defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/storage.yml"
+      tags: ["always"]
+
+    - name: "Validate required WorldMonitor variables are defined"
+      ansible.builtin.assert:
+        that:
+          - worldmonitor_enabled is defined
+          - worldmonitor_registry_url is defined
+          - worldmonitor_redis_password is defined
+          - worldmonitor_redis_password | length > 0
+          - worldmonitor_redis_token is defined
+          - worldmonitor_redis_token | length > 0
+          - worldmonitor_relay_shared_secret is defined
+          - worldmonitor_relay_shared_secret | length > 0
+          - docker_host is defined
+        fail_msg: >-
+          Missing required WorldMonitor variables. Check the client's
+          group_vars/windows_docker_hosts.yml and vault file.
+        success_msg: "All required WorldMonitor variables are defined."
+      tags: ["always", "validate"]
+
+    - name: "Check Docker is accessible on Windows host"
+      community.docker.docker_host_info:
+        docker_host: "{{ docker_host }}"
+      register: docker_host_info_result
+      ignore_errors: true
+      tags: ["always", "verify", "docker"]
+
+    - name: "Fail if Docker is not accessible"
+      ansible.builtin.fail:
+        msg: >-
+          Docker is not accessible at {{ docker_host }}.
+          Ensure Docker Desktop is running and the ansible user is in the docker-users group.
+          Run: just ansible-bootstrap-windows-docker
+      when: docker_host_info_result is failed
+      tags: ["always", "verify", "docker"]
+
+    - name: "Report Docker daemon info"
+      ansible.builtin.debug:
+        msg: "Docker daemon: {{ docker_host_info_result.docker.ServerVersion }} ({{ docker_host_info_result.docker.OperatingSystem }})"
+      tags: ["always", "verify", "docker"]
+
+  tasks:
+    # ---------------------------------------------------------------------------
+    # Pull images from registry (no building on Windows)
+    # ---------------------------------------------------------------------------
+    - name: "Pull WorldMonitor app image from registry"
+      community.docker.docker_image:
+        name: "{{ worldmonitor_registry_url }}/worldmonitor:latest"
+        docker_host: "{{ docker_host }}"
+        source: pull
+      tags: ["deploy", "pull"]
+
+    - name: "Pull AIS relay image from registry"
+      community.docker.docker_image:
+        name: "{{ worldmonitor_registry_url }}/worldmonitor-ais-relay:latest"
+        docker_host: "{{ docker_host }}"
+        source: pull
+      tags: ["deploy", "pull"]
+
+    - name: "Pull Redis REST proxy image from registry"
+      community.docker.docker_image:
+        name: "{{ worldmonitor_registry_url }}/worldmonitor-redis-rest:latest"
+        docker_host: "{{ docker_host }}"
+        source: pull
+      tags: ["deploy", "pull"]
+
+    # ---------------------------------------------------------------------------
+    # Create Docker network
+    # ---------------------------------------------------------------------------
+    - name: "Create WorldMonitor Docker network"
+      community.docker.docker_network:
+        name: "{{ worldmonitor_network_name }}"
+        docker_host: "{{ docker_host }}"
+        state: present
+      tags: ["network", "deploy"]
+
+    # ---------------------------------------------------------------------------
+    # Deploy containers (ordered: redis → redis-rest → ais-relay → worldmonitor)
+    # ---------------------------------------------------------------------------
+    - name: "Deploy Redis container"
+      community.docker.docker_container:
+        name: "worldmonitor-redis"
+        image: "docker.io/redis:7-alpine"
+        state: started
+        restart_policy: unless-stopped
+        docker_host: "{{ docker_host }}"
+        networks:
+          - name: "{{ worldmonitor_network_name }}"
+        command: >-
+          redis-server
+          --requirepass {{ worldmonitor_redis_password }}
+          --maxmemory 256mb
+          --maxmemory-policy allkeys-lru
+        volumes:
+          - "{{ infra_storage_worldmonitor_redis_data_volume }}:/data"
+      tags: ["deploy", "redis"]
+
+    - name: "Deploy Redis REST proxy container"
+      community.docker.docker_container:
+        name: "worldmonitor-redis-rest"
+        image: "{{ worldmonitor_registry_url }}/worldmonitor-redis-rest:latest"
+        state: started
+        restart_policy: unless-stopped
+        docker_host: "{{ docker_host }}"
+        networks:
+          - name: "{{ worldmonitor_network_name }}"
+        ports:
+          - "127.0.0.1:{{ worldmonitor_redis_rest_host_port }}:{{ worldmonitor_redis_rest_container_port }}"
+        env:
+          SRH_TOKEN: "{{ worldmonitor_redis_token }}"
+          SRH_CONNECTION_STRING: "redis://:{{ worldmonitor_redis_password }}@redis:6379"
+      tags: ["deploy", "redis-rest"]
+
+    - name: "Deploy AIS relay container"
+      community.docker.docker_container:
+        name: "worldmonitor-ais-relay"
+        image: "{{ worldmonitor_registry_url }}/worldmonitor-ais-relay:latest"
+        state: started
+        restart_policy: unless-stopped
+        docker_host: "{{ docker_host }}"
+        networks:
+          - name: "{{ worldmonitor_network_name }}"
+        env:
+          AISSTREAM_API_KEY: "{{ worldmonitor_aisstream_api_key }}"
+          PORT: "{{ worldmonitor_ais_relay_container_port }}"
+          RELAY_SHARED_SECRET: "{{ worldmonitor_relay_shared_secret }}"
+      tags: ["deploy", "ais-relay"]
+
+    - name: "Deploy WorldMonitor app container"
+      community.docker.docker_container:
+        name: "worldmonitor"
+        image: "{{ worldmonitor_registry_url }}/worldmonitor:latest"
+        state: started
+        restart_policy: unless-stopped
+        docker_host: "{{ docker_host }}"
+        networks:
+          - name: "{{ worldmonitor_network_name }}"
+        ports:
+          - "{{ worldmonitor_app_host_port }}:{{ worldmonitor_app_container_port }}"
+        env:
+          UPSTASH_REDIS_REST_URL: "http://redis-rest:{{ worldmonitor_redis_rest_container_port }}"
+          UPSTASH_REDIS_REST_TOKEN: "{{ worldmonitor_redis_token }}"
+          LOCAL_API_PORT: "46123"
+          LOCAL_API_MODE: "docker"
+          LOCAL_API_CLOUD_FALLBACK: "false"
+          WS_RELAY_URL: "http://ais-relay:{{ worldmonitor_ais_relay_container_port }}"
+          LLM_API_URL: "{{ worldmonitor_llm_api_url }}"
+          LLM_API_KEY: "{{ worldmonitor_llm_api_key }}"
+          LLM_MODEL: "{{ worldmonitor_llm_model }}"
+          GROQ_API_KEY: "{{ worldmonitor_groq_api_key }}"
+          OPENROUTER_API_KEY: "{{ worldmonitor_openrouter_api_key }}"
+          AISSTREAM_API_KEY: "{{ worldmonitor_aisstream_api_key }}"
+          FINNHUB_API_KEY: "{{ worldmonitor_finnhub_api_key }}"
+          EIA_API_KEY: "{{ worldmonitor_eia_api_key }}"
+          FRED_API_KEY: "{{ worldmonitor_fred_api_key }}"
+          ACLED_EMAIL: "{{ worldmonitor_acled_email }}"
+          ACLED_PASSWORD: "{{ worldmonitor_acled_password }}"
+          ACLED_ACCESS_TOKEN: "{{ worldmonitor_acled_access_token }}"
+          NASA_FIRMS_API_KEY: "{{ worldmonitor_nasa_firms_api_key }}"
+          CLOUDFLARE_API_TOKEN: "{{ worldmonitor_cloudflare_api_token }}"
+          AVIATIONSTACK_API: "{{ worldmonitor_aviationstack_api }}"
+          TRAVELPAYOUTS_API_TOKEN: "{{ worldmonitor_travelpayouts_api_token }}"
+      tags: ["deploy", "app"]
+
+  post_tasks:
+    - name: "Wait for containers to initialize"
+      ansible.builtin.pause:
+        seconds: 15
+      tags: ["verify"]
+
+    - name: "Verify all WorldMonitor containers are running"
+      community.docker.docker_container_info:
+        name: "{{ item }}"
+        docker_host: "{{ docker_host }}"
+      loop:
+        - "worldmonitor"
+        - "worldmonitor-redis"
+        - "worldmonitor-redis-rest"
+        - "worldmonitor-ais-relay"
+      register: wm_container_status
+      tags: ["verify"]
+
+    - name: "Report container statuses"
+      ansible.builtin.debug:
+        msg: "{{ item.item }}: {{ item.container.State.Status }}"
+      loop: "{{ wm_container_status.results }}"
+      when: item.container is defined
+      tags: ["verify"]
+
+    - name: "Fail if any container is not running"
+      ansible.builtin.fail:
+        msg: "Container {{ item.item }} is not running (status: {{ item.container.State.Status }}). Check docker logs {{ item.item }}."
+      loop: "{{ wm_container_status.results }}"
+      when:
+        - item.container is defined
+        - item.container.State.Status != "running"
+      tags: ["verify"]
+
+    - name: "Report deployment complete"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          WorldMonitor Self-Hosted Stack Deployed
+          ========================================
+          Host: {{ inventory_hostname }}
+          Registry: {{ worldmonitor_registry_url }}
+          Dashboard: http://localhost:{{ worldmonitor_app_host_port }}
+          Redis REST: http://127.0.0.1:{{ worldmonitor_redis_rest_host_port }}
+          ========================================
+          Next: Run seeders to populate data.
+          See https://github.com/koala73/worldmonitor SELF_HOSTING.md
+          ========================================
+      tags: ["verify", "summary"]
