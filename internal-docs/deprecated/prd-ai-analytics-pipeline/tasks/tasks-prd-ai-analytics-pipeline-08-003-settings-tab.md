@@ -46,12 +46,12 @@ Implement the Settings and Configuration tab to provide data retention configura
 
 ## Relevant Files
 
-**Project: /Users/micro/p/gh/levonk/ai-dashboard**
+**Project: ~/p/gh/levonk/ai-dashboard**
 - `web/tabs/settings.html` - Settings tab HTML
 - `web/tabs/settings.js` - Settings tab logic
 - `web/tabs/settings.css` - Settings tab styling
 
-**Project: /Users/micro/p/gh/levonk/infrahub**
+**Project: ~/p/gh/levonk/infrahub**
 - `shared/active/03-container/ai-analytics/api/settings.py` - Settings API
 - `tests/test_settings.py` - Settings tab tests
 

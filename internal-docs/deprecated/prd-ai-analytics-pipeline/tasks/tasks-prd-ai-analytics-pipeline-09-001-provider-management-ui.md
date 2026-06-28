@@ -46,12 +46,12 @@ Implement the Provider Management UI to manage API providers, credentials, model
 
 ## Relevant Files
 
-**Project: /Users/micro/p/gh/levonk/ai-dashboard**
+**Project: ~/p/gh/levonk/ai-dashboard**
 - `web/providers/management.html` - Provider management HTML
 - `web/providers/management.js` - Provider management logic
 - `web/providers/management.css` - Provider management styling
 
-**Project: /Users/micro/p/gh/levonk/infrahub**
+**Project: ~/p/gh/levonk/infrahub**
 - `shared/active/03-container/ai-analytics/api/providers.py` - Provider management API
 - `tests/test_providers.py` - Provider management tests
 

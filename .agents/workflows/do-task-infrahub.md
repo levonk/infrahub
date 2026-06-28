@@ -6,4 +6,4 @@
 
 - RUN, DONT JUST READ ~/p/gh/levonk/dotfiles/home/current/.chezmoitemplates/config/ai/workflows/software-dev/tasks/tasks-processor.md on
 
-- /Users/micro/p/gh/levonk/infrahub/internal-docs/feature/traefik-authelia-cloudflare/tasks/index-traefik-authelia-cloudflare.md
+- ~/p/gh/levonk/infrahub/internal-docs/feature/traefik-authelia-cloudflare/tasks/index-traefik-authelia-cloudflare.md

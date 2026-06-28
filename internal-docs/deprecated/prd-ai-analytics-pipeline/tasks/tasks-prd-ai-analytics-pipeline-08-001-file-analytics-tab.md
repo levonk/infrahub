@@ -46,12 +46,12 @@ Implement the File Analytics tab to show file touch frequency, file-level token 
 
 ## Relevant Files
 
-**Project: /Users/micro/p/gh/levonk/ai-dashboard**
+**Project: ~/p/gh/levonk/ai-dashboard**
 - `web/tabs/files.html` - File tab HTML
 - `web/tabs/files.js` - File tab logic
 - `web/tabs/files.css` - File tab styling
 
-**Project: /Users/micro/p/gh/levonk/infrahub**
+**Project: ~/p/gh/levonk/infrahub**
 - `shared/active/03-container/ai-analytics/api/files.py` - File data API
 - `tests/test_files.py` - File tab tests
 

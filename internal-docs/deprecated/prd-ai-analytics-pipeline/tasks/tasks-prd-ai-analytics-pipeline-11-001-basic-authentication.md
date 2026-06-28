@@ -46,7 +46,7 @@ Implement basic authentication for dashboard access using username/password with
 
 ## Relevant Files
 
-**Project: /Users/micro/p/gh/levonk/infrahub**
+**Project: ~/p/gh/levonk/infrahub**
 - `shared/active/03-container/ai-analytics/auth/password.py` - Password hashing
 - `shared/active/03-container/ai-analytics/auth/session.py` - Session management
 - `shared/active/03-container/ai-analytics/auth/middleware.py` - Authentication middleware

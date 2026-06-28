@@ -10,7 +10,7 @@
 - **Replacement**: ai-dashboard is 88% complete (15/17 stories done) and production-ready
 - **Architecture**: ai-dashboard provides a simpler 2-service architecture (proxy + web) vs the complex 4-service architecture planned here
 - **Technology**: ai-dashboard uses Rust for high-performance analytics vs Python collectors
-- **Integration**: ai-dashboard is now integrated as external containers in infrahub at `/Users/micro/p/gh/levonk/infrahub/shared/active/03-container/services/ai-dashboard/`
+- **Integration**: ai-dashboard is now integrated as external containers in infrahub at `~/p/gh/levonk/infrahub/shared/active/03-container/services/ai-dashboard/`
 
 ### Migration Path
 
@@ -21,9 +21,9 @@
 
 ### Current Implementation
 
-- **Active Project**: `/Users/micro/p/gh/levonk/ai-dashboard` - Use this for all analytics development
-- **Integration**: `/Users/micro/p/gh/levonk/infrahub/shared/active/03-container/services/ai-dashboard/` - Docker integration
-- **Documentation**: `/Users/micro/p/gh/levonk/infrahub/internal-docs/ai-dashboard-integration.md` - Integration guide
+- **Active Project**: `~/p/gh/levonk/ai-dashboard` - Use this for all analytics development
+- **Integration**: `~/p/gh/levonk/infrahub/shared/active/03-container/services/ai-dashboard/` - Docker integration
+- **Documentation**: `~/p/gh/levonk/infrahub/internal-docs/ai-dashboard-integration.md` - Integration guide
 
 ## Overview
 
@@ -31,8 +31,8 @@ This index provides a summary of all development stories for the AI Analytics Pi
 
 ## Project Structure (DEPRECATED)
 
-- **Pipeline Components**: `/Users/micro/p/gh/levonk/infrahub` - Collectors, queue, processor, database, API (DEPRECATED - REMOVED)
-- **Dashboard Web UI**: `/Users/micro/p/gh/levonk/ai-dashboard` - Web interface and visualization (ACTIVE PROJECT)
+- **Pipeline Components**: `~/p/gh/levonk/infrahub` - Collectors, queue, processor, database, API (DEPRECATED - REMOVED)
+- **Dashboard Web UI**: `~/p/gh/levonk/ai-dashboard` - Web interface and visualization (ACTIVE PROJECT)
 
 ## Story Summary
 
@@ -139,10 +139,10 @@ This index provides a summary of all development stories for the AI Analytics Pi
 
 ## Project Locations
 
-- **PRD**: `/Users/micro/p/gh/levonk/infrahub/internal-docs/feature/prd-ai-analytics-pipeline/prd-ai-analytics-pipeline.md`
-- **Task Files**: `/Users/micro/p/gh/levonk/infrahub/internal-docs/feature/prd-ai-analytics-pipeline/tasks/`
-- **Pipeline Code**: `/Users/micro/p/gh/levonk/infrahub/shared/active/03-container/ai-analytics/`
-- **Dashboard Code**: `/Users/micro/p/gh/levonk/ai-dashboard/`
+- **PRD**: `~/p/gh/levonk/infrahub/internal-docs/feature/prd-ai-analytics-pipeline/prd-ai-analytics-pipeline.md`
+- **Task Files**: `~/p/gh/levonk/infrahub/internal-docs/feature/prd-ai-analytics-pipeline/tasks/`
+- **Pipeline Code**: `~/p/gh/levonk/infrahub/shared/active/03-container/ai-analytics/`
+- **Dashboard Code**: `~/p/gh/levonk/ai-dashboard/`
 
 ## Total Summary
 

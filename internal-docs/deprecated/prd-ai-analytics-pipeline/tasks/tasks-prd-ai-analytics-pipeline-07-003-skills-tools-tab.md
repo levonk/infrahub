@@ -46,12 +46,12 @@ Implement the Skills and Tools Analytics tab to show skills invocation analytics
 
 ## Relevant Files
 
-**Project: /Users/micro/p/gh/levonk/ai-dashboard**
+**Project: ~/p/gh/levonk/ai-dashboard**
 - `web/tabs/skills-tools.html` - Skills/Tools tab HTML
 - `web/tabs/skills-tools.js` - Skills/Tools tab logic
 - `web/tabs/skills-tools.css` - Skills/Tools tab styling
 
-**Project: /Users/micro/p/gh/levonk/infrahub**
+**Project: ~/p/gh/levonk/infrahub**
 - `shared/active/03-container/ai-analytics/api/skills-tools.py` - Skills/Tools data API
 - `tests/test_skills_tools.py` - Skills/Tools tab tests
 

@@ -271,6 +271,6 @@ All monitoring and logging configuration is variable-driven per AGENTS.md:
 
 ## References
 
-- AGENTS.md: `/Users/micro/p/gh/levonk/infrahub/AGENTS.md`
-- Ansible AGENTS.md: `/Users/micro/p/gh/levonk/infrahub/shared/active/02-config/ansible/AGENTS.md`
-- PRD: `/Users/micro/p/gh/levonk/infrahub/shared/active/08-docs/reqs/2026/20260620-traefik-authelia-cloudflare.md`
+- AGENTS.md: `~/p/gh/levonk/infrahub/AGENTS.md`
+- Ansible AGENTS.md: `~/p/gh/levonk/infrahub/shared/active/02-config/ansible/AGENTS.md`
+- PRD: `~/p/gh/levonk/infrahub/shared/active/08-docs/reqs/2026/20260620-traefik-authelia-cloudflare.md`

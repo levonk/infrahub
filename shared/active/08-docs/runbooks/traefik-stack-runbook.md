@@ -136,4 +136,4 @@ devbox run -- rtk ssh opc@100.90.22.85 -i ~/.ssh/lzkmbp2016-micro-oracle -o Stri
 ## Contact Information
 - Infrastructure Team: [contact info]
 - On-call: [contact info]
-- Documentation: `/Users/micro/p/gh/levonk/infrahub/shared/active/08-docs/`
+- Documentation: `~/p/gh/levonk/infrahub/shared/active/08-docs/`

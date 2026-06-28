@@ -46,12 +46,12 @@ Implement the Session Analytics tab to provide turn-by-turn session analysis, se
 
 ## Relevant Files
 
-**Project: /Users/micro/p/gh/levonk/ai-dashboard**
+**Project: ~/p/gh/levonk/ai-dashboard**
 - `web/tabs/sessions.html` - Session tab HTML
 - `web/tabs/sessions.js` - Session tab logic
 - `web/tabs/sessions.css` - Session tab styling
 
-**Project: /Users/micro/p/gh/levonk/infrahub**
+**Project: ~/p/gh/levonk/infrahub**
 - `shared/active/03-container/ai-analytics/api/sessions.py` - Session data API
 - `tests/test_sessions.py` - Session tab tests
 

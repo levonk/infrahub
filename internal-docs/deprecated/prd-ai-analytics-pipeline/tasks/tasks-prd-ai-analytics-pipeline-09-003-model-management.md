@@ -46,7 +46,7 @@ Implement model management API to handle model availability tracking, version ma
 
 ## Relevant Files
 
-**Project: /Users/micro/p/gh/levonk/infrahub**
+**Project: ~/p/gh/levonk/infrahub**
 - `shared/active/03-container/ai-analytics/api/models.py` - Model management API
 - `shared/active/03-container/ai-analytics/models/model.py` - Model data models
 - `shared/active/03-container/ai-analytics/analytics/model_sync.py` - Model synchronization

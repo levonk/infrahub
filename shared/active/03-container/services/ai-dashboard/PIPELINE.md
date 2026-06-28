@@ -193,14 +193,14 @@ Environment variables for pipeline configuration:
 ### Start the Pipeline
 
 ```bash
-cd /Users/micro/p/gh/levonk/infrahub
+cd ~/p/gh/levonk/infrahub
 devbox run -- docker compose -f shared/active/03-container/docker-compose.localnet.yml --profile ai-dashboard-pipeline up -d
 ```
 
 ### Start with Environment File
 
 ```bash
-cd /Users/micro/p/gh/levonk/infrahub/shared/active/03-container/services/ai-dashboard
+cd ~/p/gh/levonk/infrahub/shared/active/03-container/services/ai-dashboard
 docker compose -f docker-compose.ai-dashboard-pipeline.yml --env-file .env.pipeline up -d
 ```
 
@@ -281,7 +281,7 @@ The forge service is built from a Python 3.12 base image with the following stru
 ### Deployment
 Forge is deployed via the AI dashboard pipeline playbook:
 ```bash
-cd /Users/micro/p/gh/levonk/infrahub
+cd ~/p/gh/levonk/infrahub
 devbox run -- rtk ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
   shared/active/02-config/ansible/playbooks/deploy-ai-dashboard-pipeline.yml \
   --vault-password-file ~/.ansible/vault_password
@@ -353,7 +353,7 @@ For local development, ensure all dependent services are running:
 
 For deployment to the Levonk OCI cloud server, use the Ansible playbook:
 ```bash
-cd /Users/micro/p/gh/levonk/infrahub
+cd ~/p/gh/levonk/infrahub
 devbox run -- rtk ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/playbooks/deploy-ai-dashboard-pipeline.yml --vault-password-file ~/.ansible/vault_password
 ```
 
@@ -662,7 +662,7 @@ Configure alerts for:
 ## References
 
 - **AI Dashboard Project**: https://github.com/levonk/ai-dashboard
-- **AI Dashboard PRD**: `/Users/micro/p/gh/levonk/ai-dashboard/docs/feature/prd-multi-tenant-ai-analytics.md`
+- **AI Dashboard PRD**: `~/p/gh/levonk/ai-dashboard/docs/feature/prd-multi-tenant-ai-analytics.md`
 - **Headroom**: Context compression service
 - **OmniRoute**: AI gateway with 177+ providers
 - **Iron-Proxy**: Egress firewall and secret injection

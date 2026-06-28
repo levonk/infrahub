@@ -155,5 +155,5 @@ All vault operations must comply with:
 ## References
 
 - [Ansible Vault Documentation](https://docs.ansible.com/ansible/latest/vault_guide/index.html)
-- AGENTS.md: `/Users/micro/p/gh/levonk/infrahub/AGENTS.md`
+- AGENTS.md: `~/p/gh/levonk/infrahub/AGENTS.md`
 - Project security guidelines: `shared/active/02-config/ansible/AGENTS.md`

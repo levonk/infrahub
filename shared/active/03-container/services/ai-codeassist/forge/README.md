@@ -35,7 +35,7 @@ Privacy Orchestrator → Headroom → OmniRoute → Forge → AI Dashboard Proxy
 ### Build and Start
 
 ```bash
-cd /Users/micro/p/gh/levonk/infrahub
+cd ~/p/gh/levonk/infrahub
 devbox run -- docker compose -f shared/active/03-container/docker-compose.localnet.yml --profile ai-codeassist-forge up -d --build
 ```
 

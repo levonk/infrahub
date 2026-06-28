@@ -73,7 +73,7 @@ For local development, ensure all dependent services are running:
 For deployment to the Levonk OCI cloud server, use the Ansible playbook:
 
 ```bash
-cd /Users/micro/p/gh/levonk/infrahub
+cd ~/p/gh/levonk/infrahub
 devbox run -- ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
   shared/active/02-config/ansible/playbooks/deploy-ai-dashboard-pipeline.yml \
   --vault-password-file ~/.ansible/vault_password
@@ -82,7 +82,7 @@ devbox run -- ansible-playbook -i levonk/active/02-config/ansible/inventories/oc
 For Privacy Orchestrator specific deployment:
 
 ```bash
-cd /Users/micro/p/gh/levonk/infrahub
+cd ~/p/gh/levonk/infrahub
 devbox run -- ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
   shared/active/02-config/ansible/playbooks/deploy-privacy-orchestrator.yml \
   --vault-password-file ~/.ansible/vault_password
@@ -93,7 +93,7 @@ devbox run -- ansible-playbook -i levonk/active/02-config/ansible/inventories/oc
 ### Start services
 
 ```bash
-cd /Users/micro/p/gh/levonk/infrahub
+cd ~/p/gh/levonk/infrahub
 devbox run -- docker compose -f shared/active/03-container/docker-compose.localnet.yml --profile ai-dashboard-pipeline up -d
 ```
 
@@ -125,10 +125,10 @@ docker logs ai-dashboard-db --tail=50 -f
 
 ## Development
 
-The ai-dashboard project is located at `/Users/micro/p/gh/levonk/ai-dashboard`. For development:
+The ai-dashboard project is located at `~/p/gh/levonk/ai-dashboard`. For development:
 
 ```bash
-cd /Users/micro/p/gh/levonk/ai-dashboard
+cd ~/p/gh/levonk/ai-dashboard
 devbox run just dev
 ```
 

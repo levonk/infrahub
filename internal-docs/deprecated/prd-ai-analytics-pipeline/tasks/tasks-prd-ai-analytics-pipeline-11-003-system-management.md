@@ -46,12 +46,12 @@ Implement system management features including health checks, system information
 
 ## Relevant Files
 
-**Project: /Users/micro/p/gh/levonk/ai-dashboard**
+**Project: ~/p/gh/levonk/ai-dashboard**
 - `web/system/management.html` - System management HTML
 - `web/system/management.js` - System management logic
 - `web/system/management.css` - System management styling
 
-**Project: /Users/micro/p/gh/levonk/infrahub**
+**Project: ~/p/gh/levonk/infrahub**
 - `shared/active/03-container/ai-analytics/api/system.py` - System management API
 - `shared/active/03-container/ai-analytics/health/monitor.py` - Health monitoring
 - `tests/test_system.py` - System management tests

@@ -32,7 +32,7 @@ OmniRoute is a free AI gateway that provides one endpoint to connect to 177+ AI 
 
 ```bash
 # From localnet root
-cd /Users/micro/p/gh/levonk/localnet/shared/active/03-container
+cd ~/p/gh/levonk/localnet/shared/active/03-container
 devbox run -- docker compose -f services/ai-services/docker-compose.ai.yml --profile all up omniroute -d --build
 ```
 
@@ -79,7 +79,7 @@ Healthcheck runs every 30 seconds with a 10-second timeout and 3 retries.
 To build the image locally:
 
 ```bash
-cd /Users/micro/p/gh/levonk/localnet/shared/active/03-container/services/ai-services/omniroute
+cd ~/p/gh/levonk/localnet/shared/active/03-container/services/ai-services/omniroute
 docker build -f docker/Dockerfile.omniroute -t localnet-ai-omniroute:latest .
 ```
 

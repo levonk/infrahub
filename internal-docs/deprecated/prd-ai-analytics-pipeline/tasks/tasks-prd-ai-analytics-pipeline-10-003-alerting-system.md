@@ -46,7 +46,7 @@ Implement an alerting system to detect anomalous AI usage patterns, cost spikes,
 
 ## Relevant Files
 
-**Project: /Users/micro/p/gh/levonk/infrahub**
+**Project: ~/p/gh/levonk/infrahub**
 - `shared/active/03-container/ai-analytics/alerts/engine.py` - Alert rule engine
 - `shared/active/03-container/ai-analytics/alerts/detection.py` - Anomaly detection
 - `shared/active/03-container/ai-analytics/alerts/notifications.py` - Notification delivery

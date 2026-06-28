@@ -98,7 +98,7 @@ just ansible-test
 
 **Command**:
 ```bash
-/Users/micro/.nix-profile/bin/devbox run --config /Users/micro/p/gh/levonk/infrahub/devbox.json sh -c "cd /Users/micro/p/gh/levonk/infrahub && ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/playbooks/cloud-server-bootstrap.yml"
+~/.nix-profile/bin/devbox run --config ~/p/gh/levonk/infrahub/devbox.json sh -c "cd ~/p/gh/levonk/infrahub && ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/playbooks/cloud-server-bootstrap.yml"
 ```
 
 **What it does**:
@@ -117,14 +117,14 @@ just ansible-test
 **Validation**:
 ```bash
 # Run validation playbook
-/Users/micro/.nix-profile/bin/devbox run --config /Users/micro/p/gh/levonk/infrahub/devbox.json sh -c "cd /Users/micro/p/gh/levonk/infrahub && ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/playbooks/validate-bootstrap.yml"
+~/.nix-profile/bin/devbox run --config ~/p/gh/levonk/infrahub/devbox.json sh -c "cd ~/p/gh/levonk/infrahub && ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/playbooks/validate-bootstrap.yml"
 ```
 
 #### 5.2: VPN & Security Deployment
 
 **Command**:
 ```bash
-/Users/micro/.nix-profile/bin/devbox run --config /Users/micro/p/gh/levonk/infrahub/devbox.json sh -c "cd /Users/micro/p/gh/levonk/infrahub && ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/playbooks/cloud-server-vpn.yml"
+~/.nix-profile/bin/devbox run --config ~/p/gh/levonk/infrahub/devbox.json sh -c "cd ~/p/gh/levonk/infrahub && ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/playbooks/cloud-server-vpn.yml"
 ```
 
 **What it does**:
@@ -141,14 +141,14 @@ just ansible-test
 
 **Validation**:
 ```bash
-/Users/micro/.nix-profile/bin/devbox run --config /Users/micro/p/gh/levonk/infrahub/devbox.json sh -c "cd /Users/micro/p/gh/levonk/infrahub && ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/playbooks/validate-vpn.yml"
+~/.nix-profile/bin/devbox run --config ~/p/gh/levonk/infrahub/devbox.json sh -c "cd ~/p/gh/levonk/infrahub && ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/playbooks/validate-vpn.yml"
 ```
 
 #### 5.3: Infrastructure Services Deployment
 
 **Command**:
 ```bash
-/Users/micro/.nix-profile/bin/devbox run --config /Users/micro/p/gh/levonk/infrahub/devbox.json sh -c "cd /Users/micro/p/gh/levonk/infrahub && ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/playbooks/cloud-server-infra.yml"
+~/.nix-profile/bin/devbox run --config ~/p/gh/levonk/infrahub/devbox.json sh -c "cd ~/p/gh/levonk/infrahub && ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/playbooks/cloud-server-infra.yml"
 ```
 
 **What it does**:
@@ -164,14 +164,14 @@ just ansible-test
 
 **Validation**:
 ```bash
-/Users/micro/.nix-profile/bin/devbox run --config /Users/micro/p/gh/levonk/infrahub/devbox.json sh -c "cd /Users/micro/p/gh/levonk/infrahub && ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/playbooks/validate-infra.yml"
+~/.nix-profile/bin/devbox run --config ~/p/gh/levonk/infrahub/devbox.json sh -c "cd ~/p/gh/levonk/infrahub && ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/playbooks/validate-infra.yml"
 ```
 
 #### 5.4: VM Layer Deployment
 
 **Command**:
 ```bash
-/Users/micro/.nix-profile/bin/devbox run --config /Users/micro/p/gh/levonk/infrahub/devbox.json sh -c "cd /Users/micro/p/gh/levonk/infrahub && ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/playbooks/cloud-server-vms.yml"
+~/.nix-profile/bin/devbox run --config ~/p/gh/levonk/infrahub/devbox.json sh -c "cd ~/p/gh/levonk/infrahub && ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/playbooks/cloud-server-vms.yml"
 ```
 
 **What it does**:
@@ -187,7 +187,7 @@ just ansible-test
 
 **Validation**:
 ```bash
-/Users/micro/.nix-profile/bin/devbox run --config /Users/micro/p/gh/levonk/infrahub/devbox.json sh -c "cd /Users/micro/p/gh/levonk/infrahub && ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/playbooks/validate-vms.yml"
+~/.nix-profile/bin/devbox run --config ~/p/gh/levonk/infrahub/devbox.json sh -c "cd ~/p/gh/levonk/infrahub && ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/playbooks/validate-vms.yml"
 ```
 
 ### Phase 06: Validation & Final Audit

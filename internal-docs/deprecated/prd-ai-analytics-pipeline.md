@@ -11,7 +11,7 @@
 - **Replacement**: ai-dashboard is 88% complete (15/17 stories done) and production-ready
 - **Architecture**: ai-dashboard provides a simpler 2-service architecture (proxy + web) vs the complex 4-service architecture planned here
 - **Technology**: ai-dashboard uses Rust for high-performance analytics vs Python collectors
-- **Integration**: ai-dashboard is now integrated as external containers in infrahub at `/Users/micro/p/gh/levonk/infrahub/shared/active/03-container/services/ai-dashboard/`
+- **Integration**: ai-dashboard is now integrated as external containers in infrahub at `~/p/gh/levonk/infrahub/shared/active/03-container/services/ai-dashboard/`
 
 ### Migration Path
 

@@ -46,7 +46,7 @@ Initialize the project structure with proper licensing framework (AGPL 3.0), dev
 
 ## Relevant Files
 
-**Project: /Users/micro/p/gh/levonk/infrahub**
+**Project: ~/p/gh/levonk/infrahub**
 - `LICENSE.md` - AGPL 3.0 license file
 - `CONTRIBUTING.md` - Contribution guidelines and CLA information
 - `README.md` - Project overview, installation, and quickstart guide
@@ -57,7 +57,7 @@ Initialize the project structure with proper licensing framework (AGPL 3.0), dev
 - `Makefile` - Development and build scripts
 - `docs/` - Documentation directory structure
 
-**Project: /Users/micro/p/gh/levonk/ai-dashboard**
+**Project: ~/p/gh/levonk/ai-dashboard**
 - `LICENSE.md` - AGPL 3.0 license file
 - `CONTRIBUTING.md` - Contribution guidelines
 - `README.md` - Dashboard project overview

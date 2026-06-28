@@ -15,7 +15,7 @@ Provides a containerized environment for testing Ansible roles via Molecule, wit
 ### Build the image
 
 ```bash
-cd /Users/micro/p/gh/levonk/infrahub
+cd ~/p/gh/levonk/infrahub
 nx run localnet-molecule-test:docker:build
 ```
 

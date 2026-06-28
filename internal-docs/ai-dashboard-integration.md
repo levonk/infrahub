@@ -12,8 +12,8 @@ The infrahub project now uses the [ai-dashboard](https://github.com/levonk/ai-da
 - **Status**: 24% complete (8/33 stories done)
 - **Architecture**: Complex 4-service setup (collectors + queue + processor + API)
 - **Technology**: Python collectors, PostgreSQL, Redis
-- **Location**: Previously at `/Users/micro/p/gh/levonk/infrahub/shared/active/03-container/ai-analytics/`
-- **Documentation**: Moved to `/Users/micro/p/gh/levonk/infrahub/internal-docs/deprecated/`
+- **Location**: Previously at `~/p/gh/levonk/infrahub/shared/active/03-container/ai-analytics/`
+- **Documentation**: Moved to `~/p/gh/levonk/infrahub/internal-docs/deprecated/`
 
 ### New Implementation (ACTIVE)
 
@@ -21,8 +21,8 @@ The infrahub project now uses the [ai-dashboard](https://github.com/levonk/ai-da
 - **Status**: 88% complete (15/17 stories done) - Production Ready
 - **Architecture**: Simpler 2-service architecture (proxy + web)
 - **Technology**: Rust proxy (high performance), Next.js web, PostgreSQL
-- **Location**: External containers at `/Users/micro/p/gh/levonk/infrahub/shared/active/03-container/services/ai-dashboard/`
-- **Source Project**: `/Users/micro/p/gh/levonk/ai-dashboard`
+- **Location**: External containers at `~/p/gh/levonk/infrahub/shared/active/03-container/services/ai-dashboard/`
+- **Source Project**: `~/p/gh/levonk/ai-dashboard`
 
 ## Advantages of AI Dashboard
 
@@ -74,7 +74,7 @@ AI_DASHBOARD_DATABASE_URL=postgresql://postgres:postgres@ai-dashboard-db:5432/an
 #### Start services
 
 ```bash
-cd /Users/micro/p/gh/levonk/infrahub
+cd ~/p/gh/levonk/infrahub
 devbox run -- docker compose -f shared/active/03-container/docker-compose.localnet.yml --profile ai-dashboard up -d
 ```
 
@@ -92,10 +92,10 @@ docker logs ai-dashboard-db --tail=50 -f
 
 ### Development
 
-The ai-dashboard project is located at `/Users/micro/p/gh/levonk/ai-dashboard`. For development:
+The ai-dashboard project is located at `~/p/gh/levonk/ai-dashboard`. For development:
 
 ```bash
-cd /Users/micro/p/gh/levonk/ai-dashboard
+cd ~/p/gh/levonk/ai-dashboard
 devbox run just dev
 ```
 
@@ -129,9 +129,9 @@ See the ai-dashboard project for full license details.
 ## References
 
 - **AI Dashboard Project**: https://github.com/levonk/ai-dashboard
-- **AI Dashboard PRD**: `/Users/micro/p/gh/levonk/ai-dashboard/docs/feature/prd-multi-tenant-ai-analytics.md`
-- **AI Dashboard Tasks**: `/Users/micro/p/gh/levonk/ai-dashboard/internal-docs/feature/prd-multi-tenant-ai-analytics/tasks/index-prd-multi-tenant-ai-analytics.md`
-- **Deprecated PRD**: `/Users/micro/p/gh/levonk/infrahub/internal-docs/deprecated/prd-ai-analytics-pipeline.md`
-- **Deprecated Tasks**: `/Users/micro/p/gh/levonk/infrahub/internal-docs/deprecated/prd-ai-analytics-pipeline/tasks/index-prd-ai-analytics-pipeline.md`
-- **Integration Config**: `/Users/micro/p/gh/levonk/infrahub/shared/active/03-container/services/ai-dashboard/`
-- **Docker Compose**: `/Users/micro/p/gh/levonk/infrahub/shared/active/03-container/docker-compose.localnet.yml`
+- **AI Dashboard PRD**: `~/p/gh/levonk/ai-dashboard/docs/feature/prd-multi-tenant-ai-analytics.md`
+- **AI Dashboard Tasks**: `~/p/gh/levonk/ai-dashboard/internal-docs/feature/prd-multi-tenant-ai-analytics/tasks/index-prd-multi-tenant-ai-analytics.md`
+- **Deprecated PRD**: `~/p/gh/levonk/infrahub/internal-docs/deprecated/prd-ai-analytics-pipeline.md`
+- **Deprecated Tasks**: `~/p/gh/levonk/infrahub/internal-docs/deprecated/prd-ai-analytics-pipeline/tasks/index-prd-ai-analytics-pipeline.md`
+- **Integration Config**: `~/p/gh/levonk/infrahub/shared/active/03-container/services/ai-dashboard/`
+- **Docker Compose**: `~/p/gh/levonk/infrahub/shared/active/03-container/docker-compose.localnet.yml`

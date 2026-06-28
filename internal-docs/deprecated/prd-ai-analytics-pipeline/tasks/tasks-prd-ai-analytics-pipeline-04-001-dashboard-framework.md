@@ -46,7 +46,7 @@ Implement the core dashboard framework with navigation, responsive layout, and f
 
 ## Relevant Files
 
-**Project: /Users/micro/p/gh/levonk/ai-dashboard**
+**Project: ~/p/gh/levonk/ai-dashboard**
 - `web/index.html` - Main dashboard HTML
 - `web/css/dashboard.css` - Dashboard styling
 - `web/js/dashboard.js` - Dashboard framework

@@ -46,12 +46,12 @@ Implement the Query Inspector tab to enable advanced search, request detail view
 
 ## Relevant Files
 
-**Project: /Users/micro/p/gh/levonk/ai-dashboard**
+**Project: ~/p/gh/levonk/ai-dashboard**
 - `web/tabs/query-inspector.html` - Query Inspector tab HTML
 - `web/tabs/query-inspector.js` - Query Inspector tab logic
 - `web/tabs/query-inspector.css` - Query Inspector tab styling
 
-**Project: /Users/micro/p/gh/levonk/infrahub**
+**Project: ~/p/gh/levonk/infrahub**
 - `shared/active/03-container/ai-analytics/api/queries.py` - Query data API
 - `tests/test_query_inspector.py` - Query Inspector tests
 

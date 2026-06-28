@@ -269,6 +269,6 @@ All variable naming must comply with:
 
 ## References
 
-- AGENTS.md: `/Users/micro/p/gh/levonk/infrahub/AGENTS.md`
+- AGENTS.md: `~/p/gh/levonk/infrahub/AGENTS.md`
 - Vault Management: `shared/active/02-config/ansible/vault/README.md`
 - Ansible Best Practices: https://docs.ansible.com/ansible/latest/user_guide/playbooks_best_practices.html

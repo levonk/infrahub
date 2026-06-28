@@ -46,12 +46,12 @@ Implement the Cost Analysis tab to provide cost breakdown by provider/model, opt
 
 ## Relevant Files
 
-**Project: /Users/micro/p/gh/levonk/ai-dashboard**
+**Project: ~/p/gh/levonk/ai-dashboard**
 - `web/tabs/cost.html` - Cost tab HTML
 - `web/tabs/cost.js` - Cost tab logic
 - `web/tabs/cost.css` - Cost tab styling
 
-**Project: /Users/micro/p/gh/levonk/infrahub**
+**Project: ~/p/gh/levonk/infrahub**
 - `shared/active/03-container/ai-analytics/api/cost.py` - Cost data API
 - `tests/test_cost.py` - Cost tab tests
 

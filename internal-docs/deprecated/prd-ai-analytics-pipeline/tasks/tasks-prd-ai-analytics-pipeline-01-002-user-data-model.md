@@ -51,7 +51,7 @@ Design and implement the SQLite database schema with user-level attribution (use
 
 ## Relevant Files
 
-**Project: /Users/micro/p/gh/levonk/infrahub**
+**Project: ~/p/gh/levonk/infrahub**
 - `shared/active/03-container/ai-analytics/schema.sql` - Main database schema definition
 - `shared/active/03-container/ai-analytics/migrations/0000_schema_migrations_table.sql` - Schema migrations table creation
 - `shared/active/03-container/ai-analytics/migrations/0001_initial_schema.sql` - Initial schema migration

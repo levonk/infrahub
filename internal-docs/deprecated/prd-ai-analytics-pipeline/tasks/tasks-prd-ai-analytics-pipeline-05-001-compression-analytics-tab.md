@@ -46,12 +46,12 @@ Implement the Compression Analytics tab to show compression effectiveness over t
 
 ## Relevant Files
 
-**Project: /Users/micro/p/gh/levonk/ai-dashboard**
+**Project: ~/p/gh/levonk/ai-dashboard**
 - `web/tabs/compression.html` - Compression tab HTML
 - `web/tabs/compression.js` - Compression tab logic
 - `web/tabs/compression.css` - Compression tab styling
 
-**Project: /Users/micro/p/gh/levonk/infrahub**
+**Project: ~/p/gh/levonk/infrahub**
 - `shared/active/03-container/ai-analytics/api/compression.py` - Compression data API
 - `tests/test_compression.py` - Compression tab tests
 

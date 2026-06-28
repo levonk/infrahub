@@ -46,7 +46,7 @@ Implement credential management API to handle API provider credentials with secu
 
 ## Relevant Files
 
-**Project: /Users/micro/p/gh/levonk/infrahub**
+**Project: ~/p/gh/levonk/infrahub**
 - `shared/active/03-container/ai-analytics/api/credentials.py` - Credential management API
 - `shared/active/03-container/ai-analytics/auth/encryption.py` - Credential encryption
 - `shared/active/03-container/ai-analytics/auth/access.py` - Access controls

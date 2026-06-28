@@ -48,7 +48,7 @@ Implement Redis-based message queue and background processor for asynchronous an
 
 ## Relevant Files
 
-**Project: /Users/micro/p/gh/levonk/infrahub**
+**Project: ~/p/gh/levonk/infrahub**
 - `shared/active/03-container/ai-analytics/queue/redis_client.py` - Redis connection and utilities
 - `shared/active/03-container/ai-analytics/queue/producer.py` - Message queue producer
 - `shared/active/03-container/ai-analytics/queue/consumer.py` - Message queue consumer

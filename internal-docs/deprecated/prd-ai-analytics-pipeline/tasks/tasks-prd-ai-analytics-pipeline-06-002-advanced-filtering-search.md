@@ -46,7 +46,7 @@ Implement advanced filtering and search capabilities for the API to support mult
 
 ## Relevant Files
 
-**Project: /Users/micro/p/gh/levonk/infrahub**
+**Project: ~/p/gh/levonk/infrahub**
 - `shared/active/03-container/ai-analytics/api/filters.py` - Filtering framework
 - `shared/active/03-container/ai-analytics/api/search.py` - Search functionality
 - `shared/active/03-container/ai-analytics/api/saved_searches.py` - Saved search management

@@ -380,7 +380,7 @@ docker network create --driver bridge --subnet 172.35.0.0/16 --gateway 172.35.0.
 
 3. **Start pipeline services:**
 ```bash
-cd /Users/micro/p/gh/levonk/infrahub/shared/active/03-container/services/ai-dashboard
+cd ~/p/gh/levonk/infrahub/shared/active/03-container/services/ai-dashboard
 docker compose -f docker-compose.ai-dashboard-pipeline.yml --env-file .env.pipeline up -d
 ```
 
@@ -526,7 +526,7 @@ curl -X POST http://localhost:9081/v1/chat/completions \
 
 1. **Stop pipeline services:**
 ```bash
-cd /Users/micro/p/gh/levonk/infrahub/shared/active/03-container/services/ai-dashboard
+cd ~/p/gh/levonk/infrahub/shared/active/03-container/services/ai-dashboard
 docker compose -f docker-compose.ai-dashboard-pipeline.yml down
 ```
 

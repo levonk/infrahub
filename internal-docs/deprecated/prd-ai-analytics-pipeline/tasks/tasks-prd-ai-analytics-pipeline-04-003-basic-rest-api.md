@@ -48,7 +48,7 @@ Implement the basic REST API to serve analytics data to the dashboard and extern
 
 ## Relevant Files
 
-**Project: /Users/micro/p/gh/levonk/infrahub**
+**Project: ~/p/gh/levonk/infrahub**
 - `shared/active/03-container/ai-analytics/api/server.py` - API server implementation
 - `shared/active/03-container/ai-analytics/api/auth.py` - Authentication middleware
 - `shared/active/03-container/ai-analytics/api/metrics.py` - Metrics endpoints

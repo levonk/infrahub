@@ -46,7 +46,7 @@ Implement data retention and pruning system to automatically manage data lifecyc
 
 ## Relevant Files
 
-**Project: /Users/micro/p/gh/levonk/infrahub**
+**Project: ~/p/gh/levonk/infrahub**
 - `shared/active/03-container/ai-analytics/database/retention.py` - Retention policy engine
 - `shared/active/03-container/ai-analytics/database/pruning.py` - Data pruning
 - `shared/active/03-container/ai-analytics/database/archival.py` - Data archival

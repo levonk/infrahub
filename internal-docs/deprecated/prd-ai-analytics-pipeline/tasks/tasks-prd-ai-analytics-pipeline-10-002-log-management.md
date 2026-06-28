@@ -46,7 +46,7 @@ Implement log management and export functionality to support log archival, clean
 
 ## Relevant Files
 
-**Project: /Users/micro/p/gh/levonk/infrahub**
+**Project: ~/p/gh/levonk/infrahub**
 - `shared/active/03-container/ai-analytics/api/log_management.py` - Log management API
 - `shared/active/03-container/ai-analytics/analytics/log_archive.py` - Log archival
 - `shared/active/03-container/ai-analytics/analytics/log_export.py` - Log export

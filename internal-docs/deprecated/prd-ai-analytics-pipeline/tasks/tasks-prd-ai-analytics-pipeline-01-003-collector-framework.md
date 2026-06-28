@@ -49,7 +49,7 @@ Implement the lightweight HTTP proxy collector framework that can intercept and 
 
 ## Relevant Files
 
-**Project: /Users/micro/p/gh/levonk/infrahub**
+**Project: ~/p/gh/levonk/infrahub**
 - `shared/active/03-container/ai-analytics/collectors/base.py` - Base collector interface and utilities
 - `shared/active/03-container/ai-analytics/collectors/proxy.py` - HTTP proxy implementation
 - `shared/active/03-container/ai-analytics/collectors/middleware.py` - Request/response interception

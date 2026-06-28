@@ -46,12 +46,12 @@ Implement the Pipeline Performance tab to present pipeline latency breakdown, th
 
 ## Relevant Files
 
-**Project: /Users/micro/p/gh/levonk/ai-dashboard**
+**Project: ~/p/gh/levonk/ai-dashboard**
 - `web/tabs/pipeline.html` - Pipeline tab HTML
 - `web/tabs/pipeline.js` - Pipeline tab logic
 - `web/tabs/pipeline.css` - Pipeline tab styling
 
-**Project: /Users/micro/p/gh/levonk/infrahub**
+**Project: ~/p/gh/levonk/infrahub**
 - `shared/active/03-container/ai-analytics/api/pipeline.py` - Pipeline data API
 - `tests/test_pipeline.py` - Pipeline tab tests
 

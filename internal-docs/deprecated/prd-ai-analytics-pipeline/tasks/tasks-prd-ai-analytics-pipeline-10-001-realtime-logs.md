@@ -46,7 +46,7 @@ Implement real-time log viewing API to provide live log tailing with search, fil
 
 ## Relevant Files
 
-**Project: /Users/micro/p/gh/levonk/infrahub**
+**Project: ~/p/gh/levonk/infrahub**
 - `shared/active/03-container/ai-analytics/api/logs.py` - Log viewing API
 - `shared/active/03-container/ai-analytics/analytics/log_stream.py` - Log streaming
 - `shared/active/03-container/ai-analytics/analytics/log_search.py` - Log search

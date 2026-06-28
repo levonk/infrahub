@@ -46,12 +46,12 @@ Implement the Overview tab with key performance indicators (KPIs), request volum
 
 ## Relevant Files
 
-**Project: /Users/micro/p/gh/levonk/ai-dashboard**
+**Project: ~/p/gh/levonk/ai-dashboard**
 - `web/tabs/overview.html` - Overview tab HTML
 - `web/tabs/overview.js` - Overview tab logic
 - `web/tabs/overview.css` - Overview tab styling
 
-**Project: /Users/micro/p/gh/levonk/infrahub**
+**Project: ~/p/gh/levonk/infrahub**
 - `shared/active/03-container/ai-analytics/api/overview.py` - Overview data API
 - `tests/test_overview.py` - Overview tab tests
 

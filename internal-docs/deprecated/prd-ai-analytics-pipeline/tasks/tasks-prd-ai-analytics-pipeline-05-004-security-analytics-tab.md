@@ -46,12 +46,12 @@ Implement the Security Analytics tab to show iron-proxy allow/block decisions, a
 
 ## Relevant Files
 
-**Project: /Users/micro/p/gh/levonk/ai-dashboard**
+**Project: ~/p/gh/levonk/ai-dashboard**
 - `web/tabs/security.html` - Security tab HTML
 - `web/tabs/security.js` - Security tab logic
 - `web/tabs/security.css` - Security tab styling
 
-**Project: /Users/micro/p/gh/levonk/infrahub**
+**Project: ~/p/gh/levonk/infrahub**
 - `shared/active/03-container/ai-analytics/api/security.py` - Security data API
 - `tests/test_security.py` - Security tab tests
 

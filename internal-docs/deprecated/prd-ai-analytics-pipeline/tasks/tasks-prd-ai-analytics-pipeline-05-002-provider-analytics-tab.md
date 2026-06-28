@@ -46,12 +46,12 @@ Implement the Provider Analytics tab to display provider performance metrics, ro
 
 ## Relevant Files
 
-**Project: /Users/micro/p/gh/levonk/ai-dashboard**
+**Project: ~/p/gh/levonk/ai-dashboard**
 - `web/tabs/providers.html` - Provider tab HTML
 - `web/tabs/providers.js` - Provider tab logic
 - `web/tabs/providers.css` - Provider tab styling
 
-**Project: /Users/micro/p/gh/levonk/infrahub**
+**Project: ~/p/gh/levonk/infrahub**
 - `shared/active/03-container/ai-analytics/api/providers.py` - Provider data API
 - `tests/test_providers.py` - Provider tab tests
 

@@ -7,12 +7,12 @@ Successfully replaced the incomplete Python-based AI Analytics Pipeline with the
 ## Changes Made
 
 ### 1. Removed Incomplete Implementation
-- **Deleted**: `/Users/micro/p/gh/levonk/infrahub/shared/active/03-container/ai-analytics/` (Python collectors)
-- **Deleted**: `/Users/micro/p/gh/levonk/infrahub/shared/active/03-container/ai-analytics/` (collectors, queue, processor, API)
+- **Deleted**: `~/p/gh/levonk/infrahub/shared/active/03-container/ai-analytics/` (Python collectors)
+- **Deleted**: `~/p/gh/levonk/infrahub/shared/active/03-container/ai-analytics/` (collectors, queue, processor, API)
 - **Status**: Was 24% complete (8/33 stories done)
 
 ### 2. Added AI Dashboard Integration
-- **Created**: `/Users/micro/p/gh/levonk/infrahub/shared/active/03-container/services/ai-dashboard/`
+- **Created**: `~/p/gh/levonk/infrahub/shared/active/03-container/services/ai-dashboard/`
 - **Files Added**:
   - `docker-compose.ai-dashboard.yml` - Docker configuration for proxy + database
   - `README.md` - Integration documentation
@@ -20,24 +20,24 @@ Successfully replaced the incomplete Python-based AI Analytics Pipeline with the
 - **Status**: 88% complete (15/17 stories done) - Production Ready
 
 ### 3. Updated Docker Configuration
-- **Modified**: `/Users/micro/p/gh/levonk/infrahub/shared/active/03-container/docker-compose.localnet.yml`
+- **Modified**: `~/p/gh/levonk/infrahub/shared/active/03-container/docker-compose.localnet.yml`
 - **Added**: Include for ai-dashboard services
-- **Modified**: `/Users/micro/p/gh/levonk/ai-dashboard/apps/proxy/Dockerfile`
+- **Modified**: `~/p/gh/levonk/ai-dashboard/apps/proxy/Dockerfile`
   - Added runtime dependencies (curl for health checks)
   - Added non-root user for security
   - Added proper health check configuration
   - Set default command to serve on port 8080
 
 ### 4. Updated Documentation
-- **Created**: `/Users/micro/p/gh/levonk/infrahub/internal-docs/ai-dashboard-integration.md`
+- **Created**: `~/p/gh/levonk/infrahub/internal-docs/ai-dashboard-integration.md`
   - Comprehensive integration guide
   - Migration timeline
   - Configuration instructions
   - Development setup
 
 - **Moved to Deprecated**:
-  - `/Users/micro/p/gh/levonk/infrahub/internal-docs/deprecated/prd-ai-analytics-pipeline.md`
-  - `/Users/micro/p/gh/levonk/infrahub/internal-docs/deprecated/prd-ai-analytics-pipeline/tasks/`
+  - `~/p/gh/levonk/infrahub/internal-docs/deprecated/prd-ai-analytics-pipeline.md`
+  - `~/p/gh/levonk/infrahub/internal-docs/deprecated/prd-ai-analytics-pipeline/tasks/`
 
 - **Updated All Task Files**:
   - Added deprecation notice to all 33 task files
@@ -83,7 +83,7 @@ Successfully replaced the incomplete Python-based AI Analytics Pipeline with the
 
 ### Start Services
 ```bash
-cd /Users/micro/p/gh/levonk/infrahub
+cd ~/p/gh/levonk/infrahub
 devbox run -- docker compose -f shared/active/03-container/docker-compose.localnet.yml --profile ai-dashboard up -d
 ```
 
@@ -101,7 +101,7 @@ docker logs ai-dashboard-db --tail=50 -f
 
 For ai-dashboard development:
 ```bash
-cd /Users/micro/p/gh/levonk/ai-dashboard
+cd ~/p/gh/levonk/ai-dashboard
 devbox run just dev
 ```
 

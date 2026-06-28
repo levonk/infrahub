@@ -46,12 +46,12 @@ Implement a visual YAML/JSON configuration editor with syntax highlighting and d
 
 ## Relevant Files
 
-**Project: /Users/micro/p/gh/levonk/ai-dashboard**
+**Project: ~/p/gh/levonk/ai-dashboard**
 - `web/config/editor.html` - Config editor HTML
 - `web/config/editor.js` - Config editor logic
 - `web/config/editor.css` - Config editor styling
 
-**Project: /Users/micro/p/gh/levonk/infrahub**
+**Project: ~/p/gh/levonk/infrahub**
 - `shared/active/03-container/ai-analytics/api/config.py` - Configuration API
 - `tests/test_config.py` - Config editor tests
 
