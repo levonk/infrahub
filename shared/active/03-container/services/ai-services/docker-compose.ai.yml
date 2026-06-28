@@ -17,6 +17,9 @@ networks:
   traefik-network:
     external: true
     name: traefik-network
+  proxy-chain-network:
+    external: true
+    name: proxy-chain-network
 
 volumes:
   ai-ollama-models:
@@ -255,14 +258,19 @@ services:
     logging: *default-logging
     restart: unless-stopped
     networks:
-      - localnet
-      - traefik-network
+      localnet:
+      traefik-network:
+      proxy-chain-network:
+        ipv4_address: 172.29.0.14
     environment:
       - PORT=${AI_OMNIROUTE_CONTAINER_PORT:-20128}
       - NODE_ENV=production
       - OMNIROUTE_COMPRESSION_ENABLED=false
       - OMNIROUTE_RTK_ENABLED=false
       - OMNIROUTE_CAVEMAN_ENABLED=false
+      - HTTP_PROXY=http://iron-proxy:80
+      - HTTPS_PROXY=http://iron-proxy:80
+      - NO_PROXY=localhost,127.0.0.1
     ports:
       - "${AI_OMNIROUTE_HOST_PORT:-20128}:${AI_OMNIROUTE_CONTAINER_PORT:-20128}"
     volumes:

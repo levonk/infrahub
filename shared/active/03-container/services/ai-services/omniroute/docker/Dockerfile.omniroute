@@ -2,26 +2,24 @@
 # Based on official image diegosouzapw/omniroute:latest
 # Modified to follow localnet security standards
 
-FROM diegosouzapw/omniroute:latest
+FROM diegosouzapw/omniroute:latest as root-stage
 
-# Create non-root user with UID/GID 1000 (localnet standard)
-RUN addgroup -g 1000 cuser && \
-    adduser -D -u 1000 -G cuser cuser
+# Switch to root for setup
+USER root
 
 # Set up directories with proper permissions
-RUN mkdir -p /app/data && \
-    chown -R cuser:cuser /app
+RUN mkdir -p /app/data
 
 # Copy healthcheck script
-COPY --chown=cuser:cuser assets/static/omniroute/healthcheck-omniroute.sh /usr/local/bin/healthcheck-omniroute.sh
+COPY assets/static/omniroute/healthcheck-omniroute.sh /usr/local/bin/healthcheck-omniroute.sh
 RUN chmod +x /usr/local/bin/healthcheck-omniroute.sh
 
 # Copy entrypoint script
-COPY --chown=cuser:cuser assets/static/omniroute/entrypoint-omniroute.sh /usr/local/bin/entrypoint-omniroute.sh
+COPY assets/static/omniroute/entrypoint-omniroute.sh /usr/local/bin/entrypoint-omniroute.sh
 RUN chmod +x /usr/local/bin/entrypoint-omniroute.sh
 
-# Switch to non-root user
-USER cuser
+# Switch back to non-root user for runtime
+USER node
 
 # Expose OmniRoute port
 EXPOSE 20128

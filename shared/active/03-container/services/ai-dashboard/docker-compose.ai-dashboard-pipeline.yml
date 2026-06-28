@@ -135,6 +135,7 @@ services:
       - HEADROOM_HOST=0.0.0.0
       - HEADROOM_DATA_DIR=/data
       - HEADROOM_OUTPUT_SHAPER=0
+      - HEADROOM_UPSTREAM=http://omniroute:20128
     ports:
       - "8787:8787/tcp"
     volumes:
@@ -165,6 +166,9 @@ services:
       - OMNIROUTE_COMPRESSION_ENABLED=false
       - OMNIROUTE_RTK_ENABLED=false
       - OMNIROUTE_CAVEMAN_ENABLED=false
+      - HTTP_PROXY=http://iron-proxy:80
+      - HTTPS_PROXY=http://iron-proxy:80
+      - NO_PROXY=localhost,127.0.0.1
     ports:
       - "20128:20128/tcp"
     volumes:
@@ -195,6 +199,7 @@ services:
       - FORGE_PORT=8081
       - FORGE_HOST=0.0.0.0
       - FORGE_BACKEND_URL=http://omniroute:20128
+      - FORGE_UPSTREAM_PROXY=http://iron-proxy:80
       - FORGE_MAX_RETRIES=3
       - FORGE_REASONING_REPLAY=none
       - PUID=1000
@@ -233,7 +238,7 @@ services:
       - AI_ANALYTICS_PROXY_STAGE=pre-egress
       - AI_ANALYTICS_PROXY_COLLECTOR_ID=proxy-collector-2
       - LOG_LEVEL=${AI_DASHBOARD_LOG_LEVEL:-INFO}
-      - AI_ANALYTICS_UPSTREAM_URL=http://forge:8081
+      - AI_ANALYTICS_UPSTREAM_URL=http://iron-proxy:80
       - COMPRESSION_STRATEGY=headroom-primary
     ports:
       - "${AI_DASHBOARD_PROXY_2_HOST_PORT:-9082}:${AI_DASHBOARD_PROXY_2_CONTAINER_PORT:-8082}/tcp"
