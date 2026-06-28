@@ -207,14 +207,14 @@
     - name: "Join Tailscale network with auth key"
       ansible.builtin.shell:
         cmd: |
-          $authKey = "{{ vault_tailscale_auth_key }}"
+          $authKey = "{{ vpn_tailscale_auth_key }}"
           & "C:\Program Files\Tailscale\tailscale.exe" up --authkey $authKey --hostname {{ windows_tailscale_hostname }} --accept-routes --accept-dns
       register: tailscale_up
       changed_when: tailscale_up.rc == 0
       when:
         - "'NOT_CONNECTED' in tailscale_status.stdout"
-        - vault_tailscale_auth_key is defined
-        - vault_tailscale_auth_key | length > 0
+        - vpn_tailscale_auth_key is defined
+        - vpn_tailscale_auth_key | length > 0
       no_log: true
       tags: ["tailscale", "configure"]
 
