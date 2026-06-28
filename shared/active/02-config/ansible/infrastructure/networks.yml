@@ -1,0 +1,94 @@
+---
+# Network Topology Schema
+# Location: shared/active/02-config/ansible/infrastructure/networks.yml
+# Purpose: Shared network topology schema with sensible defaults
+# Client-specific values in levonk/active/02-config/ansible/infrastructure/networks.yml
+# ---------------------------------------------------------------------------
+# Variable Naming: infra_network_{SERVICE}_{CONTEXT}_{ATTRIBUTE}
+# Services: vpn, dns, proxy, ai, storage, kvm, monitoring
+# Context: nordvpn, tailscale, netbird, wireguard, etc.
+# Attributes: subnet, gateway, ip, network_name
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# VPN Networks
+# ---------------------------------------------------------------------------
+infra_network_vpn_nordvpn_network_name: "vpn-network"
+infra_network_vpn_nordvpn_subnet: "172.28.0.0/16"
+infra_network_vpn_nordvpn_gateway: "172.28.0.1"
+
+infra_network_vpn_tailscale_subnet: "100.64.0.0/10"
+infra_network_vpn_netbird_subnet: "100.100.0.0/10"
+infra_network_vpn_wireguard_direct_subnet: "10.13.13.0/24"
+infra_network_vpn_wireguard_transparent_subnet: "10.13.14.0/24"
+
+# ---------------------------------------------------------------------------
+# AI Pipeline Networks
+# ---------------------------------------------------------------------------
+infra_network_ai_proxy_chain_network_name: "proxy-chain-network"
+infra_network_ai_proxy_chain_subnet: "172.29.0.0/16"
+infra_network_ai_proxy_chain_gateway: "172.29.0.1"
+
+infra_network_ai_forge_network_name: "forge-network"
+infra_network_ai_forge_subnet: "172.35.0.0/16"
+infra_network_ai_forge_gateway: "172.35.0.1"
+
+# ---------------------------------------------------------------------------
+# DNS Networks
+# ---------------------------------------------------------------------------
+infra_network_dns_localnet_network_name: "localnet-network"
+infra_network_dns_localnet_subnet: "172.26.0.0/16"
+infra_network_dns_localnet_gateway: "172.26.0.1"
+
+# ---------------------------------------------------------------------------
+# Proxy Networks
+# ---------------------------------------------------------------------------
+infra_network_proxy_tor_network_name: "tor-network"
+infra_network_proxy_tor_subnet: "172.30.0.0/16"
+infra_network_proxy_tor_gateway: "172.30.0.1"
+
+infra_network_proxy_traefik_network_name: "traefik-network"
+infra_network_proxy_traefik_subnet: "172.31.0.0/16"
+infra_network_proxy_traefik_gateway: "172.31.0.1"
+
+# ---------------------------------------------------------------------------
+# Security Networks
+# ---------------------------------------------------------------------------
+infra_network_security_authelia_network_name: "authelia-network"
+infra_network_security_authelia_subnet: "172.32.0.0/16"
+infra_network_security_authelia_gateway: "172.32.0.1"
+
+infra_network_security_crowdsec_network_name: "crowdsec-network"
+infra_network_security_crowdsec_subnet: "172.33.0.0/16"
+infra_network_security_crowdsec_gateway: "172.33.0.1"
+
+# ---------------------------------------------------------------------------
+# KVM/Virtualization Networks
+# ---------------------------------------------------------------------------
+infra_network_kvm_nat_bridge_name: "kvm-nat-br0"
+infra_network_kvm_nat_bridge_subnet: "192.168.100.0/24"
+infra_network_kvm_nat_bridge_gateway: "192.168.100.1"
+infra_network_kvm_nat_bridge_dhcp_start: "192.168.100.128"
+infra_network_kvm_nat_bridge_dhcp_end: "192.168.100.254"
+
+infra_network_kvm_routed_bridge_name: "kvm-route-br0"
+infra_network_kvm_routed_bridge_subnet: "192.168.101.0/24"
+infra_network_kvm_routed_bridge_gateway: "192.168.101.1"
+infra_network_kvm_routed_bridge_dhcp_start: "192.168.101.128"
+infra_network_kvm_routed_bridge_dhcp_end: "192.168.101.254"
+
+# ---------------------------------------------------------------------------
+# Service IP Allocations (within networks)
+# ---------------------------------------------------------------------------
+infra_network_ip_omniroute: "172.29.0.14"
+infra_network_ip_headroom: "172.29.0.13"
+infra_network_ip_forge: "172.29.0.16"
+infra_network_ip_iron_proxy: "172.29.0.17"
+infra_network_ip_privacy_orchestrator: "172.29.0.15"
+
+# ---------------------------------------------------------------------------
+# VPN Subnet Collections
+# ---------------------------------------------------------------------------
+infra_network_vpn_subnets:
+  - "{{ infra_network_vpn_tailscale_subnet }}"
+  - "{{ infra_network_vpn_netbird_subnet }}"

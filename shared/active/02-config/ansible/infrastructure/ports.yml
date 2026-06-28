@@ -1,0 +1,186 @@
+---
+# Port Allocation Schema
+# Location: shared/active/02-config/ansible/infrastructure/ports.yml
+# Purpose: Shared port allocation schema with sensible defaults
+# Client-specific values in levonk/active/02-config/ansible/infrastructure/ports.yml
+# ---------------------------------------------------------------------------
+# Variable Naming: infra_port_{SERVICE}_{CONTEXT}_{HOST|CONTAINER}_{PORT}
+# Services: ssh, vpn, dns, proxy, ai, storage, kvm, monitoring
+# Context: nordvpn, tailscale, netbird, wireguard, etc.
+# Target: host (external) or container (internal)
+# ---------------------------------------------------------------------------
+# NOTE: All ports are strings to support YAML number/string compatibility
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# SSH Ports
+# ---------------------------------------------------------------------------
+infra_port_ssh_host: "22"
+infra_port_ssh_container: "22"
+
+# ---------------------------------------------------------------------------
+# VPN Ports
+# ---------------------------------------------------------------------------
+# NordVPN
+infra_port_vpn_nordvpn_wireguard_host: "51820"
+infra_port_vpn_nordvpn_wireguard_container: "51820"
+infra_port_vpn_nordvpn_socks_host: "1080"
+infra_port_vpn_nordvpn_socks_container: "1080"
+infra_port_vpn_nordvpn_http_host: "8888"
+infra_port_vpn_nordvpn_http_container: "8888"
+infra_port_vpn_nordvpn_https_host: "8443"
+infra_port_vpn_nordvpn_https_container: "8443"
+infra_port_vpn_nordvpn_shadowsocks_host: "8388"
+infra_port_vpn_nordvpn_shadowsocks_container: "8388"
+
+# Tailscale
+infra_port_vpn_tailscale: "41641"
+
+# NetBird
+infra_port_vpn_netbird_mgmt_host: "33073"
+infra_port_vpn_netbird_mgmt_container: "33073"
+infra_port_vpn_netbird_signal_host: "10000"
+infra_port_vpn_netbird_signal_container: "10000"
+infra_port_vpn_netbird_turn_host: "3478"
+infra_port_vpn_netbird_turn_container: "3478"
+
+# WireGuard
+infra_port_vpn_wireguard_direct: "51820"
+infra_port_vpn_wireguard_transparent: "51821"
+
+# ---------------------------------------------------------------------------
+# DNS Ports
+# ---------------------------------------------------------------------------
+infra_port_dns_host: "53"
+infra_port_dns_container: "53"
+
+infra_port_dns_transparent_host: "5500"
+infra_port_dns_transparent_container: "5500"
+
+infra_port_dns_dnsdist_main_host: "5501"
+infra_port_dns_dnsdist_main_container: "5501"
+infra_port_dns_dnsdist_metrics_host: "8083"
+infra_port_dns_dnsdist_metrics_container: "8083"
+
+infra_port_dns_coredns_main_host: "15354"
+infra_port_dns_coredns_main_container: "15353"
+infra_port_dns_coredns_main_metrics_host: "9153"
+infra_port_dns_coredns_main_health_host: "27493"
+infra_port_dns_coredns_main_health_container: "18080"
+
+infra_port_dns_dnscrypt_plaintext_host: "5365"
+infra_port_dns_dnscrypt_plaintext_container: "5058"
+
+infra_port_dns_adguard_host: "5354"
+infra_port_dns_adguard_container: "5354"
+infra_port_dns_adguard_web_host: "3000"
+infra_port_dns_adguard_web_container: "3000"
+
+# ---------------------------------------------------------------------------
+# Proxy Ports
+# ---------------------------------------------------------------------------
+infra_port_proxy_http_host: "80"
+infra_port_proxy_http_container: "80"
+infra_port_proxy_https_host: "443"
+infra_port_proxy_https_container: "443"
+
+infra_port_proxy_tor_socks5_host: "9050"
+infra_port_proxy_tor_socks5_container: "9050"
+
+infra_port_proxy_direct: "3128"
+infra_port_proxy_http_transparent: "10080"
+infra_port_proxy_https_transparent: "10443"
+infra_port_proxy_envoy_internal_host: "3129"
+infra_port_proxy_envoy_admin_host: "9901"
+
+# iron-proxy
+infra_port_proxy_iron_proxy_dns_host: "53"
+infra_port_proxy_iron_proxy_http_host: "8080"
+infra_port_proxy_iron_proxy_https_host: "8443"
+
+# ---------------------------------------------------------------------------
+# AI Pipeline Ports
+# ---------------------------------------------------------------------------
+# Headroom
+infra_port_ai_headroom_host: "8787"
+infra_port_ai_headroom_container: "8787"
+
+# Forge
+infra_port_ai_forge_host: "8083"
+infra_port_ai_forge_container: "8081"
+
+# OmniRoute
+infra_port_ai_omniroute_host: "20128"
+infra_port_ai_omniroute_container: "20128"
+
+# Privacy Orchestrator
+infra_port_ai_privacy_orchestrator_host: "8082"
+infra_port_ai_privacy_orchestrator_container: "8082"
+
+# AI Dashboard
+infra_port_ai_dashboard_host: "3000"
+infra_port_ai_dashboard_container: "3000"
+
+# ---------------------------------------------------------------------------
+# SSO/Authelia Ports
+# ---------------------------------------------------------------------------
+infra_port_sso_authelia_web_host: "9091"
+infra_port_sso_authelia_web_container: "9091"
+infra_port_sso_authelia_redis_host: "6379"
+infra_port_sso_authelia_redis_container: "6379"
+infra_port_sso_authelia_postgres_host: "5432"
+infra_port_sso_authelia_postgres_container: "5432"
+
+# ---------------------------------------------------------------------------
+# Security/CrowdSec Ports
+# ---------------------------------------------------------------------------
+infra_port_security_crowdsec_host: "8080"
+infra_port_security_crowdsec_container: "8080"
+infra_port_security_crowdsec_lapi_port: "8080"
+
+# ---------------------------------------------------------------------------
+# RustDesk Remote Desktop Ports
+# ---------------------------------------------------------------------------
+infra_port_rustdesk_hbbs_nat_test_host: "21115"
+infra_port_rustdesk_hbbs_nat_test_container: "21115"
+infra_port_rustdesk_hbbs_id_reg_host: "21116"
+infra_port_rustdesk_hbbs_id_reg_container: "21116"
+infra_port_rustdesk_hbbs_web_host: "21118"
+infra_port_rustdesk_hbbs_web_container: "21118"
+infra_port_rustdesk_hbbr_relay_host: "21117"
+infra_port_rustdesk_hbbr_relay_container: "21117"
+infra_port_rustdesk_hbbr_web_host: "21119"
+infra_port_rustdesk_hbbr_web_container: "21119"
+
+# ---------------------------------------------------------------------------
+# Tor Exit Node Ports
+# ---------------------------------------------------------------------------
+infra_port_tor_orport_host: "9001"
+infra_port_tor_orport_container: "9001"
+infra_port_tor_dirport_host: "9030"
+infra_port_tor_dirport_container: "9030"
+
+# ---------------------------------------------------------------------------
+# SearXNG Search Ports
+# ---------------------------------------------------------------------------
+infra_port_search_searxng_host: "8080"
+infra_port_search_searxng_container: "8080"
+
+# ---------------------------------------------------------------------------
+# WorldMonitor Self-Hosted Stack Ports
+# Used by: Windows Docker Desktop hosts (deploy-worldmonitor.yml playbook)
+# ---------------------------------------------------------------------------
+infra_port_worldmonitor_app_host: "3000"
+infra_port_worldmonitor_app_container: "8080"
+infra_port_worldmonitor_redis_rest_host: "8079"
+infra_port_worldmonitor_redis_rest_container: "80"
+infra_port_worldmonitor_ais_relay_container: "3004"
+
+# ---------------------------------------------------------------------------
+# Local Docker Registry Port
+# Used by: deploy-local-registry.yml playbook on cloud_servers
+# Serves built images to deployment targets over Tailscale (HTTP, no TLS —
+# Tailscale encrypts the transport)
+# ---------------------------------------------------------------------------
+infra_port_registry_host: "5000"
+infra_port_registry_container: "5000"

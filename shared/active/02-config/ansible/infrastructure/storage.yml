@@ -1,0 +1,83 @@
+---
+# Storage and Volume Schema
+# Location: shared/active/02-config/ansible/infrastructure/storage.yml
+# Purpose: Shared storage paths and volume schema with sensible defaults
+# Client-specific values in levonk/active/02-config/ansible/infrastructure/storage.yml
+# ---------------------------------------------------------------------------
+# Variable Naming: infra_storage_{SERVICE}_{CONTEXT}_{ATTRIBUTE}
+# Services: docker, vault, config, data, logs, backup
+# Context: localnet, cloud, vm, container
+# Attributes: path, dir, volume, mount
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Base Directories
+# ---------------------------------------------------------------------------
+infra_storage_base_dir: "/opt/localnet"
+infra_storage_container_dir: "/opt/localnet/container"
+infra_storage_services_dir: "/opt/localnet/services"
+infra_storage_config_dir: "/opt/localnet/config"
+infra_storage_data_dir: "/opt/localnet/data"
+infra_storage_logs_dir: "/opt/localnet/logs"
+infra_storage_backup_dir: "/opt/localnet/backup"
+
+# ---------------------------------------------------------------------------
+# Docker Storage
+# ---------------------------------------------------------------------------
+infra_storage_docker_network_name: "cloud-server"
+infra_storage_docker_volume_dir: "/var/lib/docker/volumes"
+
+# ---------------------------------------------------------------------------
+# KVM/libvirt Storage
+# ---------------------------------------------------------------------------
+infra_storage_kvm_pool_name: "default"
+infra_storage_kvm_pool_path: "/var/lib/libvirt/images"
+
+# ---------------------------------------------------------------------------
+# Vault Storage
+# ---------------------------------------------------------------------------
+infra_storage_vault_path: "{{ infra_storage_config_dir }}/vault"
+infra_storage_vault_file: "infrahub-levonk-all.vault.yml"
+
+# ---------------------------------------------------------------------------
+# Service-Specific Storage Paths
+# ---------------------------------------------------------------------------
+# DNS Services
+infra_storage_dns_config: "{{ infra_storage_services_dir }}/dns/config"
+infra_storage_dns_data: "{{ infra_storage_services_dir }}/dns/data"
+
+# Proxy Services
+infra_storage_proxy_config: "{{ infra_storage_services_dir }}/proxy/config"
+infra_storage_proxy_cache: "{{ infra_storage_services_dir }}/proxy/cache"
+
+# VPN Services
+infra_storage_vpn_config: "{{ infra_storage_services_dir }}/vpn/config"
+
+# AI Services
+infra_storage_ai_config: "{{ infra_storage_services_dir }}/ai/config"
+infra_storage_ai_data: "{{ infra_storage_services_dir }}/ai/data"
+
+# Security Services
+infra_storage_security_config: "{{ infra_storage_services_dir }}/security/config"
+infra_storage_security_data: "{{ infra_storage_services_dir }}/security/data"
+
+# ---------------------------------------------------------------------------
+# Container Volume Mount Patterns
+# ---------------------------------------------------------------------------
+infra_storage_mount_config: "{{ infra_storage_config_dir }}/{{ infra_hostname_service }}"
+infra_storage_mount_data: "{{ infra_storage_data_dir }}/{{ infra_hostname_service }}"
+infra_storage_mount_logs: "{{ infra_storage_logs_dir }}/{{ infra_hostname_service }}"
+
+# ---------------------------------------------------------------------------
+# Backup Configuration
+# ---------------------------------------------------------------------------
+infra_storage_backup_retention_days: "7"
+infra_storage_backup_schedule: "daily"
+infra_storage_backup_compression: "gzip"
+
+# ---------------------------------------------------------------------------
+# WorldMonitor Self-Hosted Stack Storage
+# Used by: deploy-worldmonitor.yml playbook
+# Redis data volume name (Docker volume, not a host path — works on any OS)
+# ---------------------------------------------------------------------------
+infra_storage_worldmonitor_redis_data_volume: "worldmonitor-redis-data"

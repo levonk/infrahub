@@ -109,6 +109,33 @@ This project follows a hybrid secret storage approach as defined in [ADR-2026062
 - **In-Service Transient Secrets**: Service-specific transient secrets (JWT tokens, session keys) stored within service configurations
 - **Ansible Variable Distribution**: Use Ansible vault variables for secure distribution at runtime
 
+### Infrastructure Consolidation Strategy
+
+**Infrastructure Topology Management:**
+This project follows a hybrid infrastructure consolidation approach as defined in [ADR-20260625001: Infrastructure Consolidation Strategy](shared/active/08-docs/adr/adr-20260625001-infrastructure-consolidation.md). Key principles:
+
+- **Centralized Schemas**: Shared infrastructure variable schemas in `shared/active/02-config/ansible/infrastructure/`
+- **Client-Specific Values**: Client infrastructure value overrides in `levonk/active/02-config/ansible/infrastructure/`
+- **Single Source of Truth**: All IP addresses, ports, domain names, and storage paths consolidated
+- **Variable References**: Configuration files reference consolidated infrastructure variables
+
+**Infrastructure Categories:**
+- `networks.yml` - Network topology (subnets, gateways, network names, IP allocations)
+- `ports.yml` - Port allocations (host/container ports by service)
+- `domains.yml` - Domain names, DNS records, and hostnames
+- `storage.yml` - Storage paths, volumes, and container mounts
+
+**Variable Naming Convention:**
+- Pattern: `infra_{CATEGORY}_{SERVICE}_{CONTEXT}_{ATTRIBUTE}`
+- Examples: `infra_network_vpn_nordvpn_subnet`, `infra_port_ai_forge_host`, `infra_domain_ai_dashboard_web`
+
+**When Adding New Infrastructure:**
+1. **ALWAYS** check existing infrastructure files for conflicts before adding new ports/IPs
+2. **ALWAYS** use consolidated infrastructure variables instead of hardcoded values
+3. **ALWAYS** follow the `infra_` naming convention for new infrastructure variables
+4. **NEVER** hardcode IP addresses, ports, or domain names in playbooks or configuration files
+5. **NEVER** add infrastructure variables to regular group_vars/host_vars files
+
 **When referring to vault credentials or secrets:**
 - ✅ **DO**: Provide the exact command with full paths for the user to retrieve the key themselves
 - ✅ **DO**: Reference variable names or configuration keys without revealing their values
@@ -121,7 +148,7 @@ This project follows a hybrid secret storage approach as defined in [ADR-2026062
 **Example - Correct approach:**
 ```bash
 # To view the CrowdSec bouncer API key:
-devbox run -- ansible-vault view /Users/micro/p/gh/levonk/infrahub/levonk/active/02-config/ansible/group_vars/infrahub-levonk-all.vault.yml --vault-password-file ~/.ansible/vault_password
+devbox run -- ansible-vault view ~/p/gh/levonk/infrahub/levonk/active/02-config/ansible/group_vars/infrahub-levonk-all.vault.yml --vault-password-file ~/.ansible/vault_password
 ```
 
 **Example - Incorrect approach:**
@@ -863,6 +890,50 @@ all:
 4. **Vaulted secrets** (`<client>/group_vars/infrahub-<client>-all.vault.yml`): Encrypted secrets. Never in `shared/`.
 
 **No `group_vars/all.yml` in `shared/`**. All variable data is client-scoped.
+
+### Architectural Invariants
+
+These three rules are non-negotiable. Violations indicate a design error, not a style choice.
+
+#### 1. `shared/` is client-agnostic
+
+Nothing under `shared/` may reference a specific client — not by name, not by hardcoded value, not by implication. `shared/` holds reusable roles, playbooks, templates, container definitions, infrastructure schemas, and docs. Every client-specific detail (IPs, ports, domains, storage paths, secrets, hostnames, feature flags) lives in the client directory (`<client>/active/...`) and is injected at runtime via inventory and group_vars.
+
+If a playbook or role in `shared/` only makes sense for one client, it is in the wrong place. Either generalize it (parameterize the client-specific bits) or move it into the client directory.
+
+#### 2. Build before deploy — on the control machine
+
+The workflow is: **build → test locally → deploy**. Builds happen on the local command-and-control machine (the operator's Mac), not on the target host. Shared build artifacts (container images, binaries) are produced locally, validated locally, and only then shipped to client machines for deployment.
+
+Targets (including Windows Docker hosts) receive finished artifacts and run them. They do not clone repos, do not run `docker build`, do not compile. The only exception is a documented, client-specific reason that justifies building on the target (e.g., a toolchain that cannot cross-compile) — and that exception must be called out in the playbook with a comment explaining why.
+
+This keeps targets thin, builds reproducible, and the control machine the single source of truth for what gets deployed.
+
+#### 3. POSIX paths everywhere — except Windows host setup
+
+All paths in `shared/` playbooks, roles, templates, and container configs are POSIX-compliant (`/opt/...`, `/var/lib/...`, `/etc/...`). Windows-style paths (`C:\...`, backslashes, drive letters) appear **only** in tasks that bootstrap or configure a Windows host itself (e.g., installing Docker Desktop, setting up WSL2, creating local Windows users). Once a container is running, its filesystem is Linux — containers on Windows run under WSL2 and expect Linux paths.
+
+Storage paths, volume mounts, config file destinations inside containers, and any path a containerized service reads must be POSIX. If a Windows-specific path is needed for host-level setup, scope it to that one task and do not let it leak into shared defaults or container-facing config.
+
+### Per-Client Centralized Files
+
+Every client directory (`<client>/active/02-config/ansible/`) MUST contain this set of centralized files. They are the single source of truth for that client — `shared/` only holds the schemas and neutral defaults, the client directory holds the actual values.
+
+| File | Purpose |
+|------|---------|
+| `group_vars/infrahub-<client>-all.vault.yml` | Vault — all secrets (API keys, tokens, passwords). Encrypted with Ansible vault. |
+| `infrastructure/domains.yml` | Hostnames, DNS records, domain names |
+| `infrastructure/ports.yml` | Port allocations (host/container ports by service) |
+| `infrastructure/networks.yml` | Network topology — subnets, gateways, network names, IP allocations |
+| `infrastructure/storage.yml` | Storage paths, volumes, container mounts |
+
+Rules:
+
+- **All five files are required per client.** A new client is not onboarded until this set exists.
+- **No client-specific values in `shared/`.** `shared/active/02-config/ansible/infrastructure/` holds schemas and neutral defaults only; actual values live in the client directory.
+- **No infrastructure values in regular `group_vars`/`host_vars`.** IPs, ports, domains, storage paths go in `infrastructure/*.yml`, not in `group_vars/all.yml`. The vault file is the only `group_vars` file that holds client-specific values, and it holds secrets only.
+- **Variable naming**: `infra_{CATEGORY}_{SERVICE}_{CONTEXT}_{ATTRIBUTE}` (e.g., `infra_port_worldmonitor_host`, `infra_domain_worldmonitor_web`, `infra_storage_worldmonitor_repo`).
+- **Reference, don't duplicate.** Playbooks and roles reference these variables; they never hardcode the values and never re-declare them elsewhere.
 
 ## Ansible Galaxy Collection Strategy
 

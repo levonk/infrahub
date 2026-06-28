@@ -1,0 +1,74 @@
+---
+# Domain Names and DNS Schema
+# Location: shared/active/02-config/ansible/infrastructure/domains.yml
+# Purpose: Shared domain name schema with sensible defaults
+# Client-specific values in levonk/active/02-config/ansible/infrastructure/domains.yml
+# ---------------------------------------------------------------------------
+# Variable Naming: infra_domain_{SERVICE}_{CONTEXT}_{ATTRIBUTE}
+# Services: traefik, ai, proxy, dns, monitoring
+# Context: dashboard, gateway, web, api, etc.
+# Attributes: domain, hostname, subdomain
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Traefik Dashboard
+# ---------------------------------------------------------------------------
+infra_domain_traefik_dashboard: "traefik.levonk.com"
+
+# ---------------------------------------------------------------------------
+# AI Services
+# ---------------------------------------------------------------------------
+infra_domain_ai_dashboard_web: "ai-dashboard.levonk.com"
+infra_domain_ai_gateway: "ai-gateway.levonk.com"
+
+# ---------------------------------------------------------------------------
+# Proxy Services
+# ---------------------------------------------------------------------------
+infra_domain_proxy_search: "search.levonk.com"
+
+# ---------------------------------------------------------------------------
+# SSO/Authelia
+# ---------------------------------------------------------------------------
+infra_domain_sso_authelia: "auth.levonk.com"
+
+# ---------------------------------------------------------------------------
+# Monitoring Services
+# ---------------------------------------------------------------------------
+infra_domain_monitoring_grafana: "grafana.levonk.com"
+infra_domain_monitoring_prometheus: "prometheus.levonk.com"
+
+# ---------------------------------------------------------------------------
+# VPN Hostnames
+# ---------------------------------------------------------------------------
+infra_hostname_vpn_nordvpn: "nordvpn"
+infra_hostname_vpn_tailscale: "tailscale"
+infra_hostname_vpn_netbird: "netbird"
+infra_hostname_vpn_tor: "tor"
+
+# ---------------------------------------------------------------------------
+# Service Hostnames (container names)
+# ---------------------------------------------------------------------------
+infra_hostname_omniroute: "omniroute"
+infra_hostname_headroom: "headroom"
+infra_hostname_forge: "forge"
+infra_hostname_iron_proxy: "iron-proxy"
+infra_hostname_privacy_orchestrator: "privacy-orchestrator"
+infra_hostname_ai_dashboard: "ai-dashboard"
+infra_hostname_authelia: "authelia"
+infra_hostname_crowdsec: "crowdsec"
+infra_hostname_traefik: "traefik"
+
+# ---------------------------------------------------------------------------
+# Cloudflare DNS Record Types
+# ---------------------------------------------------------------------------
+infra_dns_record_type_a: "A"
+infra_dns_record_type_cname: "CNAME"
+infra_dns_record_type_txt: "TXT"
+infra_dns_record_type_mx: "MX"
+
+# ---------------------------------------------------------------------------
+# DNS TTL Values
+# ---------------------------------------------------------------------------
+infra_dns_ttl_default: "300"
+infra_dns_ttl_long: "3600"
+infra_dns_ttl_short: "60"
