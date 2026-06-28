@@ -1,5 +1,16 @@
 # Agent Documentation: Ansible
 
+## Root Cause First - No Workarounds
+
+**Root causing is essential. Do not work around long-term problems unless explicit permission is granted.**
+
+- When a deployment fails, investigate the actual cause before retrying or trying alternatives.
+- Failing early and surfacing the issue is preferable to working around it and raising the problem later.
+- If a credential is expired, say so and tell the user where to update it - do not attempt manual authentication loops, state copying, or other band-aids.
+- If a container keeps restarting, find out why (check restart count, logs, exit codes) before redeploying.
+- Do not chain workaround on top of workaround. Each failed attempt should inform the next, not paper over the previous failure.
+- When you encounter an existing resource that conflicts with a new one (e.g., a node already exists in Tailscale), stop and surface the conflict to the user. Do not proceed with a renamed variant without permission.
+
 ## Quick Reference
 
 - **Project Type**: Ansible infrastructure and roles for cloud server deployment
