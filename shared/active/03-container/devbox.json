@@ -1,14 +1,14 @@
 {
   "_bug_note": "DEVBOX SCRIPT GENERATION BUG: devbox run <script> may fail with 'command not found' error. This is a known devbox regression in v0.14.x+. See issues: https://github.com/jetify-com/devbox/issues/2517, https://github.com/jetify-com/devbox/issues/2108, https://github.com/jetify-com/devbox/issues/2607. Use 'just <command>' or 'devbox shell' then 'just <command>-internal' instead. See ADR-20260131001 for details.",
-  "packages": [
-    "jq",
-    "just",
-    "yq-go",
-    "ripgrep",
-    "github:levonk/tkr#tkr",
-    "nodejs",
-    "pnpm"
-  ],
+  "packages": {
+    "jq": "",
+    "just": "",
+    "yq-go": "",
+    "ripgrep": "",
+    "github:levonk/tkr#tkr": "",
+    "nodejs": "",
+    "pnpm": ""
+  },
   "env": {
     "SHELL": "/bin/zsh",
     "XDG_CACHE_DIR": "/var/cache",

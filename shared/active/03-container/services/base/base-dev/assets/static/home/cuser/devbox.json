@@ -1,182 +1,242 @@
 {
-  "packages": [
-    # Core Development Environment & Package Management
-    "nix",                    # Nix package manager (core dependency)
-    "devbox",                 # Devbox environment manager (core dependency)
-
-    # Security & Certificates
-    "cacert"                 # CA certificates for HTTPS
-
-    # System Essentials
-    "file", "findutils", "procps", "shadow", "gosu",  # Core system utilities
-
-    # Shell & Terminal Environment
-    "wl-clipboard", "direnv",       # Terminal multiplexer and environment manager
-    "fzf", "ast-grep", "eza", "zoxide", # Navigation and search tools
-    "atuin", "comby", "tlrc", "pay-respects", "yazi",  # Shell enhancement tools
-    "zellij", # Better than `tmux`
-    "github:ogulcancelik/herdr", # tmux for AI CodeAssist
-    "ripgrep", # Better than `grep`
-    "fz", # Better than `find`
-    "plocate", # Better than `locate`
-    "sd", # Better than `sed`
-    "jaq", # Better than `awk` for json only
-    "bat", # Better than `less`
-    "cargo-binstall", # Better than `cargo install` when you don't need source
-    "zsh", # Better than `bash`
-    #"uutils", # Better than `coreutils`
-    "mtr", # better than `traceroute`
-    "ss", # better than `netstat`
-    "ip", # better than `ifconfig`
-    "dog", # better than `dig`
-    "xh", # better than `curl` (for humans)
-    "btop", # better than `top`
-    "procs", # better than `ps`
-    "dust", # better than `du`
-    "gping", # better than `ping`
-    "dtrx", # better than `tar`
-    "7z", # better than `unzip`
-    "rsync", # better than `scp`
-    "broot", # better than `tree`
-    "age", # better than `gpg`
-    "gpg-agent", # better than `ssh-agent`
-    "buildkit", # better than `ssh-agent`
-    "tldr", # better than `man`
-    "markdownlint-cli2", # better than `markdownlint`
-    "mdbook", # better than `pandoc`
-    "gitui", # better than `git-cli`
-    "github:kunchenguid/treehouse", # better than `worktrunk`
-    "tig", # better than `git log`
-
-    # Shell Scripting Tools
-    "shellcheck", "shfmt",    # Shell linter and formatter
-
-    # Text Editors & IDE Tools
-    "vim", "neovim",          # Text editors
-    "vimPlugins.opencode-nvim",        # OpenCode Neovim plugin
-    "vimPlugins.copilot-vim",         # GitHub Copilot Neovim plugin
-    "vimPlugins.claudecode-nvim",      # Claude Code Neovim plugin
-    "vimPlugins.tailwind-tools-nvim",  # Tailwind CSS Neovim plugin
-
-    # Version Control & Git Tools
-    "git",                    # Core version control
-    "gh", "glab",             # GitHub and GitLab CLI tools
-    "lazygit",                # Git TUI
-    "git-extras", "git-lfs", "fzf-git-sh",          # Git extensions and tools
-
-    # Document & Image Processing
-    "poppler-utils", "chafa", "jp2a", "imagemagick", # PDF and image processing
-
-    # Diff & Comparison Tools
-    # Better diff
-    "difftastic", "delta", "vimdiff",
-    # Better nerge
-    "mergiraf", "odiff",
-    "quilt", "guilt",
-    # Code review
-    "github:agavra/tuicr",
-    "github:modem-dev/hunk",
-
-    # Development Infrastructure
-    "chezmoi", "universal-ctags",                   # Dotfile management and code indexing
-
-    # Terminal Enhancement
-    "nerd-fonts.jetbrains-mono",                    # Terminal fonts
-
-    # CI/CD & Build Tools
-    "act",                    # Local GitHub Actions runner
-
-    # Data Visualization & Diagramming
-    "graphviz", "plantuml", "mermaid-cli",          # Diagramming tools
-
-    # System Monitoring & Utilities
-    "htop", "btop", "bottom", "procs", "dust", "duf",  # System monitors
-
-    # File Management & Archives
-    "trash-cli", "p7zip", "unzip", "zip", "rsync",   # File management tools
-
-    # Text Processing & Data Tools
-    "jq", "yq-go", "gron", "fx", "tokei",          # JSON/YAML processing and code metrics
-
-    # Network & Security Tools
-    "nmap", "tcpdump", "mtr", "whois", "rhash",    # Network analysis and security
-    "oniux",                                     # wrap any cli, incl. shell, with a tor exit only option.
-
-    # Data Processing & Databases
-    "duckdb", "sqlite",       # Databases
-    "postgresql-client", "mysql-client", "redis", "redis-tools", "valkey",  # Database clients
-    "pgcli", "mycli", "redis-cli",                 # Database CLI tools
-
-    # AI & Coding Assistants
-    "opencode", "gemini-cli", "github-copilot-cli", "cursor-cli", "qwen-code", "amp-cli",  # AI coding assistants
-    "claude-code-router", "claude-code", "claude-monitor",  # Claude Code ecosystem
-
-    # Programming Languages & Runtimes
-    "nodejs_24",           # Node.js JavaScript runtime
-    "python312", "python313", "python314", "python315FreeThreading",  # Python interpreters
-    "jdk17",                  # Java Development Kit
-    "rustc", "cargo",         # Rust compiler and package manager
-    "go",                     # Go programming language
-    "swift",                  # Swift programming language
-    "kotlin",                 # Kotlin programming language
-    "ruby_3_3",           # Ruby interpretersproject
-    "php_83",                   # PHP interpreters
-    "scala_3",  # Scala programming language
-    "powershell", "bash", "zsh", "fish",            # Shell environments
-
-    # Package Managers & Build Tools
-    "npm", "yarn", "pnpm",     # Node.js package managers
-    "pip", "poetry", "pipx", "uv",                   # Python package managers
-    "bundler",               # Ruby package manager
-    "gradle", "maven", "sbt", "mill", "scala-cli",  # JVM build tools
-    "cmake", "just", "just-lsp", "vscode-just",        # C/C++ build systems
-    "composer", "coursier",   # PHP and Scala package managers
-    "swiftPackages.swiftpm",  # Swift Package Manager
-
-    # Web Development & Frontend
-    "typescript", "typescript-language-server",     # TypeScript language and LSP
-    "tailwindcss_4", "@tailwindcss/language-server",  # Tailwind CSS
-    "eslint_d",              # ESLint daemon
-    "vscode-extensions.bradlc.vscode-tailwindcss",  # VS Code Tailwind extension
-    "ungoogled-chromium",    # Privacy-focused browser
-    "playwright-test", "python314Packages.playwright", "python314Packages.playwright-stealth",  # Browser automation
-
-    # Python Development Tools
-    "python312Packages.virtualenv", "python313Packages.virtualenv", "python314Packages.virtualenv",  # Virtual environments
-    "python312Packages.black", "python313Packages.black", "python314Packages.black",  # Code formatter
-    "python312Packages.flake8", "python313Packages.flake8", "python314Packages.flake8",  # Linter
-    "python312Packages.mypy", "python313Packages.mypy", "python314Packages.mypy",  # Type checker
-    "python312Packages.pytest", "python313Packages.pytest", "python314Packages.pytest",  # Test framework
-    "python312Packages.copier",  # Project templating tool
-
-    # Language-Specific Development Tools
-    "gopls", "delve", "go-tools",                    # Go LSP, debugger, and tools
-    "dotnet-sdk_8", "dotnet-runtime_8", "dotnet-aspnetcore_8",  # .NET 8 SDK and runtime
-    "rustfmt", "rust-analyzer",                      # Rust formatter and LSP
-    "kotlin-language-server",                        # Kotlin LSP
-    "rubyPackages_3_1.rubocop", "rubyPackages_3_2.rubocop", "rubyPackages_3_3.rubocop",  # Ruby linter
-    "phpPackages_81.composer", "phpPackages_82.composer", "phpPackages_83.composer",  # PHP package manager
-    "phpPackages_81.psalm", "phpPackages_82.psalm", "phpPackages_83.psalm",  # PHP static analysis
-    "phpPackages_81.phpstan", "phpPackages_82.phpstan", "phpPackages_83.phpstan",  # PHP static analysis
-    "phpPackages_81.xdebug", "phpPackages_82.xdebug", "phpPackages_83.xdebug",  # PHP debugger
-    "metals",                 # Scala LSP
-    "swiftlint", "swiftformat", "xcodes", "xcodegen", "darwin.xcode",  # Swift and Apple development
-
-    # Mobile Development
-    "flutter", "dart-sdk",    # Flutter framework and Dart SDK
-
-    # Infrastructure as Code
-    "terraform", "terragrunt", "opentofu",           # IaC tools
-    "tflint", "tfsec", "checkov",                    # IaC linting and security
-    "pulumi", "pumictl", "pulumiPackages.pulumi-nodejs", "python313Packages.pulumi",  # Pulumi ecosystem
-
-    # C/C++ Development Tools
-    "gcc", "clang", "gdb", "lld", "llvm",            # Compilers, debuggers, and toolchains
-    "cppcheck", "valgrind", "clang-tools",           # Static analysis and debugging
-
-    #
-
-  ],
+  "packages": {
+    "nix": "",
+    "devbox": "",
+    "cacert": "",
+    "file": "",
+    "findutils": "",
+    "procps": "",
+    "shadow": "",
+    "gosu": "",
+    "wl-clipboard": "",
+    "direnv": "",
+    "fzf": "",
+    "ast-grep": "",
+    "eza": "",
+    "zoxide": "",
+    "atuin": "",
+    "comby": "",
+    "tlrc": "",
+    "pay-respects": "",
+    "yazi": "",
+    "zellij": "",
+    "github:ogulcancelik/herdr": "",
+    "ripgrep": "",
+    "fz": "",
+    "plocate": "",
+    "sd": "",
+    "jaq": "",
+    "bat": "",
+    "cargo-binstall": "",
+    "zsh": "",
+    "uutils": "",
+    "mtr": "",
+    "ss": "",
+    "ip": "",
+    "dog": "",
+    "xh": "",
+    "btop": "",
+    "procs": "",
+    "dust": "",
+    "gping": "",
+    "dtrx": "",
+    "7z": "",
+    "rsync": "",
+    "broot": "",
+    "age": "",
+    "gpg-agent": "",
+    "buildkit": "",
+    "tldr": "",
+    "markdownlint-cli2": "",
+    "mdbook": "",
+    "gitui": "",
+    "github:kunchenguid/treehouse": "",
+    "tig": "",
+    "shellcheck": "",
+    "shfmt": "",
+    "vim": "",
+    "neovim": "",
+    "vimPlugins.opencode-nvim": "",
+    "vimPlugins.copilot-vim": "",
+    "vimPlugins.claudecode-nvim": "",
+    "vimPlugins.tailwind-tools-nvim": "",
+    "git": "",
+    "gh": "",
+    "glab": "",
+    "lazygit": "",
+    "git-extras": "",
+    "git-lfs": "",
+    "fzf-git-sh": "",
+    "poppler-utils": "",
+    "chafa": "",
+    "jp2a": "",
+    "imagemagick": "",
+    "difftastic": "",
+    "delta": "",
+    "vimdiff": "",
+    "mergiraf": "",
+    "odiff": "",
+    "quilt": "",
+    "guilt": "",
+    "github:agavra/tuicr": "",
+    "github:modem-dev/hunk": "",
+    "chezmoi": "",
+    "universal-ctags": "",
+    "nerd-fonts.jetbrains-mono": "",
+    "act": "",
+    "graphviz": "",
+    "plantuml": "",
+    "mermaid-cli": "",
+    "htop": "",
+    "bottom": "",
+    "duf": "",
+    "trash-cli": "",
+    "p7zip": "",
+    "unzip": "",
+    "zip": "",
+    "jq": "",
+    "yq-go": "",
+    "gron": "",
+    "fx": "",
+    "tokei": "",
+    "nmap": "",
+    "tcpdump": "",
+    "whois": "",
+    "rhash": "",
+    "oniux": "",
+    "duckdb": "",
+    "sqlite": "",
+    "postgresql-client": "",
+    "mysql-client": "",
+    "redis": "",
+    "redis-tools": "",
+    "valkey": "",
+    "pgcli": "",
+    "mycli": "",
+    "redis-cli": "",
+    "opencode": "",
+    "gemini-cli": "",
+    "github-copilot-cli": "",
+    "cursor-cli": "",
+    "qwen-code": "",
+    "amp-cli": "",
+    "claude-code-router": "",
+    "claude-code": "",
+    "claude-monitor": "",
+    "nodejs_24": "",
+    "python312": "",
+    "python313": "",
+    "python314": "",
+    "python315FreeThreading": "",
+    "jdk17": "",
+    "rustc": "",
+    "cargo": "",
+    "go": "",
+    "swift": "",
+    "kotlin": "",
+    "ruby_3_3": "",
+    "php_83": "",
+    "scala_3": "",
+    "powershell": "",
+    "bash": "",
+    "fish": "",
+    "npm": "",
+    "yarn": "",
+    "pnpm": "",
+    "pip": "",
+    "poetry": "",
+    "pipx": "",
+    "uv": "",
+    "bundler": "",
+    "gradle": "",
+    "maven": "",
+    "sbt": "",
+    "mill": "",
+    "scala-cli": "",
+    "cmake": "",
+    "just": "",
+    "just-lsp": "",
+    "vscode-just": "",
+    "composer": "",
+    "coursier": "",
+    "swiftPackages.swiftpm": "",
+    "typescript": "",
+    "typescript-language-server": "",
+    "tailwindcss_4": "",
+    "": "tailwindcss/language-server",
+    "eslint_d": "",
+    "vscode-extensions.bradlc.vscode-tailwindcss": "",
+    "ungoogled-chromium": "",
+    "playwright-test": "",
+    "python314Packages.playwright": "",
+    "python314Packages.playwright-stealth": "",
+    "python312Packages.virtualenv": "",
+    "python313Packages.virtualenv": "",
+    "python314Packages.virtualenv": "",
+    "python312Packages.black": "",
+    "python313Packages.black": "",
+    "python314Packages.black": "",
+    "python312Packages.flake8": "",
+    "python313Packages.flake8": "",
+    "python314Packages.flake8": "",
+    "python312Packages.mypy": "",
+    "python313Packages.mypy": "",
+    "python314Packages.mypy": "",
+    "python312Packages.pytest": "",
+    "python313Packages.pytest": "",
+    "python314Packages.pytest": "",
+    "python312Packages.copier": "",
+    "gopls": "",
+    "delve": "",
+    "go-tools": "",
+    "dotnet-sdk_8": "",
+    "dotnet-runtime_8": "",
+    "dotnet-aspnetcore_8": "",
+    "rustfmt": "",
+    "rust-analyzer": "",
+    "kotlin-language-server": "",
+    "rubyPackages_3_1.rubocop": "",
+    "rubyPackages_3_2.rubocop": "",
+    "rubyPackages_3_3.rubocop": "",
+    "phpPackages_81.composer": "",
+    "phpPackages_82.composer": "",
+    "phpPackages_83.composer": "",
+    "phpPackages_81.psalm": "",
+    "phpPackages_82.psalm": "",
+    "phpPackages_83.psalm": "",
+    "phpPackages_81.phpstan": "",
+    "phpPackages_82.phpstan": "",
+    "phpPackages_83.phpstan": "",
+    "phpPackages_81.xdebug": "",
+    "phpPackages_82.xdebug": "",
+    "phpPackages_83.xdebug": "",
+    "metals": "",
+    "swiftlint": "",
+    "swiftformat": "",
+    "xcodes": "",
+    "xcodegen": "",
+    "darwin.xcode": "",
+    "flutter": "",
+    "dart-sdk": "",
+    "terraform": "",
+    "terragrunt": "",
+    "opentofu": "",
+    "tflint": "",
+    "tfsec": "",
+    "checkov": "",
+    "pulumi": "",
+    "pumictl": "",
+    "pulumiPackages.pulumi-nodejs": "",
+    "python313Packages.pulumi": "",
+    "gcc": "",
+    "clang": "",
+    "gdb": "",
+    "lld": "",
+    "llvm": "",
+    "cppcheck": "",
+    "valgrind": "",
+    "clang-tools": ""
+  },
   "hooks": {
     "on_create": [
       "curl ifconfig.me"
@@ -184,7 +244,7 @@
   },
   "shell": {
     "init_hook": [
-      "echo '🤖 Dev Base: Development environment ready'",
+      "echo '\ud83e\udd16 Dev Base: Development environment ready'",
       "cd /home/cuser/project"
     ]
   }

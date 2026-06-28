@@ -1,12 +1,12 @@
 {
-  "packages": [
-    "just@latest",
-    "docker@latest",
-    "docker-compose@latest",
-    "python3@latest",
-    "jq@latest",
-    "yamllint@latest"
-  ],
+  "packages": {
+    "just": "latest",
+    "docker": "latest",
+    "docker-compose": "latest",
+    "python3": "latest",
+    "jq": "latest",
+    "yamllint": "latest"
+  },
   "nix_pkgs": [
     "just",
     "docker",
