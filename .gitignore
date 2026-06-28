@@ -75,6 +75,8 @@ docker-compose.override.yml
 # Ansible
 *.retry
 vault_password
+# Installed Ansible collections (managed via requirements.yml)
+shared/active/02-config/ansible/collections/
 
 # Temporary files
 tmp/
