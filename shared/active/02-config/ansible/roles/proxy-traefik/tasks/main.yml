@@ -114,6 +114,50 @@
   notify: reload traefik
   when: proxy_authelia_enabled | bool
 
+- name: Deploy agentmemory dynamic configuration template
+  ansible.builtin.template:
+    src: dynamic/agentmemory-levonk-com.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/agentmemory-levonk-com.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: reload traefik
+  when: agentmemory_enabled | default(false) | bool
+
+- name: Deploy Traefik API dynamic configuration template
+  ansible.builtin.template:
+    src: dynamic/traefik-api.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/traefik-api.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: reload traefik
+  when: proxy_traefik_api_entrypoint_enabled | default(false) | bool
+
+- name: Deploy Homepage (start) dynamic configuration template
+  ansible.builtin.template:
+    src: dynamic/start-levonk-com.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/start-levonk-com.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: reload traefik
+  when: dashboard_homepage_enabled | default(true) | bool
+
+- name: Deploy TraLa (start2) dynamic configuration template
+  ansible.builtin.template:
+    src: dynamic/start2-levonk-com.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/start2-levonk-com.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: reload traefik
+  when: dashboard_trala_enabled | default(true) | bool
+
 # ---------------------------------------------------------------------------
 # Traefik Container
 # ---------------------------------------------------------------------------
@@ -128,7 +172,7 @@
     published_ports:
       - "{{ proxy_traefik_host_ip }}:{{ proxy_traefik_http_port }}:{{ proxy_traefik_http_container_port }}/tcp"
       - "{{ proxy_traefik_host_ip }}:{{ proxy_traefik_https_port }}:{{ proxy_traefik_https_container_port }}/tcp"
-      - "{{ proxy_traefik_host_ip }}:{{ proxy_traefik_dashboard_port }}:{{ proxy_traefik_dashboard_container_port }}/tcp"
+      - "127.0.0.1:{{ proxy_traefik_dashboard_port }}:{{ proxy_traefik_dashboard_container_port }}/tcp"
       - "{{ proxy_traefik_host_ip }}:{{ proxy_traefik_metrics_port }}:{{ proxy_traefik_metrics_container_port }}/tcp"
     volumes:
       - "{{ proxy_traefik_ssl_volume }}:/letsencrypt"

@@ -1,0 +1,97 @@
+---
+# TraLa Deployment Tasks
+# Deploys TraLa as a Docker container that auto-discovers Traefik HTTP routers.
+# All ports are variable-driven per AGENTS.md rules.
+# See ADR-20260629001 for the decision rationale.
+
+# ---------------------------------------------------------------------------
+# Prerequisites
+# ---------------------------------------------------------------------------
+- name: Ensure TraLa data directory exists
+  ansible.builtin.file:
+    path: "{{ dashboard_trala_data_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+
+# ---------------------------------------------------------------------------
+# Docker Volumes
+# ---------------------------------------------------------------------------
+- name: Ensure TraLa config volume exists
+  community.docker.docker_volume:
+    name: "{{ dashboard_trala_config_volume }}"
+    state: present
+  become: true
+
+- name: Deploy TraLa configuration file
+  ansible.builtin.template:
+    src: trala-configuration.yml.j2
+    dest: "{{ dashboard_trala_data_dir }}/configuration.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: restart trala
+
+# ---------------------------------------------------------------------------
+# TraLa Container
+# ---------------------------------------------------------------------------
+- name: Deploy TraLa container
+  community.docker.docker_container:
+    name: "{{ dashboard_trala_container_name }}"
+    image: "{{ dashboard_trala_image }}:{{ dashboard_trala_image_tag }}"
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ dashboard_trala_network_name }}"
+    published_ports:
+      - "{{ dashboard_trala_host_ip }}:{{ dashboard_trala_host_port }}:{{ dashboard_trala_container_port }}/tcp"
+    volumes:
+      - "{{ dashboard_trala_data_dir }}/configuration.yml:/config/configuration.yml:ro"
+    env:
+      TRAEFIK_API_HOST: "{{ dashboard_trala_traefik_api_host }}"
+      TRAEFIK_BASIC_AUTH_USERNAME: "{{ dashboard_trala_traefik_api_user }}"
+      TRAEFIK_BASIC_AUTH_PASSWORD: "{{ dashboard_trala_traefik_api_password }}"
+    log_driver: json-file
+    log_options:
+      max-size: "{{ dashboard_trala_log_max_size }}"
+      max-file: "{{ dashboard_trala_log_max_file }}"
+    security_opts:
+      - no-new-privileges:true
+    # NOTE: Traefik Docker provider is disabled (v3.0 API incompatibility).
+    # Routing is handled by the file-provider dynamic config deployed by the
+    # proxy-traefik role (templates/dynamic/start2-levonk-com.yml.j2).
+    # Do NOT add traefik.* labels here — they are silently ignored.
+  become: true
+  when: dashboard_trala_enabled | bool
+
+# ---------------------------------------------------------------------------
+# Health Verification
+# ---------------------------------------------------------------------------
+- name: Wait for TraLa to be healthy
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ dashboard_trala_host_port }}{{ dashboard_trala_health_endpoint }}"
+    status_code: 200
+  register: trala_health
+  until: trala_health.status == 200
+  retries: 10
+  delay: 5
+  when:
+    - dashboard_trala_enabled | bool
+    - dashboard_trala_verify_health | bool
+
+# ---------------------------------------------------------------------------
+# Status Report
+# ---------------------------------------------------------------------------
+- name: Report TraLa status
+  ansible.builtin.debug:
+    msg: |2
+      TraLa deployed successfully:
+      - Web UI: https://{{ dashboard_trala_domain }}
+      - Direct: http://{{ ansible_host | default('localhost') }}:{{ dashboard_trala_host_port }}
+      - Traefik API: {{ dashboard_trala_traefik_api_host }}
+      - Network: {{ dashboard_trala_network_name }}
+      - Auto-discovery: enabled (reads Traefik HTTP routers)
+  when: dashboard_trala_enabled | bool

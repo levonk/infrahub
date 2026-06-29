@@ -1,0 +1,154 @@
+---
+# Homepage (gethomepage/homepage) Deployment Tasks
+# Deploys Homepage as a Docker container with Traefik routing and Authelia SSO.
+# All ports are variable-driven per AGENTS.md rules.
+# See ADR-20260629001 for the decision rationale.
+
+# ---------------------------------------------------------------------------
+# Prerequisites
+# ---------------------------------------------------------------------------
+- name: Ensure Homepage data directory exists
+  ansible.builtin.file:
+    path: "{{ dashboard_homepage_data_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+
+- name: Ensure Homepage configuration directory exists
+  ansible.builtin.file:
+    path: "{{ dashboard_homepage_data_dir }}/config"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+
+# ---------------------------------------------------------------------------
+# Docker Volumes
+# ---------------------------------------------------------------------------
+- name: Ensure Homepage config volume exists
+  community.docker.docker_volume:
+    name: "{{ dashboard_homepage_config_volume }}"
+    state: present
+  become: true
+
+- name: Ensure Homepage images volume exists
+  community.docker.docker_volume:
+    name: "{{ dashboard_homepage_images_volume }}"
+    state: present
+  become: true
+
+- name: Ensure Homepage icons volume exists
+  community.docker.docker_volume:
+    name: "{{ dashboard_homepage_icons_volume }}"
+    state: present
+  become: true
+
+# ---------------------------------------------------------------------------
+# Deploy Configuration Files
+# ---------------------------------------------------------------------------
+- name: Deploy Homepage settings.yaml
+  ansible.builtin.template:
+    src: homepage-settings.yaml.j2
+    dest: "{{ dashboard_homepage_data_dir }}/config/settings.yaml"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: restart homepage
+
+- name: Deploy Homepage services.yaml
+  ansible.builtin.template:
+    src: homepage-services.yaml.j2
+    dest: "{{ dashboard_homepage_data_dir }}/config/services.yaml"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: restart homepage
+
+- name: Deploy Homepage bookmarks.yaml
+  ansible.builtin.template:
+    src: homepage-bookmarks.yaml.j2
+    dest: "{{ dashboard_homepage_data_dir }}/config/bookmarks.yaml"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: restart homepage
+
+- name: Deploy Homepage docker.yaml
+  ansible.builtin.template:
+    src: homepage-docker.yaml.j2
+    dest: "{{ dashboard_homepage_data_dir }}/config/docker.yaml"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: restart homepage
+
+# ---------------------------------------------------------------------------
+# Homepage Container
+# ---------------------------------------------------------------------------
+- name: Deploy Homepage container
+  community.docker.docker_container:
+    name: "{{ dashboard_homepage_container_name }}"
+    image: "{{ dashboard_homepage_image }}:{{ dashboard_homepage_image_tag }}"
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ dashboard_homepage_network_name }}"
+    published_ports:
+      - "{{ dashboard_homepage_host_ip }}:{{ dashboard_homepage_host_port }}:{{ dashboard_homepage_container_port }}/tcp"
+    volumes:
+      - "{{ dashboard_homepage_config_volume }}:/app/config"
+      - "{{ dashboard_homepage_images_volume }}:/app/public/images"
+      - "{{ dashboard_homepage_icons_volume }}:/app/public/icons"
+      - "{{ dashboard_homepage_docker_socket }}:/var/run/docker.sock:ro"
+    env:
+      HOMEPAGE_ALLOWED_HOSTS: "{{ dashboard_homepage_allowed_hosts }}"
+      PUID: "{{ dashboard_homepage_puid }}"
+      PGID: "{{ dashboard_homepage_pgid }}"
+      TZ: "{{ dashboard_homepage_tz }}"
+    log_driver: json-file
+    log_options:
+      max-size: "{{ dashboard_homepage_log_max_size }}"
+      max-file: "{{ dashboard_homepage_log_max_file }}"
+    security_opts:
+      - no-new-privileges:true
+    # NOTE: Traefik Docker provider is disabled (v3.0 API incompatibility).
+    # Routing is handled by the file-provider dynamic config deployed by the
+    # proxy-traefik role (templates/dynamic/start-levonk-com.yml.j2).
+    # Do NOT add traefik.* labels here — they are silently ignored.
+  become: true
+  when: dashboard_homepage_enabled | bool
+
+# ---------------------------------------------------------------------------
+# Health Verification
+# ---------------------------------------------------------------------------
+- name: Wait for Homepage to be healthy
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ dashboard_homepage_host_port }}{{ dashboard_homepage_health_endpoint }}"
+    status_code: 200
+  register: homepage_health
+  until: homepage_health.status == 200
+  retries: 10
+  delay: 5
+  when:
+    - dashboard_homepage_enabled | bool
+    - dashboard_homepage_verify_health | bool
+
+# ---------------------------------------------------------------------------
+# Status Report
+# ---------------------------------------------------------------------------
+- name: Report Homepage status
+  ansible.builtin.debug:
+    msg: |2
+      Homepage deployed successfully:
+      - Web UI: https://{{ dashboard_homepage_domain }}
+      - Direct: http://{{ ansible_host | default('localhost') }}:{{ dashboard_homepage_host_port }}
+      - Network: {{ dashboard_homepage_network_name }}
+      - Docker discovery: enabled (socket mounted read-only)
+  when: dashboard_homepage_enabled | bool
