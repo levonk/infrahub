@@ -1,19 +1,62 @@
 ---
 # Main tasks file for cloudflare-dns role
 # Manages Cloudflare DNS records using Cloudflare API v4
+# Loops over cloudflare_dns_records list, setting singular vars per iteration.
 
-- name: Include DNS record creation tasks
+- name: Validate Cloudflare API credentials
+  ansible.builtin.assert:
+    that:
+      - cloudflare_api_token | length > 0
+      - cloudflare_api_token != 'change-me-in-vault'
+      - cloudflare_zone_id | length > 0
+      - cloudflare_zone_id != 'change-me-in-vault'
+    fail_msg: >-
+      Cloudflare API token or zone ID is missing/placeholder.
+      Set vault_cloudflare_api_token and vault_cloudflare_zone_id in the client vault.
+    success_msg: "Cloudflare API credentials present."
+  tags: ["always", "validate"]
+
+- name: Process DNS records (create/update)
   ansible.builtin.include_tasks: create_record.yml
-  when: cloudflare_dns_state | default('present') != 'absent'
+  loop: "{{ cloudflare_dns_records }}"
+  loop_control:
+    loop_var: dns_record
+    label: "{{ dns_record.name }}"
+  when:
+    - cloudflare_dns_records | length > 0
+    - cloudflare_dns_state | default('present') != 'absent'
+  vars:
+    cloudflare_dns_record_name: "{{ dns_record.name }}"
+    cloudflare_dns_record_type: "{{ dns_record.type | default('A') }}"
+    cloudflare_dns_record_content: "{{ dns_record.content }}"
+    cloudflare_dns_ttl: "{{ dns_record.ttl | default(300) }}"
+    cloudflare_dns_proxied: "{{ dns_record.proxied | default(false) }}"
+    cloudflare_dns_record_state: "{{ dns_record.state | default(cloudflare_dns_state) }}"
 
-- name: Include DNS record update tasks
-  ansible.builtin.include_tasks: update_record.yml
-  when: cloudflare_dns_state | default('present') != 'absent'
-
-- name: Include DNS record deletion tasks
+- name: Process DNS records (delete)
   ansible.builtin.include_tasks: delete_record.yml
-  when: cloudflare_dns_state | default('present') == 'absent'
+  loop: "{{ cloudflare_dns_records }}"
+  loop_control:
+    loop_var: dns_record
+    label: "{{ dns_record.name }}"
+  when:
+    - cloudflare_dns_records | length > 0
+    - cloudflare_dns_state | default('present') == 'absent'
+  vars:
+    cloudflare_dns_record_name: "{{ dns_record.name }}"
+    cloudflare_dns_record_type: "{{ dns_record.type | default('A') }}"
+    cloudflare_dns_record_content: "{{ dns_record.content }}"
 
 - name: Verify DNS record changes
   ansible.builtin.include_tasks: verify_record.yml
-  when: cloudflare_dns_verify | default(true)
+  loop: "{{ cloudflare_dns_records }}"
+  loop_control:
+    loop_var: dns_record
+    label: "{{ dns_record.name }}"
+  when:
+    - cloudflare_dns_records | length > 0
+    - cloudflare_dns_verify | default(true)
+  vars:
+    cloudflare_dns_record_name: "{{ dns_record.name }}"
+    cloudflare_dns_record_type: "{{ dns_record.type | default('A') }}"
+    cloudflare_dns_record_content: "{{ dns_record.content }}"

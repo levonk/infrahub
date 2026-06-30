@@ -1,25 +1,37 @@
 ---
-# Create DNS record in Cloudflare
-# Uses Cloudflare API v4 for record creation
+# Create or update DNS record in Cloudflare (idempotent)
+# Uses Cloudflare API v4. Handles create-if-missing and update-if-changed
+# in a single pass to avoid the double-GET problem.
 
-- name: Check if DNS record already exists
+- name: "Check if DNS record {{ cloudflare_dns_record_name }} already exists"
   ansible.builtin.uri:
-    url: "https://api.cloudflare.com/client/v4/zones/{{ cloudflare_zone_id }}/dns_records"
+    url: "https://api.cloudflare.com/client/v4/zones/{{ cloudflare_zone_id }}/dns_records?name={{ cloudflare_dns_record_name }}&type={{ cloudflare_dns_record_type }}"
     method: GET
     headers:
       Authorization: "Bearer {{ cloudflare_api_token }}"
       Content-Type: "application/json"
     body_format: json
     return_content: true
+    status_code: [200, 401, 403, 404]
   register: existing_records
   no_log: true
 
-- name: Set fact for existing record check
-  ansible.builtin.set_fact:
-    record_exists: "{{ existing_records.json.result | selectattr('name', 'equalto', cloudflare_dns_record_name) | selectattr('type', 'equalto', cloudflare_dns_record_type) | list | length > 0 }}"
-    existing_record_id: "{{ existing_records.json.result | selectattr('name', 'equalto', cloudflare_dns_record_name) | selectattr('type', 'equalto', cloudflare_dns_record_type) | map(attribute='id') | first | default('') }}"
+- name: "Fail with clear message if Cloudflare API authentication failed"
+  ansible.builtin.fail:
+    msg: >-
+      Cloudflare API returned {{ existing_records.status }} for
+      {{ cloudflare_dns_record_name }}. Check vault_cloudflare_api_token
+      and vault_cloudflare_zone_id in the client vault.
+      Response: {{ existing_records.content | default('no content') }}
+  when: existing_records.status not in [200]
 
-- name: Create DNS record if it doesn't exist
+- name: "Set fact for existing record check"
+  ansible.builtin.set_fact:
+    record_exists: "{{ existing_records.json.result | length > 0 }}"
+    existing_record_id: "{{ existing_records.json.result | map(attribute='id') | first | default('') }}"
+    existing_record_content: "{{ existing_records.json.result | map(attribute='content') | first | default('') }}"
+
+- name: "Create DNS record {{ cloudflare_dns_record_name }} if it doesn't exist"
   ansible.builtin.uri:
     url: "https://api.cloudflare.com/client/v4/zones/{{ cloudflare_zone_id }}/dns_records"
     method: POST
@@ -38,14 +50,38 @@
   register: create_result
   when: not record_exists
   no_log: true
-  notify: Notify DNS record created
 
-- name: Log DNS record creation
+- name: "Update DNS record {{ cloudflare_dns_record_name }} if content differs"
+  ansible.builtin.uri:
+    url: "https://api.cloudflare.com/client/v4/zones/{{ cloudflare_zone_id }}/dns_records/{{ existing_record_id }}"
+    method: PATCH
+    headers:
+      Authorization: "Bearer {{ cloudflare_api_token }}"
+      Content-Type: "application/json"
+    body:
+      type: "{{ cloudflare_dns_record_type }}"
+      name: "{{ cloudflare_dns_record_name }}"
+      content: "{{ cloudflare_dns_record_content }}"
+      ttl: "{{ cloudflare_dns_ttl | default(300) }}"
+      proxied: "{{ cloudflare_dns_proxied | default(false) }}"
+    body_format: json
+    return_content: true
+    status_code: [200]
+  register: update_result
+  when: record_exists and existing_record_content != cloudflare_dns_record_content
+  no_log: true
+
+- name: "Log DNS record creation"
   ansible.builtin.debug:
-    msg: "DNS record {{ cloudflare_dns_record_name }} created successfully"
+    msg: "DNS record {{ cloudflare_dns_record_name }} ({{ cloudflare_dns_record_type }}) created → {{ cloudflare_dns_record_content }}"
   when: not record_exists and create_result is succeeded
 
-- name: Skip record creation if it already exists
+- name: "Log DNS record update"
   ansible.builtin.debug:
-    msg: "DNS record {{ cloudflare_dns_record_name }} already exists (idempotent)"
-  when: record_exists
+    msg: "DNS record {{ cloudflare_dns_record_name }} ({{ cloudflare_dns_record_type }}) updated → {{ cloudflare_dns_record_content }} (was {{ existing_record_content }})"
+  when: record_exists and existing_record_content != cloudflare_dns_record_content and update_result is succeeded
+
+- name: "Skip record (already correct)"
+  ansible.builtin.debug:
+    msg: "DNS record {{ cloudflare_dns_record_name }} ({{ cloudflare_dns_record_type }}) already correct → {{ cloudflare_dns_record_content }} (idempotent)"
+  when: record_exists and existing_record_content == cloudflare_dns_record_content

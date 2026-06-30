@@ -1,27 +1,36 @@
 ---
-# Delete DNS record from Cloudflare
+# Delete DNS record from Cloudflare (idempotent)
 # Uses Cloudflare API v4 for record deletion
 
-- name: Check if DNS record exists
+- name: "Check if DNS record {{ cloudflare_dns_record_name }} exists"
   ansible.builtin.uri:
-    url: "https://api.cloudflare.com/client/v4/zones/{{ cloudflare_zone_id }}/dns_records"
+    url: "https://api.cloudflare.com/client/v4/zones/{{ cloudflare_zone_id }}/dns_records?name={{ cloudflare_dns_record_name }}&type={{ cloudflare_dns_record_type }}"
     method: GET
     headers:
       Authorization: "Bearer {{ cloudflare_api_token }}"
       Content-Type: "application/json"
     body_format: json
     return_content: true
+    status_code: [200, 401, 403, 404]
   register: existing_records
   no_log: true
 
-- name: Set fact for existing record
-  ansible.builtin.set_fact:
-    existing_record: "{{ existing_records.json.result | selectattr('name', 'equalto', cloudflare_dns_record_name) | selectattr('type', 'equalto', cloudflare_dns_record_type) | first | default({}) }}"
-    record_exists: "{{ existing_records.json.result | selectattr('name', 'equalto', cloudflare_dns_record_name) | selectattr('type', 'equalto', cloudflare_dns_record_type) | list | length > 0 }}"
+- name: "Fail with clear message if Cloudflare API authentication failed"
+  ansible.builtin.fail:
+    msg: >-
+      Cloudflare API returned {{ existing_records.status }} for
+      {{ cloudflare_dns_record_name }}. Check vault_cloudflare_api_token
+      and vault_cloudflare_zone_id in the client vault.
+  when: existing_records.status not in [200]
 
-- name: Delete DNS record if it exists
+- name: "Set fact for existing record"
+  ansible.builtin.set_fact:
+    existing_record_id: "{{ existing_records.json.result | map(attribute='id') | first | default('') }}"
+    record_exists: "{{ existing_records.json.result | length > 0 }}"
+
+- name: "Delete DNS record {{ cloudflare_dns_record_name }} if it exists"
   ansible.builtin.uri:
-    url: "https://api.cloudflare.com/client/v4/zones/{{ cloudflare_zone_id }}/dns_records/{{ existing_record.id }}"
+    url: "https://api.cloudflare.com/client/v4/zones/{{ cloudflare_zone_id }}/dns_records/{{ existing_record_id }}"
     method: DELETE
     headers:
       Authorization: "Bearer {{ cloudflare_api_token }}"
@@ -32,14 +41,13 @@
   register: delete_result
   when: record_exists
   no_log: true
-  notify: Notify DNS record deleted
 
-- name: Log DNS record deletion
+- name: "Log DNS record deletion"
   ansible.builtin.debug:
-    msg: "DNS record {{ cloudflare_dns_record_name }} deleted successfully"
+    msg: "DNS record {{ cloudflare_dns_record_name }} ({{ cloudflare_dns_record_type }}) deleted"
   when: record_exists and delete_result is succeeded
 
-- name: Skip record deletion if it doesn't exist
+- name: "Skip deletion (record doesn't exist)"
   ansible.builtin.debug:
-    msg: "DNS record {{ cloudflare_dns_record_name }} does not exist (idempotent)"
+    msg: "DNS record {{ cloudflare_dns_record_name }} ({{ cloudflare_dns_record_type }}) does not exist (idempotent)"
   when: not record_exists

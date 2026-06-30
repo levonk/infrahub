@@ -1,40 +1,45 @@
 ---
-# Verify DNS record changes in Cloudflare
+# Verify DNS record in Cloudflare
 # Uses Cloudflare API v4 for record verification
 
-- name: Wait for DNS propagation
+- name: "Wait for DNS propagation"
   ansible.builtin.pause:
     seconds: "{{ cloudflare_dns_propagation_wait | default(10) }}"
   when: cloudflare_dns_verify_propagation | default(false)
 
-- name: Verify DNS record exists
+- name: "Verify DNS record {{ cloudflare_dns_record_name }} exists"
   ansible.builtin.uri:
-    url: "https://api.cloudflare.com/client/v4/zones/{{ cloudflare_zone_id }}/dns_records"
+    url: "https://api.cloudflare.com/client/v4/zones/{{ cloudflare_zone_id }}/dns_records?name={{ cloudflare_dns_record_name }}&type={{ cloudflare_dns_record_type }}"
     method: GET
     headers:
       Authorization: "Bearer {{ cloudflare_api_token }}"
       Content-Type: "application/json"
     body_format: json
     return_content: true
+    status_code: [200, 401, 403, 404]
   register: verify_records
   no_log: true
 
-- name: Set fact for verification
-  ansible.builtin.set_fact:
-    verified_record: "{{ verify_records.json.result | selectattr('name', 'equalto', cloudflare_dns_record_name) | selectattr('type', 'equalto', cloudflare_dns_record_type) | first | default({}) }}"
-    record_verified: "{{ verify_records.json.result | selectattr('name', 'equalto', cloudflare_dns_record_name) | selectattr('type', 'equalto', cloudflare_dns_record_type) | selectattr('content', 'equalto', cloudflare_dns_record_content) | list | length > 0 }}"
+- name: "Fail with clear message if Cloudflare API authentication failed"
+  ansible.builtin.fail:
+    msg: >-
+      Cloudflare API returned {{ verify_records.status }} during verification of
+      {{ cloudflare_dns_record_name }}. Check vault credentials.
+  when: verify_records.status not in [200]
 
-- name: Log verification success
+- name: "Set fact for verification"
+  ansible.builtin.set_fact:
+    record_verified: "{{ verify_records.json.result | selectattr('content', 'equalto', cloudflare_dns_record_content) | list | length > 0 }}"
+    verified_content: "{{ verify_records.json.result | map(attribute='content') | first | default('') }}"
+
+- name: "Log verification success"
   ansible.builtin.debug:
-    msg: "DNS record {{ cloudflare_dns_record_name }} verified successfully with content {{ cloudflare_dns_record_content }}"
+    msg: "DNS record {{ cloudflare_dns_record_name }} ({{ cloudflare_dns_record_type }}) verified → {{ cloudflare_dns_record_content }}"
   when: record_verified
 
-- name: Fail verification if record content doesn't match
+- name: "Fail verification if record content doesn't match"
   ansible.builtin.fail:
-    msg: "DNS record {{ cloudflare_dns_record_name }} verification failed. Expected content: {{ cloudflare_dns_record_content }}, Actual content: {{ verified_record.content | default('not found') }}"
-  when: not record_verified and verified_record.content is defined
-
-- name: Fail verification if record doesn't exist
-  ansible.builtin.fail:
-    msg: "DNS record {{ cloudflare_dns_record_name }} not found during verification"
-  when: verified_record.id is not defined
+    msg: >-
+      DNS record {{ cloudflare_dns_record_name }} verification failed.
+      Expected: {{ cloudflare_dns_record_content }}, Actual: {{ verified_content | default('not found') }}
+  when: not record_verified

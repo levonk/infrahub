@@ -13,7 +13,7 @@ This document outlines the procedures for managing Cloudflare DNS records for th
 
 ## Security Considerations
 
-- **API Token Security**: Cloudflare API tokens are stored in Ansible vault (`shared/active/02-config/ansible/group_vars/all.vault`)
+- **API Token Security**: Cloudflare API tokens are stored in Ansible vault (`shared/active/02-config/ansible/inventories/group_vars/all.vault`)
 - **Principle of Least Privilege**: API tokens have minimum required permissions only
 - **Token Rotation**: API tokens should be rotated regularly (recommended every 90 days)
 - **Access Control**: Vault access is restricted to authorized personnel only
@@ -64,7 +64,7 @@ cloudflare_dns_allow_private_ip: false     # Reject private IP addresses
 3. **Update Vault Credentials**:
    ```bash
    cd ~/p/gh/levonk/infrahub
-   devbox run -- ansible-vault edit shared/active/02-config/ansible/group_vars/all.vault
+   devbox run -- ansible-vault edit shared/active/02-config/ansible/inventories/group_vars/all.vault
    ```
    - Update `vault_cloudflare_api_token` with your API token
    - Update `vault_cloudflare_zone_id` with your zone ID

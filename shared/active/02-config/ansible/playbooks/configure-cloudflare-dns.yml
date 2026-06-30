@@ -9,8 +9,8 @@
   gather_facts: false
   become: false
   vars_files:
-    - "../../levonk/active/02-config/ansible/group_vars/cloud_servers.yml"
-    - "../../levonk/active/02-config/ansible/group_vars/infrahub-levonk-all.vault.yml"
+    - "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/inventories/group_vars/cloud_servers.yml"
+    - "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/inventories/group_vars/infrahub-levonk-all.vault.yml"
   vars:
     # Cloudflare API Configuration (from vault)
     cloudflare_api_token: "{{ vault_cloudflare_api_token | default('') }}"
@@ -43,8 +43,24 @@
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
 
-      # OmniRoute AI gateway service
-      - name: "ai-gateway.levonk.com"
+      # LiteLLM AI gateway (aigate) — entry point for the AI pipeline
+      - name: "aigate.levonk.com"
+        type: "A"
+        content: "100.90.22.85"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      # OmniRoute AI gateway (airoute) — provider fanout with tier-based fallback
+      - name: "airoute.levonk.com"
+        type: "A"
+        content: "100.90.22.85"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      # Langfuse LLM observability & tracing service
+      - name: "langfuse.levonk.com"
         type: "A"
         content: "100.90.22.85"
         ttl: "{{ cloudflare_dns_ttl }}"
@@ -53,6 +69,22 @@
 
       # Traefik dashboard (optional, for management access)
       - name: "traefik.levonk.com"
+        type: "A"
+        content: "100.90.22.85"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      # Homepage startpage (rich dashboard with service widgets)
+      - name: "start.levonk.com"
+        type: "A"
+        content: "100.90.22.85"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      # TraLa startpage (Traefik auto-discovery catalog)
+      - name: "start2.levonk.com"
         type: "A"
         content: "100.90.22.85"
         ttl: "{{ cloudflare_dns_ttl }}"
