@@ -178,7 +178,7 @@ infrahub/
 
 ## <known-gotchas>
 
-- **Disk space on OCI server (30G)**: The 30G disk fills up quickly with service images + registry data. Clean with `docker system prune -af` or remove the registry volume temporarily. The registry can always be re-pushed from the Mac.
+- **Disk space on OCI server**: The physical disk is 200G but the root LV was originally only 30G. Run `sudo xfs_growfs /` to grow XFS to fill the LV, and `sudo lvextend -l +100%FREE /dev/ocivolume/root && sudo xfs_growfs /` to use all VG space. After both, the root filesystem is 183G. If disk fills again, clean with `docker system prune -af`.
 - **`localnet_network_subnet` undefined**: A pre-existing error in the `common` role when running certain playbooks. Non-blocking — roles that need networks define their own. Do not try to fix this by adding the variable; the roles work around it.
 - **Traefik Docker provider disabled**: Traefik v3.0 has an API incompatibility with the Docker provider. All routing is via file-provider dynamic configs in `/opt/traefik/config/dynamic/`. Do NOT re-enable the Docker provider or add traefik.* labels to containers.
 - **ACME staging vs production**: Check `caServer` in the Traefik static config. Staging certs have `(STAGING)` in the issuer CN. If staging certs are cached in `acme.json`, delete them and restart Traefik to get production certs.

@@ -627,7 +627,7 @@ EOF
 
 ## Common Pitfalls (From Developer Guide)
 
-- **Disk space on OCI server (30G)**: Check `df -h /` before deploying. If full, `docker system prune -af` or temporarily remove the registry volume.
+- **Disk space on OCI server**: The physical disk is 200G but the root LV may not be fully grown. Run `sudo xfs_growfs /` and `sudo lvextend -l +100%FREE /dev/ocivolume/root && sudo xfs_growfs /` if `df -h /` shows less than ~180G. If still full, `docker system prune -af`.
 - **`localnet_network_subnet` undefined**: Pre-existing error in `common` role. Non-blocking — don't try to fix it.
 - **Traefik Docker provider disabled**: All routing is via file-provider dynamic configs. Do NOT add traefik.* labels to containers.
 - **ACME staging vs production**: Check `caServer` in Traefik static config. Delete staging certs from `acme.json` if cached.
