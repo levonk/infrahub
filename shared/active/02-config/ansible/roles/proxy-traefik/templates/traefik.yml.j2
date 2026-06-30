@@ -31,6 +31,12 @@ entryPoints:
     address: ":{{ proxy_traefik_metrics_container_port }}"
 {% endif %}
 
+{% if proxy_traefik_api_entrypoint_enabled | default(false) %}
+  # Dedicated API entrypoint for TraLa (basic auth protected via dynamic config)
+  {{ proxy_traefik_api_entrypoint_name }}:
+    address: ":{{ proxy_traefik_api_entrypoint_port }}"
+{% endif %}
+
 # Docker provider DISABLED due to API version incompatibility with Traefik v3.0
 # Using file provider only for routing configuration
 # providers:

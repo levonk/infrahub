@@ -4,5 +4,6 @@
 - name: restart headroom
   community.docker.docker_container:
     name: headroom
-    state: restarted
+    state: started
+    restart: true
   become: true

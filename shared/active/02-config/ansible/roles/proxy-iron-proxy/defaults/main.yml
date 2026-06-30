@@ -8,7 +8,7 @@
 # ---------------------------------------------------------------------------
 proxy_iron_proxy_enabled: true
 proxy_iron_proxy_version: "latest"
-proxy_iron_proxy_image: "ghcr.io/ironsh/iron-proxy:{{ proxy_iron_proxy_version }}"
+proxy_iron_proxy_image: "ironsh/iron-proxy:{{ proxy_iron_proxy_version }}"
 
 # ---------------------------------------------------------------------------
 # DNS Configuration
@@ -16,7 +16,7 @@ proxy_iron_proxy_image: "ghcr.io/ironsh/iron-proxy:{{ proxy_iron_proxy_version }
 proxy_iron_proxy_dns_enabled: true
 proxy_iron_proxy_dns_host_port: "{{ cloud_server_iron_proxy_dns_host_port | default('53') }}"
 proxy_iron_proxy_dns_container_port: "53"
-proxy_iron_proxy_dns_proxy_ip: "{{ docker_network_gateway | default('172.20.0.1') }}"
+proxy_iron_proxy_dns_proxy_ip: "{{ cloud_server_iron_proxy_dns_proxy_ip | default('1.1.1.1') }}"
 proxy_iron_proxy_upstream_dns: "{{ cloud_server_iron_proxy_upstream_dns | default('8.8.8.8:53') }}"
 
 # ---------------------------------------------------------------------------
@@ -74,6 +74,10 @@ proxy_iron_proxy_no_proxy: ""
 # ---------------------------------------------------------------------------
 proxy_iron_proxy_docker_network_name: "{{ cloud_server_proxy_network_name | default('proxy-network') }}"
 proxy_iron_proxy_data_dir: "{{ cloud_server_proxy_data_dir | default('/opt/proxy') }}/iron-proxy"
+
+# Proxy-chain network (shared with headroom, omniroute, forge for the AI pipeline)
+proxy_iron_proxy_chain_network_name: "{{ infra_network_ai_proxy_chain_network_name | default('proxy-chain-network') }}"
+proxy_iron_proxy_chain_network_ip: "{{ infra_network_ip_iron_proxy | default('172.29.0.17') }}"
 
 # ---------------------------------------------------------------------------
 # Feature Flags

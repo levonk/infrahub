@@ -45,5 +45,7 @@ include:
   #- services/ai-codeassist/openfang/openfang/docker-compose.openfang.yml
   #- services/agents/docker-compose.agents.yml
   - services/ai-dashboard/docker-compose.ai-dashboard.yml
+  - services/ai-codeassist/omnigent/docker-compose.yml
+  - services/ai-codeassist/pi/docker-compose.yml
   # - services/home/docker-compose.home.yml
   # - services/iot/docker-compose.iot.yml

@@ -12,8 +12,8 @@ handle_shutdown() {
 }
 
 # Register signal handlers
-trap handle_shutdown SIGTERM SIGINT
+trap handle_shutdown TERM INT
 
-# Start OmniRoute
+# Start OmniRoute (passes through to base image CMD: node dev/run-standalone.mjs)
 echo "Starting OmniRoute..."
-exec node /app/dist/server.js "$@"
+exec "$@"

@@ -1,19 +1,13 @@
 #!/bin/sh
 set -e
 
-# Healthcheck script for OmniRoute
-# Checks if the API endpoint is responding
-
+# Healthcheck for OmniRoute — uses node since base image has no wget/nc
 PORT="${AI_OMNIROUTE_CONTAINER_PORT:-20128}"
-
-# Try to reach the health endpoint or models endpoint
-if wget -qO- "http://localhost:${PORT}/v1/models" > /dev/null 2>&1; then
-    exit 0
-fi
-
-# Fallback: check if port is open
-if nc -z localhost "${PORT}"; then
-    exit 0
-fi
-
-exit 1
+node -e "
+  const http = require('http');
+  const req = http.get('http://localhost:' + process.env.PORT + '/v1/models', (res) => {
+    process.exit(res.statusCode < 500 ? 0 : 1);
+  });
+  req.on('error', () => process.exit(1));
+  req.setTimeout(3000, () => { req.destroy(); process.exit(1); });
+" 2>/dev/null

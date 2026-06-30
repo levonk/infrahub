@@ -32,6 +32,14 @@ proxy_traefik_dashboard_endpoint: "/dashboard"
 proxy_traefik_dashboard_enabled: true
 proxy_traefik_dashboard_insecure: false
 
+# Traefik API entrypoint — dedicated entrypoint for the API with basic auth.
+# Used by TraLa to auto-discover routers. See ADR-20260629001.
+proxy_traefik_api_entrypoint_enabled: false
+proxy_traefik_api_entrypoint_name: "traefik-api"
+proxy_traefik_api_entrypoint_port: "8080"
+proxy_traefik_api_auth_user: "trala"
+proxy_traefik_api_auth_password: "change-me"
+
 # ---------------------------------------------------------------------------
 # Docker Configuration
 # ---------------------------------------------------------------------------
@@ -60,6 +68,14 @@ search_searxng_enabled: true
 search_searxng_container_ip: "172.31.0.5"
 search_searxng_container_port: "8080"
 search_searxng_domain: "search.levonk.com"
+
+# ---------------------------------------------------------------------------
+# agentmemory Integration Configuration
+# ---------------------------------------------------------------------------
+agentmemory_enabled: false
+agentmemory_container_ip: "172.31.0.7"
+agentmemory_container_port: "3111"
+agentmemory_domain: "agentmemory.levonk.com"
 
 # ---------------------------------------------------------------------------
 # Tailscale/NetBird Bypass Configuration
