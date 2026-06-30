@@ -1,0 +1,283 @@
+---
+# Langfuse Docker Compose Configuration
+# LLM observability & tracing platform — parallel analytics sink for the AI
+# dashboard pipeline. Receives traces from AI Dashboard Proxy 1 (entry collector)
+# via the Langfuse ingestion API. Web UI exposed through Traefik.
+#
+# Reference: https://github.com/langfuse/langfuse
+# Self-hosting docs: https://langfuse.com/self-hosting/docker-compose
+#
+# Architecture:
+#   Pipeline → AI Dashboard Proxy 1 → (forwards traces) → langfuse-web ingestion API
+#   langfuse-web (UI + API) → postgres (metadata) + clickhouse (events) + redis (queue)
+#   langfuse-worker (async ingestion) → clickhouse + minio (blob storage)
+#
+# All secrets sourced from the client Ansible vault via .env.langfuse (Jinja2 template).
+# Infrastructure vars (ports, IPs, domain) sourced from shared/levonk infrastructure/*.yml.
+
+# Default logging configuration - use json-file with rotation
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "5"
+    tag: "{{.Name}}"
+    labels: "service"
+
+networks:
+  langfuse:
+    name: langfuse-network
+    driver: bridge
+    external: false
+    ipam:
+      config:
+        - subnet: ${LANGFUSE_NETWORK_SUBNET:-172.37.0.0/16}
+          gateway: ${LANGFUSE_NETWORK_GATEWAY:-172.37.0.1}
+  ai-dashboard:
+    name: ai-dashboard-network
+    external: true
+  traefik-network:
+    external: true
+    name: traefik-network
+
+volumes:
+  langfuse-postgres-data:
+    name: localnet-langfuse-postgres-data-volume
+    external: false
+  langfuse-clickhouse-data:
+    name: localnet-langfuse-clickhouse-data-volume
+    external: false
+  langfuse-clickhouse-logs:
+    name: localnet-langfuse-clickhouse-logs-volume
+    external: false
+  langfuse-minio-data:
+    name: localnet-langfuse-minio-data-volume
+    external: false
+  langfuse-redis-data:
+    name: localnet-langfuse-redis-data-volume
+    external: false
+
+services:
+  # Langfuse PostgreSQL Database
+  # Stores metadata: organizations, projects, users, prompts, evaluations
+  langfuse-postgres:
+    image: postgres:${LANGFUSE_POSTGRES_VERSION:-17}-alpine
+    container_name: ${LANGFUSE_POSTGRES_CONTAINER_NAME:-langfuse-postgres}
+    restart: unless-stopped
+    networks:
+      langfuse:
+        ipv4_address: ${LANGFUSE_POSTGRES_CONTAINER_IP:-172.37.0.20}
+    environment:
+      POSTGRES_USER: ${LANGFUSE_POSTGRES_USER:-langfuse}
+      POSTGRES_PASSWORD: ${LANGFUSE_POSTGRES_PASSWORD:?Set LANGFUSE_POSTGRES_PASSWORD in .env (use vault for client deploys)}
+      POSTGRES_DB: ${LANGFUSE_POSTGRES_DB:-langfuse}
+      TZ: UTC
+      PGTZ: UTC
+    volumes:
+      - langfuse-postgres-data:/var/lib/postgresql/data
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${LANGFUSE_POSTGRES_USER:-langfuse} -d ${LANGFUSE_POSTGRES_DB:-langfuse}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Langfuse ClickHouse
+  # Columnar store for high-volume trace/event data (ingestion + queries)
+  langfuse-clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    container_name: ${LANGFUSE_CLICKHOUSE_CONTAINER_NAME:-langfuse-clickhouse}
+    restart: unless-stopped
+    user: "101:101"
+    networks:
+      langfuse:
+        ipv4_address: ${LANGFUSE_CLICKHOUSE_CONTAINER_IP:-172.37.0.30}
+    environment:
+      CLICKHOUSE_DB: default
+      CLICKHOUSE_USER: ${LANGFUSE_CLICKHOUSE_USER:-clickhouse}
+      CLICKHOUSE_PASSWORD: ${LANGFUSE_CLICKHOUSE_PASSWORD:?Set LANGFUSE_CLICKHOUSE_PASSWORD in .env (use vault for client deploys)}
+    volumes:
+      - langfuse-clickhouse-data:/var/lib/clickhouse
+      - langfuse-clickhouse-logs:/var/log/clickhouse-server
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8123/ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 1s
+
+  # Langfuse Redis
+  # Queue (BullMQ) for async ingestion pipeline (worker consumes from here)
+  langfuse-redis:
+    image: redis:7-alpine
+    container_name: ${LANGFUSE_REDIS_CONTAINER_NAME:-langfuse-redis}
+    restart: unless-stopped
+    networks:
+      langfuse:
+        ipv4_address: ${LANGFUSE_REDIS_CONTAINER_IP:-172.37.0.40}
+    command: >
+      --requirepass ${LANGFUSE_REDIS_AUTH:?Set LANGFUSE_REDIS_AUTH in .env (use vault for client deploys)}
+      --maxmemory-policy noeviction
+    volumes:
+      - langfuse-redis-data:/data
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 10s
+      retries: 10
+
+  # Langfuse MinIO
+  # S3-compatible blob storage for media uploads and batch exports
+  langfuse-minio:
+    image: cgr.dev/chainguard/minio:latest
+    container_name: ${LANGFUSE_MINIO_CONTAINER_NAME:-langfuse-minio}
+    restart: unless-stopped
+    entrypoint: sh
+    command: -c 'mkdir -p /data/langfuse && minio server --address ":9000" --console-address ":9001" /data'
+    networks:
+      langfuse:
+        ipv4_address: ${LANGFUSE_MINIO_CONTAINER_IP:-172.37.0.50}
+    environment:
+      MINIO_ROOT_USER: ${LANGFUSE_MINIO_ROOT_USER:?Set LANGFUSE_MINIO_ROOT_USER in .env (use vault for client deploys)}
+      MINIO_ROOT_PASSWORD: ${LANGFUSE_MINIO_ROOT_PASSWORD:?Set LANGFUSE_MINIO_ROOT_PASSWORD in .env (use vault for client deploys)}
+    ports:
+      - "${LANGFUSE_MINIO_HOST_PORT:-9190}:9000/tcp"
+    volumes:
+      - langfuse-minio-data:/data
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 1s
+      timeout: 5s
+      retries: 5
+      start_period: 1s
+
+  # Langfuse Worker
+  # Async ingestion processor: consumes from Redis queue, writes events to
+  # ClickHouse and blobs to MinIO. Shares env with langfuse-web.
+  langfuse-worker:
+    image: langfuse/langfuse-worker:3
+    container_name: ${LANGFUSE_WORKER_CONTAINER_NAME:-langfuse-worker}
+    restart: unless-stopped
+    networks:
+      langfuse:
+        ipv4_address: ${LANGFUSE_WORKER_CONTAINER_IP:-172.37.0.11}
+    depends_on:
+      langfuse-postgres:
+        condition: service_healthy
+      langfuse-minio:
+        condition: service_healthy
+      langfuse-redis:
+        condition: service_healthy
+      langfuse-clickhouse:
+        condition: service_healthy
+    environment: &langfuse-env
+      NEXTAUTH_URL: ${LANGFUSE_NEXTAUTH_URL:-http://localhost:3000}
+      DATABASE_URL: postgresql://${LANGFUSE_POSTGRES_USER:-langfuse}:${LANGFUSE_POSTGRES_PASSWORD}@langfuse-postgres:5432/${LANGFUSE_POSTGRES_DB:-langfuse}
+      SALT: ${LANGFUSE_SALT:?Set LANGFUSE_SALT in .env (use vault for client deploys)}
+      ENCRYPTION_KEY: ${LANGFUSE_ENCRYPTION_KEY:?Set LANGFUSE_ENCRYPTION_KEY in .env (use vault for client deploys)}
+      TELEMETRY_ENABLED: ${LANGFUSE_TELEMETRY_ENABLED:-false}
+      LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES: ${LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES:-false}
+      CLICKHOUSE_MIGRATION_URL: clickhouse://${LANGFUSE_CLICKHOUSE_USER:-clickhouse}:${LANGFUSE_CLICKHOUSE_PASSWORD}@langfuse-clickhouse:9000
+      CLICKHOUSE_URL: http://langfuse-clickhouse:8123
+      CLICKHOUSE_USER: ${LANGFUSE_CLICKHOUSE_USER:-clickhouse}
+      CLICKHOUSE_PASSWORD: ${LANGFUSE_CLICKHOUSE_PASSWORD}
+      CLICKHOUSE_CLUSTER_ENABLED: ${LANGFUSE_CLICKHOUSE_CLUSTER_ENABLED:-false}
+      LANGFUSE_S3_EVENT_UPLOAD_BUCKET: ${LANGFUSE_S3_EVENT_UPLOAD_BUCKET:-langfuse}
+      LANGFUSE_S3_EVENT_UPLOAD_REGION: ${LANGFUSE_S3_EVENT_UPLOAD_REGION:-auto}
+      LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: ${LANGFUSE_MINIO_ROOT_USER}
+      LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: ${LANGFUSE_MINIO_ROOT_PASSWORD}
+      LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: http://langfuse-minio:9000
+      LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
+      LANGFUSE_S3_EVENT_UPLOAD_PREFIX: events/
+      LANGFUSE_S3_MEDIA_UPLOAD_BUCKET: ${LANGFUSE_S3_MEDIA_UPLOAD_BUCKET:-langfuse}
+      LANGFUSE_S3_MEDIA_UPLOAD_REGION: ${LANGFUSE_S3_MEDIA_UPLOAD_REGION:-auto}
+      LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID: ${LANGFUSE_MINIO_ROOT_USER}
+      LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY: ${LANGFUSE_MINIO_ROOT_PASSWORD}
+      LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: http://langfuse-minio:9000
+      LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE: "true"
+      LANGFUSE_S3_MEDIA_UPLOAD_PREFIX: media/
+      LANGFUSE_S3_BATCH_EXPORT_ENABLED: ${LANGFUSE_S3_BATCH_EXPORT_ENABLED:-false}
+      LANGFUSE_S3_BATCH_EXPORT_BUCKET: ${LANGFUSE_S3_BATCH_EXPORT_BUCKET:-langfuse}
+      LANGFUSE_S3_BATCH_EXPORT_PREFIX: exports/
+      LANGFUSE_S3_BATCH_EXPORT_REGION: ${LANGFUSE_S3_BATCH_EXPORT_REGION:-auto}
+      LANGFUSE_S3_BATCH_EXPORT_ENDPOINT: http://langfuse-minio:9000
+      LANGFUSE_S3_BATCH_EXPORT_EXTERNAL_ENDPOINT: http://langfuse-minio:9000
+      LANGFUSE_S3_BATCH_EXPORT_ACCESS_KEY_ID: ${LANGFUSE_MINIO_ROOT_USER}
+      LANGFUSE_S3_BATCH_EXPORT_SECRET_ACCESS_KEY: ${LANGFUSE_MINIO_ROOT_PASSWORD}
+      LANGFUSE_S3_BATCH_EXPORT_FORCE_PATH_STYLE: "true"
+      REDIS_HOST: langfuse-redis
+      REDIS_PORT: "6379"
+      REDIS_AUTH: ${LANGFUSE_REDIS_AUTH}
+      LANGFUSE_BULLMQ_SKIP_REDIS_VERSION_CHECK: "false"
+    logging: *default-logging
+    profiles: ["langfuse"]
+
+  # Langfuse Web (UI + Ingestion API)
+  # Public-facing web UI and trace ingestion API. Receives traces from the
+  # AI Dashboard Pipeline (Proxy 1 forwards trace data here). Exposed via
+  # Traefik with the standard security middleware chain (GeoBlock → CrowdSec → Authelia).
+  langfuse-web:
+    image: langfuse/langfuse:3
+    container_name: ${LANGFUSE_WEB_CONTAINER_NAME:-langfuse-web}
+    restart: unless-stopped
+    networks:
+      langfuse:
+        ipv4_address: ${LANGFUSE_WEB_CONTAINER_IP:-172.37.0.10}
+      ai-dashboard:
+        ipv4_address: ${LANGFUSE_WEB_AIDASHBOARD_IP:-172.35.0.40}
+      traefik-network:
+        ipv4_address: ${LANGFUSE_WEB_TRAEFIK_IP:-172.31.0.40}
+    depends_on:
+      langfuse-postgres:
+        condition: service_healthy
+      langfuse-minio:
+        condition: service_healthy
+      langfuse-redis:
+        condition: service_healthy
+      langfuse-clickhouse:
+        condition: service_healthy
+    environment:
+      <<: *langfuse-env
+      HOSTNAME: 0.0.0.0
+      NEXTAUTH_SECRET: ${LANGFUSE_NEXTAUTH_SECRET:?Set LANGFUSE_NEXTAUTH_SECRET in .env (use vault for client deploys)}
+      LANGFUSE_INIT_ORG_ID: ${LANGFUSE_INIT_ORG_ID:-}
+      LANGFUSE_INIT_ORG_NAME: ${LANGFUSE_INIT_ORG_NAME:-}
+      LANGFUSE_INIT_PROJECT_ID: ${LANGFUSE_INIT_PROJECT_ID:-}
+      LANGFUSE_INIT_PROJECT_NAME: ${LANGFUSE_INIT_PROJECT_NAME:-}
+      LANGFUSE_INIT_PROJECT_PUBLIC_KEY: ${LANGFUSE_INIT_PROJECT_PUBLIC_KEY:-}
+      LANGFUSE_INIT_PROJECT_SECRET_KEY: ${LANGFUSE_INIT_PROJECT_SECRET_KEY:-}
+      LANGFUSE_INIT_USER_EMAIL: ${LANGFUSE_INIT_USER_EMAIL:-}
+      LANGFUSE_INIT_USER_NAME: ${LANGFUSE_INIT_USER_NAME:-}
+      LANGFUSE_INIT_USER_PASSWORD: ${LANGFUSE_INIT_USER_PASSWORD:-}
+    ports:
+      - "${LANGFUSE_WEB_HOST_PORT:-3001}:${LANGFUSE_WEB_CONTAINER_PORT:-3000}/tcp"
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://0.0.0.0:3000/api/public/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    labels:
+      # Traefik labels for automatic routing with security middleware chain.
+      # The domain is client-specific — override the Host rule in client overlays.
+      - "traefik.enable=true"
+      # HTTP router (redirects to HTTPS)
+      - "traefik.http.routers.langfuse-http.rule=Host(`${LANGFUSE_TRAEFIK_HOST:-langfuse.levonk.com}`)"
+      - "traefik.http.routers.langfuse-http.entryPoints=web"
+      - "traefik.http.routers.langfuse-http.middlewares=redirect-to-https"
+      # HTTPS router with security middleware chain
+      - "traefik.http.routers.langfuse-https.rule=Host(`${LANGFUSE_TRAEFIK_HOST:-langfuse.levonk.com}`)"
+      - "traefik.http.routers.langfuse-https.entryPoints=websecure"
+      - "traefik.http.routers.langfuse-https.middlewares=geoblock,crowdsec-bouncer,authelia"
+      - "traefik.http.routers.langfuse-https.tls=true"
+      - "traefik.http.routers.langfuse-https.tls.certresolver=letsencrypt"
+      # Service configuration
+      - "traefik.http.services.langfuse.loadbalancer.server.port=${LANGFUSE_WEB_CONTAINER_PORT:-3000}"
+      # HTTPS redirect middleware (shared with other services)
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true"
+    profiles: ["langfuse"]

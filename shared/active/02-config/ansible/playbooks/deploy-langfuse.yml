@@ -1,0 +1,326 @@
+---
+# Langfuse Deployment Playbook
+# Deploys Langfuse (LLM observability & tracing platform) as a parallel analytics
+# sink for the AI dashboard pipeline. Receives traces from AI Dashboard Proxy 1
+# (entry collector) via the Langfuse ingestion API. Web UI exposed via Traefik.
+#
+# Stack: langfuse-web (UI + API) + langfuse-worker (async ingestion) + postgres
+#        (metadata) + clickhouse (events) + redis (queue) + minio (blob storage)
+# Pipeline integration: AI Dashboard Proxy 1 → (forwards traces) → langfuse-web
+#
+# Usage:
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-langfuse.yml \
+#     --vault-password-file ~/.ansible/vault_password
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-langfuse.yml \
+#     --check --diff --vault-password-file ~/.ansible/vault_password
+
+- name: "Configure Cloudflare DNS for Langfuse"
+  hosts: localhost
+  gather_facts: false
+  become: false
+  vars_files:
+    - "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/inventories/group_vars/infrahub-levonk-all.vault.yml"
+  vars:
+    cloudflare_api_token: "{{ vault_cloudflare_api_token | default('') }}"
+    cloudflare_zone_id: "{{ vault_cloudflare_zone_id | default('') }}"
+    cloudflare_dns_state: "present"
+    cloudflare_dns_ttl: 300
+    cloudflare_dns_proxied: false
+    cloudflare_dns_verify: true
+    cloudflare_dns_verify_propagation: false
+    cloudflare_dns_validate_ip: true
+    cloudflare_dns_allow_private_ip: false
+    cloudflare_dns_records:
+      - name: "{{ infra_domain_ai_langfuse | default('langfuse.levonk.com') }}"
+        type: "A"
+        content: "100.90.22.85"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+  roles:
+    - cloudflare-dns
+  tags: ["dns"]
+
+- name: "Deploy Langfuse LLM Observability Platform"
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+  vars:
+    cloud_server_admin_user: "{{ ansible_user }}"
+  # Vault auto-loads via infrahub-levonk-all.vault parent group in the inventory
+
+  pre_tasks:
+    - name: "Load shared infrastructure defaults (ports, networks, domains, storage)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+      tags: ["always"]
+
+    - name: "Load client infrastructure overrides (levonk)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+      tags: ["always"]
+
+    - name: "Display deployment start information"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Langfuse Deployment Started
+          ========================================
+          Target: {{ inventory_hostname }}
+          User: {{ ansible_user_id }}
+          OS: {{ ansible_distribution }} {{ ansible_distribution_version }}
+          Architecture: {{ ansible_facts['architecture'] }}
+          Timestamp: {{ ansible_date_time.iso8601 }}
+          ========================================
+      tags: ["always", "info"]
+
+    - name: "Validate required variables are defined"
+      ansible.builtin.assert:
+        that:
+          - localnet_services_dir is defined
+          - shared_container_services_dir is defined
+          - vault_langfuse_postgres_password is defined
+          - vault_langfuse_salt is defined
+          - vault_langfuse_encryption_key is defined
+          - vault_langfuse_nextauth_secret is defined
+          - vault_langfuse_redis_auth is defined
+          - vault_langfuse_clickhouse_password is defined
+          - vault_langfuse_minio_root_user is defined
+          - vault_langfuse_minio_root_password is defined
+        fail_msg: >-
+          Missing required variables. Check
+          levonk/active/02-config/ansible/inventories/group_vars/cloud_servers.yml,
+          group_vars/all.yml, and the client vault
+          (infrahub-levonk-all.vault.yml) for vault_langfuse_* secrets.
+          Generate secrets with: openssl rand -hex 32 (for salt/encryption/nextauth)
+          and openssl rand -base64 24 (for postgres/redis/clickhouse/minio passwords).
+        success_msg: "All required variables are defined."
+      tags: ["always", "validate"]
+
+    - name: "Warn if vault secrets are empty (deployment will fail at runtime)"
+      ansible.builtin.assert:
+        that:
+          - vault_langfuse_postgres_password | length > 0
+          - vault_langfuse_salt | length > 0
+          - vault_langfuse_encryption_key | length > 0
+          - vault_langfuse_nextauth_secret | length > 0
+          - vault_langfuse_redis_auth | length > 0
+          - vault_langfuse_clickhouse_password | length > 0
+          - vault_langfuse_minio_root_user | length > 0
+          - vault_langfuse_minio_root_password | length > 0
+        fail_msg: >-
+          One or more vault_langfuse_* secrets are empty. Populate them in
+          levonk/active/02-config/ansible/inventories/group_vars/infrahub-levonk-all.vault.yml
+          before deploying. See .env.langfuse.j2 for the full list.
+        success_msg: "All vault_langfuse_* secrets are populated."
+      tags: ["always", "validate"]
+
+    - name: "Create langfuse services directory"
+      ansible.builtin.file:
+        path: "{{ localnet_services_dir }}/langfuse"
+        state: directory
+        owner: "{{ cloud_server_admin_user }}"
+        group: "{{ cloud_server_admin_user }}"
+        mode: '0755'
+      tags: ["always", "setup"]
+
+  tasks:
+    # ── Copy Langfuse compose file ──────────────────────────
+    - name: "Copy Langfuse docker-compose file"
+      ansible.builtin.copy:
+        src: "{{ shared_container_services_dir }}/ai-dashboard/langfuse/docker-compose.langfuse.yml"
+        dest: "{{ localnet_services_dir }}/langfuse/docker-compose.langfuse.yml"
+        owner: "{{ cloud_server_admin_user }}"
+        group: "{{ cloud_server_admin_user }}"
+        mode: '0644'
+      tags: ["config", "docker-compose"]
+
+    # ── Generate env file from Jinja2 template (vault secrets + infra vars) ──
+    - name: "Generate Langfuse environment file from template"
+      ansible.builtin.template:
+        src: "{{ shared_container_services_dir }}/ai-dashboard/langfuse/.env.langfuse.j2"
+        dest: "{{ localnet_services_dir }}/langfuse/.env.langfuse"
+        owner: "{{ cloud_server_admin_user }}"
+        group: "{{ cloud_server_admin_user }}"
+        mode: '0600'
+      tags: ["config", "environment"]
+      no_log: true
+
+    # ── Network setup ───────────────────────────────────────
+    # langfuse-network is created by docker compose itself (defined as non-external
+    # in the compose file). We only ensure the external networks exist here.
+    - name: "Network setup - Remove any manually-created langfuse-network (compose will recreate with correct labels)"
+      ansible.builtin.shell:
+        cmd: "docker network rm langfuse-network 2>/dev/null || true"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      ignore_errors: true
+      tags: ["network", "setup"]
+
+    - name: "Network setup - Ensure ai-dashboard-network exists"
+      ansible.builtin.shell:
+        cmd: "docker network inspect ai-dashboard-network >/dev/null 2>&1 || docker network create ai-dashboard-network --driver bridge --subnet 172.35.0.0/16"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      ignore_errors: true
+      tags: ["network", "setup"]
+
+    - name: "Network setup - Ensure traefik-network exists"
+      ansible.builtin.shell:
+        cmd: "docker network inspect traefik-network >/dev/null 2>&1 || echo 'traefik-network not found - deploy traefik first'"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      ignore_errors: true
+      tags: ["network", "setup"]
+
+    # ── Deploy: stop existing, start new ────────────────────
+    - name: "Stop existing Langfuse containers if present"
+      ansible.builtin.shell:
+        cmd: "docker compose -f docker-compose.langfuse.yml --env-file .env.langfuse --profile langfuse down"
+        chdir: "{{ localnet_services_dir }}/langfuse"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      ignore_errors: true
+      tags: ["cleanup", "docker"]
+
+    - name: "Deploy Langfuse containers"
+      ansible.builtin.shell:
+        cmd: "docker compose -f docker-compose.langfuse.yml --env-file .env.langfuse --profile langfuse up -d"
+        chdir: "{{ localnet_services_dir }}/langfuse"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      tags: ["deploy", "docker"]
+
+    # ── Verification ────────────────────────────────────────
+    - name: "Wait for Langfuse Postgres to be ready"
+      ansible.builtin.shell:
+        cmd: "docker exec {{ infra_hostname_langfuse_postgres | default('langfuse-postgres') }} pg_isready -U {{ langfuse_postgres_user | default('langfuse') }} -d {{ langfuse_postgres_db | default('langfuse') }}"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: langfuse_db_ready
+      until: langfuse_db_ready.rc == 0
+      retries: 15
+      delay: 5
+      tags: ["verify", "database"]
+
+    - name: "Wait for Langfuse ClickHouse to be ready"
+      ansible.builtin.shell:
+        cmd: "docker exec {{ infra_hostname_langfuse_clickhouse | default('langfuse-clickhouse') }} wget --no-verbose --tries=1 --spider http://localhost:8123/ping"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: langfuse_clickhouse_ready
+      until: langfuse_clickhouse_ready.rc == 0
+      retries: 15
+      delay: 5
+      tags: ["verify", "clickhouse"]
+
+    - name: "Wait for Langfuse Web to be running"
+      ansible.builtin.shell:
+        cmd: "docker inspect {{ infra_hostname_langfuse_web | default('langfuse-web') }} --format '{% raw %}{{.State.Running}}{% endraw %}'"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: langfuse_web_health
+      until: langfuse_web_health.stdout == "true"
+      retries: 15
+      delay: 5
+      tags: ["verify", "health"]
+
+    - name: "Wait for Langfuse Worker to be running"
+      ansible.builtin.shell:
+        cmd: "docker inspect {{ infra_hostname_langfuse_worker | default('langfuse-worker') }} --format '{% raw %}{{.State.Running}}{% endraw %}'"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: langfuse_worker_health
+      until: langfuse_worker_health.stdout == "true"
+      retries: 15
+      delay: 5
+      tags: ["verify", "health"]
+
+    - name: "Verify Langfuse containers are running"
+      ansible.builtin.shell:
+        cmd: "docker inspect {{ item }} --format '{% raw %}{{.State.Status}}{% endraw %}'"
+      register: langfuse_container_status
+      loop:
+        - "{{ infra_hostname_langfuse_web | default('langfuse-web') }}"
+        - "{{ infra_hostname_langfuse_worker | default('langfuse-worker') }}"
+        - "{{ infra_hostname_langfuse_postgres | default('langfuse-postgres') }}"
+        - "{{ infra_hostname_langfuse_clickhouse | default('langfuse-clickhouse') }}"
+        - "{{ infra_hostname_langfuse_redis | default('langfuse-redis') }}"
+        - "{{ infra_hostname_langfuse_minio | default('langfuse-minio') }}"
+      changed_when: false
+      tags: ["verify", "containers"]
+
+    - name: "Display container status"
+      ansible.builtin.debug:
+        msg: "Container {{ item.item }} is {{ item.stdout }}"
+      loop: "{{ langfuse_container_status.results }}"
+      tags: ["verify", "containers"]
+
+    - name: "Check Langfuse Web logs for errors"
+      ansible.builtin.shell:
+        cmd: "docker logs {{ infra_hostname_langfuse_web | default('langfuse-web') }} --tail=50 2>&1 | grep -i error || echo 'No errors found'"
+      register: langfuse_web_logs
+      changed_when: false
+      failed_when: "'error' in langfuse_web_logs.stdout.lower() and 'No errors found' not in langfuse_web_logs.stdout"
+      tags: ["verify", "logs"]
+
+    - name: "Check Langfuse Worker logs for errors"
+      ansible.builtin.shell:
+        cmd: "docker logs {{ infra_hostname_langfuse_worker | default('langfuse-worker') }} --tail=50 2>&1 | grep -i error || echo 'No errors found'"
+      register: langfuse_worker_logs
+      changed_when: false
+      failed_when: "'error' in langfuse_worker_logs.stdout.lower() and 'No errors found' not in langfuse_worker_logs.stdout"
+      tags: ["verify", "logs"]
+
+  post_tasks:
+    - name: "Display deployment summary"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Langfuse Deployment Complete
+          ========================================
+          Target: {{ inventory_hostname }}
+          Timestamp: {{ ansible_date_time.iso8601 }}
+          ----------------------------------------
+          Deployed Services:
+          - Langfuse Web: http://{{ infra_network_ip_langfuse_web | default('172.37.0.10') }}:3000 (UI + ingestion API)
+          - Langfuse Worker: http://{{ infra_network_ip_langfuse_worker | default('172.37.0.11') }}:3030 (async ingestion)
+          - Langfuse Postgres: postgresql://langfuse@{{ infra_network_ip_langfuse_postgres | default('172.37.0.20') }}:5432/langfuse
+          - Langfuse ClickHouse: http://{{ infra_network_ip_langfuse_clickhouse | default('172.37.0.30') }}:8123
+          - Langfuse Redis: {{ infra_network_ip_langfuse_redis | default('172.37.0.40') }}:6379
+          - Langfuse MinIO: http://{{ infra_network_ip_langfuse_minio | default('172.37.0.50') }}:9000
+          ----------------------------------------
+          Pipeline Integration:
+          AI Dashboard Proxy 1 → (forwards traces) → langfuse-web ingestion API
+          ----------------------------------------
+          Public Access:
+          - Web UI: https://{{ infra_domain_ai_langfuse | default('langfuse.levonk.com') }}
+          ----------------------------------------
+          Next Steps:
+          1. Verify containers: docker ps | grep langfuse
+          2. Open web UI: https://{{ infra_domain_ai_langfuse | default('langfuse.levonk.com') }}
+          3. Create org/project via UI (or set LANGFUSE_INIT_* vault vars for headless init)
+          4. Wire AI Dashboard Proxy 1 to forward traces to http://langfuse-web:3000
+          ========================================
+      tags: ["always", "summary"]
+
+    - name: "Log deployment completion to system"
+      ansible.builtin.shell:
+        cmd: >-
+          echo 'Langfuse deployment completed at
+          {{ ansible_date_time.iso8601 }}' >> /var/log/langfuse-deploy.log
+      changed_when: false
+      failed_when: false
+      tags: ["always", "logging"]
