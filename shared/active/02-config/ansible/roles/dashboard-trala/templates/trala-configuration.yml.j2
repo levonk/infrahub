@@ -1,0 +1,20 @@
+---
+# TraLa Configuration
+# Rendered by Ansible from templates/trala-configuration.yml.j2
+# See https://github.com/dannybouwers/trala for config reference.
+# Basic auth credentials are injected via TRAEFIK_BASIC_AUTH_USERNAME/PASSWORD
+# env vars (from vault). enable_basic_auth must be true in the YAML to activate them.
+
+version: "3.0"
+
+environment:
+  traefik:
+    enable_basic_auth: true
+    # api_host, username, password are overridden by env vars at runtime
+
+services:
+  manual:
+    - name: Homepage
+      url: https://start.levonk.com
+      icon: mdi-home
+      group: Launch Pages

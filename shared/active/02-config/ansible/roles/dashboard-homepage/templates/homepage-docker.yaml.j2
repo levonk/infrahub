@@ -1,0 +1,11 @@
+---
+# Homepage docker.yaml
+# Docker integration for automatic service discovery via labels.
+# See https://gethomepage.dev/configs/docker/#automatic-service-discovery
+#
+# Homepage reads the Docker socket and discovers containers with
+# `homepage.*` labels. Discovered services appear automatically.
+
+my-docker:
+  host: unix://var/run/docker.sock
+  # Use the container-internal socket path; the socket is bind-mounted.

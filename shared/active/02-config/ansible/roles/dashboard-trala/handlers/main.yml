@@ -1,0 +1,9 @@
+---
+# TraLa handlers
+- name: restart trala
+  community.docker.docker_container:
+    name: "{{ dashboard_trala_container_name }}"
+    state: started
+    restart: true
+  become: true
+  when: dashboard_trala_enabled | bool

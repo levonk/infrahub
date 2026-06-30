@@ -1,0 +1,14 @@
+galaxy_info:
+  author: levonk
+  description: TraLa — Traefik-native dashboard that auto-discovers HTTP routers from the Traefik API
+  license: MIT
+  min_ansible_version: "2.14"
+  platforms:
+    - name: EL
+      versions: ["8", "9"]
+  galaxy_tags:
+    - dashboard
+    - traefik
+    - service-discovery
+    - homelab
+dependencies: []

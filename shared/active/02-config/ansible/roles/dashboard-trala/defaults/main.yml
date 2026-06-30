@@ -1,0 +1,53 @@
+---
+# TraLa Default Variables
+# Traefik-native dashboard — auto-discovers HTTP routers from the Traefik API.
+# See ADR-20260629001 for the decision rationale.
+
+# ---------------------------------------------------------------------------
+# Service Configuration
+# ---------------------------------------------------------------------------
+dashboard_trala_enabled: true
+dashboard_trala_data_dir: "/opt/trala"
+dashboard_trala_container_name: "trala"
+dashboard_trala_image: "ghcr.io/dannybouwers/trala"
+dashboard_trala_image_tag: "latest"
+
+# ---------------------------------------------------------------------------
+# Network Configuration
+# ---------------------------------------------------------------------------
+dashboard_trala_network_name: "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"
+dashboard_trala_host_ip: "0.0.0.0"
+dashboard_trala_host_port: "{{ infra_port_dashboard_trala_host | default('8085') }}"
+dashboard_trala_container_port: "{{ infra_port_dashboard_trala_container | default('8080') }}"
+
+# ---------------------------------------------------------------------------
+# Traefik API Configuration
+# TraLa reads HTTP routers from the Traefik API. The traefik container name
+# resolves on the shared traefik-network. The API is protected with basic auth
+# on a dedicated traefik-api entrypoint. See ADR-20260629001.
+# ---------------------------------------------------------------------------
+dashboard_trala_traefik_api_host: "http://traefik:8080"
+dashboard_trala_traefik_api_user: "{{ vault_traefik_api_auth_user | default('trala') }}"
+dashboard_trala_traefik_api_password: "{{ vault_traefik_api_auth_password | default('change-me') }}"
+
+# ---------------------------------------------------------------------------
+# Domain Configuration
+# ---------------------------------------------------------------------------
+dashboard_trala_domain: "{{ infra_domain_dashboard_trala | default('start2.levonk.com') }}"
+
+# ---------------------------------------------------------------------------
+# Volume Configuration
+# ---------------------------------------------------------------------------
+dashboard_trala_config_volume: "localnet-trala-config-volume"
+
+# ---------------------------------------------------------------------------
+# Health Check Configuration
+# ---------------------------------------------------------------------------
+dashboard_trala_verify_health: false
+dashboard_trala_health_endpoint: "/"
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+dashboard_trala_log_max_size: "10m"
+dashboard_trala_log_max_file: "5"

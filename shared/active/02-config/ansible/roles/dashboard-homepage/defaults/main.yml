@@ -1,0 +1,62 @@
+---
+# Homepage (gethomepage/homepage) Default Variables
+# Rich startpage with Docker label discovery + 100+ service widgets + OIDC login.
+# See ADR-20260629001 for the decision rationale.
+
+# ---------------------------------------------------------------------------
+# Service Configuration
+# ---------------------------------------------------------------------------
+dashboard_homepage_enabled: true
+dashboard_homepage_data_dir: "/opt/homepage"
+dashboard_homepage_container_name: "homepage"
+dashboard_homepage_image: "ghcr.io/gethomepage/homepage"
+dashboard_homepage_image_tag: "latest"
+
+# ---------------------------------------------------------------------------
+# Network Configuration
+# ---------------------------------------------------------------------------
+dashboard_homepage_network_name: "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"
+dashboard_homepage_host_ip: "0.0.0.0"
+dashboard_homepage_host_port: "{{ infra_port_dashboard_homepage_host | default('8084') }}"
+dashboard_homepage_container_port: "{{ infra_port_dashboard_homepage_container | default('3000') }}"
+
+# ---------------------------------------------------------------------------
+# User/Group Configuration
+# ---------------------------------------------------------------------------
+dashboard_homepage_puid: "{{ localnet_puid | default(cuser_uid | default(1000)) | string }}"
+dashboard_homepage_pgid: "{{ localnet_pgid | default(cuser_gid | default(1000)) | string }}"
+dashboard_homepage_tz: "{{ localnet_tz | default(timezone | default('UTC')) }}"
+
+# ---------------------------------------------------------------------------
+# Domain Configuration
+# ---------------------------------------------------------------------------
+dashboard_homepage_domain: "{{ infra_domain_dashboard_homepage | default('start.levonk.com') }}"
+
+# ---------------------------------------------------------------------------
+# Allowed Hosts (Homepage security — must match the domain Traefik serves)
+# ---------------------------------------------------------------------------
+dashboard_homepage_allowed_hosts: "{{ dashboard_homepage_domain }}"
+
+# ---------------------------------------------------------------------------
+# Volume Configuration
+# ---------------------------------------------------------------------------
+dashboard_homepage_config_volume: "localnet-homepage-config-volume"
+dashboard_homepage_images_volume: "localnet-homepage-images-volume"
+dashboard_homepage_icons_volume: "localnet-homepage-icons-volume"
+
+# ---------------------------------------------------------------------------
+# Docker Socket (for Docker label service discovery)
+# ---------------------------------------------------------------------------
+dashboard_homepage_docker_socket: "/var/run/docker.sock"
+
+# ---------------------------------------------------------------------------
+# Health Check Configuration
+# ---------------------------------------------------------------------------
+dashboard_homepage_verify_health: false
+dashboard_homepage_health_endpoint: "/"
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+dashboard_homepage_log_max_size: "10m"
+dashboard_homepage_log_max_file: "5"

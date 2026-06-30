@@ -1,0 +1,187 @@
+---
+# Start / Launch Page Dashboards Deployment Playbook
+# Deploys Homepage (start.levonk.com) and TraLa (start2.levonk.com) on the OCI
+# cloud server. Both sit behind Traefik with the Authelia/CrowdSec/GeoBlock
+# middleware chain. See ADR-20260629001 for the decision rationale.
+#
+# Stack:
+#   - Homepage: rich startpage with Docker label discovery + 100+ service widgets
+#   - TraLa: Traefik-native dashboard that auto-discovers HTTP routers
+#
+# Usage:
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-start-pages.yml \
+#     --vault-password-file ~/.ansible/vault_password
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-start-pages.yml \
+#     --check --diff --vault-password-file ~/.ansible/vault_password
+
+- name: "Configure Cloudflare DNS for Start Pages"
+  hosts: localhost
+  gather_facts: false
+  become: false
+  vars_files:
+    - "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/inventories/group_vars/infrahub-levonk-all.vault.yml"
+  vars:
+    cloudflare_api_token: "{{ vault_cloudflare_api_token | default('') }}"
+    cloudflare_zone_id: "{{ vault_cloudflare_zone_id | default('') }}"
+    cloudflare_dns_state: "present"
+    cloudflare_dns_ttl: 300
+    cloudflare_dns_proxied: false
+    cloudflare_dns_verify: true
+    cloudflare_dns_verify_propagation: false
+    cloudflare_dns_validate_ip: true
+    cloudflare_dns_allow_private_ip: false
+    cloudflare_dns_records:
+      - name: "{{ infra_domain_dashboard_homepage | default('start.levonk.com') }}"
+        type: "A"
+        content: "100.90.22.85"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+      - name: "{{ infra_domain_dashboard_trala | default('start2.levonk.com') }}"
+        type: "A"
+        content: "100.90.22.85"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+  roles:
+    - cloudflare-dns
+  tags: ["dns"]
+
+- name: "Deploy Start / Launch Page Dashboards"
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+  vars:
+    cloud_server_admin_user: "{{ ansible_user }}"
+  # Vault auto-loads via infrahub-levonk-all.vault parent group in the inventory
+
+  pre_tasks:
+    - name: "Load shared infrastructure defaults (ports, networks, domains, storage)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+      tags: ["always"]
+
+    - name: "Load client infrastructure overrides (levonk)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+      tags: ["always"]
+
+    - name: "Display deployment start information"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Start / Launch Page Dashboards Deployment
+          ========================================
+          Target: {{ inventory_hostname }}
+          User: {{ ansible_user_id }}
+          OS: {{ ansible_distribution }} {{ ansible_distribution_version }}
+          Architecture: {{ ansible_facts['architecture'] }}
+          Timestamp: {{ ansible_date_time.iso8601 }}
+          Homepage: https://{{ infra_domain_dashboard_homepage | default('start.levonk.com') }}
+          TraLa:   https://{{ infra_domain_dashboard_trala | default('start2.levonk.com') }}
+          ========================================
+      tags: ["always", "info"]
+
+    - name: "Validate required variables are defined"
+      ansible.builtin.assert:
+        that:
+          - cloud_server_admin_user is defined
+          - cloud_server_admin_user | length > 0
+          - infra_port_dashboard_homepage_host is defined
+          - infra_port_dashboard_trala_host is defined
+          - infra_domain_dashboard_homepage is defined
+          - infra_domain_dashboard_trala is defined
+        fail_msg: >-
+          Missing required variables. Check infrastructure files
+          (shared/active/02-config/ansible/infrastructure/{ports,domains}.yml
+          and levonk/active/02-config/ansible/infrastructure/{ports,domains}.yml).
+        success_msg: "All required variables are defined."
+      tags: ["always", "validate"]
+
+    - name: "Verify Docker daemon is responsive"
+      ansible.builtin.command:
+        cmd: "docker info --format '{{ '{{' }} .ServerVersion {{ '}}' }}'"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: docker_daemon_check
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "docker"]
+
+    - name: "Fail if Docker daemon is not responsive"
+      ansible.builtin.fail:
+        msg: |
+          Bootstrap prerequisite failed: Docker daemon is not running or
+          not accessible. Ensure Docker service is started.
+      when: docker_daemon_check.rc != 0
+      tags: ["verify", "docker"]
+
+  roles:
+    - role: dashboard-homepage
+      tags: ["dashboard", "homepage"]
+
+    - role: dashboard-trala
+      tags: ["dashboard", "trala"]
+
+  post_tasks:
+    - name: "Verify Homepage container is running"
+      ansible.builtin.command:
+        cmd: "docker inspect --format='{{ '{{' }} .State.Status {{ '}}' }}' {{ dashboard_homepage_container_name }}"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: homepage_container_check
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "dashboard", "homepage"]
+
+    - name: "Warn if Homepage container is not running"
+      ansible.builtin.debug:
+        msg: "WARNING: Homepage container ({{ dashboard_homepage_container_name }}) is not running."
+      when: homepage_container_check.rc != 0 or homepage_container_check.stdout != "running"
+      tags: ["verify", "dashboard", "homepage"]
+
+    - name: "Verify TraLa container is running"
+      ansible.builtin.command:
+        cmd: "docker inspect --format='{{ '{{' }} .State.Status {{ '}}' }}' {{ dashboard_trala_container_name }}"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: trala_container_check
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "dashboard", "trala"]
+
+    - name: "Warn if TraLa container is not running"
+      ansible.builtin.debug:
+        msg: "WARNING: TraLa container ({{ dashboard_trala_container_name }}) is not running."
+      when: trala_container_check.rc != 0 or trala_container_check.stdout != "running"
+      tags: ["verify", "dashboard", "trala"]
+
+    - name: "Deployment summary"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Start / Launch Page Dashboards Deployed
+          ========================================
+          Homepage: https://{{ infra_domain_dashboard_homepage | default('start.levonk.com') }}
+            Direct: http://{{ ansible_host | default('localhost') }}:{{ infra_port_dashboard_homepage_host }}
+            Status: {{ homepage_container_check.stdout | default('unknown') }}
+          TraLa:   https://{{ infra_domain_dashboard_trala | default('start2.levonk.com') }}
+            Direct: http://{{ ansible_host | default('localhost') }}:{{ infra_port_dashboard_trala_host }}
+            Status: {{ trala_container_check.stdout | default('unknown') }}
+          ========================================
+          Both are behind Traefik with Authelia/CrowdSec/GeoBlock middleware.
+          Auth via Authelia SSO (https://auth.levonk.com).
+          ========================================
+      tags: ["verify", "info"]

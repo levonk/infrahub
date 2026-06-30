@@ -1,0 +1,9 @@
+---
+# Homepage handlers
+- name: restart homepage
+  community.docker.docker_container:
+    name: "{{ dashboard_homepage_container_name }}"
+    state: started
+    restart: true
+  become: true
+  when: dashboard_homepage_enabled | bool
