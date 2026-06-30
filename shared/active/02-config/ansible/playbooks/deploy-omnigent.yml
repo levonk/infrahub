@@ -275,12 +275,12 @@
           Omnigent → Pi → AI Dashboard Proxy 1 → Privacy Orchestrator → Headroom → OmniRoute → Forge → AI Dashboard Proxy 2 → Iron-Proxy → NordVPN → Internet
           ----------------------------------------
           Public Access:
-          - Web UI: https://{{ infra_domain_ai_omnigent | default('omnigent.levonk.com') }}
+          - Web UI: https://{{ infra_domain_ai_omnigent | default('aiif.levonk.com') }}
           ----------------------------------------
           Next Steps:
           1. Verify containers: docker ps | grep -E "omnigent|pi"
           2. Create admin account: open web UI or check docker logs omnigent for auto-generated password
-          3. Register a runner: omni login https://{{ infra_domain_ai_omnigent | default('omnigent.levonk.com') }} && omni host https://{{ infra_domain_ai_omnigent | default('omnigent.levonk.com') }}
+          3. Register a runner: omni login https://{{ infra_domain_ai_omnigent | default('aiif.levonk.com') }} && omni host https://{{ infra_domain_ai_omnigent | default('aiif.levonk.com') }}
           4. Verify Pi RPC bridge: curl http://localhost:8090/health
           ========================================
       tags: ["always", "summary"]

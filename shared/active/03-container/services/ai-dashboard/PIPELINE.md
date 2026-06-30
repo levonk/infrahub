@@ -311,7 +311,7 @@ Pi's LLM requests (chat completions, messages) are routed to the pipeline entry 
 - **Server image**: `ghcr.io/omnigent-ai/omnigent-server:latest` (pin `OMNIGENT_IMAGE_TAG` for reproducible deploys)
 - **Server port**: 8000 (container), 8000 (host) — `infra_port_ai_omnigent_host`
 - **Postgres port**: 5432 (container), 5433 (host, avoids clashing with ai-dashboard postgres) — `infra_port_ai_omnigent_postgres_host`
-- **Domain**: `omnigent.levonk.com` — `infra_domain_ai_omnigent`
+- **Domain**: `aiif.levonk.com` (public alias "AI InterFace") — `infra_domain_ai_omnigent`
 - **Auth**: multi-user with built-in accounts by default (`OMNIGENT_AUTH_ENABLED=1`); OIDC supported via `OMNIGENT_OIDC_*` vars
 - **Secrets**: `OMNIGENT_DB_PASSWORD`, `OMNIGENT_ACCOUNTS_COOKIE_SECRET`, `OMNIGENT_ACCOUNTS_INIT_ADMIN_PASSWORD` sourced from the client Ansible vault
 
@@ -330,7 +330,7 @@ The Omnigent + Pi stack is deployed as Docker containers with security hardening
 - **Pi**: Node.js 22 slim container with `@earendil-works/pi-coding-agent` installed, running `rpc-bridge.py` (HTTP-to-stdin bridge for pi RPC mode)
 - **Networks**: `omnigent-network` (172.36.0.0/16) for Omnigent↔Pi↔Postgres; `ai-dashboard-network` (172.35.0.0/16) for Pi→AI Dashboard Proxy 1; `traefik-network` (external) for public routing
 - **Volumes**: `omnigent-postgres-data`, `omnigent-artifact-data`, `pi-data`, `pi-sessions`
-- **Traefik**: Public access via `omnigent.levonk.com` with GeoBlock → CrowdSec Bouncer → Authelia security middleware chain
+- **Traefik**: Public access via `aiif.levonk.com` with GeoBlock → CrowdSec Bouncer → Authelia security middleware chain
 - **Profile**: `omnigent` (both Omnigent and Pi start under this profile)
 
 ### Deployment
@@ -361,8 +361,8 @@ devbox run -- rtk ansible-playbook -i levonk/active/02-config/ansible/inventorie
   --check --diff --vault-password-file ~/.ansible/vault_password
 
 # Register a runner (host) so the server can dispatch agent work
-omni login https://omnigent.levonk.com
-omni host https://omnigent.levonk.com
+omni login https://aiif.levonk.com
+omni host https://aiif.levonk.com
 ```
 
 ### Verification
@@ -371,7 +371,7 @@ omni host https://omnigent.levonk.com
 docker ps | grep -E "omnigent|pi"
 
 # Omnigent server health
-curl https://omnigent.levonk.com/api/health
+curl https://aiif.levonk.com/api/health
 # or locally:
 curl http://localhost:8000/api/health
 

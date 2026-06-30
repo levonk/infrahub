@@ -137,11 +137,11 @@ services:
       # in client overlays (e.g. levonk/active/03-container/services/omnigent/).
       - "traefik.enable=true"
       # HTTP router (redirects to HTTPS)
-      - "traefik.http.routers.omnigent-http.rule=Host(`${OMNIGENT_TRAEFIK_HOST:-omnigent.levonk.com}`)"
+      - "traefik.http.routers.omnigent-http.rule=Host(`${OMNIGENT_TRAEFIK_HOST:-aiif.levonk.com}`)"
       - "traefik.http.routers.omnigent-http.entryPoints=web"
       - "traefik.http.routers.omnigent-http.middlewares=redirect-to-https"
       # HTTPS router with security middleware chain
-      - "traefik.http.routers.omnigent-https.rule=Host(`${OMNIGENT_TRAEFIK_HOST:-omnigent.levonk.com}`)"
+      - "traefik.http.routers.omnigent-https.rule=Host(`${OMNIGENT_TRAEFIK_HOST:-aiif.levonk.com}`)"
       - "traefik.http.routers.omnigent-https.entryPoints=websecure"
       - "traefik.http.routers.omnigent-https.middlewares=geoblock,crowdsec-bouncer,authelia"
       - "traefik.http.routers.omnigent-https.tls=true"

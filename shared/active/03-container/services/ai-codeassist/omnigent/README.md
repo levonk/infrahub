@@ -107,10 +107,10 @@ The server is useless without a runner. On a machine with Claude Code / Codex / 
 ```bash
 # If auth is enabled, log in first (open the web UI to create the admin account,
 # or use the password printed to `docker compose logs omnigent` on first boot)
-omni login https://omnigent.levonk.com
+omni login https://aiif.levonk.com
 
 # Register this machine as a host so the server can dispatch agent work to it
-omni host https://omnigent.levonk.com
+omni host https://aiif.levonk.com
 ```
 
 For cloud sandbox hosts (no laptop dependency), see the [Cloud Sandbox Host docs](https://omnigent.ai/docs/deploy/sandbox). Modal and Daytona are supported.
@@ -131,7 +131,7 @@ curl http://localhost:8000/api/health
 ### Access the Web UI
 
 - **Local**: http://localhost:8000
-- **Public (levonk)**: https://omnigent.levonk.com (via Traefik with Authelia + CrowdSec + GeoBlock)
+- **Public (levonk)**: https://aiif.levonk.com (via Traefik with Authelia + CrowdSec + GeoBlock)
 
 ## Client Deployment (levonk)
 
