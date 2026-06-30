@@ -1,0 +1,32 @@
+{
+  "providers": {
+    "pipeline": {
+      "api": "openai-completions",
+      "baseUrl": "${PI_API_BASE_URL}",
+      "apiKeyEnv": "PI_API_KEY",
+      "models": [
+        {
+          "id": "claude-sonnet-4-20250514",
+          "name": "Claude Sonnet 4 (via pipeline)",
+          "contextWindow": 200000,
+          "toolCall": true,
+          "thinking": false
+        },
+        {
+          "id": "gpt-4o",
+          "name": "GPT-4o (via pipeline)",
+          "contextWindow": 128000,
+          "toolCall": true,
+          "thinking": false
+        },
+        {
+          "id": "gemini-2.5-pro",
+          "name": "Gemini 2.5 Pro (via pipeline)",
+          "contextWindow": 1000000,
+          "toolCall": true,
+          "thinking": false
+        }
+      ]
+    }
+  }
+}

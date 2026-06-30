@@ -1,0 +1,173 @@
+---
+# Omnigent Docker Compose Configuration
+# AI agent framework & meta-harness: orchestrate Claude Code, Codex, Cursor, Pi,
+# and custom agents from a central server + runner + UI.
+# Reference: https://github.com/omnigent-ai/omnigent
+# Deploy docs: https://omnigent.ai/docs/deploy/overview
+#
+# Three components (per upstream docs):
+#   - server  : FastAPI/WebSocket coordinator (this stack) — session history,
+#               artifacts, catalog, MCP proxy & policies, skills, auth & accounts
+#   - runner  : per-session process executing Omnigent loops (host-registered,
+#               NOT in this stack — see README "Runner" section)
+#   - UI      : web/terminal/mobile UIs talk to the server, never the runner
+#
+# This stack deploys the server + Postgres. The runner registers itself against
+# the server via `omni host <server-url>` on a machine you control (laptop or
+# cloud sandbox host — Modal/Daytona). See README.md for the host registration
+# flow.
+
+# Default logging configuration - use json-file with rotation
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "5"
+    tag: "{{.Name}}"
+    labels: "service"
+
+networks:
+  omnigent:
+    name: omnigent-network
+    driver: bridge
+    external: false
+  traefik-network:
+    external: true
+    name: traefik-network
+
+volumes:
+  omnigent-postgres-data:
+    name: localnet-omnigent-postgres-data-volume
+    external: false
+  omnigent-artifact-data:
+    name: localnet-omnigent-artifact-data-volume
+    external: false
+
+services:
+  # Omnigent PostgreSQL Database
+  # Shared database for session history, artifacts, catalog, and accounts
+  omnigent-postgres:
+    image: postgres:16-alpine
+    container_name: ${OMNIGENT_DB_CONTAINER_NAME:-omnigent-postgres}
+    restart: unless-stopped
+    networks:
+      omnigent:
+        ipv4_address: ${OMNIGENT_DB_CONTAINER_IP:-172.36.0.20}
+    environment:
+      POSTGRES_DB: ${OMNIGENT_DB_NAME:-omnigent}
+      POSTGRES_USER: ${OMNIGENT_DB_USER:-omnigent}
+      POSTGRES_PASSWORD: ${OMNIGENT_DB_PASSWORD:?Set OMNIGENT_DB_PASSWORD in .env (use vault for client deploys)}
+    volumes:
+      - omnigent-postgres-data:/var/lib/postgresql/data
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${OMNIGENT_DB_USER:-omnigent} -d ${OMNIGENT_DB_NAME:-omnigent}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Omnigent Server
+  # Central coordinator: session history, artifacts, catalog, MCP proxy & policies,
+  # skills, auth & accounts. Pulls pre-built image from GHCR by default; falls back
+  # to local build from the omnigent repo when --build is passed.
+  omnigent:
+    image: ${OMNIGENT_IMAGE:-ghcr.io/omnigent-ai/omnigent-server}:${OMNIGENT_IMAGE_TAG:-latest}
+    container_name: ${OMNIGENT_CONTAINER_NAME:-omnigent}
+    restart: unless-stopped
+    networks:
+      omnigent:
+        ipv4_address: ${OMNIGENT_CONTAINER_IP:-172.36.0.10}
+      traefik-network:
+        ipv4_address: ${OMNIGENT_TRAEFIK_IP:-172.31.0.30}
+    depends_on:
+      omnigent-postgres:
+        condition: service_healthy
+    environment:
+      # ── Database ─────────────────────────────────────
+      DATABASE_URL: postgresql+psycopg://${OMNIGENT_DB_USER:-omnigent}:${OMNIGENT_DB_PASSWORD}@omnigent-postgres:5432/${OMNIGENT_DB_NAME:-omnigent}
+      ARTIFACT_DIR: /data/artifacts
+      HOST: 0.0.0.0
+      PORT: "${OMNIGENT_CONTAINER_PORT:-8000}"
+      OMNIGENT_ADMIN_CREDENTIALS_PATH: /data/admin-credentials
+
+      # ── Auth ─────────────────────────────────────────
+      # Master switch. "1" (default) = multi-user auth; with OIDC_* unset selects
+      # built-in accounts flow, with OIDC_* set selects native OIDC. "0" = single-user
+      # local mode (NEVER for shared deploys).
+      OMNIGENT_AUTH_ENABLED: "${OMNIGENT_AUTH_ENABLED:-1}"
+      # Escape hatch: force accounts/oidc/header explicitly. Leave unset for auto.
+      OMNIGENT_AUTH_PROVIDER: "${OMNIGENT_AUTH_PROVIDER:-}"
+
+      # OIDC config (active when AUTH_ENABLED=1 + OMNIGENT_OIDC_ISSUER set, or AUTH_PROVIDER=oidc)
+      OMNIGENT_OIDC_ISSUER: "${OMNIGENT_OIDC_ISSUER:-}"
+      OMNIGENT_OIDC_CLIENT_ID: "${OMNIGENT_OIDC_CLIENT_ID:-}"
+      OMNIGENT_OIDC_CLIENT_SECRET: "${OMNIGENT_OIDC_CLIENT_SECRET:-}"
+      OMNIGENT_OIDC_COOKIE_SECRET: "${OMNIGENT_OIDC_COOKIE_SECRET:-}"
+      OMNIGENT_OIDC_SCOPES: "${OMNIGENT_OIDC_SCOPES:-}"
+      OMNIGENT_OIDC_SESSION_TTL_HOURS: "${OMNIGENT_OIDC_SESSION_TTL_HOURS:-8}"
+      OMNIGENT_OIDC_ALLOWED_DOMAINS: "${OMNIGENT_OIDC_ALLOWED_DOMAINS:-}"
+      OMNIGENT_OIDC_LOGOUT_REDIRECT_URI: "${OMNIGENT_OIDC_LOGOUT_REDIRECT_URI:-}"
+      OMNIGENT_OIDC_ALLOW_INVITES: "${OMNIGENT_OIDC_ALLOW_INVITES:-}"
+      # Public domain — single source for OIDC redirect URI (server derives
+      # https://<domain>/auth/callback). Also consumed by Caddy/HTTPS overlay.
+      OMNIGENT_DOMAIN: "${OMNIGENT_DOMAIN:-}"
+
+      # Accounts config (active when AUTH_ENABLED=1 + no OIDC issuer, the default)
+      OMNIGENT_ACCOUNTS_COOKIE_SECRET: "${OMNIGENT_ACCOUNTS_COOKIE_SECRET:-}"
+      OMNIGENT_ACCOUNTS_BASE_URL: "${OMNIGENT_ACCOUNTS_BASE_URL:-}"
+      OMNIGENT_ACCOUNTS_INIT_ADMIN_PASSWORD: "${OMNIGENT_ACCOUNTS_INIT_ADMIN_PASSWORD:-}"
+      OMNIGENT_ACCOUNTS_SESSION_TTL_HOURS: "${OMNIGENT_ACCOUNTS_SESSION_TTL_HOURS:-8}"
+      OMNIGENT_ACCOUNTS_INVITE_TTL_HOURS: "${OMNIGENT_ACCOUNTS_INVITE_TTL_HOURS:-72}"
+      OMNIGENT_ACCOUNTS_MAGIC_TTL_MINUTES: "${OMNIGENT_ACCOUNTS_MAGIC_TTL_MINUTES:-10}"
+      OMNIGENT_ACCOUNTS_AUTO_OPEN: "${OMNIGENT_ACCOUNTS_AUTO_OPEN:-0}"
+    ports:
+      - "${OMNIGENT_HOST_PORT:-8000}:${OMNIGENT_CONTAINER_PORT:-8000}/tcp"
+    volumes:
+      - omnigent-artifact-data:/data
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    labels:
+      # Traefik labels for automatic routing with security middleware chain.
+      # The domain (OMNIGENT_DOMAIN) is client-specific — override the Host rule
+      # in client overlays (e.g. levonk/active/03-container/services/omnigent/).
+      - "traefik.enable=true"
+      # HTTP router (redirects to HTTPS)
+      - "traefik.http.routers.omnigent-http.rule=Host(`${OMNIGENT_TRAEFIK_HOST:-omnigent.levonk.com}`)"
+      - "traefik.http.routers.omnigent-http.entryPoints=web"
+      - "traefik.http.routers.omnigent-http.middlewares=redirect-to-https"
+      # HTTPS router with security middleware chain
+      - "traefik.http.routers.omnigent-https.rule=Host(`${OMNIGENT_TRAEFIK_HOST:-omnigent.levonk.com}`)"
+      - "traefik.http.routers.omnigent-https.entryPoints=websecure"
+      - "traefik.http.routers.omnigent-https.middlewares=geoblock,crowdsec-bouncer,authelia"
+      - "traefik.http.routers.omnigent-https.tls=true"
+      - "traefik.http.routers.omnigent-https.tls.certresolver=letsencrypt"
+      # Service configuration
+      - "traefik.http.services.omnigent.loadbalancer.server.port=${OMNIGENT_CONTAINER_PORT:-8000}"
+      # HTTPS redirect middleware (shared with other services)
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true"
+    profiles: ["omnigent"]
+
+  # Omnigent Debug Profile
+  # For debugging and shell access to the omnigent container
+  omnigent-debug:
+    image: ${OMNIGENT_IMAGE:-ghcr.io/omnigent-ai/omnigent-server}:${OMNIGENT_IMAGE_TAG:-latest}
+    container_name: omnigent-debug
+    restart: "no"
+    profiles: ["debug"]
+    stdin_open: true
+    tty: true
+    command: ["sleep", "infinity"]
+    networks:
+      omnigent:
+        ipv4_address: ${OMNIGENT_DEBUG_CONTAINER_IP:-172.36.0.99}
+    environment:
+      DATABASE_URL: postgresql+psycopg://${OMNIGENT_DB_USER:-omnigent}:${OMNIGENT_DB_PASSWORD}@omnigent-postgres:5432/${OMNIGENT_DB_NAME:-omnigent}
+    volumes:
+      - omnigent-artifact-data:/data
+    logging: *default-logging

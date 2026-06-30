@@ -1,0 +1,139 @@
+---
+# Pi Docker Compose Configuration
+# Pi is a minimal terminal coding harness — the agent that actually does the
+# coding work (read, write, edit, bash tools). Omnigent's runner drives pi via
+# RPC mode (JSONL over stdin/stdout). Pi's LLM requests flow through the
+# analytics pipeline (to AI Dashboard Proxy 1).
+#
+# Reference: https://github.com/earendil-works/pi
+# RPC docs:  https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/rpc.md
+#
+# Architecture:
+#   Omnigent (server) → runner spawns → Pi (RPC mode) → LLM requests → AI Dashboard Proxy 1 → pipeline
+#
+# Pi runs in four modes: interactive (TUI), print/JSON, RPC (process integration),
+# and SDK (embedding). This container runs pi in RPC mode, exposed via a small
+# HTTP-to-stdin bridge so Omnigent's runner can dispatch work to it over the
+# network (the runner would otherwise spawn pi as a local subprocess; this
+# containerized form allows remote/cloud-sandbox runners to use pi too).
+
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "5"
+    tag: "{{.Name}}"
+    labels: "service"
+
+networks:
+  omnigent:
+    name: omnigent-network
+    external: true
+  ai-dashboard:
+    name: ai-dashboard-network
+    external: true
+  proxy-chain-network:
+    name: proxy-chain-network
+    external: true
+
+volumes:
+  pi-data:
+    name: localnet-pi-data-volume
+    external: false
+  pi-sessions:
+    name: localnet-pi-sessions-volume
+    external: false
+
+services:
+  # Pi Coding Agent (RPC mode)
+  # The harness that executes coding loops. Omnigent's runner drives this via
+  # the RPC HTTP bridge. Pi's LLM requests are routed to the analytics pipeline
+  # entry point (AI Dashboard Proxy 1) via a custom provider config.
+  pi:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: localnet-pi:latest
+    container_name: ${PI_CONTAINER_NAME:-pi}
+    restart: unless-stopped
+    networks:
+      omnigent:
+        ipv4_address: ${PI_CONTAINER_IP:-172.36.0.30}
+      ai-dashboard:
+        ipv4_address: ${PI_DASHBOARD_IP:-172.35.0.30}
+      proxy-chain-network:
+        ipv4_address: ${PI_CHAIN_IP:-172.29.0.30}
+    environment:
+      # ── RPC Bridge ────────────────────────────────────
+      - PI_RPC_PORT=${PI_RPC_PORT:-8090}
+      - PI_RPC_HOST=0.0.0.0
+
+      # ── Pi Agent Config ───────────────────────────────
+      # Provider/model: pi uses a custom provider pointing at the pipeline entry.
+      # The pipeline entry (AI Dashboard Proxy 1) speaks OpenAI-compatible API,
+      # so pi treats it as an OpenAI provider with a custom base URL.
+      - PI_PROVIDER=${PI_PROVIDER:-openai}
+      - PI_MODEL=${PI_MODEL:-claude-sonnet-4-20250514}
+      # Base URL for LLM requests — points at the pipeline entry (AI Dashboard Proxy 1).
+      # This ensures all pi LLM traffic flows through the analytics pipeline.
+      - PI_API_BASE_URL=${PI_API_BASE_URL:-http://ai-dashboard-proxy-1:8081/v1}
+      # API key is injected from vault — pi passes it through to the pipeline as
+      # the upstream auth token. The pipeline itself handles real provider auth.
+      - PI_API_KEY=${PI_API_KEY:?Set PI_API_KEY in .env (use vault for client deploys)}
+
+      # ── Session Storage ───────────────────────────────
+      - PI_SESSION_DIR=/data/sessions
+      - PI_NO_SESSION=${PI_NO_SESSION:-0}
+
+      # ── Workspace ─────────────────────────────────────
+      # Code repos are mounted at /workspace by the runner (or via volume config
+      # in the client overlay). Pi operates on files within /workspace.
+      - PI_WORKSPACE_DIR=/workspace
+
+      # ── User/Group ────────────────────────────────────
+      - PUID=${PI_PUID:-1000}
+      - PGID=${PI_PGID:-1000}
+      - TZ=${PI_TZ:-UTC}
+    ports:
+      - "${PI_HOST_PORT:-8090}:${PI_RPC_PORT:-8090}/tcp"
+    volumes:
+      - pi-data:/data
+      - pi-sessions:/data/sessions
+      # Workspace mount is client-specific — override in client overlay.
+      # Example: - ~/p/gh/levonk:/workspace:rw
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:${PI_RPC_PORT:-8090}/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    profiles: ["omnigent"]
+
+  # Pi Debug Profile
+  # For debugging and shell access to the pi container
+  pi-debug:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: localnet-pi:latest
+    container_name: pi-debug
+    restart: "no"
+    profiles: ["debug"]
+    stdin_open: true
+    tty: true
+    command: ["sleep", "infinity"]
+    networks:
+      omnigent:
+        ipv4_address: ${PI_DEBUG_CONTAINER_IP:-172.36.0.98}
+      ai-dashboard:
+        ipv4_address: ${PI_DEBUG_DASHBOARD_IP:-172.35.0.98}
+    environment:
+      - PI_API_KEY=${PI_API_KEY:?Set PI_API_KEY in .env}
+      - PI_API_BASE_URL=${PI_API_BASE_URL:-http://ai-dashboard-proxy-1:8081/v1}
+      - PUID=${PI_PUID:-1000}
+      - PGID=${PI_PGID:-1000}
+    volumes:
+      - pi-data:/data
+      - pi-sessions:/data/sessions
+    logging: *default-logging
