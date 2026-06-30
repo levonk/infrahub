@@ -1,24 +1,15 @@
 ---
 # Homepage bookmarks.yaml
 # Cross-links to other launch pages and external resources.
+# Content is variable-driven — define dashboard_homepage_bookmarks in client host_vars.
 # See https://gethomepage.dev/configs/bookmarks/
 
-Infrastructure:
-  - Traefik Dashboard:
-      - href: https://traefik.levonk.com
-        icon: traefik.png
-        description: Reverse proxy & routing dashboard
-  - Authelia SSO:
-      - href: https://auth.levonk.com
-        icon: authelia.svg
-        description: Single sign-on (2FA)
-  - CrowdSec:
-      - href: https://crowdsec.levonk.com
-        icon: crowdsec.png
-        description: IP reputation & bouncer
-
-Launch Pages:
-  - TraLa (Traefik Catalog):
-      - href: https://start2.levonk.com
-        icon: mdi-view-dashboard
-        description: Auto-discovered Traefik services
+{% for group in dashboard_homepage_bookmarks %}
+- {{ group.name }}:
+{% for bookmark in group.bookmarks %}
+    - {{ bookmark.name }}:
+        - href: {{ bookmark.href }}
+          icon: {{ bookmark.icon }}
+          description: {{ bookmark.description }}
+{% endfor %}
+{% endfor %}

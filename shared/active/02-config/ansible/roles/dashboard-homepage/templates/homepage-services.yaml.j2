@@ -1,41 +1,20 @@
 ---
 # Homepage services.yaml
 # Static service entries (in addition to Docker-label-discovered services).
+# Content is variable-driven — define dashboard_homepage_services in client host_vars.
 # See https://gethomepage.dev/configs/services/
 
-Infrastructure:
-  - Traefik:
-      href: https://traefik.levonk.com
-      icon: traefik.png
-      description: Reverse proxy & routing
-      widget:
-        type: traefik
-        url: http://traefik:8080
-  - SearXNG:
-      href: https://search.levonk.com
-      icon: searxng.png
-      description: Privacy-respecting metasearch
-  - Authelia:
-      href: https://auth.levonk.com
-      icon: authelia.svg
-      description: Single sign-on (2FA)
-
-AI Services:
-  - OmniRoute Gateway:
-      href: https://ai-gateway.levonk.com
-      icon: mdi-transit-connection-variant
-      description: AI routing gateway dashboard
-  - AI Dashboard:
-      href: https://ai-dashboard.levonk.com
-      icon: mdi-chart-scatter-plot
-      description: AI pipeline analytics
-  - Langfuse:
-      href: https://langfuse.levonk.com
-      icon: langfuse.png
-      description: LLM observability & tracing
-
-Launch Pages:
-  - TraLa (Traefik Catalog):
-      href: https://start2.levonk.com
-      icon: mdi-view-dashboard
-      description: Auto-discovered Traefik services
+{% for group in dashboard_homepage_services %}
+- {{ group.name }}:
+{% for service in group.services %}
+    - {{ service.name }}:
+        href: {{ service.href }}
+        icon: {{ service.icon }}
+        description: {{ service.description }}
+{% if service.widget is defined %}
+        widget:
+          type: {{ service.widget.type }}
+          url: {{ service.widget.url }}
+{% endif %}
+{% endfor %}
+{% endfor %}

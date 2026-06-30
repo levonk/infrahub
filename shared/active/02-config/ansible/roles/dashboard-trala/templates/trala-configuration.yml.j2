@@ -24,6 +24,7 @@ services:
       - "prometheus"
       - "trala-http"
       - "trala-https"
+      - "litellm-api-https"
     entrypoints:
       - "web"
 
@@ -49,9 +50,21 @@ services:
       display_name: "Homepage Dashboard"
       icon: homepage.svg
       group: Dashboards
+    - service: "agentmemory-https"
+      display_name: "Agent Memory"
+      icon: mdi-database-outline
+      group: AI Services
+    - service: "omnigent-https"
+      display_name: "AI InterFace"
+      icon: mdi-robot-outline
+      group: AI Services
+    - service: "aishrink-https"
+      display_name: "Headroom (AI Shrink)"
+      icon: mdi-compress
+      group: AI Services
 
   manual:
     - name: TraLa
-      url: https://start2.levonk.com
+      url: https://{{ dashboard_trala_domain | default('start2.localhost') }}
       icon: mdi-view-dashboard
       group: Launch Pages

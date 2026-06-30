@@ -33,7 +33,7 @@ dashboard_trala_traefik_api_password: "{{ vault_traefik_api_auth_password | defa
 # ---------------------------------------------------------------------------
 # Domain Configuration
 # ---------------------------------------------------------------------------
-dashboard_trala_domain: "{{ infra_domain_dashboard_trala | default('start2.levonk.com') }}"
+dashboard_trala_domain: "{{ infra_domain_dashboard_trala | default('') }}"
 
 # ---------------------------------------------------------------------------
 # Volume Configuration

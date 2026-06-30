@@ -20,20 +20,17 @@
   ansible.builtin.file:
     path: "{{ dashboard_homepage_data_dir }}/config"
     state: directory
-    owner: root
-    group: root
+    # userns-remap: container root maps to this UID on the host.
+    # Homepage writes logs and config to /app/config, so the bind mount
+    # must be writable by the mapped container root.
+    owner: "{{ infra_storage_userns_remap_uid | default(100000) }}"
+    group: "{{ infra_storage_userns_remap_gid | default(100000) }}"
     mode: "0755"
   become: true
 
 # ---------------------------------------------------------------------------
 # Docker Volumes
 # ---------------------------------------------------------------------------
-- name: Ensure Homepage config volume exists
-  community.docker.docker_volume:
-    name: "{{ dashboard_homepage_config_volume }}"
-    state: present
-  become: true
-
 - name: Ensure Homepage images volume exists
   community.docker.docker_volume:
     name: "{{ dashboard_homepage_images_volume }}"
@@ -53,8 +50,8 @@
   ansible.builtin.template:
     src: homepage-settings.yaml.j2
     dest: "{{ dashboard_homepage_data_dir }}/config/settings.yaml"
-    owner: root
-    group: root
+    owner: "{{ infra_storage_userns_remap_uid | default(100000) }}"
+    group: "{{ infra_storage_userns_remap_gid | default(100000) }}"
     mode: "0644"
   become: true
   notify: restart homepage
@@ -63,8 +60,8 @@
   ansible.builtin.template:
     src: homepage-services.yaml.j2
     dest: "{{ dashboard_homepage_data_dir }}/config/services.yaml"
-    owner: root
-    group: root
+    owner: "{{ infra_storage_userns_remap_uid | default(100000) }}"
+    group: "{{ infra_storage_userns_remap_gid | default(100000) }}"
     mode: "0644"
   become: true
   notify: restart homepage
@@ -73,8 +70,8 @@
   ansible.builtin.template:
     src: homepage-bookmarks.yaml.j2
     dest: "{{ dashboard_homepage_data_dir }}/config/bookmarks.yaml"
-    owner: root
-    group: root
+    owner: "{{ infra_storage_userns_remap_uid | default(100000) }}"
+    group: "{{ infra_storage_userns_remap_gid | default(100000) }}"
     mode: "0644"
   become: true
   notify: restart homepage
@@ -83,11 +80,20 @@
   ansible.builtin.template:
     src: homepage-docker.yaml.j2
     dest: "{{ dashboard_homepage_data_dir }}/config/docker.yaml"
-    owner: root
-    group: root
+    owner: "{{ infra_storage_userns_remap_uid | default(100000) }}"
+    group: "{{ infra_storage_userns_remap_gid | default(100000) }}"
     mode: "0644"
   become: true
   notify: restart homepage
+  when: dashboard_homepage_docker_discovery_enabled | bool
+
+- name: Remove Homepage docker.yaml (discovery disabled)
+  ansible.builtin.file:
+    path: "{{ dashboard_homepage_data_dir }}/config/docker.yaml"
+    state: absent
+  become: true
+  notify: restart homepage
+  when: not (dashboard_homepage_docker_discovery_enabled | bool)
 
 # ---------------------------------------------------------------------------
 # Homepage Container
@@ -102,11 +108,7 @@
       - name: "{{ dashboard_homepage_network_name }}"
     published_ports:
       - "{{ dashboard_homepage_host_ip }}:{{ dashboard_homepage_host_port }}:{{ dashboard_homepage_container_port }}/tcp"
-    volumes:
-      - "{{ dashboard_homepage_config_volume }}:/app/config"
-      - "{{ dashboard_homepage_images_volume }}:/app/public/images"
-      - "{{ dashboard_homepage_icons_volume }}:/app/public/icons"
-      - "{{ dashboard_homepage_docker_socket }}:/var/run/docker.sock:ro"
+    volumes: "{{ ([dashboard_homepage_data_dir ~ '/config:/app/config', dashboard_homepage_images_volume ~ ':/app/public/images', dashboard_homepage_icons_volume ~ ':/app/public/icons'] + (['' ~ dashboard_homepage_docker_socket ~ ':/var/run/docker.sock:ro'] if dashboard_homepage_docker_discovery_enabled | bool else [])) }}"
     env:
       HOMEPAGE_ALLOWED_HOSTS: "{{ dashboard_homepage_allowed_hosts }}"
       PUID: "{{ dashboard_homepage_puid }}"

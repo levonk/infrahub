@@ -2,6 +2,8 @@
 # Homepage (gethomepage/homepage) Default Variables
 # Rich startpage with Docker label discovery + 100+ service widgets + OIDC login.
 # See ADR-20260629001 for the decision rationale.
+# NOTE: All client-specific content (domains, service links, bookmarks) must be
+#       defined in client host_vars (levonk/), NOT here. See AGENTS.md invariant.
 
 # ---------------------------------------------------------------------------
 # Service Configuration
@@ -28,25 +30,24 @@ dashboard_homepage_pgid: "{{ localnet_pgid | default(cuser_gid | default(1000)) 
 dashboard_homepage_tz: "{{ localnet_tz | default(timezone | default('UTC')) }}"
 
 # ---------------------------------------------------------------------------
-# Domain Configuration
+# Domain Configuration (MUST be set in client host_vars — no defaults here)
 # ---------------------------------------------------------------------------
-dashboard_homepage_domain: "{{ infra_domain_dashboard_homepage | default('start.levonk.com') }}"
-
-# ---------------------------------------------------------------------------
-# Allowed Hosts (Homepage security — must match the domain Traefik serves)
-# ---------------------------------------------------------------------------
+dashboard_homepage_domain: ""
 dashboard_homepage_allowed_hosts: "{{ dashboard_homepage_domain }}"
 
 # ---------------------------------------------------------------------------
-# Volume Configuration
+# Volume Configuration (config uses bind mount, not Docker volume)
 # ---------------------------------------------------------------------------
-dashboard_homepage_config_volume: "localnet-homepage-config-volume"
 dashboard_homepage_images_volume: "localnet-homepage-images-volume"
 dashboard_homepage_icons_volume: "localnet-homepage-icons-volume"
 
 # ---------------------------------------------------------------------------
 # Docker Socket (for Docker label service discovery)
 # ---------------------------------------------------------------------------
+# Disabled by default — no containers use homepage.* labels (Traefik Docker
+# provider is disabled). Enabling requires the socket to be accessible from
+# inside the container (userns-remap may block access).
+dashboard_homepage_docker_discovery_enabled: false
 dashboard_homepage_docker_socket: "/var/run/docker.sock"
 
 # ---------------------------------------------------------------------------
@@ -60,3 +61,18 @@ dashboard_homepage_health_endpoint: "/"
 # ---------------------------------------------------------------------------
 dashboard_homepage_log_max_size: "10m"
 dashboard_homepage_log_max_file: "5"
+
+# ---------------------------------------------------------------------------
+# Content Configuration (MUST be set in client host_vars)
+# These drive the rendered services.yaml, bookmarks.yaml, and settings.yaml.
+# See templates for structure. Empty defaults produce empty config files.
+# ---------------------------------------------------------------------------
+dashboard_homepage_services: []
+dashboard_homepage_bookmarks: []
+dashboard_homepage_settings:
+  title: "Dashboard"
+  description: "Services dashboard"
+  theme: "dark"
+  color: "slate"
+  icon: "mdi:home"
+  layout: []

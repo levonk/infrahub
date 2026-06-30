@@ -1,26 +1,20 @@
 ---
 # Homepage settings.yaml
-# Rendered by Ansible from templates/dashboard-homepage-settings.yaml.j2
+# Content is variable-driven — define dashboard_homepage_settings in client host_vars.
 # See https://gethomepage.dev/configs/settings/
 
-title: "Levonk Homelab"
-description: "Services dashboard for the levonk homelab"
+title: "{{ dashboard_homepage_settings.title }}"
+description: "{{ dashboard_homepage_settings.description }}"
 backgroundImage: ""
-theme: "dark"
-color: "slate"
-icon: "mdi:home"
+theme: "{{ dashboard_homepage_settings.theme }}"
+color: "{{ dashboard_homepage_settings.color }}"
+icon: "{{ dashboard_homepage_settings.icon }}"
 useEqualHeights: true
 layout:
-  Infrastructure:
-    icon: mdi:server-network
-  AI Services:
-    icon: mdi:robot
-  Search & Privacy:
-    icon: mdi:shield-search
-  Monitoring:
-    icon: mdi:chart-line
-  Launch Pages:
-    icon: mdi:rocket-launch
+{% for group in dashboard_homepage_settings.layout %}
+  {{ group.name }}:
+    icon: {{ group.icon }}
+{% endfor %}
 quicklaunch:
   hideInternetSearch: false
   hideVisitURL: false
