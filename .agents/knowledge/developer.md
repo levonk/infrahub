@@ -5,6 +5,7 @@ This guide is for developers/agents working on the infrahub codebase. For user-f
 ## JIT Index
 - Out of Scope: Not yet established — check `internal-docs/` for ADRs and architecture docs before adding features
 - Root AGENTS.md: [`../../AGENTS.md`](../../AGENTS.md) — environment setup, vault, deployment workflow, architectural invariants
+- Add New Service Workflow: [`../workflows/infrahub-add-new-service.md`](../workflows/infrahub-add-new-service.md) — 10-phase checklist for adding a new service end-to-end (shared schemas → client values → vault → role → Traefik → dashboard → deploy → verify)
 
 ## <commands>
 **Devbox Commands (Environment)**
