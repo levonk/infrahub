@@ -1,0 +1,37 @@
+---
+# OpenLIT GPU Collector — defaults
+# https://docs.openlit.io/latest/gpu-collector/overview
+#
+# Runs as a Docker container with GPU passthrough (--gpus all for NVIDIA,
+# --device /dev/dri for AMD/Intel). Exports OTLP to a remote OpenLIT instance.
+# Official image: ghcr.io/openlit/otel-gpu-collector:latest
+
+# ---------------------------------------------------------------------------
+# Container
+# ---------------------------------------------------------------------------
+openlit_collector_container_name: "openlit-gpu-collector"
+openlit_collector_image: "ghcr.io/openlit/otel-gpu-collector"
+openlit_collector_image_tag: "latest"
+openlit_collector_restart_policy: "unless-stopped"
+openlit_collector_network_name: "{{ localnet_network_name | default('localnet') }}"
+
+# GPU passthrough: 'nvidia' (--gpus all), 'amd' (--device /dev/kfd + /dev/dri),
+# 'intel' (--device /dev/dri), 'none' (host metrics only)
+openlit_collector_gpu_vendor: "nvidia"
+
+# ---------------------------------------------------------------------------
+# OTLP export — where telemetry goes (remote OpenLIT instance)
+# ---------------------------------------------------------------------------
+openlit_collector_otlp_endpoint: "http://localhost:4318"
+openlit_collector_otlp_protocol: "http/protobuf"
+openlit_collector_otlp_headers: ""
+openlit_collector_service_name: "gpu-collector"
+openlit_collector_resource_attributes: "deployment.environment=production,host.name={{ inventory_hostname }}"
+openlit_collector_metric_export_interval: "30000"  # ms (30s)
+
+# eBPF CUDA tracing — requires CAP_BPF + CAP_PERFMON or root + libcudart.so
+# Only works with NVIDIA + Linux. Off by default.
+openlit_collector_ebpf_enabled: "false"
+
+# Stub mode: deploy the container but keep it stopped (no OTLP backend yet)
+openlit_collector_stub: true

@@ -1,0 +1,125 @@
+---
+# Bootstrap AI Inference Host (kckinai)
+# Location: shared/active/02-config/ansible/playbooks/bootstrap-ai-inference-host.yml
+#
+# Installs Tailscale (native Linux daemon) and the OpenLIT GPU Collector stub
+# on the local Nvidia box running vLLM.
+#
+# The GPU collector is deployed in stub mode: env file + systemd unit are
+# created but the service stays disabled until openlit_collector_stub is
+# flipped to false (once the binary is available and OpenLIT is deployed).
+#
+# Prerequisites:
+#   - kckinai reachable via SSH (192.168.2.21 by default)
+#   - ansible user has sudo access
+#   - vault_tailscale_auth_key in infrahub-levonk-all.vault.yml
+#
+# Usage:
+#   ansible-playbook \
+#     -i levonk/active/02-config/ansible/inventories/localnet.yml \
+#     shared/active/02-config/ansible/playbooks/bootstrap-ai-inference-host.yml \
+#     --vault-password-file ~/.ansible/vault_password \
+#     --limit kckinai
+#
+# To activate the collector later (after OpenLIT is deployed):
+#   ansible-playbook \
+#     -i levonk/active/02-config/ansible/inventories/localnet.yml \
+#     shared/active/02-config/ansible/playbooks/bootstrap-ai-inference-host.yml \
+#     --vault-password-file ~/.ansible/vault_password \
+#     --limit kckinai \
+#     --extra-vars "openlit_collector_stub=false"
+
+- name: "Bootstrap AI Inference Host — Tailscale + OpenLIT GPU Collector"
+  hosts: vpn_tailscale_clients
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: "Gather ansible_facts"
+      ansible.builtin.setup:
+        gather_subset: ["all"]
+      tags: ["always"]
+
+    - name: "Validate required variables"
+      ansible.builtin.assert:
+        that:
+          - vpn_tailscale_auth_key is defined
+          - vpn_tailscale_auth_key | length > 0
+        fail_msg: "Missing vpn_tailscale_auth_key. Check vault."
+        success_msg: "Tailscale auth key present."
+      tags: ["always", "validate"]
+
+    - name: "Report target"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Bootstrap AI Inference Host
+          ========================================
+          Host: {{ inventory_hostname }}
+          Ansible Host: {{ ansible_host }}
+          OS: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}
+          Arch: {{ ansible_facts['architecture'] }}
+          GPU Collector Stub: {{ openlit_collector_stub | default(true) }}
+          ========================================
+      tags: ["always", "info"]
+
+  roles:
+    - role: vpn-tailscale
+      tags: ["vpn", "tailscale"]
+
+    - role: openlit-gpu-collector
+      tags: ["openlit", "gpu-collector"]
+
+  post_tasks:
+    - name: "Verify Tailscale status"
+      ansible.builtin.command:
+        cmd: tailscale status
+      become: true
+      register: ts_status
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "tailscale"]
+
+    - name: "Report Tailscale status"
+      ansible.builtin.debug:
+        msg: "{{ ts_status.stdout_lines }}"
+      when: ts_status.rc == 0
+      tags: ["verify", "tailscale"]
+
+    - name: "Report Tailscale IP"
+      ansible.builtin.command:
+        cmd: tailscale ip -4
+      become: true
+      register: ts_ip
+      changed_when: false
+      when: ts_status.rc == 0
+      tags: ["verify", "tailscale"]
+
+    - name: "Show Tailscale IP"
+      ansible.builtin.debug:
+        msg: "Tailscale IPv4: {{ ts_ip.stdout }}"
+      when: ts_status.rc == 0
+      tags: ["verify", "tailscale"]
+
+    - name: "Check GPU collector unit exists"
+      ansible.builtin.stat:
+        path: /etc/systemd/system/openlit-gpu-collector.service
+      register: openlit_unit
+      tags: ["verify", "openlit"]
+
+    - name: "Report GPU collector unit"
+      ansible.builtin.debug:
+        msg: >-
+          openlit-gpu-collector.service:
+          {{ 'present' if openlit_unit.stat.exists else 'MISSING' }}
+          (stub={{ openlit_collector_stub | default(true) }})
+      tags: ["verify", "openlit"]
+
+    - name: "Report bootstrap complete"
+      ansible.builtin.debug:
+        msg: |
+          Bootstrap complete on {{ inventory_hostname }}:
+          - Tailscale: {{ 'UP' if ts_status.rc == 0 else 'NOT RUNNING' }}
+          - GPU Collector: stub deployed (disabled)
+          Next: deploy OpenLIT, then re-run with openlit_collector_stub=false
+      tags: ["verify", "summary"]

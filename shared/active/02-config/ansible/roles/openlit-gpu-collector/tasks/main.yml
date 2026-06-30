@@ -1,0 +1,135 @@
+---
+# OpenLIT GPU Collector — tasks
+# https://docs.openlit.io/latest/gpu-collector/overview
+#
+# Deploys the collector as a Docker container with GPU passthrough.
+# Stub mode (default): container is created but stopped — no OTLP backend yet.
+# Flip openlit_collector_stub to false to start it.
+
+# ---------------------------------------------------------------------------
+# Build env dict (avoids inline Jinja2 in YAML which breaks syntax check)
+# ---------------------------------------------------------------------------
+- name: "Build collector env vars"
+  ansible.builtin.set_fact:
+    openlit_collector_env:
+      OTEL_EXPORTER_OTLP_ENDPOINT: "{{ openlit_collector_otlp_endpoint }}"
+      OTEL_EXPORTER_OTLP_PROTOCOL: "{{ openlit_collector_otlp_protocol }}"
+      OTEL_SERVICE_NAME: "{{ openlit_collector_service_name }}"
+      OTEL_RESOURCE_ATTRIBUTES: "{{ openlit_collector_resource_attributes }}"
+      OTEL_METRIC_EXPORT_INTERVAL: "{{ openlit_collector_metric_export_interval }}"
+      OTEL_GPU_EBPF_ENABLED: "{{ openlit_collector_ebpf_enabled }}"
+
+- name: "Add OTLP auth headers if configured"
+  ansible.builtin.set_fact:
+    openlit_collector_env: "{{ openlit_collector_env | combine({'OTEL_EXPORTER_OTLP_HEADERS': openlit_collector_otlp_headers}) }}"
+  when: openlit_collector_otlp_headers | length > 0
+
+# ---------------------------------------------------------------------------
+# Pull image
+# ---------------------------------------------------------------------------
+- name: "Pull GPU collector image"
+  community.docker.docker_image:
+    name: "{{ openlit_collector_image }}:{{ openlit_collector_image_tag }}"
+    source: pull
+  become: true
+
+# ---------------------------------------------------------------------------
+# Network
+# ---------------------------------------------------------------------------
+- name: "Ensure collector network exists"
+  community.docker.docker_network:
+    name: "{{ openlit_collector_network_name }}"
+    state: present
+    driver: bridge
+  become: true
+  ignore_errors: true  # network may already exist with different config
+
+# ---------------------------------------------------------------------------
+# Container — GPU passthrough varies by vendor
+# ---------------------------------------------------------------------------
+- name: "Deploy GPU collector container (NVIDIA)"
+  community.docker.docker_container:
+    name: "{{ openlit_collector_container_name }}"
+    image: "{{ openlit_collector_image }}:{{ openlit_collector_image_tag }}"
+    state: "{{ 'started' if not openlit_collector_stub | bool else 'stopped' }}"
+    restart_policy: "{{ openlit_collector_restart_policy }}"
+    networks:
+      - name: "{{ openlit_collector_network_name }}"
+    device_requests:
+      - device_ids: ["0"]
+        capabilities: [["gpu"]]
+    env: "{{ openlit_collector_env }}"
+    log_driver: json-file
+    log_options:
+      max-size: "10m"
+      max-file: "5"
+  become: true
+  when: openlit_collector_gpu_vendor == "nvidia"
+
+- name: "Deploy GPU collector container (AMD)"
+  community.docker.docker_container:
+    name: "{{ openlit_collector_container_name }}"
+    image: "{{ openlit_collector_image }}:{{ openlit_collector_image_tag }}"
+    state: "{{ 'started' if not openlit_collector_stub | bool else 'stopped' }}"
+    restart_policy: "{{ openlit_collector_restart_policy }}"
+    networks:
+      - name: "{{ openlit_collector_network_name }}"
+    devices:
+      - "/dev/kfd:/dev/kfd"
+      - "/dev/dri:/dev/dri"
+    env: "{{ openlit_collector_env }}"
+    log_driver: json-file
+    log_options:
+      max-size: 10m
+      max-file: 5
+  become: true
+  when: openlit_collector_gpu_vendor == "amd"
+
+- name: "Deploy GPU collector container (Intel)"
+  community.docker.docker_container:
+    name: "{{ openlit_collector_container_name }}"
+    image: "{{ openlit_collector_image }}:{{ openlit_collector_image_tag }}"
+    state: "{{ 'started' if not openlit_collector_stub | bool else 'stopped' }}"
+    restart_policy: "{{ openlit_collector_restart_policy }}"
+    networks:
+      - name: "{{ openlit_collector_network_name }}"
+    devices:
+      - "/dev/dri:/dev/dri"
+    env: "{{ openlit_collector_env }}"
+    log_driver: json-file
+    log_options:
+      max-size: 10m
+      max-file: 5
+  become: true
+  when: openlit_collector_gpu_vendor == "intel"
+
+- name: "Deploy GPU collector container (host metrics only, no GPU)"
+  community.docker.docker_container:
+    name: "{{ openlit_collector_container_name }}"
+    image: "{{ openlit_collector_image }}:{{ openlit_collector_image_tag }}"
+    state: "{{ 'started' if not openlit_collector_stub | bool else 'stopped' }}"
+    restart_policy: "{{ openlit_collector_restart_policy }}"
+    networks:
+      - name: "{{ openlit_collector_network_name }}"
+    env: "{{ openlit_collector_env }}"
+    log_driver: json-file
+    log_options:
+      max-size: 10m
+      max-file: 5
+  become: true
+  when: openlit_collector_gpu_vendor == "none"
+
+# ---------------------------------------------------------------------------
+# Status report
+# ---------------------------------------------------------------------------
+- name: "Report deployment status"
+  ansible.builtin.debug:
+    msg: >-
+      OpenLIT GPU Collector on {{ inventory_hostname }}:
+      {% if openlit_collector_stub | bool %}
+      STUB — container created but stopped (no OTLP backend).
+      {% else %}
+      ACTIVE — container running with {{ openlit_collector_gpu_vendor }} GPU passthrough.
+      {% endif %}
+      OTLP endpoint: {{ openlit_collector_otlp_endpoint }}
+      Image: {{ openlit_collector_image }}:{{ openlit_collector_image_tag }}
