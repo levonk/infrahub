@@ -803,6 +803,8 @@ curl http://<health-check-endpoint>
 
 **MANDATORY**: DNS records for all services exposed via Traefik MUST be created automatically by the Ansible Cloudflare DNS playbook. **NEVER** create DNS records manually in the Cloudflare dashboard — that's why the vault contains `vault_cloudflare_api_token` and `vault_cloudflare_zone_id`.
 
+The DNS architecture has two layers — see [Architectural Invariant #9](#9-cloudflare-dns-uses-cnames-to-tailscale-fqdns--never-a-records-to-tailscale-ips) for the CNAME rule and [Cloudflare DDNS](#cloudflare-ddns-public-ip-redundancy) for the DDNS layer.
+
 **Playbook**: `shared/active/02-config/ansible/playbooks/configure-cloudflare-dns.yml`
 **Role**: `shared/active/02-config/ansible/roles/cloudflare-dns/`
 
@@ -810,6 +812,7 @@ curl http://<health-check-endpoint>
 1. Add the DNS record to the `cloudflare_dns_records` list in the playbook
 2. Run the DNS playbook before (or as part of) the service deployment
 3. The role is idempotent — it creates missing records, updates changed records, and skips matching records
+4. The role handles A→CNAME migration automatically (deletes conflicting A records before creating CNAMEs)
 
 ```bash
 # Run DNS configuration (creates/updates all records in cloudflare_dns_records)
@@ -822,8 +825,8 @@ devbox run -- rtk ansible-playbook shared/active/02-config/ansible/playbooks/con
 # In shared/active/02-config/ansible/playbooks/configure-cloudflare-dns.yml
 cloudflare_dns_records:
   - name: "new-service.levonk.com"
-    type: "A"
-    content: "100.90.22.85"
+    type: "CNAME"
+    content: "{{ infra_tailscale_fqdn_cloud_server | default('oci.tale-grouper.ts.net') }}"
     ttl: "{{ cloudflare_dns_ttl }}"
     proxied: "{{ cloudflare_dns_proxied }}"
     state: "{{ cloudflare_dns_state }}"
@@ -834,6 +837,36 @@ cloudflare_dns_records:
 - `vault_cloudflare_zone_id` — Cloudflare zone ID for `levonk.com`
 
 **If the DNS playbook fails with 401 "Authentication error"**: the `vault_cloudflare_api_token` in the vault is invalid or expired. Generate a new token at https://dash.cloudflare.com/profile/api-tokens (use "Edit zone DNS" template, scoped to the `levonk.com` zone) and update the vault. Do NOT work around this by creating records manually.
+
+### Cloudflare DDNS (Public IP Redundancy)
+
+The `cloudflare-ddns` role deploys a lightweight container on each Tailscale-attached host that updates a Cloudflare A record (`{hostname}.mach.{domain}`) with the host's **public IP** every 5 minutes. This provides a non-Tailscale fallback path — if Tailscale MagicDNS is down but the host still has internet, the `*.mach.levonk.com` records resolve to the public IP.
+
+**Playbook**: `shared/active/02-config/ansible/playbooks/deploy-cloudflare-ddns.yml`
+**Role**: `shared/active/02-config/ansible/roles/cloudflare-ddns/`
+
+**Two-layer DNS architecture:**
+
+| Layer | Record type | Target | Purpose |
+|-------|------------|--------|---------|
+| `*.levonk.com` | CNAME | `*.tale-grouper.ts.net` (Tailscale FQDN) | Primary access via Tailscale |
+| `*.mach.levonk.com` | A | Public IP (auto-updated) | Fallback when Tailscale DNS is down |
+
+**Deploying DDNS to a new host:**
+1. Set `cloudflare_ddns_hostname` in the host's inventory vars (e.g., `"oci"`, `"kckinai"`)
+2. Run the playbook targeting that host
+3. The container detects the public IP via external services (`api.ipify.org`, `ifconfig.me`, `icanhazip.com`) and creates/updates the A record
+
+```bash
+# Deploy DDNS to all Tailscale-attached hosts
+devbox run -- ansible-playbook \
+  -i levonk/active/02-config/ansible/inventories/oci.yml \
+  -i levonk/active/02-config/ansible/inventories/localnet.yml \
+  shared/active/02-config/ansible/playbooks/deploy-cloudflare-ddns.yml \
+  --vault-password-file ~/.ansible/vault_password
+```
+
+**Clients using this feature**: levonk (hosts: `oci`, `kckinai`)
 
 ## Repository Structure
 
@@ -861,6 +894,14 @@ infrahub/
 
 - **`shared/active/`** contains all reusable roles, playbooks, and container definitions. Roles here are the source of truth that may graduate to the `levonk` namespace on Ansible Galaxy.
 - **Client directories** (e.g., `levonk/`, `client-acme/`) contain only client-specific data: inventories, host variables, group variables, and vaulted secrets. They never contain roles or playbooks.
+
+### Developer Guide
+
+For workflows, the critical-files directory tree (what NOT to replicate), code patterns, boundaries, and known gotchas, see [`.agents/knowledge/developer.md`](.agents/knowledge/developer.md). That guide documents:
+
+- **Critical files tree** — the single-source-of-truth files for vault, infrastructure values (domains, networks, ports, storage), Dockerfiles, and external config (vault password, Docker daemon, SSH keys)
+- **Do-not-rePLICATE rules** — which files must never be duplicated or have values copied into roles/playbooks/group_vars
+- **Known gotchas** — disk space, Traefik Docker provider, ACME staging, build caching, healthcheck formats, handler state
 
 ## Ansible Architecture
 
@@ -962,13 +1003,15 @@ all:
 
 ### Architectural Invariants
 
-These three rules are non-negotiable. Violations indicate a design error, not a style choice.
+These rules are non-negotiable. Violations indicate a design error, not a style choice.
 
 #### 1. `shared/` is client-agnostic
 
 Nothing under `shared/` may reference a specific client — not by name, not by hardcoded value, not by implication. `shared/` holds reusable roles, playbooks, templates, container definitions, infrastructure schemas, and docs. Every client-specific detail (IPs, ports, domains, storage paths, secrets, hostnames, feature flags) lives in the client directory (`<client>/active/...`) and is injected at runtime via inventory and group_vars.
 
 If a playbook or role in `shared/` only makes sense for one client, it is in the wrong place. Either generalize it (parameterize the client-specific bits) or move it into the client directory.
+
+**This includes Jinja2 template defaults.** A `default()` filter in a shared template must NOT contain a client-specific value. For example, `{{ domain | default('start.levonk.com') }}` is a violation — `start.levonk.com` is client-specific. Use an empty default (`default('')`) or a generic placeholder, and require the client host_vars/infrastructure files to provide the actual value. Templates should be variable-driven skeletons; the data comes from the client directory.
 
 #### 2. Build before deploy — on the control machine, NEVER on the target
 
@@ -1029,6 +1072,109 @@ All container lifecycle (create, start, stop, restart, remove), network manageme
 **Compose files in `shared/active/03-container/services/`**: These exist as **reference/documentation only** — they show the intended topology for human reading. They are NOT deployed to servers. They are NOT copied by playbooks. They are NOT used at runtime. If a compose file and an Ansible role disagree, the Ansible role is correct and the compose file is stale.
 
 **If a playbook currently copies compose files and shells out to `docker compose`**: That playbook is broken by design. Refactor it to use `include_role` with the proper `community.docker` roles. The roles already exist in `shared/active/02-config/ansible/roles/` — use them.
+
+#### 5. Services run in containers — NEVER as host-level systemd services
+
+**This is non-negotiable. Violating it is a design error, not a style choice.**
+
+Every service deployed by an Ansible role runs inside a Docker container managed via `community.docker.docker_container` — not as a host-level systemd unit, not as a bare binary on the host, not as a background process. This includes agents, collectors, proxies, monitors, and any other long-running process.
+
+**NEVER**:
+- ❌ Deploy a service as a systemd unit on the target host (writing `.service` files to `/etc/systemd/system/`)
+- ❌ Fetch a binary on the control machine and copy it to the target for host-level execution
+- ❌ Use `ansible.builtin.systemd` to start/enable a service that could run in a container
+- ❌ Install a service via `apt`/`dnf`/`pip` on the target and run it as a host process
+
+**The ONLY exceptions** are:
+1. **Docker engine itself** — must run as a host service (it IS the container runtime)
+2. **Tailscale/Netbird** — runs as a host-level daemon for network connectivity (needed before containers can start)
+3. **SSH/sshd** — host-level service for Ansible access
+4. **KVM/QEMU** — Virtualization
+5. **A documented, client-specific reason** — called out with a `# HOST-SERVICE JUSTIFIED:` comment explaining why containerization is impossible
+
+**Why**:
+1. **Consistency**: Every service is defined the same way — a `community.docker.docker_container` task in an Ansible role. No mixed deployment patterns.
+2. **Isolation**: Containers provide filesystem, network, and process isolation. Host-level services share the host's filesystem and process table.
+3. **GPU passthrough works**: `--gpus all` (NVIDIA) or `--device /dev/dri` (AMD/Intel) gives containers full GPU access. There is no need to run GPU-dependent services on the host.
+4. **Reproducibility**: The container image is the unit of deployment. The same image runs on any host with Docker. Host-level deployments depend on host state (installed packages, library versions, kernel modules).
+5. **Lifecycle management**: `docker_container` handles start/stop/restart/recreate idempotently. systemd units require separate handlers, daemon-reloads, and are outside the container management pattern.
+6. **No host pollution**: Containers don't install packages on the host, don't leave binaries in `/usr/local/bin`, don't create users, don't modify host config files. The host stays clean.
+
+**If a role currently deploys a systemd service**: That role is broken by design. Refactor it to deploy a container instead. If an official Docker image exists (check Docker Hub, GitHub Container Registry), use `source: pull`. If a custom image is needed, build it on the control machine, push to the local registry, and use `source: pull` in the role (see Invariant #2).
+
+#### 6. Traefik routing uses container names — NEVER hardcoded IPs
+
+Traefik dynamic config files (`/opt/traefik/config/dynamic/*.yml`) MUST reference backend services by **container name** (`http://<container_name>:<port>`), NEVER by hardcoded container IP (`http://172.31.0.X:<port>`). Container IPs are ephemeral — they change on every container recreation, network reconnection, or host restart. A hardcoded IP produces a 502 Bad Gateway the next time the container is recreated, even though the container is healthy.
+
+The Docker provider is disabled in Traefik v3.0 (API incompatibility), so container labels are ignored — routing is via the file provider only. Dynamic config files are the single source of truth for routers, and they are deployed from Ansible templates in `roles/proxy-traefik/templates/dynamic/`.
+
+**✅ Correct** (survives container recreation — Docker DNS resolves the name on the shared network):
+```yaml
+services:
+  omniroute:
+    loadBalancer:
+      servers:
+        - url: "http://localnet-ai-omniroute:20128"
+```
+
+**❌ Wrong** (breaks on container recreation — the IP is stale):
+```yaml
+services:
+  omniroute:
+    loadBalancer:
+      servers:
+        - url: "http://172.31.0.7:20128"
+```
+
+**Rules**:
+- Every Traefik dynamic config template MUST use `{{ <service>_container_name | default('<name>') }}` for the server URL, never an IP.
+- The target container MUST be connected to the `traefik-network` Docker network so Traefik can resolve the name.
+- New service routers are added as templates in `roles/proxy-traefik/templates/dynamic/<domain>.yml.j2` with a deploy task in `roles/proxy-traefik/tasks/main.yml`, gated by an `<service>_enabled` flag in `roles/proxy-traefik/defaults/main.yml` and enabled in the client's `host_vars`.
+- The `redirect-to-https` middleware is defined once in `middlewares.yml.j2` — per-domain templates reference it, they do not redefine it.
+
+**If a dynamic config file has a hardcoded IP**: It was created manually outside the role. Replace it with a proper template in `roles/proxy-traefik/templates/dynamic/` and a deploy task in the role. Do not hand-edit the file on the server.
+
+#### 7. Bind mounts use userns-remap UID — NEVER root (0)
+
+Docker userns-remap is enabled on all target hosts (`docker_engine_userns_remap: "default"` → dockremap UID 100000). This means container root maps to **UID 100000** on the host, not UID 0. When a container bind-mounts a host directory and needs to write to it, the directory and its files MUST be owned by UID 100000:100000 on the host — not root (0).
+
+If a bind-mounted directory is owned by root (0), the container gets `EACCES: permission denied` when trying to write. This causes silent failures: containers start but can't write logs, config, or data. Healthchecks may pass (read-only) while the service is broken.
+
+**Rules**:
+- Use `infra_storage_userns_remap_uid` (default 100000) and `infra_storage_userns_remap_gid` (default 100000) from `infrastructure/storage.yml` for all bind mount directory ownership in Ansible tasks.
+- The `ansible.builtin.file` and `ansible.builtin.template` tasks that create files in bind-mounted paths MUST set `owner` and `group` to the userns-remap UID/GID, not `root`.
+- Docker volumes (managed by Docker) handle this automatically — only bind mounts need explicit ownership.
+- If a container uses a Docker volume and you switch it to a bind mount, you MUST update the ownership.
+
+**Symptom**: Container logs show `EACCES: permission denied, mkdir '/app/config/logs'` or `permission denied` writing to config files. The container appears "running" but the service returns 500 or silently fails.
+
+#### 8. Ansible variable precedence — host_vars override inventory vars
+
+In Ansible, **host_vars take precedence over inventory group_vars**. If a variable is set in both `host_vars/oci-cloud-server.yml` and `inventories/oci.yml` (under `vars:`), the host_vars value wins.
+
+This caused a critical security issue: Authelia secrets were defined as vault references (`{{ vault_authelia_admin_password }}`) in the inventory, but hardcoded default values in host_vars silently overrode them. The vault was never consulted.
+
+**Rules**:
+- **Secrets**: NEVER set secret values in host_vars. Set them as vault references (`{{ vault_* }}`) in the inventory `vars:` section. Host_vars should only contain non-secret configuration (ports, domains, feature flags).
+- **Vault-referenced variables**: If a variable is defined as `{{ vault_* }}` in the inventory, do NOT also define it in host_vars — even with the same value. The host_vars version will shadow the vault reference.
+- **When to use host_vars vs inventory vars**:
+  - `host_vars/<host>.yml`: Host-specific connection details, non-secret config (ports, domains, enabled flags, container names)
+  - `inventories/<env>.yml` `vars:`: Group-level config including all vault secret references
+  - `inventories/group_vars/*.vault.yml`: Encrypted vault values (the actual secrets)
+- **If a secret needs to be different per host**: Use a host-specific vault variable (e.g., `vault_authelia_admin_password_host1`) and reference it in the inventory, not in host_vars.
+
+#### 9. Cloudflare DNS uses CNAMEs to Tailscale FQDNs — NEVER A records to Tailscale IPs
+
+All services accessible via `*.levonk.com` run on Tailscale-attached hosts. Tailscale IPs are ephemeral — they can change on node re-registration, tailnet reconfiguration, or provider migration. Cloudflare DNS records MUST use **CNAMEs** pointing to Tailscale FQDNs (e.g., `oci.tale-grouper.ts.net`), NEVER A records pointing to Tailscale IPs (e.g., `100.90.22.85`).
+
+A CNAME decouples Cloudflare DNS from the ephemeral IP. If Tailscale reassigns the IP, only Tailscale's internal DNS updates — Cloudflare is untouched. With an A record, every Cloudflare record must be manually updated.
+
+**Rules**:
+- DNS records in `configure-cloudflare-dns.yml` and all `deploy-*.yml` playbooks MUST use `type: "CNAME"` with `content: "{{ infra_tailscale_fqdn_* }}"`.
+- The Tailscale tailnet name and per-host FQDNs are defined in `levonk/active/02-config/ansible/infrastructure/domains.yml` (`infra_tailscale_tailnet`, `infra_tailscale_fqdn_cloud_server`, `infra_tailscale_fqdn_inference_host`).
+- The `cloudflare-dns` role handles A→CNAME migration automatically: if a conflicting A record exists, it deletes it before creating the CNAME.
+- Cloudflare must stay in DNS-only mode (grey cloud, not proxied) — if proxied, Cloudflare would try to resolve the CNAME target and fail (Tailscale FQDNs are not publicly resolvable).
+- New Tailscale-attached hosts get a CNAME in `configure-cloudflare-dns.yml` pointing to their Tailscale FQDN.
 
 ### Per-Client Centralized Files
 
