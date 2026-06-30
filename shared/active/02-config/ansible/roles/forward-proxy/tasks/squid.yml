@@ -1,16 +1,16 @@
 ---
-# Squid
+# Squid — uses upstream Docker Hub image (no custom Dockerfile needed)
 
 - name: Pull squid image
   community.docker.docker_image:
-    name: "{{ local_registry | default('100.90.22.85:5000') }}/localnet-proxy-squid:latest"
+    name: "{{ proxy_squid_image | default('ubuntu/squid') }}:{{ proxy_squid_image_tag | default('latest') }}"
     source: pull
     state: present
 
 - name: Deploy squid container
   community.docker.docker_container:
     name: localnet-proxy-squid
-    image: localnet-proxy-squid
+    image: "{{ proxy_squid_image | default('ubuntu/squid') }}:{{ proxy_squid_image_tag | default('latest') }}"
     state: started
     restart_policy: unless-stopped
     networks:

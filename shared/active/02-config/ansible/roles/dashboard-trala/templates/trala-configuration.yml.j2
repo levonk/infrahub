@@ -8,13 +8,50 @@
 version: "3.0"
 
 environment:
+  selfhst_icon_url: https://cdn.jsdelivr.net/gh/selfhst/icons/
   traefik:
     enable_basic_auth: true
     # api_host, username, password are overridden by env vars at runtime
 
 services:
+  # Exclude the HTTP-to-HTTPS redirect routers, the Traefik API router,
+  # and the trala router itself (it's not useful to link to yourself)
+  exclude:
+    routers:
+      - "*-http"
+      - "traefik-api"
+      - "web-to-websecure"
+      - "prometheus"
+      - "trala-http"
+      - "trala-https"
+    entrypoints:
+      - "web"
+
+  # Map Traefik router names to proper selfh.st icons and display names
+  overrides:
+    - service: "litellm-https"
+      display_name: "AI Gateway (LiteLLM)"
+      icon: litellm.svg
+      group: AI Services
+    - service: "omniroute-https"
+      display_name: "OmniRoute"
+      icon: omniroute.svg
+      group: AI Services
+    - service: "searxng-https"
+      display_name: "SearXNG Search"
+      icon: searxng.svg
+      group: Tools
+    - service: "authelia-https"
+      display_name: "Authelia SSO"
+      icon: authelia.svg
+      group: Infrastructure
+    - service: "homepage-https"
+      display_name: "Homepage Dashboard"
+      icon: homepage.svg
+      group: Dashboards
+
   manual:
-    - name: Homepage
-      url: https://start.levonk.com
-      icon: mdi-home
+    - name: TraLa
+      url: https://start2.levonk.com
+      icon: mdi-view-dashboard
       group: Launch Pages

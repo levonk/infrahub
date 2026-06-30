@@ -1,16 +1,16 @@
 ---
-# Privoxy
+# Privoxy — uses upstream Docker Hub image (no custom Dockerfile needed)
 
 - name: Pull privoxy image
   community.docker.docker_image:
-    name: "{{ local_registry | default('100.90.22.85:5000') }}/localnet-proxy-privoxy:latest"
+    name: "{{ proxy_privoxy_image | default('vimagick/privoxy') }}:{{ proxy_privoxy_image_tag | default('latest') }}"
     source: pull
     state: present
 
 - name: Deploy privoxy container
   community.docker.docker_container:
     name: localnet-proxy-privoxy
-    image: localnet-proxy-privoxy
+    image: "{{ proxy_privoxy_image | default('vimagick/privoxy') }}:{{ proxy_privoxy_image_tag | default('latest') }}"
     state: started
     restart_policy: unless-stopped
     networks:

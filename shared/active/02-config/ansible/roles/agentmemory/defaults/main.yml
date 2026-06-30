@@ -60,10 +60,10 @@ agentmemory_openai_api_key: "{{ vault_openai_api_key | default('') }}"
 # ---------------------------------------------------------------------------
 # Healthcheck Configuration
 # ---------------------------------------------------------------------------
-agentmemory_healthcheck_interval: 30
-agentmemory_healthcheck_timeout: 5
+agentmemory_healthcheck_interval: "30s"
+agentmemory_healthcheck_timeout: "5s"
 agentmemory_healthcheck_retries: 3
-agentmemory_healthcheck_start_period: 30
+agentmemory_healthcheck_start_period: "30s"
 
 # ---------------------------------------------------------------------------
 # Logging

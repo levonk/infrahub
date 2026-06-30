@@ -1,16 +1,16 @@
 ---
-# Envoy
+# Envoy — uses upstream Docker Hub image (no custom Dockerfile needed)
 
 - name: Pull envoy image
   community.docker.docker_image:
-    name: "{{ local_registry | default('100.90.22.85:5000') }}/localnet-proxy-envoy:latest"
+    name: "{{ proxy_envoy_image | default('envoyproxy/envoy') }}:{{ proxy_envoy_image_tag | default('v1.28-latest') }}"
     source: pull
     state: present
 
 - name: Deploy envoy container
   community.docker.docker_container:
     name: localnet-proxy-envoy
-    image: localnet-proxy-envoy
+    image: "{{ proxy_envoy_image | default('envoyproxy/envoy') }}:{{ proxy_envoy_image_tag | default('v1.28-latest') }}"
     state: started
     restart_policy: unless-stopped
     networks:

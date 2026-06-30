@@ -92,10 +92,15 @@ build-internal:
 
 # === Docker Image Build & Push (Invariant #2: build locally → push to registry → pull on target) ===
 
-# Build and push all locally-built images to the OCI registry
+# Build and push all locally-built images to the OCI registry (skips unchanged)
 docker-build-push-all:
     @echo "Building and pushing all images to local registry..."
     {{INFRAHUB_ROOT}}/scripts/build-and-push-images.sh
+
+# Force rebuild and push all images (ignores cache)
+docker-build-push-all-force:
+    @echo "Force rebuilding and pushing all images to local registry..."
+    {{INFRAHUB_ROOT}}/scripts/build-and-push-images.sh --force
 
 # Build and push a single image (e.g., just docker-build-push headroom)
 docker-build-push image:
