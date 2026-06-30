@@ -26,7 +26,7 @@
     
     - name: "Load vault variables"
       ansible.builtin.include_vars:
-        file: "{{ lookup('env', 'PWD') }}/shared/active/02-config/ansible/group_vars/all.vault"
+        file: "{{ lookup('env', 'PWD') }}/shared/active/02-config/ansible/inventories/group_vars/all.vault"
       become: false
       no_log: true
     

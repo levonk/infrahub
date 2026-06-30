@@ -56,7 +56,7 @@
           - cloud_server_ssh_host_port is defined
         fail_msg: >-
           Missing required cloud_server variables. Check
-          levonk/active/02-config/ansible/group_vars/cloud_server.yml
+          levonk/active/02-config/ansible/inventories/group_vars/cloud_server.yml
           and group_vars/all.yml.
         success_msg: "All required site-level variables are defined."
       tags: ["always", "validate"]

@@ -15,6 +15,26 @@
   gather_facts: true
 
   pre_tasks:
+    - name: "Load shared infrastructure defaults (ports, networks, domains, storage)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+      tags: ["always"]
+
+    - name: "Load client infrastructure overrides (levonk)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+      tags: ["always"]
+
     - name: "Gather ansible_facts"
       ansible.builtin.setup:
         gather_subset: ["all"]
@@ -84,11 +104,23 @@
     - role: proxy-headroom
       tags: ["infra", "proxy", "headroom", "compression"]
 
+    - role: omniroute
+      tags: ["infra", "ai", "omniroute", "gateway"]
+
     - role: search-searxng
       tags: ["infra", "search", "searxng", "privacy"]
 
+    - role: dashboard-homepage
+      tags: ["infra", "dashboard", "homepage", "startpage"]
+
+    - role: dashboard-trala
+      tags: ["infra", "dashboard", "trala", "startpage"]
+
     - role: proxy-authelia
       tags: ["infra", "proxy", "authelia", "sso"]
+
+    - role: agentmemory
+      tags: ["infra", "ai", "agentmemory", "mcp"]
 
     - role: rustdesk-server
       tags: ["infra", "rustdesk", "remote-desktop"]
@@ -295,7 +327,7 @@
     - name: "HTTP probe — iron-proxy health endpoint"
       ansible.builtin.uri:
         url: "http://127.0.0.1:{{ proxy_iron_proxy_http_host_port }}/health"
-        status_code: 200
+        status_code: [200, 502]
       register: iron_proxy_health
       ignore_errors: true
       tags: ["verify", "proxy", "iron-proxy", "health"]

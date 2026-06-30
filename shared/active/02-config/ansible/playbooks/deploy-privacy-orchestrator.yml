@@ -38,7 +38,7 @@
           - shared_container_services_dir is defined
         fail_msg: >-
           Missing required Privacy Orchestrator variables. Check
-          levonk/active/02-config/ansible/group_vars/cloud_servers.yml
+          levonk/active/02-config/ansible/inventories/group_vars/cloud_servers.yml
           and group_vars/all.yml.
         success_msg: "All required Privacy Orchestrator variables are defined."
       tags: ["always", "validate"]
