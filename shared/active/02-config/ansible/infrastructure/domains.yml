@@ -19,7 +19,11 @@ infra_domain_traefik_dashboard: "traefik.levonk.com"
 # AI Services
 # ---------------------------------------------------------------------------
 infra_domain_ai_dashboard_web: "ai-dashboard.levonk.com"
-infra_domain_ai_gateway: "ai-gateway.levonk.com"
+infra_domain_ai_litellm: "aigate.levonk.com"
+infra_domain_ai_omniroute: "airoute.levonk.com"
+infra_domain_ai_omnigent: "omnigent.levonk.com"
+infra_domain_ai_agentmemory: "agentmemory.levonk.com"
+infra_domain_ai_langfuse: "langfuse.levonk.com"
 
 # ---------------------------------------------------------------------------
 # Proxy Services
@@ -49,14 +53,36 @@ infra_hostname_vpn_tor: "tor"
 # Service Hostnames (container names)
 # ---------------------------------------------------------------------------
 infra_hostname_omniroute: "omniroute"
+infra_hostname_litellm: "litellm"
+infra_hostname_litellm_postgres: "litellm-postgres"
+infra_hostname_litellm_redis: "litellm-redis"
 infra_hostname_headroom: "headroom"
 infra_hostname_forge: "forge"
 infra_hostname_iron_proxy: "iron-proxy"
 infra_hostname_privacy_orchestrator: "privacy-orchestrator"
 infra_hostname_ai_dashboard: "ai-dashboard"
+infra_hostname_omnigent: "omnigent"
+infra_hostname_omnigent_postgres: "omnigent-postgres"
+infra_hostname_pi: "pi"
+infra_hostname_agentmemory: "agentmemory"
+infra_hostname_langfuse_web: "langfuse-web"
+infra_hostname_langfuse_worker: "langfuse-worker"
+infra_hostname_langfuse_postgres: "langfuse-postgres"
+infra_hostname_langfuse_clickhouse: "langfuse-clickhouse"
+infra_hostname_langfuse_redis: "langfuse-redis"
+infra_hostname_langfuse_minio: "langfuse-minio"
 infra_hostname_authelia: "authelia"
 infra_hostname_crowdsec: "crowdsec"
 infra_hostname_traefik: "traefik"
+infra_hostname_homepage: "homepage"
+infra_hostname_trala: "trala"
+
+# ---------------------------------------------------------------------------
+# Start / Launch Page Dashboards
+# See ADR-20260629001 for the decision rationale.
+# ---------------------------------------------------------------------------
+infra_domain_dashboard_homepage: "start.levonk.com"
+infra_domain_dashboard_trala: "start2.levonk.com"
 
 # ---------------------------------------------------------------------------
 # Cloudflare DNS Record Types

@@ -57,6 +57,18 @@ infra_storage_vpn_config: "{{ infra_storage_services_dir }}/vpn/config"
 infra_storage_ai_config: "{{ infra_storage_services_dir }}/ai/config"
 infra_storage_ai_data: "{{ infra_storage_services_dir }}/ai/data"
 
+# agentmemory (persistent memory for AI coding agents)
+infra_storage_agentmemory_config: "{{ infra_storage_services_dir }}/agentmemory/config"
+infra_storage_agentmemory_data: "{{ infra_storage_data_dir }}/agentmemory"
+
+# LiteLLM (AI Gateway — entry point for the pipeline)
+infra_storage_litellm_config: "{{ infra_storage_services_dir }}/litellm/config"
+infra_storage_litellm_data: "{{ infra_storage_data_dir }}/litellm"
+
+# Langfuse (LLM observability & tracing — parallel analytics sink)
+infra_storage_langfuse_config: "{{ infra_storage_services_dir }}/langfuse/config"
+infra_storage_langfuse_data: "{{ infra_storage_data_dir }}/langfuse"
+
 # Security Services
 infra_storage_security_config: "{{ infra_storage_services_dir }}/security/config"
 infra_storage_security_data: "{{ infra_storage_services_dir }}/security/data"

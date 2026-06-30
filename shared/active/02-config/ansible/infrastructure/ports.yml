@@ -101,6 +101,13 @@ infra_port_proxy_iron_proxy_https_host: "8443"
 # ---------------------------------------------------------------------------
 # AI Pipeline Ports
 # ---------------------------------------------------------------------------
+# LiteLLM (AI Gateway — entry point for the pipeline, auth/keys/PII/spend/Langfuse)
+infra_port_ai_litellm_host: "4000"
+infra_port_ai_litellm_container: "4000"
+infra_port_ai_litellm_postgres_host: "5435"
+infra_port_ai_litellm_postgres_container: "5432"
+infra_port_ai_litellm_redis_container: "6379"
+
 # Headroom
 infra_port_ai_headroom_host: "8787"
 infra_port_ai_headroom_container: "8787"
@@ -120,6 +127,34 @@ infra_port_ai_privacy_orchestrator_container: "8082"
 # AI Dashboard
 infra_port_ai_dashboard_host: "3000"
 infra_port_ai_dashboard_container: "3000"
+
+# Omnigent (AI agent framework & meta-harness server)
+infra_port_ai_omnigent_host: "8000"
+infra_port_ai_omnigent_container: "8000"
+infra_port_ai_omnigent_postgres_host: "5433"
+infra_port_ai_omnigent_postgres_container: "5432"
+
+# Pi (coding agent harness — driven by Omnigent's runner via RPC)
+infra_port_ai_pi_host: "8090"
+infra_port_ai_pi_container: "8090"
+
+# agentmemory (persistent memory for AI coding agents — iii-engine + MCP server)
+infra_port_ai_agentmemory_host: "3111"
+infra_port_ai_agentmemory_container: "3111"
+
+# Langfuse (LLM observability & tracing platform — parallel analytics sink for the pipeline)
+# Web UI exposed via Traefik; only the web host port is bound (for direct/debug access)
+infra_port_ai_langfuse_web_host: "3001"
+infra_port_ai_langfuse_web_container: "3000"
+infra_port_ai_langfuse_worker_container: "3030"
+infra_port_ai_langfuse_postgres_host: "5434"
+infra_port_ai_langfuse_postgres_container: "5432"
+infra_port_ai_langfuse_clickhouse_http_container: "8123"
+infra_port_ai_langfuse_clickhouse_tcp_container: "9000"
+infra_port_ai_langfuse_redis_container: "6379"
+infra_port_ai_langfuse_minio_api_host: "9190"
+infra_port_ai_langfuse_minio_api_container: "9000"
+infra_port_ai_langfuse_minio_console_container: "9001"
 
 # ---------------------------------------------------------------------------
 # SSO/Authelia Ports
@@ -184,3 +219,14 @@ infra_port_worldmonitor_ais_relay_container: "3004"
 # ---------------------------------------------------------------------------
 infra_port_registry_host: "5000"
 infra_port_registry_container: "5000"
+
+# ---------------------------------------------------------------------------
+# Start / Launch Page Dashboard Ports
+# Used by: deploy-start-pages.yml playbook on cloud_servers
+# Homepage = rich startpage with service widgets; TraLa = Traefik auto-discovery
+# See ADR-20260629001 for the decision rationale.
+# ---------------------------------------------------------------------------
+infra_port_dashboard_homepage_host: "8084"
+infra_port_dashboard_homepage_container: "3000"
+infra_port_dashboard_trala_host: "8085"
+infra_port_dashboard_trala_container: "8080"

@@ -33,6 +33,19 @@ infra_network_ai_forge_network_name: "forge-network"
 infra_network_ai_forge_subnet: "172.35.0.0/16"
 infra_network_ai_forge_gateway: "172.35.0.1"
 
+# Langfuse (LLM observability & tracing — parallel analytics sink)
+infra_network_ai_langfuse_network_name: "langfuse-network"
+infra_network_ai_langfuse_subnet: "172.37.0.0/16"
+infra_network_ai_langfuse_gateway: "172.37.0.1"
+infra_network_ip_langfuse_web: "172.37.0.10"
+infra_network_ip_langfuse_worker: "172.37.0.11"
+infra_network_ip_langfuse_postgres: "172.37.0.20"
+infra_network_ip_langfuse_clickhouse: "172.37.0.30"
+infra_network_ip_langfuse_redis: "172.37.0.40"
+infra_network_ip_langfuse_minio: "172.37.0.50"
+# Traefik-network IP for langfuse-web (public routing)
+infra_network_ip_langfuse_traefik: "172.31.0.40"
+
 # ---------------------------------------------------------------------------
 # DNS Networks
 # ---------------------------------------------------------------------------
@@ -80,6 +93,8 @@ infra_network_kvm_routed_bridge_dhcp_end: "192.168.101.254"
 # ---------------------------------------------------------------------------
 # Service IP Allocations (within networks)
 # ---------------------------------------------------------------------------
+infra_network_ip_litellm: "172.29.0.18"
+infra_network_ip_litellm_traefik: "172.31.0.18"
 infra_network_ip_omniroute: "172.29.0.14"
 infra_network_ip_headroom: "172.29.0.13"
 infra_network_ip_forge: "172.29.0.16"
