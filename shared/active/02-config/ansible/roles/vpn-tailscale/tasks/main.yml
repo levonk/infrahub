@@ -32,7 +32,7 @@
 # ---------------------------------------------------------------------------
 - name: Add Tailscale GPG key
   ansible.builtin.apt_key:
-    url: https://pkgs.tailscale.com/{{ vpn_tailscale_channel }}/debian/bookworm.gpg
+    url: https://pkgs.tailscale.com/{{ vpn_tailscale_channel }}/{{ ansible_distribution | lower }}/{{ ansible_distribution_release }}.gpg
     keyring: /usr/share/keyrings/tailscale-archive-keyring.gpg
   become: true
   when: ansible_facts.os_family == "Debian"
@@ -41,7 +41,7 @@
   ansible.builtin.apt_repository:
     repo: >-
       deb [signed-by=/usr/share/keyrings/tailscale-archive-keyring.gpg]
-      https://pkgs.tailscale.com/{{ vpn_tailscale_channel }}/debian bookworm main
+      https://pkgs.tailscale.com/{{ vpn_tailscale_channel }}/{{ ansible_distribution | lower }} {{ ansible_distribution_release }} main
     filename: tailscale
     state: present
   become: true
@@ -135,7 +135,6 @@
     _vpn_tailscale_up_args:
       - --authkey={{ vpn_tailscale_auth_key }}
       - --hostname={{ vpn_tailscale_hostname }}
-      - --port={{ vpn_tailscale_port }}
       - "{% if vpn_tailscale_accept_dns %}--accept-dns{% else %}--accept-dns=false{% endif %}"
       - "{% if vpn_tailscale_accept_routes %}--accept-routes{% else %}--accept-routes=false{% endif %}"
       - "{% if vpn_tailscale_enable_ssh %}--ssh{% endif %}"
