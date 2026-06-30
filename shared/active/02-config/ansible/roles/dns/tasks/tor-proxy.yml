@@ -1,14 +1,10 @@
 ---
 # Tor Proxy (foundational service)
 
-- name: Build tor-proxy image
+- name: Pull tor-proxy image
   community.docker.docker_image:
-    name: localnet-proxy-tor
-    build:
-      path: "{{ localnet_services_dir }}/proxy/tor"
-      dockerfile: docker/Dockerfile.tor
-      pull: false
-    source: build
+    name: "{{ local_registry | default('100.90.22.85:5000') }}/localnet-proxy-tor:latest"
+    source: pull
     state: present
 
 - name: Deploy tor-proxy container

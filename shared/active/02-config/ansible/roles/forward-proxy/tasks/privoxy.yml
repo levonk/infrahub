@@ -1,14 +1,10 @@
 ---
 # Privoxy
 
-- name: Build privoxy image
+- name: Pull privoxy image
   community.docker.docker_image:
-    name: localnet-proxy-privoxy
-    build:
-      path: "{{ localnet_services_dir }}/proxy/privoxy"
-      dockerfile: docker/Dockerfile.privoxy
-      pull: false
-    source: build
+    name: "{{ local_registry | default('100.90.22.85:5000') }}/localnet-proxy-privoxy:latest"
+    source: pull
     state: present
 
 - name: Deploy privoxy container

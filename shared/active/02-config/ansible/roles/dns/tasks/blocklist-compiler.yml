@@ -1,14 +1,10 @@
 ---
 # Blocklist Compiler (one-shot job)
 
-- name: Build blocklist-compiler image
+- name: Pull blocklist-compiler image
   community.docker.docker_image:
-    name: localnet-dns-blocklist-compiler
-    build:
-      path: "{{ localnet_services_dir }}/dns/dns-blocklists"
-      dockerfile: Dockerfile.blocklist-compiler
-      pull: false
-    source: build
+    name: "{{ local_registry | default('100.90.22.85:5000') }}/localnet-dns-blocklist-compiler:latest"
+    source: pull
     state: present
   register: blocklist_compiler_build
 

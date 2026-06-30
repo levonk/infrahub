@@ -1,0 +1,135 @@
+---
+# agentmemory Deployment
+# Deploys agentmemory container (persistent memory for AI coding agents)
+# Upstream: https://github.com/rohitg00/agentmemory
+
+# ============================================================================
+# Prerequisites
+# ============================================================================
+- name: Validate required variables are defined
+  ansible.builtin.assert:
+    that:
+      - localnet_services_dir is defined
+      - shared_container_services_dir is defined
+      - agentmemory_container_port is defined
+      - agentmemory_host_port is defined
+    fail_msg: >-
+      Missing required variables. Check group_vars/cloud_servers.yml,
+      infrastructure/ports.yml, and inventory vars
+      (localnet_services_dir, shared_container_services_dir).
+    success_msg: "All required agentmemory variables are defined."
+  tags: ["always", "validate"]
+
+# ============================================================================
+# Volume Management
+# ============================================================================
+- name: Ensure agentmemory data volume exists
+  community.docker.docker_volume:
+    name: "{{ agentmemory_volume_name }}"
+    state: present
+
+# ============================================================================
+# Init Container (fix volume permissions for distroless iii-engine UID 65532)
+# ============================================================================
+- name: Remove existing agentmemory-init container
+  community.docker.docker_container:
+    name: "{{ agentmemory_init_container_name }}"
+    state: absent
+    force_kill: true
+  ignore_errors: true
+
+- name: Run agentmemory-init container (chown /data for UID 65532)
+  community.docker.docker_container:
+    name: "{{ agentmemory_init_container_name }}"
+    image: "busybox:1.36"
+    user: "0:0"
+    volumes:
+      - "{{ agentmemory_volume_name }}:/data"
+    command: "sh -c 'chown -R 65532:65532 /data && chmod 755 /data'"
+    detach: false
+    auto_remove: true
+  register: agentmemory_init_result
+  changed_when: false
+
+# ============================================================================
+# Image Pull
+# ============================================================================
+- name: Pull agentmemory image
+  community.docker.docker_image:
+    name: "{{ agentmemory_image_name }}:{{ agentmemory_image_tag }}"
+    source: pull
+    state: present
+  register: agentmemory_build
+  notify: restart agentmemory
+
+# ============================================================================
+# Container Deployment
+# ============================================================================
+- name: Deploy agentmemory container
+  community.docker.docker_container:
+    name: "{{ agentmemory_container_name }}"
+    image: "{{ agentmemory_image_name }}:{{ agentmemory_image_tag }}"
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ agentmemory_network_name }}"
+    ports:
+      # Publish 3111 to host for Tailscale MCP direct access.
+      # Firewall (nftables) blocks external access; Tailscale traffic allowed.
+      - "{{ agentmemory_host_port }}:{{ agentmemory_container_port }}/tcp"
+    volumes:
+      - "{{ agentmemory_volume_name }}:{{ agentmemory_data_dir }}:rw"
+      - "{{ localnet_services_dir }}/agentmemory/docker/iii-config.docker.yaml:/app/config.yaml:ro"
+    env:
+      AGENTMEMORY_III_VERSION: "{{ agentmemory_iii_version }}"
+      AGENTMEMORY_DATA_DIR: "{{ agentmemory_data_dir }}"
+      AGENTMEMORY_HMAC_FILE: "{{ agentmemory_data_dir }}/.hmac"
+      AGENTMEMORY_SECRET: "{{ agentmemory_secret }}"
+      ANTHROPIC_API_KEY: "{{ agentmemory_anthropic_api_key }}"
+      OPENAI_API_KEY: "{{ agentmemory_openai_api_key }}"
+      TZ: "{{ localnet_tz | default('UTC') }}"
+    log_driver: json-file
+    log_options:
+      max-size: "{{ agentmemory_log_max_size }}"
+      max-file: "{{ agentmemory_log_max_file }}"
+    security_opts:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:{{ agentmemory_container_port }}/agentmemory/livez || exit 1"]
+      interval: "{{ agentmemory_healthcheck_interval }}"
+      timeout: "{{ agentmemory_healthcheck_timeout }}"
+      retries: "{{ agentmemory_healthcheck_retries }}"
+      start_period: "{{ agentmemory_healthcheck_start_period }}"
+  register: agentmemory_deploy
+  notify: restart agentmemory
+
+# ============================================================================
+# Wait for Health
+# ============================================================================
+- name: Wait for agentmemory to be healthy
+  ansible.builtin.wait_for:
+    host: "127.0.0.1"
+    port: "{{ agentmemory_host_port }}"
+    delay: 10
+    timeout: 120
+  when: agentmemory_deploy.changed
+
+# ============================================================================
+# Status Report
+# ============================================================================
+- name: Get agentmemory container status
+  community.docker.docker_container_info:
+    name: "{{ agentmemory_container_name }}"
+  register: agentmemory_container_info
+  ignore_errors: true
+
+- name: Report agentmemory status
+  ansible.builtin.debug:
+    msg: |
+      agentmemory deployed successfully:
+        - Web UI (Traefik + Authelia): https://{{ agentmemory_domain }}
+        - MCP API (Tailscale only): http://{{ ansible_host }}:{{ agentmemory_host_port }}
+        - Container: {{ agentmemory_container_name }}
+        - Status: {{ agentmemory_container_info.container.State.Status | default('unknown') }}
+        - HMAC Secret: {{ 'set via vault' if agentmemory_secret | length > 0 else 'auto-generated on first boot (check container logs)' }}
+  tags: ["always", "info"]

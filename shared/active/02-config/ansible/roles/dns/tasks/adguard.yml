@@ -1,14 +1,10 @@
 ---
 # AdGuard Home
 
-- name: Build adguard image
+- name: Pull adguard image
   community.docker.docker_image:
-    name: localnet-dns-adguard
-    build:
-      path: "{{ localnet_services_dir }}/dns/adguard"
-      dockerfile: ./Dockerfile.adguard
-      pull: false
-    source: build
+    name: "{{ local_registry | default('100.90.22.85:5000') }}/localnet-dns-adguard:latest"
+    source: pull
     state: present
 
 - name: Deploy adguard container

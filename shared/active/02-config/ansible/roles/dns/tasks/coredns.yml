@@ -1,14 +1,10 @@
 ---
 # CoreDNS
 
-- name: Build coredns image
+- name: Pull coredns image
   community.docker.docker_image:
-    name: localnet-dns-coredns
-    build:
-      path: "{{ localnet_services_dir }}/dns/coredns"
-      dockerfile: docker/Dockerfile.coredns
-      pull: false
-    source: build
+    name: "{{ local_registry | default('100.90.22.85:5000') }}/localnet-dns-coredns:latest"
+    source: pull
     state: present
 
 - name: Deploy coredns container

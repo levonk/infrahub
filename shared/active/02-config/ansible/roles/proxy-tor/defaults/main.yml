@@ -23,7 +23,7 @@ proxy_tor_container_name: "localnet-proxy-tor"
 proxy_tor_config_volume_name: "localnet-tor-config-volume"
 proxy_tor_data_volume_name: "localnet-tor-data-volume"
 proxy_tor_log_volume_name: "localnet-tor-log-volume"
-proxy_tor_image: "localnet-proxy-tor:latest"
+proxy_tor_image: "{{ local_registry | default('100.90.22.85:5000') }}/localnet-proxy-tor:latest"
 
 # Service Directories
 localnet_services_dir: "/opt/localnet/services"

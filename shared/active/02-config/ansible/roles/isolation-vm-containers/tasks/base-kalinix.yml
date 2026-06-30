@@ -14,64 +14,18 @@
     - "{{ isolation_vm_base_kalinix_volume_path }}/tmp"
   become: true
 
-- name: Copy base-kalinix Dockerfile to VM
-  ansible.builtin.copy:
-    src: "{{ isolation_vm_base_kalinix_dockerfile_path }}"
-    dest: "{{ isolation_vm_base_kalinix_build_path }}/Dockerfile.base-kalinix"
-    mode: '0644'
-    owner: "{{ isolation_vm_user }}"
-    group: "{{ isolation_vm_user }}"
-  become: true
-
-- name: Copy base-kalinix assets to VM
-  ansible.builtin.synchronize:
-    src: "{{ isolation_vm_base_kalinix_assets_path }}/"
-    dest: "{{ isolation_vm_base_kalinix_build_path }}/assets/"
-    delete: true
-    recursive: true
-  become: true
-
-- name: Copy base-kali Dockerfile to VM (dependency)
-  ansible.builtin.copy:
-    src: "{{ isolation_vm_base_kali_dockerfile_path }}"
-    dest: "{{ isolation_vm_base_kalinix_build_path }}/Dockerfile.base-kali"
-    mode: '0644'
-    owner: "{{ isolation_vm_user }}"
-    group: "{{ isolation_vm_user }}"
-  become: true
-
-- name: Copy base-kali assets to VM (dependency)
-  ansible.builtin.synchronize:
-    src: "{{ isolation_vm_base_kali_assets_path }}/"
-    dest: "{{ isolation_vm_base_kalinix_build_path }}/base-kali-assets/"
-    delete: true
-    recursive: true
-  become: true
-
-- name: Build base-kali container image (dependency)
+- name: Pull base-kali container image (dependency)
   community.docker.docker_image:
     name: "{{ isolation_vm_base_kali_image_name }}"
-    source: build
-    build:
-      path: "{{ isolation_vm_base_kalinix_build_path }}"
-      dockerfile: Dockerfile.base-kali
-      context: .
+    source: pull
     state: present
   become: true
   register: base_kali_build
 
-- name: Build base-kalinix container image
+- name: Pull base-kalinix container image
   community.docker.docker_image:
     name: "{{ isolation_vm_base_kalinix_image_name }}"
-    source: build
-    build:
-      path: "{{ isolation_vm_base_kalinix_build_path }}"
-      dockerfile: Dockerfile.base-kalinix
-      args:
-        PUID: "{{ isolation_vm_user_uid }}"
-        PGID: "{{ isolation_vm_user_gid }}"
-        TZ: "{{ isolation_vm_timezone }}"
-        USERNAME: "{{ isolation_vm_user }}"
+    source: pull
     state: present
   become: true
   register: base_kalinix_build

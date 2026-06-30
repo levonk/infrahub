@@ -15,7 +15,7 @@ isolation_vm_timezone: UTC
 
 # Nix sidecar container configuration
 isolation_vm_nix_sidecar_container_name: isolation-vm-nix-sidecar
-isolation_vm_nix_sidecar_image_name: isolation-vm-nix-sidecar:latest
+isolation_vm_nix_sidecar_image_name: "{{ local_registry | default('100.90.22.85:5000') }}/isolation-vm-nix-sidecar:latest"
 isolation_vm_nix_sidecar_network_name: isolation-vm-network
 
 # Nix sidecar volume configuration
@@ -39,8 +39,8 @@ isolation_vm_nix_sidecar_cpu_limit: 2.0
 
 # Base KaliNix container configuration
 isolation_vm_base_kalinix_container_name: isolation-vm-base-kalinix
-isolation_vm_base_kalinix_image_name: isolation-vm-base-kalinix:latest
-isolation_vm_base_kali_image_name: isolation-vm-base-kali:latest
+isolation_vm_base_kalinix_image_name: "{{ local_registry | default('100.90.22.85:5000') }}/isolation-vm-base-kalinix:latest"
+isolation_vm_base_kali_image_name: "{{ local_registry | default('100.90.22.85:5000') }}/isolation-vm-base-kali:latest"
 
 # Base KaliNix volume configuration
 isolation_vm_base_kalinix_volume_path: /var/lib/isolation-vm/base-kalinix
@@ -65,7 +65,7 @@ isolation_vm_base_kalinix_cpu_limit: 1.0
 
 # Hermes agent container configuration
 isolation_vm_hermes_agent_container_name: isolation-vm-hermes-agent
-isolation_vm_hermes_agent_image_name: isolation-vm-hermes-agent:latest
+isolation_vm_hermes_agent_image_name: "{{ local_registry | default('100.90.22.85:5000') }}/isolation-vm-hermes-agent:latest"
 
 # Hermes agent volume configuration
 isolation_vm_hermes_agent_volume_path: /var/lib/isolation-vm/hermes-agent

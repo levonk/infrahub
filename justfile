@@ -90,6 +90,22 @@ build-internal:
     @echo "Building all infrahub components..."
     @echo "(Add component-specific build steps here)"
 
+# === Docker Image Build & Push (Invariant #2: build locally → push to registry → pull on target) ===
+
+# Build and push all locally-built images to the OCI registry
+docker-build-push-all:
+    @echo "Building and pushing all images to local registry..."
+    {{INFRAHUB_ROOT}}/scripts/build-and-push-images.sh
+
+# Build and push a single image (e.g., just docker-build-push headroom)
+docker-build-push image:
+    @echo "Building and pushing '{{image}}' to local registry..."
+    {{INFRAHUB_ROOT}}/scripts/build-and-push-images.sh {{image}}
+
+# List all images that can be built and pushed
+docker-build-list:
+    {{INFRAHUB_ROOT}}/scripts/build-and-push-images.sh --list
+
 test:
     devbox run test
 

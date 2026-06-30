@@ -1,14 +1,10 @@
 ---
 # DNSCrypt Plaintext
 
-- name: Build dnscrypt-plaintext image
+- name: Pull dnscrypt-plaintext image
   community.docker.docker_image:
-    name: localnet-dns-dnscrypt-plaintext
-    build:
-      path: "{{ localnet_services_dir }}/dns/dnscrypt"
-      dockerfile: docker/Dockerfile.dnscrypt-proxy
-      pull: false
-    source: build
+    name: "{{ local_registry | default('100.90.22.85:5000') }}/localnet-dns-dnscrypt-plaintext:latest"
+    source: pull
     state: present
 
 - name: Deploy dnscrypt-plaintext container

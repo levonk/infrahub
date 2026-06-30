@@ -1,0 +1,72 @@
+---
+# agentmemory default variables
+# Persistent memory system for AI coding agents — iii-engine + MCP server
+# Upstream: https://github.com/rohitg00/agentmemory
+
+# ---------------------------------------------------------------------------
+# Service Configuration
+# ---------------------------------------------------------------------------
+agentmemory_enabled: true
+agentmemory_container_name: "localnet-agentmemory"
+agentmemory_image_name: "{{ local_registry | default('100.90.22.85:5000') }}/localnet-agentmemory"
+agentmemory_image_tag: "latest"
+agentmemory_init_container_name: "localnet-agentmemory-init"
+
+# Version pinning
+# iii-engine v0.11.2 is the last version that runs agentmemory's current
+# worker model cleanly. v0.11.6+ requires a sandbox-everything worker model
+# that agentmemory hasn't been refactored for yet.
+agentmemory_version: "0.9.25"
+agentmemory_iii_version: "0.11.2"
+agentmemory_iii_sdk_version: "0.11.2"
+
+# ---------------------------------------------------------------------------
+# Network Configuration
+# ---------------------------------------------------------------------------
+agentmemory_network_name: "traefik-network"
+agentmemory_container_ip: "172.31.0.7"
+
+# Ports (from infrastructure variables)
+agentmemory_host_port: "{{ infra_port_ai_agentmemory_host | default('3111') }}"
+agentmemory_container_port: "{{ infra_port_ai_agentmemory_container | default('3111') }}"
+
+# ---------------------------------------------------------------------------
+# Volume Configuration
+# ---------------------------------------------------------------------------
+agentmemory_volume_name: "localnet-agentmemory-data-volume"
+agentmemory_data_dir: "/data"
+
+# ---------------------------------------------------------------------------
+# Domain Configuration (for Traefik routing)
+# ---------------------------------------------------------------------------
+agentmemory_domain: "{{ infra_domain_ai_agentmemory | default('agentmemory.levonk.com') }}"
+
+# ---------------------------------------------------------------------------
+# Security — HMAC secret for API authentication
+# Set via vault variable vault_agentmemory_hmac_secret.
+# If not set, the entrypoint auto-generates one on first boot and persists
+# it to /data/.hmac (printed to stdout once for capture).
+# ---------------------------------------------------------------------------
+agentmemory_secret: "{{ vault_agentmemory_hmac_secret | default('') }}"
+
+# ---------------------------------------------------------------------------
+# LLM / Embedding Provider Keys (optional)
+# Without keys, agentmemory runs in noop/BM25-only mode.
+# With keys, enables LLM compression + hybrid vector search.
+# ---------------------------------------------------------------------------
+agentmemory_anthropic_api_key: "{{ vault_anthropic_api_key | default('') }}"
+agentmemory_openai_api_key: "{{ vault_openai_api_key | default('') }}"
+
+# ---------------------------------------------------------------------------
+# Healthcheck Configuration
+# ---------------------------------------------------------------------------
+agentmemory_healthcheck_interval: 30
+agentmemory_healthcheck_timeout: 5
+agentmemory_healthcheck_retries: 3
+agentmemory_healthcheck_start_period: 30
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+agentmemory_log_max_size: "10m"
+agentmemory_log_max_file: "5"

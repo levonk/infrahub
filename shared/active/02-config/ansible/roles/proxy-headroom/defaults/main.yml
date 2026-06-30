@@ -8,7 +8,7 @@
 # ---------------------------------------------------------------------------
 proxy_headroom_enabled: true
 proxy_headroom_version: "0.26.0"
-proxy_headroom_image: "headroom:{{ proxy_headroom_version }}"
+proxy_headroom_image: "{{ local_registry | default('100.90.22.85:5000') }}/headroom:latest"
 
 # ---------------------------------------------------------------------------
 # Headroom Configuration

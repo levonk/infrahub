@@ -25,35 +25,10 @@
   become: true
   when: isolation_vm_hermes_agent_ssh_public_key is defined
 
-- name: Copy hermes-agent Dockerfile to VM
-  ansible.builtin.copy:
-    src: "{{ isolation_vm_hermes_agent_dockerfile_path }}"
-    dest: "{{ isolation_vm_hermes_agent_build_path }}/Dockerfile.hermes-agent"
-    mode: '0644'
-    owner: "{{ isolation_vm_user }}"
-    group: "{{ isolation_vm_user }}"
-  become: true
-
-- name: Copy hermes-agent assets to VM
-  ansible.builtin.synchronize:
-    src: "{{ isolation_vm_hermes_agent_assets_path }}/"
-    dest: "{{ isolation_vm_hermes_agent_build_path }}/assets/"
-    delete: true
-    recursive: true
-  become: true
-
-- name: Build hermes-agent container image
+- name: Pull hermes-agent container image
   community.docker.docker_image:
     name: "{{ isolation_vm_hermes_agent_image_name }}"
-    source: build
-    build:
-      path: "{{ isolation_vm_hermes_agent_build_path }}"
-      dockerfile: Dockerfile.hermes-agent
-      args:
-        PUID: "{{ isolation_vm_user_uid }}"
-        PGID: "{{ isolation_vm_user_gid }}"
-        TZ: "{{ isolation_vm_timezone }}"
-        USERNAME: "{{ isolation_vm_user }}"
+    source: pull
     state: present
   become: true
   register: hermes_agent_build

@@ -3,15 +3,44 @@
 
 # Container configuration
 ai_omniroute_container_name: localnet-ai-omniroute
-ai_omniroute_image_name: localnet-ai-omniroute:latest
+ai_omniroute_image_name: "{{ local_registry | default('100.90.22.85:5000') }}/localnet-ai-omniroute:latest"
 ai_omniroute_volume_name: ai-omniroute-data
 
 # Port configuration
-ai_omniroute_host_port: 20128
-ai_omniroute_container_port: 20128
+ai_omniroute_host_port: "20128"
+ai_omniroute_container_port: "20128"
 
 # Healthcheck configuration
 ai_omniroute_healthcheck_interval: 30
 ai_omniroute_healthcheck_timeout: 10
 ai_omniroute_healthcheck_retries: 3
 ai_omniroute_healthcheck_start_period: 40
+
+# Feature flags (headroom handles compression; omniroute focuses on routing)
+ai_omniroute_compression_enabled: "false"
+ai_omniroute_rtk_enabled: "false"
+ai_omniroute_caveman_enabled: "false"
+
+# User/Group IDs (fallback to cuser or localnet defaults)
+ai_omniroute_puid: "{{ localnet_puid | default(cuser_uid | default(1000)) | string }}"
+ai_omniroute_pgid: "{{ localnet_pgid | default(cuser_gid | default(1000)) | string }}"
+ai_omniroute_tz: "{{ localnet_tz | default(timezone | default('UTC')) }}"
+
+# Proxy-chain network (shared with headroom, iron-proxy, forge)
+ai_omniroute_chain_network_name: "{{ infra_network_ai_proxy_chain_network_name | default('proxy-chain-network') }}"
+ai_omniroute_chain_network_ip: "{{ infra_network_ip_omniroute | default('172.29.0.14') }}"
+
+# Localnet network (primary container network)
+ai_omniroute_localnet_network_name: "{{ localnet_network_name | default('cloud-server') }}"
+
+# Traefik network (for public routing via ai-gateway.levonk.com)
+ai_omniroute_traefik_network_name: "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"
+
+# Upstream proxy (iron-proxy egress firewall)
+ai_omniroute_http_proxy: "http://iron-proxy:80"
+ai_omniroute_https_proxy: "http://iron-proxy:80"
+ai_omniroute_no_proxy: "localhost,127.0.0.1"
+
+# Traefik domain for the OmniRoute dashboard
+ai_omniroute_domain: "{{ infra_domain_ai_omniroute | default('airoute.levonk.com') }}"
+

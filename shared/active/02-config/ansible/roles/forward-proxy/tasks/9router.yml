@@ -21,17 +21,10 @@
 # ============================================================================
 # 9Router (OmniRoute replaces this)
 # ============================================================================
-- name: Build 9router image
+- name: Pull 9router image
   community.docker.docker_image:
-    name: localnet-proxy-9router
-    build:
-      path: "{{ localnet_services_dir }}/proxy/9router"
-      dockerfile: Dockerfile
-      pull: false
-      args:
-        PUID: "{{ localnet_puid }}"
-        PGID: "{{ localnet_pgid }}"
-    source: build
+    name: "{{ local_registry | default('100.90.22.85:5000') }}/localnet-proxy-9router:latest"
+    source: pull
     state: present
 
 - name: Deploy 9router container

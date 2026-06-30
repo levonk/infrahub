@@ -1,14 +1,10 @@
 ---
 # Envoy
 
-- name: Build envoy image
+- name: Pull envoy image
   community.docker.docker_image:
-    name: localnet-proxy-envoy
-    build:
-      path: "{{ localnet_services_dir }}/proxy/envoy"
-      dockerfile: docker/Dockerfile.envoy
-      pull: false
-    source: build
+    name: "{{ local_registry | default('100.90.22.85:5000') }}/localnet-proxy-envoy:latest"
+    source: pull
     state: present
 
 - name: Deploy envoy container

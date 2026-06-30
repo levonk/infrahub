@@ -15,30 +15,10 @@
     - "{{ isolation_vm_nix_sidecar_volume_path }}/nix-cache"
   become: true
 
-- name: Copy nix-sidecar Dockerfile to VM
-  ansible.builtin.copy:
-    src: "{{ isolation_vm_nix_sidecar_dockerfile_path }}"
-    dest: "{{ isolation_vm_nix_sidecar_build_path }}/Dockerfile.nix-sidecar"
-    mode: '0644'
-    owner: "{{ isolation_vm_user }}"
-    group: "{{ isolation_vm_user }}"
-  become: true
-
-- name: Copy nix-sidecar assets to VM
-  ansible.builtin.synchronize:
-    src: "{{ isolation_vm_nix_sidecar_assets_path }}/"
-    dest: "{{ isolation_vm_nix_sidecar_build_path }}/assets/"
-    delete: true
-    recursive: true
-  become: true
-
-- name: Build nix-sidecar container image
+- name: Pull nix-sidecar container image
   community.docker.docker_image:
     name: "{{ isolation_vm_nix_sidecar_image_name }}"
-    source: build
-    build:
-      path: "{{ isolation_vm_nix_sidecar_build_path }}"
-      dockerfile: Dockerfile.nix-sidecar
+    source: pull
     state: present
   become: true
   register: nix_sidecar_build

@@ -2,11 +2,18 @@
 # OmniRoute AI Gateway Deployment
 # Deploys OmniRoute container for unified AI provider access
 
-- name: Ensure OmniRoute service directory exists on target
-  ansible.builtin.file:
-    path: "{{ localnet_services_dir }}/ai-services/omniroute"
-    state: directory
-    mode: "0755"
+- name: Validate required variables are defined
+  ansible.builtin.assert:
+    that:
+      - localnet_services_dir is defined
+      - shared_container_services_dir is defined
+      - localnet_network_name is defined
+    fail_msg: >-
+      Missing required variables. Check group_vars/cloud_servers.yml
+      and inventory vars (localnet_services_dir, shared_container_services_dir,
+      localnet_network_name).
+    success_msg: "All required omniroute variables are defined."
+  tags: ["always", "validate"]
 
 # ============================================================================
 # Volume Management
@@ -16,17 +23,29 @@
     name: "{{ ai_omniroute_volume_name }}"
     state: present
 
+- name: Ensure proxy-chain Docker network exists
+  community.docker.docker_network:
+    name: "{{ ai_omniroute_chain_network_name }}"
+    state: present
+    driver: bridge
+    ipam_config:
+      - subnet: "{{ infra_network_ai_proxy_chain_subnet | default('172.29.0.0/16') }}"
+        gateway: "{{ infra_network_ai_proxy_chain_gateway | default('172.29.0.1') }}"
+
+- name: Ensure localnet Docker network exists
+  community.docker.docker_network:
+    name: "{{ ai_omniroute_localnet_network_name }}"
+    state: present
+    driver: bridge
+  ignore_errors: true  # Network may already exist with different config
+
 # ============================================================================
-# Image Build
+# Image Pull
 # ============================================================================
-- name: Build OmniRoute image
+- name: Pull OmniRoute image
   community.docker.docker_image:
     name: "{{ ai_omniroute_image_name }}"
-    build:
-      path: "{{ localnet_services_dir }}/ai-services/omniroute"
-      dockerfile: docker/Dockerfile.omniroute
-      pull: false
-    source: build
+    source: pull
     state: present
   register: omniroute_build
 
@@ -40,7 +59,10 @@
     state: started
     restart_policy: unless-stopped
     networks:
-      - name: "{{ localnet_network_name }}"
+      - name: "{{ ai_omniroute_localnet_network_name }}"
+      - name: "{{ ai_omniroute_chain_network_name }}"
+        ipv4_address: "{{ ai_omniroute_chain_network_ip }}"
+      - name: "{{ ai_omniroute_traefik_network_name }}"
     ports:
       - "{{ ai_omniroute_host_port }}:{{ ai_omniroute_container_port }}/tcp"
     volumes:
@@ -48,9 +70,15 @@
     env:
       PORT: "{{ ai_omniroute_container_port }}"
       NODE_ENV: production
-      PUID: "{{ localnet_puid }}"
-      PGID: "{{ localnet_pgid }}"
-      TZ: "{{ localnet_tz }}"
+      PUID: "{{ ai_omniroute_puid }}"
+      PGID: "{{ ai_omniroute_pgid }}"
+      TZ: "{{ ai_omniroute_tz }}"
+      OMNIROUTE_COMPRESSION_ENABLED: "{{ ai_omniroute_compression_enabled }}"
+      OMNIROUTE_RTK_ENABLED: "{{ ai_omniroute_rtk_enabled }}"
+      OMNIROUTE_CAVEMAN_ENABLED: "{{ ai_omniroute_caveman_enabled }}"
+      HTTP_PROXY: "{{ ai_omniroute_http_proxy }}"
+      HTTPS_PROXY: "{{ ai_omniroute_https_proxy }}"
+      NO_PROXY: "{{ ai_omniroute_no_proxy }}"
     log_driver: json-file
     log_options:
       max-size: 10m
@@ -62,10 +90,23 @@
       - /tmp:mode=1777,size=128m
     healthcheck:
       test: ["CMD", "/usr/local/bin/healthcheck-omniroute.sh"]
-      interval: 30
-      timeout: 10
+      interval: 30s
+      timeout: 10s
       retries: 3
-      start_period: 40
+      start_period: 40s
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.omniroute-http.rule: "Host(`{{ ai_omniroute_domain }}`)"
+      traefik.http.routers.omniroute-http.entryPoints: "web"
+      traefik.http.routers.omniroute-http.middlewares: "redirect-to-https-omniroute"
+      traefik.http.routers.omniroute-https.rule: "Host(`{{ ai_omniroute_domain }}`)"
+      traefik.http.routers.omniroute-https.entryPoints: "websecure"
+      traefik.http.routers.omniroute-https.middlewares: "geoblock,crowdsec-bouncer,authelia"
+      traefik.http.routers.omniroute-https.tls: "true"
+      traefik.http.routers.omniroute-https.tls.certresolver: "letsencrypt"
+      traefik.http.services.omniroute.loadbalancer.server.port: "{{ ai_omniroute_container_port }}"
+      traefik.http.middlewares.redirect-to-https-omniroute.redirectscheme.scheme: "https"
+      traefik.http.middlewares.redirect-to-https-omniroute.redirectscheme.permanent: "true"
   register: omniroute_deploy
   notify: restart omniroute
 

@@ -2,45 +2,17 @@
 # tasks file for proxy-tor
 # Deploys Tor proxy container for anonymous routing
 
-- name: "Ensure proxy service directory exists on target"
-  ansible.builtin.file:
-    path: "{{ localnet_services_dir }}/proxy/tor"
-    state: directory
-    mode: "0755"
-
-- name: "Copy Tor container files to target"
-  ansible.builtin.copy:
-    src: "/Users/micro/p/gh/levonk/infrahub/shared/active/03-container/services/proxy/tor/"
-    dest: "{{ localnet_services_dir }}/proxy/tor/"
-    mode: preserve
-  when: proxy_tor_enabled
-
-- name: "Copy base-alpine container files to target"
-  ansible.builtin.copy:
-    src: "/Users/micro/p/gh/levonk/infrahub/shared/active/03-container/services/base/base-alpine/"
-    dest: "{{ localnet_services_dir }}/base/base-alpine/"
-    mode: preserve
-  when: proxy_tor_enabled
-
-- name: "Build base-alpine Docker image"
+- name: "Pull base-alpine Docker image"
   community.docker.docker_image:
-    name: "localnet-base-alpine"
-    build:
-      path: "{{ localnet_services_dir }}/base/base-alpine"
-      dockerfile: "Dockerfile.base-alpine"
-      pull: false
-    source: build
+    name: "{{ local_registry | default('100.90.22.85:5000') }}/localnet-base-alpine:latest"
+    source: pull
     state: present
   when: proxy_tor_enabled
 
-- name: "Build Tor Docker image"
+- name: "Pull Tor Docker image"
   community.docker.docker_image:
-    name: "localnet-proxy-tor"
-    build:
-      path: "{{ localnet_services_dir }}/proxy/tor"
-      dockerfile: "docker/Dockerfile.tor"
-      pull: false
-    source: build
+    name: "{{ proxy_tor_image }}"
+    source: pull
     state: present
   when: proxy_tor_enabled
 

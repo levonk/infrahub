@@ -1,14 +1,10 @@
 ---
 # DNSDist
 
-- name: Build dnsdist image
+- name: Pull dnsdist image
   community.docker.docker_image:
-    name: localnet-dns-dnsdist
-    build:
-      path: "{{ localnet_services_dir }}/dns/dnsdist"
-      dockerfile: docker/Dockerfile.dnsdist
-      pull: false
-    source: build
+    name: "{{ local_registry | default('100.90.22.85:5000') }}/localnet-dns-dnsdist:latest"
+    source: pull
     state: present
 
 - name: Deploy dnsdist container
