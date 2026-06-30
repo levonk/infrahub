@@ -20,8 +20,9 @@ infra_domain_traefik_dashboard: "traefik.levonk.com"
 # ---------------------------------------------------------------------------
 infra_domain_ai_dashboard_web: "ai-dashboard.levonk.com"
 infra_domain_ai_litellm: "aigate.levonk.com"
+infra_domain_ai_litellm_api: "aigate-api.levonk.com"
 infra_domain_ai_omniroute: "airoute.levonk.com"
-infra_domain_ai_omnigent: "omnigent.levonk.com"
+infra_domain_ai_omnigent: "aiif.levonk.com"  # Public alias "AI InterFace" for the Omnigent service
 infra_domain_ai_agentmemory: "agentmemory.levonk.com"
 infra_domain_ai_langfuse: "langfuse.levonk.com"
 
@@ -48,6 +49,17 @@ infra_hostname_vpn_nordvpn: "nordvpn"
 infra_hostname_vpn_tailscale: "tailscale"
 infra_hostname_vpn_netbird: "netbird"
 infra_hostname_vpn_tor: "tor"
+
+# ---------------------------------------------------------------------------
+# Tailscale Tailnet FQDN
+# Used for Cloudflare CNAME targets instead of A records pointing at
+# Tailscale IPs. CNAMEs decouple DNS from the ephemeral Tailscale IP —
+# if Tailscale reassigns the IP, only Tailscale DNS updates, not Cloudflare.
+# The tailnet name (e.g. "tale-grouper") is client-specific and MUST be
+# overridden in the client's infrastructure/domains.yml.
+# ---------------------------------------------------------------------------
+infra_tailscale_tailnet: "example.ts.net"
+infra_tailscale_fqdn_cloud_server: "{{ infra_tailscale_tailnet }}"
 
 # ---------------------------------------------------------------------------
 # Service Hostnames (container names)

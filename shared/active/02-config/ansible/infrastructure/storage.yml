@@ -18,6 +18,16 @@ infra_storage_container_dir: "/opt/localnet/container"
 infra_storage_services_dir: "/opt/localnet/services"
 infra_storage_config_dir: "/opt/localnet/config"
 infra_storage_data_dir: "/opt/localnet/data"
+
+# ---------------------------------------------------------------------------
+# Docker userns-remap
+# When userns-remap is enabled (default: "default" → dockremap), container root
+# maps to this UID/GID on the host. Bind-mounted directories that containers
+# need to write to MUST be owned by this UID, not root (0).
+# See roles/docker-engine/tasks/main.yml for the dockremap user/group setup.
+# ---------------------------------------------------------------------------
+infra_storage_userns_remap_uid: 100000
+infra_storage_userns_remap_gid: 100000
 infra_storage_logs_dir: "/opt/localnet/logs"
 infra_storage_backup_dir: "/opt/localnet/backup"
 
