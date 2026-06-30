@@ -109,3 +109,53 @@ notifier:
   filesystem:
     filename: {{ proxy_authelia_notifier_fs_path }}
 {% endif %}
+
+{% if proxy_authelia_oidc_enabled | bool %}
+# ---------------------------------------------------------------------------
+# OpenID Connect 1.0 Provider
+# Allows relying parties (e.g. LiteLLM) to use Authelia for SSO.
+# ---------------------------------------------------------------------------
+identity_providers:
+  oidc:
+    hmac_secret: {{ proxy_authelia_oidc_hmac_secret }}
+    jwks:
+      - key_id: 'authelia-rs256'
+        algorithm: 'RS256'
+        use: 'sig'
+        key: |
+{{ proxy_authelia_oidc_jwks_private_key | indent(10, true) }}
+    enable_client_debug_messages: false
+    minimum_parameter_entropy: 8
+    enforce_pkce: 'public_clients_only'
+    lifespans:
+      access_token: '1h'
+      authorize_code: '1m'
+      id_token: '1h'
+      refresh_token: '90m'
+    clients:
+{% for client in proxy_authelia_oidc_clients %}
+      - client_id: '{{ client.client_id }}'
+        client_name: '{{ client.client_name }}'
+        client_secret: '{{ client.client_secret_hash }}'
+        public: false
+        redirect_uris:
+{% for uri in client.redirect_uris %}
+          - '{{ uri }}'
+{% endfor %}
+        scopes:
+{% for scope in client.scopes %}
+          - '{{ scope }}'
+{% endfor %}
+        grant_types:
+{% for gt in client.grant_types %}
+          - '{{ gt }}'
+{% endfor %}
+        response_types:
+{% for rt in client.response_types %}
+          - '{{ rt }}'
+{% endfor %}
+        authorization_policy: '{{ client.authorization_policy | default("two_factor") }}'
+        consent_mode: '{{ client.consent_mode | default("auto") }}'
+        userinfo_signed_response_alg: '{{ client.userinfo_signing_algorithm | default("none") }}'
+{% endfor %}
+{% endif %}

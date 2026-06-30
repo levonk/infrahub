@@ -19,8 +19,10 @@
   ansible.builtin.file:
     path: "{{ proxy_authelia_data_dir }}/{{ item }}"
     state: directory
-    owner: root
-    group: root
+    # userns-remap: container root maps to this UID on the host.
+    # Authelia writes notification files and session data to /config.
+    owner: "{{ infra_storage_userns_remap_uid | default(100000) }}"
+    group: "{{ infra_storage_userns_remap_gid | default(100000) }}"
     mode: "0755"
   become: true
   loop:
@@ -35,7 +37,6 @@
     state: present
   become: true
   loop:
-    - proxy-authelia-config
     - proxy-authelia-postgres
     - proxy-authelia-redis
 
@@ -46,8 +47,8 @@
   ansible.builtin.template:
     src: authelia/configuration.yml.j2
     dest: "{{ proxy_authelia_data_dir }}/config/configuration.yml"
-    owner: root
-    group: root
+    owner: "{{ infra_storage_userns_remap_uid | default(100000) }}"
+    group: "{{ infra_storage_userns_remap_gid | default(100000) }}"
     mode: "0644"
   become: true
   notify: restart proxy-authelia
@@ -56,8 +57,8 @@
   ansible.builtin.template:
     src: authelia/users_database.yml.j2
     dest: "{{ proxy_authelia_data_dir }}/config/users_database.yml"
-    owner: root
-    group: root
+    owner: "{{ infra_storage_userns_remap_uid | default(100000) }}"
+    group: "{{ infra_storage_userns_remap_gid | default(100000) }}"
     mode: "0644"
   become: true
   notify: restart proxy-authelia
@@ -66,8 +67,8 @@
   ansible.builtin.template:
     src: traefik/authelia_middleware.yml.j2
     dest: "{{ proxy_authelia_data_dir }}/config/traefik_authelia_middleware.yml"
-    owner: root
-    group: root
+    owner: "{{ infra_storage_userns_remap_uid | default(100000) }}"
+    group: "{{ infra_storage_userns_remap_gid | default(100000) }}"
     mode: "0644"
   become: true
   notify: restart proxy-authelia
@@ -87,8 +88,8 @@
   ansible.builtin.copy:
     content: "{{ item.value }}"
     dest: "{{ proxy_authelia_data_dir }}/config/{{ item.file }}"
-    owner: root
-    group: root
+    owner: "{{ infra_storage_userns_remap_uid | default(100000) }}"
+    group: "{{ infra_storage_userns_remap_gid | default(100000) }}"
     mode: "0644"
   become: true
   loop:
@@ -184,6 +185,7 @@
     restart_policy: unless-stopped
     networks:
       - name: "{{ proxy_authelia_docker_network_name }}"
+      - name: "{{ proxy_traefik_docker_network_name | default('traefik-network') }}"
     ports:
       - "{{ proxy_authelia_web_host_port }}:{{ proxy_authelia_web_container_port }}/tcp"
       - "{{ proxy_authelia_metrics_port }}:{{ proxy_authelia_metrics_container_port }}/tcp"

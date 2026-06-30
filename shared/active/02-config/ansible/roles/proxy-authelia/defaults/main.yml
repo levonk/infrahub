@@ -103,3 +103,15 @@ proxy_authelia_metrics_container_port: "9092"
 # ---------------------------------------------------------------------------
 proxy_authelia_log_retention_days: 30
 proxy_authelia_log_retention_compression: true
+
+# ---------------------------------------------------------------------------
+# OpenID Connect 1.0 Provider
+# ---------------------------------------------------------------------------
+proxy_authelia_oidc_enabled: false
+proxy_authelia_oidc_hmac_secret: "{{ vault_authelia_oidc_hmac_secret | default('change_me_to_random_64_chars_min_change_me_change_me') }}"
+proxy_authelia_oidc_jwks_private_key: "{{ vault_authelia_oidc_jwks_private_key | default('-----BEGIN PRIVATE KEY-----\nCHANGE_ME\n-----END PRIVATE KEY-----') }}"
+
+# Registered OIDC clients (relying parties)
+# client_secret_hash must be a digest generated with:
+#   docker run --rm authelia/authelia:latest authelia crypto hash generate pbkdf2 --password 'the-secret'
+proxy_authelia_oidc_clients: []
