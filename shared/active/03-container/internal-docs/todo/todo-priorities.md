@@ -625,27 +625,46 @@ _Goal: Privacy, Resilience, Ad-blocking_
 
 ### Artificial Intelligence (Local & Private)
 
+- [ ] **Structured Output**:
+  - [ ] https://github.com/dottxt-ai/outlines
+    - [ ] https://github.com/567-labs/instructor
 - [ ] **AI API Routers**:
   - [ ] https://github.com/diegosouzapw/OmniRoute
     - [ ] https://github.com/maximhq/bifrost
     - [ ] https://github.com/decolua/9router (OmniRoute seems way better than this)
     - [ ] https://github.com/seakee/CPA-Manager-Plus
       - [ ] https://github.com/router-for-me/CLIProxyAPI
+    - [ ] https://github.com/BerriAI/litellm
 - [ ] **Token Optimization**:
   - [ ] https://github.com/chopratejas/headroom
     - [ ] https://github.com/rtk-ai/rtk
     - [ ] https://github.com/johunsang/semble_rs
     - [ ] https://github.com/yvgude/lean-ctx
+  - [ ] DSPy
+  - [ ] Web Crawler
+  - [ ] https://github.com/watercrawl/WaterCrawl
+  - [ ] https://github.com/f4ww4z/crawl4ai-frontend
+    - [ ] https://github.com/unclecode/crawl4ai
 - [ ] **Tool Call Fixer**:
   - [ ] https://github.com/antoinezambelli/forge#proxy-server
+  - [ ] Crawl4AI
 - [ ] **AI Metrics Dashboards**:
   - [ ] https://github.com/nateherkai/token-dashboard
   - [ ] https://github.com/router-for-me/Cli-Proxy-API-Management-Center
+  - [ ] https://github.com/langfuse/langfuse
+- [ ] **AI Memory**:
+  - [ ] https://github.com/rohitg00/agentmemory
+  - [ ] https://github.com/plastic-labs/honcho
+    - [ ] https://github.com/offendingcommit/openconcho
+    - https://www.youtube.com/watch?v=i2KK85h0bYo
 - [ ] **Inference Engines**:
   - [ ] **Ollama**: LLM Runner https://github.com/ollama/ollama
   - [ ] **LocalAI**: OpenAI compatible API
   - [ ] **Nano-VLLM**: https://github.com/GeeeekExplorer/nano-vllm
 - [ ] **UI & Agents**:
+  - [ ] **Meta Harness**
+    - [ ] https://github.com/omnigent-ai/omnigent
+    - [ ] Archon
   - [ ] **Chat Interface**
     - [ ] **Onyx**: Chat Interface https://github.com/onyx-dot-app/onyx
     - [ ] **Open WebUI**: Chat Interface https://github.com/open-webui/open-webui
