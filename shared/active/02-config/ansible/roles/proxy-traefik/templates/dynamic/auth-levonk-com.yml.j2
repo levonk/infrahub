@@ -27,5 +27,5 @@ http:
     authelia:
       loadBalancer:
         servers:
-          - url: "http://{{ proxy_authelia_container_ip | default('172.31.0.6') }}:{{ proxy_authelia_web_container_port | default('9091') }}"
+          - url: "http://{{ proxy_authelia_container_name | default('proxy-authelia') }}:{{ proxy_authelia_web_container_port | default('9091') }}"
         passHostHeader: true

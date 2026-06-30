@@ -71,6 +71,7 @@
     networks:
       - name: "{{ search_searxng_network_name }}"
       - name: "{{ search_searxng_vpn_network }}"
+      - name: "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"
     published_ports:
       - "{{ search_searxng_host_ip }}:{{ search_searxng_host_port }}:{{ search_searxng_container_port }}/tcp"
     volumes:
@@ -87,16 +88,12 @@
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=100m
     log_driver: json-file
-    log_opt:
+    log_options:
       max-size: "10m"
       max-file: "5"
-    labels:
-      traefik.enable: "true"
-      traefik.http.routers.searxng.rule: "PathPrefix(`/searxng`)"
-      traefik.http.routers.searxng.entryPoints: "websecure"
-      traefik.http.routers.searxng.middlewares: "strip-searxng"
-      traefik.http.services.searxng.loadbalancer.server.port: "{{ search_searxng_container_port }}"
-      traefik.http.middlewares.strip-searxng.stripprefix.prefixes: "/searxng"
+    # NOTE: Traefik Docker provider is disabled (v3.0 API incompatibility).
+    # Routing is handled by file-provider dynamic config in proxy-traefik role.
+    # Do NOT add traefik.* labels here — they are silently ignored.
   become: true
   when: search_searxng_enabled | bool
 

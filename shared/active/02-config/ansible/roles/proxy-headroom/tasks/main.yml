@@ -68,6 +68,7 @@
     networks:
       - name: "{{ proxy_headroom_docker_network_name }}"
         ipv4_address: "{{ infra_network_ip_headroom | default('172.29.0.13') }}"
+      - name: "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"
     ports:
       - "{{ proxy_headroom_host_ip }}:{{ proxy_headroom_host_port }}:{{ proxy_headroom_container_port }}/tcp"
     volumes:

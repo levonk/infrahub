@@ -87,6 +87,11 @@
       AGENTMEMORY_SECRET: "{{ agentmemory_secret }}"
       ANTHROPIC_API_KEY: "{{ agentmemory_anthropic_api_key }}"
       OPENAI_API_KEY: "{{ agentmemory_openai_api_key }}"
+      # Viewer: bind to 0.0.0.0 so Traefik can reach it on the Docker network.
+      # The viewer is a bearer-authenticated proxy to the REST API; non-loopback
+      # bind requires AGENTMEMORY_SECRET (set above) + VIEWER_ALLOWED_HOSTS.
+      AGENTMEMORY_VIEWER_HOST: "0.0.0.0"
+      VIEWER_ALLOWED_HOSTS: "{{ agentmemory_domain | default('agentmemory.levonk.com') }}"
       TZ: "{{ localnet_tz | default('UTC') }}"
     log_driver: json-file
     log_options:

@@ -70,12 +70,35 @@ search_searxng_container_port: "8080"
 search_searxng_domain: "search.levonk.com"
 
 # ---------------------------------------------------------------------------
+# AI InterFace (Omnigent) Integration Configuration
+# Public domain: aiif.levonk.com — user-facing alias for the Omnigent agent
+# framework & meta-harness. Container name stays "omnigent" (see aigate pattern
+# where LiteLLM container is exposed as aigate.levonk.com).
+# ---------------------------------------------------------------------------
+aiif_enabled: false
+aiif_domain: "aiif.levonk.com"
+aiif_container_name: "omnigent"
+aiif_container_port: "8000"
+
+# ---------------------------------------------------------------------------
 # agentmemory Integration Configuration
 # ---------------------------------------------------------------------------
 agentmemory_enabled: false
 agentmemory_container_ip: "172.31.0.7"
 agentmemory_container_port: "3111"
 agentmemory_domain: "agentmemory.levonk.com"
+
+# ---------------------------------------------------------------------------
+# headroom (aishrink) Integration Configuration
+# ---------------------------------------------------------------------------
+aishrink_enabled: false
+aishrink_domain: "aishrink.levonk.com"
+
+# ---------------------------------------------------------------------------
+# AI Gateway Integration Flags (enable Traefik dynamic config for each service)
+# ---------------------------------------------------------------------------
+ai_omniroute_enabled: false
+ai_litellm_enabled: false
 
 # ---------------------------------------------------------------------------
 # Tailscale/NetBird Bypass Configuration

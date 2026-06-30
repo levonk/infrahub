@@ -3,6 +3,10 @@
 # Domain: {{ agentmemory_domain | default('agentmemory.levonk.com') }}
 # Security Chain: Authelia (SSO)
 # MCP direct access: Tailscale-only via host port 3111 (bypasses Traefik)
+# Web viewer runs on port 3113 (restPort+2); REST API on 3111.
+# Traefik routes to the viewer port for browser access; the API port is for
+# MCP/programmatic access via Tailscale only.
+# Uses container name (not hardcoded IP) so it survives container recreation.
 
 http:
   routers:
@@ -30,7 +34,7 @@ http:
     agentmemory:
       loadBalancer:
         servers:
-          - url: "http://{{ agentmemory_container_ip | default('172.31.0.7') }}:{{ agentmemory_container_port | default('3111') }}"
+          - url: "http://{{ agentmemory_container_name | default('localnet-agentmemory') }}:{{ agentmemory_viewer_port | default('3113') }}"
         passHostHeader: true
 
   middlewares:

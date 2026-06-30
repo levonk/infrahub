@@ -125,6 +125,17 @@
   notify: reload traefik
   when: agentmemory_enabled | default(false) | bool
 
+- name: Deploy aishrink (headroom) dynamic configuration template
+  ansible.builtin.template:
+    src: dynamic/aishrink-levonk-com.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/aishrink-levonk-com.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: reload traefik
+  when: aishrink_enabled | default(false) | bool
+
 - name: Deploy Traefik API dynamic configuration template
   ansible.builtin.template:
     src: dynamic/traefik-api.yml.j2
@@ -157,6 +168,39 @@
   become: true
   notify: reload traefik
   when: dashboard_trala_enabled | default(true) | bool
+
+- name: Deploy OmniRoute (airoute) dynamic configuration template
+  ansible.builtin.template:
+    src: dynamic/airoute-levonk-com.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/airoute-levonk-com.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: reload traefik
+  when: ai_omniroute_enabled | default(false) | bool
+
+- name: Deploy LiteLLM (aigate) dynamic configuration template
+  ansible.builtin.template:
+    src: dynamic/aigate-levonk-com.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/aigate-levonk-com.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: reload traefik
+  when: ai_litellm_enabled | default(false) | bool
+
+- name: Deploy AI InterFace (aiif / Omnigent) dynamic configuration template
+  ansible.builtin.template:
+    src: dynamic/aiif-levonk-com.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/aiif-levonk-com.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: reload traefik
+  when: aiif_enabled | default(false) | bool
 
 # ---------------------------------------------------------------------------
 # Traefik Container
