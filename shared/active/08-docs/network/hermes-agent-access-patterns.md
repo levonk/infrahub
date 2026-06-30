@@ -204,7 +204,7 @@ Add VPN auth keys to Ansible vault:
 
 ```bash
 # Edit vault file
-ansible-vault edit levonk/active/02-config/ansible/group_vars/all/vault.yml
+ansible-vault edit levonk/active/02-config/ansible/inventories/group_vars/all/vault.yml
 
 # Add keys:
 # vault_hermes_agent_tailscale_auth_key: "tskey-auth-..."

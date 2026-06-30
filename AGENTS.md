@@ -68,6 +68,39 @@ devbox run -- rtk ansible-playbook -i inventory.yml playbook.yml --vault-passwor
 
 This is the standard location for Ansible vault passwords in this project.
 
+### Vault Edits (Agent → User Handoff)
+
+**CRITICAL**: When the agent needs a secret added/changed in the vault, the agent MUST NOT attempt to edit the vault file directly. Instead, the agent MUST provide the user with a single **copyable** `docker run` command that opens an interactive `ansible-vault edit` session with the correct paths pre-filled.
+
+**Why a Docker container?** The vault file is encrypted on disk and `ansible-vault edit` requires an interactive TTY with `ansible-vault` installed. A Docker container guarantees the tool is available, the vault password file is mounted read-only, and the vault file is mounted read-write — without requiring the user to install anything or remember paths.
+
+**Template** (agent fills in `<SECRET_NAME>` and `<SECRET_VALUE>` in the instructions, the user runs the command):
+
+```bash
+docker run --rm -it \
+  -v "$HOME/.ansible/vault_password:/vault_password:ro" \
+  -v "$HOME/p/gh/levonk/infrahub/levonk/active/02-config/ansible/inventories/group_vars:/vault-dir" \
+  -e EDITOR=vi \
+  alpine/ansible:latest \
+  ansible-vault edit /vault-dir/infrahub-levonk-all.vault.yml --vault-password-file /vault_password
+```
+
+> **Why mount the directory, not the file?** `ansible-vault edit` writes to a temp file then atomically replaces the original via `os.remove()` + rename. Docker file bind mounts can't be removed from inside the container (`Errno 16: Resource busy`). Mounting the directory lets the atomic replace work normally.
+
+**Agent workflow when a new secret is needed:**
+1. Generate the secret value (e.g., `openssl rand -hex 32`)
+2. Provide the user with:
+   - The exact YAML line(s) to add (e.g., `vault_langfuse_postgres_password: "abc123..."`)
+   - The copyable `docker run` command above (paths already filled in)
+3. Tell the user: "Run this command, add the line(s) I listed, save and exit"
+4. Wait for the user to confirm before proceeding with deployment
+
+**NEVER**:
+- ❌ Run `ansible-vault edit` yourself (no interactive TTY in the agent shell)
+- ❌ Decrypt → edit → re-encrypt manually (corruption risk, see Vault Troubleshooting)
+- ❌ Store secrets in plaintext files while waiting for the user
+- ❌ Print the secret value in the conversation after the user adds it
+
 ### Vault Troubleshooting
 
 **Vault Corruption Issues:**
@@ -76,18 +109,18 @@ If you encounter "Vault format unhexlify error: Odd-length string" or similar va
 1. **Check git history for working versions:**
    ```bash
    cd levonk
-   git log --oneline --all -- active/02-config/ansible/group_vars/infrahub-levonk-all.vault.yml
+   git log --oneline --all -- active/02-config/ansible/inventories/group_vars/infrahub-levonk-all.vault.yml
    ```
 
 2. **Restore from a known good commit:**
    ```bash
-   git show <commit-hash>:active/02-config/ansible/group_vars/infrahub-levonk-all.vault.yml > /tmp/working-vault.yml
-   cp /tmp/working-vault.yml active/02-config/ansible/group_vars/infrahub-levonk-all.vault.yml
+   git show <commit-hash>:active/02-config/ansible/inventories/group_vars/infrahub-levonk-all.vault.yml > /tmp/working-vault.yml
+   cp /tmp/working-vault.yml active/02-config/ansible/inventories/group_vars/infrahub-levonk-all.vault.yml
    ```
 
 3. **Verify vault accessibility:**
    ```bash
-   devbox run -- ansible-vault view levonk/active/02-config/ansible/group_vars/infrahub-levonk-all.vault.yml \
+   devbox run -- ansible-vault view levonk/active/02-config/ansible/inventories/group_vars/infrahub-levonk-all.vault.yml \
      --vault-password-file ~/.ansible/vault_password
    ```
 
@@ -104,7 +137,7 @@ If you encounter "Vault format unhexlify error: Odd-length string" or similar va
 **Secret Storage Strategy:**
 This project follows a hybrid secret storage approach as defined in [ADR-20260624001: Hybrid Sensitive Information Storage Strategy](shared/active/08-docs/adr/adr-20260624001-hybrid-sensitive-information-storage.md). Key principles:
 
-- **Per-Client Central Vault**: All shared secrets stored in client-specific vault files (e.g., `levonk/active/02-config/ansible/group_vars/infrahub-levonk-all.vault.yml`)
+- **Per-Client Central Vault**: All shared secrets stored in client-specific vault files (e.g., `levonk/active/02-config/ansible/inventories/group_vars/infrahub-levonk-all.vault.yml`)
 - **Shared Path Clean**: The `shared/` directory must NEVER contain sensitive information
 - **In-Service Transient Secrets**: Service-specific transient secrets (JWT tokens, session keys) stored within service configurations
 - **Ansible Variable Distribution**: Use Ansible vault variables for secure distribution at runtime
@@ -148,7 +181,7 @@ This project follows a hybrid infrastructure consolidation approach as defined i
 **Example - Correct approach:**
 ```bash
 # To view the CrowdSec bouncer API key:
-devbox run -- ansible-vault view ~/p/gh/levonk/infrahub/levonk/active/02-config/ansible/group_vars/infrahub-levonk-all.vault.yml --vault-password-file ~/.ansible/vault_password
+devbox run -- ansible-vault view ~/p/gh/levonk/infrahub/levonk/active/02-config/ansible/inventories/group_vars/infrahub-levonk-all.vault.yml --vault-password-file ~/.ansible/vault_password
 ```
 
 **Example - Incorrect approach:**
@@ -204,7 +237,7 @@ If any of these fail, add the appropriate paths to PATH before proceeding.
 
 **CRITICAL**: Client submodules contain PRIVATE CLIENT-SPECIFIC INFORMATION:
 
-- **✅ CORRECT**: Secrets in `levonk/active/02-config/ansible/group_vars/infrahub-levonk-all.vault.yml`
+- **✅ CORRECT**: Secrets in `levonk/active/02-config/ansible/inventories/group_vars/infrahub-levonk-all.vault.yml`
 - **❌ FORBIDDEN**: Secrets in parent repo's `shared/` directory
 - **❌ FORBIDDEN**: Converting submodule to regular directory (breaks isolation)
 - **❌ FORBIDDEN**: Moving secrets from submodule to shared/ directory
@@ -766,6 +799,42 @@ curl http://<health-check-endpoint>
 - Tailor the information to the specific service being deployed
 - Reference relevant documentation for complex deployments
 
+### DNS Record Management (Cloudflare)
+
+**MANDATORY**: DNS records for all services exposed via Traefik MUST be created automatically by the Ansible Cloudflare DNS playbook. **NEVER** create DNS records manually in the Cloudflare dashboard — that's why the vault contains `vault_cloudflare_api_token` and `vault_cloudflare_zone_id`.
+
+**Playbook**: `shared/active/02-config/ansible/playbooks/configure-cloudflare-dns.yml`
+**Role**: `shared/active/02-config/ansible/roles/cloudflare-dns/`
+
+**When deploying a new service with a public domain:**
+1. Add the DNS record to the `cloudflare_dns_records` list in the playbook
+2. Run the DNS playbook before (or as part of) the service deployment
+3. The role is idempotent — it creates missing records, updates changed records, and skips matching records
+
+```bash
+# Run DNS configuration (creates/updates all records in cloudflare_dns_records)
+devbox run -- rtk ansible-playbook shared/active/02-config/ansible/playbooks/configure-cloudflare-dns.yml \
+  --vault-password-file ~/.ansible/vault_password
+```
+
+**Adding a new DNS record:**
+```yaml
+# In shared/active/02-config/ansible/playbooks/configure-cloudflare-dns.yml
+cloudflare_dns_records:
+  - name: "new-service.levonk.com"
+    type: "A"
+    content: "100.90.22.85"
+    ttl: "{{ cloudflare_dns_ttl }}"
+    proxied: "{{ cloudflare_dns_proxied }}"
+    state: "{{ cloudflare_dns_state }}"
+```
+
+**Vault requirements** (in `levonk/active/02-config/ansible/inventories/group_vars/infrahub-levonk-all.vault.yml`):
+- `vault_cloudflare_api_token` — valid Cloudflare API token with DNS edit permissions for the zone
+- `vault_cloudflare_zone_id` — Cloudflare zone ID for `levonk.com`
+
+**If the DNS playbook fails with 401 "Authentication error"**: the `vault_cloudflare_api_token` in the vault is invalid or expired. Generate a new token at https://dash.cloudflare.com/profile/api-tokens (use "Edit zone DNS" template, scoped to the `levonk.com` zone) and update the vault. Do NOT work around this by creating records manually.
+
 ## Repository Structure
 
 This repository uses a two-tier hierarchy at the root:
@@ -802,7 +871,7 @@ infrahub/
 | **Roles** | `shared/active/02-config/ansible/roles/` | Reusable, pure, parameterized. No client data. |
 | **Playbooks** | `shared/active/02-config/ansible/playbooks/` | Stack blueprints. Import roles, select hosts. |
 | **Inventories** | `<client>/active/02-config/ansible/inventories/` | Hosts, groups, which stacks go where. |
-| **Variables** | `<client>/active/02-config/ansible/group_vars/` + `host_vars/` | Client-specific IPs, ports, secrets, feature flags. |
+| **Variables** | `<client>/active/02-config/ansible/inventories/group_vars/` + `host_vars/` | Client-specific IPs, ports, secrets, feature flags. |
 
 **Critical rule**: Playbooks live in `shared/`. Inventories and vars live in client directories. A playbook references its inventory at runtime via `-i`.
 
@@ -901,19 +970,65 @@ Nothing under `shared/` may reference a specific client — not by name, not by 
 
 If a playbook or role in `shared/` only makes sense for one client, it is in the wrong place. Either generalize it (parameterize the client-specific bits) or move it into the client directory.
 
-#### 2. Build before deploy — on the control machine
+#### 2. Build before deploy — on the control machine, NEVER on the target
 
-The workflow is: **build → test locally → deploy**. Builds happen on the local command-and-control machine (the operator's Mac), not on the target host. Shared build artifacts (container images, binaries) are produced locally, validated locally, and only then shipped to client machines for deployment.
+The workflow is: **build → test locally → push to registry → deploy (pull from registry)**. Builds happen on the local command-and-control machine (the operator's Mac), NEVER on the target host. Shared build artifacts (container images, binaries) are produced locally, validated locally, pushed to the local Docker registry, and only then pulled by client machines for deployment.
 
-Targets (including Windows Docker hosts) receive finished artifacts and run them. They do not clone repos, do not run `docker build`, do not compile. The only exception is a documented, client-specific reason that justifies building on the target (e.g., a toolchain that cannot cross-compile) — and that exception must be called out in the playbook with a comment explaining why.
+**The local Docker registry** is deployed on the OCI cloud server via `shared/active/02-config/ansible/playbooks/deploy-local-registry.yml` at `http://<cloud-server-tailscale-ip>:5000` (port `infra_port_registry_host`). It is accessible over Tailscale (HTTP-only, Tailscale encrypts the transport). All locally-built images are tagged as `<registry>/<image>:<tag>` and pushed there. Deployment roles use `community.docker.docker_image` with `source: pull` to fetch them on the target.
 
-This keeps targets thin, builds reproducible, and the control machine the single source of truth for what gets deployed.
+**Build workflow for a locally-built image:**
+1. On the Mac: `docker build -t <registry>/<image>:<tag> -f <dockerfile> <context>`
+2. On the Mac: `docker push <registry>/<image>:<tag>`
+3. In the Ansible role: `community.docker.docker_image` with `source: pull`, `name: "<registry>/<image>:<tag>"`
+4. In the Ansible role: `community.docker.docker_container` with `image: "<registry>/<image>:<tag>"`
+
+**NEVER build on the target host:**
+- ❌ `community.docker.docker_image` with `source: build` in a role that runs against a target host — this builds ON the target, exhausting its disk and violating this rule
+- ❌ Copying a build context (Dockerfile, assets) to the target and building there
+- ❌ `ansible.builtin.shell: docker build ...` on the target
+
+**The ONLY exception** is a documented, client-specific reason that justifies building on the target (e.g., a toolchain that cannot cross-compile) — and that exception must be called out in the playbook with a `# BUILD-ON-TARGET JUSTIFIED:` comment explaining why.
+
+**Why this matters**: Target hosts (like the OCI cloud server) often have small disks (30G). Building Docker images on them fills the disk with build layers, cache, and intermediate images, causing cascading failures across all services. Building on the control machine (which has more disk and is rebuildable) and shipping via registry keeps targets thin, builds reproducible, and the control machine the single source of truth for what gets deployed.
+
+**Multi-stage builds are mandatory** when an image has build dependencies (pip, npm, cargo, apt build-essential, etc.) that aren't needed at runtime. The builder stage installs compilers and build tools; the runtime stage copies only the compiled artifacts and runtime dependencies. This keeps the final image small — which matters because the target pulls it from the registry. Images that only add runtime packages to an existing base image (e.g. `RUN apk add curl` on an official image) are the only exception. The build machine (Mac) handles the intermediate builder layers; they never reach the target.
+
+**If a role currently uses `source: build` and runs against a target**: That role is broken by design. Refactor it to: (1) build on the Mac via a justfile target or local script, (2) push to the local registry, (3) change the role to `source: pull`. The build context copy task (`ansible.builtin.copy` of Dockerfile/assets to target) should be removed — it is only needed for target-side builds.
 
 #### 3. POSIX paths everywhere — except Windows host setup
 
 All paths in `shared/` playbooks, roles, templates, and container configs are POSIX-compliant (`/opt/...`, `/var/lib/...`, `/etc/...`). Windows-style paths (`C:\...`, backslashes, drive letters) appear **only** in tasks that bootstrap or configure a Windows host itself (e.g., installing Docker Desktop, setting up WSL2, creating local Windows users). Once a container is running, its filesystem is Linux — containers on Windows run under WSL2 and expect Linux paths.
 
 Storage paths, volume mounts, config file destinations inside containers, and any path a containerized service reads must be POSIX. If a Windows-specific path is needed for host-level setup, scope it to that one task and do not let it leak into shared defaults or container-facing config.
+
+#### 4. Ansible modules manage containers — NEVER `docker compose`
+
+**This is non-negotiable. Violating it is a design error, not a style choice.**
+
+All container lifecycle (create, start, stop, restart, remove), network management, and volume management MUST go through `community.docker` Ansible modules:
+- `community.docker.docker_container` — manage containers
+- `community.docker.docker_network` — manage networks
+- `community.docker.docker_volume` — manage volumes
+- `community.docker.docker_image` — build/pull images
+
+**NEVER**:
+- ❌ Copy `docker-compose*.yml` files to the target host and shell out to `docker compose up/down/build`
+- ❌ Use `ansible.builtin.shell` or `ansible.builtin.command` to run `docker compose ...`
+- ❌ Use `ansible.builtin.shell` to run `docker network connect/disconnect` — use `networks` parameter in `docker_container`
+- ❌ Use `ansible.builtin.shell` to run `docker build` — build on the control machine, push to the local registry, then use `community.docker.docker_image` with `source: pull` in the role (see Invariant #2 above)
+- ❌ Rely on `.env` files alongside compose files for variable interpolation
+- ❌ Create compose files in `shared/active/03-container/services/` and expect them to be deployed to the server
+
+**Why**:
+1. **Idempotency**: `community.docker` modules report `changed`/`ok` status. `docker compose up` always reports changed, breaking idempotency.
+2. **Variable-driven**: All config (ports, IPs, env vars, volumes, networks) comes from Ansible variables and vault secrets — no file interpolation, no `.env` files, no compose variable substitution.
+3. **Single source of truth**: The Ansible role IS the container definition. There is no second definition in a compose file that can drift.
+4. **No file copying**: Playbooks don't copy compose files to the target. The role defines the container inline, Ansible applies it directly.
+5. **Network management**: Networks are created via `docker_network` with proper subnet/gateway config, not via `docker network create` shell commands. Static IPs are assigned via the `networks` parameter in `docker_container`, not via post-hoc `docker network connect` shell commands.
+
+**Compose files in `shared/active/03-container/services/`**: These exist as **reference/documentation only** — they show the intended topology for human reading. They are NOT deployed to servers. They are NOT copied by playbooks. They are NOT used at runtime. If a compose file and an Ansible role disagree, the Ansible role is correct and the compose file is stale.
+
+**If a playbook currently copies compose files and shells out to `docker compose`**: That playbook is broken by design. Refactor it to use `include_role` with the proper `community.docker` roles. The roles already exist in `shared/active/02-config/ansible/roles/` — use them.
 
 ### Per-Client Centralized Files
 

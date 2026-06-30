@@ -1,4 +1,13 @@
 # LocalNet
+
+> **⚠️ DEPRECATED — Docker Compose is NOT the deployment method.**
+>
+> This document describes the **original** docker-compose-based workflow. It is kept for historical reference only. The current deployment method is **Ansible roles using `community.docker` modules** — see `AGENTS.md` (root repo) section "Architectural Invariants → 4. Ansible modules manage containers — NEVER `docker compose`".
+>
+> **NEVER** deploy containers by copying compose files to a server and running `docker compose up`. **NEVER** use `ansible.builtin.shell` to run `docker compose`. All container management goes through `community.docker.docker_container`, `docker_network`, `docker_volume`, and `docker_image` modules in Ansible roles.
+>
+> The compose files in this directory (`shared/active/03-container/services/`) are **reference/documentation only** — they show intended topology for human reading. They are NOT deployed to servers.
+
 This project is a docker-compose deployment to set up a home / small-business Network
 
 # Project CLI

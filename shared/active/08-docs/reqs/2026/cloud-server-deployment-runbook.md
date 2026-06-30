@@ -29,7 +29,7 @@ This runbook documents the complete process for deploying cloud server infrastru
 **Steps**:
 1. Create/update inventory file: `levonk/active/02-config/ansible/inventories/oci.yml`
 2. Define host variables in `levonk/active/02-config/ansible/host_vars/<hostname>.yml`
-3. Define group variables in `levonk/active/02-config/ansible/group_vars/cloud_servers.yml`
+3. Define group variables in `levonk/active/02-config/ansible/inventories/group_vars/cloud_servers.yml`
 
 **Key Variables**:
 ```yaml

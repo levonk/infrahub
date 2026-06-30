@@ -1,5 +1,18 @@
 # Agent Documentation: Ansible
 
+## CRITICAL: Container Management via Ansible Modules — NEVER `docker compose`
+
+**All container lifecycle MUST use `community.docker` Ansible modules.** See `AGENTS.md` (root repo) → "Architectural Invariants → 4. Ansible modules manage containers — NEVER `docker compose`" for the full rule.
+
+- ✅ `community.docker.docker_container` — manage containers
+- ✅ `community.docker.docker_network` — manage networks
+- ✅ `community.docker.docker_volume` — manage volumes
+- ✅ `community.docker.docker_image` — build/pull images
+- ❌ `ansible.builtin.shell: docker compose up/down/build`
+- ❌ Copying `docker-compose*.yml` to targets
+- ❌ `ansible.builtin.shell: docker network connect/disconnect`
+- ❌ `.env` file variable interpolation
+
 ## Root Cause First - No Workarounds
 
 **Root causing is essential. Do not work around long-term problems unless explicit permission is granted.**
@@ -10,6 +23,42 @@
 - If a container keeps restarting, find out why (check restart count, logs, exit codes) before redeploying.
 - Do not chain workaround on top of workaround. Each failed attempt should inform the next, not paper over the previous failure.
 - When you encounter an existing resource that conflicts with a new one (e.g., a node already exists in Tailscale), stop and surface the conflict to the user. Do not proceed with a renamed variant without permission.
+
+## Port Conflict Checking
+
+**When setting a port for a service (host port binding, container port, or healthcheck port), scan for conflicts before deploying.**
+
+- Check `shared/active/02-config/ansible/infrastructure/ports.yml` and `levonk/active/02-config/ansible/infrastructure/ports.yml` for already-assigned ports.
+- Check `docker ps` on the target host for any container already binding the port.
+- Check host services (e.g., CoreDNS on port 53, sshd on 22) that may conflict.
+- If a conflict is found, stop and surface it — do not silently pick another port.
+- Common conflict sources on the OCI server: port 53 (CoreDNS), port 8080 (Traefik dashboard, SearXNG), port 8443 (various proxies).
+
+## community.docker.docker_container Parameter Names
+
+**The `community.docker.docker_container` module uses different parameter names than `docker compose` / `docker run`. Using the compose-style names fails with "Unsupported parameters" errors.**
+
+| ❌ Invalid (compose-style) | ✅ Valid (community.docker) |
+|---|---|
+| `cap_add` | `capabilities` |
+| `cap_drop` | `cap_drop` (same — this one is valid) |
+| `security_opt` | `security_opts` |
+| `log_opt` | `log_options` |
+| `expose` | `exposed_ports` |
+| `ports` | `published_ports` (both work, `ports` is a valid alias) |
+| `links` | `links` (same) |
+| `volumes_from` | `volumes_from` (same) |
+| `restart` | `restart_policy` + `restart_retries` |
+| `state: restarted` | `state: started` + `restart: true` |
+| `state: running` | `state: started` |
+| `healthcheck.interval: 30` (integer) | `healthcheck.interval: "30s"` (string with unit suffix) |
+| `healthcheck.timeout: 10` (integer) | `healthcheck.timeout: "10s"` (string with unit suffix) |
+| `healthcheck.start_period: 40` (integer) | `healthcheck.start_period: "40s"` (string with unit suffix) |
+
+Additional gotchas:
+- **Env values must be strings**: `PORT: 8080` fails with "Non-string value found for env option". Use `PORT: "8080"` or `PORT: "{{ my_port | string }}"`.
+- **`state: restarted` is invalid**: Use `state: started` with `restart: true` in handlers.
+- **Base image CMD is not inherited**: When you set a custom `ENTRYPOINT` in a Dockerfile and deploy via `docker_container`, you must also set `CMD` in the Dockerfile — the Ansible module does not inherit the base image's CMD unless you explicitly pass `command:`.
 
 ## Quick Reference
 

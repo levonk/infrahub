@@ -103,7 +103,7 @@ The `shared/` directory contains reusable service definitions, roles, and config
 ### 1. Per-Client Vault Structure
 
 ```
-levonk/active/02-config/ansible/group_vars/infrahub-levonk-all.vault.yml
+levonk/active/02-config/ansible/inventories/group_vars/infrahub-levonk-all.vault.yml
 ```
 
 **Contains:**

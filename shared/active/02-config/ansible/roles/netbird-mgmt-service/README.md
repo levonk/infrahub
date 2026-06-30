@@ -88,7 +88,7 @@ After deployment, NetBird management service is accessible at:
 
 ## Important Notes
 
-**CRITICAL**: All port numbers must be defined as variables in `levonk/active/02-config/ansible/group_vars/cloud_server.yml` per AGENTS.md. Defaults in this role reference `cloud_server_netbird_mgmt_*` variables. No hardcoded ports allowed.
+**CRITICAL**: All port numbers must be defined as variables in `levonk/active/02-config/ansible/inventories/group_vars/cloud_server.yml` per AGENTS.md. Defaults in this role reference `cloud_server_netbird_mgmt_*` variables. No hardcoded ports allowed.
 
 ## License
 

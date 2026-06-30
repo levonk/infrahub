@@ -16,7 +16,7 @@ This file contains the plaintext password used to encrypt/decrypt vault files. *
 ## Vault Files
 
 ### Encrypted Vault File
-- **Location**: `shared/active/02-config/ansible/group_vars/all.vault`
+- **Location**: `shared/active/02-config/ansible/inventories/group_vars/all.vault`
 - **Purpose**: Contains all sensitive variables for the infrastructure
 - **Status**: Encrypted with ansible-vault
 
@@ -34,31 +34,31 @@ The vault contains sensitive data for:
 ### Encrypt a Vault File
 ```bash
 cd ~/p/gh/levonk/infrahub
-devbox run -- rtk ansible-vault encrypt shared/active/02-config/ansible/group_vars/all.vault --vault-password-file ~/.ansible/vault_password
+devbox run -- rtk ansible-vault encrypt shared/active/02-config/ansible/inventories/group_vars/all.vault --vault-password-file ~/.ansible/vault_password
 ```
 
 ### Decrypt a Vault File
 ```bash
 cd ~/p/gh/levonk/infrahub
-devbox run -- rtk ansible-vault decrypt shared/active/02-config/ansible/group_vars/all.vault --vault-password-file ~/.ansible/vault_password
+devbox run -- rtk ansible-vault decrypt shared/active/02-config/ansible/inventories/group_vars/all.vault --vault-password-file ~/.ansible/vault_password
 ```
 
 ### Edit a Vault File
 ```bash
 cd ~/p/gh/levonk/infrahub
-devbox run -- rtk ansible-vault edit shared/active/02-config/ansible/group_vars/all.vault --vault-password-file ~/.ansible/vault_password
+devbox run -- rtk ansible-vault edit shared/active/02-config/ansible/inventories/group_vars/all.vault --vault-password-file ~/.ansible/vault_password
 ```
 
 ### View Vault Contents
 ```bash
 cd ~/p/gh/levonk/infrahub
-devbox run -- rtk ansible-vault view shared/active/02-config/ansible/group_vars/all.vault --vault-password-file ~/.ansible/vault_password
+devbox run -- rtk ansible-vault view shared/active/02-config/ansible/inventories/group_vars/all.vault --vault-password-file ~/.ansible/vault_password
 ```
 
 ### Re-encrypt with New Password
 ```bash
 cd ~/p/gh/levonk/infrahub
-devbox run -- rtk ansible-vault rekey shared/active/02-config/ansible/group_vars/all.vault --vault-password-file ~/.ansible/vault_password --new-vault-password-file ~/.ansible/new_vault_password
+devbox run -- rtk ansible-vault rekey shared/active/02-config/ansible/inventories/group_vars/all.vault --vault-password-file ~/.ansible/vault_password --new-vault-password-file ~/.ansible/new_vault_password
 ```
 
 ## Running Playbooks with Vault
