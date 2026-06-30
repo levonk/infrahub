@@ -21,7 +21,7 @@
 
 .PARAMETER SshKey
     Path to the SSH public key file to install for the ansible user.
-    If omitted, you'll be prompted to paste a key.
+    If omitted, uses the embedded default key (lzkmbp2016-micro-oracle).
 
 .PARAMETER SshKeyString
     The SSH public key string directly (useful for non-interactive runs).
@@ -153,6 +153,9 @@ Write-Host ""
 Write-Host "[5/6] Adding SSH public key for $AnsibleUser..." -ForegroundColor Yellow
 
 # Get the public key
+# Embedded default — the control Mac's lzkmbp2016-micro-oracle key (also in client inventory).
+# Override with -SshKey <path> or -SshKeyString "<key>" for a different key.
+$defaultPubKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEWRbHy2sWZLKET/74zvt0rZa4ET2zjes/SB+Y/3BmKp lzkmbp2016-micro-oracle"
 $pubKey = $null
 if ($SshKeyString) {
     $pubKey = $SshKeyString
@@ -163,10 +166,8 @@ if ($SshKeyString) {
     }
     $pubKey = Get-Content $SshKey -Raw
 } else {
-    # Interactive — prompt for key
-    Write-Host "  Paste the SSH public key (from the control Mac's ~/.ssh/lzkmbp2016-micro-oracle.pub):" -ForegroundColor White
-    Write-Host "  (paste the entire line starting with ssh-rsa or ssh-ed25519, then press Enter)" -ForegroundColor White
-    $pubKey = Read-Host "  Key"
+    $pubKey = $defaultPubKey
+    Write-Host "  Using embedded default key (lzkmbp2016-micro-oracle)" -ForegroundColor Green
 }
 
 if (-not $pubKey -or $pubKey.Trim() -eq "") {
@@ -175,11 +176,19 @@ if (-not $pubKey -or $pubKey.Trim() -eq "") {
 }
 $pubKey = $pubKey.Trim()
 
-# Write to authorized_keys (overwrite to avoid duplicates on re-run)
+# Write to authorized_keys (idempotent — append if key missing, skip if already present)
 $authKeysPath = "$sshDir\authorized_keys"
-Set-Content -Path $authKeysPath -Value $pubKey -Encoding ASCII
-icacls $authKeysPath /inheritance:r /grant:r "$AnsibleUser`:(R)" 2>$null | Out-Null
-Write-Host "  SSH public key added to $authKeysPath" -ForegroundColor Green
+$existingKeys = $null
+if (Test-Path $authKeysPath) {
+    $existingKeys = Get-Content $authKeysPath -Raw -ErrorAction SilentlyContinue
+}
+if ($existingKeys -and $existingKeys.Contains($pubKey)) {
+    Write-Host "  SSH public key already in $authKeysPath" -ForegroundColor Green
+} else {
+    Add-Content -Path $authKeysPath -Value $pubKey -Encoding ASCII
+    icacls $authKeysPath /inheritance:r /grant:r "$AnsibleUser`:(R)" 2>$null | Out-Null
+    Write-Host "  SSH public key added to $authKeysPath" -ForegroundColor Green
+}
 Write-Host ""
 
 # --- Step 6: Verify ---

@@ -18,8 +18,8 @@ set -euo pipefail
 #   just ansible-bootstrap-macos
 #
 # Usage:
-#   ./bootstrap-macos-manual.sh                          # interactive — prompts for SSH public key
-#   ./bootstrap-macos-manual.sh --ssh-key ~/.ssh/foo.pub # non-interactive — uses specified public key
+#   ./bootstrap-macos-manual.sh                          # uses embedded default key (lzkmbp2016-micro-oracle)
+#   ./bootstrap-macos-manual.sh --ssh-key ~/.ssh/foo.pub # override — uses specified public key file
 #   AUSER_PASSWORD="secret" ./bootstrap-macos-manual.sh --ssh-key ~/.ssh/foo.pub  # non-interactive with password
 
 set -euo pipefail
@@ -43,8 +43,8 @@ while [[ $# -gt 0 ]]; do
       echo "Usage: $0 [--ssh-key ~/.ssh/id_rsa.pub] [--password secret]"
       echo ""
       echo "Run ON the target Mac. Creates the auser admin user and adds SSH key."
-      echo "If --ssh-key is omitted, you'll be prompted to paste a public key."
-      echo "If --password is omitted, the user is created with no password (SSH key auth only)."
+      echo "If --ssh-key is omitted, uses the embedded default key (lzkmbp2016-micro-oracle)."
+      echo "If --password is omitted, you will be prompted to enter a password interactively."
       exit 0
       ;;
     *)
@@ -73,12 +73,33 @@ echo "Admin user: ${AUSER_NAME}"
 echo ""
 
 # --- Step 1: Enable Remote Login ---
+# systemsetup -setremotelogin requires Full Disk Access on macOS 15+ (Sequoia).
+# Fall back to launchctl if it fails, then verify the actual state.
 echo "[1/4] Enabling Remote Login (SSH server)..."
-sudo systemsetup -setremotelogin on 2>/dev/null || true
-if sudo launchctl list com.openssh.sshd &>/dev/null; then
-  echo "  ✓ SSH server is running"
+REMOTE_LOGIN_STATE=$(sudo systemsetup -getremotelogin 2>/dev/null || echo "")
+if [[ "${REMOTE_LOGIN_STATE}" == *"On"* ]]; then
+  echo "  ✓ Remote Login already on"
 else
-  echo "  ⚠ SSH server may not be running — check System Settings → Sharing → Remote Login"
+  if sudo systemsetup -setremotelogin on 2>/dev/null; then
+    echo "  ✓ Remote Login enabled (systemsetup)"
+  else
+    echo "  ⚠ systemsetup failed (needs Full Disk Access on macOS 15+) — trying launchctl fallback..."
+    sudo launchctl enable system/com.openssh.sshd 2>/dev/null || true
+    sudo launchctl bootstrap system /System/Library/LaunchDaemons/ssh.plist 2>/dev/null || \
+      sudo launchctl kickstart -k system/com.openssh.sshd 2>/dev/null || true
+  fi
+fi
+# Verify the actual state — don't trust the command's exit code
+REMOTE_LOGIN_STATE=$(sudo systemsetup -getremotelogin 2>/dev/null || echo "")
+if [[ "${REMOTE_LOGIN_STATE}" == *"On"* ]]; then
+  echo "  ✓ Remote Login is ON"
+elif sudo launchctl list com.openssh.sshd &>/dev/null; then
+  echo "  ✓ SSH server is running (launchctl)"
+else
+  echo "  ✗ ERROR: Remote Login could not be enabled." >&2
+  echo "    Grant Full Disk Access to Terminal: System Settings → Privacy & Security → Full Disk Access," >&2
+  echo "    or enable manually: System Settings → General → Sharing → Remote Login" >&2
+  exit 1
 fi
 echo ""
 
@@ -90,9 +111,16 @@ else
   if [[ -n "${PASSWORD}" ]]; then
     sudo sysadminctl -addUser "${AUSER_NAME}" -password "${PASSWORD}" -admin -home "/Users/${AUSER_NAME}"
   else
-    # No password — SSH key auth only. sysadminctl -password - prompts interactively.
-    # Use -password "" to create with empty password (user must use SSH key).
-    sudo sysadminctl -addUser "${AUSER_NAME}" -password "" -admin -home "/Users/${AUSER_NAME}"
+    # No --password given — prompt interactively (matches runbook).
+    # sysadminctl cannot create a user with no password non-interactively;
+    # -password "" fails with error 5402. Use -password - for interactive prompt.
+    echo "  Enter a password for ${AUSER_NAME} (will be set; SSH key auth is also configured below):"
+    sudo sysadminctl -addUser "${AUSER_NAME}" -password - -admin -home "/Users/${AUSER_NAME}"
+  fi
+  # sysadminctl can log errors to stderr but still exit 0 — verify with dscl.
+  if ! dscl . -read "/Users/${AUSER_NAME}" UniqueID &>/dev/null; then
+    echo "  ✗ ERROR: ${AUSER_NAME} was not created (sysadminctl failed)." >&2
+    exit 1
   fi
   echo "  ✓ Created ${AUSER_NAME} with admin rights"
 fi
@@ -106,20 +134,18 @@ echo ""
 echo "[3/4] Adding SSH public key for ${AUSER_NAME}..."
 
 # Get the public key
+# Embedded default — the control Mac's lzkmbp2016-micro-oracle key (also in client inventory).
+# Override with --ssh-key <path> for a different key.
+DEFAULT_PUB_KEY="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEWRbHy2sWZLKET/74zvt0rZa4ET2zjes/SB+Y/3BmKp lzkmbp2016-micro-oracle"
 if [[ -n "${SSH_KEY}" ]]; then
   if [[ ! -f "${SSH_KEY}" ]]; then
     echo "ERROR: SSH key file not found: ${SSH_KEY}" >&2
     exit 1
   fi
   PUB_KEY=$(cat "${SSH_KEY}")
-elif [[ -t 0 ]]; then
-  # Interactive — prompt for key
-  echo "  Paste the SSH public key (from the control Mac's ~/.ssh/lzkmbp2016-micro-oracle.pub):"
-  echo "  (paste the entire line starting with ssh-rsa or ssh-ed25519, then press Enter)"
-  read -r PUB_KEY
 else
-  echo "ERROR: No SSH key provided. Use --ssh-key or run interactively." >&2
-  exit 1
+  PUB_KEY="${DEFAULT_PUB_KEY}"
+  echo "  Using embedded default key (lzkmbp2016-micro-oracle)"
 fi
 
 if [[ -z "${PUB_KEY}" ]]; then
@@ -127,16 +153,24 @@ if [[ -z "${PUB_KEY}" ]]; then
   exit 1
 fi
 
-# Create .ssh directory
-sudo mkdir -p "/Users/${AUSER_NAME}/.ssh"
-sudo chown "${AUSER_NAME}:staff" "/Users/${AUSER_NAME}/.ssh"
-sudo chmod 700 "/Users/${AUSER_NAME}/.ssh"
+# Create .ssh directory (idempotent)
+AUTH_KEYS="/Users/${AUSER_NAME}/.ssh/authorized_keys"
+if [[ ! -d "/Users/${AUSER_NAME}/.ssh" ]]; then
+  sudo mkdir -p "/Users/${AUSER_NAME}/.ssh"
+  sudo chown "${AUSER_NAME}:staff" "/Users/${AUSER_NAME}/.ssh"
+  sudo chmod 700 "/Users/${AUSER_NAME}/.ssh"
+fi
 
-# Write authorized_keys
-echo "${PUB_KEY}" | sudo tee "/Users/${AUSER_NAME}/.ssh/authorized_keys" > /dev/null
-sudo chown "${AUSER_NAME}:staff" "/Users/${AUSER_NAME}/.ssh/authorized_keys"
-sudo chmod 600 "/Users/${AUSER_NAME}/.ssh/authorized_keys"
-echo "  ✓ SSH public key added to /Users/${AUSER_NAME}/.ssh/authorized_keys"
+# Check if key is already present
+if sudo test -f "${AUTH_KEYS}" && sudo grep -qF "${PUB_KEY}" "${AUTH_KEYS}" 2>/dev/null; then
+  echo "  ✓ SSH public key already in ${AUTH_KEYS}"
+else
+  # Append (preserves other keys), or create if file doesn't exist
+  echo "${PUB_KEY}" | sudo tee -a "${AUTH_KEYS}" > /dev/null
+  sudo chown "${AUSER_NAME}:staff" "${AUTH_KEYS}"
+  sudo chmod 600 "${AUTH_KEYS}"
+  echo "  ✓ SSH public key added to ${AUTH_KEYS}"
+fi
 echo ""
 
 # --- Step 4: Verify ---

@@ -371,13 +371,15 @@ ansible-bootstrap-macos-check:
     ansible-playbook -i {{MACOS_INVENTORY}} {{PB_MACOS_BOOTSTRAP}} --check --diff --vault-password-file ~/.ansible/vault_password --ask-become-pass
 
 # Run the manual bootstrap script on a target Mac (run ON the target, not control machine)
-# Usage: just macos-manual-bootstrap --ssh-key ~/.ssh/lzkmbp2016-micro-oracle.pub
+# Uses embedded default key (lzkmbp2016-micro-oracle); override with --ssh-key <path>
+# Usage: just macos-manual-bootstrap
 macos-manual-bootstrap *ARGS:
     @echo "Running manual bootstrap script..."
     bash {{INFRAHUB_ROOT}}/shared/scripts/bootstrap-macos-manual.sh {{ARGS}}
 
 # Run the manual bootstrap script on a target Windows machine (run ON the target, not control machine)
-# Usage: just windows-manual-bootstrap -SshKey C:\Users\admin\.ssh\key.pub
+# Uses embedded default key (lzkmbp2016-micro-oracle); override with -SshKey <path>
+# Usage: just windows-manual-bootstrap
 windows-manual-bootstrap *ARGS:
     @echo "Run this on the target Windows machine in admin PowerShell:"
     @echo "  powershell -ExecutionPolicy Bypass -File shared\scripts\bootstrap-windows-manual.ps1 {{ARGS}}"
