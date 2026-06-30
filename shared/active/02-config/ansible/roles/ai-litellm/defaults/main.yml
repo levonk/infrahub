@@ -32,6 +32,7 @@ ai_litellm_localnet_network_name: "{{ localnet_network_name | default('cloud-ser
 
 # Domain for Traefik routing
 ai_litellm_domain: "{{ infra_domain_ai_litellm | default('aigate.levonk.com') }}"
+ai_litellm_api_domain: "{{ infra_domain_ai_litellm_api | default('aigate-api.levonk.com') }}"
 
 # Upstream: Headroom (context compression) — LiteLLM routes to Headroom which routes to OmniRoute
 ai_litellm_upstream_url: "http://headroom:{{ infra_port_ai_headroom_container | default('8787') }}"
@@ -39,6 +40,25 @@ ai_litellm_upstream_url: "http://headroom:{{ infra_port_ai_headroom_container | 
 # Langfuse integration (parallel observability sink)
 ai_litellm_langfuse_host: "{{ infra_hostname_langfuse_web | default('langfuse-web') }}"
 ai_litellm_langfuse_port: "{{ infra_port_ai_langfuse_web_container | default('3000') }}"
+
+# OpenTelemetry / OpenLIT integration (distributed tracing)
+# When enabled, adds 'otel' to success/failure callbacks and sets OTEL_* env vars.
+# The OTLP endpoint is the OpenLIT instance (or any OTel-compatible backend).
+# Traces from LiteLLM become parent spans for downstream vLLM/OmniRoute requests.
+ai_litellm_otel_enabled: false
+ai_litellm_otel_endpoint: "http://localhost:4318"
+ai_litellm_otel_protocol: "http/protobuf"
+ai_litellm_otel_service_name: "litellm-gateway"
+
+# SSO via Authelia OIDC (Generic SSO provider)
+# When enabled, LiteLLM shows an SSO login button and users authenticate via Authelia.
+# The default username/password login is disabled by not setting UI_USERNAME/UI_PASSWORD.
+ai_litellm_sso_enabled: false
+ai_litellm_oidc_client_id: "{{ vault_litellm_oidc_client_id | default('litellm') }}"
+ai_litellm_oidc_client_secret: "{{ vault_litellm_oidc_client_secret | default('') }}"
+ai_litellm_oidc_authorization_endpoint: "https://{{ infra_domain_sso_authelia | default('auth.levonk.com') }}/api/oidc/authorization"
+ai_litellm_oidc_token_endpoint: "https://{{ infra_domain_sso_authelia | default('auth.levonk.com') }}/api/oidc/token"
+ai_litellm_oidc_userinfo_endpoint: "https://{{ infra_domain_sso_authelia | default('auth.levonk.com') }}/api/oidc/userinfo"
 
 # Secrets (from vault)
 ai_litellm_master_key: "{{ vault_litellm_master_key | default('sk-changeme') }}"

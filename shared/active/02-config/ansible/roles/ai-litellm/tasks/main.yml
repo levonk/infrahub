@@ -73,8 +73,8 @@
         # Retry on failure
         num_retries: 2
         # Langfuse logging integration (parallel observability sink)
-        success_callback: ["langfuse"]
-        failure_callback: ["langfuse"]
+        success_callback: ["langfuse"{% if ai_litellm_otel_enabled | bool %}, "otel"{% endif %}]
+        failure_callback: ["langfuse"{% if ai_litellm_otel_enabled | bool %}, "otel"{% endif %}]
 
       general_settings:
         master_key: "{{ ai_litellm_master_key }}"
@@ -206,13 +206,29 @@
       # Auth
       LITELLM_MASTER_KEY: "{{ ai_litellm_master_key }}"
       LITELLM_SALT_KEY: "{{ ai_litellm_salt_key }}"
-      # Admin UI credentials
-      UI_USERNAME: "{{ ai_litellm_admin_username }}"
-      UI_PASSWORD: "{{ ai_litellm_admin_password }}"
+      # Root redirect: send / to /ui (admin UI), Swagger moves to /docs
+      ROOT_REDIRECT_URL: "/ui"
+      DOCS_URL: "/docs"
+      # SSO via Authelia OIDC (Generic SSO provider)
+      # When SSO is enabled, these are set; when disabled, omit removes them.
+      # When SSO is enabled, UI_USERNAME/UI_PASSWORD are omitted (no default admin login).
+      GENERIC_CLIENT_ID: "{{ ai_litellm_oidc_client_id if (ai_litellm_sso_enabled | bool) else omit }}"
+      GENERIC_CLIENT_SECRET: "{{ ai_litellm_oidc_client_secret if (ai_litellm_sso_enabled | bool) else omit }}"
+      GENERIC_AUTHORIZATION_ENDPOINT: "{{ ai_litellm_oidc_authorization_endpoint if (ai_litellm_sso_enabled | bool) else omit }}"
+      GENERIC_TOKEN_ENDPOINT: "{{ ai_litellm_oidc_token_endpoint if (ai_litellm_sso_enabled | bool) else omit }}"
+      GENERIC_USERINFO_ENDPOINT: "{{ ai_litellm_oidc_userinfo_endpoint if (ai_litellm_sso_enabled | bool) else omit }}"
+      PROXY_BASE_URL: "{{ ('https://' ~ ai_litellm_domain) if (ai_litellm_sso_enabled | bool) else omit }}"
+      # Admin UI credentials (only when SSO is disabled)
+      UI_USERNAME: "{{ ai_litellm_admin_username if not (ai_litellm_sso_enabled | bool) else omit }}"
+      UI_PASSWORD: "{{ ai_litellm_admin_password if not (ai_litellm_sso_enabled | bool) else omit }}"
       # Langfuse integration
       LANGFUSE_HOST: "http://{{ ai_litellm_langfuse_host }}:{{ ai_litellm_langfuse_port }}"
       LANGFUSE_PUBLIC_KEY: "{{ vault_langfuse_init_project_public_key | default('') }}"
       LANGFUSE_SECRET_KEY: "{{ vault_langfuse_init_project_secret_key | default('') }}"
+      # OpenTelemetry / OpenLIT tracing (distributed trace propagation)
+      OTEL_EXPORTER_OTLP_ENDPOINT: "{{ ai_litellm_otel_endpoint }}"
+      OTEL_EXPORTER_OTLP_PROTOCOL: "{{ ai_litellm_otel_protocol }}"
+      OTEL_SERVICE_NAME: "{{ ai_litellm_otel_service_name }}"
       # Store model in DB
       STORE_MODEL_IN_DB: "True"
       # General
@@ -232,21 +248,34 @@
       - no-new-privileges:true
     labels:
       traefik.enable: "true"
+      # === aigate.levonk.com — Admin UI (SSO-protected) ===
       # HTTP router (redirects to HTTPS)
       traefik.http.routers.litellm-http.rule: "Host(`{{ ai_litellm_domain }}`)"
       traefik.http.routers.litellm-http.entryPoints: "web"
       traefik.http.routers.litellm-http.middlewares: "redirect-to-https-litellm"
-      # HTTPS router with security middleware chain
+      # HTTPS router with security middleware chain (Authelia SSO + GeoBlock + CrowdSec)
       traefik.http.routers.litellm-https.rule: "Host(`{{ ai_litellm_domain }}`)"
       traefik.http.routers.litellm-https.entryPoints: "websecure"
       traefik.http.routers.litellm-https.middlewares: "geoblock,crowdsec-bouncer,authelia"
       traefik.http.routers.litellm-https.tls: "true"
       traefik.http.routers.litellm-https.tls.certresolver: "letsencrypt"
-      # Service configuration
+      # === aigate-api.levonk.com — API + Swagger (master_key auth, no Authelia) ===
+      traefik.http.routers.litellm-api-http.rule: "Host(`{{ ai_litellm_api_domain }}`)"
+      traefik.http.routers.litellm-api-http.entryPoints: "web"
+      traefik.http.routers.litellm-api-http.middlewares: "redirect-to-https-litellm-api"
+      traefik.http.routers.litellm-api-https.rule: "Host(`{{ ai_litellm_api_domain }}`)"
+      traefik.http.routers.litellm-api-https.entryPoints: "websecure"
+      # No authelia middleware — API clients authenticate with master_key bearer token
+      traefik.http.routers.litellm-api-https.middlewares: "geoblock,crowdsec-bouncer"
+      traefik.http.routers.litellm-api-https.tls: "true"
+      traefik.http.routers.litellm-api-https.tls.certresolver: "letsencrypt"
+      # Service configuration (shared by both routers)
       traefik.http.services.litellm.loadbalancer.server.port: "{{ ai_litellm_container_port }}"
-      # HTTPS redirect middleware (unique name to avoid conflicts)
+      # HTTPS redirect middlewares (unique names to avoid conflicts)
       traefik.http.middlewares.redirect-to-https-litellm.redirectscheme.scheme: "https"
       traefik.http.middlewares.redirect-to-https-litellm.redirectscheme.permanent: "true"
+      traefik.http.middlewares.redirect-to-https-litellm-api.redirectscheme.scheme: "https"
+      traefik.http.middlewares.redirect-to-https-litellm-api.redirectscheme.permanent: "true"
   notify: restart litellm
 
 - name: Wait for LiteLLM to be healthy
@@ -264,9 +293,10 @@
   ansible.builtin.debug:
     msg: |
       LiteLLM deployed successfully:
-        - Gateway API: http://localhost:{{ ai_litellm_host_port }}
-        - Admin UI: https://{{ ai_litellm_domain }}
+        - Admin UI: https://{{ ai_litellm_domain }} (SSO via Authelia)
+        - API + Swagger: https://{{ ai_litellm_api_domain }} (master_key auth)
         - Container: {{ ai_litellm_container_name }}
         - Postgres: {{ ai_litellm_postgres_container_name }}
         - Upstream: {{ ai_litellm_upstream_url }} (Headroom)
         - Langfuse: http://{{ ai_litellm_langfuse_host }}:{{ ai_litellm_langfuse_port }}
+        - SSO: {{ 'enabled (Authelia OIDC)' if ai_litellm_sso_enabled | bool else 'disabled (username/password)' }}
