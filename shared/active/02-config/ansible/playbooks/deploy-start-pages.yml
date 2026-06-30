@@ -34,14 +34,14 @@
     cloudflare_dns_allow_private_ip: false
     cloudflare_dns_records:
       - name: "{{ infra_domain_dashboard_homepage | default('start.levonk.com') }}"
-        type: "A"
-        content: "100.90.22.85"
+        type: "CNAME"
+        content: "{{ infra_tailscale_fqdn_cloud_server | default('oci.tale-grouper.ts.net') }}"
         ttl: "{{ cloudflare_dns_ttl }}"
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
       - name: "{{ infra_domain_dashboard_trala | default('start2.levonk.com') }}"
-        type: "A"
-        content: "100.90.22.85"
+        type: "CNAME"
+        content: "{{ infra_tailscale_fqdn_cloud_server | default('oci.tale-grouper.ts.net') }}"
         ttl: "{{ cloudflare_dns_ttl }}"
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"

@@ -1,11 +1,12 @@
 ---
 # Create or update DNS record in Cloudflare (idempotent)
 # Uses Cloudflare API v4. Handles create-if-missing and update-if-changed
-# in a single pass to avoid the double-GET problem.
+# in a single pass. Also handles type migration (e.g. A → CNAME) by
+# deleting the old record of a different type before creating the new one.
 
-- name: "Check if DNS record {{ cloudflare_dns_record_name }} already exists"
+- name: "Check if DNS record {{ cloudflare_dns_record_name }} already exists (any type)"
   ansible.builtin.uri:
-    url: "https://api.cloudflare.com/client/v4/zones/{{ cloudflare_zone_id }}/dns_records?name={{ cloudflare_dns_record_name }}&type={{ cloudflare_dns_record_type }}"
+    url: "https://api.cloudflare.com/client/v4/zones/{{ cloudflare_zone_id }}/dns_records?name={{ cloudflare_dns_record_name }}"
     method: GET
     headers:
       Authorization: "Bearer {{ cloudflare_api_token }}"
@@ -13,23 +14,58 @@
     body_format: json
     return_content: true
     status_code: [200, 401, 403, 404]
-  register: existing_records
+  register: existing_records_all
   no_log: true
 
 - name: "Fail with clear message if Cloudflare API authentication failed"
   ansible.builtin.fail:
     msg: >-
-      Cloudflare API returned {{ existing_records.status }} for
+      Cloudflare API returned {{ existing_records_all.status }} for
       {{ cloudflare_dns_record_name }}. Check vault_cloudflare_api_token
       and vault_cloudflare_zone_id in the client vault.
-      Response: {{ existing_records.content | default('no content') }}
-  when: existing_records.status not in [200]
+      Response: {{ existing_records_all.content | default('no content') }}
+  when: existing_records_all.status not in [200]
 
-- name: "Set fact for existing record check"
+- name: "Set facts for existing record check"
   ansible.builtin.set_fact:
-    record_exists: "{{ existing_records.json.result | length > 0 }}"
-    existing_record_id: "{{ existing_records.json.result | map(attribute='id') | first | default('') }}"
-    existing_record_content: "{{ existing_records.json.result | map(attribute='content') | first | default('') }}"
+    all_existing_records: "{{ existing_records_all.json.result }}"
+    # Find a record matching the desired type
+    matching_records: "{{ existing_records_all.json.result | selectattr('type', 'equalto', cloudflare_dns_record_type) | list }}"
+    # Find records of a DIFFERENT type with the same name (type conflict)
+    conflicting_records: "{{ existing_records_all.json.result | rejectattr('type', 'equalto', cloudflare_dns_record_type) | list }}"
+
+- name: "Set facts for matching record"
+  ansible.builtin.set_fact:
+    record_exists: "{{ matching_records | length > 0 }}"
+    existing_record_id: "{{ matching_records | map(attribute='id') | first | default('') }}"
+    existing_record_content: "{{ matching_records | map(attribute='content') | first | default('') }}"
+
+- name: "Delete conflicting records of different type (A → CNAME migration)"
+  ansible.builtin.uri:
+    url: "https://api.cloudflare.com/client/v4/zones/{{ cloudflare_zone_id }}/dns_records/{{ item.id }}"
+    method: DELETE
+    headers:
+      Authorization: "Bearer {{ cloudflare_api_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    return_content: true
+    status_code: [200]
+  register: conflict_delete_result
+  loop: "{{ conflicting_records }}"
+  no_log: true
+  when: conflicting_records | length > 0
+
+- name: "Log conflicting record deletion"
+  ansible.builtin.debug:
+    msg: "Deleted conflicting {{ item.type }} record for {{ cloudflare_dns_record_name }} (migrating to {{ cloudflare_dns_record_type }})"
+  loop: "{{ conflicting_records }}"
+  when: conflicting_records | length > 0
+
+- name: "Reset record_exists after type migration"
+  ansible.builtin.set_fact:
+    record_exists: false
+    existing_record_content: ""
+  when: conflicting_records | length > 0
 
 - name: "Create DNS record {{ cloudflare_dns_record_name }} if it doesn't exist"
   ansible.builtin.uri:

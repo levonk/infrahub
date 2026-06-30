@@ -1,0 +1,9 @@
+---
+# Handlers for cloudflare-ddns role
+
+- name: restart cloudflare-ddns
+  community.docker.docker_container:
+    name: "{{ cloudflare_ddns_container_name }}"
+    state: started
+    restart: true
+  become: true

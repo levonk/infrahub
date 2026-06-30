@@ -67,6 +67,37 @@ Additional gotchas:
 - **Test Framework**: Molecule for role testing (currently blocked due to Python docker module dependency)
 - **Package Manager**: pnpm for Nix, but Ansible packages via devbox
 
+## DNS Architecture (Two-Layer)
+
+The shared roles provide a two-layer DNS architecture for Tailscale-attached hosts. Clients opt in by setting Tailscale FQDN variables in their `infrastructure/domains.yml` and per-host `cloudflare_ddns_hostname` in their inventory.
+
+### Layer 1: CNAME → Tailscale FQDN (Primary)
+
+**Role**: `cloudflare-dns`  
+**Playbook**: `playbooks/configure-cloudflare-dns.yml`
+
+Service domains (`*.levonk.com`) are CNAMEs to Tailscale FQDNs (`*.tale-grouper.ts.net`). This decouples Cloudflare DNS from ephemeral Tailscale IPs — if Tailscale reassigns the IP, only Tailscale's internal DNS updates. See AGENTS.md (root) → Architectural Invariant #9 for the full rule.
+
+### Layer 2: DDNS → Public IP (Fallback)
+
+**Role**: `cloudflare-ddns`  
+**Playbook**: `playbooks/deploy-cloudflare-ddns.yml`
+
+A lightweight container on each host updates an A record (`{hostname}.mach.{domain}`) with the host's **public IP** every 5 minutes. This provides a non-Tailscale fallback — if Tailscale MagicDNS is down but the host has internet, the `*.mach.{domain}` records still resolve. See `roles/cloudflare-ddns/README.md` for details.
+
+### Variables (shared defaults, overridden by client)
+
+| Variable | Shared default | Client override |
+|----------|---------------|-----------------|
+| `infra_tailscale_tailnet` | `example.ts.net` | `tale-grouper.ts.net` |
+| `infra_tailscale_fqdn_cloud_server` | `{{ infra_tailscale_tailnet }}` | `oci.tale-grouper.ts.net` |
+| `infra_tailscale_fqdn_inference_host` | (none) | `kckinai.tale-grouper.ts.net` |
+| `cloudflare_ddns_hostname` | (none — set per-host) | `"oci"`, `"kckinai"` |
+
+### Clients Using This Feature
+
+- **levonk**: `oci.mach.levonk.com` → public IP, `kckinai.mach.levonk.com` → public IP. See `levonk/AGENTS.md` → "DNS & DDNS Rollout" for the client-specific deployment status.
+
 ## Devbox & Just Commands
 
 **ALWAYS use `just` commands instead of `devbox run` for Ansible operations.**

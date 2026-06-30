@@ -1,6 +1,8 @@
 ---
 # Configure Cloudflare DNS records for Traefik proxy stack
-# This playbook creates A records for domains pointing to the OCI cloud server
+# This playbook creates CNAME records for domains pointing to Tailscale FQDNs.
+# CNAMEs (not A records) decouple Cloudflare DNS from ephemeral Tailscale IPs —
+# if Tailscale reassigns the IP, only Tailscale DNS updates, not Cloudflare.
 # Location: shared/active/02-config/ansible/playbooks/configure-cloudflare-dns.yml
 # Purpose: DNS configuration for external service access via Traefik
 
@@ -25,68 +27,121 @@
     cloudflare_dns_validate_ip: true
     cloudflare_dns_allow_private_ip: false
 
+    # Tailscale FQDN for the cloud server (all services run here)
+    # Defined in levonk/active/02-config/ansible/infrastructure/domains.yml
+    ts_fqdn: "{{ infra_tailscale_fqdn_cloud_server | default('oci.tale-grouper.ts.net') }}"
+
     # Multiple DNS Records for proxy stack domains
+    # All services run on the OCI cloud server → CNAME to its Tailscale FQDN
     cloudflare_dns_records:
       # SearXNG search service
-      - name: "search.levonk.com"
-        type: "A"
-        content: "100.90.22.85"
+      - name: "{{ infra_domain_proxy_search | default('search.levonk.com') }}"
+        type: "CNAME"
+        content: "{{ ts_fqdn }}"
         ttl: "{{ cloudflare_dns_ttl }}"
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
 
       # AI Dashboard analytics service
-      - name: "ai-dashboard.levonk.com"
-        type: "A"
-        content: "100.90.22.85"
+      - name: "{{ infra_domain_ai_dashboard_web | default('ai-dashboard.levonk.com') }}"
+        type: "CNAME"
+        content: "{{ ts_fqdn }}"
         ttl: "{{ cloudflare_dns_ttl }}"
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
 
-      # LiteLLM AI gateway (aigate) — entry point for the AI pipeline
-      - name: "aigate.levonk.com"
-        type: "A"
-        content: "100.90.22.85"
+      # LiteLLM AI gateway (aigate) — admin UI, SSO-protected
+      - name: "{{ infra_domain_ai_litellm | default('aigate.levonk.com') }}"
+        type: "CNAME"
+        content: "{{ ts_fqdn }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      # LiteLLM API gateway (aigate-api) — Swagger + /v1 API, master_key auth (no Authelia)
+      - name: "{{ infra_domain_ai_litellm_api | default('aigate-api.levonk.com') }}"
+        type: "CNAME"
+        content: "{{ ts_fqdn }}"
         ttl: "{{ cloudflare_dns_ttl }}"
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
 
       # OmniRoute AI gateway (airoute) — provider fanout with tier-based fallback
-      - name: "airoute.levonk.com"
-        type: "A"
-        content: "100.90.22.85"
+      - name: "{{ infra_domain_ai_omniroute | default('airoute.levonk.com') }}"
+        type: "CNAME"
+        content: "{{ ts_fqdn }}"
         ttl: "{{ cloudflare_dns_ttl }}"
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
 
       # Langfuse LLM observability & tracing service
-      - name: "langfuse.levonk.com"
-        type: "A"
-        content: "100.90.22.85"
+      - name: "{{ infra_domain_ai_langfuse | default('langfuse.levonk.com') }}"
+        type: "CNAME"
+        content: "{{ ts_fqdn }}"
         ttl: "{{ cloudflare_dns_ttl }}"
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
 
       # Traefik dashboard (optional, for management access)
-      - name: "traefik.levonk.com"
-        type: "A"
-        content: "100.90.22.85"
+      - name: "{{ infra_domain_traefik_dashboard | default('traefik.levonk.com') }}"
+        type: "CNAME"
+        content: "{{ ts_fqdn }}"
         ttl: "{{ cloudflare_dns_ttl }}"
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
 
       # Homepage startpage (rich dashboard with service widgets)
-      - name: "start.levonk.com"
-        type: "A"
-        content: "100.90.22.85"
+      - name: "{{ infra_domain_dashboard_homepage | default('start.levonk.com') }}"
+        type: "CNAME"
+        content: "{{ ts_fqdn }}"
         ttl: "{{ cloudflare_dns_ttl }}"
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
 
       # TraLa startpage (Traefik auto-discovery catalog)
-      - name: "start2.levonk.com"
-        type: "A"
-        content: "100.90.22.85"
+      - name: "{{ infra_domain_dashboard_trala | default('start2.levonk.com') }}"
+        type: "CNAME"
+        content: "{{ ts_fqdn }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      # Authelia SSO (authentication provider for all services)
+      - name: "{{ infra_domain_sso_authelia | default('auth.levonk.com') }}"
+        type: "CNAME"
+        content: "{{ ts_fqdn }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      # AgentMemory (AI agent persistent memory service)
+      - name: "{{ infra_domain_ai_agentmemory | default('agentmemory.levonk.com') }}"
+        type: "CNAME"
+        content: "{{ ts_fqdn }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      # AI InterFace (aiif — public alias for the Omnigent agent framework)
+      - name: "{{ infra_domain_ai_omnigent | default('aiif.levonk.com') }}"
+        type: "CNAME"
+        content: "{{ ts_fqdn }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      # Headroom (AI output token reduction proxy — aishrink)
+      - name: "{{ infra_domain_ai_aishrink | default('aishrink.levonk.com') }}"
+        type: "CNAME"
+        content: "{{ ts_fqdn }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      # Inference host (kckinai — separate Tailscale host for AI workloads)
+      - name: "{{ infra_domain_inference_host | default('kckinai.levonk.com') }}"
+        type: "CNAME"
+        content: "{{ infra_tailscale_fqdn_inference_host | default('kckinai.tale-grouper.ts.net') }}"
         ttl: "{{ cloudflare_dns_ttl }}"
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"

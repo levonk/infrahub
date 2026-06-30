@@ -1,0 +1,52 @@
+---
+# Cloudflare DDNS Deployment Playbook
+# Deploys a DDNS container on every Tailscale-attached host that updates a
+# Cloudflare A record ({hostname}.mach.levonk.com) with the host's current
+# Tailscale IP. Provides redundancy alongside the CNAME→Tailscale FQDN records.
+#
+# Usage:
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
+#     -i levonk/active/02-config/ansible/inventories/localnet.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-cloudflare-ddns.yml \
+#     --vault-password-file ~/.ansible/vault_password
+
+- name: "Deploy Cloudflare DDNS to Tailscale-attached hosts"
+  hosts: all
+  become: true
+  gather_facts: true
+  vars_files:
+    - "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/inventories/group_vars/infrahub-levonk-all.vault.yml"
+  vars:
+    cloudflare_ddns_api_token: "{{ vault_cloudflare_api_token | default('') }}"
+    cloudflare_ddns_zone_id: "{{ vault_cloudflare_zone_id | default('') }}"
+
+  pre_tasks:
+    - name: "Load shared infrastructure defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/{{ item }}"
+      loop:
+        - domains.yml
+      tags: ["always"]
+
+    - name: "Load client infrastructure overrides (levonk)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/{{ item }}"
+      loop:
+        - domains.yml
+      tags: ["always"]
+
+    - name: "Display deployment information"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Cloudflare DDNS Deployment
+          ========================================
+          Target: {{ inventory_hostname }}
+          Tailscale hostname: {{ cloudflare_ddns_hostname | default('undefined') }}
+          Record: {{ cloudflare_ddns_hostname | default('host') }}.mach.{{ infra_domain_base | default('levonk.com') }}
+          ========================================
+      tags: ["always", "info"]
+
+  roles:
+    - role: cloudflare-ddns
+      tags: ["ddns", "cloudflare"]

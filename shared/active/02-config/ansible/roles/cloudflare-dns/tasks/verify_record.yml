@@ -20,6 +20,13 @@
   register: verify_records
   no_log: true
 
+- name: "Also verify via public DNS resolution"
+  ansible.builtin.command:
+    cmd: "dig +short {{ cloudflare_dns_record_name }} {{ cloudflare_dns_record_type }}"
+  register: dns_dig_result
+  changed_when: false
+  ignore_errors: true
+
 - name: "Fail with clear message if Cloudflare API authentication failed"
   ansible.builtin.fail:
     msg: >-
@@ -34,7 +41,7 @@
 
 - name: "Log verification success"
   ansible.builtin.debug:
-    msg: "DNS record {{ cloudflare_dns_record_name }} ({{ cloudflare_dns_record_type }}) verified → {{ cloudflare_dns_record_content }}"
+    msg: "DNS record {{ cloudflare_dns_record_name }} ({{ cloudflare_dns_record_type }}) verified → {{ cloudflare_dns_record_content }} | dig: {{ dns_dig_result.stdout | default('n/a') }}"
   when: record_verified
 
 - name: "Fail verification if record content doesn't match"

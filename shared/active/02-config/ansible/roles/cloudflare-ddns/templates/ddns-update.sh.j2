@@ -1,0 +1,85 @@
+#!/bin/sh
+# Cloudflare DDNS Update Script — Public IP
+# Detects the host's public (external) IP and updates the Cloudflare A record.
+# This provides a non-Tailscale fallback path — the *.mach.levonk.com records
+# point to the public IP so services are reachable when Tailscale is down.
+# Runs in a loop inside the container.
+set -eu
+
+API_TOKEN="{{ cloudflare_ddns_api_token }}"
+ZONE_ID="{{ cloudflare_ddns_zone_id }}"
+RECORD_NAME="{{ cloudflare_ddns_record_name }}"
+RECORD_TTL="{{ cloudflare_ddns_record_ttl | default(300) }}"
+PROXIED="{{ cloudflare_ddns_record_proxied | default(false) | string | lower }}"
+INTERVAL="{{ cloudflare_ddns_update_interval | default(300) }}"
+
+# Detect public IP via external services (tried in order, first success wins)
+detect_ip() {
+    for url in \
+        "https://api.ipify.org" \
+        "https://ifconfig.me" \
+        "https://icanhazip.com"
+    do
+        ip=$(curl -s --max-time 5 "$url" | tr -d '[:space:]')
+        if [ -n "$ip" ]; then
+            echo "$ip"
+            return 0
+        fi
+    done
+    return 1
+}
+
+update_record() {
+    current_ip="$1"
+
+    # Look up existing record
+    response=$(curl -s -X GET \
+        "https://api.cloudflare.com/client/v4/zones/${ZONE_ID}/dns_records?name=${RECORD_NAME}&type=A" \
+        -H "Authorization: Bearer ${API_TOKEN}" \
+        -H "Content-Type: application/json")
+
+    success=$(echo "$response" | grep -o '"success": *true')
+    if [ -z "$success" ]; then
+        echo "$(date -Iseconds) ERROR: Cloudflare API lookup failed for ${RECORD_NAME}: $(echo "$response" | head -c 200)"
+        return 1
+    fi
+
+    # Extract record ID and current content
+    record_id=$(echo "$response" | grep -o '"id":"[a-f0-9]*"' | head -1 | cut -d'"' -f4)
+    existing_ip=$(echo "$response" | grep -o '"content":"[0-9.]*"' | head -1 | cut -d'"' -f4)
+
+    if [ -z "$record_id" ]; then
+        # Record doesn't exist — create it
+        curl -s -X POST \
+            "https://api.cloudflare.com/client/v4/zones/${ZONE_ID}/dns_records" \
+            -H "Authorization: Bearer ${API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data "{\"type\":\"A\",\"name\":\"${RECORD_NAME}\",\"content\":\"${current_ip}\",\"ttl\":${RECORD_TTL},\"proxied\":${PROXIED}}" \
+            > /dev/null
+        echo "$(date -Iseconds) CREATED: ${RECORD_NAME} → ${current_ip}"
+    elif [ "$existing_ip" != "$current_ip" ]; then
+        # IP changed — update the record
+        curl -s -X PATCH \
+            "https://api.cloudflare.com/client/v4/zones/${ZONE_ID}/dns_records/${record_id}" \
+            -H "Authorization: Bearer ${API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data "{\"type\":\"A\",\"name\":\"${RECORD_NAME}\",\"content\":\"${current_ip}\",\"ttl\":${RECORD_TTL},\"proxied\":${PROXIED}}" \
+            > /dev/null
+        echo "$(date -Iseconds) UPDATED: ${RECORD_NAME} → ${current_ip} (was ${existing_ip})"
+    else
+        # No change needed
+        echo "$(date -Iseconds) OK: ${RECORD_NAME} → ${current_ip} (no change)"
+    fi
+}
+
+echo "$(date -Iseconds) Starting Cloudflare DDNS for ${RECORD_NAME} (interval: ${INTERVAL}s)"
+
+while true; do
+    detected_ip=$(detect_ip || true)
+    if [ -n "$detected_ip" ]; then
+        update_record "$detected_ip" || true
+    else
+        echo "$(date -Iseconds) WARNING: No public IP detected (all services unreachable)"
+    fi
+    sleep "$INTERVAL"
+done

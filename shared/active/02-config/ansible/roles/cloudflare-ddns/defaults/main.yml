@@ -1,0 +1,39 @@
+---
+# Cloudflare DDNS Default Variables
+# Deploys a lightweight container that updates Cloudflare A records with the
+# host's current PUBLIC IP. The *.mach.levonk.com records provide a non-Tailscale
+# fallback path — services are reachable via public IP when Tailscale is down.
+# The CNAME layer (*.levonk.com → *.tale-grouper.ts.net) handles Tailscale access.
+
+# ---------------------------------------------------------------------------
+# Service Configuration
+# ---------------------------------------------------------------------------
+cloudflare_ddns_enabled: true
+cloudflare_ddns_data_dir: "/opt/cloudflare-ddns"
+cloudflare_ddns_container_name: "cloudflare-ddns"
+cloudflare_ddns_image: "alpine"
+cloudflare_ddns_image_tag: "3.20"
+
+# ---------------------------------------------------------------------------
+# Update Configuration
+# ---------------------------------------------------------------------------
+cloudflare_ddns_update_interval: 300  # seconds between checks
+
+# ---------------------------------------------------------------------------
+# DNS Record Configuration
+# The record name is {hostname}.mach.{domain} — one A record per Tailscale host.
+# cloudflare_ddns_hostname MUST be set per-host in inventory vars.
+# ---------------------------------------------------------------------------
+cloudflare_ddns_record_name: "{{ cloudflare_ddns_hostname | default('host') }}.mach.{{ infra_domain_base | default('levonk.com') }}"
+cloudflare_ddns_record_ttl: 300
+cloudflare_ddns_record_proxied: false
+
+# Cloudflare API (from vault — set in playbook vars_files)
+cloudflare_ddns_api_token: "{{ vault_cloudflare_api_token | default('') }}"
+cloudflare_ddns_zone_id: "{{ vault_cloudflare_zone_id | default('') }}"
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+cloudflare_ddns_log_max_size: "1m"
+cloudflare_ddns_log_max_file: "3"

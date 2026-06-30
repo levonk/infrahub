@@ -1,0 +1,98 @@
+---
+# Cloudflare DDNS Deployment Tasks
+# Deploys a lightweight Alpine container that detects the host's Tailscale IP
+# and updates a Cloudflare A record ({hostname}.mach.{domain}).
+# Uses network_mode: host to see the tailscale0 interface.
+
+# ---------------------------------------------------------------------------
+# Prerequisites
+# ---------------------------------------------------------------------------
+- name: Validate required variables
+  ansible.builtin.assert:
+    that:
+      - cloudflare_ddns_api_token | length > 0
+      - cloudflare_ddns_zone_id | length > 0
+      - cloudflare_ddns_hostname is defined
+      - cloudflare_ddns_hostname | length > 0
+    fail_msg: >-
+      Missing required variables. Ensure vault_cloudflare_api_token and
+      vault_cloudflare_zone_id are loaded, and cloudflare_ddns_hostname
+      is set per-host in inventory vars.
+    success_msg: "All Cloudflare DDNS variables are defined."
+  tags: ["always", "validate"]
+
+- name: Ensure DDNS data directory exists
+  ansible.builtin.file:
+    path: "{{ cloudflare_ddns_data_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+
+# ---------------------------------------------------------------------------
+# Deploy Update Script
+# ---------------------------------------------------------------------------
+- name: Deploy DDNS update script
+  ansible.builtin.template:
+    src: ddns-update.sh.j2
+    dest: "{{ cloudflare_ddns_data_dir }}/ddns-update.sh"
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+  notify: restart cloudflare-ddns
+
+# ---------------------------------------------------------------------------
+# Deploy Container
+# Mounts the Tailscale local API socket to detect the host's Tailscale IP.
+# No network_mode: host needed (incompatible with userns-remap anyway).
+# The script loops forever — no cron or supervisor needed.
+# ---------------------------------------------------------------------------
+- name: Deploy Cloudflare DDNS container
+  community.docker.docker_container:
+    name: "{{ cloudflare_ddns_container_name }}"
+    image: "{{ cloudflare_ddns_image }}:{{ cloudflare_ddns_image_tag }}"
+    state: started
+    restart_policy: unless-stopped
+    volumes:
+      - "{{ cloudflare_ddns_data_dir }}/ddns-update.sh:/ddns-update.sh:ro"
+    # Install curl at startup (Alpine doesn't include it), then run the update loop.
+    # No Tailscale socket needed — detects public IP via external services.
+    command: >-
+      /bin/sh -c "apk add --no-cache curl >/dev/null 2>&1 && /bin/sh /ddns-update.sh"
+    log_driver: json-file
+    log_options:
+      max-size: "{{ cloudflare_ddns_log_max_size }}"
+      max-file: "{{ cloudflare_ddns_log_max_file }}"
+    security_opts:
+      - no-new-privileges:true
+  become: true
+  when: cloudflare_ddns_enabled | bool
+
+# ---------------------------------------------------------------------------
+# Health Verification
+# ---------------------------------------------------------------------------
+- name: Wait for DDNS container to log first update
+  ansible.builtin.command:
+    cmd: "docker logs --tail 5 {{ cloudflare_ddns_container_name }}"
+  become: true
+  register: ddns_logs
+  changed_when: false
+  retries: 3
+  delay: 5
+  until: "'Starting Cloudflare DDNS' in ddns_logs.stdout or 'Starting Cloudflare DDNS' in ddns_logs.stderr"
+  when: cloudflare_ddns_enabled | bool
+
+# ---------------------------------------------------------------------------
+# Status Report
+# ---------------------------------------------------------------------------
+- name: Report DDNS status
+  ansible.builtin.debug:
+    msg: |2
+      Cloudflare DDNS deployed:
+        - Record: {{ cloudflare_ddns_record_name }} (A)
+        - Interval: {{ cloudflare_ddns_update_interval }}s
+        - Container: {{ cloudflare_ddns_container_name }}
+        - Log: {{ ddns_logs.stdout_lines[-1] | default('check docker logs') }}
+  when: cloudflare_ddns_enabled | bool
