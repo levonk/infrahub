@@ -1,0 +1,31 @@
+---
+# agentmemory role metadata
+
+galaxy_info:
+  role_name: agentmemory
+  author: localnet
+  description: Deploy agentmemory — persistent memory for AI coding agents (iii-engine + MCP server)
+  company: localnet
+  license: MIT
+  min_ansible_version: "2.9"
+
+  platforms:
+    - name: Ubuntu
+      versions:
+        - focal
+        - jammy
+    - name: Debian
+      versions:
+        - bullseye
+        - bookworm
+
+  galaxy_tags:
+    - ai
+    - agents
+    - memory
+    - mcp
+    - iii-engine
+    - docker
+
+dependencies:
+  - role: common

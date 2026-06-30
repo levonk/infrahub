@@ -1,0 +1,94 @@
+---
+# agentmemory — Persistent memory for AI coding agents
+# Shared container service definition for the localnet/infrahub stack.
+# Upstream: https://github.com/rohitg00/agentmemory
+#
+# Architecture: iii-engine (WebSocket daemon) + agentmemory CLI (HTTP API/MCP on :3111)
+# Storage: file-based SQLite via iii-engine StateModule at /data/state_store.db
+# Auth: HMAC bearer token (AGENTMEMORY_SECRET) generated on first boot, persisted to /data/.hmac
+#
+# Exposure:
+#   - Web viewer + REST API: proxied through Traefik with Authelia SSO (agentmemory.levonk.com)
+#   - MCP direct access: Tailscale-only via host port 3111 (firewall blocks external)
+#
+# Ports (all via infrastructure variables — see levonk/active/02-config/ansible/infrastructure/ports.yml):
+#   - 3111: HTTP API + web viewer (published to host for Tailscale MCP access)
+#   - 3112: iii-stream (internal, container-only)
+#   - 49134: iii-engine WebSocket (internal, container-only)
+#   - 9464: Observability metrics (internal, container-only)
+
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "5"
+    tag: "{{.Name}}"
+    labels: "service"
+
+include:
+  - ../../docker-compose.include.yml
+
+networks:
+  traefik-network:
+    external: true
+    name: traefik-network
+
+volumes:
+  agentmemory-data:
+    name: localnet-agentmemory-data-volume
+    external: false
+
+services:
+  # One-shot init container: docker creates named volumes root:root mode
+  # 755, but the iii-engine image is distroless and runs as UID 65532
+  # with no `chown` of its own. Without this, /data is unwritable.
+  # Runs once at compose-up and exits.
+  agentmemory-init:
+    image: busybox:1.36
+    user: "0:0"
+    volumes:
+      - agentmemory-data:/data
+    entrypoint: ["sh", "-c", "chown -R 65532:65532 /data && chmod 755 /data"]
+    restart: "no"
+
+  agentmemory:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.agentmemory
+      args:
+        AGENTMEMORY_VERSION: "${AGENTMEMORY_VERSION:-0.9.25}"
+        III_VERSION: "${AGENTMEMORY_III_VERSION:-0.11.2}"
+        III_SDK_VERSION: "${AGENTMEMORY_III_SDK_VERSION:-0.11.2}"
+    image: localnet-agentmemory:latest
+    container_name: localnet-agentmemory
+    logging: *default-logging
+    depends_on:
+      agentmemory-init:
+        condition: service_completed_successfully
+    networks:
+      - traefik-network
+    ports:
+      # Publish 3111 to host for Tailscale MCP direct access.
+      # Firewall (nftables) blocks external access; Tailscale traffic allowed.
+      - "${AGENTMEMORY_HOST_PORT:-3111}:${AGENTMEMORY_CONTAINER_PORT:-3111}/tcp"
+    volumes:
+      - agentmemory-data:/data
+      - ./docker/iii-config.docker.yaml:/app/config.yaml:ro
+    env_file:
+      - ../../.env
+    environment:
+      AGENTMEMORY_III_VERSION: "${AGENTMEMORY_III_VERSION:-0.11.2}"
+      AGENTMEMORY_DATA_DIR: "/data"
+      AGENTMEMORY_HMAC_FILE: "/data/.hmac"
+      AGENTMEMORY_SECRET: "${AGENTMEMORY_SECRET:-}"
+      # LLM/embedding provider keys (from vault via .env)
+      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
+      OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
+      TZ: "${TZ:-UTC}"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:${AGENTMEMORY_CONTAINER_PORT:-3111}/agentmemory/livez || exit 1"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    restart: unless-stopped

@@ -1,0 +1,7 @@
+---
+# agentmemory handlers
+
+- name: restart agentmemory
+  community.docker.docker_container:
+    name: "{{ agentmemory_container_name }}"
+    state: restarted
