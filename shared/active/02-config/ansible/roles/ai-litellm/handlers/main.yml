@@ -1,0 +1,16 @@
+---
+# LiteLLM role handlers
+
+- name: restart litellm
+  community.docker.docker_container:
+    name: "{{ ai_litellm_container_name }}"
+    state: started
+    restart: true
+  listen: "restart litellm"
+
+- name: restart litellm-postgres
+  community.docker.docker_container:
+    name: "{{ ai_litellm_postgres_container_name }}"
+    state: started
+    restart: true
+  listen: "restart litellm-postgres"

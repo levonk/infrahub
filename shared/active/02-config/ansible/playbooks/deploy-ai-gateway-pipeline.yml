@@ -1,21 +1,28 @@
 ---
-# AI Dashboard Pipeline Deployment Playbook
-# Deploys the multi-stage AI analytics pipeline to cloud servers
-# Pipeline: AI Dashboard Proxy 1 → Privacy Orchestrator → Headroom → OmniRoute → Forge → AI Dashboard Proxy 2 → Iron-Proxy → NordVPN → Internet
+# AI Gateway Pipeline Deployment Playbook
+# Deploys LiteLLM (aigate) + OmniRoute (airoute) as the AI gateway layer.
+#
+# New Pipeline Architecture:
+#   Omnigent -> Pi -> LiteLLM (aigate) -> Headroom -> OmniRoute (airoute) -> Forge -> Iron-Proxy -> NordVPN -> Internet
+#                     (auth, keys,     (compress)  (tier fallback,          (tool repair) (egress firewall) (privacy)
+#                      PII, spend,                  9-factor scoring)
+#                      Langfuse)
+#
+# LiteLLM is the entry point: handles auth, virtual keys, spend tracking,
+# PII guardrail (Presidio), and Langfuse logging. Routes to Headroom for
+# compression, then to OmniRoute for provider fanout.
 #
 # This playbook uses Ansible roles with community.docker modules — NEVER docker compose.
-# Services with existing roles (headroom, omniroute, iron-proxy) are deployed via include_role.
-# Services without roles yet (forge, privacy-orchestrator, dashboard proxies) are marked TODO.
 #
 # Usage:
 #   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
-#     shared/active/02-config/ansible/playbooks/deploy-ai-dashboard-pipeline.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-ai-gateway-pipeline.yml \
 #     --vault-password-file ~/.ansible/vault_password
 #   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
-#     shared/active/02-config/ansible/playbooks/deploy-ai-dashboard-pipeline.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-ai-gateway-pipeline.yml \
 #     --check --diff --vault-password-file ~/.ansible/vault_password
 
-- name: "Deploy AI Dashboard Pipeline"
+- name: "Deploy AI Gateway Pipeline (LiteLLM + OmniRoute)"
   hosts: cloud_servers
   become: true
   gather_facts: true
@@ -47,7 +54,7 @@
       ansible.builtin.debug:
         msg: |
           ========================================
-          AI Dashboard Pipeline Deployment Started
+          AI Gateway Pipeline Deployment Started
           ========================================
           Target: {{ inventory_hostname }}
           User: {{ ansible_user_id }}
@@ -55,31 +62,39 @@
           Architecture: {{ ansible_facts['architecture'] }}
           Timestamp: {{ ansible_date_time.iso8601 }}
           ========================================
+          Pipeline: Omnigent -> Pi -> LiteLLM (aigate) -> Headroom -> OmniRoute (airoute) -> Forge -> Iron-Proxy -> NordVPN
+          ========================================
       tags: ["always", "info"]
 
-    - name: "Validate required AI dashboard variables are defined"
+    - name: "Validate required variables are defined"
       ansible.builtin.assert:
         that:
           - localnet_services_dir is defined
           - shared_container_services_dir is defined
+          - vault_litellm_master_key is defined
+          - vault_litellm_database_password is defined
         fail_msg: >-
-          Missing required AI dashboard variables. Check
-          levonk/active/02-config/ansible/inventories/group_vars/cloud_servers.yml
-          and group_vars/all.yml.
-        success_msg: "All required AI dashboard variables are defined."
+          Missing required variables. Check inventory vars and vault for
+          localnet_services_dir, shared_container_services_dir, vault_litellm_*.
+        success_msg: "All required AI gateway variables are defined."
       tags: ["always", "validate"]
 
   tasks:
     # ===========================================================================
-    # Stage 1: Iron-Proxy (Egress Firewall) — deployed via role
+    # Stage 1: LiteLLM (AI Gateway — entry point)
+    # Provides: auth, virtual keys, spend tracking, PII guardrail, Langfuse logging
+    # Domain: aigate.levonk.com
     # ===========================================================================
-    - name: "Deploy iron-proxy via role"
+    - name: "Deploy LiteLLM via role"
       ansible.builtin.include_role:
-        name: proxy-iron-proxy
-      tags: ["deploy", "iron-proxy"]
+        name: ai-litellm
+      tags: ["deploy", "litellm"]
 
     # ===========================================================================
-    # Stage 2: Headroom (Context Compression) — deployed via role
+    # Stage 2: Headroom (Context Compression)
+    # Compresses LLM context before routing to OmniRoute
+    # Upstream from: LiteLLM
+    # Downstream to: OmniRoute
     # ===========================================================================
     - name: "Deploy headroom via role"
       ansible.builtin.include_role:
@@ -87,7 +102,11 @@
       tags: ["deploy", "headroom"]
 
     # ===========================================================================
-    # Stage 3: OmniRoute (AI Gateway) — deployed via role
+    # Stage 3: OmniRoute (AI Gateway — provider fanout)
+    # Tier-based fallback, 9-factor auto-combo scoring, free-tier draining
+    # Domain: airoute.levonk.com
+    # Upstream from: Headroom
+    # Downstream to: Forge (then Iron-Proxy, NordVPN)
     # ===========================================================================
     - name: "Deploy omniroute via role"
       ansible.builtin.include_role:
@@ -95,51 +114,27 @@
       tags: ["deploy", "omniroute"]
 
     # ===========================================================================
-    # TODO: Services below need Ansible roles created (community.docker modules)
-    # For now, these stages are not deployed by this playbook. Create roles
-    # following the pattern in roles/omniroute/ and roles/proxy-iron-proxy/.
+    # Verification — read-only container status checks
     # ===========================================================================
-    # - name: "Deploy forge via role"
-    #   ansible.builtin.include_role:
-    #     name: ai-forge
-    #   tags: ["deploy", "forge"]
-    #
-    # - name: "Deploy privacy-orchestrator via role"
-    #   ansible.builtin.include_role:
-    #     name: ai-privacy-orchestrator
-    #   tags: ["deploy", "privacy-orchestrator"]
-    #
-    # - name: "Deploy ai-dashboard-proxy-1 via role"
-    #   ansible.builtin.include_role:
-    #     name: ai-dashboard-proxy
-    #   vars:
-    #     ai_dashboard_proxy_instance: 1
-    #   tags: ["deploy", "ai-dashboard-proxy-1"]
-    #
-    # - name: "Deploy ai-dashboard-proxy-2 via role"
-    #   ansible.builtin.include_role:
-    #     name: ai-dashboard-proxy
-    #   vars:
-    #     ai_dashboard_proxy_instance: 2
-    #   tags: ["deploy", "ai-dashboard-proxy-2"]
-    #
-    # - name: "Deploy ai-dashboard database via role"
-    #   ansible.builtin.include_role:
-    #     name: ai-dashboard-db
-    #   tags: ["deploy", "ai-dashboard-db"]
-
-    # ===========================================================================
-    # Verification — read-only container status checks (no docker compose)
-    # ===========================================================================
-    - name: "Verify iron-proxy container is running"
+    - name: "Verify litellm container is running"
       ansible.builtin.command:
-        cmd: "docker inspect --format='{% raw %}{{.State.Status}}{% endraw %}' iron-proxy"
+        cmd: "docker inspect --format='{% raw %}{{.State.Status}}{% endraw %}' {{ ai_litellm_container_name }}"
       become: true
       become_user: "{{ cloud_server_admin_user }}"
-      register: iron_proxy_status
+      register: litellm_status
       changed_when: false
       ignore_errors: true
-      tags: ["verify", "iron-proxy"]
+      tags: ["verify", "litellm"]
+
+    - name: "Verify litellm-postgres container is running"
+      ansible.builtin.command:
+        cmd: "docker inspect --format='{% raw %}{{.State.Status}}{% endraw %}' {{ ai_litellm_postgres_container_name }}"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: litellm_postgres_status
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "litellm-postgres"]
 
     - name: "Verify headroom container is running"
       ansible.builtin.command:
@@ -165,9 +160,10 @@
       ansible.builtin.debug:
         msg: |
           Container Status Summary:
-            iron-proxy: {{ iron_proxy_status.stdout | default('NOT FOUND') }}
-            headroom:   {{ headroom_status.stdout | default('NOT FOUND') }}
-            omniroute:  {{ omniroute_status.stdout | default('NOT FOUND') }}
+            litellm:          {{ litellm_status.stdout | default('NOT FOUND') }}
+            litellm-postgres: {{ litellm_postgres_status.stdout | default('NOT FOUND') }}
+            headroom:         {{ headroom_status.stdout | default('NOT FOUND') }}
+            omniroute:        {{ omniroute_status.stdout | default('NOT FOUND') }}
       tags: ["verify", "summary"]
 
   post_tasks:
@@ -175,25 +171,26 @@
       ansible.builtin.debug:
         msg: |
           ========================================
-          AI Dashboard Pipeline Deployment Complete
+          AI Gateway Pipeline Deployment Complete
           ========================================
           Target: {{ inventory_hostname }}
           Timestamp: {{ ansible_date_time.iso8601 }}
           ----------------------------------------
           Deployed via Ansible roles (community.docker):
-          - Iron-Proxy: egress firewall (proxy-chain-network 172.29.0.17)
-          - Headroom: context compression (proxy-chain-network 172.29.0.13)
-          - OmniRoute: AI gateway (proxy-chain-network 172.29.0.14, traefik ai-gateway.levonk.com)
-          ----------------------------------------
-          TODO — Roles needed for remaining pipeline stages:
-          - Forge (AI tool-calling guardrails)
-          - Privacy Orchestrator (PII masking)
-          - AI Dashboard Proxy 1 (entry analytics)
-          - AI Dashboard Proxy 2 (pre-egress analytics)
-          - AI Dashboard Database (PostgreSQL analytics store)
+          - LiteLLM: AI gateway entry point (aigate.levonk.com, proxy-chain 172.29.0.18)
+            - Auth, virtual keys, spend tracking, PII guardrail (Presidio), Langfuse logging
+            - Postgres database for keys/spend/teams
+          - Headroom: context compression (proxy-chain 172.29.0.13)
+          - OmniRoute: provider fanout (airoute.levonk.com, proxy-chain 172.29.0.14)
+            - Tier-based fallback, 9-factor auto-combo scoring, free-tier draining
           ----------------------------------------
           Pipeline Flow:
-          AI Dashboard Proxy 1 → Privacy Orchestrator → Headroom → OmniRoute → Forge → AI Dashboard Proxy 2 → Iron-Proxy → NordVPN → Internet
-          Network: proxy-chain-network (172.29.0.0/16)
+          Omnigent -> Pi -> LiteLLM (aigate) -> Headroom -> OmniRoute (airoute) -> Forge -> Iron-Proxy -> NordVPN
+          ----------------------------------------
+          Access Points:
+          - LiteLLM Admin UI: https://aigate.levonk.com
+          - LiteLLM API: https://aigate.levonk.com/v1 (or http://localhost:4000)
+          - OmniRoute Dashboard: https://airoute.levonk.com
+          - OmniRoute API: https://airoute.levonk.com/v1 (or http://localhost:20128)
           ========================================
       tags: ["always", "summary"]

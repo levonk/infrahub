@@ -1,0 +1,272 @@
+---
+# LiteLLM AI Gateway Deployment
+# Deploys LiteLLM as the entry point for the AI analytics pipeline.
+# Pipeline: Omnigent -> Pi -> LiteLLM (aigate) -> Headroom -> OmniRoute (airoute) -> Forge -> Iron-Proxy -> NordVPN
+# LiteLLM provides: auth, virtual keys, spend tracking, PII guardrail, Langfuse logging
+
+- name: Validate required variables are defined
+  ansible.builtin.assert:
+    that:
+      - localnet_services_dir is defined
+      - shared_container_services_dir is defined
+      - ai_litellm_master_key is defined
+      - ai_litellm_database_password is defined
+    fail_msg: >-
+      Missing required variables. Check inventory vars and vault for
+      localnet_services_dir, shared_container_services_dir, vault_litellm_master_key,
+      vault_litellm_database_password.
+    success_msg: "All required litellm variables are defined."
+  tags: ["always", "validate"]
+
+- name: Ensure LiteLLM service directory exists on target
+  ansible.builtin.file:
+    path: "{{ localnet_services_dir }}/ai-services/litellm"
+    state: directory
+    owner: "{{ cloud_server_admin_user | default('cuser') }}"
+    group: "{{ cloud_server_admin_user | default('cuser') }}"
+    mode: "0755"
+
+# ============================================================================
+# Generate LiteLLM Config (proxy_config.yaml)
+# Routes all model requests to Headroom as upstream (which routes to OmniRoute)
+# ============================================================================
+- name: Generate LiteLLM proxy config
+  ansible.builtin.copy:
+    dest: "{{ localnet_services_dir }}/ai-services/litellm/proxy_config.yaml"
+    content: |
+      model_list:
+        # Route all requests to Headroom (upstream compression stage)
+        # Headroom forwards to OmniRoute (airoute) which does provider fanout
+        - model_name: "auto"
+          litellm_params:
+            model: "openai/auto"
+            api_base: "{{ ai_litellm_upstream_url }}"
+            api_key: "sk-litellm-internal"
+        # Claude models
+        - model_name: "claude-sonnet-4-20250514"
+          litellm_params:
+            model: "openai/claude-sonnet-4-20250514"
+            api_base: "{{ ai_litellm_upstream_url }}"
+            api_key: "sk-litellm-internal"
+        - model_name: "claude-3-5-sonnet-20241022"
+          litellm_params:
+            model: "openai/claude-3-5-sonnet-20241022"
+            api_base: "{{ ai_litellm_upstream_url }}"
+            api_key: "sk-litellm-internal"
+        # GPT models
+        - model_name: "gpt-4o"
+          litellm_params:
+            model: "openai/gpt-4o"
+            api_base: "{{ ai_litellm_upstream_url }}"
+            api_key: "sk-litellm-internal"
+        - model_name: "gpt-4o-mini"
+          litellm_params:
+            model: "openai/gpt-4o-mini"
+            api_base: "{{ ai_litellm_upstream_url }}"
+            api_key: "sk-litellm-internal"
+
+      litellm_settings:
+        # Drop params that upstream (Headroom/OmniRoute) doesn't support
+        drop_params: true
+        # Request timeout (seconds) — generous for multi-stage pipeline
+        request_timeout: 600
+        # Retry on failure
+        num_retries: 2
+        # Langfuse logging integration (parallel observability sink)
+        success_callback: ["langfuse"]
+        failure_callback: ["langfuse"]
+
+      general_settings:
+        master_key: "{{ ai_litellm_master_key }}"
+        database_url: "postgresql://{{ ai_litellm_postgres_user }}:{{ ai_litellm_database_password }}@{{ ai_litellm_postgres_container_name }}:5432/{{ ai_litellm_postgres_db }}"
+        # Spend tracking
+        disable_spend_logs: false
+        # PII guardrail (Presidio) — masks PII before forwarding to upstream
+        guardrails:
+          - guardrail_name: "presidio-pii"
+            litellm_params:
+              guardrail: "presidio"
+              mode: "pre_call"
+              pii_action: "MASK"
+              output_parse_pii: true
+
+      router_settings:
+        routing_strategy: "simple-shuffle"
+        enable_pre_call_checks: true
+    owner: "{{ cloud_server_admin_user | default('cuser') }}"
+    group: "{{ cloud_server_admin_user | default('cuser') }}"
+    mode: "0644"
+  notify: restart litellm
+
+# ============================================================================
+# Volume Management
+# ============================================================================
+- name: Ensure LiteLLM data volume exists
+  community.docker.docker_volume:
+    name: "{{ ai_litellm_volume_name }}"
+    state: present
+
+- name: Ensure LiteLLM Postgres data volume exists
+  community.docker.docker_volume:
+    name: "{{ ai_litellm_postgres_volume_name }}"
+    state: present
+
+# ============================================================================
+# Network Management
+# ============================================================================
+- name: Ensure proxy-chain Docker network exists
+  community.docker.docker_network:
+    name: "{{ ai_litellm_chain_network_name }}"
+    state: present
+    driver: bridge
+    ipam_config:
+      - subnet: "{{ infra_network_ai_proxy_chain_subnet | default('172.29.0.0/16') }}"
+        gateway: "{{ infra_network_ai_proxy_chain_gateway | default('172.29.0.1') }}"
+  ignore_errors: true  # Network may already exist with different config
+
+- name: Ensure localnet Docker network exists
+  community.docker.docker_network:
+    name: "{{ ai_litellm_localnet_network_name }}"
+    state: present
+    driver: bridge
+  ignore_errors: true
+
+- name: Ensure traefik Docker network exists
+  community.docker.docker_network:
+    name: "{{ ai_litellm_traefik_network_name }}"
+    state: present
+    driver: bridge
+  ignore_errors: true
+
+# ============================================================================
+# Postgres Deployment (LiteLLM database for keys/spend/teams)
+# ============================================================================
+- name: Deploy LiteLLM Postgres container
+  community.docker.docker_container:
+    name: "{{ ai_litellm_postgres_container_name }}"
+    image: "{{ ai_litellm_postgres_image }}"
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ ai_litellm_chain_network_name }}"
+    env:
+      POSTGRES_USER: "{{ ai_litellm_postgres_user }}"
+      POSTGRES_PASSWORD: "{{ ai_litellm_database_password }}"
+      POSTGRES_DB: "{{ ai_litellm_postgres_db }}"
+      TZ: "{{ ai_litellm_tz }}"
+      PGTZ: "{{ ai_litellm_tz }}"
+    volumes:
+      - "{{ ai_litellm_postgres_volume_name }}:/var/lib/postgresql/data:rw"
+    log_driver: json-file
+    log_options:
+      max-size: 10m
+      max-file: 5
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U {{ ai_litellm_postgres_user }} -d {{ ai_litellm_postgres_db }}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    security_opts:
+      - no-new-privileges:true
+  notify: restart litellm-postgres
+
+- name: Wait for LiteLLM Postgres to be healthy
+  community.docker.docker_container_info:
+    name: "{{ ai_litellm_postgres_container_name }}"
+  register: litellm_pg_info
+  until: litellm_pg_info.container.State.Health.Status == "healthy"
+  retries: 30
+  delay: 2
+
+# ============================================================================
+# LiteLLM Proxy Container Deployment
+# ============================================================================
+- name: Deploy LiteLLM proxy container
+  community.docker.docker_container:
+    name: "{{ ai_litellm_container_name }}"
+    image: "{{ ai_litellm_image }}"
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ ai_litellm_chain_network_name }}"
+        ipv4_address: "{{ ai_litellm_chain_network_ip }}"
+      - name: "{{ ai_litellm_traefik_network_name }}"
+        ipv4_address: "{{ ai_litellm_traefik_network_ip }}"
+    ports:
+      - "{{ ai_litellm_host_port }}:{{ ai_litellm_container_port }}/tcp"
+    volumes:
+      - "{{ localnet_services_dir }}/ai-services/litellm/proxy_config.yaml:/app/config.yaml:ro"
+      - "{{ ai_litellm_volume_name }}:/app/data:rw"
+    env:
+      # Config file path
+      LITELLM_CONFIG_FILE_PATH: "/app/config.yaml"
+      # Database
+      DATABASE_URL: "postgresql://{{ ai_litellm_postgres_user }}:{{ ai_litellm_database_password }}@{{ ai_litellm_postgres_container_name }}:5432/{{ ai_litellm_postgres_db }}"
+      # Auth
+      LITELLM_MASTER_KEY: "{{ ai_litellm_master_key }}"
+      LITELLM_SALT_KEY: "{{ ai_litellm_salt_key }}"
+      # Admin UI credentials
+      UI_USERNAME: "{{ ai_litellm_admin_username }}"
+      UI_PASSWORD: "{{ ai_litellm_admin_password }}"
+      # Langfuse integration
+      LANGFUSE_HOST: "http://{{ ai_litellm_langfuse_host }}:{{ ai_litellm_langfuse_port }}"
+      LANGFUSE_PUBLIC_KEY: "{{ vault_langfuse_init_project_public_key | default('') }}"
+      LANGFUSE_SECRET_KEY: "{{ vault_langfuse_init_project_secret_key | default('') }}"
+      # Store model in DB
+      STORE_MODEL_IN_DB: "True"
+      # General
+      TZ: "{{ ai_litellm_tz }}"
+    command: "--config /app/config.yaml --port {{ ai_litellm_container_port }} --num_workers 2"
+    log_driver: json-file
+    log_options:
+      max-size: 10m
+      max-file: 5
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:{{ ai_litellm_container_port }}/health/liveness')\""]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    security_opts:
+      - no-new-privileges:true
+    labels:
+      traefik.enable: "true"
+      # HTTP router (redirects to HTTPS)
+      traefik.http.routers.litellm-http.rule: "Host(`{{ ai_litellm_domain }}`)"
+      traefik.http.routers.litellm-http.entryPoints: "web"
+      traefik.http.routers.litellm-http.middlewares: "redirect-to-https-litellm"
+      # HTTPS router with security middleware chain
+      traefik.http.routers.litellm-https.rule: "Host(`{{ ai_litellm_domain }}`)"
+      traefik.http.routers.litellm-https.entryPoints: "websecure"
+      traefik.http.routers.litellm-https.middlewares: "geoblock,crowdsec-bouncer,authelia"
+      traefik.http.routers.litellm-https.tls: "true"
+      traefik.http.routers.litellm-https.tls.certresolver: "letsencrypt"
+      # Service configuration
+      traefik.http.services.litellm.loadbalancer.server.port: "{{ ai_litellm_container_port }}"
+      # HTTPS redirect middleware (unique name to avoid conflicts)
+      traefik.http.middlewares.redirect-to-https-litellm.redirectscheme.scheme: "https"
+      traefik.http.middlewares.redirect-to-https-litellm.redirectscheme.permanent: "true"
+  notify: restart litellm
+
+- name: Wait for LiteLLM to be healthy
+  ansible.builtin.wait_for:
+    host: localhost
+    port: "{{ ai_litellm_host_port }}"
+    delay: 15
+    timeout: 120
+  register: litellm_wait
+
+# ============================================================================
+# Status Report
+# ============================================================================
+- name: Report LiteLLM status
+  ansible.builtin.debug:
+    msg: |
+      LiteLLM deployed successfully:
+        - Gateway API: http://localhost:{{ ai_litellm_host_port }}
+        - Admin UI: https://{{ ai_litellm_domain }}
+        - Container: {{ ai_litellm_container_name }}
+        - Postgres: {{ ai_litellm_postgres_container_name }}
+        - Upstream: {{ ai_litellm_upstream_url }} (Headroom)
+        - Langfuse: http://{{ ai_litellm_langfuse_host }}:{{ ai_litellm_langfuse_port }}

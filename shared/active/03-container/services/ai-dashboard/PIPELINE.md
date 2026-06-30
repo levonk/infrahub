@@ -2,6 +2,37 @@
 
 ## Recent Changes
 
+**2026-06-29**: Added LiteLLM as the AI gateway entry point (aigate.levonk.com)
+- LiteLLM (https://github.com/BerriAI/litellm) is an OSS AI Gateway with auth, virtual keys, spend tracking, PII guardrail (Presidio), and native Langfuse logging
+- Replaces AI Dashboard Proxy 1/2 (analytics collectors) and Privacy Orchestrator (PII detection) as the pipeline entry point
+- LiteLLM sits BEFORE Headroom: PII guardrail runs on raw text (more reliable), spend tracking on original request size, auth/keys reject bad requests early
+- Domain: aigate.levonk.com (Traefik + GeoBlock + CrowdSec + Authelia)
+- Ansible role: `roles/ai-litellm/`, deploy playbook: `playbooks/deploy-ai-gateway-pipeline.yml`
+- **Status**: DEFINED - Ansible role created, vault secrets added, DNS configured
+
+**2026-06-29**: Renamed OmniRoute domain from ai-gateway.levonk.com to airoute.levonk.com
+- LiteLLM (aigate) is now the gateway entry point; OmniRoute (airoute) is the routing layer
+- OmniRoute's unique strengths preserved: 4-tier subscription-draining fallback, 9-factor auto-combo scoring, free-tier maximization, 14 routing strategies
+- See PIPELINE-LITELLM-JANUS-NOTES.md for the full LiteLLM vs OmniRoute comparison
+
+**2026-06-28**: Added Langfuse as parallel LLM observability backend
+- Langfuse (https://github.com/langfuse/langfuse) is an LLM tracing & observability platform
+- Deployed as a parallel analytics sink receiving traces from AI Dashboard Proxy 1 (entry collector)
+- NOT a serial forwarding stage — receives trace data alongside the pipeline's own analytics DB
+- Stack: langfuse-web (UI + ingestion API) + langfuse-worker (async ingestion) + postgres + clickhouse + redis + minio
+- Web UI at https://langfuse.levonk.com (Traefik + GeoBlock + CrowdSec + Authelia)
+- **Status**: DEFINED - shared stack at `services/ai-dashboard/langfuse/`, deploy playbook at `playbooks/deploy-langfuse.yml`
+- See "Langfuse Observability Backend" section for details
+
+**2026-06-28**: Added Omnigent + Pi as the agent stack that originates pipeline requests
+- Omnigent (https://omnigent.ai/docs/deploy/overview) is the AI agent framework & meta-harness that orchestrates Claude Code, Codex, Cursor, Pi, and custom agents
+- Pi (https://github.com/earendil-works/pi) is the minimal terminal coding harness — the agent that actually does the coding work (read, write, edit, bash tools)
+- Omnigent's runner drives pi via RPC mode (JSONL over stdin/stdout); pi's LLM requests flow through the analytics pipeline
+- Together they form the **request origin**: Omnigent orchestrates, pi executes, pipeline observes/optimizes/secures
+- Deployed as omnigent server + Postgres + pi (RPC mode) containers; runners register against the server via `omni host`
+- **Status**: DEFINED - shared stacks at `services/ai-codeassist/omnigent/` and `services/ai-codeassist/pi/`, levonk deployment at `levonk/active/03-container/services/omnigent/DEPLOYMENT.md`
+- See "Omnigent + Pi Agent Stack" section for details
+
 **2026-06-24**: Repositioned Forge tool calling reliability layer in pipeline architecture
 - Moved from between Privacy Orchestrator and Headroom to after OmniRoute
 - Better positioning: Forge now operates on LLM responses after routing
@@ -22,9 +53,28 @@ This configuration implements a multi-stage AI analytics pipeline with comprehen
 ## Pipeline Architecture
 
 ```
-AI Dashboard Proxy 1 → Privacy Orchestrator → Headroom → OmniRoute → Forge → AI Dashboard Proxy 2 → Iron-Proxy → NordVPN → Internet
-        (Entry)              (PII Detection) (Compression)   (Routing)       (Tool Calling Fixer)    (Pre-Egress)    (Security)    (Privacy)
+Omnigent → Pi → LiteLLM (aigate) → Headroom → OmniRoute (airoute) → Forge → Iron-Proxy → NordVPN → Internet
+(server)   (harness)  (Entry)        (Compress)  (Routing)          (Tool Fix) (Security)   (Privacy)
+                      (auth, keys,
+                       PII, spend,
+                       Langfuse)
+                      │
+                      ↓ (forwards traces)
+                Langfuse (LLM Observability — parallel analytics sink)
+                langfuse-web → postgres + clickhouse + redis + minio
 ```
+
+**Note**: LiteLLM is the entry point for the pipeline. It handles auth, virtual keys, spend tracking, PII guardrail (Presidio masking), and forwards traces to Langfuse. LiteLLM routes to Headroom for context compression, then to OmniRoute for provider fanout (tier-based fallback, 9-factor auto-combo scoring, free-tier draining). Forge repairs tool-call format issues from non-conforming backends. Iron-Proxy enforces egress firewall policy. NordVPN provides privacy/geo-obfuscation.
+
+**Previous architecture** (pre-2026-06-29): AI Dashboard Proxy 1 → Privacy Orchestrator → Headroom → OmniRoute → Forge → AI Dashboard Proxy 2 → Iron-Proxy. The Proxy 1/2 collectors and Privacy Orchestrator are now absorbed into LiteLLM. See PIPELINE-LITELLM-JANUS-NOTES.md for the full analysis.
+
+### Request Origin
+
+The pipeline originates from the **Omnigent + Pi agent stack**. Omnigent (https://omnigent.ai/docs/deploy/overview) is the AI agent framework & meta-harness that orchestrates coding agents from a central server. Pi (https://github.com/earendil-works/pi) is the minimal terminal coding harness — the agent that actually does the coding work (read, write, edit, bash tools).
+
+Omnigent's runner drives pi via **RPC mode** (JSONL over stdin/stdout). Pi's LLM requests are routed to the pipeline entry at **LiteLLM (aigate)** via a custom "pipeline" provider in pi's `models.json` config. The pipeline entry speaks OpenAI-compatible API, so pi treats it as an OpenAI provider with a custom base URL (`http://litellm:4000/v1`). LiteLLM then handles auth, PII masking, spend tracking, and Langfuse logging before forwarding to Headroom for compression and OmniRoute for provider fanout.
+
+Omnigent + Pi are NOT mid-pipeline transformation stages like Headroom or Forge — they are the **source of AI work** that the pipeline observes, optimizes, and secures. The pipeline stages below describe what happens to a request after pi emits it.
 
 ### Compression Strategy
 
@@ -37,45 +87,41 @@ AI Dashboard Proxy 1 → Privacy Orchestrator → Headroom → OmniRoute → For
 
 ### Pipeline Stages
 
-1. **AI Dashboard Proxy 1 (Entry Stage)**
-   - Collects analytics on all incoming AI requests
-   - Captures original request size, tokens, and metadata
-   - Records client identification and request timing
-   - **Port**: 8081
-   - **Container IP**: 172.28.0.11
-   - **Chain IP**: 172.29.0.11
+1. **LiteLLM (AI Gateway — Entry Stage)**
+   - Auth, virtual keys, spend tracking per key/user/team/org
+   - PII guardrail (Presidio masking) — runs on raw text before compression
+   - Native Langfuse logging integration (parallel observability sink)
+   - Admin dashboard UI for spend, keys, teams, models
+   - Routes all requests to Headroom as upstream
+   - **Implementation**: LiteLLM (https://github.com/BerriAI/litellm)
+   - **Domain**: aigate.levonk.com
+   - **Port**: 4000
+   - **Chain IP**: 172.29.0.18
+   - **Traefik IP**: 172.31.0.18
+   - **Upstream to**: Headroom
+   - **Status**: **DEFINED** - Ansible role at `roles/ai-litellm/`
 
-2. **Privacy Orchestrator (PII Detection & Transformation)**
-   - Detects and transforms PII (Personally Identifiable Information) from AI requests
-   - Rust-based service with Candle ML framework integration
-   - Supports 22+ PII categories across multiple languages
-   - Real-time PII detection with configurable transformation modes (redaction, masking, tokenization)
-   - CLI and HTTP proxy interfaces
-   - **Implementation**: ai-privacy-proxy service (https://github.com/levonk/ai-privacy-proxy)
-   - **Port**: 9090
-   - **Upstream from**: AI Dashboard Proxy 1
-   - **Downstream to**: Headroom
-   - **Status**: **IMPLEMENTED** - deployed as Rust service
-
-3. **Headroom (Context Compression)**
+2. **Headroom (Context Compression)**
    - Compresses LLM context to reduce token usage
    - Applies RTK+Caveman stacked compression (15-95% token savings)
    - **Port**: 8787
-   - **Upstream from**: Privacy Orchestrator
+   - **Upstream from**: LiteLLM
    - **Downstream to**: OmniRoute
 
-4. **OmniRoute (AI Gateway)**
+3. **OmniRoute (AI Gateway — Provider Fanout)**
    - Smart routing across 177+ AI providers (50+ free)
-   - Automatic provider selection and fallback
-   - Format translation between different AI APIs
+   - 4-tier auto-fallback: Subscription → API → Cheap → Free
+   - 9-factor auto-combo scoring (health, quota, cost, latency, success rate, freshness)
+   - 14 routing strategies (priority, cost-optimized, context-relay, lkgp, reset-aware, etc.)
    - **Compression completely disabled** (Headroom handles compression)
    - **RTK disabled** (avoids redundancy with Headroom)
    - **Caveman disabled** (avoids redundancy with Headroom)
+   - **Domain**: airoute.levonk.com
    - **Port**: 20128
    - **Upstream from**: Headroom
    - **Downstream to**: Forge
 
-5. **Forge (Tool Calling Reliability Layer)**
+4. **Forge (Tool Calling Reliability Layer)**
    - Fixes tool calling issues in AI requests
    - Python-based service with guardrails for LLM tool calling
    - Response validation, rescue parsing, retry loop with error tracking
@@ -83,28 +129,18 @@ AI Dashboard Proxy 1 → Privacy Orchestrator → Headroom → OmniRoute → For
    - **Implementation**: forge service (https://github.com/antoinezambelli/forge)
    - **Port**: 8081
    - **Upstream from**: OmniRoute
-   - **Downstream to**: AI Dashboard Proxy 2
+   - **Downstream to**: Iron-Proxy
    - **Status**: **IMPLEMENTED** - deployed as Python service
 
-6. **AI Dashboard Proxy 2 (Pre-Egress Stage)**
-   - Collects analytics after routing and optimization
-   - Measures compression effectiveness
-   - Records provider selection and routing decisions
-   - **Port**: 8082
-   - **Container IP**: 172.28.0.12
-   - **Chain IP**: 172.29.0.12
-   - **Upstream from**: Forge
-   - **Downstream to**: Iron-Proxy
-
-7. **Iron-Proxy (Egress Firewall)**
+5. **Iron-Proxy (Egress Firewall)**
    - Default-deny egress filtering
    - Secret injection at boundary
    - Per-request audit trail
-   - **Port**: 8080
-   - **Upstream from**: AI Dashboard Proxy 2
+   - **Port**: 8880 (levonk override)
+   - **Upstream from**: Forge
    - **Downstream to**: NordVPN
 
-8. **NordVPN (Privacy Layer)**
+6. **NordVPN (Privacy Layer)**
    - VPN tunnel for privacy and geo-obfuscation
    - Routes all egress traffic through VPN
    - **Port**: 1080
@@ -251,6 +287,117 @@ docker exec ai-dashboard-db pg_isready -U postgres
 - **Pre-Egress Stage API**: http://localhost:9082
 - **Database**: postgresql://postgres:postgres@localhost:5432/analytics
 
+## Omnigent + Pi Agent Stack
+
+### Overview
+The Omnigent + Pi stack is the **request origin** of the analytics pipeline — the source of AI work that the pipeline observes, optimizes, and secures. It is NOT a mid-pipeline transformation stage like Headroom or Forge.
+
+- **Omnigent** (https://omnigent.ai/docs/deploy/overview) — the AI agent framework & meta-harness that orchestrates coding agents from a central server.
+- **Pi** (https://github.com/earendil-works/pi) — the minimal terminal coding harness that actually does the coding work (read, write, edit, bash tools). This is the harness Omnigent's runner drives.
+
+### Architecture
+Omnigent has three components:
+- **Server** (deployed in this stack) — central coordinator managing session history, artifacts, catalog, MCP proxy & policies, skills, and auth & accounts. FastAPI/WebSocket server backed by Postgres.
+- **Runner** (host-registered, NOT in the pipeline stack) — per-session process that manages the harness. Registers against the server via `omni host <server-url>`.
+- **UI** — web, terminal, and mobile UIs talk to the server, never the runner directly.
+
+Pi runs in **RPC mode** (`pi --mode rpc`) — a JSONL protocol over stdin/stdout. Omnigent's runner drives pi via this protocol. For local-runner deploys (laptop), the runner spawns pi as a local subprocess. For cloud sandbox hosts, the runner connects to a containerized pi via an HTTP-to-stdin RPC bridge (`rpc-bridge.py`, port 8090).
+
+### Pipeline Integration
+Pi's LLM requests (chat completions, messages) are routed to the pipeline entry at **AI Dashboard Proxy 1** via a custom "pipeline" provider in pi's `models.json` config. The pipeline entry speaks OpenAI-compatible API, so pi treats it as an OpenAI provider with a custom base URL (`http://ai-dashboard-proxy-1:8081/v1`). The pipeline then collects analytics, detects/transforms PII, compresses context, routes across providers, fixes tool calling, collects pre-egress analytics, enforces egress firewall policy, and routes through VPN — all transparent to the pi agent.
+
+### Configuration
+**Omnigent:**
+- **Server image**: `ghcr.io/omnigent-ai/omnigent-server:latest` (pin `OMNIGENT_IMAGE_TAG` for reproducible deploys)
+- **Server port**: 8000 (container), 8000 (host) — `infra_port_ai_omnigent_host`
+- **Postgres port**: 5432 (container), 5433 (host, avoids clashing with ai-dashboard postgres) — `infra_port_ai_omnigent_postgres_host`
+- **Domain**: `omnigent.levonk.com` — `infra_domain_ai_omnigent`
+- **Auth**: multi-user with built-in accounts by default (`OMNIGENT_AUTH_ENABLED=1`); OIDC supported via `OMNIGENT_OIDC_*` vars
+- **Secrets**: `OMNIGENT_DB_PASSWORD`, `OMNIGENT_ACCOUNTS_COOKIE_SECRET`, `OMNIGENT_ACCOUNTS_INIT_ADMIN_PASSWORD` sourced from the client Ansible vault
+
+**Pi:**
+- **Image**: `localnet-pi:latest` (built from `Dockerfile`, installs `@earendil-works/pi-coding-agent` from npm)
+- **RPC bridge port**: 8090 (container), 8090 (host) — `infra_port_ai_pi_host`
+- **LLM endpoint**: `http://ai-dashboard-proxy-1:8081/v1` (pipeline entry, via custom "pipeline" provider in `models.json`)
+- **Default model**: `claude-sonnet-4-20250514` (routed through the pipeline to OmniRoute → real provider)
+- **Session storage**: `/data/sessions` (named volume `localnet-pi-sessions-volume`)
+- **Workspace**: `/workspace` (code repos mounted by client overlay)
+- **Secrets**: `PI_API_KEY` sourced from the client Ansible vault (passed through to pipeline; pipeline handles real provider auth via Iron-Proxy)
+
+### Container Configuration
+The Omnigent + Pi stack is deployed as Docker containers with security hardening:
+- **Omnigent**: Pre-built slim Python container from GHCR (FastAPI/WebSocket coordinator) + PostgreSQL 16 Alpine
+- **Pi**: Node.js 22 slim container with `@earendil-works/pi-coding-agent` installed, running `rpc-bridge.py` (HTTP-to-stdin bridge for pi RPC mode)
+- **Networks**: `omnigent-network` (172.36.0.0/16) for Omnigent↔Pi↔Postgres; `ai-dashboard-network` (172.35.0.0/16) for Pi→AI Dashboard Proxy 1; `traefik-network` (external) for public routing
+- **Volumes**: `omnigent-postgres-data`, `omnigent-artifact-data`, `pi-data`, `pi-sessions`
+- **Traefik**: Public access via `omnigent.levonk.com` with GeoBlock → CrowdSec Bouncer → Authelia security middleware chain
+- **Profile**: `omnigent` (both Omnigent and Pi start under this profile)
+
+### Deployment
+Deployment is handled by Ansible — never run `docker compose up` directly for deployment.
+
+Shared stacks (topology definitions, copied to the server by the playbook):
+- `shared/active/03-container/services/ai-codeassist/omnigent/docker-compose.yml`
+- `shared/active/03-container/services/ai-codeassist/pi/docker-compose.yml`
+
+Ansible playbook (copies files, builds images, generates env from vault + infra vars, creates networks, starts containers):
+- `shared/active/02-config/ansible/playbooks/deploy-omnigent.yml`
+
+Env template (Jinja2, templated by Ansible with vault secrets + infrastructure vars):
+- `shared/active/03-container/services/ai-codeassist/omnigent/.env.omnigent.j2`
+
+Levonk client overlay: `levonk/active/03-container/services/omnigent/DEPLOYMENT.md`
+
+```bash
+# Deploy to OCI (levonk)
+cd ~/p/gh/levonk/infrahub
+devbox run -- rtk ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
+  shared/active/02-config/ansible/playbooks/deploy-omnigent.yml \
+  --vault-password-file ~/.ansible/vault_password
+
+# Dry run
+devbox run -- rtk ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
+  shared/active/02-config/ansible/playbooks/deploy-omnigent.yml \
+  --check --diff --vault-password-file ~/.ansible/vault_password
+
+# Register a runner (host) so the server can dispatch agent work
+omni login https://omnigent.levonk.com
+omni host https://omnigent.levonk.com
+```
+
+### Verification
+```bash
+# Check omnigent + pi containers
+docker ps | grep -E "omnigent|pi"
+
+# Omnigent server health
+curl https://omnigent.levonk.com/api/health
+# or locally:
+curl http://localhost:8000/api/health
+
+# Pi RPC bridge health
+curl http://localhost:8090/health
+
+# View logs
+docker logs omnigent --tail=50 -f
+docker logs omnigent-postgres --tail=50 -f
+docker logs pi --tail=50 -f
+```
+
+### References
+- **Omnigent project**: https://github.com/omnigent-ai/omnigent
+- **Omnigent deploy docs**: https://omnigent.ai/docs/deploy/overview
+- **Omnigent auth & SSO**: https://omnigent.ai/docs/deploy/auth
+- **Omnigent cloud sandbox host**: https://omnigent.ai/docs/deploy/sandbox
+- **Pi project**: https://github.com/earendil-works/pi
+- **Pi RPC docs**: https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/rpc.md
+- **Pi SDK docs**: https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/sdk.md
+- **Deployment playbook**: `shared/active/02-config/ansible/playbooks/deploy-omnigent.yml`
+- **Env template**: `shared/active/03-container/services/ai-codeassist/omnigent/.env.omnigent.j2`
+- **Omnigent shared stack**: `shared/active/03-container/services/ai-codeassist/omnigent/`
+- **Pi shared stack**: `shared/active/03-container/services/ai-codeassist/pi/`
+- **Levonk deployment**: `levonk/active/03-container/services/omnigent/DEPLOYMENT.md`
+
 ## Forge Implementation
 
 ### Overview
@@ -304,6 +451,104 @@ curl http://localhost:8081/health
 - Documentation: https://github.com/antoinezambelli/forge#proxy-server
 - PyPI: https://pypi.org/project/forge-guardrails/
 
+## Langfuse Observability Backend
+
+### Overview
+Langfuse is an open-source LLM engineering platform that provides tracing, analytics, prompt management, and evaluation for LLM applications. It is deployed as a **parallel analytics sink** that receives traces from AI Dashboard Proxy 1 (the entry collector), giving deep visibility into LLM request/response lifecycle, token usage, costs, and quality — without adding latency to the pipeline's request path.
+
+- **Project**: https://github.com/langfuse/langfuse
+- **Self-hosting docs**: https://langfuse.com/self-hosting/docker-compose
+
+### Architecture
+Langfuse is NOT a serial forwarding stage. It runs alongside the pipeline as an observability backend:
+
+```
+AI Dashboard Proxy 1 ──┬──→ (pipeline continues: Privacy Orchestrator → Headroom → ...)
+                       └──→ (forwards traces) → langfuse-web ingestion API
+```
+
+The ingestion API (`/api/public/ingestion`) accepts OpenTelemetry-style trace data. AI Dashboard Proxy 1 forwards trace events (request, response, generation, span) to Langfuse asynchronously. Langfuse stores metadata in PostgreSQL, event data in ClickHouse, blobs (media) in MinIO, and uses Redis (BullMQ) for async ingestion processing via the worker.
+
+### Stack Components
+- **langfuse-web** — Next.js web UI + ingestion API (port 3000 container, 3001 host). Exposed via Traefik at `langfuse.levonk.com` with GeoBlock → CrowdSec → Authelia security chain.
+- **langfuse-worker** — Async ingestion processor consuming from Redis queue, writing to ClickHouse + MinIO (port 3030 container).
+- **langfuse-postgres** — Metadata store (orgs, projects, users, prompts, evaluations). PostgreSQL 17 Alpine (port 5432 container, 5434 host).
+- **langfuse-clickhouse** — Columnar store for high-volume trace/event data (HTTP 8123, TCP 9000 container).
+- **langfuse-redis** — BullMQ queue for async ingestion (port 6379 container, internal only).
+- **langfuse-minio** — S3-compatible blob storage for media uploads and batch exports (API 9000 container, 9190 host; console 9001 container).
+
+### Configuration
+- **Network**: `langfuse-network` (172.37.0.0/16) for internal service communication
+- **Cross-network**: langfuse-web also joins `ai-dashboard-network` (172.35.0.0/16) so Proxy 1 can reach the ingestion API at `http://langfuse-web:3000`, and `traefik-network` (172.31.0.0/16) for public routing
+- **Domain**: `langfuse.levonk.com` — `infra_domain_ai_langfuse`
+- **Secrets**: All sensitive values (postgres password, salt, encryption key, nextauth secret, redis auth, clickhouse password, minio credentials) sourced from the client Ansible vault (`vault_langfuse_*` variables)
+- **Telemetry**: Disabled (`TELEMETRY_ENABLED=false`) — no data leaves the deployment
+- **Headless init**: Optional — set `vault_langfuse_init_*` vars to bootstrap org/project/user on first start
+
+### Container Configuration
+- **Images**: Official Langfuse v3 images from Docker Hub (`langfuse/langfuse:3`, `langfuse/langfuse-worker:3`)
+- **Volumes**: Named Docker volumes for persistence (`localnet-langfuse-*-volume`)
+- **Security**: Non-root execution where possible (ClickHouse runs as UID 101), json-file logging with rotation
+- **Profile**: `langfuse` (langfuse-web and langfuse-worker start under this profile; infra services start unconditionally)
+
+### Deployment
+Deployment is handled by Ansible — never run `docker compose up` directly for deployment.
+
+Shared stack (topology definition, copied to the server by the playbook):
+- `shared/active/03-container/services/ai-dashboard/langfuse/docker-compose.langfuse.yml`
+
+Ansible playbook (configures Cloudflare DNS, copies files, generates env from vault + infra vars, creates networks, starts containers):
+- `shared/active/02-config/ansible/playbooks/deploy-langfuse.yml`
+  - Play 1: Configures `langfuse.levonk.com` A record in Cloudflare via the `cloudflare-dns` role
+  - Play 2: Deploys Langfuse containers to the OCI cloud server
+
+Env template (Jinja2, templated by Ansible with vault secrets + infrastructure vars):
+- `shared/active/03-container/services/ai-dashboard/langfuse/.env.langfuse.j2`
+
+```bash
+# Deploy to OCI (levonk)
+cd ~/p/gh/levonk/infrahub
+devbox run -- rtk ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
+  shared/active/02-config/ansible/playbooks/deploy-langfuse.yml \
+  --vault-password-file ~/.ansible/vault_password
+
+# Dry run
+devbox run -- rtk ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
+  shared/active/02-config/ansible/playbooks/deploy-langfuse.yml \
+  --check --diff --vault-password-file ~/.ansible/vault_password
+```
+
+### Verification
+```bash
+# Check langfuse containers
+docker ps | grep langfuse
+
+# Langfuse web health
+curl https://langfuse.levonk.com/api/public/health
+# or locally:
+curl http://localhost:3001/api/public/health
+
+# View logs
+docker logs langfuse-web --tail=50 -f
+docker logs langfuse-worker --tail=50 -f
+docker logs langfuse-postgres --tail=50 -f
+docker logs langfuse-clickhouse --tail=50 -f
+```
+
+### Pipeline Integration
+AI Dashboard Proxy 1 forwards trace data to Langfuse's ingestion API. The proxy sends trace events (requests, responses, generations) to `http://langfuse-web:3000/api/public/ingestion` using the Langfuse public API key for the target project. This is asynchronous and does not block the pipeline request path.
+
+To wire a project: create an organization and project in the Langfuse UI, then configure AI Dashboard Proxy 1 with the project's public API key (stored in vault or pipeline env).
+
+### References
+- Project: https://github.com/langfuse/langfuse
+- Self-hosting docs: https://langfuse.com/self-hosting/docker-compose
+- Configuration guide: https://langfuse.com/self-hosting/configuration
+- Ingestion API: https://langfuse.com/docs/tracing-data
+- Deployment playbook: `shared/active/02-config/ansible/playbooks/deploy-langfuse.yml`
+- Env template: `shared/active/03-container/services/ai-dashboard/langfuse/.env.langfuse.j2`
+- Shared stack: `shared/active/03-container/services/ai-dashboard/langfuse/docker-compose.langfuse.yml`
+
 ## Domain Configuration and Traefik Routing
 
 ### Web Interface Access
@@ -320,6 +565,13 @@ The AI Dashboard web interface is accessible via Traefik with proper domain name
   - Provider management and configuration interface
   - Auto-fallback chain configuration
   - Usage analytics and provider performance metrics
+  - Authenticated via Authelia with security middleware chain
+  - SSL certificates managed by Let's Encrypt via Traefik
+
+- **Langfuse Observability**: https://langfuse.levonk.com
+  - LLM tracing, analytics, and prompt management
+  - Trace visualization and evaluation
+  - Cost and token usage analytics
   - Authenticated via Authelia with security middleware chain
   - SSL certificates managed by Let's Encrypt via Traefik
 
@@ -661,6 +913,15 @@ Configure alerts for:
 
 ## References
 
+- **Omnigent (orchestrator / request origin)**: https://github.com/omnigent-ai/omnigent
+- **Omnigent deploy docs**: https://omnigent.ai/docs/deploy/overview
+- **Omnigent shared stack**: `shared/active/03-container/services/ai-codeassist/omnigent/`
+- **Pi (coding harness / request origin)**: https://github.com/earendil-works/pi
+- **Pi RPC docs**: https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/rpc.md
+- **Pi shared stack**: `shared/active/03-container/services/ai-codeassist/pi/`
+- **Deployment playbook**: `shared/active/02-config/ansible/playbooks/deploy-omnigent.yml`
+- **Env template**: `shared/active/03-container/services/ai-codeassist/omnigent/.env.omnigent.j2`
+- **Omnigent + Pi levonk deployment**: `levonk/active/03-container/services/omnigent/DEPLOYMENT.md`
 - **AI Dashboard Project**: https://github.com/levonk/ai-dashboard
 - **AI Dashboard PRD**: `~/p/gh/levonk/ai-dashboard/docs/feature/prd-multi-tenant-ai-analytics.md`
 - **Headroom**: Context compression service

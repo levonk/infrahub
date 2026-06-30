@@ -1,0 +1,53 @@
+---
+# LiteLLM AI Gateway default variables
+# LiteLLM is the entry point for the AI pipeline: auth, virtual keys, spend
+# tracking, PII guardrail (Presidio), Langfuse logging, provider routing.
+# Domain: aigate.levonk.com
+
+# Container configuration
+ai_litellm_container_name: litellm
+ai_litellm_image: "ghcr.io/berriai/litellm:main-stable"
+ai_litellm_volume_name: localnet-litellm-data-volume
+ai_litellm_config_volume_name: localnet-litellm-config-volume
+
+# Postgres configuration (LiteLLM requires a database for keys/spend/teams)
+ai_litellm_postgres_container_name: litellm-postgres
+ai_litellm_postgres_image: "postgres:16-alpine"
+ai_litellm_postgres_volume_name: localnet-litellm-postgres-data-volume
+ai_litellm_postgres_db: "litellm"
+ai_litellm_postgres_user: "litellm"
+
+# Port configuration
+ai_litellm_host_port: "{{ infra_port_ai_litellm_host | default('4000') }}"
+ai_litellm_container_port: "{{ infra_port_ai_litellm_container | default('4000') }}"
+ai_litellm_postgres_host_port: "{{ infra_port_ai_litellm_postgres_host | default('5435') }}"
+ai_litellm_postgres_container_port: "{{ infra_port_ai_litellm_postgres_container | default('5432') }}"
+
+# Network configuration
+ai_litellm_chain_network_name: "{{ infra_network_ai_proxy_chain_network_name | default('proxy-chain-network') }}"
+ai_litellm_chain_network_ip: "{{ infra_network_ip_litellm | default('172.29.0.18') }}"
+ai_litellm_traefik_network_name: "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"
+ai_litellm_traefik_network_ip: "{{ infra_network_ip_litellm_traefik | default('172.31.0.18') }}"
+ai_litellm_localnet_network_name: "{{ localnet_network_name | default('cloud-server') }}"
+
+# Domain for Traefik routing
+ai_litellm_domain: "{{ infra_domain_ai_litellm | default('aigate.levonk.com') }}"
+
+# Upstream: Headroom (context compression) — LiteLLM routes to Headroom which routes to OmniRoute
+ai_litellm_upstream_url: "http://headroom:{{ infra_port_ai_headroom_container | default('8787') }}"
+
+# Langfuse integration (parallel observability sink)
+ai_litellm_langfuse_host: "{{ infra_hostname_langfuse_web | default('langfuse-web') }}"
+ai_litellm_langfuse_port: "{{ infra_port_ai_langfuse_web_container | default('3000') }}"
+
+# Secrets (from vault)
+ai_litellm_master_key: "{{ vault_litellm_master_key | default('sk-changeme') }}"
+ai_litellm_database_password: "{{ vault_litellm_database_password | default('changeme') }}"
+ai_litellm_salt_key: "{{ vault_litellm_salt_key | default('changeme') }}"
+ai_litellm_admin_username: "{{ vault_litellm_admin_username | default('admin') }}"
+ai_litellm_admin_password: "{{ vault_litellm_admin_password | default('changeme') }}"
+
+# User/Group IDs
+ai_litellm_puid: "{{ localnet_puid | default(cuser_uid | default(1000)) | string }}"
+ai_litellm_pgid: "{{ localnet_pgid | default(cuser_gid | default(1000)) | string }}"
+ai_litellm_tz: "{{ localnet_tz | default(timezone | default('UTC')) }}"
