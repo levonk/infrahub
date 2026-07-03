@@ -106,19 +106,34 @@
 # ---------------------------------------------------------------------------
 # iron-proxy Container
 # ---------------------------------------------------------------------------
+- name: Build iron-proxy network list
+  ansible.builtin.set_fact:
+    proxy_iron_proxy_networks: >-
+      {{
+        [
+          { 'name': proxy_iron_proxy_docker_network_name },
+          { 'name': proxy_iron_proxy_chain_network_name, 'ipv4_address': proxy_iron_proxy_chain_network_ip }
+        ] + ([{'name': proxy_iron_proxy_vpn_network_name}] if (proxy_iron_proxy_vpn_network_name | length) > 0 else [])
+      }}
+
+- name: Build iron-proxy port list
+  ansible.builtin.set_fact:
+    proxy_iron_proxy_ports: >-
+      {{
+        [
+          proxy_iron_proxy_http_host_port ~ ':' ~ proxy_iron_proxy_http_container_port ~ '/tcp',
+          proxy_iron_proxy_https_host_port ~ ':' ~ proxy_iron_proxy_https_container_port ~ '/tcp'
+        ] + ([proxy_iron_proxy_tunnel_host_port ~ ':' ~ proxy_iron_proxy_tunnel_container_port ~ '/tcp'] if (proxy_iron_proxy_tunnel_host_port | length) > 0 else [])
+      }}
+
 - name: Deploy iron-proxy container
   community.docker.docker_container:
     name: iron-proxy
     image: "{{ proxy_iron_proxy_image }}"
     state: started
     restart_policy: unless-stopped
-    networks:
-      - name: "{{ proxy_iron_proxy_docker_network_name }}"
-      - name: "{{ proxy_iron_proxy_chain_network_name }}"
-        ipv4_address: "{{ proxy_iron_proxy_chain_network_ip }}"
-    ports:
-      - "{{ proxy_iron_proxy_http_host_port }}:{{ proxy_iron_proxy_http_container_port }}/tcp"
-      - "{{ proxy_iron_proxy_https_host_port }}:{{ proxy_iron_proxy_https_container_port }}/tcp"
+    networks: "{{ proxy_iron_proxy_networks }}"
+    ports: "{{ proxy_iron_proxy_ports }}"
     volumes:
       - "{{ proxy_iron_proxy_data_dir }}/mounts/etc/iron-proxy:/etc/iron-proxy:ro"
       - iron-proxy-ca:/etc/iron-proxy-ca
@@ -128,6 +143,7 @@
       IRON_DNS_PROXY_IP: "{{ proxy_iron_proxy_dns_proxy_ip }}"
       IRON_PROXY_HTTP_LISTEN: ":{{ proxy_iron_proxy_http_container_port }}"
       IRON_PROXY_HTTPS_LISTEN: ":{{ proxy_iron_proxy_https_container_port }}"
+      IRON_PROXY_TUNNEL_LISTEN: "{{ ':8080' if proxy_iron_proxy_tunnel_host_port | length > 0 else '' }}"
       IRON_TLS_MODE: "{{ proxy_iron_proxy_tls_mode }}"
       IRON_TLS_CA_CERT: "/etc/iron-proxy/ca.crt"
       IRON_TLS_CA_KEY: "/etc/iron-proxy/ca.key"
@@ -189,6 +205,7 @@
       - DNS: {{ ansible_host | default('localhost') }}:{{ proxy_iron_proxy_dns_host_port }}
       - HTTP Proxy: http://{{ ansible_host | default('localhost') }}:{{ proxy_iron_proxy_http_host_port }}
       - HTTPS Proxy: https://{{ ansible_host | default('localhost') }}:{{ proxy_iron_proxy_https_host_port }}
+      - Tunnel (CONNECT/SOCKS5): {{ (proxy_iron_proxy_tunnel_host_port | length > 0) | ternary(ansible_host | default('localhost') ~ ':' ~ proxy_iron_proxy_tunnel_host_port, 'disabled') }}
       - TLS Mode: {{ proxy_iron_proxy_tls_mode }}
       - Configuration: {{ proxy_iron_proxy_data_dir }}/mounts/etc/iron-proxy/iron-proxy.yml
   when: proxy_iron_proxy_enabled | bool

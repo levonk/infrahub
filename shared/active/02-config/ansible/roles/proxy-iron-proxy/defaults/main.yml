@@ -27,6 +27,12 @@ proxy_iron_proxy_http_container_port: "80"
 proxy_iron_proxy_https_host_port: "{{ cloud_server_iron_proxy_https_host_port | default('8443') }}"
 proxy_iron_proxy_https_container_port: "443"
 
+# Tunnel listener (CONNECT/SOCKS5) — needed for clients that send CONNECT
+# for HTTPS proxying (e.g. Node.js fetch with HTTPS_PROXY, curl --proxy).
+# Empty string disables the tunnel listener.
+proxy_iron_proxy_tunnel_host_port: "{{ cloud_server_iron_proxy_tunnel_host_port | default('') }}"
+proxy_iron_proxy_tunnel_container_port: "{{ cloud_server_iron_proxy_tunnel_container_port | default('8080') }}"
+
 # ---------------------------------------------------------------------------
 # TLS Configuration
 # ---------------------------------------------------------------------------
@@ -65,9 +71,9 @@ proxy_iron_proxy_github_token: ""
 # ---------------------------------------------------------------------------
 # Upstream Proxy Configuration (for corporate networks)
 # ---------------------------------------------------------------------------
-proxy_iron_proxy_http_proxy: ""
-proxy_iron_proxy_https_proxy: ""
-proxy_iron_proxy_no_proxy: ""
+proxy_iron_proxy_http_proxy: "{{ cloud_server_iron_proxy_http_proxy | default('') }}"
+proxy_iron_proxy_https_proxy: "{{ cloud_server_iron_proxy_https_proxy | default('') }}"
+proxy_iron_proxy_no_proxy: "{{ cloud_server_iron_proxy_no_proxy | default('') }}"
 
 # ---------------------------------------------------------------------------
 # Docker Network & Volumes
@@ -78,6 +84,10 @@ proxy_iron_proxy_data_dir: "{{ cloud_server_proxy_data_dir | default('/opt/proxy
 # Proxy-chain network (shared with headroom, omniroute, forge for the AI pipeline)
 proxy_iron_proxy_chain_network_name: "{{ infra_network_ai_proxy_chain_network_name | default('proxy-chain-network') }}"
 proxy_iron_proxy_chain_network_ip: "{{ infra_network_ip_iron_proxy | default('172.29.0.17') }}"
+
+# VPN network (for chaining egress through NordVPN/gluetun proxy)
+# Set to empty string to skip joining the VPN network
+proxy_iron_proxy_vpn_network_name: "{{ cloud_server_iron_proxy_vpn_network_name | default('') }}"
 
 # ---------------------------------------------------------------------------
 # Feature Flags

@@ -12,11 +12,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     git \
     ca-certificates \
+    python3 \
     && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user
-RUN groupadd -g 1000 pi && \
-    useradd -u 1000 -g pi -s /bin/bash -m pi
+# Create non-root user (node image already has gid 1000 for 'node' group)
+RUN groupadd -g 1001 pi && \
+    useradd -u 1001 -g pi -s /bin/bash -m pi
 
 # Install pi coding agent globally
 # --ignore-scripts disables dependency lifecycle scripts during install (per pi docs)
@@ -33,11 +34,15 @@ RUN chmod +x /app/rpc-bridge.py && chown pi:pi /app/rpc-bridge.py
 # Configure pi to use the pipeline entry as its LLM endpoint.
 # pi reads custom providers from ~/.pi/agent/models.json.
 # The pipeline entry (AI Dashboard Proxy 1) speaks OpenAI-compatible API.
-COPY models.json /home/pi/.pi/agent/models.json
-RUN chown -R pi:pi /home/pi/.pi
+COPY --chown=pi:pi models.json /home/pi/.pi/agent/models.json
 
-# Switch to non-root user
+# Install pi-windsurf plugin as the pi user (installs to ~/.pi/agent/)
+# The plugin runs a local proxy at 127.0.0.1:42100 that translates OpenAI API →
+# Windsurf's Connect-RPC wire format. No separate API keys needed.
 USER pi
+RUN pi install npm:pi-windsurf
+
+# Switch back to non-root user for runtime
 WORKDIR /workspace
 
 # Health check — the RPC bridge exposes /health

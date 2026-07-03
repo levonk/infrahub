@@ -35,6 +35,9 @@ networks:
   proxy-chain-network:
     name: proxy-chain-network
     external: true
+  vpn-network:
+    name: vpn-network
+    external: true
 
 volumes:
   pi-data:
@@ -63,6 +66,8 @@ services:
         ipv4_address: ${PI_DASHBOARD_IP:-172.35.0.30}
       proxy-chain-network:
         ipv4_address: ${PI_CHAIN_IP:-172.29.0.30}
+      vpn-network:
+        ipv4_address: ${PI_VPN_IP:-172.28.0.30}
     environment:
       # ── RPC Bridge ────────────────────────────────────
       - PI_RPC_PORT=${PI_RPC_PORT:-8090}
@@ -81,6 +86,20 @@ services:
       # the upstream auth token. The pipeline itself handles real provider auth.
       - PI_API_KEY=${PI_API_KEY:?Set PI_API_KEY in .env (use vault for client deploys)}
 
+      # ── Windsurf Plugin (pi-windsurf) ─────────────────
+      # Credentials are mounted as a volume (see volumes section).
+      # The plugin reads from ~/.config/opencode-windsurf-auth/credentials.json
+
+      # ── Egress Proxy (NordVPN) ────────────────────────
+      # Route pi-windsurf's HTTPS requests through NordVPN's HTTP proxy.
+      # NODE_OPTIONS=--use-env-proxy makes Node.js fetch() respect HTTP_PROXY/HTTPS_PROXY.
+      # ponytail: bypassing iron-proxy MITM due to Go TLS compat issue with
+      # server.self-serve.windsurf.com (file bug with iron-proxy for upstream proxy + MITM TLS)
+      - HTTP_PROXY=${PI_HTTP_PROXY:-http://172.28.0.2:8888}
+      - HTTPS_PROXY=${PI_HTTPS_PROXY:-http://172.28.0.2:8888}
+      - NO_PROXY=${PI_NO_PROXY:-localhost,127.0.0.1,172.16.0.0/12,172.28.0.0/16,172.29.0.0/16,172.35.0.0/16,172.36.0.0/16}
+      - NODE_OPTIONS=--use-env-proxy
+
       # ── Session Storage ───────────────────────────────
       - PI_SESSION_DIR=/data/sessions
       - PI_NO_SESSION=${PI_NO_SESSION:-0}
@@ -91,14 +110,16 @@ services:
       - PI_WORKSPACE_DIR=/workspace
 
       # ── User/Group ────────────────────────────────────
-      - PUID=${PI_PUID:-1000}
-      - PGID=${PI_PGID:-1000}
+      - PUID=${PI_PUID:-1001}
+      - PGID=${PI_PGID:-1001}
       - TZ=${PI_TZ:-UTC}
     ports:
       - "${PI_HOST_PORT:-8090}:${PI_RPC_PORT:-8090}/tcp"
     volumes:
       - pi-data:/data
       - pi-sessions:/data/sessions
+      # Windsurf credentials (from OAuth login on local machine)
+      - ${PI_WINDSURF_CREDS_DIR:-./credentials.json}:/home/pi/.config/opencode-windsurf-auth/credentials.json:ro
       # Workspace mount is client-specific — override in client overlay.
       # Example: - ~/p/gh/levonk:/workspace:rw
     logging: *default-logging
@@ -131,8 +152,8 @@ services:
     environment:
       - PI_API_KEY=${PI_API_KEY:?Set PI_API_KEY in .env}
       - PI_API_BASE_URL=${PI_API_BASE_URL:-http://ai-dashboard-proxy-1:8081/v1}
-      - PUID=${PI_PUID:-1000}
-      - PGID=${PI_PGID:-1000}
+      - PUID=${PI_PUID:-1001}
+      - PGID=${PI_PGID:-1001}
     volumes:
       - pi-data:/data
       - pi-sessions:/data/sessions
