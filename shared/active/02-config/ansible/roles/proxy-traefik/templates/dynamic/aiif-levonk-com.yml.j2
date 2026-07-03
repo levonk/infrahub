@@ -3,11 +3,13 @@
 # Domain: {{ aiif_domain | default('aiif.levonk.com') }}
 # Public alias "AI InterFace" for the Omnigent agent framework & meta-harness.
 # Container name stays "omnigent" (see aigate pattern: LiteLLM container → aigate.levonk.com).
-# Security Chain: GeoBlock → CrowdSec Bouncer → Authelia (SSO with 2FA)
+# Security Chain: Authelia (SSO with 2FA)
 # NOTE: Docker provider is disabled in Traefik v3.0; routing is via file provider.
 #       The Docker labels on the omnigent container are ignored — this file is
 #       the single source of truth for the router. See ADR-20260629001.
 #       Uses container name (not hardcoded IP) so it survives container recreation.
+#       geoblock/crowdsec-bouncer omitted — disabled by default (proxy_traefik_crowdsec_enabled=false,
+#       proxy_traefik_geoblock_enabled=false). Re-enable conditionally when those features are turned on.
 
 http:
   routers:
@@ -20,14 +22,12 @@ http:
         - redirect-to-https
       service: omnigent
 
-    # HTTPS router with full security middleware chain
+    # HTTPS router with Authelia middleware
     omnigent-https:
       rule: "Host(`{{ aiif_domain | default('aiif.levonk.com') }}`)"
       entryPoints:
         - websecure
       middlewares:
-        - geoblock
-        - crowdsec-bouncer
         - authelia
       service: omnigent
       tls:
