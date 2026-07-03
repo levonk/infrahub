@@ -1,0 +1,33 @@
+---
+# defaults file for common-windows-ssh-hardening
+# Windows OpenSSH hardening — mirrors common-ssh-hardening (Linux) where applicable.
+# WARNING: only apply after the bootstrap script has established working key-based SSH.
+
+# Service account whose authorized_keys we harden and monitor.
+win_ssh_hardening_user: "ansible"
+
+# sshd_config path on Windows (ProgramData, not ProgramFiles).
+win_ssh_hardening_sshd_config_path: "C:\\ProgramData\\ssh\\sshd_config"
+
+# --- Authentication restrictions ---
+win_ssh_hardening_password_authentication: "no"
+win_ssh_hardening_pubkey_accepted_algorithms: "ssh-ed25519-cert-v01@openssh.com,ssh-ed25519"
+win_ssh_hardening_host_key_algorithms: "ssh-ed25519-cert-v01@openssh.com,ssh-ed25519"
+win_ssh_hardening_max_auth_tries: 3
+win_ssh_hardening_client_alive_interval: 300
+win_ssh_hardening_client_alive_count_max: 2
+
+# --- Feature restrictions ---
+win_ssh_hardening_allow_agent_forwarding: "no"
+win_ssh_hardening_allow_tcp_forwarding: "no"
+win_ssh_hardening_permit_tunnel: "no"
+
+# --- Backup ---
+win_ssh_hardening_backup_config: true
+
+# --- ACL drift check (scheduled task) ---
+# PowerShell script deployed to the target for periodic ACL verification.
+win_ssh_hardening_check_script_dir: "C:\\localnet\\scripts"
+win_ssh_hardening_check_task_name: "SSH-AclDriftCheck"
+# Run every 12 hours (twice daily).
+win_ssh_hardening_check_interval_hours: 12

@@ -327,6 +327,7 @@ ansible-deploy-localnet-tailscale-internal:
 
 WINDOWS_DOCKER_INVENTORY := INFRAHUB_ROOT + "/levonk/active/02-config/ansible/inventories/windows-docker.yml"
 PB_WINDOWS_BOOTSTRAP := ANSIBLE_ROOT + "/playbooks/bootstrap-windows-docker-host.yml"
+PB_WINDOWS_HARDEN := ANSIBLE_ROOT + "/playbooks/harden-windows-host.yml"
 PB_WORLDMONITOR := ANSIBLE_ROOT + "/playbooks/deploy-worldmonitor.yml"
 PB_BASE_DEV := ANSIBLE_ROOT + "/playbooks/deploy-base-dev.yml"
 PB_LOCAL_REGISTRY := ANSIBLE_ROOT + "/playbooks/deploy-local-registry.yml"
@@ -344,6 +345,17 @@ ansible-bootstrap-windows-docker:
 ansible-bootstrap-windows-docker-internal:
     @echo "Bootstrapping Windows Docker host (WSL2, Docker Desktop, Git, Tailscale, registry config)..."
     ansible-playbook -i {{WINDOWS_DOCKER_INVENTORY}} {{PB_WINDOWS_BOOTSTRAP}} --vault-password-file ~/.ansible/vault_password
+
+ansible-harden-windows:
+    devbox run ansible-harden-windows
+
+ansible-harden-windows-internal:
+    @echo "Hardening Windows host (SSH config, authorized_keys ACL, RDP, scheduled drift check)..."
+    ansible-playbook -i {{WINDOWS_DOCKER_INVENTORY}} {{PB_WINDOWS_HARDEN}} --vault-password-file ~/.ansible/vault_password
+
+ansible-harden-windows-check:
+    @echo "Dry-run Windows hardening (check mode)..."
+    ansible-playbook -i {{WINDOWS_DOCKER_INVENTORY}} {{PB_WINDOWS_HARDEN}} --check --diff --vault-password-file ~/.ansible/vault_password
 
 ansible-deploy-worldmonitor:
     devbox run ansible-deploy-worldmonitor

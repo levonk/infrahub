@@ -157,7 +157,11 @@ Run these from your Mac (the Ansible control machine) in the infrahub repo:
 #    adds ansible to docker-users, creates service directories)
 just ansible-bootstrap-windows-docker
 
-# 2. Deploy WorldMonitor self-hosted stack
+# 2. Harden SSH + RDP (disables password auth, restricts algorithms, repairs
+#    authorized_keys ACL, installs scheduled drift check, disables RDP)
+just ansible-harden-windows
+
+# 3. Deploy WorldMonitor self-hosted stack
 just ansible-deploy-worldmonitor
 ```
 
@@ -170,6 +174,16 @@ The bootstrap playbook (`bootstrap-windows-docker-host.yml`) will:
 - Add the `ansible` user to the `docker-users` group
 - Create `C:\localnet\services\` directory structure
 - Reboot if WSL2 was just enabled (Ansible reconnects automatically)
+
+The hardening playbook (`harden-windows-host.yml`) will:
+- Disable password authentication in sshd_config
+- Restrict SSH algorithms to Ed25519 only
+- Repair the authorized_keys ACL to Microsoft's documented baseline
+  (`ansible:(R)` + `NT SERVICE\sshd:(R)`, inheritance removed)
+- Install a scheduled task that checks the ACL twice daily and writes a
+  Warning to the Application Event Log if non-conformant
+- Disable RDP (or enable with NLA + Tailscale-only firewall if
+  `win_rdp_hardening_enabled: true` is set in inventory)
 
 ---
 
@@ -187,7 +201,8 @@ When you replace this Windows machine with a new one:
 2. Update `ansible_host` in `inventories/windows-docker.yml` if the
    Tailscale name changed
 3. Run `just ansible-bootstrap-windows-docker`
-4. Run `just ansible-deploy-worldmonitor`
+4. Run `just ansible-harden-windows`
+5. Run `just ansible-deploy-worldmonitor`
 
 That's it — the new machine is back to the same state.
 

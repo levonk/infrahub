@@ -1,0 +1,17 @@
+---
+# defaults file for common-windows-rdp-hardening
+# RDP hardening for Windows Docker hosts. Default: RDP disabled (Docker hosts
+# are managed via SSH + Ansible, not RDP). Override win_rdp_hardening_enabled
+# to enable RDP with NLA + Tailscale-only firewall restriction.
+
+# Set to true to enable RDP (with hardening). Default: false (disable RDP).
+win_rdp_hardening_enabled: false
+
+# Require Network Level Authentication (NLA) when RDP is enabled.
+win_rdp_hardening_nla_required: true
+
+# Restrict RDP inbound to this subnet only. Default: Tailscale CGNAT range.
+win_rdp_hardening_allowed_subnet: "{{ infra_network_vpn_tailscale_subnet | default('100.64.0.0/10') }}"
+
+# Firewall rule name for RDP.
+win_rdp_hardening_firewall_rule_name: "RDP-Tailscale-Only"

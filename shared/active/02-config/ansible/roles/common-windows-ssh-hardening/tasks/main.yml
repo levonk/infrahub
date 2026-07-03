@@ -1,0 +1,194 @@
+---
+# tasks file for common-windows-ssh-hardening
+# Windows OpenSSH hardening — applies after the bootstrap script has established
+# working key-based SSH. Mirrors common-ssh-hardening (Linux) where Windows allows.
+
+# ---------------------------------------------------------------------------
+# Pre-condition: verify authorized_keys exists (same lockout guard as Linux role)
+# ---------------------------------------------------------------------------
+- name: "WIN-SSH-HARDENING | Verify authorized_keys exists for {{ win_ssh_hardening_user }}"
+  ansible.windows.win_stat:
+    path: "C:\\Users\\{{ win_ssh_hardening_user }}\\.ssh\\authorized_keys"
+  register: win_ssh_authkeys_stat
+
+- name: "WIN-SSH-HARDENING | Fail if authorized_keys is missing"
+  ansible.builtin.fail:
+    msg: |
+      CRITICAL: authorized_keys not found for {{ win_ssh_hardening_user }}.
+      This role disables PasswordAuthentication — applying without a working key
+      will lock you out. Run the bootstrap script first.
+  when: not win_ssh_authkeys_stat.stat.exists
+
+# ---------------------------------------------------------------------------
+# Backup sshd_config
+# ---------------------------------------------------------------------------
+- name: "WIN-SSH-HARDENING | Backup sshd_config"
+  ansible.windows.win_copy:
+    src: "{{ win_ssh_hardening_sshd_config_path }}"
+    dest: "{{ win_ssh_hardening_sshd_config_path }}.bak.{{ ansible_date_time.iso8601_basic_short }}"
+    remote_src: true
+  when: win_ssh_hardening_backup_config | bool
+
+# ---------------------------------------------------------------------------
+# Apply hardening settings to sshd_config
+# insertbefore: '^Match' ensures global settings land before the Match block
+# (Windows sshd_config has a default `Match Group administrators` at the end).
+# ---------------------------------------------------------------------------
+- name: "WIN-SSH-HARDENING | Disable password authentication"
+  ansible.builtin.lineinfile:
+    path: "{{ win_ssh_hardening_sshd_config_path }}"
+    regexp: '^#?PasswordAuthentication\s+'
+    line: "PasswordAuthentication {{ win_ssh_hardening_password_authentication }}"
+    insertbefore: '^Match'
+    state: present
+  notify: restart windows sshd
+
+- name: "WIN-SSH-HARDENING | Restrict pubkey algorithms to Ed25519"
+  ansible.builtin.lineinfile:
+    path: "{{ win_ssh_hardening_sshd_config_path }}"
+    regexp: '^#?PubkeyAcceptedAlgorithms\s+'
+    line: "PubkeyAcceptedAlgorithms {{ win_ssh_hardening_pubkey_accepted_algorithms }}"
+    insertbefore: '^Match'
+    state: present
+  notify: restart windows sshd
+
+- name: "WIN-SSH-HARDENING | Restrict host key algorithms to Ed25519"
+  ansible.builtin.lineinfile:
+    path: "{{ win_ssh_hardening_sshd_config_path }}"
+    regexp: '^#?HostKeyAlgorithms\s+'
+    line: "HostKeyAlgorithms {{ win_ssh_hardening_host_key_algorithms }}"
+    insertbefore: '^Match'
+    state: present
+  notify: restart windows sshd
+
+- name: "WIN-SSH-HARDENING | Set MaxAuthTries"
+  ansible.builtin.lineinfile:
+    path: "{{ win_ssh_hardening_sshd_config_path }}"
+    regexp: '^#?MaxAuthTries\s+'
+    line: "MaxAuthTries {{ win_ssh_hardening_max_auth_tries }}"
+    insertbefore: '^Match'
+    state: present
+  notify: restart windows sshd
+
+- name: "WIN-SSH-HARDENING | Set ClientAliveInterval"
+  ansible.builtin.lineinfile:
+    path: "{{ win_ssh_hardening_sshd_config_path }}"
+    regexp: '^#?ClientAliveInterval\s+'
+    line: "ClientAliveInterval {{ win_ssh_hardening_client_alive_interval }}"
+    insertbefore: '^Match'
+    state: present
+  notify: restart windows sshd
+
+- name: "WIN-SSH-HARDENING | Set ClientAliveCountMax"
+  ansible.builtin.lineinfile:
+    path: "{{ win_ssh_hardening_sshd_config_path }}"
+    regexp: '^#?ClientAliveCountMax\s+'
+    line: "ClientAliveCountMax {{ win_ssh_hardening_client_alive_count_max }}"
+    insertbefore: '^Match'
+    state: present
+  notify: restart windows sshd
+
+- name: "WIN-SSH-HARDENING | Disable agent forwarding"
+  ansible.builtin.lineinfile:
+    path: "{{ win_ssh_hardening_sshd_config_path }}"
+    regexp: '^#?AllowAgentForwarding\s+'
+    line: "AllowAgentForwarding {{ win_ssh_hardening_allow_agent_forwarding }}"
+    insertbefore: '^Match'
+    state: present
+  notify: restart windows sshd
+
+- name: "WIN-SSH-HARDENING | Disable TCP forwarding"
+  ansible.builtin.lineinfile:
+    path: "{{ win_ssh_hardening_sshd_config_path }}"
+    regexp: '^#?AllowTcpForwarding\s+'
+    line: "AllowTcpForwarding {{ win_ssh_hardening_allow_tcp_forwarding }}"
+    insertbefore: '^Match'
+    state: present
+  notify: restart windows sshd
+
+- name: "WIN-SSH-HARDENING | Disable tunneling"
+  ansible.builtin.lineinfile:
+    path: "{{ win_ssh_hardening_sshd_config_path }}"
+    regexp: '^#?PermitTunnel\s+'
+    line: "PermitTunnel {{ win_ssh_hardening_permit_tunnel }}"
+    insertbefore: '^Match'
+    state: present
+  notify: restart windows sshd
+
+# ---------------------------------------------------------------------------
+# Validate sshd_config syntax before restart
+# ---------------------------------------------------------------------------
+- name: "WIN-SSH-HARDENING | Validate sshd_config syntax"
+  ansible.windows.win_command:
+    cmd: sshd -t
+  register: win_ssh_config_test
+  changed_when: false
+  failed_when: win_ssh_config_test.rc != 0
+
+- name: "WIN-SSH-HARDENING | Report validation result"
+  ansible.builtin.debug:
+    msg: "sshd_config syntax is valid."
+
+# ---------------------------------------------------------------------------
+# Repair .ssh directory ACL (idempotent — matches bootstrap script baseline)
+# ---------------------------------------------------------------------------
+- name: "WIN-SSH-HARDENING | Repair .ssh directory ACL"
+  ansible.windows.win_command: >-
+    icacls "C:\Users\{{ win_ssh_hardening_user }}\.ssh"
+    /inheritance:r
+    /grant:r "{{ win_ssh_hardening_user }}:(OI)(CI)F"
+    /grant:r "Administrators:(OI)(CI)F"
+  register: win_ssh_dir_acl
+  changed_when: "'Successfully processed' in win_ssh_dir_acl.stdout"
+
+# ---------------------------------------------------------------------------
+# Repair authorized_keys file ACL (idempotent — Microsoft baseline)
+# ---------------------------------------------------------------------------
+- name: "WIN-SSH-HARDENING | Repair authorized_keys ACL"
+  ansible.windows.win_command: >-
+    icacls "C:\Users\{{ win_ssh_hardening_user }}\.ssh\authorized_keys"
+    /inheritance:r
+    /grant:r "{{ win_ssh_hardening_user }}:(R)"
+    /grant:r "NT SERVICE\sshd:(R)"
+  register: win_ssh_file_acl
+  changed_when: "'Successfully processed' in win_ssh_file_acl.stdout"
+
+# ---------------------------------------------------------------------------
+# Deploy ACL drift check script + register scheduled task
+# ---------------------------------------------------------------------------
+- name: "WIN-SSH-HARDENING | Create script directory"
+  ansible.windows.win_file:
+    path: "{{ win_ssh_hardening_check_script_dir }}"
+    state: directory
+
+- name: "WIN-SSH-HARDENING | Deploy ACL drift check script"
+  ansible.windows.win_template:
+    src: acl-drift-check.ps1
+    dest: "{{ win_ssh_hardening_check_script_dir }}\\acl-drift-check.ps1"
+
+- name: "WIN-SSH-HARDENING | Register scheduled task for ACL drift check"
+  community.windows.win_scheduled_task:
+    name: "{{ win_ssh_hardening_check_task_name }}"
+    description: "Verify SSH authorized_keys ACL conformance twice daily. Writes Event Log warning if non-conformant."
+    actions:
+      - path: powershell.exe
+        arguments: "-NoProfile -ExecutionPolicy Bypass -File \"{{ win_ssh_hardening_check_script_dir }}\\acl-drift-check.ps1\""
+    triggers:
+      - type: daily
+        repetition:
+          interval: "PT{{ win_ssh_hardening_check_interval_hours }}H"
+    principal:
+      run_level: highest
+      user_id: SYSTEM
+    enabled: true
+    state: present
+
+- name: "WIN-SSH-HARDENING | Run drift check once to verify deployment"
+  ansible.windows.win_command:
+    cmd: 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "{{ win_ssh_hardening_check_script_dir }}\acl-drift-check.ps1"'
+  register: win_ssh_drift_check_result
+  changed_when: false
+
+- name: "WIN-SSH-HARDENING | Report drift check result"
+  ansible.builtin.debug:
+    msg: "{{ win_ssh_drift_check_result.stdout | trim }}"

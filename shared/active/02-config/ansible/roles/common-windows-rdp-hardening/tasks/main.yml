@@ -1,0 +1,80 @@
+---
+# tasks file for common-windows-rdp-hardening
+# Two modes controlled by win_rdp_hardening_enabled:
+#   false (default) — disable RDP entirely, remove firewall rule
+#   true             — enable RDP with NLA + Tailscale-only firewall
+
+# ---------------------------------------------------------------------------
+# Mode: RDP DISABLED (default for Docker hosts managed via SSH + Ansible)
+# ---------------------------------------------------------------------------
+- name: "WIN-RDP-HARDENING | Disable RDP listener (registry)"
+  ansible.windows.win_regedit:
+    path: HKLM:\System\CurrentControlSet\Control\Terminal Server
+    name: fDenyTSConnections
+    data: 1
+    type: dword
+  when: not win_rdp_hardening_enabled | bool
+
+- name: "WIN-RDP-HARDENING | Remove RDP firewall rule (RDP disabled)"
+  community.windows.win_firewall_rule:
+    name: "{{ win_rdp_hardening_firewall_rule_name }}"
+    state: absent
+  when: not win_rdp_hardening_enabled | bool
+
+# Also remove the default Windows RDP rule if present (it allows Any).
+- name: "WIN-RDP-HARDENING | Remove default RDP firewall rule (Any source)"
+  community.windows.win_firewall_rule:
+    name: "Remote Desktop - User Mode (TCP-In)"
+    state: absent
+  when: not win_rdp_hardening_enabled | bool
+
+- name: "WIN-RDP-HARDENING | Report RDP disabled"
+  ansible.builtin.debug:
+    msg: "RDP disabled. Host is managed via SSH + Ansible."
+  when: not win_rdp_hardening_enabled | bool
+
+# ---------------------------------------------------------------------------
+# Mode: RDP ENABLED (with NLA + Tailscale-only firewall)
+# ---------------------------------------------------------------------------
+- name: "WIN-RDP-HARDENING | Enable RDP listener (registry)"
+  ansible.windows.win_regedit:
+    path: HKLM:\System\CurrentControlSet\Control\Terminal Server
+    name: fDenyTSConnections
+    data: 0
+    type: dword
+  when: win_rdp_hardening_enabled | bool
+
+- name: "WIN-RDP-HARDENING | Enforce NLA for RDP"
+  ansible.windows.win_regedit:
+    path: HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp
+    name: UserAuthentication
+    data: 1
+    type: dword
+  when: win_rdp_hardening_enabled | bool
+
+- name: "WIN-RDP-HARDENING | Remove default RDP firewall rule (replaced by Tailscale-only)"
+  community.windows.win_firewall_rule:
+    name: "Remote Desktop - User Mode (TCP-In)"
+    state: absent
+  when: win_rdp_hardening_enabled | bool
+
+- name: "WIN-RDP-HARDENING | Create RDP firewall rule restricted to Tailscale subnet"
+  community.windows.win_firewall_rule:
+    name: "{{ win_rdp_hardening_firewall_rule_name }}"
+    description: "RDP inbound restricted to {{ win_rdp_hardening_allowed_subnet }} (Tailscale)"
+    direction: in
+    protocol: TCP
+    localport: 3389
+    remote_addresses: "{{ win_rdp_hardening_allowed_subnet }}"
+    action: allow
+    enabled: true
+    state: present
+  when: win_rdp_hardening_enabled | bool
+
+- name: "WIN-RDP-HARDENING | Report RDP enabled with hardening"
+  ansible.builtin.debug:
+    msg: |
+      RDP enabled with hardening:
+        NLA required: {{ win_rdp_hardening_nla_required }}
+        Allowed subnet: {{ win_rdp_hardening_allowed_subnet }} (Tailscale only)
+  when: win_rdp_hardening_enabled | bool

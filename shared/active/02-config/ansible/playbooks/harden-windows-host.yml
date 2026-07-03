@@ -1,0 +1,78 @@
+---
+# Harden Windows Host — SSH + RDP hardening
+# Location: shared/active/02-config/ansible/playbooks/harden-windows-host.yml
+#
+# Applies SSH hardening (sshd_config, authorized_keys ACL repair, scheduled drift
+# check) and RDP hardening (disabled by default, or NLA + Tailscale-only firewall).
+#
+# Prerequisites:
+#   - bootstrap-windows-manual.ps1 has been run on the target
+#   - just ansible-bootstrap-windows-docker has completed
+#   - SSH key auth is working (this role disables PasswordAuthentication)
+#
+# Usage:
+#   just ansible-harden-windows
+#
+# To enable RDP for a specific host (default: disabled):
+#   Add to the host's inventory vars:
+#     win_rdp_hardening_enabled: true
+
+- name: "Harden Windows Host — SSH + RDP"
+  hosts: windows_docker_hosts
+  gather_facts: true
+  become: false
+
+  pre_tasks:
+    - name: "Gather ansible_facts"
+      ansible.builtin.setup:
+        gather_subset: ["all"]
+      tags: ["always"]
+
+    - name: "Validate required variables"
+      ansible.builtin.assert:
+        that:
+          - ansible_host is defined
+          - ansible_user is defined
+        fail_msg: "Missing connection variables. Check inventories/windows-docker.yml"
+        success_msg: "Connection variables OK."
+      tags: ["always", "validate"]
+
+    - name: "Report target machine"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Windows Host Hardening
+          ========================================
+          Host: {{ inventory_hostname }}
+          Ansible Host: {{ ansible_host }}
+          User: {{ ansible_user }}
+          OS: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}
+          RDP enabled: {{ win_rdp_hardening_enabled | default(false) }}
+          ========================================
+      tags: ["always", "info"]
+
+  roles:
+    - role: common-windows-ssh-hardening
+      tags: ["ssh", "hardening"]
+    - role: common-windows-rdp-hardening
+      tags: ["rdp", "hardening"]
+
+  post_tasks:
+    - name: "Report hardening complete"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Windows Host Hardening Complete
+          ========================================
+          SSH:
+            Password auth: disabled
+            Algorithms: Ed25519 only
+            authorized_keys ACL: repaired (ansible + sshd read)
+            Drift check: scheduled task "{{ win_ssh_hardening_check_task_name }}" runs every {{ win_ssh_hardening_check_interval_hours }}h
+          RDP:
+            Status: {{ 'enabled (NLA + Tailscale-only)' if win_rdp_hardening_enabled | default(false) | bool else 'disabled' }}
+          ========================================
+          Check Event Log for ACL drift warnings:
+            Get-EventLog -LogName Application -Source SSH-AclDriftCheck -Newest 10
+          ========================================
+      tags: ["verify", "summary"]

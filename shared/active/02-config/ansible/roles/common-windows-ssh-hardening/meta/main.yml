@@ -1,0 +1,24 @@
+---
+galaxy_info:
+  role_name: common_windows_ssh_hardening
+  author: levonk
+  description: >-
+    Harden OpenSSH server configuration on Windows 10/11 hosts.
+    Enforces key-only auth, restricts algorithms, repairs authorized_keys ACL drift,
+    and installs a scheduled task that warns to the Event Log if the ACL becomes
+    non-conformant.
+  company: levonk
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Windows
+      versions:
+        - "10"
+        - "11"
+  galaxy_tags:
+    - ssh
+    - security
+    - hardening
+    - windows
+
+dependencies: []

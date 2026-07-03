@@ -1,0 +1,23 @@
+---
+galaxy_info:
+  role_name: common_windows_rdp_hardening
+  author: levonk
+  description: >-
+    Harden or disable RDP on Windows 10/11 hosts. When enabled, enforces NLA
+    and restricts inbound firewall to the Tailscale subnet. When disabled
+    (default), removes the RDP firewall rule and disables the listener.
+  company: levonk
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Windows
+      versions:
+        - "10"
+        - "11"
+  galaxy_tags:
+    - rdp
+    - security
+    - hardening
+    - windows
+
+dependencies: []
