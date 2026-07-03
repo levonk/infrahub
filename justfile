@@ -153,6 +153,7 @@ ansible-syntax-internal:
     ansible-playbook --syntax-check -i {{INVENTORY}} {{PB_SITE}} || true
     ansible-playbook --syntax-check -i {{WINDOWS_DOCKER_INVENTORY}} {{PB_WINDOWS_BOOTSTRAP}} || true
     ansible-playbook --syntax-check -i {{WINDOWS_DOCKER_INVENTORY}} {{PB_WORLDMONITOR}} || true
+    ansible-playbook --syntax-check -i {{WINDOWS_DOCKER_INVENTORY}} {{PB_BASE_DEV}} || true
     ansible-playbook --syntax-check -i {{INVENTORY}} {{PB_LOCAL_REGISTRY}} || true
     ansible-playbook --syntax-check -i {{MACOS_INVENTORY}} {{PB_MACOS_BOOTSTRAP}} || true
     @echo "Syntax check complete."
@@ -327,6 +328,7 @@ ansible-deploy-localnet-tailscale-internal:
 WINDOWS_DOCKER_INVENTORY := INFRAHUB_ROOT + "/levonk/active/02-config/ansible/inventories/windows-docker.yml"
 PB_WINDOWS_BOOTSTRAP := ANSIBLE_ROOT + "/playbooks/bootstrap-windows-docker-host.yml"
 PB_WORLDMONITOR := ANSIBLE_ROOT + "/playbooks/deploy-worldmonitor.yml"
+PB_BASE_DEV := ANSIBLE_ROOT + "/playbooks/deploy-base-dev.yml"
 PB_LOCAL_REGISTRY := ANSIBLE_ROOT + "/playbooks/deploy-local-registry.yml"
 
 ansible-deploy-local-registry:
@@ -353,6 +355,13 @@ ansible-deploy-worldmonitor-internal:
 ansible-deploy-worldmonitor-check:
     @echo "Dry-run WorldMonitor deployment (check mode)..."
     ansible-playbook -i {{WINDOWS_DOCKER_INVENTORY}} {{PB_WORLDMONITOR}} --check --diff --vault-password-file ~/.ansible/vault_password
+
+ansible-deploy-base-dev:
+    devbox run ansible-deploy-base-dev
+
+ansible-deploy-base-dev-internal:
+    @echo "Building base-dev image on Mac, pushing to registry, deploying on Windows..."
+    ansible-playbook -i {{WINDOWS_DOCKER_INVENTORY}} {{PB_BASE_DEV}} --vault-password-file ~/.ansible/vault_password
 
 # -- macOS Host Deployment --
 
