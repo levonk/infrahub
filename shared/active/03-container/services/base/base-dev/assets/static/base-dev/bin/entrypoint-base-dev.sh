@@ -273,6 +273,18 @@ install_python_package "llm-tldr"
 install_python_package "memsearch"
 install_python_package "git_bayesect"
 
+# Install omnigent CLI via uv tool (container-wide, available in all shells)
+# Version is unpinned because the runner must match the server — the server
+# negotiates the protocol on connect, so a stale runner just 409s and the
+# user re-runs this entrypoint or `uv tool upgrade omnigent`.
+echo "🤖 Installing omnigent CLI via uv tool..."
+execute_as_user_in_devbox "uv tool install omnigent" || { echo "⚠️ Failed to install omnigent CLI"; }
+# Register as Omnigent runner if OMNIGENT_SERVER_URL is set and not already registered
+if [ -n "${OMNIGENT_SERVER_URL:-}" ]; then
+    echo "🤖 Dev Base: Registering as Omnigent runner against ${OMNIGENT_SERVER_URL}..."
+    execute_as_user_in_devbox "omni login \"${OMNIGENT_SERVER_URL}\" && omni host \"${OMNIGENT_SERVER_URL}\"" || { echo "⚠️ Failed to register as Omnigent runner"; }
+fi
+
 # Check and install Cargo packages inside Devbox development shell
 echo "🤖 Checking for Cargo in Devbox development environment..."
 execute_as_user_in_devbox "which cargo" >/dev/null 2>&1 || { echo "❌ Cargo not available in Devbox development environment"; exit 1; }
