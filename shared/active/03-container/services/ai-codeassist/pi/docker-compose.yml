@@ -90,15 +90,17 @@ services:
       # Credentials are mounted as a volume (see volumes section).
       # The plugin reads from ~/.config/opencode-windsurf-auth/credentials.json
 
-      # ── Egress Proxy (NordVPN) ────────────────────────
-      # Route pi-windsurf's HTTPS requests through NordVPN's HTTP proxy.
+      # ── Egress Proxy (iron-proxy → NordVPN) ──────────
+      # Route pi-windsurf's HTTPS requests through iron-proxy (MITM egress firewall)
+      # which chains through NordVPN for privacy. iron-proxy enforces the allowlist
+      # and audits all outbound requests.
       # NODE_OPTIONS=--use-env-proxy makes Node.js fetch() respect HTTP_PROXY/HTTPS_PROXY.
-      # ponytail: bypassing iron-proxy MITM due to Go TLS compat issue with
-      # server.self-serve.windsurf.com (file bug with iron-proxy for upstream proxy + MITM TLS)
-      - HTTP_PROXY=${PI_HTTP_PROXY:-http://172.28.0.2:8888}
-      - HTTPS_PROXY=${PI_HTTPS_PROXY:-http://172.28.0.2:8888}
+      # NODE_EXTRA_CA_CERTS trusts iron-proxy's CA so MITM'd TLS leaf certs are accepted.
+      - HTTP_PROXY=${PI_HTTP_PROXY:-http://172.29.0.17:8080}
+      - HTTPS_PROXY=${PI_HTTPS_PROXY:-http://172.29.0.17:8080}
       - NO_PROXY=${PI_NO_PROXY:-localhost,127.0.0.1,172.16.0.0/12,172.28.0.0/16,172.29.0.0/16,172.35.0.0/16,172.36.0.0/16}
       - NODE_OPTIONS=--use-env-proxy
+      - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/iron-proxy-ca.crt
 
       # ── Session Storage ───────────────────────────────
       - PI_SESSION_DIR=/data/sessions
@@ -120,6 +122,10 @@ services:
       - pi-sessions:/data/sessions
       # Windsurf credentials (from OAuth login on local machine)
       - ${PI_WINDSURF_CREDS_DIR:-./credentials.json}:/home/pi/.config/opencode-windsurf-auth/credentials.json:ro
+      # iron-proxy CA certificate — required for MITM TLS trust.
+      # The client must trust iron-proxy's CA so it accepts the on-the-fly
+      # leaf certs iron-proxy generates when terminating TLS.
+      - ${PI_IRON_PROXY_CA:-./iron-proxy-ca.crt}:/etc/ssl/certs/iron-proxy-ca.crt:ro
       # Workspace mount is client-specific — override in client overlay.
       # Example: - ~/p/gh/levonk:/workspace:rw
     logging: *default-logging
