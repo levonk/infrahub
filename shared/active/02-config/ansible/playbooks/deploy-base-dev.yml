@@ -1,0 +1,242 @@
+---
+# Deploy Base Dev Container to Windows Docker Desktop
+# Location: shared/active/02-config/ansible/playbooks/deploy-base-dev.yml
+#
+# Two-phase deployment (same pattern as deploy-worldmonitor.yml):
+#   Phase 1 (on control machine / localhost): build image, push to registry
+#   Phase 2 (on Windows Docker host): pull image, deploy container
+#
+# The base-dev container provides a full development environment with Nix,
+# devbox, and all coding tools. It also registers as an Omnigent runner
+# against the server specified by OMNIGENT_SERVER_URL.
+#
+# Prerequisites:
+#   1. Local registry deployed: just ansible-deploy-local-registry
+#   2. Docker running on the control machine (for building images)
+#   3. Bootstrap playbook run on Windows: just ansible-bootstrap-windows-docker
+#   4. base-kalinix image built and pushed (dependency of base-dev)
+#
+# Usage:
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/windows-docker.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-base-dev.yml \
+#     --vault-password-file ~/.ansible/vault_password
+
+- name: "Phase 1 — Build and push base-dev image"
+  hosts: localhost
+  gather_facts: true
+  connection: local
+  become: false
+
+  pre_tasks:
+    - name: "Load shared infrastructure defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - storage.yml
+      tags: ["always"]
+
+    - name: "Load client infrastructure overrides (levonk)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - storage.yml
+      tags: ["always"]
+
+    - name: "Validate required variables"
+      ansible.builtin.assert:
+        that:
+          - windows_registry_url is defined
+        fail_msg: "Missing windows_registry_url. Check group_vars/windows_docker_hosts.yml"
+        success_msg: "Registry URL OK."
+      tags: ["always", "validate"]
+
+    - name: "Check Docker is available on control machine"
+      ansible.builtin.command:
+        cmd: "docker --version"
+      register: docker_check
+      changed_when: false
+      failed_when: false
+      tags: ["always", "validate"]
+
+    - name: "Fail if Docker is not available"
+      ansible.builtin.fail:
+        msg: "Docker is not available on the control machine. Install Docker or run on a machine with Docker."
+      when: docker_check.rc != 0
+      tags: ["always", "validate"]
+
+  tasks:
+    - name: "Check if base-kalinix image exists locally"
+      ansible.builtin.command:
+        cmd: "docker image inspect localnet-base-kalinix:latest"
+      register: base_kalinix_check
+      changed_when: false
+      failed_when: false
+
+    - name: "Fail if base-kalinix image is missing"
+      ansible.builtin.fail:
+        msg: "localnet-base-kalinix:latest not found. Build it first: docker compose -f shared/active/03-container/services/base/docker-compose.base.yml --profile base03 build base-kalinix"
+      when: base_kalinix_check.rc != 0
+
+    - name: "Build base-dev image"
+      ansible.builtin.command:
+        cmd: "docker compose -f docker-compose.base.yml --profile localnet build base-dev"
+        chdir: "{{ playbook_dir }}/../../03-container/services/base"
+      register: base_dev_build
+      changed_when: "'Successfully' in base_dev_build.stdout or 'naming to' in base_dev_build.stdout"
+
+    - name: "Tag base-dev image for registry"
+      ansible.builtin.command:
+        cmd: "docker tag localnet-base-dev:latest {{ windows_registry_url }}/localnet-base-dev:latest"
+      changed_when: false
+
+    - name: "Push base-dev image to registry"
+      ansible.builtin.command:
+        cmd: "docker push {{ windows_registry_url }}/localnet-base-dev:latest"
+      register: push_result
+      changed_when: "'Pushed' in push_result.stdout or 'sha256' in push_result.stdout"
+      retries: 3
+      delay: 5
+      until: push_result.rc == 0
+
+    - name: "Also push base-kalinix (base-dev dependency)"
+      ansible.builtin.command:
+        cmd: "docker push {{ windows_registry_url }}/localnet-base-kalinix:latest"
+      register: push_kalinix
+      changed_when: false
+      failed_when: false
+      retries: 3
+      delay: 5
+      until: push_kalinix.rc == 0
+
+    - name: "Report build and push completion"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Phase 1 Complete: base-dev image built and pushed
+          ========================================
+          Registry: {{ windows_registry_url }}/localnet-base-dev:latest
+          ========================================
+
+- name: "Phase 2 — Deploy base-dev container on Windows Docker host"
+  hosts: windows_docker_hosts
+  gather_facts: true
+  become: false
+
+  pre_tasks:
+    - name: "Load shared infrastructure defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - storage.yml
+      tags: ["always"]
+
+    - name: "Load client infrastructure overrides (levonk)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - storage.yml
+      tags: ["always"]
+
+    - name: "Report target machine"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Phase 2: Deploy base-dev to Windows Docker host
+          ========================================
+          Target: {{ inventory_hostname }}
+          Host: {{ ansible_host }}
+          Registry: {{ windows_registry_url }}
+          Omnigent Server: {{ omnigent_server_url | default('https://aiif.levonk.com') }}
+          ========================================
+      tags: ["always", "info"]
+
+  tasks:
+    - name: "Pull base-kalinix image from registry"
+      community.docker.docker_image:
+        name: "{{ windows_registry_url }}/localnet-base-kalinix:latest"
+        source: pull
+        state: present
+      retries: 3
+      delay: 5
+
+    - name: "Tag base-kalinix as localnet-base-kalinix:latest"
+      community.docker.docker_image:
+        name: "{{ windows_registry_url }}/localnet-base-kalinix:latest"
+        repository: localnet-base-kalinix
+        tag: latest
+        push: false
+        source: local
+
+    - name: "Pull base-dev image from registry"
+      community.docker.docker_image:
+        name: "{{ windows_registry_url }}/localnet-base-dev:latest"
+        source: pull
+        state: present
+      retries: 3
+      delay: 5
+
+    - name: "Tag base-dev as localnet-base-dev:latest"
+      community.docker.docker_image:
+        name: "{{ windows_registry_url }}/localnet-base-dev:latest"
+        repository: localnet-base-dev
+        tag: latest
+        push: false
+        source: local
+
+    - name: "Create Omnigent config directory"
+      ansible.builtin.file:
+        path: "C:\\localnet\\services\\base-dev\\omnigent"
+        state: directory
+      tags: ["setup"]
+
+    - name: "Deploy base-dev container"
+      community.docker.docker_container:
+        name: localnet-base-dev
+        image: localnet-base-dev:latest
+        state: started
+        restart_policy: unless-stopped
+        env:
+          PUID: "1000"
+          PGID: "1000"
+          TZ: "UTC"
+          OMNIGENT_SERVER_URL: "{{ omnigent_server_url | default('https://aiif.levonk.com') }}"
+        volumes:
+          - nix-cache:/root/.cache/nix
+          - nix-config:/etc/nix
+          - nix-store:/nix
+          - "C:\\localnet\\services\\base-dev\\home:/home/cuser/project"
+          - "C:\\localnet\\services\\base-dev\\omnigent:/home/cuser/.omnigent"
+        published_ports:
+          - "33000:3000"
+          - "33080:8080"
+        healthcheck:
+          test: ["CMD", "/base-dev/bin/healthcheck-base-dev.sh"]
+          interval: "60s"
+          timeout: "60s"
+          retries: 3
+          start_period: "120s"
+      register: base_dev_container
+
+    - name: "Wait for base-dev to start"
+      ansible.builtin.wait_for:
+        timeout: 30
+      delegate_to: localhost
+      when: base_dev_container.changed
+
+    - name: "Report deployment completion"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          base-dev container deployed on {{ inventory_hostname }}
+          ========================================
+          Container: localnet-base-dev
+          Ports: 33000 (app), 33080 (alt)
+          Omnigent Server: {{ omnigent_server_url | default('https://aiif.levonk.com') }}
+          ========================================
+          The container will install the omni CLI on first shell init
+          and register as a runner against the Omnigent server.
+          ========================================

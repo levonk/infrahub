@@ -20,6 +20,7 @@
     "pay-respects": "",
     "yazi": "",
     "zellij": "",
+    "tmux": "",
     "github:ogulcancelik/herdr": "",
     "ripgrep": "",
     "fz": "",
@@ -245,7 +246,11 @@
   "shell": {
     "init_hook": [
       "echo '\ud83e\udd16 Dev Base: Development environment ready'",
-      "cd /home/cuser/project"
+      "cd /home/cuser/project",
+      "# Install omnigent CLI via uv (idempotent — skips if already installed)",
+      "command -v omni >/dev/null 2>&1 || uv tool install omnigent",
+      "# Register as Omnigent runner if OMNIGENT_SERVER_URL is set and not already registered",
+      "if [ -n \"${OMNIGENT_SERVER_URL:-}\" ] && [ ! -f ~/.omnigent/host-registered ]; then omni login \"${OMNIGENT_SERVER_URL}\" && omni host \"${OMNIGENT_SERVER_URL}\" && touch ~/.omnigent/host-registered; fi"
     ]
   }
 }

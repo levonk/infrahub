@@ -284,6 +284,8 @@ services:
       - GH_TOKEN=${AI_CODEASSIST_GH_TOKEN:-}
       - OPENAI_API_KEY=${AI_CODEASSIST_OPENAI_API_KEY:-}
       - DOCKER_HOST=${BASE_DEV_DOCKER_HOST:-unix:///socket/docker.sock}
+      # Omnigent runner — registers against the server on shell init
+      - OMNIGENT_SERVER_URL=${OMNIGENT_SERVER_URL:-https://aiif.levonk.com}
     depends_on:
       base-kalinix:
         condition: service_started
