@@ -44,6 +44,11 @@
         - storage.yml
       tags: ["always"]
 
+    - name: "Load windows_docker_hosts group vars (for windows_registry_url)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/inventories/group_vars/windows_docker_hosts.yml"
+      tags: ["always"]
+
     - name: "Validate required variables"
       ansible.builtin.assert:
         that:
@@ -79,10 +84,10 @@
         msg: "localnet-base-kalinix:latest not found. Build it first: docker compose -f shared/active/03-container/services/base/docker-compose.base.yml --profile base03 build base-kalinix"
       when: base_kalinix_check.rc != 0
 
-    - name: "Build base-dev image"
+    - name: "Build base-dev image (includes base-kalinix dependency)"
       ansible.builtin.command:
-        cmd: "docker compose -f docker-compose.base.yml --profile localnet build base-dev"
-        chdir: "{{ playbook_dir }}/../../03-container/services/base"
+        cmd: "docker compose -f docker-compose.base-kali.yml -f docker-compose.base.yml --profile localnet build base-kalinix base-dev"
+        chdir: "{{ playbook_dir }}/../../../03-container/services/base"
       register: base_dev_build
       changed_when: "'Successfully' in base_dev_build.stdout or 'naming to' in base_dev_build.stdout"
 
