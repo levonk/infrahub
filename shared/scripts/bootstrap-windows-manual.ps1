@@ -144,8 +144,11 @@ $sshDir = "C:\Users\$AnsibleUser\.ssh"
 if (-not (Test-Path $sshDir)) {
     New-Item -ItemType Directory -Path $sshDir -Force | Out-Null
 }
-# Set permissions — only ansible user should have access
-icacls $sshDir /inheritance:r /grant:r "$AnsibleUser`:(OI)(CI)F" 2>$null | Out-Null
+# Set permissions — ansible gets full control, Administrators get full control so the
+# admin running this bootstrap can write authorized_keys in step 5. The authorized_keys
+# file itself is locked down to ansible-only after the key is written.
+# ponytail: unconditional (idempotent) so re-runs repair an ACL left broken by a prior run.
+icacls $sshDir /inheritance:r /grant:r "$AnsibleUser`:(OI)(CI)F" /grant:r "Administrators`:(OI)(CI)F" 2>$null | Out-Null
 Write-Host "  .ssh directory ready" -ForegroundColor Green
 Write-Host ""
 
@@ -186,7 +189,11 @@ if ($existingKeys -and $existingKeys.Contains($pubKey)) {
     Write-Host "  SSH public key already in $authKeysPath" -ForegroundColor Green
 } else {
     Add-Content -Path $authKeysPath -Value $pubKey -Encoding ASCII
-    icacls $authKeysPath /inheritance:r /grant:r "$AnsibleUser`:(R)" 2>$null | Out-Null
+    # ACL matches Microsoft's documented baseline for %UserProfile%\.ssh\authorized_keys
+    # (PowerShell/Win32-OpenSSH #870): user gets read, sshd service account gets read.
+    # SYSTEM bypasses the DACL so it isn't listed explicitly; Administrators is intentionally
+    # absent so a compromised admin context can't tamper with the key material.
+    icacls $authKeysPath /inheritance:r /grant:r "$AnsibleUser`:(R)" /grant:r "NT SERVICE\sshd`:(R)" 2>$null | Out-Null
     Write-Host "  SSH public key added to $authKeysPath" -ForegroundColor Green
 }
 Write-Host ""
