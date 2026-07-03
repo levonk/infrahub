@@ -2,6 +2,14 @@
 
 ## Recent Changes
 
+**2026-07-03**: Documented iron-proxy MITM TLS inspection and CA trust requirement
+- Iron-proxy uses man-in-the-middle TLS to inspect HTTPS traffic for allowlist enforcement and per-request auditing
+- Clients routing through iron-proxy MUST trust iron-proxy's CA certificate (mounted + `NODE_EXTRA_CA_CERTS` for Node.js)
+- Added tunnel listener (port 8870) for CONNECT-based HTTPS proxying (Node.js fetch, curl --proxy)
+- iron-proxy chains egress through NordVPN's HTTP proxy for privacy
+- Verified end-to-end: Pi → iron-proxy (MITM + audit) → NordVPN → Cognition Cloud (Windsurf)
+- See "Iron-Proxy (Egress Firewall — MITM TLS Inspection)" stage for details
+
 **2026-06-29**: Added LiteLLM as the AI gateway entry point (aigate.levonk.com)
 - LiteLLM (https://github.com/BerriAI/litellm) is an OSS AI Gateway with auth, virtual keys, spend tracking, PII guardrail (Presidio), and native Langfuse logging
 - Replaces AI Dashboard Proxy 1/2 (analytics collectors) and Privacy Orchestrator (PII detection) as the pipeline entry point
@@ -132,12 +140,34 @@ Omnigent + Pi are NOT mid-pipeline transformation stages like Headroom or Forge 
    - **Downstream to**: Iron-Proxy
    - **Status**: **IMPLEMENTED** - deployed as Python service
 
-5. **Iron-Proxy (Egress Firewall)**
-   - Default-deny egress filtering
+5. **Iron-Proxy (Egress Firewall — MITM TLS Inspection)**
+   - Default-deny egress filtering with domain allowlist
+   - **MITM TLS termination**: iron-proxy intercepts HTTPS by generating
+     on-the-fly leaf certificates signed by its own CA. This is required
+     because allowlist enforcement and per-request auditing happen at the
+     HTTP layer (host, path, method) — without MITM, HTTPS traffic is
+     opaque and iron-proxy can only filter by SNI (which is forgeable and
+     insufficient for path-level rules).
+   - **Client CA trust requirement**: every client routing through
+     iron-proxy MUST trust iron-proxy's CA certificate. Without this, the
+     client rejects the MITM'd leaf cert and the connection fails with a
+     TLS error. For Node.js clients (pi, pi-windsurf plugin), this means:
+       - Mount `ca.crt` into the container (e.g. `/etc/ssl/certs/iron-proxy-ca.crt`)
+       - Set `NODE_EXTRA_CA_CERTS=/etc/ssl/certs/iron-proxy-ca.crt`
+       - Set `HTTP_PROXY`/`HTTPS_PROXY` to iron-proxy's listener
+       - Set `NODE_OPTIONS=--use-env-proxy` so `fetch()` honors the proxy env vars
+   - **Tunnel listener** (port 8870): accepts `CONNECT` requests for
+     HTTPS proxying (used by clients that send CONNECT, e.g. Node.js
+     `fetch()` with `HTTPS_PROXY`, `curl --proxy`). The tunnel listener
+     performs MITM on the tunneled traffic.
+   - **Upstream proxy chaining**: iron-proxy forwards egress to NordVPN's
+     HTTP proxy (`http://172.28.0.2:8888`) via `HTTP_PROXY`/`HTTPS_PROXY`
+     env vars, so traffic exits through the VPN for privacy.
    - Secret injection at boundary
-   - Per-request audit trail
-   - **Port**: 8880 (levonk override)
-   - **Upstream from**: Forge
+   - Per-request audit trail (host, SNI, method, path, status, duration)
+   - **Ports**: 8080 (HTTP listener), 8870 (tunnel/CONNECT listener)
+   - **Chain IP**: 172.29.0.17
+   - **Upstream from**: Forge (pipeline) or Pi (direct, bypassing pipeline)
    - **Downstream to**: NordVPN
 
 6. **NordVPN (Privacy Layer)**
