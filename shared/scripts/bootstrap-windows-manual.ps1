@@ -136,7 +136,26 @@ if ($existingUser) {
 } else {
     New-LocalUser -Name $AnsibleUser -Description "Ansible deployment service account" -NoPassword | Out-Null
     Set-LocalUser -Name $AnsibleUser -PasswordNeverExpires $true
-    Write-Host "  Created $AnsibleUser (no password, SSH key auth only)" -ForegroundColor Green
+    Write-Host "  Created $AnsibleUser" -ForegroundColor Green
+}
+
+# Set a random password if the user has none. Windows' default LimitBlankPasswordUse
+# policy (HKLM\SYSTEM\CurrentControlSet\Control\Lsa\LimitBlankPasswordUse=1) blocks ALL
+# network logons — including SSH — for accounts with empty passwords, even when pubkey
+# auth succeeds. The password just needs to exist; Ansible still uses key auth exclusively.
+# ponytail: idempotent — only sets a password if PasswordLastSet is null (never set).
+$userAccount = Get-LocalUser -Name $AnsibleUser
+if (-not $userAccount.PasswordLastSet) {
+    $rngBytes = New-Object byte[] 24
+    ([System.Security.Cryptography.RandomNumberGenerator]::Create()).GetBytes($rngBytes)
+    $randomPassword = [Convert]::ToBase64String($rngBytes)
+    $securePassword = ConvertTo-SecureString $randomPassword -AsPlainText -Force
+    Set-LocalUser -Name $AnsibleUser -Password $securePassword
+    Write-Host "  Set random password (Windows blocks network logon for empty-password accounts)" -ForegroundColor Green
+    Write-Host "  Password (save if you need interactive login; Ansible uses key auth):" -ForegroundColor Cyan
+    Write-Host "    $randomPassword" -ForegroundColor White
+} else {
+    Write-Host "  Password already set" -ForegroundColor Green
 }
 
 # Create .ssh directory
@@ -149,6 +168,13 @@ if (-not (Test-Path $sshDir)) {
 # file itself is locked down to ansible-only after the key is written.
 # ponytail: unconditional (idempotent) so re-runs repair an ACL left broken by a prior run.
 icacls $sshDir /inheritance:r /grant:r "$AnsibleUser`:(OI)(CI)F" /grant:r "Administrators`:(OI)(CI)F" 2>$null | Out-Null
+# Reassign ownership to the ansible user. Win32-OpenSSH StrictModes (default on)
+# silently rejects authorized_keys whose owner is not the user or SYSTEM. Files
+# created by the admin are owned by Administrators, so sshd refuses the key
+# even when the ACL is correct. icacles can't change owner; takeown.exe + icacls /setowner.
+# ponytail: idempotent — runs every time, no-op if already correct.
+takeown /f $sshDir /r /d y 2>$null | Out-Null
+icacls $sshDir /setowner "$AnsibleUser" /T /C 2>$null | Out-Null
 Write-Host "  .ssh directory ready" -ForegroundColor Green
 Write-Host ""
 
@@ -182,15 +208,19 @@ $pubKey = $pubKey.Trim()
 # Write to authorized_keys (idempotent — append if key missing, skip if already present)
 $authKeysPath = "$sshDir\authorized_keys"
 
-# Repair the file ACL BEFORE reading/writing — a prior run may have left it locked
-# to ansible-only, blocking the running admin from reading or appending. The .ssh
-# directory ACL (Administrators:(OI)(CI)F) lets us create the file if missing, but
-# an existing file with /inheritance:r doesn't inherit that grant. Running icacls
+# Repair the file ACL and ownership BEFORE reading/writing — a prior run may have
+# left it locked to ansible-only, blocking the running admin from reading or appending.
+# The .ssh directory ACL (Administrators:(OI)(CI)F) lets us create the file if missing,
+# but an existing file with /inheritance:r doesn't inherit that grant. Running icacls
 # here ensures the admin can access the file regardless of its prior state.
+# Ownership is also repaired: files created by the admin are owned by Administrators,
+# which sshd's StrictModes silently rejects (owner must be the user or SYSTEM).
 # ponytail: an elevated admin who owns the file can always modify its DACL, so this
 # icacls succeeds even if the current ACL doesn't list Administrators.
 if (Test-Path $authKeysPath) {
-    icacls $authKeysPath /inheritance:r /grant:r "$AnsibleUser`:(R)" /grant:r "NT SERVICE\sshd`:(R)" 2>$null | Out-Null
+    icacls $authKeysPath /inheritance:r /grant:r "$AnsibleUser`:(R)" /grant:r "NT SERVICE\sshd`:(R)" /grant:r "Administrators`:(F)" 2>$null | Out-Null
+    takeown /f $authKeysPath 2>$null | Out-Null
+    icacls $authKeysPath /setowner "$AnsibleUser" /C 2>$null | Out-Null
 }
 
 $existingKeys = $null
@@ -206,6 +236,10 @@ if ($existingKeys -and $existingKeys.Contains($pubKey)) {
     # SYSTEM bypasses the DACL so it isn't listed explicitly; Administrators is intentionally
     # absent so a compromised admin context can't tamper with the key material.
     icacls $authKeysPath /inheritance:r /grant:r "$AnsibleUser`:(R)" /grant:r "NT SERVICE\sshd`:(R)" 2>$null | Out-Null
+    # Reassign ownership to ansible — see StrictModes note above. Files created by the
+    # admin are owned by Administrators; sshd rejects keys not owned by user or SYSTEM.
+    takeown /f $authKeysPath 2>$null | Out-Null
+    icacls $authKeysPath /setowner "$AnsibleUser" /C 2>$null | Out-Null
     Write-Host "  SSH public key added to $authKeysPath" -ForegroundColor Green
 }
 Write-Host ""
@@ -228,16 +262,29 @@ if ($dockerPipCheck) {
 
 $userCheck = Get-LocalUser -Name $AnsibleUser -ErrorAction SilentlyContinue
 if ($userCheck) {
-    Write-Host "  $AnsibleUser user: exists (enabled: $($userCheck.Enabled))"
+    Write-Host "  $AnsibleUser user: exists (enabled: $($userCheck.Enabled))" -NoNewline
+    if ($userCheck.PasswordLastSet) {
+        Write-Host " (password set: $($userCheck.PasswordLastSet))" -ForegroundColor Green
+    } else {
+        Write-Host " (NO PASSWORD — SSH will be blocked by LimitBlankPasswordUse)" -ForegroundColor Red
+        Write-Host "ERROR: $AnsibleUser has no password. Re-run step 4 or set one manually:" -ForegroundColor Red
+        Write-Host "  \$pw = Read-Host -AsSecureString; Set-LocalUser -Name $AnsibleUser -Password \$pw" -ForegroundColor Red
+        exit 1
+    }
 } else {
     Write-Host "  $AnsibleUser user: NOT found" -ForegroundColor Red
+    exit 1
 }
 
 $keyCheck = Get-Content $authKeysPath -ErrorAction SilentlyContinue
 if ($keyCheck) {
-    Write-Host "  authorized_keys: $($keyCheck.Substring(0, [Math]::Min(40, $keyCheck.Length)))..."
+    Write-Host "  authorized_keys: $($keyCheck.Substring(0, [Math]::Min(40, $keyCheck.Length)))..." -ForegroundColor Green
 } else {
     Write-Host "  authorized_keys: NOT found" -ForegroundColor Red
+    Write-Host "ERROR: authorized_keys is missing or empty at $authKeysPath" -ForegroundColor Red
+    Write-Host "  Re-run step 5 or add the key manually:" -ForegroundColor Red
+    Write-Host "  Add-Content -Path '$authKeysPath' -Value '<your-ssh-public-key>'" -ForegroundColor Red
+    exit 1
 }
 
 # Get this machine's IP for the hint
