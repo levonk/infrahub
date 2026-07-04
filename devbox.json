@@ -71,7 +71,8 @@
     "github:levonk/levonk-packages#bundle-rtk-cloud": "",
     "github:levonk/levonk-packages#bundle-devbox-auto-rust": "",
     "github:levonk/levonk-packages#bundle-devbox-auto-go": "",
-    "rtk": "latest"
+    "rtk": "latest",
+    "powershell": ""
   },
   "env": {
     "SHELL": "/bin/zsh",
@@ -125,6 +126,7 @@
     "task-ready": "just task-ready-internal",
     "task-start": "just task-start-internal",
     "ansible-lint": "just ansible-lint-internal",
+    "ps-lint": "just ps-lint-internal",
     "ansible-syntax": "just ansible-syntax-internal",
     "ansible-test": "just ansible-test-internal",
     "ansible-deploy-bootstrap": "just ansible-deploy-bootstrap-internal",

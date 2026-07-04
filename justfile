@@ -124,6 +124,7 @@ lint:
 lint-internal:
     @echo "Running all lints..."
     just ansible-lint-internal
+    just ps-lint-internal
 
 quality:
     just lint
@@ -356,6 +357,18 @@ ansible-harden-windows-internal:
 ansible-harden-windows-check:
     @echo "Dry-run Windows hardening (check mode)..."
     ansible-playbook -i {{WINDOWS_DOCKER_INVENTORY}} {{PB_WINDOWS_HARDEN}} --check --diff --vault-password-file ~/.ansible/vault_password
+
+# === PowerShell Lint ===
+
+ps-lint:
+    devbox run -- just ps-lint-internal
+
+ps-lint-internal:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "Running PSScriptAnalyzer on all .ps1 files..."
+    pwsh -NoProfile -File "{{INFRAHUB_ROOT}}/shared/scripts/ps-lint.ps1" "{{INFRAHUB_ROOT}}"
+    echo "PSScriptAnalyzer complete."
 
 ansible-deploy-worldmonitor:
     devbox run ansible-deploy-worldmonitor
