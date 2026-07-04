@@ -45,6 +45,17 @@ param(
 $ErrorActionPreference = "Stop"
 $AnsibleUser = "ansible"
 
+# ponytail: PS 5.1 with $ErrorActionPreference=Stop surfaces native command stderr as
+# a terminating NativeCommandError even with 2>$null. This wrapper suppresses it —
+# icacls/takeown calls are best-effort (icacls /C continues on error); specific
+# failures on authorized_keys are handled by the dedicated repair blocks in step 5.
+function Invoke-Suppressed {
+    param([Parameter(Mandatory)][scriptblock]$Command)
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try { & $Command 2>&1 | Out-Null } finally { $ErrorActionPreference = $prev }
+}
+
 # --- Check admin ---
 $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) {
@@ -167,14 +178,14 @@ if (-not (Test-Path $sshDir)) {
 # admin running this bootstrap can write authorized_keys in step 5. The authorized_keys
 # file itself is locked down to ansible-only after the key is written.
 # ponytail: unconditional (idempotent) so re-runs repair an ACL left broken by a prior run.
-icacls $sshDir /inheritance:r /grant:r "$AnsibleUser`:(OI)(CI)F" /grant:r "Administrators`:(OI)(CI)F" 2>$null | Out-Null
+Invoke-Suppressed { icacls $sshDir /inheritance:r /grant:r "$AnsibleUser`:(OI)(CI)F" /grant:r "Administrators`:(OI)(CI)F" }
 # Reassign ownership to the ansible user. Win32-OpenSSH StrictModes (default on)
 # silently rejects authorized_keys whose owner is not the user or SYSTEM. Files
 # created by the admin are owned by Administrators, so sshd refuses the key
 # even when the ACL is correct. icacles can't change owner; takeown.exe + icacls /setowner.
 # ponytail: idempotent -- runs every time, no-op if already correct.
-takeown /f $sshDir /r /d y 2>$null | Out-Null
-icacls $sshDir /setowner "$AnsibleUser" /T /C 2>$null | Out-Null
+Invoke-Suppressed { takeown /f $sshDir /r /d y }
+Invoke-Suppressed { icacls $sshDir /setowner "$AnsibleUser" /T /C }
 Write-Host "  .ssh directory ready" -ForegroundColor Green
 Write-Host ""
 
@@ -221,9 +232,9 @@ $authKeysPath = "$sshDir\authorized_keys"
 # with no Administrators ACE, so icacls /grant would silently fail without the
 # takeown first.
 if (Test-Path $authKeysPath) {
-    takeown /f $authKeysPath 2>$null | Out-Null
-    icacls $authKeysPath /inheritance:r /grant:r "$AnsibleUser`:(R)" /grant:r "NT SERVICE\sshd`:(R)" /grant:r "Administrators`:(F)" 2>$null | Out-Null
-    icacls $authKeysPath /setowner "$AnsibleUser" /C 2>$null | Out-Null
+    Invoke-Suppressed { takeown /f $authKeysPath }
+    Invoke-Suppressed { icacls $authKeysPath /inheritance:r /grant:r "$AnsibleUser`:(R)" /grant:r "NT SERVICE\sshd`:(R)" /grant:r "Administrators`:(F)" }
+    Invoke-Suppressed { icacls $authKeysPath /setowner "$AnsibleUser" /C }
 }
 
 $existingKeys = $null
@@ -238,11 +249,11 @@ if ($existingKeys -and $existingKeys.Contains($pubKey)) {
     # (PowerShell/Win32-OpenSSH #870): user gets read, sshd service account gets read.
     # SYSTEM bypasses the DACL so it isn't listed explicitly; Administrators is intentionally
     # absent so a compromised admin context can't tamper with the key material.
-    icacls $authKeysPath /inheritance:r /grant:r "$AnsibleUser`:(R)" /grant:r "NT SERVICE\sshd`:(R)" 2>$null | Out-Null
+    Invoke-Suppressed { icacls $authKeysPath /inheritance:r /grant:r "$AnsibleUser`:(R)" /grant:r "NT SERVICE\sshd`:(R)" }
     # Reassign ownership to ansible -- see StrictModes note above. Files created by the
     # admin are owned by Administrators; sshd rejects keys not owned by user or SYSTEM.
-    takeown /f $authKeysPath 2>$null | Out-Null
-    icacls $authKeysPath /setowner "$AnsibleUser" /C 2>$null | Out-Null
+    Invoke-Suppressed { takeown /f $authKeysPath }
+    Invoke-Suppressed { icacls $authKeysPath /setowner "$AnsibleUser" /C }
     Write-Host "  SSH public key added to $authKeysPath" -ForegroundColor Green
 }
 Write-Host ""
