@@ -181,6 +181,18 @@ $pubKey = $pubKey.Trim()
 
 # Write to authorized_keys (idempotent — append if key missing, skip if already present)
 $authKeysPath = "$sshDir\authorized_keys"
+
+# Repair the file ACL BEFORE reading/writing — a prior run may have left it locked
+# to ansible-only, blocking the running admin from reading or appending. The .ssh
+# directory ACL (Administrators:(OI)(CI)F) lets us create the file if missing, but
+# an existing file with /inheritance:r doesn't inherit that grant. Running icacls
+# here ensures the admin can access the file regardless of its prior state.
+# ponytail: an elevated admin who owns the file can always modify its DACL, so this
+# icacls succeeds even if the current ACL doesn't list Administrators.
+if (Test-Path $authKeysPath) {
+    icacls $authKeysPath /inheritance:r /grant:r "$AnsibleUser`:(R)" /grant:r "NT SERVICE\sshd`:(R)" 2>$null | Out-Null
+}
+
 $existingKeys = $null
 if (Test-Path $authKeysPath) {
     $existingKeys = Get-Content $authKeysPath -Raw -ErrorAction SilentlyContinue
