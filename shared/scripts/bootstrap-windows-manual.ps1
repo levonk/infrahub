@@ -141,9 +141,9 @@ if ($existingUser) {
 
 # Set a random password if the user has none. Windows' default LimitBlankPasswordUse
 # policy (HKLM\SYSTEM\CurrentControlSet\Control\Lsa\LimitBlankPasswordUse=1) blocks ALL
-# network logons — including SSH — for accounts with empty passwords, even when pubkey
+# network logons -- including SSH -- for accounts with empty passwords, even when pubkey
 # auth succeeds. The password just needs to exist; Ansible still uses key auth exclusively.
-# ponytail: idempotent — only sets a password if PasswordLastSet is null (never set).
+# ponytail: idempotent -- only sets a password if PasswordLastSet is null (never set).
 $userAccount = Get-LocalUser -Name $AnsibleUser
 if (-not $userAccount.PasswordLastSet) {
     $rngBytes = New-Object byte[] 24
@@ -163,7 +163,7 @@ $sshDir = "C:\Users\$AnsibleUser\.ssh"
 if (-not (Test-Path $sshDir)) {
     New-Item -ItemType Directory -Path $sshDir -Force | Out-Null
 }
-# Set permissions — ansible gets full control, Administrators get full control so the
+# Set permissions -- ansible gets full control, Administrators get full control so the
 # admin running this bootstrap can write authorized_keys in step 5. The authorized_keys
 # file itself is locked down to ansible-only after the key is written.
 # ponytail: unconditional (idempotent) so re-runs repair an ACL left broken by a prior run.
@@ -172,7 +172,7 @@ icacls $sshDir /inheritance:r /grant:r "$AnsibleUser`:(OI)(CI)F" /grant:r "Admin
 # silently rejects authorized_keys whose owner is not the user or SYSTEM. Files
 # created by the admin are owned by Administrators, so sshd refuses the key
 # even when the ACL is correct. icacles can't change owner; takeown.exe + icacls /setowner.
-# ponytail: idempotent — runs every time, no-op if already correct.
+# ponytail: idempotent -- runs every time, no-op if already correct.
 takeown /f $sshDir /r /d y 2>$null | Out-Null
 icacls $sshDir /setowner "$AnsibleUser" /T /C 2>$null | Out-Null
 Write-Host "  .ssh directory ready" -ForegroundColor Green
@@ -182,7 +182,7 @@ Write-Host ""
 Write-Host "[5/6] Adding SSH public key for $AnsibleUser..." -ForegroundColor Yellow
 
 # Get the public key
-# Embedded default — the control Mac's lzkmbp2016-micro-oracle key (also in client inventory).
+# Embedded default -- the control Mac's lzkmbp2016-micro-oracle key (also in client inventory).
 # Override with -SshKey <path> or -SshKeyString "<key>" for a different key.
 $defaultPubKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEWRbHy2sWZLKET/74zvt0rZa4ET2zjes/SB+Y/3BmKp lzkmbp2016-micro-oracle"
 $pubKey = $null
@@ -205,10 +205,10 @@ if (-not $pubKey -or $pubKey.Trim() -eq "") {
 }
 $pubKey = $pubKey.Trim()
 
-# Write to authorized_keys (idempotent — append if key missing, skip if already present)
+# Write to authorized_keys (idempotent -- append if key missing, skip if already present)
 $authKeysPath = "$sshDir\authorized_keys"
 
-# Repair the file ACL and ownership BEFORE reading/writing — a prior run may have
+# Repair the file ACL and ownership BEFORE reading/writing -- a prior run may have
 # left it locked to ansible-only, blocking the running admin from reading or appending.
 # The .ssh directory ACL (Administrators:(OI)(CI)F) lets us create the file if missing,
 # but an existing file with /inheritance:r doesn't inherit that grant. Running icacls
@@ -239,7 +239,7 @@ if ($existingKeys -and $existingKeys.Contains($pubKey)) {
     # SYSTEM bypasses the DACL so it isn't listed explicitly; Administrators is intentionally
     # absent so a compromised admin context can't tamper with the key material.
     icacls $authKeysPath /inheritance:r /grant:r "$AnsibleUser`:(R)" /grant:r "NT SERVICE\sshd`:(R)" 2>$null | Out-Null
-    # Reassign ownership to ansible — see StrictModes note above. Files created by the
+    # Reassign ownership to ansible -- see StrictModes note above. Files created by the
     # admin are owned by Administrators; sshd rejects keys not owned by user or SYSTEM.
     takeown /f $authKeysPath 2>$null | Out-Null
     icacls $authKeysPath /setowner "$AnsibleUser" /C 2>$null | Out-Null
@@ -269,7 +269,7 @@ if ($userCheck) {
     if ($userCheck.PasswordLastSet) {
         Write-Host " (password set: $($userCheck.PasswordLastSet))" -ForegroundColor Green
     } else {
-        Write-Host " (NO PASSWORD — SSH will be blocked by LimitBlankPasswordUse)" -ForegroundColor Red
+        Write-Host " (NO PASSWORD -- SSH will be blocked by LimitBlankPasswordUse)" -ForegroundColor Red
         Write-Host "ERROR: $AnsibleUser has no password. Re-run step 4 or set one manually:" -ForegroundColor Red
         Write-Host "  \$pw = Read-Host -AsSecureString; Set-LocalUser -Name $AnsibleUser -Password \$pw" -ForegroundColor Red
         exit 1
