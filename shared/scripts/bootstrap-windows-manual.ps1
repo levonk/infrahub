@@ -215,11 +215,14 @@ $authKeysPath = "$sshDir\authorized_keys"
 # here ensures the admin can access the file regardless of its prior state.
 # Ownership is also repaired: files created by the admin are owned by Administrators,
 # which sshd's StrictModes silently rejects (owner must be the user or SYSTEM).
-# ponytail: an elevated admin who owns the file can always modify its DACL, so this
-# icacls succeeds even if the current ACL doesn't list Administrators.
+# ponytail: takeown must run BEFORE icacls /grant. An elevated admin can always
+# take ownership (SeTakeOwnershipPrivilege) but can only modify a DACL if it's
+# the owner or has WRITE_DAC. A prior run leaves the file owned by $AnsibleUser
+# with no Administrators ACE, so icacls /grant would silently fail without the
+# takeown first.
 if (Test-Path $authKeysPath) {
-    icacls $authKeysPath /inheritance:r /grant:r "$AnsibleUser`:(R)" /grant:r "NT SERVICE\sshd`:(R)" /grant:r "Administrators`:(F)" 2>$null | Out-Null
     takeown /f $authKeysPath 2>$null | Out-Null
+    icacls $authKeysPath /inheritance:r /grant:r "$AnsibleUser`:(R)" /grant:r "NT SERVICE\sshd`:(R)" /grant:r "Administrators`:(F)" 2>$null | Out-Null
     icacls $authKeysPath /setowner "$AnsibleUser" /C 2>$null | Out-Null
 }
 
