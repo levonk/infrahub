@@ -31,7 +31,7 @@ AI Dashboard Proxy 1 → Privacy Orchestrator → Headroom → OmniRoute → AI 
 
 **Privacy Orchestrator**: The Privacy Orchestrator service (ai-privacy-proxy) provides PII detection and transformation capabilities between the entry stage proxy and Headroom compression. This ensures that PII is detected and transformed before data leaves the system.
 
-See [PIPELINE.md](PIPELINE.md) for detailed pipeline architecture and configuration.
+See [PIPELINE-AI.md](../../../../docs/PIPELINE-AI.md) for detailed pipeline architecture and configuration.
 
 ## Replacement Note
 

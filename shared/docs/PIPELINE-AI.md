@@ -1,5 +1,38 @@
 # AI Dashboard Pipeline Configuration
 
+## Architecture
+
+```mermaid
+flowchart LR
+    subgraph Origin["Request Origin"]
+        OMN["Omnigent\n(server)"]
+        PI["Pi\n(harness)"]
+        OMN -- "RPC (JSONL)" --> PI
+    end
+
+    subgraph Pipeline["Analytics & Optimization Pipeline"]
+        LIT["LiteLLM — aigate\nEntry: auth, keys,\nPII masking, spend,\nLangfuse traces"]
+        HEAD["Headroom\nContext compression\n(RTK+Caveman)"]
+        OR["OmniRoute — airoute\nProvider fanout\n4-tier fallback"]
+        FORGE["Forge\nTool-call repair"]
+        IP["Iron-Proxy\nEgress firewall\nMITM TLS inspection"]
+    end
+
+    subgraph Observability["Parallel Observability Sink"]
+        LF["Langfuse\nweb → postgres +\nclickhouse + redis + minio"]
+    end
+
+    subgraph Egress["Privacy Egress"]
+        NORD["NordVPN\nVPN tunnel"]
+        NET(("Internet"))
+    end
+
+    PI -- "OpenAI-compatible\nhttp://litellm:4000/v1" --> LIT
+    LIT -- "forwards traces" -.-> LF
+    LIT --> HEAD --> OR --> FORGE --> IP
+    IP -- "HTTP_PROXY chain" --> NORD --> NET
+```
+
 ## Recent Changes
 
 **2026-07-03**: Documented iron-proxy MITM TLS inspection and CA trust requirement

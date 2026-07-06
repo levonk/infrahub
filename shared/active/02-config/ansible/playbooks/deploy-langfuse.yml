@@ -1,12 +1,14 @@
 ---
 # Langfuse Deployment Playbook
 # Deploys Langfuse (LLM observability & tracing platform) as a parallel analytics
-# sink for the AI dashboard pipeline. Receives traces from AI Dashboard Proxy 1
-# (entry collector) via the Langfuse ingestion API. Web UI exposed via Traefik.
+# sink for the AI dashboard pipeline. Receives traces from LiteLLM (aigate, the
+# pipeline entry point) via the Langfuse ingestion API. Web UI exposed via Traefik.
 #
 # Stack: langfuse-web (UI + API) + langfuse-worker (async ingestion) + postgres
 #        (metadata) + clickhouse (events) + redis (queue) + minio (blob storage)
-# Pipeline integration: AI Dashboard Proxy 1 → (forwards traces) → langfuse-web
+# Pipeline integration: LiteLLM (aigate) → (forwards traces) → langfuse-web
+# langfuse-web attaches to proxy-chain-network (172.29.0.19) so LiteLLM can
+# resolve `langfuse-web:3000` without egressing through Traefik.
 #
 # Usage:
 #   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \

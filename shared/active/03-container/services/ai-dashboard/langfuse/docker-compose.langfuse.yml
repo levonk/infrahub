@@ -216,9 +216,9 @@ services:
     profiles: ["langfuse"]
 
   # Langfuse Web (UI + Ingestion API)
-  # Public-facing web UI and trace ingestion API. Receives traces from the
-  # AI Dashboard Pipeline (Proxy 1 forwards trace data here). Exposed via
-  # Traefik with the standard security middleware chain (GeoBlock → CrowdSec → Authelia).
+  # Public-facing web UI and trace ingestion API. Receives traces from LiteLLM
+  # (aigate, the pipeline entry point) which is on proxy-chain-network. Exposed
+  # via Traefik with the standard security middleware chain (GeoBlock → CrowdSec → Authelia).
   langfuse-web:
     image: langfuse/langfuse:3
     container_name: ${LANGFUSE_WEB_CONTAINER_NAME:-langfuse-web}
@@ -230,6 +230,9 @@ services:
         ipv4_address: ${LANGFUSE_WEB_AIDASHBOARD_IP:-172.35.0.40}
       traefik-network:
         ipv4_address: ${LANGFUSE_WEB_TRAEFIK_IP:-172.31.0.40}
+      # LiteLLM (aigate) reaches langfuse-web via this network for trace forwarding
+      proxy-chain-network:
+        ipv4_address: ${LANGFUSE_WEB_PROXY_CHAIN_IP:-172.29.0.19}
     depends_on:
       langfuse-postgres:
         condition: service_healthy

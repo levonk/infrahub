@@ -37,10 +37,35 @@ ai_omniroute_localnet_network_name: "{{ localnet_network_name | default('cloud-s
 ai_omniroute_traefik_network_name: "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"
 
 # Upstream proxy (iron-proxy egress firewall)
+# HTTP proxy (port 80) handles plain HTTP; tunnel proxy (port 8080) handles CONNECT for HTTPS
 ai_omniroute_http_proxy: "http://iron-proxy:80"
-ai_omniroute_https_proxy: "http://iron-proxy:80"
-ai_omniroute_no_proxy: "localhost,127.0.0.1"
+ai_omniroute_https_proxy: "http://iron-proxy:8080"
+ai_omniroute_no_proxy: "localhost,127.0.0.1,172.16.0.0/12,172.29.0.0/16,100.64.0.0/10,.tale-grouper.ts.net"
+
+# Admin dashboard password (argon2id hash from vault; OmniRoute INITIAL_PASSWORD)
+ai_omniroute_admin_password: "{{ vault_omniroute_admin_password | default('CHANGEME') }}"
+
+# Public base URL (required when behind HTTPS proxy / custom host)
+ai_omniroute_public_base_url: "https://{{ ai_omniroute_domain }}"
 
 # Traefik domain for the OmniRoute dashboard
 ai_omniroute_domain: "{{ infra_domain_ai_omniroute | default('airoute.levonk.com') }}"
+
+# ---------------------------------------------------------------------------
+# Managed Configuration (partial JSON upsert via /api/settings/import-json)
+# ---------------------------------------------------------------------------
+# When true, Ansible pushes a partial config (kckinai provider + combo) after
+# deploy. Uses INSERT OR REPLACE — only entities in the template are reconciled;
+# UI changes to other providers/combos/settings are preserved.
+# Set to false on hosts where you want full UI control.
+ai_omniroute_managed_config_enabled: true
+
+# Stable IDs for kckinai provider node + connection (must not change between runs)
+ai_omniroute_managed_kckinai_node_id: "openai-compatible-chat-80bc8d68-e654-428c-9c1b-24071252eb99"
+ai_omniroute_managed_kckinai_connection_id: "3649decd-0f6e-4508-86cc-1f06d7585044"
+ai_omniroute_managed_combo_id: "c8e982e7-824c-4c73-b33a-bd846001a026"
+
+# kckinai vLLM endpoint (Tailscale-accessible)
+ai_omniroute_managed_kckinai_base_url: "http://kckinai.tale-grouper.ts.net:8002/v1"
+ai_omniroute_managed_kckinai_model: "codgician/Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-GPTQ-int4"
 

@@ -50,7 +50,10 @@ proxy_iron_proxy_upstream_timeout: "{{ cloud_server_iron_proxy_upstream_timeout 
 # ---------------------------------------------------------------------------
 # Allowlist Configuration
 # ---------------------------------------------------------------------------
-proxy_iron_proxy_allowlist_warn: false
+# Warn mode: allow all traffic through, log what would be blocked.
+# This effectively makes iron-proxy an open egress proxy with audit logging.
+# Switch to false + populate allowed_domains/allowed_cidrs for default-deny.
+proxy_iron_proxy_allowlist_warn: true
 proxy_iron_proxy_allowed_domains: []
 proxy_iron_proxy_allowed_cidrs: []
 proxy_iron_proxy_allowlist_rules: []

@@ -28,6 +28,19 @@ http:
       tls:
         certResolver: letsencrypt
 
+    # API routes bypass Authelia — OmniRoute has its own auth (JWT session
+    # cookie, CLI token, or bearer API key with manage scope). Without this,
+    # expired Authelia sessions cause the dashboard's fetch() calls to get
+    # 302 redirects instead of JSON, breaking the UI silently.
+    omniroute-https-api:
+      rule: "Host(`{{ ai_omniroute_domain | default('airoute.levonk.com') }}`) && PathPrefix(`/api/`)"
+      entryPoints:
+        - websecure
+      service: omniroute
+      tls:
+        certResolver: letsencrypt
+      priority: 100
+
   services:
     omniroute:
       loadBalancer:

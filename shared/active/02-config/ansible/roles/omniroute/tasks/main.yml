@@ -67,6 +67,7 @@
       - "{{ ai_omniroute_host_port }}:{{ ai_omniroute_container_port }}/tcp"
     volumes:
       - "{{ ai_omniroute_volume_name }}:/app/data:rw"
+      - "{{ proxy_iron_proxy_data_dir | default('/opt/proxy/iron-proxy') }}/mounts/etc/iron-proxy/ca.crt:/usr/local/share/ca-certificates/iron-proxy-ca.crt:ro"
     env:
       PORT: "{{ ai_omniroute_container_port }}"
       NODE_ENV: production
@@ -76,9 +77,13 @@
       OMNIROUTE_COMPRESSION_ENABLED: "{{ ai_omniroute_compression_enabled }}"
       OMNIROUTE_RTK_ENABLED: "{{ ai_omniroute_rtk_enabled }}"
       OMNIROUTE_CAVEMAN_ENABLED: "{{ ai_omniroute_caveman_enabled }}"
+      INITIAL_PASSWORD: "{{ ai_omniroute_admin_password }}"
       HTTP_PROXY: "{{ ai_omniroute_http_proxy }}"
       HTTPS_PROXY: "{{ ai_omniroute_https_proxy }}"
       NO_PROXY: "{{ ai_omniroute_no_proxy }}"
+      OMNIROUTE_PUBLIC_BASE_URL: "{{ ai_omniroute_public_base_url }}"
+      NODE_EXTRA_CA_CERTS: "/usr/local/share/ca-certificates/iron-proxy-ca.crt"
+      SSL_CERT_FILE: "/usr/local/share/ca-certificates/iron-proxy-ca.crt"
     log_driver: json-file
     log_options:
       max-size: 10m
@@ -117,6 +122,66 @@
     delay: 10
     timeout: 120
   when: omniroute_deploy.changed
+
+# ---------------------------------------------------------------------------
+# Managed Configuration (partial JSON upsert)
+# Pushes kckinai provider + kckinaicombo via the import-json API.
+# Uses INSERT OR REPLACE — only entities in the template are reconciled.
+# UI changes to other providers/combos/settings are preserved.
+# ---------------------------------------------------------------------------
+- name: Render managed OmniRoute config
+  ansible.builtin.template:
+    src: managed-config.json.j2
+    dest: "/tmp/omniroute-managed-config-{{ ai_omniroute_container_name }}.json"
+    mode: "0600"
+  when: ai_omniroute_managed_config_enabled | bool
+  changed_when: false
+  no_log: true
+
+- name: Push managed config to OmniRoute (login + import)
+  ansible.builtin.shell: |
+    set -euo pipefail
+    COOKIE_FILE=$(mktemp)
+    trap 'rm -f "$COOKIE_FILE"' EXIT
+    # Login to get session cookie
+    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+      -c "$COOKIE_FILE" \
+      -X POST -H "Content-Type: application/json" \
+      -d "{\"username\":\"admin\",\"password\":\"{{ ai_omniroute_admin_password }}\"}" \
+      http://localhost:{{ ai_omniroute_host_port }}/api/auth/login)
+    if [ "$HTTP_CODE" != "200" ]; then
+      echo "Login failed with HTTP $HTTP_CODE" >&2
+      exit 1
+    fi
+    # Push the partial config (INSERT OR REPLACE upsert)
+    HTTP_CODE=$(curl -s -o /tmp/omniroute-import-response.txt -w "%{http_code}" \
+      -b "$COOKIE_FILE" \
+      -X POST -H "Content-Type: application/json" \
+      -d @/tmp/omniroute-managed-config-{{ ai_omniroute_container_name }}.json \
+      http://localhost:{{ ai_omniroute_host_port }}/api/settings/import-json)
+    cat /tmp/omniroute-import-response.txt
+    if [ "$HTTP_CODE" != "200" ]; then
+      echo "Import failed with HTTP $HTTP_CODE" >&2
+      exit 1
+    fi
+  args:
+    executable: /bin/bash
+  when: ai_omniroute_managed_config_enabled | bool
+  changed_when: false
+  no_log: true
+  register: omniroute_managed_config_result
+
+- name: Show managed config import result
+  ansible.builtin.debug:
+    msg: "{{ omniroute_managed_config_result.stdout | from_json }}"
+  when: ai_omniroute_managed_config_enabled | bool and omniroute_managed_config_result.stdout | length > 0
+
+- name: Clean up rendered managed config
+  ansible.builtin.file:
+    path: "/tmp/omniroute-managed-config-{{ ai_omniroute_container_name }}.json"
+    state: absent
+  when: ai_omniroute_managed_config_enabled | bool
+  changed_when: false
 
 # ============================================================================
 # Status Report

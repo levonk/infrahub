@@ -1,0 +1,123 @@
+{
+  "providerConnections": [
+    {
+      "id": "{{ ai_omniroute_managed_kckinai_connection_id }}",
+      "provider": "{{ ai_omniroute_managed_kckinai_node_id }}",
+      "authType": "apikey",
+      "name": "kckinai-vllm",
+      "priority": 1,
+      "isActive": true,
+      "apiKey": "dummy",
+      "providerSpecificData": {
+        "baseUrl": "{{ ai_omniroute_managed_kckinai_base_url }}",
+        "apiType": "chat",
+        "chatPath": "/chat/completions",
+        "modelsPath": "/models",
+        "prefix": "kckinai",
+        "nodeName": "kckinai-vllm",
+        "apiKeyHealth": {}
+      },
+      "rateLimitProtection": false,
+      "consecutiveUseCount": 0,
+      "backoffLevel": 0
+    }
+  ],
+  "providerNodes": [
+    {
+      "id": "{{ ai_omniroute_managed_kckinai_node_id }}",
+      "type": "openai-compatible",
+      "name": "kckinai-vllm",
+      "prefix": "kckinai",
+      "apiType": "chat",
+      "baseUrl": "{{ ai_omniroute_managed_kckinai_base_url }}",
+      "chatPath": "/chat/completions",
+      "modelsPath": "/models",
+      "customHeaders": null
+    }
+  ],
+  "combos": [
+    {
+      "id": "{{ ai_omniroute_managed_combo_id }}",
+      "name": "kckinaicombo",
+      "models": [
+        {
+          "id": "kckinaicombo-model-1-kckinai",
+          "kind": "model",
+          "model": "{{ ai_omniroute_managed_kckinai_node_id }}/{{ ai_omniroute_managed_kckinai_model }}",
+          "providerId": "{{ ai_omniroute_managed_kckinai_node_id }}",
+          "connectionId": "{{ ai_omniroute_managed_kckinai_connection_id }}",
+          "weight": 14,
+          "label": "kckinai-vllm"
+        },
+        {
+          "id": "kckinaicombo-model-2-agy-gemini-3-5-flash-medium",
+          "kind": "model",
+          "model": "agy/gemini-3.5-flash-medium",
+          "providerId": "agy",
+          "weight": 14
+        },
+        {
+          "id": "kckinaicombo-model-3-kr-claude-sonnet-4-5",
+          "kind": "model",
+          "model": "kr/claude-sonnet-4.5",
+          "providerId": "kr",
+          "weight": 12
+        },
+        {
+          "id": "kckinaicombo-model-4-if-kimi-k2-thinking",
+          "kind": "model",
+          "model": "if/kimi-k2-thinking",
+          "providerId": "if",
+          "weight": 12
+        },
+        {
+          "id": "kckinaicombo-model-5-if-qwen3-coder-plus",
+          "kind": "model",
+          "model": "if/qwen3-coder-plus",
+          "providerId": "if",
+          "weight": 12
+        },
+        {
+          "id": "kckinaicombo-model-6-if-deepseek-v3-2",
+          "kind": "model",
+          "model": "if/deepseek-v3.2",
+          "providerId": "if",
+          "weight": 12
+        },
+        {
+          "id": "kckinaicombo-model-7-nvidia-llama-3-3-70b-instruct",
+          "kind": "model",
+          "model": "nvidia/llama-3.3-70b-instruct",
+          "providerId": "nvidia",
+          "weight": 12
+        },
+        {
+          "id": "kckinaicombo-model-8-groq-llama-3-3-70b-versatile",
+          "kind": "model",
+          "model": "groq/llama-3.3-70b-versatile",
+          "providerId": "groq",
+          "weight": 12
+        }
+      ],
+      "strategy": "weighted",
+      "config": {
+        "maxRetries": 3,
+        "retryDelayMs": 500,
+        "handoffThreshold": 0.85,
+        "handoffModel": "",
+        "maxMessagesForSummary": 30,
+        "trackMetrics": true,
+        "reasoningTokenBufferEnabled": true,
+        "zeroLatencyOptimizationsEnabled": false
+      },
+      "isHidden": false,
+      "sortOrder": 1,
+      "version": 2
+    }
+  ],
+  "_meta": {
+    "managedBy": "ansible",
+    "scope": "partial-upsert",
+    "note": "Only kckinai provider + kckinaicombo are managed. UI changes to other entities are preserved."
+  }
+}

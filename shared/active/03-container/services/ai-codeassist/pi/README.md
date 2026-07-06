@@ -47,7 +47,7 @@ Omnigent → Pi (harness) → AI Dashboard Proxy 1 → Privacy Orchestrator → 
 
 Pi is configured with a custom "pipeline" provider (see `models.json`) that points its LLM requests at `http://ai-dashboard-proxy-1:8081/v1` — the pipeline entry point. This ensures all pi LLM traffic flows through the analytics pipeline for collection, PII detection, compression, routing, and security enforcement.
 
-See `shared/active/03-container/services/ai-dashboard/PIPELINE.md` for the full pipeline architecture.
+See `shared/docs/PIPELINE-AI.md` for the full pipeline architecture.
 
 ## Configuration
 
@@ -160,4 +160,4 @@ Pi joins three networks to bridge Omnigent and the analytics pipeline:
 - **RPC mode docs**: https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/rpc.md
 - **SDK docs**: https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/sdk.md
 - **Omnigent (orchestrator)**: `shared/active/03-container/services/ai-codeassist/omnigent/`
-- **Pipeline architecture**: `shared/active/03-container/services/ai-dashboard/PIPELINE.md`
+- **Pipeline architecture**: `shared/docs/PIPELINE-AI.md`

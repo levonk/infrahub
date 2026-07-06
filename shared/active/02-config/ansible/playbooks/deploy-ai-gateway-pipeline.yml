@@ -12,6 +12,11 @@
 # PII guardrail (Presidio), and Langfuse logging. Routes to Headroom for
 # compression, then to OmniRoute for provider fanout.
 #
+# Langfuse is deployed first (via deploy-langfuse.yml) so LiteLLM can reach
+# the ingestion API at startup. langfuse-web attaches to proxy-chain-network
+# (172.29.0.19) so LiteLLM resolves `langfuse-web:3000` without egressing
+# through Traefik.
+#
 # This playbook uses Ansible roles with community.docker modules — NEVER docker compose.
 #
 # Usage:
@@ -21,6 +26,14 @@
 #   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
 #     shared/active/02-config/ansible/playbooks/deploy-ai-gateway-pipeline.yml \
 #     --check --diff --vault-password-file ~/.ansible/vault_password
+
+# ===========================================================================
+# Pre-stage: deploy Langfuse (parallel observability sink)
+# LiteLLM's success/failure callbacks forward traces here, so it must be up
+# before LiteLLM starts. Skippable with --skip-tags langfuse.
+# ===========================================================================
+- import_playbook: deploy-langfuse.yml
+  tags: [langfuse]
 
 - name: "Deploy AI Gateway Pipeline (LiteLLM + OmniRoute)"
   hosts: cloud_servers

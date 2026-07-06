@@ -33,6 +33,23 @@ http:
       tls:
         certResolver: letsencrypt
 
+    # API routes bypass Authelia — Omnigent has its own auth (accounts mode
+    # with JWT session cookie or bearer token). Without this bypass, the
+    # `omni` CLI (login, host registration, query) gets 302 redirects to
+    # Authelia instead of JSON responses, breaking headless runner registration.
+    # Omnigent's API lives under /v1/ (sessions, hosts, runners, tunnel) and
+    # /auth/ (login, setup, users) — NOT /api/. The /health endpoint is also
+    # bypassed so the Docker healthcheck and external monitors work.
+    # Same pattern as the airoute-levonk-com API bypass.
+    omnigent-https-api:
+      rule: "Host(`{{ aiif_domain | default('aiif.levonk.com') }}`) && (PathPrefix(`/v1/`) || PathPrefix(`/auth/`) || Path(`/health`))"
+      entryPoints:
+        - websecure
+      service: omnigent
+      tls:
+        certResolver: letsencrypt
+      priority: 100
+
   services:
     omnigent:
       loadBalancer:

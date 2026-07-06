@@ -51,6 +51,12 @@
         file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/inventories/group_vars/windows_docker_hosts.yml"
       tags: ["always"]
 
+    - name: "Load client vault (for omnigent_accounts_init_admin_password)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/inventories/group_vars/infrahub-levonk-all.vault.yml"
+      tags: ["always"]
+      no_log: true
+
     - name: "Set omnigent_server_url from client infra_domain_ai_omnigent"
       ansible.builtin.set_fact:
         omnigent_server_url: "https://{{ infra_domain_ai_omnigent }}"
@@ -61,9 +67,11 @@
       ansible.builtin.assert:
         that:
           - windows_registry_url is defined
-        fail_msg: "Missing windows_registry_url. Check group_vars/windows_docker_hosts.yml"
-        success_msg: "Registry URL OK."
+          - omnigent_accounts_init_admin_password is defined
+        fail_msg: "Missing required vars. Check group_vars/windows_docker_hosts.yml and infrahub-levonk-all.vault.yml"
+        success_msg: "Registry URL + omnigent credentials OK."
       tags: ["always", "validate"]
+      no_log: true
 
     - name: "Check Docker is available on control machine"
       ansible.builtin.command:
@@ -224,7 +232,17 @@
           PUID: "1000"
           PGID: "1000"
           TZ: "UTC"
+          USERNAME: "cuser"
           OMNIGENT_SERVER_URL: "{{ omnigent_server_url | default('https://aiif.levonk.com') }}"
+          OMNIGENT_USERNAME: "{{ omnigent_admin_username | default('root') }}"
+          OMNIGENT_PASSWORD: "{{ omnigent_accounts_init_admin_password }}"
+        # ponytail: aiif.levonk.com is a CNAME to oci.tale-grouper.ts.net
+        # (Tailscale DNS). Docker Desktop's embedded DNS doesn't forward to
+        # the Tailscale resolver, so the container can't resolve the name.
+        # Hardcode the OCI server's Tailscale IP until Docker Desktop DNS
+        # supports Tailscale, or we switch to a public DNS name.
+        etc_hosts:
+          "aiif.levonk.com": "{{ omnigent_server_ip | default('100.90.22.85') }}"
         volumes:
           - nix-cache:/root/.cache/nix
           - nix-config:/etc/nix

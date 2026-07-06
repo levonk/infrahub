@@ -45,6 +45,8 @@ infra_network_ip_langfuse_redis: "172.37.0.40"
 infra_network_ip_langfuse_minio: "172.37.0.50"
 # Traefik-network IP for langfuse-web (public routing)
 infra_network_ip_langfuse_traefik: "172.31.0.40"
+# proxy-chain-network IP for langfuse-web (LiteLLM → Langfuse trace forwarding)
+infra_network_ip_langfuse_web_proxy_chain: "172.29.0.19"
 
 # ---------------------------------------------------------------------------
 # DNS Networks
