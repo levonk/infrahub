@@ -10,6 +10,7 @@ RUN apt-get update && \
         curl \
         ca-certificates \
         xz-utils \
+        tmux \
         && \
     rm -rf /var/lib/apt/lists/*
 

@@ -214,7 +214,7 @@ else
     # Use --priority to avoid conflicts if packages are already present (though unlikely in fresh profile)
     # Add timeout to prevent hanging - increased for large nixpkgs downloads
     #timeout 180 nix profile install nixpkgs#nix nixpkgs#bash nixpkgs#coreutils nixpkgs#git nixpkgs#jq --profile /nix/var/nix/profiles/per-user/root/profile --priority 10 || {
-    nix profile install nixpkgs#nix nixpkgs#bash nixpkgs#coreutils nixpkgs#git nixpkgs#jq --profile /nix/var/nix/profiles/per-user/root/profile --priority 10 || {
+    nix profile install nixpkgs#nix nixpkgs#bash nixpkgs#coreutils nixpkgs#git nixpkgs#jq nixpkgs#devbox nixpkgs#gosu nixpkgs#uv nixpkgs#bun --profile /nix/var/nix/profiles/per-user/root/profile --priority 10 || {
         echo "⚠️ Warning: Core tools installation timed out or failed, continuing with available tools..."
     }
 fi

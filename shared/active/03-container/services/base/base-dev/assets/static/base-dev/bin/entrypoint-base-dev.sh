@@ -77,13 +77,15 @@ find_tool() {
     return 1
 }
 
-SU_EXEC=$(find_tool su-exec)
-GOSU=$(find_tool gosu)
-SU=$(find_tool su)
-ID=$(find_tool id)
-GROUPMOD=$(find_tool groupmod)
-USERMOD=$(find_tool usermod)
-CHOWN=$(find_tool chown)
+# ponytail: `|| true` prevents set -e from killing the script when a tool
+# is absent. Downstream code guards with [ -n "$VAR" ] so empty is safe.
+SU_EXEC=$(find_tool su-exec || true)
+GOSU=$(find_tool gosu || true)
+SU=$(find_tool su || true)
+ID=$(find_tool id || true)
+GROUPMOD=$(find_tool groupmod || true)
+USERMOD=$(find_tool usermod || true)
+CHOWN=$(find_tool chown || true)
 
 # Check if user exists
 if [ -n "$ID" ] && "$ID" "$USERNAME" &>/dev/null; then
@@ -145,8 +147,12 @@ execute_as_user() {
         exec "$GOSU" "$USERNAME" /bin/sh -c "NIX_SSL_CERT_FILE=\"$NIX_SSL_CERT_FILE\" SSL_CERT_FILE=\"$SSL_CERT_FILE\" CURL_CA_BUNDLE=\"$CURL_CA_BUNDLE\" GIT_SSL_CAINFO=\"$GIT_SSL_CAINFO\" $*"
     elif [ -n "$SU_EXEC" ]; then
         exec "$SU_EXEC" "$USERNAME" /bin/sh -c "NIX_SSL_CERT_FILE=\"$NIX_SSL_CERT_FILE\" SSL_CERT_FILE=\"$SSL_CERT_FILE\" CURL_CA_BUNDLE=\"$CURL_CA_BUNDLE\" GIT_SSL_CAINFO=\"$GIT_SSL_CAINFO\" $*"
+    elif [ -n "$SU" ]; then
+        # ponytail: `su` fallback when gosu/su-exec are absent (base-kalinix
+        # doesn't ship either). -s /bin/sh avoids the user's login shell.
+        exec "$SU" "$USERNAME" -s /bin/sh -c "NIX_SSL_CERT_FILE=\"$NIX_SSL_CERT_FILE\" SSL_CERT_FILE=\"$SSL_CERT_FILE\" CURL_CA_BUNDLE=\"$CURL_CA_BUNDLE\" GIT_SSL_CAINFO=\"$GIT_SSL_CAINFO\" $*"
     else
-        echo "❌ Dev Base: Error: No gosu or su-exec found. Cannot drop privileges."
+        echo "❌ Dev Base: Error: No gosu, su-exec, or su found. Cannot drop privileges."
         exit 1
     fi
 }
@@ -178,141 +184,215 @@ execute_as_user_in_devbox() {
         "$GOSU" "$USERNAME" /bin/sh -c "NIX_SSL_CERT_FILE=\"$NIX_SSL_CERT_FILE\" SSL_CERT_FILE=\"$SSL_CERT_FILE\" CURL_CA_BUNDLE=\"$CURL_CA_BUNDLE\" GIT_SSL_CAINFO=\"$GIT_SSL_CAINFO\" devbox run -- $*"
     elif [ -n "$SU_EXEC" ]; then
         "$SU_EXEC" "$USERNAME" /bin/sh -c "NIX_SSL_CERT_FILE=\"$NIX_SSL_CERT_FILE\" SSL_CERT_FILE=\"$SSL_CERT_FILE\" CURL_CA_BUNDLE=\"$CURL_CA_BUNDLE\" GIT_SSL_CAINFO=\"$GIT_SSL_CAINFO\" devbox run -- $*"
+    elif [ -n "$SU" ]; then
+        # ponytail: `su` fallback when gosu/su-exec are absent. `su` needs
+        # a shell, so we wrap with -s /bin/sh -c. devbox run executes the
+        # command inside the nix/devbox environment for the user.
+        "$SU" "$USERNAME" -s /bin/sh -c "NIX_SSL_CERT_FILE=\"$NIX_SSL_CERT_FILE\" SSL_CERT_FILE=\"$SSL_CERT_FILE\" CURL_CA_BUNDLE=\"$CURL_CA_BUNDLE\" GIT_SSL_CAINFO=\"$GIT_SSL_CAINFO\" devbox run -- $*"
     else
-        echo "❌ Dev Base: Error: No gosu or su-exec found. Cannot drop privileges."
+        echo "❌ Dev Base: Error: No gosu, su-exec, or su found. Cannot drop privileges."
         exit 1
     fi
 }
 
-# Optional setup commands - these may fail if tools aren't available
-echo "🤖 Dev Base: Running optional setup commands..."
-# Check for curl inside Devbox development shell
-execute_as_user_in_devbox "which curl" >/dev/null 2>&1 || { echo "❌ curl not available in Devbox development environment"; exit 1; }
-# Try with SSL verification first, fallback to insecure if needed
-if execute_as_user_in_devbox "curl --connect-timeout 10 -fsSL https://app.factory.ai/cli | sh" 2>/dev/null; then
-    echo "✅ app.factory.ai CLI installed successfully"
-else
-    echo "⚠️ SSL verification failed, trying with --insecure flag..."
-    execute_as_user_in_devbox "curl --connect-timeout 10 --insecure -fsSL https://app.factory.ai/cli | sh" || { echo "❌ Failed to install app.factory.ai CLI in Devbox development environment"; exit 1; }
-fi
+# ---------------------------------------------------------------------------
+# CRITICAL PATH: omnigent CLI install + runner registration
+# This must succeed for the container to serve its purpose. Everything below
+# this block (optional dev tools) is non-fatal.
+# ---------------------------------------------------------------------------
+echo "🤖 Dev Base: Devbox development environment ready"
 
-if execute_as_user_in_devbox "curl -fsSL https://raw.githubusercontent.com/asheshgoplani/agent-deck/main/install.sh | bash" 2>/dev/null; then
-    echo "✅ agent-deck installed successfully"
-else
-    echo "⚠️ Failed to install agent-deck"
-fi
-
-
-
-
-# Devbox environment is already ready
-echo "🤖 Devbox development environment ready"
-
-# Check and install pnpm packages inside Devbox development shell
-echo "🤖 Checking for pnpm in Devbox development environment..."
-execute_as_user_in_devbox "which pnpm" >/dev/null 2>&1 || { echo "❌ pnpm not available in Devbox development environment"; exit 1; }
-echo "🤖 Installing pnpm packages in Devbox development environment..."
-execute_as_user_in_devbox "pnpm setup" || { echo "❌ Failed to run pnpm setup in Devbox development environment"; exit 1; }
-execute_as_user_in_devbox "pnpm install -g @beads/bd" || { echo "❌ Failed to install @beads/bd in Devbox development environment"; exit 1; }
-execute_as_user_in_devbox "pnpm install -g openskills" || { echo "❌ Failed to install openskills in Devbox development environment"; exit 1; }
-execute_as_user_in_devbox "pnpm install -g agent-browser" || { echo "❌ Failed to install agent-browser in Devbox development environment"; exit 1; }
-execute_as_user_in_devbox "pnpm install -g @tobilu/qmd" || { echo "❌ Failed to install @tobilu/qmd in Devbox development environment"; exit 1; }
-execute_as_user_in_devbox "pnpm install -g @twsxtd/hapi" || { echo "❌ Failed to install @twsxtd/hapi in Devbox development environment"; exit 1; }
-# https://github.com/vercel-labs/portless
-execute_as_user_in_devbox "pnpm install -g portless" || { echo "❌ Failed to install portless in Devbox development environment"; exit 1; }
-# https://turbo.build/
-execute_as_user_in_devbox "pnpm install -g turbo" || { echo "❌ Failed to install turbo in Devbox development environment"; exit 1; }
-# https://yarnpkg.com/
-execute_as_user_in_devbox "pnpm install -g yarn" || { echo "❌ Failed to install yarn in Devbox development environment"; exit 1; }
-# https://bun.sh/
-execute_as_user_in_devbox "pnpm install -g bun" || { echo "❌ Failed to install bun in Devbox development environment"; exit 1; }
-# https://github.com/afshinm/zerobox
-execute_as_user_in_devbox "pnpm install -g zerobox" || { echo "❌ Failed to install zerobox in Devbox development environment"; exit 1; }
-# https://github.com/kapishdima/soundcn
-execute_as_user_in_devbox "npx shadcn add https://soundcn.xyz/r/click-soft.json" || { echo "❌ Failed to install shadcn component in Devbox development environment"; exit 1; }
-# https://github.com/anl331/goey-toast?tab=readme-ov-file
-execute_as_user_in_devbox "npx shadcn@latest add https://goey-toast.vercel.app/r/goey-toaster.json" || { echo "❌ Failed to install shadcn component in Devbox development environment"; exit 1; }
-
-# Function to install Python packages using uv
-install_python_package() {
-    local package_name="$1"
-    echo "🤖 Installing Python package: $package_name"
-    
-    # Check for Python interpreter and install package
-    if execute_as_user_in_devbox "which python3" >/dev/null 2>&1; then
-        execute_as_user_in_devbox "uv pip install --python \$(which python3) --system $package_name" || { echo "❌ Failed to install $package_name in Devbox development environment"; exit 1; }
-    elif execute_as_user_in_devbox "which python" >/dev/null 2>&1; then
-        execute_as_user_in_devbox "uv pip install --python \$(which python) --system $package_name" || { echo "❌ Failed to install $package_name in Devbox development environment"; exit 1; }
-    else
-        echo "❌ No Python interpreter found in Devbox development environment"
-        exit 1
+# ponytail: Install uv + omnigent CLI directly via nix/gosu, NOT via devbox.
+# devbox run tries to install ALL 200+ packages in devbox.json, which is slow
+# and fragile (comby fails nix evaluation). The critical path only needs uv
+# to install the omnigent CLI. We install uv to the root nix profile (shared
+# via volume), then use gosu to run uv as cuser.
+if [ -n "$GOSU" ]; then
+    # Ensure uv is available in the root nix profile
+    if ! command -v uv >/dev/null 2>&1 && [ -x "/nix/var/nix/profiles/per-user/root/profile/bin/uv" ]; then
+        export PATH="/nix/var/nix/profiles/per-user/root/profile/bin:$PATH"
     fi
-}
+    if ! command -v uv >/dev/null 2>&1; then
+        echo "🤖 Dev Base: Installing uv via nix profile..."
+        nix profile install nixpkgs#uv --profile /nix/var/nix/profiles/per-user/root/profile 2>/dev/null || echo "⚠️ Failed to install uv via nix"
+        export PATH="/nix/var/nix/profiles/per-user/root/profile/bin:$PATH"
+    fi
 
-# Function to install Cargo packages that aren't available as Nix packages yet
-install_cargo_package() {
-    local package_name="$1"
-    echo "🤖 Installing Cargo package: $package_name"
-    
-    # Check for Cargo and install package
+    # Install omnigent CLI via uv tool (container-wide, available in all shells)
+    # Version is unpinned because the runner must match the server — the server
+    # negotiates the protocol on connect, so a stale runner just 409s and the
+    # user re-runs this entrypoint or `uv tool upgrade omnigent`.
+    if command -v uv >/dev/null 2>&1; then
+        echo "🤖 Dev Base: Installing omnigent CLI via uv tool..."
+        "$GOSU" "$USERNAME" /bin/sh -c "NIX_SSL_CERT_FILE=\"$NIX_SSL_CERT_FILE\" SSL_CERT_FILE=\"$SSL_CERT_FILE\" CURL_CA_BUNDLE=\"$CURL_CA_BUNDLE\" GIT_SSL_CAINFO=\"$GIT_SSL_CAINFO\" PATH=\"$PATH\" uv tool install omnigent" 2>&1 || { echo "⚠️ Failed to install omnigent CLI"; }
+    else
+        echo "⚠️ uv not available, cannot install omnigent CLI"
+    fi
+
+    # Register as Omnigent runner if OMNIGENT_SERVER_URL is set.
+    # ponytail: headless login — `omni login` uses click.prompt for username +
+    # password (no --username/--password flags). We pipe credentials via stdin
+    # to avoid the interactive prompt. OMNIGENT_USERNAME and OMNIGENT_PASSWORD
+    # are set by the Ansible playbook from vault.
+    if [ -n "${OMNIGENT_SERVER_URL:-}" ]; then
+        echo "🤖 Dev Base: Registering as Omnigent runner against ${OMNIGENT_SERVER_URL}..."
+        # Find the omni binary (uv tool installs to ~/.local/bin)
+        OMNI_BIN="/home/$USERNAME/.local/bin/omni"
+        if [ -x "$OMNI_BIN" ]; then
+            USER_PATH="$PATH:/home/$USERNAME/.local/bin:/home/$USERNAME/.bun/bin"
+            SSL_ENV="NIX_SSL_CERT_FILE=\"$NIX_SSL_CERT_FILE\" SSL_CERT_FILE=\"$SSL_CERT_FILE\" CURL_CA_BUNDLE=\"$CURL_CA_BUNDLE\" GIT_SSL_CAINFO=\"$GIT_SSL_CAINFO\""
+            if [ -n "${OMNIGENT_USERNAME:-}" ] && [ -n "${OMNIGENT_PASSWORD:-}" ]; then
+                # Pipe username + password to omni login's click.prompt
+                printf '%s\n%s\n' "${OMNIGENT_USERNAME}" "${OMNIGENT_PASSWORD}" | "$GOSU" "$USERNAME" /bin/sh -c "$SSL_ENV PATH=\"$USER_PATH\" omni login \"${OMNIGENT_SERVER_URL}\"" 2>&1 || { echo "⚠️ Failed to login to Omnigent server"; }
+                # Register as host in the background — omni host stays connected
+                # via WebSocket and blocks, so we background it with & and let
+                # the entrypoint continue to devbox update + harness installs.
+                "$GOSU" "$USERNAME" /bin/sh -c "$SSL_ENV PATH=\"$USER_PATH\" nohup omni host \"${OMNIGENT_SERVER_URL}\" > /tmp/omni-host.log 2>&1 &" 2>&1
+                echo "🤖 Dev Base: omni host started in background (logs at /tmp/omni-host.log)"
+            else
+                "$GOSU" "$USERNAME" /bin/sh -c "$SSL_ENV PATH=\"$USER_PATH\" nohup omni login \"${OMNIGENT_SERVER_URL}\" && nohup omni host \"${OMNIGENT_SERVER_URL}\" > /tmp/omni-host.log 2>&1 &" 2>&1 || { echo "⚠️ Failed to register as Omnigent runner (interactive login may be needed)"; }
+            fi
+        else
+            echo "⚠️ omni CLI not found at $OMNI_BIN, skipping registration"
+        fi
+    fi
+else
+    echo "⚠️ No gosu available, skipping omnigent CLI install + registration"
+fi
+
+# ---------------------------------------------------------------------------
+# BACKGROUND: devbox update + harness CLI installs
+# ponytail: devbox update fixes the legacy format warning and broken packages
+# (e.g. comby fails nix evaluation). Runs in the background so the container
+# is ready immediately; devbox packages become available as they install.
+# Also installs bun (via nix) and the pi CLI (via bun install -g) so the
+# pi-native harness shows as configured on the host. The omni host daemon
+# was started with ~/.bun/bin on PATH above, so it finds pi once installed.
+# ---------------------------------------------------------------------------
+if [ -n "$GOSU" ] && [ -x "/nix/var/nix/profiles/per-user/root/profile/bin/devbox" ]; then
+    echo "🤖 Dev Base: Starting background devbox update + harness CLI installs..."
+    (
+        set +e
+        NIX_BIN="/nix/var/nix/profiles/per-user/root/profile/bin"
+        USER_PATH="$NIX_BIN:/home/$USERNAME/.local/bin:/home/$USERNAME/.bun/bin"
+        SSL_ENV="NIX_SSL_CERT_FILE=\"$NIX_SSL_CERT_FILE\" SSL_CERT_FILE=\"$SSL_CERT_FILE\" CURL_CA_BUNDLE=\"$CURL_CA_BUNDLE\" GIT_SSL_CAINFO=\"$GIT_SSL_CAINFO\""
+
+        # devbox update: migrates legacy format + repairs broken package refs.
+        # ponytail: run as root because cuser can't access /nix/var/nix/db/big-lock
+        # (the nix daemon db). devbox update only rewrites devbox.json — it
+        # doesn't install packages, so root is fine.
+        "$GOSU" root /bin/sh -c "$SSL_ENV PATH=\"$USER_PATH\" devbox update --quiet" > /tmp/devbox-update.log 2>&1
+        DEVBX_UPD_RC=$?
+        if [ $DEVBX_UPD_RC -eq 0 ]; then
+            echo "✅ devbox update completed (background)" | tee -a /tmp/devbox-update.log
+        else
+            echo "⚠️ devbox update failed (rc=$DEVBX_UPD_RC) — see /tmp/devbox-update.log" | tee -a /tmp/devbox-update.log
+        fi
+
+        # Install bun via nix profile (needed for npm-package-based harness CLIs)
+        if ! [ -x "$NIX_BIN/bun" ]; then
+            echo "🤖 Dev Base: Installing bun via nix profile (background)..." >> /tmp/devbox-update.log 2>&1
+            nix profile install nixpkgs#bun --profile /nix/var/nix/profiles/per-user/root/profile >> /tmp/devbox-update.log 2>&1
+        fi
+
+        # Install pi CLI via bun (enables pi-native harness on this host)
+        if [ -x "$NIX_BIN/bun" ]; then
+            if ! [ -x "/home/$USERNAME/.bun/bin/pi" ] && ! command -v pi >/dev/null 2>&1; then
+                echo "🤖 Dev Base: Installing pi CLI via bun (background)..." >> /tmp/devbox-update.log 2>&1
+                BUN_INSTALL="/home/$USERNAME/.bun"
+                mkdir -p "$BUN_INSTALL/bin"
+                chown -R "$USERNAME:$USERNAME" "$BUN_INSTALL"
+                "$GOSU" "$USERNAME" /bin/sh -c "$SSL_ENV PATH=\"$USER_PATH\" BUN_INSTALL=\"$BUN_INSTALL\" bun install -g @earendil-works/pi-coding-agent" >> /tmp/devbox-update.log 2>&1
+                if [ $? -eq 0 ] && [ -x "/home/$USERNAME/.bun/bin/pi" ]; then
+                    echo "✅ pi CLI installed (background)" | tee -a /tmp/devbox-update.log
+                else
+                    echo "⚠️ pi CLI install failed — see /tmp/devbox-update.log" | tee -a /tmp/devbox-update.log
+                fi
+            else
+                echo "✅ pi CLI already available" >> /tmp/devbox-update.log 2>&1
+            fi
+        else
+            echo "⚠️ bun not available, cannot install pi CLI" >> /tmp/devbox-update.log 2>&1
+        fi
+
+        echo "🤖 Dev Base: Background devbox update + harness installs complete" >> /tmp/devbox-update.log 2>&1
+    ) &
+    echo "🤖 Dev Base: Background task started (PID $!), logs at /tmp/devbox-update.log"
+else
+    echo "⚠️ devbox not available, skipping background devbox update + harness installs"
+fi
+
+# ---------------------------------------------------------------------------
+# OPTIONAL DEV TOOLS: factory.ai, pnpm packages, cargo packages, etc.
+# Wrapped in a subshell with set +e so any failure exits only the subshell,
+# not the container. The container stays up even if every optional tool fails.
+# ---------------------------------------------------------------------------
+(
+    set +e
+    echo "🤖 Dev Base: Installing optional dev tools (non-fatal)..."
+
+    # curl check
+    execute_as_user_in_devbox "which curl" >/dev/null 2>&1 || { echo "⚠️ curl not available, skipping network installs"; exit 0; }
+
+    # factory.ai CLI
+    if execute_as_user_in_devbox "curl --connect-timeout 10 -fsSL https://app.factory.ai/cli | sh" 2>/dev/null; then
+        echo "✅ app.factory.ai CLI installed successfully"
+    else
+        echo "⚠️ Failed to install app.factory.ai CLI"
+    fi
+
+    # agent-deck
+    if execute_as_user_in_devbox "curl -fsSL https://raw.githubusercontent.com/asheshgoplani/agent-deck/main/install.sh | bash" 2>/dev/null; then
+        echo "✅ agent-deck installed successfully"
+    else
+        echo "⚠️ Failed to install agent-deck"
+    fi
+
+    # pnpm packages
+    if execute_as_user_in_devbox "which pnpm" >/dev/null 2>&1; then
+        execute_as_user_in_devbox "pnpm setup" 2>/dev/null
+        for pkg in @beads/bd openskills agent-browser @tobilu/qmd @twsxtd/hapi portless turbo yarn bun zerobox; do
+            execute_as_user_in_devbox "pnpm install -g $pkg" 2>/dev/null && echo "✅ $pkg" || echo "⚠️ $pkg failed"
+        done
+    else
+        echo "⚠️ pnpm not available, skipping npm global installs"
+    fi
+
+    # shadcn components
+    if execute_as_user_in_devbox "which npx" >/dev/null 2>&1; then
+        execute_as_user_in_devbox "npx shadcn add https://soundcn.xyz/r/click-soft.json" 2>/dev/null || echo "⚠️ soundcn failed"
+        execute_as_user_in_devbox "npx shadcn@latest add https://goey-toast.vercel.app/r/goey-toaster.json" 2>/dev/null || echo "⚠️ goey-toast failed"
+    fi
+
+    # Python packages via uv
+    if execute_as_user_in_devbox "which uv" >/dev/null 2>&1; then
+        for pkg in llm-tldr memsearch git_bayesect; do
+            execute_as_user_in_devbox "uv pip install --system $pkg" 2>/dev/null && echo "✅ $pkg" || echo "⚠️ $pkg failed"
+        done
+    else
+        echo "⚠️ uv not available, skipping Python packages"
+    fi
+
+    # Cargo packages
     if execute_as_user_in_devbox "which cargo" >/dev/null 2>&1; then
-        execute_as_user_in_devbox "cargo install $package_name" || { echo "❌ Failed to install $package_name in Devbox development environment"; exit 1; }
+        execute_as_user_in_devbox "cargo install worktrunk" 2>/dev/null && echo "✅ worktrunk" || echo "⚠️ worktrunk failed"
+        execute_as_user_in_devbox "cargo install --git https://github.com/rtk-ai/rtk" 2>/dev/null && echo "✅ rtk" || echo "⚠️ rtk failed"
     else
-        echo "❌ No Cargo found in Devbox development environment"
-        exit 1
+        echo "⚠️ cargo not available, skipping Rust packages"
     fi
-}
 
-# Check and install uv packages inside Devbox development shell
-echo "🤖 Checking for uv in Devbox development environment..."
-execute_as_user_in_devbox "which uv" >/dev/null 2>&1 || { echo "❌ uv not available in Devbox development environment"; exit 1; }
-echo "🤖 Installing uv packages in Devbox development environment..."
+    # gh-dash plugin
+    execute_as_user_in_devbox "gh extension install dlvhdr/gh-dash" >/dev/null 2>&1 || echo "⚠️ gh-dash failed"
 
-# Install Python packages using the helper function
-install_python_package "llm-tldr"
-install_python_package "memsearch"
-install_python_package "git_bayesect"
+    # llm-tldr warm/context
+    execute_as_user_in_devbox "cd /home/$USERNAME/work 2>/dev/null && tldr warm . && tldr context main --project ." 2>/dev/null || echo "⚠️ llm-tldr warm/context failed"
 
-# Install omnigent CLI via uv tool (container-wide, available in all shells)
-# Version is unpinned because the runner must match the server — the server
-# negotiates the protocol on connect, so a stale runner just 409s and the
-# user re-runs this entrypoint or `uv tool upgrade omnigent`.
-echo "🤖 Installing omnigent CLI via uv tool..."
-execute_as_user_in_devbox "uv tool install omnigent" || { echo "⚠️ Failed to install omnigent CLI"; }
-# Register as Omnigent runner if OMNIGENT_SERVER_URL is set and not already registered
-if [ -n "${OMNIGENT_SERVER_URL:-}" ]; then
-    echo "🤖 Dev Base: Registering as Omnigent runner against ${OMNIGENT_SERVER_URL}..."
-    execute_as_user_in_devbox "omni login \"${OMNIGENT_SERVER_URL}\" && omni host \"${OMNIGENT_SERVER_URL}\"" || { echo "⚠️ Failed to register as Omnigent runner"; }
-fi
+    echo "🤖 Dev Base: Optional dev tools phase complete"
+) || echo "⚠️ Some optional dev tools failed to install (non-fatal)"
 
-# Check and install Cargo packages inside Devbox development shell
-echo "🤖 Checking for Cargo in Devbox development environment..."
-execute_as_user_in_devbox "which cargo" >/dev/null 2>&1 || { echo "❌ Cargo not available in Devbox development environment"; exit 1; }
-echo "🤖 Installing Cargo packages in Devbox development environment..."
-
-# Install Cargo packages using the helper function
-# These are useful development tools that may not be available as Nix packages yet
-install_cargo_package "worktrunk"        # Worktrunk development tool
-install_cargo_package "--git https://github.com/rtk-ai/rtk"        # Bash Tool Token Reducer
-
-# Install agent-deck
-echo "🤖 Installing agent-deck..."
-if execute_as_user_in_devbox "curl -fsSL https://raw.githubusercontent.com/asheshgoplani/agent-deck/main/install.sh | bash" 2>/dev/null; then
-    echo "✅ agent-deck installed successfully"
-else
-    echo "⚠️ Failed to install agent-deck"
-fi
-execute_as_user_in_devbox "cd /home/$USERNAME/work; tldr warm . && tldr context main --project ." || { echo "❌ Failed to run llm-tldr commands in Devbox development environment"; exit 1; }
-
-# Check and run vibe-kanban inside Devbox development shell
-echo "🤖 Installing gh-dash gh plugin"
-execute_as_user_in_devbox "gh extension install dlvhdr/gh-dash" >/dev/null 2>&1 || { echo "❌ gh not available in Devbox development environment"; exit 1; }
-echo "🤖 Checking for npx in Devbox development environment..."
-execute_as_user_in_devbox "which npx" >/dev/null 2>&1 || { echo "❌ npx not available in Devbox development environment"; exit 1; }
-echo "🤖 Starting vibe-kanban inside Devbox development environment..."
-execute_as_user_in_devbox "npx vibe-kanban"
-
-# Execute command as user (fallback for manual commands)
+# ---------------------------------------------------------------------------
+# Keep container running
+# ---------------------------------------------------------------------------
 if [ $# -eq 0 ]; then
     echo "🤖 Dev Base: No command provided, sleeping indefinitely..."
     echo "🤖 Dev Base: Container will wait for manual intervention"
