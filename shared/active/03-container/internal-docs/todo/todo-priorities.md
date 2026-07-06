@@ -582,6 +582,8 @@ _Goal: Privacy, Resilience, Ad-blocking_
 
 ### Communication & Social
 
+- Recording
+  - [ ] Meeting Recording, transcription, and diarization https://github.com/Zackriya-Solutions/meetily
 - [ ] **Multi Publish**:
   - [ ] https://github.com/yikart/AiToEarn/blob/main/README_EN.md#use-source
 - [ ] **Chat**:
@@ -657,6 +659,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] https://github.com/plastic-labs/honcho
     - [ ] https://github.com/offendingcommit/openconcho
     - https://www.youtube.com/watch?v=i2KK85h0bYo
+  - [ ] https://github.com/langchain-ai/openwiki
 - [ ] **Inference Engines**:
   - [ ] **Ollama**: LLM Runner https://github.com/ollama/ollama
   - [ ] **LocalAI**: OpenAI compatible API
