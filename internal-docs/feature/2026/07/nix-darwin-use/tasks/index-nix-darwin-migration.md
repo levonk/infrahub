@@ -7,10 +7,10 @@
 | Story ID | Story Title | Status | Branch | Dependencies | Parallel-safe | Modules |
 | -------- | ----------- | ------ | ------ | ------------ | ------------- | ------- |
 | 01-001 | Add git-filter-repo to devbox.json | [ ] Todo | `feature/current/nix-darwin-migration/story-01-001-devbox-git-filter-repo` | None | true | `infrahub/devbox.json` |
-| 01-002 | Author nix-darwin flake + system modules + per-host configs | [!] Blocked | `feature/current/nix-darwin-migration/story-01-002-darwin-flake-authoring` | None | true | `infrahub/shared/active/02-config/nix/darwin/` |
-| 01-003 | Edit osx-settings.py — add three-layer comment, remove sudo settings | [ ] Todo | `feature/current/nix-darwin-migration/story-01-003-osx-settings-cleanup` | None | true | `dotfiles/home/current/dot_local/bin/` |
+| 01-002 | Author nix-darwin flake + system modules + per-host configs | [!] Blocked | [ ] Todo | `feature/current/nix-darwin-migration/story-01-002-darwin-flake-authoring` | None | true | `infrahub/shared/active/02-config/nix/darwin/` |
+| 01-003 | Edit osx-settings.py — add three-layer comment, remove sudo settings | [ ] Todo | [x] Done | `feature/current/nix-darwin-migration/story-01-003-osx-settings-cleanup` | None | true | `dotfiles/home/current/dot_local/bin/` |
 | 02-001 | Cross-repo history move + retire levonk-nix-config darwin | [ ] Todo | `feature/current/nix-darwin-migration/story-02-001-cross-repo-move` | 01-001, 01-002 | false | `levonk-nix-config/`, `infrahub/shared/active/02-config/nix/darwin/` |
-| 03-001 | Playbook rewrite — shrink bootstrap, add configure, os-update, pmset/chflags, delete old flake | [ ] Todo | `feature/current/nix-darwin-migration/story-03-001-playbook-rewrite` | 02-001, 01-002, 01-003 | false | `infrahub/shared/active/02-config/ansible/`, `infrahub/justfile`, `infrahub/shared/active/02-config/nix/flake.nix` |
+| 03-001 | Playbook rewrite — shrink bootstrap, add configure, os-update, pmset/chflags, delete old flake | [ ] Todo | [ ] Todo | `feature/current/nix-darwin-migration/story-03-001-playbook-rewrite` | 02-001, 01-002, 01-003 | false | `infrahub/shared/active/02-config/ansible/`, `infrahub/justfile`, `infrahub/shared/active/02-config/nix/flake.nix` |
 | 04-001 | Local validation runbook + ADR | [ ] Todo | `feature/current/nix-darwin-migration/story-04-001-runbook-adr` | 03-001 | false | `infrahub/shared/active/08-docs/`, `infrahub/internal-docs/adr/` |
 ## Phase Summary
 
