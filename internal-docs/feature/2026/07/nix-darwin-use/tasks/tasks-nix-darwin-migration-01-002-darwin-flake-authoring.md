@@ -7,7 +7,7 @@ prd_file: "internal-docs/feature/2026/07/nix-darwin-use/feat-202607060157-nix-da
 phase: 1
 parallel_id: 2
 branch: "feature/current/nix-darwin-migration/story-01-002-darwin-flake-authoring"
-status: "in-progress"
+status: "blocked"
 assignee: ""
 reviewer: ""
 dependencies: []
