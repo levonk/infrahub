@@ -7,7 +7,7 @@ prd_file: "internal-docs/feature/2026/07/nix-darwin-use/feat-202607060157-nix-da
 phase: 1
 parallel_id: 1
 branch: "feature/current/nix-darwin-migration/story-01-001-devbox-git-filter-repo"
-status: "todo"
+status: "done"
 assignee: ""
 reviewer: ""
 dependencies: []
@@ -65,18 +65,18 @@ Add `git-filter-repo` to infrahub's `devbox.json` packages so the cross-repo his
 
 ## Sub-Tasks
 
-- [ ] Task 1 — Add git-filter-repo to devbox.json packages
+- [x] Task 1 — Add git-filter-repo to devbox.json packages
   Add `"git-filter-repo": ""` to the `packages` object in `devbox.json`, placed alphabetically near `git-filter-repo`'s neighbors (after `git`, before `github-to-sops` or wherever it sorts).
   **Verify**: `rg "git-filter-repo" devbox.json` → one match in the packages block
   **Likely failure**: `git-filter-repo` not found in nixpkgs under that name — **cause**: wrong package name — **fallback**: search via `nix search nixpkgs git-filter-repo` for the exact attribute name; it may be `git-filter-repo` or `python312Packages.git-filter-repo`
   **Decision fork**: If `nix search nixpkgs git-filter-repo` returns no results → use `python313Packages.git-filter-repo` (infrahub uses python313) instead and document the choice with a `ponytail:` comment
 
-- [ ] Task 2 — Regenerate devbox.lock
+- [x] Task 2 — Regenerate devbox.lock
   Run `devbox update` (or `devbox install`) to pull the new package and update the lock file.
   **Verify**: `devbox run -- command -v git-filter-repo` → path printed (e.g., `/nix/store/.../bin/git-filter-repo`)
   **Likely failure**: `devbox update` fails with a hash mismatch or build error — **cause**: nixpkgs unstable roll — **fallback**: pin to a specific nixpkgs revision or use `devbox install --no-refresh` to use cached nixpkgs
 
-- [ ] Task 3 — Verify justfile still works
+- [x] Task 3 — Verify justfile still works
   Ensure adding the package didn't break the devbox environment for existing `just` commands.
   **Verify**: `devbox run -- just --list` → lists all recipes including `ansible-bootstrap-macos`
   **Likely failure**: `just` not found after devbox update — **cause**: devbox environment corruption — **fallback**: `devbox shell` then `just --list`; if still broken, `rm -rf .devbox && devbox install` (rebuild env from scratch)
@@ -88,10 +88,10 @@ Add `git-filter-repo` to infrahub's `devbox.json` packages so the cross-repo his
 
 ## Acceptance Criteria
 
-- [ ] `rg "git-filter-repo" devbox.json` returns one match in the packages block
-- [ ] `devbox run -- command -v git-filter-repo` succeeds (prints a path)
-- [ ] `devbox run -- just --list` still lists all existing recipes
-- [ ] `devbox.lock` is updated and committed alongside `devbox.json`
+- [x] `rg "git-filter-repo" devbox.json` returns one match in the packages block
+- [x] `devbox run -- command -v git-filter-repo` succeeds (prints a path)
+- [x] `devbox run -- just --list` still lists all existing recipes
+- [x] `devbox.lock` is updated and committed alongside `devbox.json`
 
 ## Test Plan
 
@@ -123,9 +123,9 @@ Add `git-filter-repo` to infrahub's `devbox.json` packages so the cross-repo his
 
 ## Definition of Done
 
-- [ ] All verification commands from sub-tasks pass
-- [ ] `devbox.json` and `devbox.lock` committed
-- [ ] No files outside `devbox.json` and `devbox.lock` are modified (`git status`)
+- [x] All verification commands from sub-tasks pass
+- [x] `devbox.json` and `devbox.lock` committed
+- [x] No files outside `devbox.json` and `devbox.lock` are modified (`git status`)
 
 ## STOP Conditions
 
@@ -150,3 +150,4 @@ Stop and report if:
 ## Changelog
 
 - 2026-07-06: initialized story file
+- 2026-07-06: completed all sub-tasks, verified acceptance criteria, marked story done
