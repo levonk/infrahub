@@ -34,6 +34,7 @@
       loop:
         - ports.yml
         - storage.yml
+        - domains.yml
       tags: ["always"]
 
     - name: "Load client infrastructure overrides (levonk)"
@@ -42,11 +43,18 @@
       loop:
         - ports.yml
         - storage.yml
+        - domains.yml
       tags: ["always"]
 
     - name: "Load windows_docker_hosts group vars (for windows_registry_url)"
       ansible.builtin.include_vars:
         file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/inventories/group_vars/windows_docker_hosts.yml"
+      tags: ["always"]
+
+    - name: "Set omnigent_server_url from client infra_domain_ai_omnigent"
+      ansible.builtin.set_fact:
+        omnigent_server_url: "https://{{ infra_domain_ai_omnigent }}"
+      when: omnigent_server_url is not defined and infra_domain_ai_omnigent is defined
       tags: ["always"]
 
     - name: "Validate required variables"
@@ -136,6 +144,7 @@
       loop:
         - ports.yml
         - storage.yml
+        - domains.yml
       tags: ["always"]
 
     - name: "Load client infrastructure overrides (levonk)"
@@ -144,6 +153,13 @@
       loop:
         - ports.yml
         - storage.yml
+        - domains.yml
+      tags: ["always"]
+
+    - name: "Set omnigent_server_url from client infra_domain_ai_omnigent"
+      ansible.builtin.set_fact:
+        omnigent_server_url: "https://{{ infra_domain_ai_omnigent }}"
+      when: omnigent_server_url is not defined and infra_domain_ai_omnigent is defined
       tags: ["always"]
 
     - name: "Report target machine"
