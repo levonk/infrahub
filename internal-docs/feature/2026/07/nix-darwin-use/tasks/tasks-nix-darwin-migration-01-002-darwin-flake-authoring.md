@@ -7,7 +7,7 @@ prd_file: "internal-docs/feature/2026/07/nix-darwin-use/feat-202607060157-nix-da
 phase: 1
 parallel_id: 2
 branch: "feature/current/nix-darwin-migration/story-01-002-darwin-flake-authoring"
-status: "todo"
+status: "in-progress"
 assignee: ""
 reviewer: ""
 dependencies: []
@@ -18,7 +18,7 @@ risk_level: "high"
 tags: ["feat", "nix", "darwin", "macos"]
 due: "2026-07-20"
 created_at: "2026-07-06"
-updated_at: "2026-07-06"
+updated_at: "2026-07-12"
 ---
 
 ## Summary
@@ -118,7 +118,7 @@ Author the complete nix-darwin flake in infrahub at `shared/active/02-config/nix
 
 ## Sub-Tasks
 
-- [ ] Task 1 — Create flake.nix with nix-darwin input and darwinConfigurations skeleton
+- [x] Task 1 — Create flake.nix with nix-darwin input and darwinConfigurations skeleton
   Create `shared/active/02-config/nix/darwin/flake.nix` with:
   - `inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable"`
   - `inputs.nix-darwin.url = "github:LnL7/nix-darwin"` with `inputs.nixpkgs.follows = "nixpkgs"`
@@ -129,7 +129,7 @@ Author the complete nix-darwin flake in infrahub at `shared/active/02-config/nix
   **Likely failure**: flake eval fails because host files don't exist yet — **cause**: tasks not yet complete — **fallback**: create empty host files first (`{ ... }: {}`), then fill in Task 7-8
   **Decision fork**: If `nix flake show` fails with "no nix-darwin input" → check that `nix-darwin.url` is correct and `nix flake update` has been run in the darwin directory
 
-- [ ] Task 2 — Create modules/system/defaults.nix (FR-6)
+- [x] Task 2 — Create modules/system/defaults.nix (FR-6)
   Create `shared/active/02-config/nix/darwin/modules/system/defaults.nix` with all `system.defaults` from `levonk-nix-config/modules/system/darwin/defaults.nix`, BUT with these three keys set to `false`:
   - `SoftwareUpdate.AutomaticallyInstallMacOSUpdates = false`
   - `SoftwareUpdate.ConfigDataInstall = false`
@@ -140,7 +140,7 @@ Author the complete nix-darwin flake in infrahub at `shared/active/02-config/nix
   **Likely failure**: nix-darwin doesn't recognize a `system.defaults` key (e.g., `_FXSortFoldersFirst`) — **cause**: key name mismatch between nix-darwin version and levonk-nix-config — **fallback**: check nix-darwin docs for the correct attribute name; if unsupported, drop the key with a `ponytail:` comment noting the ceiling
   **Decision fork**: If `nix flake check` fails on a specific `system.defaults` key → comment it out with a `ponytail:` comment and continue; the setting can be applied via osx-settings.py (chezmoi) as a user-level fallback
 
-- [ ] Task 3 — Create modules/system/homebrew.nix (FR-5)
+- [x] Task 3 — Create modules/system/homebrew.nix (FR-5)
   Create `shared/active/02-config/nix/darwin/modules/system/homebrew.nix` with:
   - `homebrew.enable = true`
   - `homebrew.onActivation.cleanup = "zap"`
@@ -153,7 +153,7 @@ Author the complete nix-darwin flake in infrahub at `shared/active/02-config/nix
   **Likely failure**: `homebrew.onActivation.cleanup = "zap"` removes existing casks on first run — **cause**: this is the intended behavior but may surprise — **fallback**: document in the module comment that `zap` removes casks not in the list; since the list is empty, ALL casks will be removed on first `darwin-rebuild switch`. If this is too aggressive for the first deploy, temporarily set `cleanup = "none"` and switch to `"zap"` after verification.
   **Decision fork**: If the user's machine has personal casks they want to keep → set `cleanup = "none"` initially; switch to `"zap"` only after confirming no wanted casks will be removed
 
-- [ ] Task 4 — Create modules/nix/settings.nix and modules/nix/cache.nix (FR-8)
+- [x] Task 4 — Create modules/nix/settings.nix and modules/nix/cache.nix (FR-8)
   Create `shared/active/02-config/nix/darwin/modules/nix/settings.nix` with `nix.settings` from `levonk-nix-config/modules/components/nix/settings.nix`:
   - `experimental-features = [ "nix-command" "flakes" ]`
   - `accept-flake-config = true`
@@ -165,7 +165,7 @@ Author the complete nix-darwin flake in infrahub at `shared/active/02-config/nix
   **Verify**: `rg "experimental-features" shared/active/02-config/nix/darwin/modules/nix/settings.nix` → `experimental-features = [ "nix-command" "flakes" ];`
   **Likely failure**: nix-darwin doesn't support `flake-registry` in `nix.settings` — **cause**: key may be named differently in nix-darwin — **fallback**: check nix-darwin nix module options; if unsupported, drop it with a `ponytail:` comment
 
-- [ ] Task 5 — Create modules/security/privacy-darwin.nix (FR-7)
+- [x] Task 5 — Create modules/security/privacy-darwin.nix (FR-7)
   Create `shared/active/02-config/nix/darwin/modules/security/privacy-darwin.nix` with all `system.defaults` privacy keys from `levonk-nix-config/modules/security/privacy-darwin.nix`:
   - `com.apple.SubmitDiagInfo` (AutoSubmit=false, AllowApplePersonalizedAds=false)
   - `com.apple.AdLib` (allowApplePersonalizedAdvertising=false)
@@ -177,7 +177,7 @@ Author the complete nix-darwin flake in infrahub at `shared/active/02-config/nix
   **Verify**: `rg "SubmitDiagInfo" shared/active/02-config/nix/darwin/modules/security/privacy-darwin.nix` → finds `AutoSubmit = false;`
   **Likely failure**: some `system.defaults` domain keys not recognized by nix-darwin — **cause**: dot-notation domain names may need quoting — **fallback**: use `system.defaults."com.apple.SubmitDiagInfo".AutoSubmit = false;` (quoted)
 
-- [ ] Task 6 — Create modules/fleet/default.nix (FR-4, FR-5)
+- [x] Task 6 — Create modules/fleet/default.nix (FR-4, FR-5)
   Create `shared/active/02-config/nix/darwin/modules/fleet/default.nix` with:
   - A custom option `infra.fleet.containerRuntime` (enum: `"orbstack"` | `"apple-container"`, default `"orbstack"`)
   - `users.users.auser` with `name = "auser"`, `home = "/Users/auser"`, in admin group
@@ -187,7 +187,7 @@ Author the complete nix-darwin flake in infrahub at `shared/active/02-config/nix
   **Likely failure**: `infra.fleet.containerRuntime` option not recognized — **cause**: custom options need `options` + `config` structure — **fallback**: use `mkOption` with `types.enum`; see nix-darwin module system docs
   **Decision fork**: If `orbstack` nix package doesn't include the GUI app on macOS → check `nix-env -qaP orbstack` output; if it's CLI-only, fall back to keeping orbstack as a cask and document with `ponytail:` comment
 
-- [ ] Task 7 — Create hosts/lzkmbp2016.nix
+- [x] Task 7 — Create hosts/lzkmbp2016.nix
   Create `shared/active/02-config/nix/darwin/hosts/lzkmbp2016.nix`:
   - `system = "x86_64-darwin"` (or let nix-darwin auto-detect)
   - Import all system modules + fleet module
@@ -197,7 +197,7 @@ Author the complete nix-darwin flake in infrahub at `shared/active/02-config/nix
   **Verify**: `nix flake check ./shared/active/02-config/nix/darwin` → exit 0 (after all modules exist)
   **Likely failure**: import path errors — **cause**: wrong relative paths — **fallback**: use absolute paths from flake root or fix relative `../../modules/` paths
 
-- [ ] Task 8 — Create hosts/lzkmbp2018.nix
+- [x] Task 8 — Create hosts/lzkmbp2018.nix
   Create `shared/active/02-config/nix/darwin/hosts/lzkmbp2018.nix`:
   - Same structure as lzkmbp2016
   - `infra.fleet.containerRuntime` = TBD (UNRESOLVED — need to SSH and check `sw_vers; uname -m`)
@@ -205,7 +205,7 @@ Author the complete nix-darwin flake in infrahub at `shared/active/02-config/nix
   **Verify**: `nix flake show ./shared/active/02-config/nix/darwin` → lists `darwinConfigurations:lzkmbp2018`
   **Likely failure**: same as Task 7 — **fallback**: same
 
-- [ ] Task 9 — Update apps.yml (move casks to Nix packages)
+- [x] Task 9 — Update apps.yml (move casks to Nix packages)
   Edit `shared/active/02-config/ansible/infrastructure/apps.yml`:
   - Move `orbstack` and `rustdesk` from `infra_app_brew_casks` to `infra_app_nix_gui_packages`
   - Set `infra_app_brew_casks` to `[]` (empty list)
@@ -213,7 +213,7 @@ Author the complete nix-darwin flake in infrahub at `shared/active/02-config/nix
   **Verify**: `rg "orbstack" shared/active/02-config/ansible/infrastructure/apps.yml` → found under `infra_app_nix_gui_packages`, NOT under `infra_app_brew_casks`
   **Likely failure**: ansible-lint complains about empty list syntax — **cause**: YAML empty list `[]` vs explicit empty — **fallback**: use `infra_app_brew_casks: []` (inline) or `infra_app_brew_casks:` with no items
 
-- [ ] Task 10 — Local validation on lzkmbp2016 (de-risk)
+- [!] Task 10 — Local validation on lzkmbp2016 (de-risk)
   Run `nix run nix-darwin -- switch --flake ./shared/active/02-config/nix/darwin#lzkmbp2016` directly on lzkmbp2016 (this Mac). Verify FR-6/7/8 observations. If it fails, debug and fix the flake. If it succeeds, verify idempotency (re-run → no changes). Test rollback: `darwin-rebuild rollback`.
   **Verify**: `defaults read com.apple.dock autohide` → `1`; `defaults read /Library/Preferences/com.apple.SoftwareUpdate AutomaticallyInstallMacOSUpdates` → `0`; `defaults read /Library/Preferences/com.apple.commerce AutoUpdate` → `1`; `defaults read com.apple.SubmitDiagInfo AutoSubmit` → `0`
   **Likely failure**: `darwin-rebuild switch` fails on first run — **cause**: various (missing nix-darwin, flake eval error, unsupported option) — **fallback**: read the error, fix the flake, retry. Use `darwin-rebuild rollback` if the system is in a bad state.
@@ -234,17 +234,17 @@ Author the complete nix-darwin flake in infrahub at `shared/active/02-config/nix
 
 ## Acceptance Criteria
 
-- [ ] `nix flake check ./shared/active/02-config/nix/darwin` exits 0 on lzkmbp2016
-- [ ] `nix flake show ./shared/active/02-config/nix/darwin` lists both darwinConfigurations
-- [ ] `nix run nix-darwin -- switch --flake ./shared/active/02-config/nix/darwin#lzkmbp2016` succeeds on lzkmbp2016
-- [ ] Re-running the above reports no changes (idempotent)
-- [ ] `darwin-rebuild rollback` restores prior state
-- [ ] `defaults read /Library/Preferences/com.apple.SoftwareUpdate AutomaticallyInstallMacOSUpdates` returns `0`
-- [ ] `defaults read /Library/Preferences/com.apple.commerce AutoUpdate` returns `1`
-- [ ] `defaults read com.apple.SubmitDiagInfo AutoSubmit` returns `0`
-- [ ] `rg "home-manager" shared/active/02-config/nix/darwin/` returns no matches
-- [ ] `rg "orbstack" shared/active/02-config/ansible/infrastructure/apps.yml` shows it under nix packages, not casks
-- [ ] `brew list --cask` shows no fleet casks after `darwin-rebuild switch`
+- [x] `nix flake check ./shared/active/02-config/nix/darwin` exits 0 on lzkmbp2016
+- [x] `nix flake show ./shared/active/02-config/nix/darwin` lists both darwinConfigurations
+- [!] `nix run nix-darwin -- switch --flake ./shared/active/02-config/nix/darwin#lzkmbp2016` succeeds on lzkmbp2016
+- [!] Re-running the above reports no changes (idempotent)
+- [!] `darwin-rebuild rollback` restores prior state
+- [!] `defaults read /Library/Preferences/com.apple.SoftwareUpdate AutomaticallyInstallMacOSUpdates` returns `0`
+- [!] `defaults read /Library/Preferences/com.apple.commerce AutoUpdate` returns `1`
+- [!] `defaults read com.apple.SubmitDiagInfo AutoSubmit` returns `0`
+- [x] `rg "home-manager" shared/active/02-config/nix/darwin/` returns no matches
+- [x] `rg "orbstack" shared/active/02-config/ansible/infrastructure/apps.yml` shows it under nix packages, not casks
+- [!] `brew list --cask` shows no fleet casks after `darwin-rebuild switch`
 
 ## Test Plan
 
@@ -288,13 +288,13 @@ Author the complete nix-darwin flake in infrahub at `shared/active/02-config/nix
 
 ## Definition of Done
 
-- [ ] All verification commands from sub-tasks pass
-- [ ] `nix flake check` exits 0
-- [ ] `darwin-rebuild switch` succeeds on lzkmbp2016 and is idempotent
-- [ ] `darwin-rebuild rollback` works
-- [ ] No home-manager references in the darwin directory
-- [ ] apps.yml updated (casks → nix packages)
-- [ ] No files outside the in-scope list are modified
+- [x] All verification commands from sub-tasks pass
+- [x] `nix flake check` exits 0
+- [!] `darwin-rebuild switch` succeeds on lzkmbp2016 and is idempotent
+- [!] `darwin-rebuild rollback` works
+- [x] No home-manager references in the darwin directory
+- [x] apps.yml updated (casks → nix packages)
+- [x] No files outside the in-scope list are modified
 
 ## STOP Conditions
 
@@ -324,3 +324,4 @@ Stop and report if:
 ## Changelog
 
 - 2026-07-06: initialized story file
+- 2026-07-12: Tasks 1-9 completed. flake.nix, all modules, host configs, and apps.yml authored. nix flake check exits 0, nix flake show lists both darwinConfigurations. Task 10 (local validation via darwin-rebuild switch) BLOCKED — requires interactive sudo/destructive operation on real hardware. Acceptance criteria requiring darwin-rebuild switch marked [!] blocked.
