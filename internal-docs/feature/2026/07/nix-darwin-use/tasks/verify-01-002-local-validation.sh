@@ -125,16 +125,18 @@ else
   tail -n 20 /tmp/nix-flake-check.log | sed 's/^/      /' >&2
 fi
 
-# 1b. nix flake show lists both configs
-SHOW_OUT=$(nix flake show "$FLAKE_DIR" --json 2>/dev/null || echo "")
-if echo "$SHOW_OUT" | /usr/bin/python3 -c 'import json,sys
-d=json.load(sys.stdin)
-cfgs=d.get("darwinConfigurations",{})
-sys.exit(0 if "lzkmbp2016" in cfgs and "lzkmbp2018" in cfgs else 1)' 2>/dev/null; then
-  ok "nix flake show lists darwinConfigurations.lzkmbp2016 + lzkmbp2018"
+# 1b. nix eval lists both darwinConfigurations
+#     (nix flake show reports darwinConfigurations as {type:unknown} and doesn't
+#     recurse into host names, so use nix eval --apply to read attrNames instead.)
+EVAL_OUT=$(nix eval "$FLAKE_DIR#darwinConfigurations" --apply 'x: builtins.attrNames x' --json 2>/dev/null || echo "")
+# Output is a JSON array of strings, e.g. ["lzkmbp2016","lzkmbp2018"]
+if echo "$EVAL_OUT" | /usr/bin/python3 -c 'import json,sys
+names=json.load(sys.stdin)
+sys.exit(0 if "lzkmbp2016" in names and "lzkmbp2018" in names else 1)' 2>/dev/null; then
+  ok "nix eval darwinConfigurations has lzkmbp2016 + lzkmbp2018 ($EVAL_OUT)"
 else
-  bad "nix flake show missing one or both darwinConfigurations"
-  echo "$SHOW_OUT" | sed 's/^/      /' >&2
+  bad "nix eval darwinConfigurations missing one or both hosts"
+  echo "      got: $EVAL_OUT" >&2
 fi
 
 # 1c. no home-manager references
@@ -184,10 +186,11 @@ fi
 log "${C_BOLD}--- Phase 2: darwin-rebuild switch (DESTRUCTIVE) ---${C_RESET}"
 log "This will apply the nix-darwin configuration to THIS Mac ($HOST)."
 log "It modifies system settings, homebrew, and may restart services."
-log "If it goes wrong, run: darwin-rebuild rollback"
+log "System activation requires root — you will be prompted for your sudo password."
+log "If it goes wrong, run: sudo darwin-rebuild rollback"
 log ""
 
-if ! confirm "Run 'nix run nix-darwin -- switch --flake $FLAKE_DIR#$HOST' now?"; then
+if ! confirm "Run 'sudo nix run nix-darwin -- switch --flake $FLAKE_DIR#$HOST' now?"; then
   warn "Apply skipped by user. Post-apply checks will be skipped too."
   log ""
   log "${C_BOLD}=== Summary (partial) ===${C_RESET}"
@@ -198,7 +201,8 @@ fi
 
 APPLY_LOG=/tmp/darwin-rebuild-switch-01-002.log
 log "Running darwin-rebuild switch (logging to $APPLY_LOG)..."
-if nix run nix-darwin -- switch --flake "$FLAKE_DIR#$HOST" >"$APPLY_LOG" 2>&1; then
+log "(sudo password prompt may appear — enter your Mac user password)"
+if sudo nix run nix-darwin -- switch --flake "$FLAKE_DIR#$HOST" >"$APPLY_LOG" 2>&1; then
   ok "darwin-rebuild switch succeeded (exit 0)"
   # show the diff-style changes
   rg -n "activating|reloading|building" "$APPLY_LOG" | head -n 10 | sed 's/^/      /' >&2
@@ -206,7 +210,7 @@ else
   rc=$?
   bad "darwin-rebuild switch failed (exit $rc)"
   tail -n 40 "$APPLY_LOG" | sed 's/^/      /' >&2
-  warn "If the system is in a bad state, run: darwin-rebuild rollback"
+  warn "If the system is in a bad state, run: sudo darwin-rebuild rollback"
   log ""
   log "${C_BOLD}=== Summary (apply failed) ===${C_RESET}"
   log "  Passed: $PASS"
@@ -220,7 +224,7 @@ log ""
 log "${C_BOLD}--- Phase 3: idempotency re-run ---${C_RESET}"
 IDEM_LOG=/tmp/darwin-rebuild-idempotency-01-002.log
 log "Re-running darwin-rebuild switch (logging to $IDEM_LOG)..."
-if nix run nix-darwin -- switch --flake "$FLAKE_DIR#$HOST" >"$IDEM_LOG" 2>&1; then
+if sudo nix run nix-darwin -- switch --flake "$FLAKE_DIR#$HOST" >"$IDEM_LOG" 2>&1; then
   # Idempotent if the second run reports no changes. nix-darwin prints
   # "activating the configuration..." even on no-op, but the diff section
   # should be empty. Heuristic: no "created" / "removed" / "changed" lines.
@@ -290,10 +294,10 @@ log ""
 # --- 6. rollback test -------------------------------------------------------
 log "${C_BOLD}--- Phase 6: rollback test (DESTRUCTIVE) ---${C_RESET}"
 log "This will roll back to the previous system generation."
-log "You can re-apply with: nix run nix-darwin -- switch --flake $FLAKE_DIR#$HOST"
+log "You can re-apply with: sudo nix run nix-darwin -- switch --flake $FLAKE_DIR#$HOST"
 log ""
 
-if ! confirm "Run 'darwin-rebuild rollback' now?"; then
+if ! confirm "Run 'sudo darwin-rebuild rollback' now?"; then
   warn "Rollback skipped by user."
   log ""
   log "${C_BOLD}=== Summary ===${C_RESET}"
@@ -309,7 +313,7 @@ fi
 
 ROLLBACK_LOG=/tmp/darwin-rebuild-rollback-01-002.log
 log "Running darwin-rebuild rollback (logging to $ROLLBACK_LOG)..."
-if darwin-rebuild rollback >"$ROLLBACK_LOG" 2>&1; then
+if sudo darwin-rebuild rollback >"$ROLLBACK_LOG" 2>&1; then
   ok "darwin-rebuild rollback succeeded (exit 0)"
 else
   rc=$?
@@ -331,8 +335,8 @@ if [ "$FAIL" -gt 0 ]; then
   log "${C_RED}Failed checks:${C_RESET}"
   for c in "${FAILED_CHECKS[@]}"; do log "  - $c"; done
   log ""
-  log "${C_YELLOW}If the system is in a bad state:${C_RESET} darwin-rebuild rollback"
-  log "${C_YELLOW}To re-apply the config:${C_RESET} nix run nix-darwin -- switch --flake $FLAKE_DIR#$HOST"
+  log "${C_YELLOW}If the system is in a bad state:${C_RESET} sudo darwin-rebuild rollback"
+  log "${C_YELLOW}To re-apply the config:${C_RESET} sudo nix run nix-darwin -- switch --flake $FLAKE_DIR#$HOST"
   exit 1
 fi
 log ""
