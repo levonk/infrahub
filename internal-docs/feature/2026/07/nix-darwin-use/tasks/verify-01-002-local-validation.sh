@@ -25,7 +25,7 @@
 set -euo pipefail
 
 # --- config -----------------------------------------------------------------
-REPO_ROOT="${REPO_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)}"
+REPO_ROOT="${REPO_ROOT:-$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)}"
 FLAKE_DIR="$REPO_ROOT/shared/active/02-config/nix/darwin"
 HOST="lzkmbp2016"
 APPS_YML="$REPO_ROOT/shared/active/02-config/ansible/infrastructure/apps.yml"
