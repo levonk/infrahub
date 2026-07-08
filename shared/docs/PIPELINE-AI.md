@@ -4,10 +4,14 @@
 
 ```mermaid
 flowchart LR
-    subgraph Origin["Request Origin"]
-        OMN["Omnigent\n(server)"]
-        PI["Pi\n(harness)"]
-        OMN -- "RPC (JSONL)" --> PI
+    subgraph Origin["Request Origin (Stacked Layers)"]
+        ARC["Archon\n(workflow layer)\nDAG, loops,\nfresh_context,\ninteractive gates"]
+        OMN["Omnigent\n(session layer)\nmulti-device sync,\npolicies, sandboxing"]
+        HERDR["Herdr\n(multiplexer layer)\nagent-aware PTY,\nremote SSH attach"]
+        PI["Pi\n(harness)\nread/write/edit/bash"]
+        ARC -- "IAgentProvider\n(Omnigent provider)" --> OMN
+        OMN -- "manages terminal\nvia Herdr" --> HERDR
+        HERDR -- "runs PTY for" --> PI
     end
 
     subgraph Pipeline["Analytics & Optimization Pipeline"]
@@ -34,6 +38,27 @@ flowchart LR
 ```
 
 ## Recent Changes
+
+**2026-07-08**: Added Archon Docker deployment to Windows Docker Desktop
+- Archon (workflow layer) deployed as a Docker container on the levonk Windows box (`dtop202311.tale-grouper.ts.net`)
+- Pre-built image: `ghcr.io/coleam00/archon:latest` (Claude Code SDK pre-installed, no build phase needed)
+- Stack: Archon server + PostgreSQL 17 Alpine, deployed via `community.docker` Ansible modules
+- LLM routing: `ANTHROPIC_BASE_URL` points at LiteLLM (`aigate`) on the OCI server via Tailscale — all Claude Code SDK calls flow through the pipeline (auth, PII masking, spend tracking, Langfuse traces)
+- Platform adapters: Telegram, Discord, GitHub webhooks
+- Web UI accessible via Tailscale at `http://dtop202311.tale-grouper.ts.net:3090` (port 3090 avoids WorldMonitor conflict on 3000)
+- Database: PostgreSQL 17 (Better Auth for Web UI login with per-user accounts)
+- Ansible role: `playbooks/deploy-archon.yml`, env template: `services/ai-codeassist/archon/.env.archon.j2`
+- Levonk deployment: `levonk/active/03-container/services/archon/DEPLOYMENT.md`
+- **Status**: DEFINED - Ansible playbook created, vault secrets pending, deployment pending
+
+**2026-07-07**: Added Archon (workflow layer) and Herdr (multiplexer layer) to request origin stack
+- Archon (https://github.com/coleam00/Archon) is the workflow layer — YAML DAG workflows with loops, `fresh_context: true` (fresh agent session per iteration), `interactive: true` (human approval gates), and platform adapters (Slack, Telegram, Discord, GitHub webhooks)
+- Herdr (https://herdr.dev/, https://github.com/ogulcancelik/herdr) is the multiplexer layer — agent-aware terminal multiplexer (Rust) with PTY persistence, remote SSH attach, socket API, and agent state awareness (blocked/working/done)
+- The request origin is now a four-layer stack: Archon (workflow) → Omnigent (session) → Herdr (multiplexer) → Pi (execution)
+- Archon dispatches work via `IAgentProvider` interface; an Omnigent community provider (`packages/providers/src/community/omnigent/`) implements `sendQuery()` by routing through Omnigent's session API, which creates Herdr panes
+- Primitive mapping: `fresh_context` → new Herdr pane; `interactive` → Herdr pane persists for human attach; `resumeSessionId` → Herdr pane resumption
+- Omnigent Herdr support: open issue in Omnigent repo to replace tmux with Herdr as the multiplexer backend
+- **Status**: PROPOSED — evaluation complete (see `pipeline/ai/2026-07-07-archon-vs-omnigent-evaluation.md`), implementation pending
 
 **2026-07-03**: Documented iron-proxy MITM TLS inspection and CA trust requirement
 - Iron-proxy uses man-in-the-middle TLS to inspect HTTPS traffic for allowlist enforcement and per-request auditing
@@ -94,28 +119,45 @@ This configuration implements a multi-stage AI analytics pipeline with comprehen
 ## Pipeline Architecture
 
 ```
-Omnigent → Pi → LiteLLM (aigate) → Headroom → OmniRoute (airoute) → Forge → Iron-Proxy → NordVPN → Internet
-(server)   (harness)  (Entry)        (Compress)  (Routing)          (Tool Fix) (Security)   (Privacy)
-                      (auth, keys,
-                       PII, spend,
-                       Langfuse)
+Archon → Omnigent → Herdr → Pi → LiteLLM (aigate) → Headroom → OmniRoute → Forge → Iron-Proxy → NordVPN → Internet
+(workflow) (session)  (mux)   (exec)  (Entry)        (Compress)  (Routing)  (Tool Fix) (Security)   (Privacy)
+DAG,       multi-     agent-  read/   auth, keys,
+loops,     device,    aware   write/  PII, spend,
+fresh_     policies,  PTY,    edit/   Langfuse
+context,   sandbox    SSH     bash
+interactive            attach
+gates
                       │
                       ↓ (forwards traces)
                 Langfuse (LLM Observability — parallel analytics sink)
                 langfuse-web → postgres + clickhouse + redis + minio
 ```
 
-**Note**: LiteLLM is the entry point for the pipeline. It handles auth, virtual keys, spend tracking, PII guardrail (Presidio masking), and forwards traces to Langfuse. LiteLLM routes to Headroom for context compression, then to OmniRoute for provider fanout (tier-based fallback, 9-factor auto-combo scoring, free-tier draining). Forge repairs tool-call format issues from non-conforming backends. Iron-Proxy enforces egress firewall policy. NordVPN provides privacy/geo-obfuscation.
+**Note**: The request origin is a four-layer stack. Archon (workflow layer) handles DAG workflows, loops, `fresh_context` (fresh agent session per iteration), and `interactive` approval gates. Omnigent (session layer) handles multi-device sync, policies, sandboxing, and co-driving. Herdr (multiplexer layer) provides agent-aware PTY persistence and remote SSH attach. Pi (execution layer) does the actual coding work. LLM requests from Pi route through LiteLLM, which handles auth, virtual keys, spend tracking, PII guardrail (Presidio masking), and forwards traces to Langfuse. LiteLLM routes to Headroom for context compression, then to OmniRoute for provider fanout (tier-based fallback, 9-factor auto-combo scoring, free-tier draining). Forge repairs tool-call format issues from non-conforming backends. Iron-Proxy enforces egress firewall policy. NordVPN provides privacy/geo-obfuscation.
 
 **Previous architecture** (pre-2026-06-29): AI Dashboard Proxy 1 → Privacy Orchestrator → Headroom → OmniRoute → Forge → AI Dashboard Proxy 2 → Iron-Proxy. The Proxy 1/2 collectors and Privacy Orchestrator are now absorbed into LiteLLM. See PIPELINE-LITELLM-JANUS-NOTES.md for the full analysis.
 
+**Previous request origin** (pre-2026-07-07): Omnigent + Pi (two-layer, no workflow structure, no multiplexer layer). Now expanded to Archon + Omnigent + Herdr + Pi (four-layer stack with workflow DAG, session management, and agent-aware PTY persistence). See `pipeline/ai/2026-07-07-archon-vs-omnigent-evaluation.md` for the full evaluation.
+
 ### Request Origin
 
-The pipeline originates from the **Omnigent + Pi agent stack**. Omnigent (https://omnigent.ai/docs/deploy/overview) is the AI agent framework & meta-harness that orchestrates coding agents from a central server. Pi (https://github.com/earendil-works/pi) is the minimal terminal coding harness — the agent that actually does the coding work (read, write, edit, bash tools).
+The pipeline originates from a **four-layer agent stack**: Archon (workflow) → Omnigent (session) → Herdr (multiplexer) → Pi (execution). Each layer handles a distinct concern:
 
-Omnigent's runner drives pi via **RPC mode** (JSONL over stdin/stdout). Pi's LLM requests are routed to the pipeline entry at **LiteLLM (aigate)** via a custom "pipeline" provider in pi's `models.json` config. The pipeline entry speaks OpenAI-compatible API, so pi treats it as an OpenAI provider with a custom base URL (`http://litellm:4000/v1`). LiteLLM then handles auth, PII masking, spend tracking, and Langfuse logging before forwarding to Headroom for compression and OmniRoute for provider fanout.
+- **Archon** (https://github.com/coleam00/Archon) — the workflow layer. YAML DAG workflows with loops, `fresh_context: true` (starts a fresh agent session per loop iteration — the "clear context between phases" primitive), `interactive: true` (pauses workflow for human approval, resumes on gate clear), and platform adapters (Slack, Telegram, Discord, GitHub webhooks) for out-of-band interaction. Archon dispatches work via its `IAgentProvider` interface; an Omnigent community provider implements `sendQuery()` by routing through Omnigent's session API.
+- **Omnigent** (https://omnigent.ai/docs/deploy/overview) — the session layer. Multi-device sync, server/agent/session-level policies (spend caps, tool allowlists), OS sandboxing (bwrap/seatbelt), cloud sandboxes (Modal, Daytona, E2B, K8s), co-driving (`omnigent attach <session_id>`), and conversation forking. Manages the terminal via Herdr.
+- **Herdr** (https://herdr.dev/, https://github.com/ogulcancelik/herdr) — the multiplexer layer. Agent-aware terminal multiplexer (Rust) with PTY persistence across server restarts, remote SSH attach from any device (including phone), socket API (`api.herdr.dev`) for programmatic control, and agent state awareness (blocked/working/done). Replaces raw tmux as Omnigent's terminal backend — see open issue in Omnigent repo for Herdr support.
+- **Pi** (https://github.com/earendil-works/pi) — the execution layer. The minimal terminal coding harness that actually does the coding work (read, write, edit, bash tools). Runs in RPC mode (JSONL over stdin/stdout) inside Herdr-managed PTYs.
 
-Omnigent + Pi are NOT mid-pipeline transformation stages like Headroom or Forge — they are the **source of AI work** that the pipeline observes, optimizes, and secures. The pipeline stages below describe what happens to a request after pi emits it.
+**Primitive mapping** (Archon workflow features → Omnigent/Herdr session features):
+- `fresh_context: true` → Omnigent provider creates a new Herdr pane (or workspace) instead of resuming
+- `interactive: true` → Archon pauses the workflow, Herdr pane stays alive, human `herdr` attaches (locally or over SSH from phone), workflow resumes when approval gate clears
+- `resumeSessionId` (in `IAgentProvider` contract) → Herdr pane/workspace resumption
+
+**Why the multiplexer layer matters**: Archon runs workflow nodes as ephemeral processes — when a node finishes, the process dies, and there's nothing to attach to mid-node. If those sessions run inside Herdr-managed PTYs, then mid-workflow-node a teammate can `herdr` attach to co-drive, you can pick up the terminal from your phone over SSH, the PTY persists across device switches and server restarts, and Omnigent's policies apply throughout.
+
+Pi's LLM requests are routed to the pipeline entry at **LiteLLM (aigate)** via a custom "pipeline" provider in pi's `models.json` config. The pipeline entry speaks OpenAI-compatible API, so pi treats it as an OpenAI provider with a custom base URL (`http://litellm:4000/v1`). LiteLLM then handles auth, PII masking, spend tracking, and Langfuse logging before forwarding to Headroom for compression and OmniRoute for provider fanout.
+
+The four-layer stack is NOT a mid-pipeline transformation stage like Headroom or Forge — it is the **source of AI work** that the pipeline observes, optimizes, and secures. The pipeline stages below describe what happens to a request after pi emits it.
 
 ### Compression Strategy
 
@@ -215,7 +257,7 @@ Omnigent + Pi are NOT mid-pipeline transformation stages like Headroom or Forge 
 The AI Dashboard collects multi-dimensional analytics across:
 
 - **Company Clients**: Multi-tenant client identification and isolation
-- **AI Clients**: Claude Code, Codex, Pi, Devin, Cursor, Cline, etc.
+- **AI Clients**: Archon, Omnigent, Claude Code, Codex, Pi, Devin, Cursor, Cline, etc.
 - **Teams**: Team/sub-organization hierarchy within clients
 - **Pipeline Stages**: Entry, compression, routing, pre-egress analytics
 - **AI Model Suppliers**: Anthropic, OpenAI, Google, Microsoft, AWS, OpenRouter, etc.
@@ -350,26 +392,65 @@ docker exec ai-dashboard-db pg_isready -U postgres
 - **Pre-Egress Stage API**: http://localhost:9082
 - **Database**: postgresql://postgres:postgres@localhost:5432/analytics
 
-## Omnigent + Pi Agent Stack
+## Archon + Omnigent + Herdr + Pi Agent Stack
 
 ### Overview
-The Omnigent + Pi stack is the **request origin** of the analytics pipeline — the source of AI work that the pipeline observes, optimizes, and secures. It is NOT a mid-pipeline transformation stage like Headroom or Forge.
+The Archon + Omnigent + Herdr + Pi stack is the **request origin** of the analytics pipeline — the source of AI work that the pipeline observes, optimizes, and secures. It is NOT a mid-pipeline transformation stage like Headroom or Forge. The four layers stack cleanly via well-defined interfaces:
 
-- **Omnigent** (https://omnigent.ai/docs/deploy/overview) — the AI agent framework & meta-harness that orchestrates coding agents from a central server.
-- **Pi** (https://github.com/earendil-works/pi) — the minimal terminal coding harness that actually does the coding work (read, write, edit, bash tools). This is the harness Omnigent's runner drives.
+- **Archon** (https://github.com/coleam00/Archon) — the workflow layer. YAML DAG workflows with loops, `fresh_context`, `interactive` approval gates, and platform adapters (Slack, Telegram, Discord, GitHub). Dispatches work via `IAgentProvider` interface.
+- **Omnigent** (https://omnigent.ai/docs/deploy/overview) — the session layer. Multi-device sync, policies, sandboxing, co-driving. Manages the terminal via Herdr.
+- **Herdr** (https://herdr.dev/, https://github.com/ogulcancelik/herdr) — the multiplexer layer. Agent-aware terminal multiplexer (Rust) with PTY persistence, remote SSH attach, socket API, and agent state awareness.
+- **Pi** (https://github.com/earendil-works/pi) — the execution layer. The minimal terminal coding harness that actually does the coding work (read, write, edit, bash tools). This is the harness Omnigent's runner drives inside Herdr-managed PTYs.
 
 ### Architecture
-Omnigent has three components:
+The stack has four layers with clean interfaces between them:
+
+**Archon (workflow layer):**
+- **Server** (Bun + TypeScript, Hono) — workflow engine, DAG executor, platform adapters (Slack/Telegram/Discord/GitHub), web UI dashboard
+- **Provider registry** — `IAgentProvider` interface with community providers (Pi, OpenCode, Copilot); Omnigent provider to be added under `packages/providers/src/community/omnigent/`
+- **Workflows** — YAML DAG files in `.archon/workflows/` with `fresh_context`, `interactive`, `loop`, `bash`, and `prompt` node types
+
+**Omnigent (session layer):**
 - **Server** (deployed in this stack) — central coordinator managing session history, artifacts, catalog, MCP proxy & policies, skills, and auth & accounts. FastAPI/WebSocket server backed by Postgres.
 - **Runner** (host-registered, NOT in the pipeline stack) — per-session process that manages the harness. Registers against the server via `omni host <server-url>`.
 - **UI** — web, terminal, and mobile UIs talk to the server, never the runner directly.
 
-Pi runs in **RPC mode** (`pi --mode rpc`) — a JSONL protocol over stdin/stdout. Omnigent's runner drives pi via this protocol. For local-runner deploys (laptop), the runner spawns pi as a local subprocess. For cloud sandbox hosts, the runner connects to a containerized pi via an HTTP-to-stdin RPC bridge (`rpc-bridge.py`, port 8090).
+**Herdr (multiplexer layer):**
+- **Server** — manages persistent PTYs for agent terminals, survives server restarts
+- **Socket API** (`api.herdr.dev`) — programmatic create/attach/detach for the Omnigent provider implementation
+- **Agent state awareness** — blocked/working/done state visible without scraping terminal output
+- **Remote attach** — `herdr --remote workbox` bridges local clipboard + keybindings to remote session; SSH attach from phone supported
+- **Status**: PROPOSED — open issue in Omnigent repo to replace tmux with Herdr as the multiplexer backend
+
+**Pi (execution layer):**
+- Runs in **RPC mode** (`pi --mode rpc`) — a JSONL protocol over stdin/stdout — inside Herdr-managed PTYs
+- Omnigent's runner drives pi via this protocol. For local-runner deploys (laptop), the runner spawns pi as a local subprocess. For cloud sandbox hosts, the runner connects to a containerized pi via an HTTP-to-stdin RPC bridge (`rpc-bridge.py`, port 8090).
 
 ### Pipeline Integration
-Pi's LLM requests (chat completions, messages) are routed to the pipeline entry at **AI Dashboard Proxy 1** via a custom "pipeline" provider in pi's `models.json` config. The pipeline entry speaks OpenAI-compatible API, so pi treats it as an OpenAI provider with a custom base URL (`http://ai-dashboard-proxy-1:8081/v1`). The pipeline then collects analytics, detects/transforms PII, compresses context, routes across providers, fixes tool calling, collects pre-egress analytics, enforces egress firewall policy, and routes through VPN — all transparent to the pi agent.
+Pi's LLM requests (chat completions, messages) are routed to the pipeline entry at **LiteLLM (aigate)** via a custom "pipeline" provider in pi's `models.json` config. The pipeline entry speaks OpenAI-compatible API, so pi treats it as an OpenAI provider with a custom base URL (`http://litellm:4000/v1`). The pipeline then handles auth, PII masking, spend tracking, Langfuse logging, compresses context, routes across providers, fixes tool calling, enforces egress firewall policy, and routes through VPN — all transparent to the pi agent.
+
+Archon's workflow nodes dispatch to Omnigent sessions via the `IAgentProvider` interface. The Omnigent provider creates/resumes Herdr panes for each workflow node. When a node completes, the Herdr pane persists, enabling mid-node intervention via `herdr` attach. `fresh_context: true` creates a new Herdr pane (fresh agent session); `interactive: true` pauses the workflow while the Herdr pane stays alive for human interaction.
 
 ### Configuration
+**Archon:**
+- **Image**: `ghcr.io/coleam00/archon:latest` (pre-built, Claude Code SDK pre-installed, `CLAUDE_BIN_PATH` pre-set)
+- **Server port**: 3000 (container), 3090 (host) — `infra_port_ai_archon_host` (3090 avoids WorldMonitor conflict on 3000)
+- **PostgreSQL port**: 5432 (container), 5436 (host) — `infra_port_ai_archon_postgres_host` (5436 avoids conflicts with other postgres instances)
+- **Domain**: `archon.levonk.com` — `infra_domain_ai_archon` (future Traefik routing; current Windows deploy uses Tailscale access)
+- **Workflows**: `.archon/workflows/` (YAML DAG files, committed to repo)
+- **Platform adapters**: Telegram, Discord, GitHub webhooks (Slack available but not configured for levonk Windows deploy)
+- **Provider config**: Built-in providers (claude, codex) + community providers (pi, opencode, copilot). Omnigent community provider proposed but not yet implemented.
+- **LLM routing**: `ANTHROPIC_BASE_URL` env var points at LiteLLM (`aigate`) on the OCI server via Tailscale — Claude Code SDK calls route through the pipeline (auth, PII masking, spend tracking, Langfuse traces). `CLAUDE_API_KEY` becomes a LiteLLM virtual key.
+- **Web UI auth**: Better Auth (PostgreSQL deploys) with per-user accounts. Signup closed by default; email allowlist via `ARCHON_AUTH_ALLOWED_EMAILS`.
+- **Secrets**: `archon_claude_api_key` (LiteLLM virtual key), `archon_postgres_password`, `archon_better_auth_secret`, `archon_telegram_bot_token`, `archon_discord_bot_token`, `archon_github_token`, `archon_webhook_secret` sourced from client Ansible vault
+- **Status**: **DEFINED** — Ansible playbook created (`deploy-archon.yml`), shared stack at `services/ai-codeassist/archon/`, levonk deployment at `levonk/active/03-container/services/archon/DEPLOYMENT.md`
+
+**Herdr:**
+- **Binary**: `herdr` (Rust, installed via `curl -fsSL https://herdr.dev/install.sh | sh` or Homebrew)
+- **Socket API**: `api.herdr.dev` — programmatic create/attach/detach
+- **Remote attach**: `herdr --remote <host>` — bridges local clipboard + keybindings to remote session
+- **Status**: **PROPOSED** — pending Omnigent Herdr support issue (replace tmux with Herdr as multiplexer backend)
+
 **Omnigent:**
 - **Server image**: `ghcr.io/omnigent-ai/omnigent-server:latest` (pin `OMNIGENT_IMAGE_TAG` for reproducible deploys)
 - **Server port**: 8000 (container), 8000 (host) — `infra_port_ai_omnigent_host`
@@ -381,23 +462,54 @@ Pi's LLM requests (chat completions, messages) are routed to the pipeline entry 
 **Pi:**
 - **Image**: `localnet-pi:latest` (built from `Dockerfile`, installs `@earendil-works/pi-coding-agent` from npm)
 - **RPC bridge port**: 8090 (container), 8090 (host) — `infra_port_ai_pi_host`
-- **LLM endpoint**: `http://ai-dashboard-proxy-1:8081/v1` (pipeline entry, via custom "pipeline" provider in `models.json`)
+- **LLM endpoint**: `http://litellm:4000/v1` (pipeline entry, via custom "pipeline" provider in `models.json`)
 - **Default model**: `claude-sonnet-4-20250514` (routed through the pipeline to OmniRoute → real provider)
 - **Session storage**: `/data/sessions` (named volume `localnet-pi-sessions-volume`)
 - **Workspace**: `/workspace` (code repos mounted by client overlay)
+- **Terminal**: Runs inside Herdr-managed PTYs (agent-aware multiplexer, replaces raw tmux)
 - **Secrets**: `PI_API_KEY` sourced from the client Ansible vault (passed through to pipeline; pipeline handles real provider auth via Iron-Proxy)
 
 ### Container Configuration
-The Omnigent + Pi stack is deployed as Docker containers with security hardening:
+The Archon + Omnigent + Herdr + Pi stack is deployed as Docker containers with security hardening:
+- **Archon**: Pre-built Bun + TypeScript container from GHCR (`ghcr.io/coleam00/archon:latest`) — Hono server + React web UI + Claude Code SDK pre-installed. Deployed to Windows Docker Desktop (`dtop202311.tale-grouper.ts.net`) with PostgreSQL 17 Alpine. Accessible via Tailscale at port 3090. LLM calls route through LiteLLM pipeline via `ANTHROPIC_BASE_URL`.
 - **Omnigent**: Pre-built slim Python container from GHCR (FastAPI/WebSocket coordinator) + PostgreSQL 16 Alpine
-- **Pi**: Node.js 22 slim container with `@earendil-works/pi-coding-agent` installed, running `rpc-bridge.py` (HTTP-to-stdin bridge for pi RPC mode)
-- **Networks**: `omnigent-network` (172.36.0.0/16) for Omnigent↔Pi↔Postgres; `ai-dashboard-network` (172.35.0.0/16) for Pi→AI Dashboard Proxy 1; `traefik-network` (external) for public routing
-- **Volumes**: `omnigent-postgres-data`, `omnigent-artifact-data`, `pi-data`, `pi-sessions`
-- **Traefik**: Public access via `aiif.levonk.com` with GeoBlock → CrowdSec Bouncer → Authelia security middleware chain
-- **Profile**: `omnigent` (both Omnigent and Pi start under this profile)
+- **Herdr**: Rust binary installed in the Omnigent/Pi container (or as a sidecar), manages PTYs for pi agent terminals. Replaces tmux as the multiplexer backend (pending Omnigent Herdr support issue).
+- **Pi**: Node.js 22 slim container with `@earendil-works/pi-coding-agent` installed, running `rpc-bridge.py` (HTTP-to-stdin bridge for pi RPC mode) inside Herdr-managed PTYs
+- **Networks**: `archon-network` for Archon↔PostgreSQL (Windows); `omnigent-network` (172.36.0.0/16) for Omnigent↔Pi↔Postgres (OCI); `ai-dashboard-network` (172.35.0.0/16) for Pi→LiteLLM; `traefik-network` (external) for public routing (OCI)
+- **Volumes**: `archon-data`, `archon-user-home`, `archon-postgres-data` (Windows); `omnigent-postgres-data`, `omnigent-artifact-data`, `pi-data`, `pi-sessions` (OCI)
+- **Traefik**: Public access via `aiif.levonk.com` (Omnigent on OCI) with GeoBlock → CrowdSec Bouncer → Authelia security middleware chain; Archon Web UI on Windows uses Tailscale-only access (no Traefik, no HTTPS — Tailscale encrypts transport)
+- **Profile**: `archon` (Archon + PostgreSQL on Windows); `omnigent` (Omnigent, Herdr, and Pi on OCI)
 
 ### Deployment
 Deployment is handled by Ansible — never run `docker compose up` directly for deployment.
+
+**Archon (Windows Docker Desktop):**
+
+Shared stack (reference topology):
+- `shared/active/03-container/services/ai-codeassist/archon/docker-compose.yml`
+
+Ansible playbook (pulls pre-built image from GHCR, deploys containers via `community.docker` modules):
+- `shared/active/02-config/ansible/playbooks/deploy-archon.yml`
+
+Env template (Jinja2, templated by Ansible with vault secrets + infrastructure vars):
+- `shared/active/03-container/services/ai-codeassist/archon/.env.archon.j2`
+
+Levonk client overlay: `levonk/active/03-container/services/archon/DEPLOYMENT.md`
+
+```bash
+# Deploy to Windows Docker Desktop (levonk)
+cd ~/p/gh/levonk/infrahub
+devbox run -- rtk ansible-playbook -i levonk/active/02-config/ansible/inventories/windows-docker.yml \
+  shared/active/02-config/ansible/playbooks/deploy-archon.yml \
+  --vault-password-file ~/.ansible/vault_password
+
+# Dry run
+devbox run -- rtk ansible-playbook -i levonk/active/02-config/ansible/inventories/windows-docker.yml \
+  shared/active/02-config/ansible/playbooks/deploy-archon.yml \
+  --check --diff --vault-password-file ~/.ansible/vault_password
+```
+
+**Omnigent + Pi (OCI cloud server):**
 
 Shared stacks (topology definitions, copied to the server by the playbook):
 - `shared/active/03-container/services/ai-codeassist/omnigent/docker-compose.yml`
@@ -430,6 +542,20 @@ omni host https://aiif.levonk.com
 
 ### Verification
 ```bash
+# ── Archon (Windows Docker Desktop) ──
+# Check archon containers (on the Windows host)
+docker ps | grep archon
+
+# Archon Web UI health (via Tailscale)
+curl http://dtop202311.tale-grouper.ts.net:3090/api/health
+# or from the Windows host itself:
+curl http://localhost:3090/api/health
+
+# Archon logs
+docker logs archon --tail=50 -f
+docker logs archon-postgres --tail=50 -f
+
+# ── Omnigent + Pi (OCI cloud server) ──
 # Check omnigent + pi containers
 docker ps | grep -E "omnigent|pi"
 
@@ -448,18 +574,31 @@ docker logs pi --tail=50 -f
 ```
 
 ### References
+- **Archon project**: https://github.com/coleam00/Archon
+- **Archon docs**: https://archon.diy/
+- **Archon Docker deployment**: https://archon.diy/deployment/docker/ (pre-built image, profiles, configuration)
+- **Archon workflow authoring**: https://archon.diy/guides/authoring-workflows/ (`fresh_context`, `interactive`, DAG, loops)
+- **Archon Slack adapter**: https://archon.diy/adapters/slack/ (Socket Mode, user whitelist, in-thread approval buttons)
+- **Archon deployment playbook**: `shared/active/02-config/ansible/playbooks/deploy-archon.yml`
+- **Archon env template**: `shared/active/03-container/services/ai-codeassist/archon/.env.archon.j2`
+- **Archon shared stack**: `shared/active/03-container/services/ai-codeassist/archon/`
+- **Archon levonk deployment**: `levonk/active/03-container/services/archon/DEPLOYMENT.md`
 - **Omnigent project**: https://github.com/omnigent-ai/omnigent
 - **Omnigent deploy docs**: https://omnigent.ai/docs/deploy/overview
 - **Omnigent auth & SSO**: https://omnigent.ai/docs/deploy/auth
 - **Omnigent cloud sandbox host**: https://omnigent.ai/docs/deploy/sandbox
+- **Herdr project**: https://github.com/ogulcancelik/herdr
+- **Herdr docs**: https://herdr.dev/
+- **Herdr socket API**: https://herdr.dev/api
 - **Pi project**: https://github.com/earendil-works/pi
 - **Pi RPC docs**: https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/rpc.md
 - **Pi SDK docs**: https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/sdk.md
-- **Deployment playbook**: `shared/active/02-config/ansible/playbooks/deploy-omnigent.yml`
-- **Env template**: `shared/active/03-container/services/ai-codeassist/omnigent/.env.omnigent.j2`
+- **Evaluation note**: `pipeline/ai/2026-07-07-archon-vs-omnigent-evaluation.md`
+- **Omnigent deployment playbook**: `shared/active/02-config/ansible/playbooks/deploy-omnigent.yml`
+- **Omnigent env template**: `shared/active/03-container/services/ai-codeassist/omnigent/.env.omnigent.j2`
 - **Omnigent shared stack**: `shared/active/03-container/services/ai-codeassist/omnigent/`
 - **Pi shared stack**: `shared/active/03-container/services/ai-codeassist/pi/`
-- **Levonk deployment**: `levonk/active/03-container/services/omnigent/DEPLOYMENT.md`
+- **Omnigent levonk deployment**: `levonk/active/03-container/services/omnigent/DEPLOYMENT.md`
 
 ## Forge Implementation
 
