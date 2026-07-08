@@ -34,13 +34,10 @@ APPS_YML="$REPO_ROOT/shared/active/02-config/ansible/infrastructure/apps.yml"
 # Under sudo, nix can't read the user's ~/.config/nix/nix.conf (HOME falls back to
 # /var/root because /Users/<user> isn't owned by root), so experimental-features
 # like nix-command/flakes are disabled. Pass them explicitly:
-#   - NIX_EXTRA_EXPERIMENTAL_FEATURES env var: picked up by ALL nix invocations
-#     (including darwin-rebuild, which calls nix internally) under the sudo session.
-#   - --extra-experimental-features CLI flag: belt-and-suspenders for `nix run`.
+#   - --extra-experimental-features CLI flag on `nix run` (reliable, no quoting issues)
+#   - For darwin-rebuild (which calls nix internally), we export the env var in the
+#     sudo shell via `sudo bash -c 'export ...; exec ...'` — see the rollback section.
 NIX_FLAGS="--extra-experimental-features nix-command flakes"
-# sudo env var passthrough: NIX_EXTRA_EXPERIMENTAL_FEATURES is read by nix on top
-# of any config-file settings, so it works even when HOME=/var/root.
-SUDO="sudo env NIX_EXTRA_EXPERIMENTAL_FEATURES=nix-command flakes"
 
 # Fleet casks that MUST NOT appear in `brew list --cask` after apply.
 FLEET_CASKS=("orbstack" "rustdesk")
@@ -220,7 +217,7 @@ fi
 APPLY_LOG=/tmp/darwin-rebuild-switch-01-002.log
 log "Running darwin-rebuild switch (logging to $APPLY_LOG)..."
 log "(sudo password prompt may appear — enter your Mac user password)"
-if $SUDO nix $NIX_FLAGS run nix-darwin -- switch --flake "$FLAKE_DIR#$HOST" >"$APPLY_LOG" 2>&1; then
+if sudo nix $NIX_FLAGS run nix-darwin -- switch --flake "$FLAKE_DIR#$HOST" >"$APPLY_LOG" 2>&1; then
   ok "darwin-rebuild switch succeeded (exit 0)"
   # show the diff-style changes
   rg -n "activating|reloading|building" "$APPLY_LOG" | head -n 10 | sed 's/^/      /' >&2
@@ -242,7 +239,7 @@ log ""
 log "${C_BOLD}--- Phase 3: idempotency re-run ---${C_RESET}"
 IDEM_LOG=/tmp/darwin-rebuild-idempotency-01-002.log
 log "Re-running darwin-rebuild switch (logging to $IDEM_LOG)..."
-if $SUDO nix $NIX_FLAGS run nix-darwin -- switch --flake "$FLAKE_DIR#$HOST" >"$IDEM_LOG" 2>&1; then
+if sudo nix $NIX_FLAGS run nix-darwin -- switch --flake "$FLAKE_DIR#$HOST" >"$IDEM_LOG" 2>&1; then
   # Idempotent if the second run reports no changes. nix-darwin prints
   # "activating the configuration..." even on no-op, but the diff section
   # should be empty. Heuristic: no "created" / "removed" / "changed" lines.
@@ -331,7 +328,7 @@ fi
 
 ROLLBACK_LOG=/tmp/darwin-rebuild-rollback-01-002.log
 log "Running darwin-rebuild rollback (logging to $ROLLBACK_LOG)..."
-if $SUDO darwin-rebuild rollback >"$ROLLBACK_LOG" 2>&1; then
+if sudo bash -c 'export NIX_EXTRA_EXPERIMENTAL_FEATURES="nix-command flakes"; exec darwin-rebuild rollback' >"$ROLLBACK_LOG" 2>&1; then
   ok "darwin-rebuild rollback succeeded (exit 0)"
 else
   rc=$?
