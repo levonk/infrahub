@@ -27,8 +27,14 @@ set -euo pipefail
 # --- config -----------------------------------------------------------------
 REPO_ROOT="${REPO_ROOT:-$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)}"
 FLAKE_DIR="$REPO_ROOT/shared/active/02-config/nix/darwin"
-HOST="lzkmbp2016"
+# Auto-detect host from hostname (LZKMBP2018 → lzkmbp2018), allow override via HOST=...
+HOST="${HOST:-$(hostname -s | tr '[:upper:]' '[:lower:]')}"
 APPS_YML="$REPO_ROOT/shared/active/02-config/ansible/infrastructure/apps.yml"
+
+# sudo wrapper: preserve HOME so nix finds the user's nix.conf (experimental-features,
+# substituters, etc.) instead of root's empty config. Without this, nix under sudo
+# fails with "experimental Nix feature 'nix-command' is disabled".
+SUDO="sudo --preserve-env=HOME"
 
 # Fleet casks that MUST NOT appear in `brew list --cask` after apply.
 FLEET_CASKS=("orbstack" "rustdesk")
@@ -111,6 +117,12 @@ case "$BRANCH" in
   *01-002-darwin-flake-authoring*) ;;
   *) warn "Not on the 01-002 story branch (current: $BRANCH). Static checks may use stale files." ;;
 esac
+
+# Verify the detected host exists in the flake before proceeding to destructive steps
+log "Detected host: $HOST  (override with: HOST=<name> ./verify-01-002-local-validation.sh)"
+if ! nix eval "$FLAKE_DIR#darwinConfigurations" --apply "x: builtins.elem \"$HOST\" (builtins.attrNames x)" 2>/dev/null | grep -q true; then
+  warn "Host '$HOST' not found in darwinConfigurations — apply will fail. Override with HOST=lzkmbp2016 or HOST=lzkmbp2018."
+fi
 log ""
 
 # --- 1. static checks -------------------------------------------------------
@@ -202,7 +214,7 @@ fi
 APPLY_LOG=/tmp/darwin-rebuild-switch-01-002.log
 log "Running darwin-rebuild switch (logging to $APPLY_LOG)..."
 log "(sudo password prompt may appear — enter your Mac user password)"
-if sudo nix run nix-darwin -- switch --flake "$FLAKE_DIR#$HOST" >"$APPLY_LOG" 2>&1; then
+if $SUDO nix run nix-darwin -- switch --flake "$FLAKE_DIR#$HOST" >"$APPLY_LOG" 2>&1; then
   ok "darwin-rebuild switch succeeded (exit 0)"
   # show the diff-style changes
   rg -n "activating|reloading|building" "$APPLY_LOG" | head -n 10 | sed 's/^/      /' >&2
@@ -224,7 +236,7 @@ log ""
 log "${C_BOLD}--- Phase 3: idempotency re-run ---${C_RESET}"
 IDEM_LOG=/tmp/darwin-rebuild-idempotency-01-002.log
 log "Re-running darwin-rebuild switch (logging to $IDEM_LOG)..."
-if sudo nix run nix-darwin -- switch --flake "$FLAKE_DIR#$HOST" >"$IDEM_LOG" 2>&1; then
+if $SUDO nix run nix-darwin -- switch --flake "$FLAKE_DIR#$HOST" >"$IDEM_LOG" 2>&1; then
   # Idempotent if the second run reports no changes. nix-darwin prints
   # "activating the configuration..." even on no-op, but the diff section
   # should be empty. Heuristic: no "created" / "removed" / "changed" lines.
@@ -313,7 +325,7 @@ fi
 
 ROLLBACK_LOG=/tmp/darwin-rebuild-rollback-01-002.log
 log "Running darwin-rebuild rollback (logging to $ROLLBACK_LOG)..."
-if sudo darwin-rebuild rollback >"$ROLLBACK_LOG" 2>&1; then
+if $SUDO darwin-rebuild rollback >"$ROLLBACK_LOG" 2>&1; then
   ok "darwin-rebuild rollback succeeded (exit 0)"
 else
   rc=$?
