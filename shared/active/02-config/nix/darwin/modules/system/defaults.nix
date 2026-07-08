@@ -33,8 +33,8 @@
     finder.NewWindowTarget = "Home";
     finder.NewWindowTargetPath = "file://\${HOME}/";
     # ponytail: FinderSpawnTab is not a named nix-darwin finder option (only ~17 are).
-    # It's a user-level com.apple.finder preference → CustomUserPreferences.
-    # Upgrade path: if nix-darwin adds finder.FinderSpawnTab upstream, move it back.
+    # It's a user-level com.apple.finder preference → managed by chezmoi osx-settings.py,
+    # NOT nix-darwin CustomUserPreferences (three-layer split: user prefs = chezmoi).
     finder.ShowPathbar = true;
     finder.ShowStatusBar = true;
     finder.FXDefaultSearchScope = "sccf";
@@ -51,8 +51,6 @@
     # App Store app updates — user-level preference, not a named nix-darwin option.
     # CustomUserPreferences writes to ~/Library/Preferences.
     CustomUserPreferences."com.apple.commerce".AutoUpdate = true;
-    # FinderSpawnTab (open new windows as tabs) — not a named nix-darwin finder option.
-    CustomUserPreferences."com.apple.finder".FinderSpawnTab = true;
   };
 
   # Software Update keys not supported by nix-darwin's system.defaults
