@@ -1,0 +1,116 @@
+---
+# Archon Docker Compose Configuration (Reference Topology)
+# Archon is the workflow layer of the AI pipeline's request origin stack.
+# YAML DAG workflows with loops, fresh_context, interactive approval gates,
+# and platform adapters (Slack, Telegram, Discord, GitHub).
+#
+# Reference: https://github.com/coleam00/Archon
+# Docker docs: https://archon.diy/deployment/docker/
+#
+# This compose file is REFERENCE/DOCUMENTATION ONLY per AGENTS.md.
+# Deployment uses Ansible community.docker modules (deploy-archon.yml playbook).
+#
+# Pipeline position: Archon (workflow) → Omnigent (session) → Herdr (mux) → Pi (exec) → LiteLLM → ...
+# Archon dispatches workflow nodes via IAgentProvider interface.
+# LLM calls route through the pipeline via ANTHROPIC_BASE_URL → LiteLLM (aigate).
+
+# Default logging configuration - use json-file with rotation
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "5"
+    tag: "{{.Name}}"
+    labels: "service"
+
+networks:
+  archon:
+    name: archon-network
+    driver: bridge
+    external: false
+
+volumes:
+  archon-data:
+    name: archon-data-volume
+    external: false
+  archon-user-home:
+    name: archon-user-home-volume
+    external: false
+  archon-postgres-data:
+    name: archon-postgres-data-volume
+    external: false
+
+services:
+  # Archon PostgreSQL Database
+  # Stores workflow runs, conversations, sessions, artifacts
+  archon-postgres:
+    image: postgres:17-alpine
+    container_name: ${ARCHON_DB_CONTAINER_NAME:-archon-postgres}
+    restart: unless-stopped
+    networks:
+      archon:
+    environment:
+      POSTGRES_DB: ${ARCHON_DB_NAME:-remote_coding_agent}
+      POSTGRES_USER: ${ARCHON_DB_USER:-archon}
+      POSTGRES_PASSWORD: ${ARCHON_DB_PASSWORD:?Set ARCHON_DB_PASSWORD in .env (use vault for client deploys)}
+    volumes:
+      - archon-postgres-data:/var/lib/postgresql/data
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${ARCHON_DB_USER:-archon} -d ${ARCHON_DB_NAME:-remote_coding_agent}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Archon Server + Web UI
+  # Bun + TypeScript (Hono server + React web UI dashboard)
+  # Pre-built image from GHCR includes Claude Code SDK pre-installed
+  archon:
+    image: ${ARCHON_IMAGE:-ghcr.io/coleam00/archon}:${ARCHON_IMAGE_TAG:-latest}
+    container_name: ${ARCHON_CONTAINER_NAME:-archon}
+    restart: unless-stopped
+    networks:
+      archon:
+    depends_on:
+      archon-postgres:
+        condition: service_healthy
+    environment:
+      # ── Database ─────────────────────────────────────
+      DATABASE_URL: postgresql://${ARCHON_DB_USER:-archon}:${ARCHON_DB_PASSWORD}@archon-postgres:5432/${ARCHON_DB_NAME:-remote_coding_agent}
+
+      # ── Server ───────────────────────────────────────
+      PORT: "${ARCHON_CONTAINER_PORT:-3000}"
+      LOG_LEVEL: "${ARCHON_LOG_LEVEL:-info}"
+      MAX_CONCURRENT_CONVERSATIONS: "${ARCHON_MAX_CONCURRENT:-10}"
+
+      # ── AI Credentials (required — container cannot use CLAUDE_USE_GLOBAL_AUTH) ──
+      # CLAUDE_API_KEY is used by the Claude Code SDK subprocess inside the container.
+      # When ANTHROPIC_BASE_URL is set, the SDK routes calls through the LiteLLM pipeline
+      # instead of directly to Anthropic. The API key becomes the LiteLLM virtual key.
+      CLAUDE_API_KEY: "${CLAUDE_API_KEY:?Set CLAUDE_API_KEY in .env (use vault for client deploys)}"
+      ANTHROPIC_BASE_URL: "${ANTHROPIC_BASE_URL:-}"
+
+      # ── Web UI Auth (Better Auth — PostgreSQL deploys) ──
+      BETTER_AUTH_SECRET: "${BETTER_AUTH_SECRET:-}"
+      ARCHON_AUTH_ALLOWED_EMAILS: "${ARCHON_AUTH_ALLOWED_EMAILS:-}"
+      ARCHON_AUTH_OPEN_SIGNUP: "${ARCHON_AUTH_OPEN_SIGNUP:-false}"
+
+      # ── Platform Adapters (optional) ─────────────────
+      TELEGRAM_BOT_TOKEN: "${TELEGRAM_BOT_TOKEN:-}"
+      DISCORD_BOT_TOKEN: "${DISCORD_BOT_TOKEN:-}"
+      GH_TOKEN: "${GH_TOKEN:-}"
+      GITHUB_TOKEN: "${GITHUB_TOKEN:-}"
+      WEBHOOK_SECRET: "${WEBHOOK_SECRET:-}"
+    ports:
+      - "${ARCHON_HOST_PORT:-3090}:${ARCHON_CONTAINER_PORT:-3000}/tcp"
+    volumes:
+      - archon-data:/.archon
+      - archon-user-home:/home/appuser
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:${ARCHON_CONTAINER_PORT:-3000}/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    profiles: ["archon"]

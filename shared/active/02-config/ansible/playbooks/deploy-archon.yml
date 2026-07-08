@@ -1,0 +1,262 @@
+---
+# Deploy Archon Workflow Layer to Windows Docker Desktop
+# Location: shared/active/02-config/ansible/playbooks/deploy-archon.yml
+#
+# Archon is the workflow layer of the AI pipeline's request origin stack.
+# YAML DAG workflows with loops, fresh_context, interactive approval gates,
+# and platform adapters (Telegram, Discord, GitHub).
+#
+# Pre-built image: ghcr.io/coleam00/archon:latest (Claude Code SDK pre-installed)
+# No build phase needed — the Windows box pulls directly from GHCR.
+#
+# LLM routing: ANTHROPIC_BASE_URL points at LiteLLM (aigate) on the OCI server
+# via Tailscale, so all Claude Code SDK calls flow through the pipeline.
+#
+# Pipeline position: Archon → Omnigent (aiif.levonk.com) → Herdr → Pi → LiteLLM → ...
+#
+# Prerequisites:
+#   1. Bootstrap playbook run on Windows: just ansible-bootstrap-windows-docker
+#   2. Docker Desktop running on the Windows host
+#   3. Tailscale connected (for LiteLLM pipeline access via OCI server)
+#   4. Vault secrets set: archon_claude_api_key, archon_postgres_password,
+#      archon_better_auth_secret, and platform adapter tokens
+#
+# Usage:
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/windows-docker.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-archon.yml \
+#     --vault-password-file ~/.ansible/vault_password
+#
+# Dry run:
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/windows-docker.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-archon.yml \
+#     --check --diff --vault-password-file ~/.ansible/vault_password
+
+- name: "Deploy Archon Workflow Layer on Windows"
+  hosts: windows_docker_hosts
+  gather_facts: true
+  become: false
+
+  pre_tasks:
+    - name: "Load shared infrastructure defaults (ports, networks, domains, storage)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+      tags: ["always"]
+
+    - name: "Load client infrastructure overrides (levonk)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+      tags: ["always"]
+
+    - name: "Validate required variables are defined"
+      ansible.builtin.assert:
+        that:
+          - archon_enabled is defined
+          - archon_image is defined
+          - archon_image_tag is defined
+          - archon_network_name is defined
+          - archon_claude_api_key is defined
+          - archon_claude_api_key | length > 0
+          - archon_postgres_password is defined
+          - archon_postgres_password | length > 0
+          - archon_better_auth_secret is defined
+          - archon_better_auth_secret | length > 0
+          - docker_host is defined
+        fail_msg: >-
+          Missing required Archon variables. Check the client's
+          group_vars/windows_docker_hosts.yml and vault file
+          (infrahub-levonk-all.vault.yml) for archon_claude_api_key,
+          archon_postgres_password, and archon_better_auth_secret.
+        success_msg: "All required Archon variables are defined."
+      tags: ["always", "validate"]
+
+    - name: "Check Docker is accessible on Windows host"
+      community.docker.docker_host_info:
+        docker_host: "{{ docker_host }}"
+      register: docker_host_info_result
+      ignore_errors: true
+      tags: ["always", "verify", "docker"]
+
+    - name: "Fail if Docker is not accessible"
+      ansible.builtin.fail:
+        msg: >-
+          Docker is not accessible at {{ docker_host }}.
+          Ensure Docker Desktop is running and the ansible user is in the docker-users group.
+          Run: just ansible-bootstrap-windows-docker
+      when: docker_host_info_result is failed
+      tags: ["always", "verify", "docker"]
+
+    - name: "Report Docker daemon info"
+      ansible.builtin.debug:
+        msg: "Docker daemon: {{ docker_host_info_result.docker.ServerVersion }} ({{ docker_host_info_result.docker.OperatingSystem }})"
+      tags: ["always", "verify", "docker"]
+
+  tasks:
+    # ---------------------------------------------------------------------------
+    # Pull pre-built image from GHCR (no build phase — public image)
+    # ---------------------------------------------------------------------------
+    - name: "Pull Archon image from GHCR"
+      community.docker.docker_image:
+        name: "{{ archon_image }}:{{ archon_image_tag }}"
+        docker_host: "{{ docker_host }}"
+        source: pull
+      tags: ["deploy", "pull"]
+
+    - name: "Pull PostgreSQL image"
+      community.docker.docker_image:
+        name: "docker.io/postgres:17-alpine"
+        docker_host: "{{ docker_host }}"
+        source: pull
+      tags: ["deploy", "pull"]
+
+    # ---------------------------------------------------------------------------
+    # Create Docker network
+    # ---------------------------------------------------------------------------
+    - name: "Create Archon Docker network"
+      community.docker.docker_network:
+        name: "{{ archon_network_name }}"
+        docker_host: "{{ docker_host }}"
+        state: present
+      tags: ["network", "deploy"]
+
+    # ---------------------------------------------------------------------------
+    # Deploy PostgreSQL container (ordered: postgres → archon)
+    # ---------------------------------------------------------------------------
+    - name: "Deploy Archon PostgreSQL container"
+      community.docker.docker_container:
+        name: "{{ infra_hostname_archon_postgres | default('archon-postgres') }}"
+        image: "docker.io/postgres:17-alpine"
+        state: started
+        restart_policy: unless-stopped
+        docker_host: "{{ docker_host }}"
+        networks:
+          - name: "{{ archon_network_name }}"
+        env:
+          POSTGRES_DB: "{{ archon_db_name | default('remote_coding_agent') }}"
+          POSTGRES_USER: "{{ archon_db_user | default('archon') }}"
+          POSTGRES_PASSWORD: "{{ archon_postgres_password }}"
+        volumes:
+          - "archon-postgres-data-volume:/var/lib/postgresql/data"
+        healthcheck:
+          test: ["CMD-SHELL", "pg_isready -U {{ archon_db_user | default('archon') }} -d {{ archon_db_name | default('remote_coding_agent') }}"]
+          interval: "10s"
+          timeout: "5s"
+          retries: 5
+        log_driver: json-file
+        log_options:
+          max-size: "10m"
+          max-file: "5"
+      tags: ["deploy", "postgres"]
+
+    # ---------------------------------------------------------------------------
+    # Deploy Archon container
+    # ---------------------------------------------------------------------------
+    - name: "Deploy Archon server + Web UI container"
+      community.docker.docker_container:
+        name: "{{ infra_hostname_archon | default('archon') }}"
+        image: "{{ archon_image }}:{{ archon_image_tag }}"
+        state: started
+        restart_policy: unless-stopped
+        docker_host: "{{ docker_host }}"
+        networks:
+          - name: "{{ archon_network_name }}"
+        links:
+          - "{{ infra_hostname_archon_postgres | default('archon-postgres') }}:archon-postgres"
+        ports:
+          - "{{ archon_host_port | default(infra_port_ai_archon_host) }}:{{ archon_container_port | default(infra_port_ai_archon_container) }}"
+        env:
+          # Database
+          DATABASE_URL: "postgresql://{{ archon_db_user | default('archon') }}:{{ archon_postgres_password }}@archon-postgres:5432/{{ archon_db_name | default('remote_coding_agent') }}"
+          # Server
+          PORT: "{{ archon_container_port | default(infra_port_ai_archon_container) | string }}"
+          LOG_LEVEL: "{{ archon_log_level | default('info') }}"
+          MAX_CONCURRENT_CONVERSATIONS: "{{ archon_max_concurrent | default('10') | string }}"
+          # AI Credentials — pipeline-routed via LiteLLM
+          CLAUDE_API_KEY: "{{ archon_claude_api_key }}"
+          ANTHROPIC_BASE_URL: "{{ archon_anthropic_base_url | default('') }}"
+          # Web UI Auth (Better Auth)
+          BETTER_AUTH_SECRET: "{{ archon_better_auth_secret }}"
+          ARCHON_AUTH_ALLOWED_EMAILS: "{{ archon_auth_allowed_emails | default('') }}"
+          ARCHON_AUTH_OPEN_SIGNUP: "{{ archon_auth_open_signup | default('false') }}"
+          # Platform Adapters
+          TELEGRAM_BOT_TOKEN: "{{ archon_telegram_bot_token | default('') }}"
+          DISCORD_BOT_TOKEN: "{{ archon_discord_bot_token | default('') }}"
+          GH_TOKEN: "{{ archon_github_token | default('') }}"
+          GITHUB_TOKEN: "{{ archon_github_token | default('') }}"
+          WEBHOOK_SECRET: "{{ archon_webhook_secret | default('') }}"
+        volumes:
+          - "archon-data-volume:/.archon"
+          - "archon-user-home-volume:/home/appuser"
+        healthcheck:
+          test: ["CMD-SHELL", "curl -f http://localhost:{{ archon_container_port | default(infra_port_ai_archon_container) }}/api/health || exit 1"]
+          interval: "30s"
+          timeout: "10s"
+          retries: 3
+          start_period: "60s"
+        log_driver: json-file
+        log_options:
+          max-size: "10m"
+          max-file: "5"
+      tags: ["deploy", "archon"]
+
+  post_tasks:
+    - name: "Wait for containers to initialize"
+      ansible.builtin.pause:
+        seconds: 20
+      tags: ["verify"]
+
+    - name: "Verify Archon containers are running"
+      community.docker.docker_container_info:
+        name: "{{ item }}"
+        docker_host: "{{ docker_host }}"
+      loop:
+        - "{{ infra_hostname_archon | default('archon') }}"
+        - "{{ infra_hostname_archon_postgres | default('archon-postgres') }}"
+      register: archon_container_status
+      tags: ["verify"]
+
+    - name: "Report container statuses"
+      ansible.builtin.debug:
+        msg: "{{ item.item }}: {{ item.container.State.Status }}"
+      loop: "{{ archon_container_status.results }}"
+      when: item.container is defined
+      tags: ["verify"]
+
+    - name: "Fail if any container is not running"
+      ansible.builtin.fail:
+        msg: "Container {{ item.item }} is not running (status: {{ item.container.State.Status }}). Check docker logs {{ item.item }}."
+      loop: "{{ archon_container_status.results }}"
+      when:
+        - item.container is defined
+        - item.container.State.Status != "running"
+      tags: ["verify"]
+
+    - name: "Report deployment complete"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Archon Workflow Layer Deployed
+          ========================================
+          Host: {{ inventory_hostname }}
+          Image: {{ archon_image }}:{{ archon_image_tag }}
+          Web UI: http://{{ ansible_host }}:{{ archon_host_port | default(infra_port_ai_archon_host) }}
+          Database: PostgreSQL (archon-postgres)
+          LLM routing: {{ archon_anthropic_base_url | default('direct (no pipeline)') }}
+          Platform adapters:
+            Telegram: {{ 'enabled' if archon_telegram_bot_token | default('') else 'disabled' }}
+            Discord:  {{ 'enabled' if archon_discord_bot_token | default('') else 'disabled' }}
+            GitHub:   {{ 'enabled' if archon_github_token | default('') else 'disabled' }}
+          ========================================
+          Next: Access the Web UI to create an admin account
+          (or set ARCHON_AUTH_ALLOWED_EMAILS in vault for auto-allowlist).
+          ========================================
+      tags: ["verify", "summary"]
