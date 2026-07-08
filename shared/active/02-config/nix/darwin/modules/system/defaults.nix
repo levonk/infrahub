@@ -15,13 +15,17 @@
 #   - Install Security Responses: Off (ConfigDataInstall/CriticalUpdateInstall = false)
 #   - Install App Store app updates: On (com.apple.commerce.AutoUpdate = true)
 #
-# ponytail: nix-darwin only supports system.defaults.SoftwareUpdate.AutomaticallyInstallMacOSUpdates.
-# The other SoftwareUpdate keys (AutomaticCheckEnabled, AutomaticDownload, ConfigDataInstall,
-# CriticalUpdateInstall) are not nix-darwin options — they're set via `defaults write` in
-# system.activationScripts (which runs as root, so /Library/Preferences is writable).
-# Upgrade path: if nix-darwin adds these options upstream, move them back to system.defaults.
+# ponytail: nix-darwin only supports a small set of named system.defaults options
+# (dock, finder, loginwindow, screencapture, screensaver, SoftwareUpdate.AutomaticallyInstallMacOSUpdates, etc).
+# Arbitrary `system.defaults."com.apple.X"` keys do NOT work — nix-darwin rejects them
+# with "The option system.defaults.com does not exist". Use:
+#   - system.defaults.CustomUserPreferences  for user-level defaults (~/Library/Preferences)
+#   - system.defaults.CustomSystemPreferences for system-level defaults (/Library/Preferences)
+#   - system.activationScripts                for root-only `defaults write` (e.g. SoftwareUpdate extras)
+# Upgrade path: if nix-darwin adds named options upstream, move keys back to system.defaults.<name>.
 { pkgs, lib, ... }: {
   system.defaults = {
+    # --- Named options supported by nix-darwin ---
     dock.autohide = true;
     dock.mru-spaces = false;
     finder.AppleShowAllExtensions = true;
@@ -33,7 +37,7 @@
     finder.ShowStatusBar = true;
     finder.FXDefaultSearchScope = "sccf";
     finder.FXEnableExtensionChangeWarning = false;
-    # finder.WarnOnEmptyTrash = false; # Not supported in standard nix-darwin finder module yet, checking alternatives or custom defaults
+    # finder.WarnOnEmptyTrash = false; # Not supported in standard nix-darwin finder module yet
     finder._FXSortFoldersFirst = false;
     loginwindow.LoginwindowText = "Managed by Nix";
     screencapture.location = "~/Pictures/screenshots";
@@ -42,10 +46,9 @@
     # Software Update — only this one is a native nix-darwin option
     SoftwareUpdate.AutomaticallyInstallMacOSUpdates = false;
 
-    # App Store automatic application updates
-    com.apple.commerce = {
-      AutoUpdate = true;                      # Automatically install app updates
-    };
+    # App Store app updates — user-level preference, not a named nix-darwin option.
+    # CustomUserPreferences writes to ~/Library/Preferences.
+    CustomUserPreferences."com.apple.commerce".AutoUpdate = true;
   };
 
   # Software Update keys not supported by nix-darwin's system.defaults
