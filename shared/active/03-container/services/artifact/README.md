@@ -10,6 +10,7 @@ This service domain groups the on-premise artifact repositories that ship with t
 - **nix-snapshotter** — [Nix Snapshotter](https://github.com/pdtpartners/nix-snapshotter) for lazy-loading container images from Nix stores.
 - **nix-harmonia** — [Harmonia](https://github.com/nix-community/harmonia) as a Nix binary cache.
 - **nix-ncps** — [NCPS](https://github.com/kalbasit/ncps) as a Nix Cache Proxy Server.
+- **nix-ncro** — [ncro](https://github.com/feel-co/ncro) as a parallel racing Nix cache proxy.
 
 Each package directory provides a consistent scaffold:
 

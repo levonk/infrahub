@@ -1,0 +1,98 @@
+# ncro Configuration for LocalNet
+# Parallel racing Nix cache proxy — races all upstreams in parallel
+# and learns which is fastest via EMA latency tracking.
+#
+# This is a REFERENCE config. The Ansible role (Story 02-003) will
+# template the real config with infrastructure variables (Tailscale
+# IPs, ports, vault credentials).
+
+# Server configuration
+[server]
+# Listen address — ncro binds to 127.0.0.1 only (ncps talks to it)
+listen        = "127.0.0.1:8081"
+read_timeout  = "30s"
+write_timeout = "30s"
+
+# Upstream binary caches — ncro races all of these in parallel.
+# Priorities influence the race engine: lower priority = preferred.
+# All 5 Harmonia instances (via Tailscale), Attic on OCI, cache.nixos.org.
+
+# Harmonia instance 1 — lzkmbp2016 (macOS, OrbStack)
+[[upstreams]]
+priority = 10
+url      = "http://lzkmbp2016.tail-scale.net:5000"
+
+# Harmonia instance 2 — lzkmbp2018 (macOS, OrbStack)
+[[upstreams]]
+priority = 10
+url      = "http://lzkmbp2018.tail-scale.net:5000"
+
+# Harmonia instance 3 — dtop202311 (Windows, Docker Desktop)
+[[upstreams]]
+priority = 10
+url      = "http://dtop202311.tail-scale.net:5000"
+
+# Harmonia instance 4 — oci-cloud-server (Linux, Docker)
+[[upstreams]]
+priority = 10
+url      = "http://oci-cloud-server.tail-scale.net:5000"
+
+# Harmonia instance 5 — isolation-vm (Linux, Docker)
+[[upstreams]]
+priority = 10
+url      = "http://isolation-vm.tail-scale.net:5000"
+
+# Attic on OCI — cloud binary cache
+[[upstreams]]
+priority   = 20
+url        = "http://oci-cloud-server.tail-scale.net:8082"
+public_key = "attic-cache:PLACEHOLDER_PUBLIC_KEY"
+
+# cache.nixos.org — public NixOS cache (last resort)
+[[upstreams]]
+priority   = 30
+url        = "https://cache.nixos.org"
+public_key = "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
+
+# Optional last-resort cache. Disabled by default — cache.nixos.org
+# is already listed as an upstream above.
+[fallback_cache]
+enabled    = false
+public_key = "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
+url        = "https://cache.nixos.org"
+
+# Cache / route DB configuration
+# ncro stores EMA latency tracking in a small SQLite DB
+[cache]
+db_path       = "/data/routes.db"
+latency_alpha = 0.3
+max_entries   = 100000
+negative_ttl  = "10m"
+ttl           = "1h"
+
+[cache.mass_query]
+in_memory_negative_ttl    = "5s"
+max_concurrent_races      = 64
+per_upstream_max_inflight = 8
+upstream_cooldown         = "15s"
+
+# Discovery (mDNS) — disabled in container deployment
+[discovery]
+discovery_time = "5s"
+domain         = "local"
+enabled        = false
+priority       = 20
+service_name   = "_nix-serve._tcp"
+
+# Mesh (signed peer coordination) — disabled in container deployment
+[mesh]
+bind_addr       = "0.0.0.0:7946"
+enabled         = false
+gossip_interval = "30s"
+peers           = []
+private_key     = "/etc/ncro/node.key"
+
+# Logging configuration
+[logging]
+format = "json"
+level  = "info"
