@@ -64,9 +64,9 @@ Phase 1 (parallel):
 
 | ID | Story | Branch | Risk | Status | File |
 |----|-------|--------|------|--------|------|
-| 01-001 | Infrastructure variables (ports, storage, Tailscale IPs) | `story-01-001-infra-variables` | low | todo | [tasks-nix-cache-chain-01-001-infra-variables.md](tasks-nix-cache-chain-01-001-infra-variables.md) |
+| 01-001 | Infrastructure variables (ports, storage, Tailscale IPs) | `story-01-001-infra-variables` | low | done | [tasks-nix-cache-chain-01-001-infra-variables.md](tasks-nix-cache-chain-01-001-infra-variables.md) |
 | 01-002 | ncro Nix flake container definition | `story-01-002-ncro-flake` | high | todo | [tasks-nix-cache-chain-01-002-ncro-flake.md](tasks-nix-cache-chain-01-002-ncro-flake.md) |
-| 01-003 | Vault secrets handoff (user task) | `story-01-003-vault-secrets` | medium | todo | [tasks-nix-cache-chain-01-003-vault-secrets.md](tasks-nix-cache-chain-01-003-vault-secrets.md) |
+| 01-003 | Vault secrets handoff (user task) | `story-01-003-vault-secrets` | medium | done | [tasks-nix-cache-chain-01-003-vault-secrets.md](tasks-nix-cache-chain-01-003-vault-secrets.md) |
 | 01-004 | Build + push Harmonia image to local registry | `story-01-004-harmonia-image` | low | todo | [tasks-nix-cache-chain-01-004-harmonia-image.md](tasks-nix-cache-chain-01-004-harmonia-image.md) |
 | 01-005 | Build + push Attic image to local registry | `story-01-005-attic-image` | low | todo | [tasks-nix-cache-chain-01-005-attic-image.md](tasks-nix-cache-chain-01-005-attic-image.md) |
 

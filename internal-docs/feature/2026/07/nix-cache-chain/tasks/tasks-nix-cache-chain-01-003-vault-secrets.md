@@ -7,7 +7,7 @@ prd_file: "internal-docs/feature/2026/07/nix-cache-chain/feat-202607081745-nix-c
 phase: 1
 parallel_id: 3
 branch: "feature/current/nix-cache-chain/story-01-003-vault-secrets"
-status: "todo"
+status: "done"
 assignee: ""
 reviewer: ""
 dependencies: []
@@ -64,16 +64,17 @@ This is a **user-handoff task**. The agent generates the secret values and provi
 
 ## Sub-Tasks
 
-- [ ] Task 1 — Generate Harmonia signing key pair
+- [x] Task 1 — Generate Harmonia signing key pair
   Run: `nix-store --generate-binary-cache-key levonk-harmonia-cache-1 /tmp/harmonia-secret-key.sec /tmp/harmonia-public-key.pub`
   The public key will be needed for nix.conf `trusted-public-keys` on all machines. The secret key goes in the vault.
   **Verify**: `cat /tmp/harmonia-public-key.pub` → outputs `levonk-harmonia-cache-1:<BASE64_KEY>`
+  Public key: `levonk-harmonia-cache-1:/aImtI+zqbieGranjKNv9nOB8vP3aHAfg5K2wO9+SsQ=`
 
-- [ ] Task 2 — Generate Attic HS256 secret
+- [x] Task 2 — Generate Attic HS256 secret
   Run: `openssl rand -base64 32`
   **Verify**: Output is a 44-character base64 string
 
-- [ ] Task 3 — Provide user with vault edit instructions
+- [x] Task 3 — Provide user with vault edit instructions
   Present the user with:
   1. The YAML lines to add to the vault:
      ```yaml
@@ -86,10 +87,10 @@ This is a **user-handoff task**. The agent generates the secret values and provi
   3. Instructions: "Run this command, add the lines above, save and exit"
   **Verify**: User confirms they have added the secrets
 
-- [ ] Task 4 — Verify vault is accessible after user confirmation
+- [x] Task 4 — Verify vault is accessible after user confirmation
   **Verify**: `devbox run -- ansible-vault view levonk/active/02-config/ansible/inventories/group_vars/infrahub-levonk-all.vault.yml --vault-password-file ~/.ansible/vault_password | grep vault_nix_harmonia_sign_key` → line exists (DO NOT print the value)
 
-- [ ] Task 5 — Clean up temporary key files
+- [x] Task 5 — Clean up temporary key files
   **Verify**: `rm -f /tmp/harmonia-secret-key.sec /tmp/harmonia-public-key.pub` → exit 0
 
 ## Relevant Files
@@ -98,12 +99,12 @@ This is a **user-handoff task**. The agent generates the secret values and provi
 
 ## Acceptance Criteria
 
-- [ ] Harmonia signing key pair generated
-- [ ] Attic HS256 secret generated
-- [ ] User provided with vault edit command and YAML lines
-- [ ] User confirms secrets added to vault
-- [ ] Vault view confirms `vault_nix_harmonia_sign_key` and `vault_nix_attic_token_secret` exist
-- [ ] Temporary key files cleaned up
+- [x] Harmonia signing key pair generated
+- [x] Attic HS256 secret generated
+- [x] User provided with vault edit command and YAML lines
+- [x] User confirms secrets added to vault
+- [x] Vault view confirms `vault_nix_harmonia_sign_key` and `vault_nix_attic_token_secret` exist
+- [x] Temporary key files cleaned up
 
 ## Test Plan
 
@@ -132,10 +133,10 @@ This is a **user-handoff task**. The agent generates the secret values and provi
 
 ## Definition of Done
 
-- [ ] User confirms secrets added to vault
-- [ ] `ansible-vault view` confirms variable names exist (values not printed)
-- [ ] Temporary files cleaned up
-- [ ] No secret values in conversation logs
+- [x] User confirms secrets added to vault
+- [x] `ansible-vault view` confirms variable names exist (values not printed)
+- [x] Temporary files cleaned up
+- [x] No secret values in conversation logs
 
 ## STOP Conditions
 
