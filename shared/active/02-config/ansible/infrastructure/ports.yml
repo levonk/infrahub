@@ -230,3 +230,27 @@ infra_port_dashboard_homepage_host: "8084"
 infra_port_dashboard_homepage_container: "3000"
 infra_port_dashboard_trala_host: "8085"
 infra_port_dashboard_trala_container: "8080"
+
+# ---------------------------------------------------------------------------
+# Nix Cache Chain Ports
+# Used by: nix-cache-chain feature (Harmonia, ncps, ncro, Attic)
+# Harmonia: local binary cache on every Nix machine (binds 127.0.0.1)
+# ncps: regional NAR cache proxy (binds Tailscale IP)
+# ncro: NAR cache racer — races all upstreams in parallel (binds 127.0.0.1)
+# Attic: cloud binary cache on OCI (binds Tailscale IP)
+# ---------------------------------------------------------------------------
+# Harmonia
+infra_port_nix_harmonia_host: "5000"
+infra_port_nix_harmonia_container: "5000"
+
+# ncps (Nix Cache Proxy Server)
+infra_port_nix_ncps_host: "8080"
+infra_port_nix_ncps_container: "8080"
+
+# ncro (Nix Cache Race Orchestrator)
+infra_port_nix_ncro_host: "8081"
+infra_port_nix_ncro_container: "8081"
+
+# Attic (cloud binary cache)
+infra_port_nix_attic_host: "8082"
+infra_port_nix_attic_container: "8082"

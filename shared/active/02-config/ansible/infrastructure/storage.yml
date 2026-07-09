@@ -84,6 +84,28 @@ infra_storage_security_config: "{{ infra_storage_services_dir }}/security/config
 infra_storage_security_data: "{{ infra_storage_services_dir }}/security/data"
 
 # ---------------------------------------------------------------------------
+# Nix Cache Chain Storage
+# Used by: nix-cache-chain feature (Harmonia, ncps, ncro, Attic)
+# Each service has a config directory (under services/) and a data directory
+# (under data/) following the existing pattern.
+# ---------------------------------------------------------------------------
+# Harmonia (local binary cache on every Nix machine)
+infra_storage_nix_harmonia_config: "{{ infra_storage_services_dir }}/nix-harmonia/config"
+infra_storage_nix_harmonia_data: "{{ infra_storage_data_dir }}/nix-harmonia"
+
+# ncps (Nix Cache Proxy Server — regional NAR cache)
+infra_storage_nix_ncps_config: "{{ infra_storage_services_dir }}/nix-ncps/config"
+infra_storage_nix_ncps_data: "{{ infra_storage_data_dir }}/nix-ncps"
+
+# ncro (Nix Cache Race Orchestrator — parallel upstream racer)
+infra_storage_nix_ncro_config: "{{ infra_storage_services_dir }}/nix-ncro/config"
+infra_storage_nix_ncro_data: "{{ infra_storage_data_dir }}/nix-ncro"
+
+# Attic (cloud binary cache on OCI)
+infra_storage_nix_attic_config: "{{ infra_storage_services_dir }}/nix-attic/config"
+infra_storage_nix_attic_data: "{{ infra_storage_data_dir }}/nix-attic"
+
+# ---------------------------------------------------------------------------
 # Container Volume Mount Patterns
 # ---------------------------------------------------------------------------
 infra_storage_mount_config: "{{ infra_storage_config_dir }}/{{ infra_hostname_service }}"
