@@ -1,5 +1,11 @@
 ## Nix Strategy
 
+> **⚠️ SUPERSEDED — The waterfall strategy below has been replaced by [ADR-20260708001: Nix Cache Chain — Regional Multi-Layer with Parallel Racing](../../../../../08-docs/adr/adr-20260708001-nix-cache-chain-regional-parallel-racing.md).**
+>
+> The waterfall approach (sequential substituter priorities) is outdated because Nix walks caches one at a time, adding latency on each miss. The new architecture uses ncro to race all upstreams in parallel, with ncps for local NAR caching. The content below is kept for historical reference only.
+>
+> **Current architecture**: `local Harmonia → regional ncps (caches NARs) → ncro (races all upstreams in parallel) → all Harmonia + Attic + nixos.org + Cachix`
+
 Nix robust "waterfall" of caches that prioritizes **speed first** (local LAN), then **reliability** (regional proxy), and finally **completeness** (internet/cloud).
 
 Here is the breakdown of why this works and how to configure the priorities (lower number = higher priority) to achieve exactly what you described.

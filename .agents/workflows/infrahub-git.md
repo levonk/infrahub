@@ -1,5 +1,27 @@
-- Run the skill ~/p/gh/levonk/dotfiles/home/current/.chezmoitemplates/config/ai/skills/software-dev/git-repository-management/SKILL.md 
-- on the infrahub project and all the client submodules
+---
+workflow: "Git Repository Management for Infrahub"
+slug: "infrahub-git"
+description: "Run the git-repository-management skill on the infrahub project and all client submodules to save documentation and state snapshots."
+use: "When needing to save pre-update or post-update git state across the infrahub project and its client submodules"
+date:
+  created: "2026-06-24"
+  updated: "2026-07-08"
+  last-used: "2026-07-08"
+see-also:
+  - file: "do-new-srvc-infrahub.md"
+    relationship: "caller"
+    description: "Service-adding orchestration workflow that calls this before and after implementation."
+  - skill: "git-repository-management"
+    relationship: "implementation"
+    description: "The skill that this workflow runs on the infrahub project and submodules."
+---
+
+# Workflow: Git Repository Management for Infrahub
+
+Run the `git-repository-management` skill on the infrahub project and all client
+submodules.
+
+Skill path: `~/p/gh/levonk/skills-src/src/current/skills/software-dev/git-repository-management/SKILL.md`
 
 ## CRITICAL: Read AGENTS.md Before Proceeding
 
@@ -11,10 +33,24 @@ AGENTS.md contains critical rules about:
 - Security requirements and ADR compliance
 - Client-specific isolation requirements
 
-**Each client submodule (e.g., levonk/) also has its own AGENTS.md with client-specific rules.**
+**Each client submodule (e.g., `levonk/`) also has its own AGENTS.md with client-specific rules.**
 
 Failure to follow these rules can result in:
 - Exposed sensitive information
 - Broken architecture
 - Security violations
 - Loss of client isolation
+
+## Context Declaration
+
+### File Paths
+
+- **This workflow**: `~/p/gh/levonk/infrahub/.agents/workflows/infrahub-git.md`
+- **Git management skill**: `~/p/gh/levonk/skills-src/src/current/skills/software-dev/git-repository-management/SKILL.md`
+- **Project AGENTS.md**: `~/p/gh/levonk/infrahub/AGENTS.md`
+- **Client submodule AGENTS.md**: `~/p/gh/levonk/infrahub/levonk/AGENTS.md`
+
+### Project Info
+
+- Client git submodules: `~/p/gh/levonk/infrahub/levonk` (and others if present)
+- All tool invocations: `cd ~/p/gh/levonk/infrahub && devbox run -- rtk {COMMAND}`

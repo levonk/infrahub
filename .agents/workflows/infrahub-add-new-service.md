@@ -1,3 +1,21 @@
+---
+workflow: "Add a New Service to Infrahub (Implementation Guide)"
+slug: "infrahub-add-new-service"
+description: "Detailed phase-by-phase implementation guide for adding a new service: shared role, client infrastructure values, vault secrets, Traefik routing, build pipeline, and deployment. Follow every phase in order."
+use: "When implementing the actual deployment of a new service — called by do-new-srvc-infrahub.md or used directly for one-shot service additions"
+date:
+  created: "2026-06-30"
+  updated: "2026-07-08"
+  last-used: "2026-07-08"
+see-also:
+  - file: "do-new-srvc-infrahub.md"
+    relationship: "orchestrator"
+    description: "Orchestration workflow that handles research, planning, and PRD before delegating implementation to this guide."
+  - file: "infrahub-git.md"
+    relationship: "git-state"
+    description: "Git repository management workflow to save pre/post-update state."
+---
+
 # Workflow: Add a New Service to Infrahub
 
 This workflow guides an agent through adding a new service end-to-end: shared role, client infrastructure values, vault secrets, Traefik routing, build pipeline, and deployment. Follow every phase in order. Do not skip phases.
@@ -172,11 +190,16 @@ List every secret the service needs. For each:
 ```bash
 docker run --rm -it \
   -v ~/.ansible/vault_password:/vault_password:ro \
-  -v ~/p/gh/levonk/infrahub/levonk/active/02-config/ansible/inventories/group_vars/infrahub-levonk-all.vault.yml:/vault.yml \
-  --entrypoint ansible-vault \
-  ghcr.io/ansible/community-ansible:v2.18.0 \
-  edit /vault.yml --vault-password-file /vault_password
+  -v ~/p/gh/levonk/infrahub/levonk/active/02-config/ansible/inventories/group_vars:/vault-dir \
+  -e EDITOR=vi \
+  alpine/ansible:latest \
+  ansible-vault edit /vault-dir/infrahub-levonk-all.vault.yml --vault-password-file /vault_password
 ```
+
+> **Why mount the directory, not the file?** `ansible-vault edit` writes to a temp
+> file then atomically replaces the original via `os.remove()` + rename. Docker
+> file bind mounts can't be removed from inside the container (`Errno 16: Resource
+> busy`). Mounting the directory lets the atomic replace work normally.
 
 Tell the user exactly what to add:
 
@@ -456,7 +479,7 @@ The service container MUST be on the `traefik-network` Docker network for Traefi
 
 Add the service to the Homepage dashboard config:
 
-- File: `shared/active/02-config/ansible/roles/dashboard-homepage/templates/services.yml.j2` (or equivalent)
+- File: `shared/active/02-config/ansible/roles/dashboard-homepage/templates/homepage-services.yaml.j2`
 - Add a service entry with href, icon, description
 
 ### 7b. TraLa (`start2.levonk.com`)
@@ -589,10 +612,6 @@ feat: add {service} service
 - Traefik dynamic config: {service}-levonk-com.yml.j2
 - Build pipeline: registered in build-and-push-images.sh (if locally-built)
 - Dashboard: TraLa override and Homepage entry
-
-Generated with [Devin](https://devin.ai)
-
-Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>
 EOF
 )"
 ```
@@ -635,3 +654,31 @@ EOF
 - **Multi-platform `docker save`**: Build with `--platform linux/arm64` before `docker save | docker load` to avoid wasting disk.
 - **TraLa exclude patterns**: Use router names WITHOUT `@file` suffix (e.g., `{service}-https`, not `{service}-https@file`).
 - **envoy/privoxy/squid pattern**: Some services use upstream Docker Hub images directly — no custom Dockerfile needed.
+
+## Context Declaration
+
+### File Paths
+
+- **This workflow**: `~/p/gh/levonk/infrahub/.agents/workflows/infrahub-add-new-service.md`
+- **Orchestrator**: `~/p/gh/levonk/infrahub/.agents/workflows/do-new-srvc-infrahub.md`
+- **Git state workflow**: `~/p/gh/levonk/infrahub/.agents/workflows/infrahub-git.md`
+- **Project AGENTS.md**: `~/p/gh/levonk/infrahub/AGENTS.md`
+- **Ansible AGENTS.md**: `~/p/gh/levonk/infrahub/shared/active/02-config/ansible/AGENTS.md`
+- **Client AGENTS.md**: `~/p/gh/levonk/infrahub/levonk/AGENTS.md`
+- **Developer guide**: `~/p/gh/levonk/infrahub/.agents/knowledge/developer.md`
+- **Infrastructure schemas**: `~/p/gh/levonk/infrahub/shared/active/02-config/ansible/infrastructure/` (ports.yml, networks.yml, domains.yml, storage.yml)
+- **Client infra overrides**: `~/p/gh/levonk/infrahub/levonk/active/02-config/ansible/infrastructure/`
+- **Ansible roles**: `~/p/gh/levonk/infrahub/shared/active/02-config/ansible/roles/`
+- **Playbooks**: `~/p/gh/levonk/infrahub/shared/active/02-config/ansible/playbooks/`
+- **Build script**: `~/p/gh/levonk/infrahub/scripts/build-and-push-images.sh`
+- **Vault file**: `~/p/gh/levonk/infrahub/levonk/active/02-config/ansible/inventories/group_vars/infrahub-levonk-all.vault.yml`
+
+### Project Info
+
+- Client git submodule: `~/p/gh/levonk/infrahub/levonk`
+- All tool invocations: `cd ~/p/gh/levonk/infrahub && devbox run -- rtk {COMMAND}`
+- Vault password file: `~/.ansible/vault_password`
+- Vault edits are agent → user handoff only (never edit directly)
+- Lint: `devbox run -- just ansible-lint-internal`
+- OCI server: `opc@100.90.22.85` (SSH key: `~/.ssh/lzkmbp2016-micro-oracle`)
+- Local registry: `100.90.22.85:5000`
