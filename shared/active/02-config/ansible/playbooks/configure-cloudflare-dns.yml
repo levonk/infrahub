@@ -138,6 +138,14 @@
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
 
+      # JobOps (career tool — runs on Windows Docker, routed via Traefik on OCI)
+      - name: "{{ infra_domain_career_jobops | default('jobops.levonk.com') }}"
+        type: "CNAME"
+        content: "{{ ts_fqdn }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
       # Inference host (kckinai — separate Tailscale host for AI workloads)
       - name: "{{ infra_domain_inference_host | default('kckinai.levonk.com') }}"
         type: "CNAME"

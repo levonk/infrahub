@@ -14,6 +14,21 @@ see-also:
   - file: "do-proj-infrahub.md"
     relationship: "next-step"
     description: "Controller workflow that drives task-by-task implementation via subagents. Called after planning is complete."
+  - skill: "project-comparison"
+    relationship: "research"
+    description: "Compare multiple candidate services/projects with category discovery, coverage mapping, feature matrix, and maintainability scoring. Used in Phase 2 when evaluating alternatives."
+  - skill: "container-image-build"
+    relationship: "implementation"
+    description: "Build container images for mixed-architecture fleets. Three branches: pre-built upstream, Dockerfile+buildx, Nix flake. Used when the service needs a locally-built image."
+  - skill: "container-service-deploy"
+    relationship: "implementation"
+    description: "Deploy multi-container services via compose (dev) or Ansible docker_container (prod). Used during implementation and deployment phases."
+  - skill: "infrahub-container-deploy"
+    relationship: "implementation"
+    description: "Infrahub-specific overlay for container deployment: userns-remap UID 100000, vault handoff, infra_ variable naming, functional-group role naming, local registry."
+  - skill: "code-quality-validation"
+    relationship: "testing"
+    description: "Comprehensive code quality validation (lint, format, test, security scan). Used in Phase 4 to validate before deploying."
 ---
 
 # Workflow: Add a New Service to Infrahub
@@ -46,10 +61,11 @@ vault secrets, Traefik routing, build pipeline, deployment), see
   Don't do this if the user asks you not to. Write the research to
   `internal-docs/research/service/{service-name-kebab-case}/` (create the directory
   if it doesn't exist).
-- When comparing multiple candidate tools/services, use the feature-matrix template
-  at `~/p/gh/levonk/skills-src/src/current/rules/general-ai/feature-matrix.md.tmpl`
-  to visualize differences. Launch a subagent to fill in the template with the
-  research findings and present the matrix to the user for a decision.
+- When comparing multiple candidate tools/services, use the `project-comparison`
+  skill (`~/p/gh/levonk/skills-src/src/current/skills/software-dev/project-comparison/SKILL.md`)
+  for category discovery, coverage mapping, feature matrix, and maintainability
+  scoring. Launch a subagent to run the comparison and present the matrix to the
+  user for a decision. (The skill includes the feature-matrix template.)
 - Launch a subagent to read the documentation about the service off the web or a
   recent checkout in source control. Add the doc to the research directory.
 - Read all the information, come up with an initial plan, ask ANY questions
@@ -74,6 +90,10 @@ vault secrets, Traefik routing, build pipeline, deployment), see
   Ansible playbook runs cleanly against a test target, and the configuration
   is valid (e.g. `devbox run -- rtk ansible-playbook --syntax-check`,
   `--check`).
+- Use the `code-quality-validation` skill
+  (`~/p/gh/levonk/skills-src/src/current/skills/software-dev/code-quality-validation/SKILL.md`)
+  for comprehensive validation: linting, formatting, testing, and security
+  scanning.
 - Fix any failures before moving to deploy.
 
 ## Phase 5: Deploy
@@ -105,7 +125,11 @@ vault secrets, Traefik routing, build pipeline, deployment), see
 - **PRD generation**: `~/p/gh/levonk/skills-src/src/current/workflows/software-dev/greenfield/greenfield-prd.md`
 - **Task breakdown**: `~/p/gh/levonk/skills-src/src/current/workflows/software-dev/tasks/tasks-from-prd.md`
 - **Git management skill**: `~/p/gh/levonk/skills-src/src/current/skills/software-dev/git-repository-management/SKILL.md`
-- **Feature comparison template**: `~/p/gh/levonk/skills-src/src/current/rules/general-ai/feature-matrix.md.tmpl`
+- **Project comparison skill**: `~/p/gh/levonk/skills-src/src/current/skills/software-dev/project-comparison/SKILL.md`
+- **Container image build skill**: `~/p/gh/levonk/skills-src/src/current/skills/software-dev/container-image-build/SKILL.md`
+- **Container service deploy skill**: `~/p/gh/levonk/skills-src/src/current/skills/software-dev/container-service-deploy/SKILL.md`
+- **Infrahub container deploy skill**: `~/p/gh/levonk/infrahub/.agents/skills/devops/infrahub-container-deploy/SKILL.md`
+- **Code quality validation skill**: `~/p/gh/levonk/skills-src/src/current/skills/software-dev/code-quality-validation/SKILL.md`
 - **Research output**: `~/p/gh/levonk/infrahub/internal-docs/research/service/{service-name-kebab-case}/`
 - **Project AGENTS.md**: `~/p/gh/levonk/infrahub/AGENTS.md`
 

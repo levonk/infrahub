@@ -14,6 +14,9 @@ see-also:
   - file: "infrahub-add-new-service.md"
     relationship: "implementation-detail"
     description: "Detailed phase-by-phase service implementation guide. Referenced when the task involves adding a new service."
+  - skill: "infrahub-container-deploy"
+    relationship: "implementation"
+    description: "Infrahub-specific overlay for container deployment: userns-remap UID 100000, vault handoff, infra_ variable naming, functional-group role naming. Referenced when the task involves container deployment."
 ---
 
 # Workflow: Task Executor for Infrahub

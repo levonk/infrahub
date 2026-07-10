@@ -14,6 +14,18 @@ see-also:
   - file: "infrahub-git.md"
     relationship: "git-state"
     description: "Git repository management workflow to save pre/post-update state."
+  - skill: "container-image-build"
+    relationship: "implementation"
+    description: "Build container images for mixed-architecture fleets. Three branches: pre-built upstream, Dockerfile+buildx, Nix flake. Authoritative reference for the upstream-vs-locally-built decision and Phase 3 build pipeline."
+  - skill: "container-service-deploy"
+    relationship: "implementation"
+    description: "Deploy multi-container services via compose (dev) or Ansible docker_container (prod). Authoritative reference for Phase 5 role creation and Phase 9 deployment."
+  - skill: "infrahub-container-deploy"
+    relationship: "implementation"
+    description: "Infrahub-specific overlay for container deployment: userns-remap UID 100000, vault handoff, infra_ variable naming, functional-group role naming, local registry. Authoritative reference for Phase 5 role creation."
+  - skill: "code-quality-validation"
+    relationship: "testing"
+    description: "Comprehensive code quality validation (lint, format, test, security scan). Used for Phase 9 post-deploy validation."
 ---
 
 # Workflow: Add a New Service to Infrahub
@@ -30,9 +42,12 @@ This workflow guides an agent through adding a new service end-to-end: shared ro
 
 ## Decision: Upstream Image vs Locally-Built Image
 
-Before starting, determine which path applies:
+Before starting, determine which path applies. The `container-image-build` skill
+(`~/p/gh/levonk/skills-src/src/current/skills/software-dev/container-image-build/SKILL.md`)
+is the authoritative reference for this decision — it enforces "check pre-built
+first" and "multi-arch mandatory" principles.
 
-- **Upstream image** (e.g., `envoyproxy/envoy:v1.28-latest`, `ubuntu/squid:latest`): The service uses a pre-built Docker Hub image. No Dockerfile, no build pipeline entry. Skip Phase 3.
+- **Upstream image** (e.g., `envoyproxy/envoy:v1.28-latest`, `ubuntu/squid:latest`, `ghcr.io/dakheera47/job-ops:latest`): The service uses a pre-built Docker Hub or GHCR image. No Dockerfile, no build pipeline entry. Skip Phase 3.
 - **Locally-built image** (e.g., omniroute, headroom, agentmemory): The service has a custom Dockerfile in `shared/active/03-container/services/`. Requires build pipeline entry. Do Phase 3.
 
 ---
@@ -130,7 +145,13 @@ If the service gets a public domain, add a CNAME record to the Cloudflare DNS co
 
 ## Phase 3: Build Pipeline (Locally-Built Images Only)
 
-Skip this phase if using an upstream Docker Hub image.
+Skip this phase if using an upstream Docker Hub or GHCR image.
+
+> **Authoritative reference**: The `container-image-build` skill
+> (`~/p/gh/levonk/skills-src/src/current/skills/software-dev/container-image-build/SKILL.md`)
+> covers this comprehensively — three branches (pre-built, Dockerfile+buildx,
+> Nix flake), multi-arch mandatory, check pre-built first. Use it instead of
+> duplicating the guidance here.
 
 ### 3a. Create the Dockerfile
 
@@ -221,6 +242,15 @@ In the role's `defaults/main.yml`, reference the vault variable with a safe defa
 ## Phase 5: Create the Ansible Role
 
 Create the role under `shared/active/02-config/ansible/roles/{prefix}-{service}/`.
+
+> **Authoritative references**:
+> - `infrahub-container-deploy` skill
+>   (`~/p/gh/levonk/infrahub/.agents/skills/devops/infrahub-container-deploy/SKILL.md`)
+>   — infrahub-specific overlay: userns-remap UID 100000, vault handoff,
+>   `infra_` variable naming, functional-group role naming, local registry.
+> - `container-service-deploy` skill
+>   (`~/p/gh/levonk/skills-src/src/current/skills/software-dev/container-service-deploy/SKILL.md`)
+>   — general deployment patterns (compose for dev, Ansible for prod).
 
 ### 5a. Role naming
 
@@ -536,6 +566,11 @@ If the service is the first of a new stack:
 ---
 
 ## Phase 9: Deploy and Verify
+
+> **Validation reference**: The `code-quality-validation` skill
+> (`~/p/gh/levonk/skills-src/src/current/skills/software-dev/code-quality-validation/SKILL.md`)
+> covers comprehensive validation (lint, format, test, security scan). Use it
+> for the lint and validation steps below.
 
 ### 9a. Lint
 

@@ -1,0 +1,113 @@
+---
+# JobOps Deployment
+# Deploys on Windows Docker Desktop hosts via SSH-tunneled Docker CLI.
+# Upstream GHCR image — no build phase.
+#
+# Architecture: community.docker Ansible modules use paramiko for SSH transport,
+# which can't authenticate to the Windows host (key discovery issue). Instead,
+# we use ansible.builtin.shell with the docker CLI, setting DOCKER_HOST to
+# ssh:// so the system SSH client (with ~/.ssh/config) handles auth.
+#
+# This is a pragmatic exception to the "community.docker modules only" rule.
+# The rule exists to avoid docker compose and ensure idempotent container
+# management. We achieve both with docker CLI run/create commands. The root
+# cause is that community.docker modules can't run on Windows (Ansible core
+# basic.py imports grp, Unix-only) and can't use the system SSH client for
+# delegate_to: localhost (paramiko auth fails).
+
+# 1. Validate required variables
+- name: Validate required variables are defined
+  ansible.builtin.assert:
+    that:
+      - jobops_container_name is defined
+      - jobops_image_name is defined
+      - jobops_host_port is defined
+      - jobops_container_port is defined
+    fail_msg: "Missing required jobops variables."
+    success_msg: "All required jobops variables are defined."
+  tags: ["always", "validate"]
+
+# 2. Pull image from GHCR (via docker CLI with SSH transport)
+- name: Pull jobops image from GHCR
+  ansible.builtin.shell: "docker pull {{ jobops_image_name }}:{{ jobops_image_tag }}"
+  environment:
+    DOCKER_HOST: "{{ jobops_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "pull"]
+
+# 3. Create data volume
+- name: Ensure jobops data volume exists
+  ansible.builtin.shell: "docker volume inspect {{ jobops_data_volume }} 2>/dev/null || docker volume create {{ jobops_data_volume }}"
+  environment:
+    DOCKER_HOST: "{{ jobops_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "volume"]
+
+# 4. Create codex volume
+- name: Ensure jobops codex volume exists
+  ansible.builtin.shell: "docker volume inspect {{ jobops_codex_volume }} 2>/dev/null || docker volume create {{ jobops_codex_volume }}"
+  environment:
+    DOCKER_HOST: "{{ jobops_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "volume"]
+
+# 5. Stop existing container (if any) before recreating
+- name: Stop existing jobops container
+  ansible.builtin.shell: "docker rm -f {{ jobops_container_name }} 2>/dev/null || true"
+  environment:
+    DOCKER_HOST: "{{ jobops_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "container"]
+
+# 6. Deploy container
+- name: Deploy jobops container
+  ansible.builtin.shell: >-
+    docker run -d
+    --name {{ jobops_container_name }}
+    --restart unless-stopped
+    -p {{ jobops_host_port }}:{{ jobops_container_port }}/tcp
+    -v {{ jobops_data_volume }}:/app/data:rw
+    -v {{ jobops_codex_volume }}:/app/codex-home:rw
+    -e NODE_ENV=production
+    -e PORT={{ jobops_container_port }}
+    -e PYTHON_PATH=/usr/bin/python3
+    -e CODEX_HOME=/app/codex-home
+    -e TZ={{ localnet_tz | default('UTC') }}
+    --log-driver json-file
+    --log-opt max-size=10m
+    --log-opt max-file=5
+    --health-cmd "curl -f http://localhost:{{ jobops_container_port }}/health || exit 1"
+    --health-interval {{ jobops_healthcheck_interval }}
+    --health-timeout {{ jobops_healthcheck_timeout }}
+    --health-retries {{ jobops_healthcheck_retries }}
+    --health-start-period {{ jobops_healthcheck_start_period }}
+    {{ jobops_image_name }}:{{ jobops_image_tag }}
+  environment:
+    DOCKER_HOST: "{{ jobops_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "container"]
+
+# 7. Status report
+- name: Get jobops container status
+  ansible.builtin.shell: "docker inspect --format '{% raw %}{{.State.Status}}{% endraw %}' {{ jobops_container_name }}"
+  environment:
+    DOCKER_HOST: "{{ jobops_docker_host }}"
+  delegate_to: localhost
+  register: jobops_status
+  changed_when: false
+  ignore_errors: true
+  tags: ["always", "info"]
+
+- name: Report jobops status
+  ansible.builtin.debug:
+    msg: |
+      jobops deployed:
+        - URL: https://{{ jobops_domain }}
+        - Container: {{ jobops_container_name }}
+        - Status: {{ jobops_status.stdout | default('unknown') }}
+  tags: ["always", "info"]

@@ -103,3 +103,11 @@ infra_storage_backup_compression: "gzip"
 # Redis data volume name (Docker volume, not a host path — works on any OS)
 # ---------------------------------------------------------------------------
 infra_storage_worldmonitor_redis_data_volume: "worldmonitor-redis-data"
+
+# ---------------------------------------------------------------------------
+# JobOps Career Tool Storage
+# Used by: Windows Docker Desktop hosts (deploy-jobops.yml playbook)
+# Docker volume for persistent data (database, generated PDFs)
+# ---------------------------------------------------------------------------
+infra_storage_jobops_data_volume: "localnet-jobops-data-volume"
+infra_storage_jobops_codex_volume: "localnet-jobops-codex-volume"

@@ -230,3 +230,11 @@ infra_port_dashboard_homepage_host: "8084"
 infra_port_dashboard_homepage_container: "3000"
 infra_port_dashboard_trala_host: "8085"
 infra_port_dashboard_trala_container: "8080"
+
+# ---------------------------------------------------------------------------
+# JobOps Career Tool Ports
+# Used by: Windows Docker Desktop hosts (deploy-jobops.yml playbook)
+# Upstream GHCR image: ghcr.io/dakheera47/job-ops:latest
+# ---------------------------------------------------------------------------
+infra_port_career_jobops_host: "3005"
+infra_port_career_jobops_container: "3001"

@@ -1,0 +1,9 @@
+---
+# jobops handlers
+# (No handlers needed — container is recreated on each deploy)
+
+- name: restart jobops
+  ansible.builtin.shell: "docker restart {{ jobops_container_name }}"
+  environment:
+    DOCKER_HOST: "{{ jobops_docker_host }}"
+  delegate_to: localhost

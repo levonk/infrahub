@@ -60,6 +60,7 @@ infra_hostname_vpn_tor: "tor"
 # ---------------------------------------------------------------------------
 infra_tailscale_tailnet: "example.ts.net"
 infra_tailscale_fqdn_cloud_server: "{{ infra_tailscale_tailnet }}"
+infra_tailscale_fqdn_windows_docker: "{{ infra_tailscale_tailnet }}"
 
 # ---------------------------------------------------------------------------
 # Service Hostnames (container names)
@@ -95,6 +96,11 @@ infra_hostname_trala: "trala"
 # ---------------------------------------------------------------------------
 infra_domain_dashboard_homepage: "start.levonk.com"
 infra_domain_dashboard_trala: "start2.levonk.com"
+
+# ---------------------------------------------------------------------------
+# Career Services
+# ---------------------------------------------------------------------------
+infra_domain_career_jobops: "jobops.levonk.com"
 
 # ---------------------------------------------------------------------------
 # Cloudflare DNS Record Types
