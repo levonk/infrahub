@@ -6,6 +6,9 @@ This guide is for developers/agents working on the infrahub codebase. For user-f
 - Out of Scope: Not yet established — check `internal-docs/` for ADRs and architecture docs before adding features
 - Root AGENTS.md: [`../../AGENTS.md`](../../AGENTS.md) — environment setup, vault, deployment workflow, architectural invariants
 - Add New Service Workflow: [`../workflows/infrahub-add-new-service.md`](../workflows/infrahub-add-new-service.md) — 10-phase checklist for adding a new service end-to-end (shared schemas → client values → vault → role → Traefik → dashboard → deploy → verify)
+- Ansible Lint Troubleshooting: [`../../internal-docs/troubleshooting/ansible-lint.md`](../../internal-docs/troubleshooting/ansible-lint.md) — role naming convention, yamllint config crashes, pre-existing violations
+- Windows Development: [`../../internal-docs/windows-development.md`](../../internal-docs/windows-development.md) — Windows module gaps, cross-platform role patterns, win_shell for blockinfile
+- Ansible Subdirectory Guide: [`../../shared/active/02-config/ansible/AGENTS.md`](../../shared/active/02-config/ansible/AGENTS.md) — playbook-to-inventory mapping, container module parameters, DNS architecture
 
 ## <commands>
 **Devbox Commands (Environment)**

@@ -67,6 +67,26 @@ Additional gotchas:
 - **Test Framework**: Molecule for role testing (currently blocked due to Python docker module dependency)
 - **Package Manager**: pnpm for Nix, but Ansible packages via devbox
 
+## Role Naming Convention
+
+All hardening roles follow the pattern `common-{platform}-{concern}-hardening` in the **directory name**, with `role_name: common_{platform}_{concern}_hardening` (underscores) in `meta/main.yml` to satisfy ansible-lint's `role-name` rule. Other roles use functional-group prefixes (`dns-`, `proxy-`, `vpn-`, `ai-`).
+
+Windows platform versions in meta must use `["all"]`, not `["10"]`/`["11"]` (schema rejects those). Enterprise Linux (Oracle Linux) uses platform name `EL` with versions `["8", "9"]`.
+
+See [`internal-docs/troubleshooting/ansible-lint.md`](../../../internal-docs/troubleshooting/ansible-lint.md) for the full naming rules and lint troubleshooting.
+
+## Playbook-to-Inventory Mapping
+
+| Playbook | Inventory | Host group | OS | Hosts |
+|---|---|---|---|---|
+| `cloud-server-bootstrap.yml` | `levonk/.../inventories/oci.yml` | `cloud_servers`, `isolation_vms` | Oracle Linux (EL) | OCI cloud server, QEMU isolation VMs |
+| `harden-windows-host.yml` | `levonk/.../inventories/windows-docker.yml` | `windows_docker_hosts` | Windows | dtop202311 (Windows Docker Desktop) |
+| `bootstrap-macos-host.yml` | `levonk/.../inventories/macos-hosts.yml` | `macos_hosts` | macOS | macOS hosts |
+| `localnet-tailscale.yml` | `levonk/.../inventories/localnet.yml` | `vpn_tailscale_clients` | Linux | localnet hosts |
+| `bootstrap-ai-inference-host.yml` | `levonk/.../inventories/localnet.yml --limit kckinai` | `vpn_tailscale_clients` | Linux | kckinai (NVIDIA inference host) |
+
+When adding a new role to a playbook, check this table to know which playbook(s) cover which hosts. Use `--tags <role-tag>` to deploy only that role across all inventories.
+
 ## DNS Architecture (Two-Layer)
 
 The shared roles provide a two-layer DNS architecture for Tailscale-attached hosts. Clients opt in by setting Tailscale FQDN variables in their `infrastructure/domains.yml` and per-host `cloudflare_ddns_hostname` in their inventory.
@@ -193,3 +213,10 @@ Molecule scenarios are in `.molecule/default/` within each role directory:
 - Depends on: devbox environment
 - Requires: molecule, ansible, docker/podman
 - Docker images: `debian:bookworm-slim` (matches OCI target)
+
+## JIT Index
+
+- Ansible Lint Troubleshooting: [`internal-docs/troubleshooting/ansible-lint.md`](../../../internal-docs/troubleshooting/ansible-lint.md) — role naming convention, yamllint config crashes, pre-existing violations
+- Windows Development: [`internal-docs/windows-development.md`](../../../internal-docs/windows-development.md) — Windows module gaps, cross-platform role patterns, win_shell for blockinfile
+- Root AGENTS.md: [`../../../AGENTS.md`](../../../AGENTS.md) — environment setup, vault, deployment workflow, architectural invariants
+- Developer Guide: [`../../../.agents/knowledge/developer.md`](../../../.agents/knowledge/developer.md) — key directories, patterns, boundaries, known gotchas
