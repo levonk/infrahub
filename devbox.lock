@@ -176,12 +176,12 @@
         "x86_64-darwin": {
           "outputs": [
             {
-              "path": "/nix/store/wbbip9wkmiq4cxnzj628jziqgpfafj0v-eza-0.23.4",
+              "name": "man",
+              "path": "/nix/store/1pvkh2ly8glv9ymw78gxqa7r41l5fv5i-eza-0.23.4-man",
               "default": true
             },
             {
-              "name": "man",
-              "path": "/nix/store/1pvkh2ly8glv9ymw78gxqa7r41l5fv5i-eza-0.23.4-man",
+              "path": "/nix/store/wbbip9wkmiq4cxnzj628jziqgpfafj0v-eza-0.23.4",
               "default": true
             }
           ]
@@ -218,11 +218,31 @@
     },
     "gh": {
       "resolved": "github:NixOS/nixpkgs/3d46470bb3030020f7e1361f33514854f5bfa86d#gh",
-      "source": "nixpkg"
+      "source": "nixpkg",
+      "systems": {
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "path": "/nix/store/mf9vjs2xy59kg87iyywkzszy00cz6a4n-gh-2.95.0",
+              "default": true
+            }
+          ]
+        }
+      }
     },
     "git": {
       "resolved": "github:NixOS/nixpkgs/3d46470bb3030020f7e1361f33514854f5bfa86d#git",
-      "source": "nixpkg"
+      "source": "nixpkg",
+      "systems": {
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "path": "/nix/store/x671lak90qvcxgc5irp4xv5zdbaym2yr-git-2.54.0",
+              "default": true
+            }
+          ]
+        }
+      }
     },
     "git-filter-repo": {
       "resolved": "github:NixOS/nixpkgs/f9d8b65950353691ab56561e7c73d2e1063d810b#git-filter-repo",
@@ -253,40 +273,50 @@
       }
     },
     "github:NixOS/nixpkgs/nixpkgs-unstable": {
-      "last_modified": "2026-06-27T07:37:20Z",
-      "resolved": "github:NixOS/nixpkgs/3d46470bb3030020f7e1361f33514854f5bfa86d?lastModified=1782545840"
+      "last_modified": "2026-05-25T07:42:19Z",
+      "resolved": "github:NixOS/nixpkgs/f9d8b65950353691ab56561e7c73d2e1063d810b?lastModified=1779720139"
     },
     "github:levonk/levonk-packages#bundle-devbox-auto-go": {
-      "last_modified": "2026-06-24T09:31:29Z",
-      "resolved": "github:levonk/levonk-packages/6e0bdc494d9a78a8d44bf182f11bce7b80813b1a?lastModified=1782293489#bundle-devbox-auto-go"
+      "last_modified": "2026-07-02T04:33:53Z",
+      "resolved": "github:levonk/levonk-packages/b6c6b0e7b3702551d9d13ea920bf80046e4b66e1?lastModified=1782966833#bundle-devbox-auto-go"
     },
     "github:levonk/levonk-packages#bundle-devbox-auto-rust": {
-      "last_modified": "2026-06-24T09:31:29Z",
-      "resolved": "github:levonk/levonk-packages/6e0bdc494d9a78a8d44bf182f11bce7b80813b1a?lastModified=1782293489#bundle-devbox-auto-rust"
+      "last_modified": "2026-07-02T04:33:53Z",
+      "resolved": "github:levonk/levonk-packages/b6c6b0e7b3702551d9d13ea920bf80046e4b66e1?lastModified=1782966833#bundle-devbox-auto-rust"
     },
     "github:levonk/levonk-packages#bundle-rtk-cloud": {
-      "last_modified": "2026-06-24T09:31:29Z",
-      "resolved": "github:levonk/levonk-packages/6e0bdc494d9a78a8d44bf182f11bce7b80813b1a?lastModified=1782293489#bundle-rtk-cloud"
+      "last_modified": "2026-07-02T04:33:53Z",
+      "resolved": "github:levonk/levonk-packages/b6c6b0e7b3702551d9d13ea920bf80046e4b66e1?lastModified=1782966833#bundle-rtk-cloud"
     },
     "github:levonk/levonk-packages#bundle-rtk-core": {
-      "last_modified": "2026-06-24T09:31:29Z",
-      "resolved": "github:levonk/levonk-packages/6e0bdc494d9a78a8d44bf182f11bce7b80813b1a?lastModified=1782293489#bundle-rtk-core"
+      "last_modified": "2026-07-02T04:33:53Z",
+      "resolved": "github:levonk/levonk-packages/b6c6b0e7b3702551d9d13ea920bf80046e4b66e1?lastModified=1782966833#bundle-rtk-core"
     },
     "github:levonk/levonk-packages#devbox-rtk-nodejs-pnpm-force": {
-      "last_modified": "2026-06-21T22:07:17Z",
-      "resolved": "github:levonk/levonk-packages/fdba0bbf092eb88ccd3cf858d94d2b4f44581835?lastModified=1782079637#devbox-rtk-nodejs-pnpm-force"
+      "last_modified": "2026-07-02T04:33:53Z",
+      "resolved": "github:levonk/levonk-packages/b6c6b0e7b3702551d9d13ea920bf80046e4b66e1?lastModified=1782966833#devbox-rtk-nodejs-pnpm-force"
     },
     "github:levonk/levonk-packages#devbox-rtk-python-uv-force": {
-      "last_modified": "2026-06-21T22:07:17Z",
-      "resolved": "github:levonk/levonk-packages/fdba0bbf092eb88ccd3cf858d94d2b4f44581835?lastModified=1782079637#devbox-rtk-python-uv-force"
+      "last_modified": "2026-07-02T04:33:53Z",
+      "resolved": "github:levonk/levonk-packages/b6c6b0e7b3702551d9d13ea920bf80046e4b66e1?lastModified=1782966833#devbox-rtk-python-uv-force"
     },
     "github:levonk/tkr#tkr": {
-      "last_modified": "2026-03-27T15:49:49Z",
-      "resolved": "github:levonk/tkr/e630932634cffe8cb78a4db05a11e0fb8202c73a?lastModified=1774626589#tkr"
+      "last_modified": "2026-07-02T08:23:06Z",
+      "resolved": "github:levonk/tkr/1953cbbdbec13b3b195ecd8f083e6b68f48d007f?lastModified=1782980586#tkr"
     },
     "glab": {
       "resolved": "github:NixOS/nixpkgs/3d46470bb3030020f7e1361f33514854f5bfa86d#glab",
-      "source": "nixpkg"
+      "source": "nixpkg",
+      "systems": {
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "path": "/nix/store/z313zwam3g9j71s65j4rd623h7n96wyz-glab-1.101.0",
+              "default": true
+            }
+          ]
+        }
+      }
     },
     "helm-dashboard": {
       "resolved": "github:NixOS/nixpkgs/f9d8b65950353691ab56561e7c73d2e1063d810b#helm-dashboard",
@@ -385,12 +415,12 @@
         "x86_64-darwin": {
           "outputs": [
             {
-              "path": "/nix/store/7ppiil9ycr565vqgbc18x4rpgbfgcnzy-just-1.51.0",
+              "name": "man",
+              "path": "/nix/store/144wqvh3s441y05xvzn8m16rhcqbki7d-just-1.51.0-man",
               "default": true
             },
             {
-              "name": "man",
-              "path": "/nix/store/144wqvh3s441y05xvzn8m16rhcqbki7d-just-1.51.0-man",
+              "path": "/nix/store/7ppiil9ycr565vqgbc18x4rpgbfgcnzy-just-1.51.0",
               "default": true
             }
           ]
@@ -698,7 +728,17 @@
     },
     "powershell": {
       "resolved": "github:NixOS/nixpkgs/3d46470bb3030020f7e1361f33514854f5bfa86d#powershell",
-      "source": "nixpkg"
+      "source": "nixpkg",
+      "systems": {
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "path": "/nix/store/vksbdy7wf3gnjgp0870g5b7l9jl0pfy4-powershell-7.6.3",
+              "default": true
+            }
+          ]
+        }
+      }
     },
     "pre-commit-hook-ensure-sops": {
       "resolved": "github:NixOS/nixpkgs/f9d8b65950353691ab56561e7c73d2e1063d810b#pre-commit-hook-ensure-sops",
@@ -758,7 +798,17 @@
     },
     "python313Packages.docker": {
       "resolved": "github:NixOS/nixpkgs/3d46470bb3030020f7e1361f33514854f5bfa86d#python313Packages.docker",
-      "source": "nixpkg"
+      "source": "nixpkg",
+      "systems": {
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "path": "/nix/store/6h0zvbm4sjaq4ivwwc852ly2hm1my2na-python3.13-docker-7.1.0",
+              "default": true
+            }
+          ]
+        }
+      }
     },
     "python313Packages.podman": {
       "resolved": "github:NixOS/nixpkgs/f9d8b65950353691ab56561e7c73d2e1063d810b#python313Packages.podman",
@@ -803,50 +853,50 @@
       }
     },
     "rtk@latest": {
-      "last_modified": "2026-06-22T09:00:13Z",
-      "resolved": "github:NixOS/nixpkgs/b3c092d3c36d91e2f61f3dfb39a159f180a56659#rtk",
+      "last_modified": "2026-06-28T17:12:19Z",
+      "resolved": "github:NixOS/nixpkgs/534ee3d8beb1737b5342995f8837e2b2705ce0d8#rtk",
       "source": "devbox-search",
-      "version": "0.42.4",
+      "version": "0.43.0",
       "systems": {
         "aarch64-darwin": {
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/2aab55h1g7hwbz6xzbwyp6xcjjyqd4mh-rtk-0.42.4",
+              "path": "/nix/store/mvkq1sz4isiv80xix25idfxmcxspsscz-rtk-0.43.0",
               "default": true
             }
           ],
-          "store_path": "/nix/store/2aab55h1g7hwbz6xzbwyp6xcjjyqd4mh-rtk-0.42.4"
+          "store_path": "/nix/store/mvkq1sz4isiv80xix25idfxmcxspsscz-rtk-0.43.0"
         },
         "aarch64-linux": {
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/y8yfgpp939j2pmcq1albzr6vkc830ngy-rtk-0.42.4",
+              "path": "/nix/store/jvlw2j37j2k2flm4i6c48qzv4h1akmd3-rtk-0.43.0",
               "default": true
             }
           ],
-          "store_path": "/nix/store/y8yfgpp939j2pmcq1albzr6vkc830ngy-rtk-0.42.4"
+          "store_path": "/nix/store/jvlw2j37j2k2flm4i6c48qzv4h1akmd3-rtk-0.43.0"
         },
         "x86_64-darwin": {
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/9xmkcqbizacf1jz356j5mmg47qp4jywg-rtk-0.42.4",
+              "path": "/nix/store/mb6k4gg4pjdg0aynngmrv8gfk9r9ii4m-rtk-0.43.0",
               "default": true
             }
           ],
-          "store_path": "/nix/store/9xmkcqbizacf1jz356j5mmg47qp4jywg-rtk-0.42.4"
+          "store_path": "/nix/store/mb6k4gg4pjdg0aynngmrv8gfk9r9ii4m-rtk-0.43.0"
         },
         "x86_64-linux": {
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/rgb2zijf2b28g5pdg96dd56qh94n5skv-rtk-0.42.4",
+              "path": "/nix/store/2z2lwqmlwwq3cxyhjbwwa6pcydlnpfhn-rtk-0.43.0",
               "default": true
             }
           ],
-          "store_path": "/nix/store/rgb2zijf2b28g5pdg96dd56qh94n5skv-rtk-0.42.4"
+          "store_path": "/nix/store/2z2lwqmlwwq3cxyhjbwwa6pcydlnpfhn-rtk-0.43.0"
         }
       }
     },
