@@ -1,0 +1,56 @@
+---
+# Deploy Croc file-transfer relay to Windows Docker Desktop
+# Location: shared/active/02-config/ansible/playbooks/deploy-croc-relay.yml
+#
+# The relay runs on the Windows Docker host (dtop202311) and is reachable via
+# the host's Tailscale/Netbird IP on ports 9009-9013.
+#
+# community.docker modules cannot run directly on Windows (Ansible core basic.py
+# imports grp, Unix-only), so the deployment role uses the docker CLI over an
+# SSH-tunneled DOCKER_HOST connection.
+#
+# Prerequisites:
+#   1. Windows Docker Desktop host bootstrapped: just ansible-bootstrap-windows-docker
+#   2. SSH config entry for dtop202311.tale-grouper.ts.net (IdentityFile + IdentitiesOnly)
+#   3. vault_croc_relay_password set in the client vault
+#
+# Usage:
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/windows-docker.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-croc-relay.yml \
+#     --vault-password-file ~/.ansible/vault_password
+
+- name: "Deploy Croc relay container on Windows Docker host"
+  hosts: windows_docker_hosts
+  gather_facts: false
+  become: false
+
+  pre_tasks:
+    - name: "Load shared infrastructure port defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/ports.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure domain defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/domains.yml"
+      tags: ["always"]
+
+    - name: "Load client infrastructure domain overrides"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/domains.yml"
+      tags: ["always"]
+
+    - name: "Validate required variables"
+      ansible.builtin.assert:
+        that:
+          - croc_relay_enabled is defined
+          - windows_tailscale_hostname is defined
+          - infra_tailscale_tailnet is defined
+        fail_msg: "Missing required variables. Check windows_docker_hosts.yml and domains.yml."
+        success_msg: "All required croc relay variables are defined."
+      tags: ["always", "validate"]
+
+  roles:
+    - role: tools-croc-relay
+      tags: ["deploy", "croc-relay"]
+      when: croc_relay_enabled | bool

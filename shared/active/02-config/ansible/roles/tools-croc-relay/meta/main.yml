@@ -1,0 +1,13 @@
+---
+galaxy_info:
+  role_name: tools_croc_relay
+  author: localnet
+  description: Deploy Croc file-transfer relay (upstream Docker Hub image)
+  license: MIT
+  min_ansible_version: "2.9"
+  platforms:
+    - name: Windows
+      versions:
+        - all
+
+dependencies: []

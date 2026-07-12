@@ -238,3 +238,16 @@ infra_port_dashboard_trala_container: "8080"
 # ---------------------------------------------------------------------------
 infra_port_career_jobops_host: "3005"
 infra_port_career_jobops_container: "3001"
+
+# ---------------------------------------------------------------------------
+# Croc File Transfer Relay Ports
+# Used by: Windows Docker Desktop hosts (deploy-croc-relay.yml playbook)
+# Upstream image: schollz/croc:latest
+# The relay uses a contiguous range; CROC_PORTS is derived from start/end.
+# ---------------------------------------------------------------------------
+infra_port_tools_croc_relay_comm_host: "9009"
+infra_port_tools_croc_relay_comm_container: "9009"
+infra_port_tools_croc_relay_data_start_host: "9010"
+infra_port_tools_croc_relay_data_start_container: "9010"
+infra_port_tools_croc_relay_data_end_host: "9013"
+infra_port_tools_croc_relay_data_end_container: "9013"

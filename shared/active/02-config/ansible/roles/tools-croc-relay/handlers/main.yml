@@ -1,0 +1,8 @@
+---
+# croc relay handlers
+
+- name: restart croc relay
+  ansible.builtin.shell: "docker restart {{ croc_relay_container_name }}"
+  environment:
+    DOCKER_HOST: "{{ croc_relay_docker_host }}"
+  delegate_to: localhost
