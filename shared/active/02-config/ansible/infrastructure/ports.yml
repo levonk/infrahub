@@ -251,3 +251,13 @@ infra_port_tools_croc_relay_data_start_host: "9010"
 infra_port_tools_croc_relay_data_start_container: "9010"
 infra_port_tools_croc_relay_data_end_host: "9013"
 infra_port_tools_croc_relay_data_end_container: "9013"
+
+# ---------------------------------------------------------------------------
+# RustFS S3-Compatible Object Storage Ports
+# Used by: Windows Docker Desktop hosts (deploy-rustfs.yml playbook)
+# Upstream image: rustfs/rustfs:latest
+# ---------------------------------------------------------------------------
+infra_port_storage_rustfs_s3_host: "9000"
+infra_port_storage_rustfs_s3_container: "9000"
+infra_port_storage_rustfs_console_host: "9001"
+infra_port_storage_rustfs_console_container: "9001"

@@ -506,6 +506,24 @@
   traefik: true
   notes: "Traefik routes cross-machine via Tailscale FQDN (dtop202311.tale-grouper.ts.net)"
 
+- name: "RustFS"
+  container: "{{ infra_hostname_rustfs }}"
+  machine: "dtop202311"
+  category: "passive"
+  description: "S3-compatible object storage (RustFS) on the Windows Docker host"
+  domains:
+    - "infra_domain_storage_rustfs"
+    - "infra_domain_storage_rustfs_console"
+  ports:
+    - host: "infra_port_storage_rustfs_s3_host"
+      container: "infra_port_storage_rustfs_s3_container"
+      label: "S3 API"
+    - host: "infra_port_storage_rustfs_console_host"
+      container: "infra_port_storage_rustfs_console_container"
+      label: "Console"
+  traefik: true
+  notes: "Traefik routes cross-machine via Tailscale FQDN (dtop202311.tale-grouper.ts.net); S3 API on port 9000, console on port 9001"
+
 # ===========================================================================
 # Inference Host Services (kckinai)
 # ===========================================================================

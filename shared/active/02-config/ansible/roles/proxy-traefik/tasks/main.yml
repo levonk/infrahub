@@ -213,6 +213,17 @@
   notify: reload traefik
   when: career_jobops_enabled | default(false) | bool
 
+- name: Deploy RustFS dynamic configuration template
+  ansible.builtin.template:
+    src: dynamic/rustfs-levonk-com.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/rustfs-levonk-com.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: reload traefik
+  when: rustfs_enabled | default(false) | bool
+
 # ---------------------------------------------------------------------------
 # Traefik Container
 # ---------------------------------------------------------------------------

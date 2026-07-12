@@ -183,6 +183,8 @@ ansible-syntax-internal:
     ansible-playbook --syntax-check -i {{WINDOWS_DOCKER_INVENTORY}} {{PB_WINDOWS_BOOTSTRAP}} || true
     ansible-playbook --syntax-check -i {{WINDOWS_DOCKER_INVENTORY}} {{PB_WORLDMONITOR}} || true
     ansible-playbook --syntax-check -i {{WINDOWS_DOCKER_INVENTORY}} {{PB_BASE_DEV}} || true
+    ansible-playbook --syntax-check -i {{WINDOWS_DOCKER_INVENTORY}} -i {{INVENTORY}} {{PB_RUSTFS}} || true
+    ansible-playbook --syntax-check -i {{WINDOWS_DOCKER_INVENTORY}} {{PB_CROC_RELAY}} || true
     ansible-playbook --syntax-check -i {{INVENTORY}} {{PB_LOCAL_REGISTRY}} || true
     ansible-playbook --syntax-check -i {{MACOS_INVENTORY}} {{PB_MACOS_BOOTSTRAP}} || true
     ansible-playbook --syntax-check -i {{WINDOWS_DOCKER_INVENTORY}} {{PB_WINDOWS_HARDEN}} || true
@@ -370,6 +372,8 @@ PB_WINDOWS_BOOTSTRAP := ANSIBLE_ROOT + "/playbooks/bootstrap-windows-docker-host
 PB_WINDOWS_HARDEN := ANSIBLE_ROOT + "/playbooks/harden-windows-host.yml"
 PB_WORLDMONITOR := ANSIBLE_ROOT + "/playbooks/deploy-worldmonitor.yml"
 PB_BASE_DEV := ANSIBLE_ROOT + "/playbooks/deploy-base-dev.yml"
+PB_RUSTFS := ANSIBLE_ROOT + "/playbooks/deploy-rustfs.yml"
+PB_CROC_RELAY := ANSIBLE_ROOT + "/playbooks/deploy-croc-relay.yml"
 PB_LOCAL_REGISTRY := ANSIBLE_ROOT + "/playbooks/deploy-local-registry.yml"
 
 ansible-deploy-local-registry:
@@ -396,6 +400,17 @@ ansible-harden-windows-internal:
 ansible-harden-windows-check:
     @echo "Dry-run Windows hardening (check mode)..."
     ansible-playbook -i {{WINDOWS_DOCKER_INVENTORY}} {{PB_WINDOWS_HARDEN}} --check --diff --vault-password-file ~/.ansible/vault_password
+
+ansible-deploy-croc-relay:
+    devbox run ansible-deploy-croc-relay
+
+ansible-deploy-croc-relay-internal:
+    @echo "Deploying Croc relay on Windows Docker host..."
+    ansible-playbook -i {{WINDOWS_DOCKER_INVENTORY}} {{PB_CROC_RELAY}} --vault-password-file ~/.ansible/vault_password
+
+ansible-deploy-croc-relay-check:
+    @echo "Dry-run Croc relay deployment (check mode)..."
+    ansible-playbook -i {{WINDOWS_DOCKER_INVENTORY}} {{PB_CROC_RELAY}} --check --diff --vault-password-file ~/.ansible/vault_password
 
 # -- Hosts-file blocklist (IP-logger/tracker/grabber sinkhole) --
 
@@ -470,6 +485,17 @@ ansible-deploy-base-dev:
 ansible-deploy-base-dev-internal:
     @echo "Building base-dev image on Mac, pushing to registry, deploying on Windows..."
     ansible-playbook -i {{WINDOWS_DOCKER_INVENTORY}} {{PB_BASE_DEV}} --vault-password-file ~/.ansible/vault_password
+
+ansible-deploy-rustfs:
+    devbox run ansible-deploy-rustfs
+
+ansible-deploy-rustfs-internal:
+    @echo "Deploying RustFS to Windows Docker host and Traefik on OCI..."
+    ansible-playbook -i {{WINDOWS_DOCKER_INVENTORY}} -i {{INVENTORY}} {{PB_RUSTFS}} --vault-password-file ~/.ansible/vault_password
+
+ansible-deploy-rustfs-check:
+    @echo "Dry-run RustFS deployment (check mode) on Windows Docker host and OCI..."
+    ansible-playbook -i {{WINDOWS_DOCKER_INVENTORY}} -i {{INVENTORY}} {{PB_RUSTFS}} --check --diff --vault-password-file ~/.ansible/vault_password
 
 # -- macOS Host Deployment --
 

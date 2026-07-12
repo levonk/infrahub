@@ -1,0 +1,13 @@
+---
+galaxy_info:
+  role_name: storage_rustfs
+  author: localnet
+  description: Deploy RustFS S3-compatible object storage (upstream rustfs/rustfs image)
+  license: MIT
+  min_ansible_version: "2.9"
+  platforms:
+    - name: Windows
+      versions:
+        - "all"
+
+dependencies: []

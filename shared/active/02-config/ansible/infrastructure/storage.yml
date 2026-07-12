@@ -111,3 +111,11 @@ infra_storage_worldmonitor_redis_data_volume: "worldmonitor-redis-data"
 # ---------------------------------------------------------------------------
 infra_storage_jobops_data_volume: "localnet-jobops-data-volume"
 infra_storage_jobops_codex_volume: "localnet-jobops-codex-volume"
+
+# ---------------------------------------------------------------------------
+# RustFS S3-Compatible Object Storage
+# Used by: Windows Docker Desktop hosts (deploy-rustfs.yml playbook)
+# Docker volumes for object data and application logs
+# ---------------------------------------------------------------------------
+infra_storage_rustfs_data_volume: "localnet-rustfs-data-volume"
+infra_storage_rustfs_logs_volume: "localnet-rustfs-logs-volume"
