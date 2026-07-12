@@ -88,7 +88,7 @@ setup-internal:
 # === Skill Bootstrap ===
 
 # Install the execute-upsert skill from levonk/skills-releases
-# Required by do-new-srvc-infrahub.md workflow for the PRD → tasks → execute pipeline
+# Required by infrahub-add-new-service-orchestrator.md workflow for the PRD → tasks → execute pipeline
 skills-bootstrap:
     @echo "Installing execute-upsert skill from levonk/skills-releases..."
     npx skills add levonk/skills-releases --skill execute-upsert

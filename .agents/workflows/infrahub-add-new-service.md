@@ -1,14 +1,14 @@
 ---
 workflow: "Add a New Service to Infrahub (Implementation Guide)"
 slug: "infrahub-add-new-service"
-description: "Phase-by-phase implementation guide for adding a new service: shared role, client infrastructure values, vault secrets, Traefik routing, build pipeline, playbook. Phases 1-8 only — orchestrator (do-new-srvc-infrahub.md) owns test/deploy/verify/commit."
-use: "When implementing the actual deployment of a new service — called by do-new-srvc-infrahub.md or used directly for one-shot service additions"
+description: "Phase-by-phase implementation guide for adding a new service: shared role, client infrastructure values, vault secrets, Traefik routing, build pipeline, playbook. Phases 1-8 only — orchestrator (infrahub-add-new-service-orchestrator.md) owns test/deploy/verify/commit."
+use: "When implementing the actual deployment of a new service — called by infrahub-add-new-service-orchestrator.md or used directly for one-shot service additions"
 date:
   created: "2026-06-30"
   updated: "2026-07-08"
   last-used: "2026-07-08"
 see-also:
-  - file: "do-new-srvc-infrahub.md"
+  - file: "infrahub-add-new-service-orchestrator.md"
     relationship: "orchestrator"
     description: "Orchestration workflow that handles research, planning, and PRD before delegating implementation to this guide. Owns test/deploy/verify/commit (Phases 4-7)."
   - skill: "container-image-build"
@@ -562,7 +562,7 @@ If the service is the first of a new stack:
 ## Hand Back to Orchestrator
 
 After Phase 8 (playbook created) and the checklist below passes, hand back to
-the orchestrator (`do-new-srvc-infrahub.md`). The orchestrator owns:
+the orchestrator (`infrahub-add-new-service-orchestrator.md`). The orchestrator owns:
 
 - **Test** (Phase 4): syntax check, check mode, full `code-quality-validation`
 - **Deploy** (Phase 5): `ansible-playbook` against the target inventory
@@ -595,7 +595,7 @@ Do not deploy, verify, or commit from this workflow — that's the orchestrator'
 ### File Paths
 
 - **This workflow**: `~/p/gh/levonk/infrahub/.agents/workflows/infrahub-add-new-service.md`
-- **Orchestrator**: `~/p/gh/levonk/infrahub/.agents/workflows/do-new-srvc-infrahub.md`
+- **Orchestrator**: `~/p/gh/levonk/infrahub/.agents/workflows/infrahub-add-new-service-orchestrator.md`
 - **Git state workflow**: `~/p/gh/levonk/infrahub/.agents/workflows/infrahub-git.md`
 - **Developer guide**: `~/p/gh/levonk/infrahub/.agents/knowledge/developer.md` — critical-files tree, known gotchas, boundaries, definition of done
 - **Infrastructure schemas**: `~/p/gh/levonk/infrahub/shared/active/02-config/ansible/infrastructure/` (ports.yml, networks.yml, domains.yml, storage.yml)

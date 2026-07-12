@@ -1,6 +1,6 @@
 ---
 workflow: "Add New Service to Infrahub"
-slug: "do-new-srvc-infrahub"
+slug: "infrahub-add-new-service-orchestrator"
 description: "Orchestrate adding a new service end-to-end: research, plan, implement, test, deploy, test again, and document. Delegates the generic PRD → tasks → execute pipeline to the execute-upsert skill, and implementation detail to infrahub-add-new-service.md."
 use: "When adding a new service, ansible deployment, etc. for all clients in shared/active/"
 date:
@@ -171,7 +171,7 @@ completes:
 
 ### File Paths
 
-- **This workflow**: `~/p/gh/levonk/infrahub/.agents/workflows/do-new-srvc-infrahub.md`
+- **This workflow**: `~/p/gh/levonk/infrahub/.agents/workflows/infrahub-add-new-service-orchestrator.md`
 - **Implementation detail**: `~/p/gh/levonk/infrahub/.agents/workflows/infrahub-add-new-service.md`
 - **Git state workflow**: `~/p/gh/levonk/infrahub/.agents/workflows/infrahub-git.md`
 - **Pipeline controller skill**: `execute-upsert` (installed via `just skills-bootstrap` from `levonk/skills-releases`)
