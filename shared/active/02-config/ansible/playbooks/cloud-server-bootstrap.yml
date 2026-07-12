@@ -41,6 +41,9 @@
     - role: nix-core-tools
       tags: ["bootstrap", "tools"]
 
+    - role: common-hosts-blocklist
+      tags: ["bootstrap", "hardening", "hosts-blocklist"]
+
   post_tasks:
     - name: "Verify SSH service is running"
       ansible.builtin.systemd:

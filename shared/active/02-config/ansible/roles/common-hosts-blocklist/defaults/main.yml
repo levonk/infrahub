@@ -1,0 +1,48 @@
+---
+# defaults file for common-hosts-blocklist
+# Cross-platform hosts-file blocklist for IP-logger / IP-tracker / IP-grabber
+# domains. These services generate tracking links that log the visitor's IP
+# address, browser fingerprint, and geolocation without consent — they are
+# privacy-violating traps. Blocking them at the hosts-file level (0.0.0.0 sinkhole)
+# prevents any application on the machine from ever resolving them.
+#
+# The blocklist is maintained here as the single source of truth. Override
+# `hosts_blocklist_domains` in client group_vars to extend or replace it.
+
+# Sinkhole address — 0.0.0.0 is routed to null on every platform and fails
+# instantly without a DNS round-trip, unlike 127.0.0.1 which may hit a local
+# listener.
+hosts_blocklist_sinkhole: "0.0.0.0"
+
+# Header/footer markers used to make the blocklist block idempotent —
+# the role manages every line between these markers so re-runs replace
+# stale entries cleanly instead of duplicating.
+hosts_blocklist_marker_begin: "# >>> BEGIN LEVONK HOSTS BLOCKLIST (privacy-violating IP-logger/tracker traps) <<<"
+hosts_blocklist_marker_end: "# >>> END LEVONK HOSTS BLOCKLIST <<<"
+
+# The domains to sinkhole. These are IP-logger, IP-tracker, and IP-grabber
+# services that generate tracking links to covertly log visitor IPs and
+# geolocation. Blocking them prevents the machine from ever reaching them.
+hosts_blocklist_domains:
+  - 2no.co
+  - blackscreen.app
+  - blasze.com
+  - blasze.tk
+  - countertracker.com
+  - grabify.com
+  - grabify.link
+  - ip-tracker.org
+  - ip-tracking.com
+  - ipfingerprint.com
+  - ipgrab.org
+  - ipgrabber.com
+  - ipgrabber.org
+  - iplogger.com
+  - iplogger.info
+  - iplogger.net
+  - iplogger.org
+  - iplogger.ru
+  - iptrackeronline.com
+  - ps3cfw.com
+  - trackip.net
+  - yourmonstersize.com

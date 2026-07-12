@@ -1,0 +1,23 @@
+---
+galaxy_info:
+  role_name: common_hosts_blocklist
+  author: levonk
+  description: >
+    Sinkholes IP-logger, IP-tracker, and IP-grabber domains via the hosts file.
+    These services generate tracking links that covertly log visitor IPs,
+    browser fingerprints, and geolocation — they are privacy-violating traps.
+    Cross-platform: Linux, macOS, Windows.
+  license: proprietary
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Debian
+      versions: ["bookworm"]
+    - name: Ubuntu
+      versions: ["focal", "jammy", "noble"]
+    - name: EL
+      versions: ["8", "9"]
+    - name: MacOSX
+      versions: ["all"]
+    - name: Windows
+      versions: ["all"]
+dependencies: []

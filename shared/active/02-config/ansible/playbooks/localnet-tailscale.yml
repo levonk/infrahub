@@ -30,6 +30,9 @@
     - role: vpn-tailscale
       tags: ["vpn", "tailscale"]
 
+    - role: common-hosts-blocklist
+      tags: ["hardening", "hosts-blocklist"]
+
   post_tasks:
     - name: "Verify Tailscale connectivity"
       ansible.builtin.command:

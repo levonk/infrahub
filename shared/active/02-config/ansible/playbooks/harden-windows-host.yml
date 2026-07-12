@@ -56,6 +56,8 @@
       tags: ["ssh", "hardening"]
     - role: common-windows-rdp-hardening
       tags: ["rdp", "hardening"]
+    - role: common-hosts-blocklist
+      tags: ["hosts-blocklist", "hardening"]
 
   post_tasks:
     - name: "Report hardening complete"

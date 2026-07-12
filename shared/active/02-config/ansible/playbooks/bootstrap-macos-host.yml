@@ -412,6 +412,14 @@
       tags: ["netbird", "verify"]
 
     # ---------------------------------------------------------------------------
+    # Hosts-file blocklist — sinkhole IP-logger/tracker/grabber domains
+    # ---------------------------------------------------------------------------
+    - name: "Sinkhole IP-logger/tracker domains in /etc/hosts"
+      ansible.builtin.include_role:
+        name: common-hosts-blocklist
+      tags: ["hardening", "hosts-blocklist"]
+
+    # ---------------------------------------------------------------------------
     # Summary
     # ---------------------------------------------------------------------------
     - name: "Bootstrap complete — summary"
