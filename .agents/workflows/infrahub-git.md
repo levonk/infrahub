@@ -8,9 +8,6 @@ date:
   updated: "2026-07-08"
   last-used: "2026-07-08"
 see-also:
-  - file: "do-new-srvc-infrahub.md"
-    relationship: "caller"
-    description: "Service-adding orchestration workflow that calls this before and after implementation."
   - skill: "git-repository-management"
     relationship: "implementation"
     description: "The skill that this workflow runs on the infrahub project and submodules."
@@ -47,10 +44,7 @@ Failure to follow these rules can result in:
 
 - **This workflow**: `~/p/gh/levonk/infrahub/.agents/workflows/infrahub-git.md`
 - **Git management skill**: `~/p/gh/levonk/skills-src/src/current/skills/software-dev/git-repository-management/SKILL.md`
-- **Project AGENTS.md**: `~/p/gh/levonk/infrahub/AGENTS.md`
-- **Client submodule AGENTS.md**: `~/p/gh/levonk/infrahub/levonk/AGENTS.md`
 
 ### Project Info
 
-- Client git submodules: `~/p/gh/levonk/infrahub/levonk` (and others if present)
-- All tool invocations: `cd ~/p/gh/levonk/infrahub && devbox run -- rtk {COMMAND}`
+See `AGENTS.md` (environment, vault, submodule rules) and `developer.md` (devbox/rtk, key directories, boundaries).

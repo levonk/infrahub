@@ -1,7 +1,7 @@
 ---
 workflow: "Add a New Service to Infrahub (Implementation Guide)"
 slug: "infrahub-add-new-service"
-description: "Detailed phase-by-phase implementation guide for adding a new service: shared role, client infrastructure values, vault secrets, Traefik routing, build pipeline, and deployment. Follow every phase in order."
+description: "Phase-by-phase implementation guide for adding a new service: shared role, client infrastructure values, vault secrets, Traefik routing, build pipeline, playbook. Phases 1-8 only — orchestrator (do-new-srvc-infrahub.md) owns test/deploy/verify/commit."
 use: "When implementing the actual deployment of a new service — called by do-new-srvc-infrahub.md or used directly for one-shot service additions"
 date:
   created: "2026-06-30"
@@ -10,22 +10,16 @@ date:
 see-also:
   - file: "do-new-srvc-infrahub.md"
     relationship: "orchestrator"
-    description: "Orchestration workflow that handles research, planning, and PRD before delegating implementation to this guide."
-  - file: "infrahub-git.md"
-    relationship: "git-state"
-    description: "Git repository management workflow to save pre/post-update state."
+    description: "Orchestration workflow that handles research, planning, and PRD before delegating implementation to this guide. Owns test/deploy/verify/commit (Phases 4-7)."
   - skill: "container-image-build"
     relationship: "implementation"
     description: "Build container images for mixed-architecture fleets. Three branches: pre-built upstream, Dockerfile+buildx, Nix flake. Authoritative reference for the upstream-vs-locally-built decision and Phase 3 build pipeline."
   - skill: "container-service-deploy"
     relationship: "implementation"
-    description: "Deploy multi-container services via compose (dev) or Ansible docker_container (prod). Authoritative reference for Phase 5 role creation and Phase 9 deployment."
+    description: "Deploy multi-container services via compose (dev) or Ansible docker_container (prod). Authoritative reference for Phase 5 role creation."
   - skill: "infrahub-container-deploy"
     relationship: "implementation"
     description: "Infrahub-specific overlay for container deployment: userns-remap UID 100000, vault handoff, infra_ variable naming, functional-group role naming, local registry. Authoritative reference for Phase 5 role creation."
-  - skill: "code-quality-validation"
-    relationship: "testing"
-    description: "Comprehensive code quality validation (lint, format, test, security scan). Used for Phase 9 post-deploy validation."
 ---
 
 # Workflow: Add a New Service to Infrahub
@@ -565,95 +559,21 @@ If the service is the first of a new stack:
 
 ---
 
-## Phase 9: Deploy and Verify
+## Hand Back to Orchestrator
 
-> **Validation reference**: The `code-quality-validation` skill
-> (`~/p/gh/levonk/skills-src/src/current/skills/software-dev/code-quality-validation/SKILL.md`)
-> covers comprehensive validation (lint, format, test, security scan). Use it
-> for the lint and validation steps below.
+After Phase 8 (playbook created) and the checklist below passes, hand back to
+the orchestrator (`do-new-srvc-infrahub.md`). The orchestrator owns:
 
-### 9a. Lint
+- **Test** (Phase 4): syntax check, check mode, full `code-quality-validation`
+- **Deploy** (Phase 5): `ansible-playbook` against the target inventory
+- **Verify** (Phase 6): container health, Traefik routing, domain, cert, TraLa discovery
+- **Deliver** (Phase 7): commit in both repos, AGENTS.md learnings
 
-```bash
-devbox run -- just ansible-lint-internal
-```
-
-### 9b. Deploy
-
-```bash
-devbox run -- ansible-playbook \
-  -i levonk/active/02-config/ansible/inventories/oci.yml \
-  shared/active/02-config/ansible/playbooks/{playbook}.yml \
-  --vault-password-file ~/.ansible/vault_password \
-  --tags "{service}"
-```
-
-### 9c. Verify
-
-```bash
-# Container is running and healthy
-ssh -i ~/.ssh/lzkmbp2016-micro-oracle opc@100.90.22.85 \
-  'docker ps --format "table {{.Names}}\t{{.Status}}" | grep {service}'
-
-# Logs look correct
-ssh -i ~/.ssh/lzkmbp2016-micro-oracle opc@100.90.22.85 \
-  'docker logs localnet-{service} --tail=20'
-
-# Domain resolves and responds
-curl -sI https://{service}.levonk.com
-
-# Traefik has the router
-ssh -i ~/.ssh/lzkmbp2016-micro-oracle opc@100.90.22.85 \
-  'curl -s -u trala:$(grep vault_traefik_api_auth_password levonk/active/02-config/ansible/inventories/group_vars/infrahub-levonk-all.vault.yml | cut -d\" -f2) http://127.0.0.1:8882/api/http/routers 2>&1 | python3 -c "import json,sys; [print(r[\"name\"]) for r in json.load(sys.stdin) if \"{service}\" in r[\"name\"]]"'
-
-# Let's Encrypt cert is production (not staging)
-echo | openssl s_client -connect {service}.levonk.com:443 -servername {service}.levonk.com 2>/dev/null | openssl x509 -noout -issuer
-# Should show: issuer=C=US, O=Let's Encrypt, CN=YR2 (or R10/R11)
-# NOT: issuer=C=US, O=Let's Encrypt, CN=(STAGING) ...
-```
-
-### 9d. Verify TraLa discovery (if public domain)
-
-```bash
-ssh -i ~/.ssh/lzkmbp2016-micro-oracle opc@100.90.22.85 \
-  'curl -s http://127.0.0.1:8085/api/services | python3 -c "import json,sys; [print(s[\"Name\"],\"|\",s.get(\"group\",\"\")) for s in json.load(sys.stdin)]"'
-```
-
-The new service should appear with its display name and group.
+Do not deploy, verify, or commit from this workflow — that's the orchestrator's job.
 
 ---
 
-## Phase 10: Commit
-
-### 10a. Commit in the levonk submodule
-
-```bash
-cd levonk
-git add .
-git commit -m "feat: add {service} infrastructure values and vault secrets"
-git push origin master
-cd ..
-```
-
-### 10b. Commit in the infrahub parent repo
-
-```bash
-git add shared/ scripts/ justfile levonk
-git commit -m "$(cat <<'EOF'
-feat: add {service} service
-
-- New role: shared/.../roles/{prefix}-{service}/
-- Infrastructure schemas: ports, networks, domains, storage
-- Traefik dynamic config: {service}-levonk-com.yml.j2
-- Build pipeline: registered in build-and-push-images.sh (if locally-built)
-- Dashboard: TraLa override and Homepage entry
-EOF
-)"
-```
-
----
-
-## Checklist (Run Through Before Declaring Done)
+## Checklist (Run Through Before Handing Back)
 
 - [ ] **No hardcoded values**: All IPs, ports, domains, storage paths reference `infra_*` variables
 - [ ] **No client data in shared/**: Role defaults use `| default()` fallbacks, not client-specific values
@@ -669,26 +589,6 @@ EOF
 - [ ] **Build pipeline entry** added to `build-and-push-images.sh` (if locally-built image)
 - [ ] **Image built and pushed** to registry (if locally-built)
 - [ ] **Lint passes**: `devbox run -- just ansible-lint-internal`
-- [ ] **Deployment succeeds** without fatal errors
-- [ ] **Container healthy**: `docker ps` shows healthy status
-- [ ] **Domain responds**: `curl -sI https://{service}.levonk.com` returns 200/302
-- [ ] **Cert is production**: issuer is Let's Encrypt production (not STAGING)
-- [ ] **TraLa shows service** with correct icon and group (if public domain)
-- [ ] **Committed** in both levonk submodule and infrahub parent repo
-- [ ] **Developer guide updated** if new patterns or gotchas discovered
-
----
-
-## Common Pitfalls (From Developer Guide)
-
-- **Disk space on OCI server**: The physical disk is 200G but the root LV may not be fully grown. Run `sudo xfs_growfs /` and `sudo lvextend -l +100%FREE /dev/ocivolume/root && sudo xfs_growfs /` if `df -h /` shows less than ~180G. If still full, `docker system prune -af`.
-- **`localnet_network_subnet` undefined**: Pre-existing error in `common` role. Non-blocking — don't try to fix it.
-- **Traefik Docker provider disabled**: All routing is via file-provider dynamic configs. Do NOT add traefik.* labels to containers.
-- **ACME staging vs production**: Check `caServer` in Traefik static config. Delete staging certs from `acme.json` if cached.
-- **Build caching**: `build-and-push-images.sh` skips unchanged images via context hash. Use `--force` to override.
-- **Multi-platform `docker save`**: Build with `--platform linux/arm64` before `docker save | docker load` to avoid wasting disk.
-- **TraLa exclude patterns**: Use router names WITHOUT `@file` suffix (e.g., `{service}-https`, not `{service}-https@file`).
-- **envoy/privoxy/squid pattern**: Some services use upstream Docker Hub images directly — no custom Dockerfile needed.
 
 ## Context Declaration
 
@@ -697,10 +597,7 @@ EOF
 - **This workflow**: `~/p/gh/levonk/infrahub/.agents/workflows/infrahub-add-new-service.md`
 - **Orchestrator**: `~/p/gh/levonk/infrahub/.agents/workflows/do-new-srvc-infrahub.md`
 - **Git state workflow**: `~/p/gh/levonk/infrahub/.agents/workflows/infrahub-git.md`
-- **Project AGENTS.md**: `~/p/gh/levonk/infrahub/AGENTS.md`
-- **Ansible AGENTS.md**: `~/p/gh/levonk/infrahub/shared/active/02-config/ansible/AGENTS.md`
-- **Client AGENTS.md**: `~/p/gh/levonk/infrahub/levonk/AGENTS.md`
-- **Developer guide**: `~/p/gh/levonk/infrahub/.agents/knowledge/developer.md`
+- **Developer guide**: `~/p/gh/levonk/infrahub/.agents/knowledge/developer.md` — critical-files tree, known gotchas, boundaries, definition of done
 - **Infrastructure schemas**: `~/p/gh/levonk/infrahub/shared/active/02-config/ansible/infrastructure/` (ports.yml, networks.yml, domains.yml, storage.yml)
 - **Client infra overrides**: `~/p/gh/levonk/infrahub/levonk/active/02-config/ansible/infrastructure/`
 - **Ansible roles**: `~/p/gh/levonk/infrahub/shared/active/02-config/ansible/roles/`
@@ -710,10 +607,4 @@ EOF
 
 ### Project Info
 
-- Client git submodule: `~/p/gh/levonk/infrahub/levonk`
-- All tool invocations: `cd ~/p/gh/levonk/infrahub && devbox run -- rtk {COMMAND}`
-- Vault password file: `~/.ansible/vault_password`
-- Vault edits are agent → user handoff only (never edit directly)
-- Lint: `devbox run -- just ansible-lint-internal`
-- OCI server: `opc@100.90.22.85` (SSH key: `~/.ssh/lzkmbp2016-micro-oracle`)
-- Local registry: `100.90.22.85:5000`
+See `AGENTS.md` (environment, vault, deployment) and `developer.md` (devbox/rtk, key directories, boundaries, known gotchas).

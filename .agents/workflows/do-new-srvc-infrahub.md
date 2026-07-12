@@ -1,19 +1,19 @@
 ---
 workflow: "Add New Service to Infrahub"
 slug: "do-new-srvc-infrahub"
-description: "Orchestrate adding a new service end-to-end: research, plan, implement, test, deploy, test again, and document. Delegates implementation detail to infrahub-add-new-service.md and task execution to do-proj-infrahub.md."
+description: "Orchestrate adding a new service end-to-end: research, plan, implement, test, deploy, test again, and document. Delegates the generic PRD → tasks → execute pipeline to the execute-upsert skill, and implementation detail to infrahub-add-new-service.md."
 use: "When adding a new service, ansible deployment, etc. for all clients in shared/active/"
 date:
   created: "2026-07-08"
-  updated: "2026-07-08"
-  last-used: "2026-07-08"
+  updated: "2026-07-11"
+  last-used: "2026-07-11"
 see-also:
+  - skill: "execute-upsert"
+    relationship: "pipeline-controller"
+    description: "Generic project execution controller that drives PRD → tasks → execute → document. This workflow delegates the implementation pipeline to it. Install from levonk/skills-releases via `npx skills add levonk/skills-releases --skill execute-upsert` (or `just skills-bootstrap`)."
   - file: "infrahub-add-new-service.md"
     relationship: "implementation-detail"
-    description: "Detailed phase-by-phase implementation guide (shared role, client infra, vault, Traefik, build pipeline, deployment). This workflow orchestrates; that file executes."
-  - file: "do-proj-infrahub.md"
-    relationship: "next-step"
-    description: "Controller workflow that drives task-by-task implementation via subagents. Called after planning is complete."
+    description: "Phase-by-phase implementation guide (Phases 1-8: shared role, client infra, vault, Traefik, build pipeline, playbook). Task stories created by execute-upsert should reference this guide for infrahub-specific implementation steps."
   - skill: "project-comparison"
     relationship: "research"
     description: "Compare multiple candidate services/projects with category discovery, coverage mapping, feature matrix, and maintainability scoring. Used in Phase 2 when evaluating alternatives."
@@ -33,13 +33,25 @@ see-also:
 
 # Workflow: Add a New Service to Infrahub
 
-Orchestrate adding a new service end-to-end: research, plan, implement, test, deploy, test deployment, and document.
-For the detailed implementation phases (shared role, client infrastructure values,
-vault secrets, Traefik routing, build pipeline, deployment), see
-[`infrahub-add-new-service.md`](infrahub-add-new-service.md).
+Orchestrate adding a new service end-to-end: research, plan, implement, test,
+deploy, test deployment, and document.
+
+This workflow is the **infrahub-specific shell** around the generic
+`execute-upsert` skill. It handles the parts that are unique to infrahub
+(service research, Ansible testing, deployment, deployment verification) and
+delegates the generic pipeline (PRD creation, task breakdown, subagent
+execution, commit checkpoints, documentation updates) to `execute-upsert`.
+
+For the detailed implementation phases (shared role, client infrastructure
+values, vault secrets, Traefik routing, build pipeline, deployment), see
+[`infrahub-add-new-service.md`](infrahub-add-new-service.md). Task stories
+created by `execute-upsert` should reference that guide for infrahub-specific
+implementation steps.
 
 ## Prerequisites
 
+- The `execute-upsert` skill must be installed. Run `just skills-bootstrap` if
+  it is not (installs from `levonk/skills-releases`).
 - Read `AGENTS.md` — especially "Architectural Invariants", "Per-Client Centralized
   Files", devbox usage rules, and vault handoff policy.
 - All shell interaction with tools (ansible, docker, etc.) MUST use:
@@ -54,13 +66,13 @@ vault secrets, Traefik routing, build pipeline, deployment), see
 - If the user didn't specify the service, ask which service to add.
 - If the user didn't specify which machine(s) to deploy to, ask.
 
-## Phase 2: Plan
+## Phase 2: Research
 
-- Launch subagents to research the requested service(s) first to find out if there
-  are better ones that should be considered before moving forward with that one.
-  Don't do this if the user asks you not to. Write the research to
-  `internal-docs/research/service/{service-name-kebab-case}/` (create the directory
-  if it doesn't exist).
+- Launch subagents to research the requested service(s) first to find out if
+  there are better ones that should be considered before moving forward with
+  that one. Don't do this if the user asks you not to. Write the research to
+  `internal-docs/research/service/{service-name-kebab-case}/` (create the
+  directory if it doesn't exist).
 - When comparing multiple candidate tools/services, use the `project-comparison`
   skill (`~/p/gh/levonk/skills-src/src/current/skills/software-dev/project-comparison/SKILL.md`)
   for category discovery, coverage mapping, feature matrix, and maintainability
@@ -70,19 +82,52 @@ vault secrets, Traefik routing, build pipeline, deployment), see
   recent checkout in source control. Add the doc to the research directory.
 - Read all the information, come up with an initial plan, ask ANY questions
   necessary to understand the requirements, and revise the plan.
-- If this is a large project (instead of a one-shot) that warrants a full feature
-  doc, task breakdown, and incremental development, generate a PRD using
-  `~/p/gh/levonk/skills-src/src/current/workflows/software-dev/greenfield/greenfield-prd.md`.
-- Use a subagent to break the PRD into tasks using the workflow in
-  `~/p/gh/levonk/skills-src/src/current/workflows/software-dev/tasks/tasks-from-prd.md`.
 - If any path in these instructions is wrong, fix this file.
 
-## Phase 3: Implement
+The research output in `internal-docs/research/service/` is the input to
+`execute-upsert`'s PRD creation in Phase 3. Make sure it is committed before
+proceeding.
 
-- Before implementation, run the `git-repository-management` skill
-  (`~/p/gh/levonk/skills-src/src/current/skills/software-dev/git-repository-management/SKILL.md`)
-  to save documentation and pre-update state.
-- Run `.agents/workflows/do-proj-infrahub.md` with this feature to implement it.
+## Phase 3: Execute Pipeline (delegated to execute-upsert)
+
+Delegate the implementation pipeline to the `execute-upsert` skill. It handles:
+
+- **PRD creation** — if no PRD exists, creates one using the `greenfield-prd`
+  workflow (feeds off the research from Phase 2)
+- **Task breakdown** — breaks the PRD into parallelizable task stories using the
+  `tasks-from-prd` workflow
+- **Subagent execution** — dispatches one subagent per story via the
+  `tasks-processor` workflow, chaining through the project
+- **Commit checkpoints** — creates a git commit checkpoint before each subagent
+  dispatch (replaces the old `git-repository-management` pre/post calls)
+- **PRD updates during execution** — if scope changes, updates the PRD and
+  regenerates affected task files
+- **Documentation updates** — updates PRD, task files, and project-level
+  documentation (README, API docs, architecture docs, AGENTS.md, CHANGELOG) as
+  the final phase, with a final commit to leave the tree clean
+
+### How to invoke
+
+Run the `execute-upsert` skill with:
+- **Goal**: Implement the new service feature end-to-end.
+- **Context**: The research output from Phase 2
+  (`internal-docs/research/service/{service-name-kebab-case}/`), the project's
+  `AGENTS.md` path, and this workflow's implementation guide
+  (`infrahub-add-new-service.md`).
+- **Key instruction**: Task stories should reference
+  `infrahub-add-new-service.md` for infrahub-specific implementation steps
+  (shared role, client infrastructure values, vault secrets, Traefik routing,
+  build pipeline, deployment). The `execute-upsert` subagents will read the
+  project's `AGENTS.md` for devbox/rtk/vault conventions.
+
+### What execute-upsert does NOT handle (stays in this workflow)
+
+The following phases are infrahub-specific and run **after** `execute-upsert`
+completes:
+- Ansible syntax/check-mode testing (Phase 4)
+- Deployment to the levonk client environment (Phase 5)
+- Post-deployment verification via Traefik (Phase 6)
+- Updating AGENTS.md with service-specific learnings (Phase 7)
 
 ## Phase 4: Test
 
@@ -111,9 +156,16 @@ vault secrets, Traefik routing, build pipeline, deployment), see
 
 - If there are any learnings that would save time implementing new services that
   are worth adding to any of the `AGENTS.md` files, make the updates concisely.
-- Run the `git-repository-management` skill
-  (`~/p/gh/levonk/skills-src/src/current/skills/software-dev/git-repository-management/SKILL.md`)
-  to save implementation and post-update state.
+- Commit any remaining work. The `execute-upsert` skill handles commit
+  checkpoints during execution and a final documentation commit, but
+  post-execution work (deployment, verification, AGENTS.md learnings from
+  Phases 4–7) may have left the tree dirty. Commit it:
+  ```bash
+  git add <files>
+  git commit -m "docs: update AGENTS.md with service learnings" -m "<body>"
+  ```
+  If the `git-repository-management` skill is installed, use its
+  `git-commit-batch.sh` for structured commits.
 
 ## Context Declaration
 
@@ -121,21 +173,17 @@ vault secrets, Traefik routing, build pipeline, deployment), see
 
 - **This workflow**: `~/p/gh/levonk/infrahub/.agents/workflows/do-new-srvc-infrahub.md`
 - **Implementation detail**: `~/p/gh/levonk/infrahub/.agents/workflows/infrahub-add-new-service.md`
-- **Task controller**: `~/p/gh/levonk/infrahub/.agents/workflows/do-proj-infrahub.md`
-- **PRD generation**: `~/p/gh/levonk/skills-src/src/current/workflows/software-dev/greenfield/greenfield-prd.md`
-- **Task breakdown**: `~/p/gh/levonk/skills-src/src/current/workflows/software-dev/tasks/tasks-from-prd.md`
-- **Git management skill**: `~/p/gh/levonk/skills-src/src/current/skills/software-dev/git-repository-management/SKILL.md`
+- **Git state workflow**: `~/p/gh/levonk/infrahub/.agents/workflows/infrahub-git.md`
+- **Pipeline controller skill**: `execute-upsert` (installed via `just skills-bootstrap` from `levonk/skills-releases`)
 - **Project comparison skill**: `~/p/gh/levonk/skills-src/src/current/skills/software-dev/project-comparison/SKILL.md`
 - **Container image build skill**: `~/p/gh/levonk/skills-src/src/current/skills/software-dev/container-image-build/SKILL.md`
 - **Container service deploy skill**: `~/p/gh/levonk/skills-src/src/current/skills/software-dev/container-service-deploy/SKILL.md`
 - **Infrahub container deploy skill**: `~/p/gh/levonk/infrahub/.agents/skills/devops/infrahub-container-deploy/SKILL.md`
 - **Code quality validation skill**: `~/p/gh/levonk/skills-src/src/current/skills/software-dev/code-quality-validation/SKILL.md`
 - **Research output**: `~/p/gh/levonk/infrahub/internal-docs/research/service/{service-name-kebab-case}/`
-- **Project AGENTS.md**: `~/p/gh/levonk/infrahub/AGENTS.md`
+- **PRD output**: `internal-docs/feature/YYYY/MM/{slug}/` (created by execute-upsert)
+- **Task output**: `internal-docs/feature/YYYY/MM/{slug}/tasks/` (created by execute-upsert)
 
 ### Project Info
 
-- Client git submodule: `~/p/gh/levonk/infrahub/levonk`
-- Shared playbooks: `~/p/gh/levonk/infrahub/shared/active/02-config/ansible/playbooks/`
-- All tool invocations: `cd ~/p/gh/levonk/infrahub && devbox run -- rtk {COMMAND}`
-- Vault password file: `~/.ansible/vault_password`
+See `AGENTS.md` (environment, vault, deployment) and `developer.md` (devbox/rtk, key directories, boundaries, known gotchas).
