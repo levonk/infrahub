@@ -1,7 +1,11 @@
 {
   description = "macOS host applications — managed by Nix (multi-user daemon mode)";
 
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    # ponytail: nixpkgs 26.11 dropped x86_64-darwin; pin 26.05 stable only for x86_64-darwin
+    nixpkgs-26_05-darwin.url = "github:NixOS/nixpkgs/nixpkgs-26.05-darwin";
+  };
 
   # Binary cache — speeds up installs by pulling pre-built packages
   # instead of building from source. Following the pattern from
@@ -15,7 +19,7 @@
     ];
   };
 
-  outputs = { self, nixpkgs }:
+  outputs = { self, nixpkgs, nixpkgs-26_05-darwin, ... }:
     let
       lib = nixpkgs.lib;
       # Both x86 and ARM Macs supported — auto-detected at install time
@@ -24,9 +28,12 @@
         "aarch64-darwin"
       ];
       forAllSystems = lib.genAttrs supportedSystems;
+      # ponytail: select nixpkgs input per system; x86_64-darwin uses 26.05-darwin
+      nixpkgsFor = system:
+        if system == "x86_64-darwin" then nixpkgs-26_05-darwin else nixpkgs;
       perSystem = forAllSystems (system:
         let
-          pkgs = import nixpkgs {
+          pkgs = import (nixpkgsFor system) {
             inherit system;
             config = {
               allowUnfree = true;
