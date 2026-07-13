@@ -170,20 +170,6 @@ just ansible-validate-infra
 just ansible-validate-vms
 ```
 
-### Validation Playbooks
-
-Every deployment playbook `deploy-<service>.yml` should have a matching `validate-<service>.yml` playbook in `shared/active/02-config/ansible/playbooks/`. The validation phase is **read-only and idempotent**, so it is safe to run repeatedly after a deployment.
-
-- **Run it against the same inventory(s) as the deployment** (e.g. `windows-docker.yml` + `oci.yml` for cross-machine services).
-- **Use `tags: ["validate", "<service>"]`** so `--tags validate` can run only checks.
-- **Record results in a `validation_results` fact** and display a final summary; do not fail fast on the first failing check.
-- **Container checks**: use `community.docker.docker_container_info` where Ansible modules run natively (Linux/OCI). On Windows Docker hosts, use `delegate_to: localhost` with `docker -H` or `ansible.builtin.wait_for`/`ansible.builtin.uri` to `ansible_host`, because `community.docker` modules cannot run on Windows (`grp` is Unix-only).
-- **Service checks**: use `ansible.builtin.uri` for HTTP/HTTPS endpoints, `ansible.builtin.command` for `dig`/`curl` probes from `localhost`, or `docker logs` for error scanning.
-- **Role-level verification**: roles may expose an optional `<service>_verify_health` flag and a `verify`/`validate` tag in `tasks/main.yml` or `tasks/verify.yml`.
-- **Add a `just ansible-validate-<service>` / `ansible-validate-<service>-internal` recipe** and a matching `devbox.json` script when creating a new validation playbook.
-
-Existing examples: `validate-bootstrap.yml`, `validate-vpn.yml`, `validate-infra.yml`, `validate-vms.yml`. For RustFS, the counterpart would be `validate-rustfs.yml`.
-
 ### Docker Test Environment
 
 ```bash
@@ -208,6 +194,36 @@ shared/active/02-config/ansible/
 └── collections/        # Ansible Galaxy collections
 ```
 
+## Validation & Testing Layers
+
+Every service should have three layers of validation:
+
+### 1. Playbook validation (`validate-<service>.yml` in `playbooks/`)
+
+Read-only, idempotent post-deployment checks that run against the same inventory(s) as the deployment.
+
+- Use `tags: ["validate", "<service>"]` so `--tags validate` can run only checks.
+- Record results in a `validation_results` fact and display a final summary; do not fail fast on the first failing check.
+- Use `community.docker.docker_container_info` on Linux/OCI and `delegate_to: localhost` with `docker -H` on Windows Docker hosts (`community.docker` modules fail on Windows because `grp` is Unix-only).
+- Use `ansible.builtin.uri`, `ansible.builtin.wait_for`, `ansible.builtin.command` for endpoint, DNS, and log checks.
+- Add a `just ansible-validate-<service>` / `ansible-validate-<service>-internal` recipe and a matching `devbox.json` script when the playbook is created.
+
+Existing examples: `validate-bootstrap.yml`, `validate-vpn.yml`, `validate-infra.yml`, `validate-vms.yml`. For RustFS, the counterpart would be `validate-rustfs.yml`.
+
+### 2. Role-level validation (inside `roles/<service>/`)
+
+- Optional `<service>_verify_health` flag in `defaults/main.yml`.
+- `verify`/`validate` tag in `tasks/main.yml` or a separate `tasks/verify.yml` included from `main.yml`.
+- Runs during the deployment and can be triggered with `--tags verify`.
+- For Windows Docker hosts, delegate to `localhost` and use the Docker CLI or HTTP probes.
+
+Existing examples: `proxy_traefik_verify_health`, `proxy_authelia_verify_health`, `dashboard_homepage_verify_health`.
+
+### 3. Molecule tests (`.molecule/default/verify.yml` in each role)
+
+- Full role-level test with `converge.yml` to apply the role and `verify.yml` to assert outcomes.
+- Currently **BLOCKED** (see Testing Status). Until unblocked, playbook validation and role-level verification are the primary quality gates.
+
 ## Molecule Configuration
 
 Molecule scenarios are in `.molecule/default/` within each role directory:
@@ -221,6 +237,8 @@ Molecule scenarios are in `.molecule/default/` within each role directory:
 - **04-001**: ansible-lint configuration & role linting - DONE
 - **04-002**: Molecule tests for critical roles - BLOCKED
 - **04-003**: Playbook syntax check & dry-run - TODO
+- **04-004**: Playbook validation (`validate-*.yml`) for every deploy playbook - TODO
+- **04-005**: Role-level `verify`/`validate` tags and `<service>_verify_health` flags for all roles - TODO
 
 ## Dependencies
 
