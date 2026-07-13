@@ -31,6 +31,10 @@
     # Defined in levonk/active/02-config/ansible/infrastructure/domains.yml
     ts_fqdn: "{{ infra_tailscale_fqdn_cloud_server | default('oci.tale-grouper.ts.net') }}"
 
+    # Tailscale FQDN for the Windows Docker host
+    # Croc relay is a TCP service that runs directly on this host, not behind Traefik.
+    ts_fqdn_windows_docker: "{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.tale-grouper.ts.net') }}"
+
     # Multiple DNS Records for proxy stack domains
     # All services run on the OCI cloud server → CNAME to its Tailscale FQDN
     cloudflare_dns_records:
@@ -142,6 +146,14 @@
       - name: "{{ infra_domain_career_jobops | default('jobops.levonk.com') }}"
         type: "CNAME"
         content: "{{ ts_fqdn }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      # Croc file-transfer relay (TCP service on Windows Docker host)
+      - name: "{{ infra_domain_tools_croc_relay | default('croc.levonk.com') }}"
+        type: "CNAME"
+        content: "{{ ts_fqdn_windows_docker }}"
         ttl: "{{ cloudflare_dns_ttl }}"
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
