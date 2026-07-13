@@ -170,6 +170,20 @@ just ansible-validate-infra
 just ansible-validate-vms
 ```
 
+### Validation Playbooks
+
+Every deployment playbook `deploy-<service>.yml` should have a matching `validate-<service>.yml` playbook in `shared/active/02-config/ansible/playbooks/`. The validation phase is **read-only and idempotent**, so it is safe to run repeatedly after a deployment.
+
+- **Run it against the same inventory(s) as the deployment** (e.g. `windows-docker.yml` + `oci.yml` for cross-machine services).
+- **Use `tags: ["validate", "<service>"]`** so `--tags validate` can run only checks.
+- **Record results in a `validation_results` fact** and display a final summary; do not fail fast on the first failing check.
+- **Container checks**: use `community.docker.docker_container_info` where Ansible modules run natively (Linux/OCI). On Windows Docker hosts, use `delegate_to: localhost` with `docker -H` or `ansible.builtin.wait_for`/`ansible.builtin.uri` to `ansible_host`, because `community.docker` modules cannot run on Windows (`grp` is Unix-only).
+- **Service checks**: use `ansible.builtin.uri` for HTTP/HTTPS endpoints, `ansible.builtin.command` for `dig`/`curl` probes from `localhost`, or `docker logs` for error scanning.
+- **Role-level verification**: roles may expose an optional `<service>_verify_health` flag and a `verify`/`validate` tag in `tasks/main.yml` or `tasks/verify.yml`.
+- **Add a `just ansible-validate-<service>` / `ansible-validate-<service>-internal` recipe** and a matching `devbox.json` script when creating a new validation playbook.
+
+Existing examples: `validate-bootstrap.yml`, `validate-vpn.yml`, `validate-infra.yml`, `validate-vms.yml`. For RustFS, the counterpart would be `validate-rustfs.yml`.
+
 ### Docker Test Environment
 
 ```bash
