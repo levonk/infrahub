@@ -20,6 +20,28 @@
         "type": "github"
       }
     },
+    "nix-darwin-x86": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs-x86-darwin"
+        ]
+      },
+      "locked": {
+        "lastModified": 1783744694,
+        "narHash": "sha256-2cp6N3rrwnGYLTx9l6N+NI+kwrCWxvJUbj5WJhvB29A=",
+        "ref": "nix-darwin-26.05",
+        "rev": "c3e90c89649b07d1a96e4b9dd6cd0d6e44b91a74",
+        "shallow": true,
+        "type": "git",
+        "url": "https://github.com/LnL7/nix-darwin.git"
+      },
+      "original": {
+        "ref": "nix-darwin-26.05",
+        "shallow": true,
+        "type": "git",
+        "url": "https://github.com/LnL7/nix-darwin.git"
+      }
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1783279667,
@@ -36,10 +58,28 @@
         "type": "github"
       }
     },
+    "nixpkgs-x86-darwin": {
+      "locked": {
+        "lastModified": 1783868237,
+        "narHash": "sha256-MDQLbs882ugMi408mpSwa2nw2yzN43hHtOxx0zbUcZA=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "76fe02659c00bef75e12fbfdd45ca665115e9302",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixpkgs-26.05-darwin",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
         "nix-darwin": "nix-darwin",
-        "nixpkgs": "nixpkgs"
+        "nix-darwin-x86": "nix-darwin-x86",
+        "nixpkgs": "nixpkgs",
+        "nixpkgs-x86-darwin": "nixpkgs-x86-darwin"
       }
     }
   },
