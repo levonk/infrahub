@@ -7,7 +7,7 @@ prd_file: "internal-docs/feature/2026/07/nix-darwin-use/feat-202607060157-nix-da
 phase: 2
 parallel_id: 1
 branch: "feature/current/nix-darwin-migration/story-02-001-cross-repo-move"
-status: "todo"
+status: "done"
 assignee: ""
 reviewer: ""
 dependencies: ["01-001", "01-002"]
@@ -18,7 +18,7 @@ risk_level: "high"
 tags: ["feat", "git", "cross-repo", "nix"]
 due: "2026-07-20"
 created_at: "2026-07-06"
-updated_at: "2026-07-06"
+updated_at: "2026-07-14"
 ---
 
 ## Summary
