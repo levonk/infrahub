@@ -157,6 +157,8 @@ ansible-syntax-internal:
     ansible-playbook --syntax-check -i {{WINDOWS_DOCKER_INVENTORY}} {{PB_BASE_DEV}} || true
     ansible-playbook --syntax-check -i {{INVENTORY}} {{PB_LOCAL_REGISTRY}} || true
     ansible-playbook --syntax-check -i {{MACOS_INVENTORY}} {{PB_MACOS_BOOTSTRAP}} || true
+    ansible-playbook --syntax-check -i {{MACOS_INVENTORY}} {{PB_MACOS_CONFIGURE}} || true
+    ansible-playbook --syntax-check -i {{MACOS_INVENTORY}} {{PB_MACOS_OS_UPDATE}} || true
     @echo "Syntax check complete."
 
 # -- Molecule Tests (Docker-backed) --
@@ -392,6 +394,8 @@ ansible-deploy-base-dev-internal:
 
 MACOS_INVENTORY := INFRAHUB_ROOT + "/levonk/active/02-config/ansible/inventories/macos-hosts.yml"
 PB_MACOS_BOOTSTRAP := ANSIBLE_ROOT + "/playbooks/bootstrap-macos-host.yml"
+PB_MACOS_CONFIGURE := ANSIBLE_ROOT + "/playbooks/configure-macos-host.yml"
+PB_MACOS_OS_UPDATE := ANSIBLE_ROOT + "/playbooks/macos-os-update.yml"
 
 ansible-bootstrap-macos:
     devbox run ansible-bootstrap-macos
@@ -403,6 +407,24 @@ ansible-bootstrap-macos-internal:
 ansible-bootstrap-macos-check:
     @echo "Dry-run macOS bootstrap (check mode)..."
     ansible-playbook -i {{MACOS_INVENTORY}} {{PB_MACOS_BOOTSTRAP}} --check --diff --vault-password-file ~/.ansible/vault_password --ask-become-pass
+
+ansible-configure-macos:
+    devbox run ansible-configure-macos
+
+ansible-configure-macos-internal:
+    @echo "Configuring macOS host (darwin-rebuild switch + pmset + chflags)..."
+    ansible-playbook -i {{MACOS_INVENTORY}} {{PB_MACOS_CONFIGURE}} --vault-password-file ~/.ansible/vault_password --ask-become-pass
+
+ansible-configure-macos-check:
+    @echo "Dry-run macOS configure (check mode)..."
+    ansible-playbook -i {{MACOS_INVENTORY}} {{PB_MACOS_CONFIGURE}} --check --diff --vault-password-file ~/.ansible/vault_password --ask-become-pass
+
+ansible-macos-os-update:
+    devbox run ansible-macos-os-update
+
+ansible-macos-os-update-internal:
+    @echo "Installing macOS software updates (host will reboot)..."
+    ansible-playbook -i {{MACOS_INVENTORY}} {{PB_MACOS_OS_UPDATE}} --vault-password-file ~/.ansible/vault_password --ask-become-pass --tags os-update
 
 # Run the manual bootstrap script on a target Mac (run ON the target, not control machine)
 # Uses embedded default key (lzkmbp2016-micro-oracle); override with --ssh-key <path>

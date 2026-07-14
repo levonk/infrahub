@@ -1,0 +1,172 @@
+---
+# Configure macOS Host
+# Location: shared/active/02-config/ansible/playbooks/configure-macos-host.yml
+#
+# Applies the nix-darwin system configuration plus macOS power-management
+# settings that nix-darwin cannot manage (pmset, chflags, windowserver).
+# This must run AFTER bootstrap-macos-host.yml has created the auser admin.
+#
+# Usage:
+#   ansible-playbook -i <client>/active/02-config/ansible/inventories/macos-hosts.yml \
+#     shared/active/02-config/ansible/playbooks/configure-macos-host.yml \
+#     --vault-password-file ~/.ansible/vault_password \
+#     --ask-become-pass
+
+- name: "Configure macOS Host — nix-darwin + pmset + chflags + windowserver"
+  hosts: macos_hosts
+  gather_facts: true
+  become: false  # macOS uses sudo per-task
+
+  vars:
+    macos_auser_home: "/Users/{{ macos_auser }}"
+    macos_infrahub_repo_dir: "{{ macos_auser_home }}/.local/share/infrahub"
+    macos_nix_worktree_dir: "{{ macos_auser_home }}/.local/share/infrahub-darwin"
+    # 5 dirname steps: playbooks -> ansible -> 02-config -> active -> shared -> infrahub root
+    infrahub_root: "{{ playbook_dir | dirname | dirname | dirname | dirname | dirname }}"
+    macos_infrahub_git_key_file: "{{ macos_auser_home }}/.ssh/{{ ansible_ssh_private_key_file | basename }}"
+
+  pre_tasks:
+    - name: "Gather ansible_facts"
+      ansible.builtin.setup:
+        gather_subset: ["all"]
+      tags: ["always"]
+
+    - name: "Assert auser exists (bootstrap must run first)"
+      ansible.builtin.command: dscl . -read /Users/{{ macos_auser }} UniqueID
+      register: auser_check
+      changed_when: false
+      failed_when: false
+      tags: ["always", "validate"]
+
+    - name: "Fail if auser is missing"
+      ansible.builtin.fail:
+        msg: "Bootstrap must run before configure — run `just ansible-bootstrap-macos` first"
+      when: auser_check.rc != 0
+      tags: ["always", "validate"]
+
+    - name: "Check infrahub repo status on control machine"
+      ansible.builtin.command: git status --porcelain
+      args:
+        chdir: "{{ infrahub_root }}"
+      delegate_to: localhost
+      run_once: true
+      changed_when: false
+      register: infrahub_git_status
+      tags: ["always"]
+
+    - name: "Resolve infrahub Git URL for target"
+      ansible.builtin.command: git remote get-url origin
+      args:
+        chdir: "{{ infrahub_root }}"
+      delegate_to: localhost
+      run_once: true
+      changed_when: false
+      register: infrahub_git_origin
+      tags: ["always"]
+
+    - name: "Set infrahub git URL fact (target ssh cannot use control alias github-l)"
+      ansible.builtin.set_fact:
+        macos_infrahub_git_url: "{{ infrahub_git_origin.stdout | regex_replace('github-l', 'github.com') }}"
+      tags: ["always"]
+
+  tasks:
+    # ---------------------------------------------------------------------------
+    # Deploy the nix-darwin flake to the target
+    # Clean control repo: try a full git clone from origin; if auth fails, fall
+    # back to copying the local darwin directory. Dirty repo: copy local changes.
+    # ---------------------------------------------------------------------------
+    - name: "Clone infrahub from origin if control repo is clean"
+      block:
+        - name: "Clone infrahub to target"
+          ansible.builtin.git:
+            repo: "{{ macos_infrahub_git_url }}"
+            dest: "{{ macos_infrahub_repo_dir }}"
+            key_file: "{{ macos_infrahub_git_key_file }}"
+            accept_newhostkey: true
+          register: infrahub_clone
+          tags: ["nix-darwin", "deploy"]
+
+        - name: "Set flake path from clone"
+          ansible.builtin.set_fact:
+            macos_darwin_flake_dir: "{{ macos_infrahub_repo_dir }}/shared/active/02-config/nix/darwin"
+          tags: ["nix-darwin", "deploy"]
+      rescue:
+        # ponytail: target may not have a GitHub-deploying private key; copying the
+        # local darwin tree is the same as a clone when the control repo is clean.
+        - name: "Fallback — copy local nix-darwin flake"
+          ansible.posix.synchronize:
+            src: "{{ infrahub_root }}/shared/active/02-config/nix/darwin/"
+            dest: "{{ macos_nix_worktree_dir }}"
+          tags: ["nix-darwin", "deploy"]
+
+        - name: "Set flake path from local copy"
+          ansible.builtin.set_fact:
+            macos_darwin_flake_dir: "{{ macos_nix_worktree_dir }}"
+          tags: ["nix-darwin", "deploy"]
+      when: infrahub_git_status.stdout | length == 0
+
+    - name: "Copy local nix-darwin flake if control repo is dirty"
+      ansible.posix.synchronize:
+        src: "{{ infrahub_root }}/shared/active/02-config/nix/darwin/"
+        dest: "{{ macos_nix_worktree_dir }}"
+      when: infrahub_git_status.stdout | length > 0
+      tags: ["nix-darwin", "deploy"]
+
+    - name: "Set flake path from dirty local copy"
+      ansible.builtin.set_fact:
+        macos_darwin_flake_dir: "{{ macos_nix_worktree_dir }}"
+      when: infrahub_git_status.stdout | length > 0
+      tags: ["nix-darwin", "deploy"]
+
+    - name: "Apply nix-darwin configuration"
+      ansible.builtin.command: >
+        /nix/var/nix/profiles/default/bin/nix run nix-darwin -- switch
+        --flake {{ macos_darwin_flake_dir }}#{{ inventory_hostname }}
+      become: true
+      changed_when: true
+      tags: ["nix-darwin", "apply"]
+
+    # ---------------------------------------------------------------------------
+    # Power management (laptop-only) + filesystem / display tweaks
+    # These are the 7 sudo-requiring settings removed from osx-settings.py.
+    # ---------------------------------------------------------------------------
+    - name: "Apply pmset power settings"
+      block:
+        - name: "pmset -a lidwake 1"
+          ansible.builtin.command: pmset -a lidwake 1
+          become: true
+          changed_when: true
+
+        - name: "pmset -a autorestart 1"
+          ansible.builtin.command: pmset -a autorestart 1
+          become: true
+          changed_when: true
+
+        - name: "pmset -a displaysleep 4"
+          ansible.builtin.command: pmset -a displaysleep 4
+          become: true
+          changed_when: true
+
+        - name: "pmset -c sleep 0"
+          ansible.builtin.command: pmset -c sleep 0
+          become: true
+          changed_when: true
+
+        - name: "pmset -b sleep 5"
+          ansible.builtin.command: pmset -b sleep 5
+          become: true
+          changed_when: true
+      when: "'Book' in ansible_facts['product_name']"
+      tags: ["pmset"]
+
+    - name: "Show /Volumes in Finder"
+      ansible.builtin.command: chflags nohidden /Volumes
+      become: true
+      changed_when: true
+      tags: ["chflags"]
+
+    - name: "Enable HiDPI display modes"
+      ansible.builtin.command: defaults write /Library/Preferences/com.apple.windowserver DisplayResolutionEnabled -bool true
+      become: true
+      changed_when: true
+      tags: ["windowserver"]
