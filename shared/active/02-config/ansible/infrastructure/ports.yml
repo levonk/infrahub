@@ -261,3 +261,20 @@ infra_port_storage_rustfs_s3_host: "9000"
 infra_port_storage_rustfs_s3_container: "9000"
 infra_port_storage_rustfs_console_host: "9001"
 infra_port_storage_rustfs_console_container: "9001"
+
+# ---------------------------------------------------------------------------
+# Wazuh SIEM/XDR Ports
+# Used by: Windows Docker Desktop hosts (deploy-wazuh.yml playbook)
+# Upstream images: wazuh/wazuh-manager, wazuh/wazuh-indexer, wazuh/wazuh-dashboard
+# Manager ports exposed to host for agent communication + API.
+# Indexer port is internal-only (Docker network) — not exposed to host.
+# Dashboard port exposed to host for Traefik cross-machine routing.
+# ---------------------------------------------------------------------------
+infra_port_security_wazuh_manager_agent_host: "1514"
+infra_port_security_wazuh_manager_agent_container: "1514"
+infra_port_security_wazuh_manager_enrollment_host: "1515"
+infra_port_security_wazuh_manager_enrollment_container: "1515"
+infra_port_security_wazuh_manager_api_host: "55000"
+infra_port_security_wazuh_manager_api_container: "55000"
+infra_port_security_wazuh_dashboard_host: "5601"
+infra_port_security_wazuh_dashboard_container: "5601"

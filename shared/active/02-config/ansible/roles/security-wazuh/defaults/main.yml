@@ -1,0 +1,93 @@
+---
+# Wazuh SIEM/XDR default variables
+# Upstream Docker images: wazuh/wazuh-manager, wazuh/wazuh-indexer, wazuh/wazuh-dashboard
+# Deploys on Windows Docker Desktop hosts via SSH-tunneled Docker CLI.
+
+# Enable/disable
+wazuh_enabled: true
+
+# Version (all 3 components must use the same version tag)
+wazuh_version: "4.14.6"
+
+# Container configuration
+wazuh_manager_container_name: "{{ infra_hostname_wazuh_manager | default('wazuh-manager') }}"
+wazuh_manager_image_name: "wazuh/wazuh-manager"
+wazuh_manager_image_tag: "{{ wazuh_version }}"
+wazuh_indexer_container_name: "{{ infra_hostname_wazuh_indexer | default('wazuh-indexer') }}"
+wazuh_indexer_image_name: "wazuh/wazuh-indexer"
+wazuh_indexer_image_tag: "{{ wazuh_version }}"
+wazuh_dashboard_container_name: "{{ infra_hostname_wazuh_dashboard | default('wazuh-dashboard') }}"
+wazuh_dashboard_image_name: "wazuh/wazuh-dashboard"
+wazuh_dashboard_image_tag: "{{ wazuh_version }}"
+wazuh_certs_generator_image: "wazuh/wazuh-certs-generator:0.0.4"
+
+# Ports (reference infrastructure variables)
+wazuh_manager_agent_host_port: "{{ infra_port_security_wazuh_manager_agent_host | default('1514') }}"
+wazuh_manager_agent_container_port: "{{ infra_port_security_wazuh_manager_agent_container | default('1514') }}"
+wazuh_manager_enrollment_host_port: "{{ infra_port_security_wazuh_manager_enrollment_host | default('1515') }}"
+wazuh_manager_enrollment_container_port: "{{ infra_port_security_wazuh_manager_enrollment_container | default('1515') }}"
+wazuh_manager_api_host_port: "{{ infra_port_security_wazuh_manager_api_host | default('55000') }}"
+wazuh_manager_api_container_port: "{{ infra_port_security_wazuh_manager_api_container | default('55000') }}"
+wazuh_dashboard_host_port: "{{ infra_port_security_wazuh_dashboard_host | default('5601') }}"
+wazuh_dashboard_container_port: "{{ infra_port_security_wazuh_dashboard_container | default('5601') }}"
+
+# Network (reference infrastructure variables)
+wazuh_network_name: "{{ infra_network_security_wazuh_network_name | default('wazuh-network') }}"
+wazuh_network_subnet: "{{ infra_network_security_wazuh_subnet | default('172.25.0.0/16') }}"
+wazuh_network_gateway: "{{ infra_network_security_wazuh_gateway | default('172.25.0.1') }}"
+wazuh_indexer_ip: "{{ infra_network_security_wazuh_indexer_ip | default('172.25.0.10') }}"
+wazuh_manager_ip: "{{ infra_network_security_wazuh_manager_ip | default('172.25.0.11') }}"
+wazuh_dashboard_ip: "{{ infra_network_security_wazuh_dashboard_ip | default('172.25.0.12') }}"
+
+# Domain (reference infrastructure variables)
+wazuh_domain: "{{ infra_domain_security_wazuh | default('wazuh.levonk.com') }}"
+
+# Volumes (reference infrastructure variables)
+wazuh_manager_api_config_volume: "{{ infra_storage_wazuh_manager_api_config_volume | default('wazuh-manager-api-config') }}"
+wazuh_manager_etc_volume: "{{ infra_storage_wazuh_manager_etc_volume | default('wazuh-manager-etc') }}"
+wazuh_manager_logs_volume: "{{ infra_storage_wazuh_manager_logs_volume | default('wazuh-manager-logs') }}"
+wazuh_manager_queue_volume: "{{ infra_storage_wazuh_manager_queue_volume | default('wazuh-manager-queue') }}"
+wazuh_manager_multigroups_volume: "{{ infra_storage_wazuh_manager_multigroups_volume | default('wazuh-manager-multigroups') }}"
+wazuh_indexer_data_volume: "{{ infra_storage_wazuh_indexer_data_volume | default('wazuh-indexer-data') }}"
+wazuh_indexer_config_volume: "{{ infra_storage_wazuh_indexer_config_volume | default('wazuh-indexer-config') }}"
+wazuh_dashboard_config_volume: "{{ infra_storage_wazuh_dashboard_config_volume | default('wazuh-dashboard-config') }}"
+wazuh_dashboard_custom_volume: "{{ infra_storage_wazuh_dashboard_custom_volume | default('wazuh-dashboard-custom') }}"
+wazuh_dashboard_data_volume: "{{ infra_storage_wazuh_dashboard_data_volume | default('wazuh-dashboard-data') }}"
+wazuh_manager_config_mount_volume: "{{ infra_storage_wazuh_manager_config_mount_volume | default('wazuh-manager-config-mount') }}"
+wazuh_certs_volume: "{{ infra_storage_wazuh_certs_volume | default('wazuh-certs') }}"
+
+# Secrets (reference vault with safe defaults — empty means use Wazuh defaults, NOT production-safe)
+wazuh_indexer_password: "{{ vault_wazuh_indexer_password | default('') }}"
+wazuh_dashboard_password: "{{ vault_wazuh_dashboard_password | default('') }}"
+wazuh_api_password: "{{ vault_wazuh_api_password | default('') }}"
+
+# Usernames (fixed by Wazuh image, not secrets)
+wazuh_indexer_username: "admin"
+wazuh_dashboard_username: "kibanaserver"
+wazuh_api_username: "wazuh-wui"
+
+# Indexer JVM heap (adjust based on available RAM)
+wazuh_indexer_java_opts: "-Xms1g -Xmx1g"
+
+# Healthcheck — MUST use string with unit suffix, NOT bare integers
+wazuh_manager_healthcheck_interval: "15s"
+wazuh_manager_healthcheck_timeout: "5s"
+wazuh_manager_healthcheck_retries: 5
+wazuh_manager_healthcheck_start_period: "60s"
+wazuh_indexer_healthcheck_interval: "30s"
+wazuh_indexer_healthcheck_timeout: "10s"
+wazuh_indexer_healthcheck_retries: 5
+wazuh_indexer_healthcheck_start_period: "60s"
+wazuh_dashboard_healthcheck_interval: "30s"
+wazuh_dashboard_healthcheck_timeout: "10s"
+wazuh_dashboard_healthcheck_retries: 3
+wazuh_dashboard_healthcheck_start_period: "30s"
+
+# Docker connection string for the Windows host (SSH-tunneled)
+# community.docker modules can't run directly on Windows (Ansible core basic.py
+# imports grp, Unix-only). We delegate_to: localhost and connect to the Windows
+# Docker daemon via ssh://. Requires SSH config entry for the Windows host.
+wazuh_docker_host: "ssh://ansible@{{ windows_tailscale_hostname | default('dtop202311') }}.{{ infra_tailscale_tailnet | default('tale-grouper.ts.net') }}"
+
+# Traefik backend URL (for the dynamic config template — cross-machine routing via Tailscale)
+wazuh_traefik_backend_url: "http://{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.tale-grouper.ts.net') }}:{{ infra_port_security_wazuh_dashboard_host | default('5601') }}"

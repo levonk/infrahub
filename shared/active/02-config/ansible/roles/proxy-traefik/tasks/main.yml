@@ -224,6 +224,17 @@
   notify: reload traefik
   when: rustfs_enabled | default(false) | bool
 
+- name: Deploy Wazuh dynamic configuration template
+  ansible.builtin.template:
+    src: dynamic/wazuh-levonk-com.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/wazuh-levonk-com.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: reload traefik
+  when: wazuh_enabled | default(false) | bool
+
 # ---------------------------------------------------------------------------
 # Traefik Container
 # ---------------------------------------------------------------------------

@@ -182,5 +182,13 @@
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
 
+      # Wazuh SIEM/XDR dashboard (runs on Windows Docker, routed via Traefik on OCI)
+      - name: "{{ infra_domain_security_wazuh | default('wazuh.levonk.com') }}"
+        type: "CNAME"
+        content: "{{ ts_fqdn }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
   roles:
     - cloudflare-dns

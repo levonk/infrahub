@@ -1,0 +1,23 @@
+---
+# Wazuh handlers
+
+- name: restart wazuh-manager
+  ansible.builtin.command: "docker restart {{ wazuh_manager_container_name }}"
+  environment:
+    DOCKER_HOST: "{{ wazuh_docker_host }}"
+  delegate_to: localhost
+  tags: ["deploy", "container"]
+
+- name: restart wazuh-indexer
+  ansible.builtin.command: "docker restart {{ wazuh_indexer_container_name }}"
+  environment:
+    DOCKER_HOST: "{{ wazuh_docker_host }}"
+  delegate_to: localhost
+  tags: ["deploy", "container"]
+
+- name: restart wazuh-dashboard
+  ansible.builtin.command: "docker restart {{ wazuh_dashboard_container_name }}"
+  environment:
+    DOCKER_HOST: "{{ wazuh_docker_host }}"
+  delegate_to: localhost
+  tags: ["deploy", "container"]

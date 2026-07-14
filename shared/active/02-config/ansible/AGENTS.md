@@ -246,6 +246,22 @@ Molecule scenarios are in `.molecule/default/` within each role directory:
 - Requires: molecule, ansible, docker/podman
 - Docker images: `debian:bookworm-slim` (matches OCI target)
 
+## Wazuh SIEM/XDR
+
+- **Role**: `security-wazuh` (`roles/security-wazuh/`)
+- **Playbook**: `playbooks/deploy-wazuh.yml`
+- **Target**: `windows_docker_hosts` group (dtop202311) for the 3-container stack; `cloud_servers` (OCI) for Traefik routing
+
+### Key Deployment Differences
+
+- **Windows Docker modules are broken**: `community.docker` modules fail on Windows because `ansible.module_utils.basic` imports `grp`. Use `delegate_to: localhost` with `DOCKER_HOST: ssh://<windows-wsl>` and `ansible.windows.win_shell` for WSL2-level tasks.
+- **WSL2 tuning required**: `vm.max_map_count=262144` must be set in `.wslconfig` and WSL2 restarted before the indexer will start.
+- **Indexer single-node discovery**: Do **not** set `cluster.initial_cluster_manager_nodes` when `discovery.type: single-node`. This causes OpenSearch to exit with `IllegalArgumentException`.
+- **Certificates via `wazuh-certs-generator`**: The `certs.yml` must list all nodes and static IPs (`wazuh-indexer`, `wazuh-manager`, `wazuh-dashboard`, plus `filebeat` for the manager's Filebeat output). All OpenSearch certs use the `wazuh-*` names; the manager's `ossec.conf` should reference `wazuh-manager.pem` / `wazuh-manager-key.pem`, not `filebeat.pem`.
+- **Dashboard volume ownership is critical**: The `wazuh-dashboard` image runs as `wazuh-dashboard` (UID `1000`). The `wazuh-dashboard-config` volume (mounted to `/usr/share/wazuh-dashboard/config`) must be writable by UID `1000` so `opensearch-dashboards-keystore` can create `opensearch_dashboards.keystore`. The `wazuh-dashboard-data` volume (mounted to `/usr/share/wazuh-dashboard/data/wazuh/config`) must also be writable by UID `1000` so `wazuh_app_config.sh` can write `wazuh.yml`.
+- **Filebeat config is generated at runtime**: The manager's `1-config-filebeat` s6 script builds `/etc/filebeat/filebeat.yml` from env vars (`INDEXER_USERNAME`, `INDEXER_PASSWORD`, `SSL_CERTIFICATE`, `SSL_KEY`, `SSL_CERTIFICATE_AUTHORITIES`, `FILEBEAT_SSL_VERIFICATION_MODE`). The `wazuh-certs` volume mounts `/etc/ssl/filebeat`.
+- **Dashboard health check**: The Ansible role waits for TCP `5601` to open. The `/login` endpoint returns `401` for unauthenticated requests; use `https://wazuh.levonk.com` (via Traefik/Authelia) to verify the UI is reachable.
+
 ## JIT Index
 
 - Ansible Lint Troubleshooting: [`internal-docs/troubleshooting/ansible-lint.md`](../../../internal-docs/troubleshooting/ansible-lint.md) — role naming convention, yamllint config crashes, pre-existing violations

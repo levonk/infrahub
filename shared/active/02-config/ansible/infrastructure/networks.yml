@@ -29,6 +29,18 @@ infra_network_ai_proxy_chain_network_name: "proxy-chain-network"
 infra_network_ai_proxy_chain_subnet: "172.29.0.0/16"
 infra_network_ai_proxy_chain_gateway: "172.29.0.1"
 
+# ---------------------------------------------------------------------------
+# Wazuh SIEM/XDR Network
+# Used by: Windows Docker Desktop hosts (deploy-wazuh.yml playbook)
+# Internal network for manager ↔ indexer ↔ dashboard communication.
+# ---------------------------------------------------------------------------
+infra_network_security_wazuh_network_name: "wazuh-network"
+infra_network_security_wazuh_subnet: "172.25.0.0/16"
+infra_network_security_wazuh_gateway: "172.25.0.1"
+infra_network_security_wazuh_indexer_ip: "172.25.0.10"
+infra_network_security_wazuh_manager_ip: "172.25.0.11"
+infra_network_security_wazuh_dashboard_ip: "172.25.0.12"
+
 infra_network_ai_forge_network_name: "forge-network"
 infra_network_ai_forge_subnet: "172.35.0.0/16"
 infra_network_ai_forge_gateway: "172.35.0.1"

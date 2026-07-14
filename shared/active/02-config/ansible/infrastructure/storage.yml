@@ -119,3 +119,19 @@ infra_storage_jobops_codex_volume: "localnet-jobops-codex-volume"
 # ---------------------------------------------------------------------------
 infra_storage_rustfs_data_volume: "localnet-rustfs-data-volume"
 infra_storage_rustfs_logs_volume: "localnet-rustfs-logs-volume"
+
+# ---------------------------------------------------------------------------
+# Wazuh SIEM/XDR Storage
+# Used by: Windows Docker Desktop hosts (deploy-wazuh.yml playbook)
+# Docker volumes for manager, indexer, and dashboard persistent data.
+# Cert volume holds generated TLS certs for internal inter-container TLS.
+# ---------------------------------------------------------------------------
+infra_storage_wazuh_manager_api_config_volume: "wazuh-manager-api-config"
+infra_storage_wazuh_manager_etc_volume: "wazuh-manager-etc"
+infra_storage_wazuh_manager_logs_volume: "wazuh-manager-logs"
+infra_storage_wazuh_manager_queue_volume: "wazuh-manager-queue"
+infra_storage_wazuh_manager_multigroups_volume: "wazuh-manager-multigroups"
+infra_storage_wazuh_indexer_data_volume: "wazuh-indexer-data"
+infra_storage_wazuh_dashboard_config_volume: "wazuh-dashboard-config"
+infra_storage_wazuh_dashboard_custom_volume: "wazuh-dashboard-custom"
+infra_storage_wazuh_certs_volume: "wazuh-certs"

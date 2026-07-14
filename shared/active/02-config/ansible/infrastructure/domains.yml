@@ -115,6 +115,14 @@ infra_domain_storage_rustfs_console: "rustfs-console.levonk.com"
 infra_hostname_rustfs: "localnet-rustfs"
 
 # ---------------------------------------------------------------------------
+# Security/SIEM Services
+# ---------------------------------------------------------------------------
+infra_domain_security_wazuh: "wazuh.levonk.com"
+infra_hostname_wazuh_manager: "wazuh-manager"
+infra_hostname_wazuh_indexer: "wazuh-indexer"
+infra_hostname_wazuh_dashboard: "wazuh-dashboard"
+
+# ---------------------------------------------------------------------------
 # Cloudflare DNS Record Types
 # ---------------------------------------------------------------------------
 infra_dns_record_type_a: "A"

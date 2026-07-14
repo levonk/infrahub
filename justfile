@@ -184,6 +184,7 @@ ansible-syntax-internal:
     ansible-playbook --syntax-check -i {{WINDOWS_DOCKER_INVENTORY}} {{PB_WORLDMONITOR}} || true
     ansible-playbook --syntax-check -i {{WINDOWS_DOCKER_INVENTORY}} {{PB_BASE_DEV}} || true
     ansible-playbook --syntax-check -i {{WINDOWS_DOCKER_INVENTORY}} -i {{INVENTORY}} {{PB_RUSTFS}} || true
+    ansible-playbook --syntax-check -i {{WINDOWS_DOCKER_INVENTORY}} -i {{INVENTORY}} {{PB_WAZUH}} || true
     ansible-playbook --syntax-check -i {{WINDOWS_DOCKER_INVENTORY}} {{PB_CROC_RELAY}} || true
     ansible-playbook --syntax-check -i {{INVENTORY}} {{PB_LOCAL_REGISTRY}} || true
     ansible-playbook --syntax-check -i {{MACOS_INVENTORY}} {{PB_MACOS_BOOTSTRAP}} || true
@@ -374,6 +375,7 @@ PB_WORLDMONITOR := ANSIBLE_ROOT + "/playbooks/deploy-worldmonitor.yml"
 PB_BASE_DEV := ANSIBLE_ROOT + "/playbooks/deploy-base-dev.yml"
 PB_RUSTFS := ANSIBLE_ROOT + "/playbooks/deploy-rustfs.yml"
 PB_CROC_RELAY := ANSIBLE_ROOT + "/playbooks/deploy-croc-relay.yml"
+PB_WAZUH := ANSIBLE_ROOT + "/playbooks/deploy-wazuh.yml"
 PB_LOCAL_REGISTRY := ANSIBLE_ROOT + "/playbooks/deploy-local-registry.yml"
 
 ansible-deploy-local-registry:
@@ -496,6 +498,19 @@ ansible-deploy-rustfs-internal:
 ansible-deploy-rustfs-check:
     @echo "Dry-run RustFS deployment (check mode) on Windows Docker host and OCI..."
     ansible-playbook -i {{WINDOWS_DOCKER_INVENTORY}} -i {{INVENTORY}} {{PB_RUSTFS}} --check --diff --vault-password-file ~/.ansible/vault_password
+
+# -- Wazuh SIEM/XDR Deployment --
+
+ansible-deploy-wazuh:
+    devbox run ansible-deploy-wazuh
+
+ansible-deploy-wazuh-internal:
+    @echo "Deploying Wazuh SIEM/XDR to Windows Docker host and Traefik on OCI..."
+    ansible-playbook -i {{WINDOWS_DOCKER_INVENTORY}} -i {{INVENTORY}} {{PB_WAZUH}} --vault-password-file ~/.ansible/vault_password
+
+ansible-deploy-wazuh-check:
+    @echo "Dry-run Wazuh deployment (check mode) on Windows Docker host and OCI..."
+    ansible-playbook -i {{WINDOWS_DOCKER_INVENTORY}} -i {{INVENTORY}} {{PB_WAZUH}} --check --diff --vault-password-file ~/.ansible/vault_password
 
 # -- macOS Host Deployment --
 
