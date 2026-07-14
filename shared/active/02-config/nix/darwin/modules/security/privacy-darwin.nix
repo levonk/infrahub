@@ -1,11 +1,11 @@
 # Security Tier: Privacy (Darwin) — FR-7
 #
-# Source: levonk-nix-config/modules/security/privacy-darwin.nix
+# Source: legacy-nix-config/modules/security/privacy-darwin.nix
 # Changes from source:
 #   - All `system.defaults."com.apple.X"` moved to CustomUserPreferences /
 #     CustomSystemPreferences (the original form never worked — nix-darwin rejects
 #     arbitrary system.defaults."com.apple.X" keys with "The option system.defaults.com
-#     does not exist". levonk-nix-config was never deployed, so this was never caught.)
+#     does not exist". legacy-nix-config was never deployed, so this was never caught.)
 #
 # Darwin-specific privacy and telemetry controls. Reduces analytics and
 # advertising without disabling core features. Applied unconditionally on

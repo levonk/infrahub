@@ -1,6 +1,6 @@
 # Nix binary cache settings (FR-8)
 #
-# Source: levonk-nix-config/modules/components/nix/cache.nix
+# Source: legacy-nix-config/modules/components/nix/cache.nix
 # No changes from source — byte-identical content.
 { pkgs, ... }: {
   nix.settings = {

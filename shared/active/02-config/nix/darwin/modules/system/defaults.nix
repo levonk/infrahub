@@ -1,6 +1,6 @@
 # system.defaults — macOS system-level preferences (FR-6)
 #
-# Source: levonk-nix-config/modules/system/darwin/defaults.nix
+# Source: legacy-nix-config/modules/system/darwin/defaults.nix
 # Changes from source:
 #   - SoftwareUpdate.AutomaticallyInstallMacOSUpdates: true -> false (OS auto-install OFF)
 #   - SoftwareUpdate.ConfigDataInstall: true -> false (Security Responses OFF)

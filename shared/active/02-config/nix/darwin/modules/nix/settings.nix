@@ -1,6 +1,6 @@
 # Nix settings (FR-8)
 #
-# Source: levonk-nix-config/modules/components/nix/settings.nix
+# Source: legacy-nix-config/modules/components/nix/settings.nix
 # No changes from source — byte-identical content.
 { pkgs, ... }: {
   nix.settings = {

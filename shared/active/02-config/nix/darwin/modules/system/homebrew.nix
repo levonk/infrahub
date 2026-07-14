@@ -1,6 +1,6 @@
 # Homebrew module (FR-5)
 #
-# Source: levonk-nix-config/modules/system/darwin/homebrew.nix
+# Source: legacy-nix-config/modules/system/darwin/homebrew.nix
 # Changes from source:
 #   - Personal cask list DROPPED (all fleet apps are in nixpkgs, installed via
 #     environment.systemPackages in the fleet module)
