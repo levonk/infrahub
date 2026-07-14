@@ -6,7 +6,7 @@ use: "When needing to save pre-update or post-update git state across the infrah
 date:
   created: "2026-06-24"
   updated: "2026-07-08"
-  last-used: "2026-07-08"
+  last-used: "2026-07-14"
 see-also:
   - skill: "git-repository-management"
     relationship: "implementation"
