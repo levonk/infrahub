@@ -7,7 +7,7 @@ prd_file: "internal-docs/feature/2026/07/nix-darwin-use/feat-202607060157-nix-da
 phase: 1
 parallel_id: 3
 branch: "feature/current/nix-darwin-migration/story-01-003-osx-settings-cleanup"
-status: "todo"
+status: "done"
 assignee: ""
 reviewer: ""
 dependencies: []
@@ -102,7 +102,7 @@ Edit `dotfiles/home/current/dot_local/bin/executable_osx-settings.py` to: (1) ad
 
 ## Sub-Tasks
 
-- [ ] Task 1 — Add three-layer comment block (FR-18)
+- [x] Task 1 — Add three-layer comment block (FR-18)
   Insert the comment block after the module docstring (after line 11, the `# ///` block) and before the imports. The exact comment text is specified in FR-18 of the PRD. It explains:
   1. nix-darwin (system-level, /Library/Preferences/) — infrahub repo
   2. Ansible (sudo-requiring non-defaults) — infrahub repo
@@ -110,7 +110,7 @@ Edit `dotfiles/home/current/dot_local/bin/executable_osx-settings.py` to: (1) ad
   **Verify**: `rg "three layers" dotfiles/home/current/dot_local/bin/executable_osx-settings.py` → found
   **Likely failure**: comment placement interferes with `uv run --script` metadata block — **cause**: the `# ///` block must be contiguous — **fallback**: place the comment AFTER the imports, before the `commands = [` list (line 401)
 
-- [ ] Task 2 — Remove 7 sudo-requiring Setting entries
+- [x] Task 2 — Remove 7 sudo-requiring Setting entries
   Delete these 7 entries from the `commands` list:
   1. `chflags nohidden /Volumes` (line ~407-412)
   2. `pmset -a lidwake 1` (line ~413-418)
@@ -122,19 +122,19 @@ Edit `dotfiles/home/current/dot_local/bin/executable_osx-settings.py` to: (1) ad
   **Verify**: `rg "pmset|chflags.*Volumes|windowserver" dotfiles/home/current/dot_local/bin/executable_osx-settings.py` → no matches (excluding the comment block which mentions them contextually)
   **Likely failure**: accidentally removing a non-sudo setting adjacent to a sudo one — **cause**: imprecise deletion — **fallback**: diff the file before/after; verify the ~130 user-level defaults are all still present
 
-- [ ] Task 3 — Remove sudo -v call and needs_sudo logic
+- [x] Task 3 — Remove sudo -v call and needs_sudo logic
   In `main()` (line 1333+), remove:
   - `needs_sudo = any(c.sudo for c in commands)` (line 1343)
   - The entire `if needs_sudo:` block (lines 1344-1350) including the `sh.sudo("-v")` call
   **Verify**: `rg "sudo" dotfiles/home/current/dot_local/bin/executable_osx-settings.py` → only matches in the comment block (contextual mentions) and possibly the `run_command` function's `sudo` parameter (which is now never called with `sudo=True` from the commands list)
   **Likely failure**: `run_command` still has `sudo` parameter and `sh.Command("sudo")` code — **cause**: the function supports sudo but no caller uses it — **fallback**: leave the `sudo` parameter in `run_command` (it's harmless dead code); OR remove it for cleanliness. Prefer leaving it — less diff, and `killall` calls still pass `sudo=False`.
 
-- [ ] Task 4 — Fix killall calls (sudo=True → sudo=False)
+- [x] Task 4 — Fix killall calls (sudo=True → sudo=False)
   In the service restart block (lines 1372-1378), change `sudo=True` to `sudo=False` in the `killall` call. `killall Finder`/`Dock`/`SystemUIServer` kills the user's own processes — no root needed.
   **Verify**: `rg "killall" dotfiles/home/current/dot_local/bin/executable_osx-settings.py` → found, and the surrounding `run_command` call has `sudo=False` (or no sudo param)
   **Likely failure**: `killall` fails without sudo for some process — **cause**: the process is owned by root or another user — **fallback**: `killall` of Finder/Dock/SystemUIServer on macOS never needs sudo (they're user-session processes). If it fails, check which process and report.
 
-- [ ] Task 5 — Verify script runs with zero sudo prompts
+- [x] Task 5 — Verify script runs with zero sudo prompts
   Run the script on lzkmbp2016 and confirm it does not prompt for sudo at all.
   **Verify**: Run `uv run --script dotfiles/home/current/dot_local/bin/executable_osx-settings.py` → no "Authenticating sudo" message, no password prompt, settings applied, service restarts work
   **Likely failure**: script errors because `needs_sudo` variable is referenced elsewhere — **cause**: incomplete removal — **fallback**: `rg "needs_sudo" dotfiles/home/current/dot_local/bin/executable_osx-settings.py` → should return no matches
@@ -145,13 +145,13 @@ Edit `dotfiles/home/current/dot_local/bin/executable_osx-settings.py` to: (1) ad
 
 ## Acceptance Criteria
 
-- [ ] `rg "three layers" dotfiles/home/current/dot_local/bin/executable_osx-settings.py` finds the comment block
-- [ ] `rg "pmset|chflags.*Volumes|windowserver" dotfiles/home/current/dot_local/bin/executable_osx-settings.py` returns no matches (excluding comment block)
-- [ ] `rg "needs_sudo" dotfiles/home/current/dot_local/bin/executable_osx-settings.py` returns no matches
-- [ ] Running the script produces zero sudo password prompts
-- [ ] The ~130 user-level `defaults write` settings are all still present (spot-check: `rg "com.apple.dock tilesize" dotfiles/.../osx-settings.py` → found)
-- [ ] `killall` service restarts still work (Finder/Dock restart when their settings change)
-- [ ] `rg "killall" dotfiles/home/current/dot_local/bin/executable_osx-settings.py` → found with `sudo=False`
+- [x] `rg "three layers" dotfiles/home/current/dot_local/bin/executable_osx-settings.py` finds the comment block
+- [x] `rg "pmset|chflags.*Volumes|windowserver" dotfiles/home/current/dot_local/bin/executable_osx-settings.py` returns no matches (excluding comment block)
+- [x] `rg "needs_sudo" dotfiles/home/current/dot_local/bin/executable_osx-settings.py` returns no matches
+- [x] Running the script produces zero sudo password prompts
+- [x] The ~130 user-level `defaults write` settings are all still present (spot-check: `rg "com.apple.dock tilesize" dotfiles/.../osx-settings.py` → found)
+- [x] `killall` service restarts still work (Finder/Dock restart when their settings change)
+- [x] `rg "killall" dotfiles/home/current/dot_local/bin/executable_osx-settings.py` → found with `sudo=False`
 
 ## Test Plan
 
@@ -186,12 +186,12 @@ Edit `dotfiles/home/current/dot_local/bin/executable_osx-settings.py` to: (1) ad
 
 ## Definition of Done
 
-- [ ] All verification commands from sub-tasks pass
-- [ ] Script runs with zero sudo prompts on lzkmbp2016
-- [ ] No `pmset`, `chflags /Volumes`, `windowserver`, `needs_sudo`, or `sudo -v` references remain
-- [ ] Three-layer comment block present
-- [ ] ~130 user-level defaults and killall restarts unchanged
-- [ ] Only `osx-settings.py` is modified (`git status` in dotfiles repo)
+- [x] All verification commands from sub-tasks pass
+- [x] Script runs with zero sudo prompts on lzkmbp2016
+- [x] No `pmset`, `chflags /Volumes`, `windowserver`, `needs_sudo`, or `sudo -v` references remain
+- [x] Three-layer comment block present
+- [x] ~130 user-level defaults and killall restarts unchanged
+- [x] Only `osx-settings.py` is modified (`git status` in dotfiles repo)
 
 ## STOP Conditions
 

@@ -1,0 +1,11 @@
+- Read AGENTS.md
+- I would like to add a new service, ansible deployment, etc... for all clients in shared/active/
+- Then I would like it deployed to the levonk/ client enviornment, if the user didn't specify which machine(s) then ask
+- If the user didn't specificy the service, then ask
+- Read the documentation about the service off the web or a recent checkout in source control
+- Read all the information, come up with an initial plan, ask ANY questions necessary to understand the requirements and revise the plan
+- If this is a large project (instead of a one-shot) that warrents a full feature doc, task breakdown, incremental development, generate a prd using ~/p/gh/levonk/skills-src/src/current/workflows/software-dev/greenfield/generate-prd (if this, or any other, path in these instructions are slightly wrong fix this file)
+- use a subagent to break the prd into tasks using the workflow in skills-src/src/current/workflows/software-dev/tasks/task-breakdown
+- before implementation run the skill git-repository-management
+- then run .agents/workflows/do-proj-infrahub.md with this feature to implement it
+- after implementation run the skill git-repository-management

@@ -138,6 +138,14 @@ infra_port_ai_omnigent_postgres_container: "5432"
 infra_port_ai_pi_host: "8090"
 infra_port_ai_pi_container: "8090"
 
+# Archon (workflow layer — YAML DAG workflows, loops, fresh_context, interactive gates)
+# Deployed to Windows Docker Desktop hosts (deploy-archon.yml playbook)
+# Host port 3090 avoids conflict with WorldMonitor (3000) and AI Dashboard (3000)
+infra_port_ai_archon_host: "3090"
+infra_port_ai_archon_container: "3000"
+infra_port_ai_archon_postgres_host: "5436"
+infra_port_ai_archon_postgres_container: "5432"
+
 # agentmemory (persistent memory for AI coding agents — iii-engine + MCP server)
 infra_port_ai_agentmemory_host: "3111"
 infra_port_ai_agentmemory_container: "3111"

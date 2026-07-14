@@ -23,6 +23,7 @@ infra_domain_ai_litellm: "aigate.levonk.com"
 infra_domain_ai_litellm_api: "aigate-api.levonk.com"
 infra_domain_ai_omniroute: "airoute.levonk.com"
 infra_domain_ai_omnigent: "aiif.levonk.com"  # Public alias "AI InterFace" for the Omnigent service
+infra_domain_ai_archon: "archon.levonk.com"   # Archon workflow layer (future Traefik routing)
 infra_domain_ai_agentmemory: "agentmemory.levonk.com"
 infra_domain_ai_langfuse: "langfuse.levonk.com"
 
@@ -75,6 +76,8 @@ infra_hostname_privacy_orchestrator: "privacy-orchestrator"
 infra_hostname_ai_dashboard: "ai-dashboard"
 infra_hostname_omnigent: "omnigent"
 infra_hostname_omnigent_postgres: "omnigent-postgres"
+infra_hostname_archon: "archon"
+infra_hostname_archon_postgres: "archon-postgres"
 infra_hostname_pi: "pi"
 infra_hostname_agentmemory: "agentmemory"
 infra_hostname_langfuse_web: "langfuse-web"

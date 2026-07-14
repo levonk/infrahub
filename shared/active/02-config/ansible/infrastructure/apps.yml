@@ -25,14 +25,17 @@ infra_app_nix_gui_packages:
   - cmux
   - firefox-devedition-bin
   - raycast
+  - orbstack      # Container runtime for x86 Macs (Apple Container needs macOS 26) — moved from casks (FR-5)
+  - rustdesk      # Remote desktop GUI app — moved from casks (FR-5)
 
 # ---------------------------------------------------------------------------
 # Homebrew cask apps (GUI apps not in nixpkgs or that need native installers)
 # Installed via: brew install --cask <name>
+# Fleet apps installed via nix-darwin environment.systemPackages, not Homebrew
+# casks (FR-5). All fleet apps (orbstack, rustdesk, firefox-devedition-bin,
+# raycast, cmux) are available in nixpkgs.
 # ---------------------------------------------------------------------------
-infra_app_brew_casks:
-  - orbstack      # Container runtime for x86 Macs (Apple Container needs macOS 26)
-  - rustdesk      # Remote desktop GUI app
+infra_app_brew_casks: []
 
 # ---------------------------------------------------------------------------
 # macOS built-in features (enabled via systemsetup or launchctl)
