@@ -16,9 +16,9 @@ see-also:
 # Workflow: Git Repository Management for Infrahub
 
 Run the `git-repository-management` skill on the infrahub project and all client
-submodules.
+submodules. Use subagents.
 
-Skill path: `~/p/gh/levonk/skills-src/src/current/skills/software-dev/git-repository-management/SKILL.md`
+Skill path: `~/p/gh/levonk/skills-src/build/current/skills/software-dev/git-repository-management/SKILL.md`
 
 ## CRITICAL: Read AGENTS.md Before Proceeding
 
