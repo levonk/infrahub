@@ -77,6 +77,24 @@
       changed_when: false
       tags: ["auser", "configure"]
 
+    # ---------------------------------------------------------------------------
+    # Passwordless sudo for auser — mirrors the Linux host-os-bootstrap role's
+    # /etc/sudoers.d/<admin_user> NOPASSWD entry. Without this, every subsequent
+    # Ansible run that uses become: true would need --ask-become-pass, which
+    # breaks unattended configure/os-update runs. The validate step uses
+    # visudo -cf so a malformed entry can never break sudo on the host.
+    # ---------------------------------------------------------------------------
+    - name: "Grant auser passwordless sudo (NOPASSWD) — required for unattended Ansible"
+      ansible.builtin.copy:
+        content: "{{ macos_auser }} ALL=(ALL) NOPASSWD: ALL\n"
+        dest: "/etc/sudoers.d/{{ macos_auser }}"
+        owner: "root"
+        group: "wheel"
+        mode: "0440"
+        validate: "visudo -cf %s"
+      become: true
+      tags: ["auser", "sudoers"]
+
     - name: "Create .ssh directory for auser"
       ansible.builtin.file:
         path: "/Users/{{ macos_auser }}/.ssh"
