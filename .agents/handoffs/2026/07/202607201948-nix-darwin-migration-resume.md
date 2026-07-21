@@ -84,7 +84,7 @@ Complete the nix-darwin migration for the macOS fleet: replace imperative Ansibl
 5. **Phase 4 (Execute) — story 04-001 (runbook + ADR)**: Dispatch a subagent to write the local validation runbook + ADR recording the three-layer split decision. Story file: `internal-docs/feature/2026/07/nix-darwin-use/tasks/tasks-nix-darwin-migration-04-001-runbook-adr.md`.
 6. **Phase 7 (Deliver)** — update AGENTS.md with any learnings (e.g., "macOS bootstrap must grant NOPASSWD sudo for auser"), final commit on story-03-001 branch.
 7. **Push the workflow-fix branch** (`feature/current/workflow-fixes/resume-detection`) and open a PR for the orchestrator resume-detection fix.
-8. **Push the execute-upsert skill fix** (`feature/current/execute-upsert/blocked-proceed-mode`) and rebuild/install the skill into `~/.config/devin/skills/execute-upsert/` so future orchestrator runs use v1.2.0.
+8. **Push the execute-upsert skill fix** (`feature/current/execute-upsert/blocked-proceed-mode`) and rebuild/install the skill into `~/.config/devin/skills/execute-upsert/` so future orchestrator runs use v1.2.0. This branch now has two commits: `a7c6e9d` (blocked-proceed mode) and `f6a23e1` (disruption-handoff protocol — new shared include `disruption-handoff.md.tmpl` wired into execute-upsert so any future run that stops with work remaining auto-invokes the handoff skill).
 
 ## Success Criteria
 
@@ -125,7 +125,8 @@ Complete the nix-darwin migration for the macOS fleet: replace imperative Ansibl
 - **Task index**: `internal-docs/feature/2026/07/nix-darwin-use/tasks/index-nix-darwin-migration.md` (read from the story-03-001 branch for accurate status)
 - **ADR Compliance**: Hybrid secret storage (ADR-20260624001), Infrastructure consolidation (ADR-20260625001)
 - **Git Workflow**: Story branches under `feature/current/nix-darwin-migration/story-*`; the most advanced is `story-03-001-playbook-rewrite` (in worktree). Workflow fix on separate branch `feature/current/workflow-fixes/resume-detection`. Skill fix in skills-src on `feature/current/execute-upsert/blocked-proceed-mode`.
-- **Three commits this session**:
+- **Four commits this session**:
   1. `4aa3511` (infrahub, story-03-001 branch) — `fix(ansible): grant auser passwordless sudo in macOS bootstrap` — PUSHED
   2. `ef13aa4` (infrahub, workflow-fixes branch) — `fix(workflow): add resume detection to add-new-service orchestrator` — NOT pushed
   3. `a7c6e9d` (skills-src, execute-upsert branch) — `feat(execute-upsert): run-as-much-as-possible with blocker report` — NOT pushed
+  4. `f6a23e1` (skills-src, execute-upsert branch) — `feat(execute-upsert): add disruption-handoff protocol for session continuity` — NOT pushed. Adds new shared include `src/current/includes/disruption-handoff.md.tmpl` wired into execute-upsert — when execution stops with work remaining, invokes the `handoff` skill so a fresh session can resume. This is the protocol I used to write this handoff document.
