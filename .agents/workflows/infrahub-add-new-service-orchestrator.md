@@ -5,8 +5,8 @@ description: "Orchestrate adding a new service end-to-end: research, plan, imple
 use: "When adding a new service, ansible deployment, etc. for all clients in shared/active/"
 date:
   created: "2026-07-08"
-  updated: "2026-07-11"
-  last-used: "2026-07-11"
+  updated: "2026-07-20"
+  last-used: "2026-07-20"
 see-also:
   - skill: "execute-upsert"
     relationship: "pipeline-controller"
@@ -66,7 +66,52 @@ implementation steps.
 - If the user didn't specify the service, ask which service to add.
 - If the user didn't specify which machine(s) to deploy to, ask.
 
+### Resume Detection (run before anything else)
+
+This workflow is frequently **resumed** after a prior session. Before doing
+any research or planning, detect existing state and skip phases that are
+already complete. Do NOT re-execute completed work.
+
+1. **Check for an existing PRD + task index** under
+   `internal-docs/feature/YYYY/MM/*/{slug}/`. If a PRD exists AND a task
+   index exists at `tasks/index-{slug}.md`:
+   - Read the task index **Status** column for every story. The index uses
+     `[ ] Todo`, `[~] In-Progress`, `[x] Done`, `[!] Blocked`.
+   - Resume at **Phase 4 (Test)** if all stories are `[x] Done` or `[!] Blocked`.
+   - Resume at **Phase 3 (Execute Pipeline)** if any story is still
+     `[ ] Todo` or `[~] In-Progress` — `execute-upsert` will skip the
+     `[x] Done` stories automatically.
+   - **Never** re-dispatch a subagent for a story marked `[x] Done` unless
+     the user explicitly asks to redo it.
+
+2. **Check for existing story branches / worktrees** before dispatching any
+   subagent. Stories are developed on branches named
+   `feature/current/{slug}/story-{NN-NNN}-{story-name}`. Run:
+   ```bash
+   git worktree list
+   git branch --list "feature/current/{slug}/story-*"
+   ```
+   If a story branch already exists and the index marks it `[x] Done`, the
+   work is on that branch — switch to the most advanced story branch
+   (the one with the highest story ID that is `[x] Done`) and resume from
+   there. Do not re-create the branch or re-run the story.
+
+3. **Check for an existing research directory** at
+   `internal-docs/research/service/{service-name-kebab-case}/`. If it exists
+   and is non-empty, skip Phase 2 (Research) unless the user asks to redo it.
+
+4. **Check the current git branch**. If it is a story branch or a planning
+   branch for this slug, you are mid-execution — read the task index to
+   determine where to resume, do not start from Phase 1.
+
+If no PRD, no task index, and no research directory exist, this is a fresh
+run — proceed to Phase 2 (Research).
+
 ## Phase 2: Research
+
+**Skip this phase entirely if** `internal-docs/research/service/{service-name-kebab-case}/`
+already exists and is non-empty (detected in Phase 1 Resume Detection), unless
+the user explicitly asks to redo research.
 
 - Launch subagents to research the requested service(s) first to find out if
   there are better ones that should be considered before moving forward with
