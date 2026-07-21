@@ -125,8 +125,9 @@ Complete the nix-darwin migration for the macOS fleet: replace imperative Ansibl
 - **Task index**: `internal-docs/feature/2026/07/nix-darwin-use/tasks/index-nix-darwin-migration.md` (read from the story-03-001 branch for accurate status)
 - **ADR Compliance**: Hybrid secret storage (ADR-20260624001), Infrastructure consolidation (ADR-20260625001)
 - **Git Workflow**: Story branches under `feature/current/nix-darwin-migration/story-*`; the most advanced is `story-03-001-playbook-rewrite` (in worktree). Workflow fix on separate branch `feature/current/workflow-fixes/resume-detection`. Skill fix in skills-src on `feature/current/execute-upsert/blocked-proceed-mode`.
-- **Four commits this session**:
+- **Five commits this session**:
   1. `4aa3511` (infrahub, story-03-001 branch) — `fix(ansible): grant auser passwordless sudo in macOS bootstrap` — PUSHED
   2. `ef13aa4` (infrahub, workflow-fixes branch) — `fix(workflow): add resume detection to add-new-service orchestrator` — NOT pushed
   3. `a7c6e9d` (skills-src, execute-upsert branch) — `feat(execute-upsert): run-as-much-as-possible with blocker report` — NOT pushed
   4. `f6a23e1` (skills-src, execute-upsert branch) — `feat(execute-upsert): add disruption-handoff protocol for session continuity` — NOT pushed. Adds new shared include `src/current/includes/disruption-handoff.md.tmpl` wired into execute-upsert — when execution stops with work remaining, invokes the `handoff` skill so a fresh session can resume. This is the protocol I used to write this handoff document.
+  5. `271bb11` (skills-src, execute-upsert branch) — `refine(execute-upsert): unify disruption-handoff trigger framing` — NOT pushed. Refined the trigger to the unified framing: "no more tasks you can do AND more tasks to do" — covers both blocker (all transitively blocked) and disruption (context limit/user pause/unrecoverable failure) cases in one condition. Clean completions (all `[x] Done`) skip the handoff.
