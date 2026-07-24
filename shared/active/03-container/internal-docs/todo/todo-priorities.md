@@ -383,6 +383,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] FOSS Evals Platform: https://github.com/openlit/openlit
   - [ ] https://github.com/forrestchang/andrej-karpathy-skills/blob/main/skills/karpathy-guidelines/SKILL.md
   - [ ] https://github.com/paperclipai/paperclip https://github.com/gsxdsm/awesome-paperclip https://github.com/gsxdsm/oh-my-paperclip
+  - [ ] https://github.com/block/buzz
   - [ ] https://github.com/AnthonyDavidAdams/zero-employee-company-book
   - [ ] Human Interaction Controller https://github.com/easychen/ask4me
   - [ ] **Code Understanding** https://github.com/HKUDS/FastCode
