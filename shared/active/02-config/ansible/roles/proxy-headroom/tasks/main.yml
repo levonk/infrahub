@@ -81,6 +81,7 @@
       HEADROOM_HOST: "{{ proxy_headroom_container_ip }}"
       HEADROOM_DATA_DIR: "/data"
       UPSTREAM_PROXY: "{{ proxy_headroom_upstream_proxy }}"
+      OPENAI_TARGET_API_URL: "{{ proxy_headroom_openai_target_api_url }}"
       HEADROOM_OUTPUT_SHAPER: "{{ proxy_headroom_output_shaper }}"
     cap_drop:
       - ALL
@@ -129,7 +130,8 @@
     msg: |2
       headroom deployed successfully:
       - Proxy: http://{{ ansible_host | default('localhost') }}:{{ proxy_headroom_host_port }}
-      - Upstream: {{ proxy_headroom_upstream_proxy }}
+      - Upstream HTTP Proxy: {{ proxy_headroom_upstream_proxy | default('(none — direct egress)') }}
+      - OpenAI Target API: {{ proxy_headroom_openai_target_api_url }}
       - Output Shaper: {{ proxy_headroom_output_shaper }}
       - Data Directory: {{ proxy_headroom_data_dir }}
   when: proxy_headroom_enabled | bool

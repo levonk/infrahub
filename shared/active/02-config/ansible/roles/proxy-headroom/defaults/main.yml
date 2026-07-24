@@ -19,9 +19,19 @@ proxy_headroom_host_ip: "{{ cloud_server_headroom_host_ip | default('0.0.0.0') }
 proxy_headroom_container_ip: "{{ cloud_server_headroom_container_ip | default('0.0.0.0') }}"
 
 # ---------------------------------------------------------------------------
-# Upstream Proxy Configuration
+# Upstream HTTP Proxy Configuration (for egress, e.g. iron-proxy)
+# This sets HTTP_PROXY/HTTPS_PROXY env vars — NOT the API backend.
+# Leave empty when the downstream API gateway handles egress.
 # ---------------------------------------------------------------------------
 proxy_headroom_upstream_proxy: ""
+
+# ---------------------------------------------------------------------------
+# OpenAI API Target URL (where Headroom forwards compressed requests)
+# Points to OmniRoute in the pipeline. Headroom compresses context then
+# forwards to this OpenAI-compatible endpoint.
+# Env var: OPENAI_TARGET_API_URL
+# ---------------------------------------------------------------------------
+proxy_headroom_openai_target_api_url: "http://{{ ai_omniroute_container_name | default('localnet-ai-omniroute') }}:{{ infra_port_ai_omniroute_container | default('20128') }}"
 
 # ---------------------------------------------------------------------------
 # Output Token Reduction
