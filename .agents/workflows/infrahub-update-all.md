@@ -1,0 +1,2 @@
+- Read  AGENTS.md
+- use subagents to check all the services that all the active clients are running based on their playbook/inventory files, and make sure that they are all the latest releases (at least 2 days old, nothing younger)
