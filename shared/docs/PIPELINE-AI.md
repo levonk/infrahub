@@ -10,11 +10,10 @@ flowchart LR
         OMN -- "RPC (JSONL)" --> PI
     end
 
-    subgraph Pipeline["Analytics & Optimization Pipeline"]
-        LIT["LiteLLM — aigate\nEntry: auth, keys,\nPII masking, spend,\nLangfuse traces"]
+    subgraph Pipeline["MVP Pipeline (Phase 1)"]
+        LIT["LiteLLM — aigate\nEntry: auth, keys,\nPII masking (Presidio),\nspend, Langfuse traces"]
         HEAD["Headroom\nContext compression\n(RTK+Caveman)"]
         OR["OmniRoute — airoute\nProvider fanout\n4-tier fallback"]
-        FORGE["Forge\nTool-call repair"]
         IP["Iron-Proxy\nEgress firewall\nMITM TLS inspection"]
     end
 
@@ -22,18 +21,36 @@ flowchart LR
         LF["Langfuse\nweb → postgres +\nclickhouse + redis + minio"]
     end
 
-    subgraph Egress["Privacy Egress"]
-        NORD["NordVPN\nVPN tunnel"]
+    subgraph Egress["Direct Egress"]
         NET(("Internet"))
     end
 
     PI -- "OpenAI-compatible\nhttp://litellm:4000/v1" --> LIT
     LIT -- "forwards traces" -.-> LF
-    LIT --> HEAD --> OR --> FORGE --> IP
-    IP -- "HTTP_PROXY chain" --> NORD --> NET
+    LIT --> HEAD --> OR --> IP --> NET
+```
+
+### Future Evolution (Deferred)
+
+```mermaid
+flowchart LR
+    subgraph Future["Future Evolution — Deferred to Later Phases"]
+        FORGE["Forge\nTool-call repair\n(Phase 2)"]
+        NORD["NordVPN\nVPN tunnel\n(Phase 3)"]
+        DASH["AI Dashboard Proxy 1/2 + DB\nAnalytics collectors\n(Phase 4)"]
+        PRIV["Privacy Orchestrator\nStandalone PII service\n(Phase 5)"]
+    end
 ```
 
 ## Recent Changes
+
+**2026-07-23**: Simplified pipeline to MVP, deferred Forge/NordVPN/AI Dashboard/Privacy Orchestrator
+- Active MVP pipeline: `Omnigent → Pi → LiteLLM (aigate) → Headroom → OmniRoute (airoute) → Iron-Proxy → Internet`
+- LiteLLM's Presidio PII guardrail is the privacy layer (standalone Privacy Orchestrator deferred to Phase 5)
+- LiteLLM → Langfuse is the observability source (AI Dashboard Proxy 1/2 + DB deferred to Phase 4)
+- Forge (tool-call repair) deferred to Phase 2 — no Ansible role exists yet
+- NordVPN (privacy egress) deferred to Phase 3 — Iron-Proxy egresses directly to Internet for now
+- See "Pipeline Evolution Roadmap" section for the full phase plan
 
 **2026-07-03**: Documented iron-proxy MITM TLS inspection and CA trust requirement
 - Iron-proxy uses man-in-the-middle TLS to inspect HTTPS traffic for allowlist enforcement and per-request auditing
@@ -79,23 +96,55 @@ flowchart LR
 - Better positioning: Forge now operates on LLM responses after routing
 - Prevents compression from interfering with tool call fixes
 - **Status**: IMPLEMENTED - forge service deployed
+- *(Note: As of 2026-07-23, Forge is DEFERRED to Phase 2 — see Pipeline Evolution Roadmap)*
 - See "Forge Implementation" section for details
 
 **2026-06-24**: Implemented Privacy Orchestrator stage in pipeline architecture
 - New stage between AI Dashboard Proxy 1 and Forge
 - Implements PII detection and transformation using Rust-based Privacy Orchestrator
 - **Status**: IMPLEMENTED - ai-privacy-proxy service deployed
+- *(Note: As of 2026-07-23, standalone Privacy Orchestrator is DEFERRED to Phase 5, superseded by LiteLLM Presidio for the MVP — see Pipeline Evolution Roadmap)*
 - See "Privacy Orchestrator Implementation" section for details
 
 ## Overview
 
 This configuration implements a multi-stage AI analytics pipeline with comprehensive data collection at key stages. The pipeline provides deep visibility into AI usage patterns, optimization effectiveness, and security analytics.
 
+## Pipeline Evolution Roadmap
+
+The pipeline is being delivered in phases. The current MVP is Phase 1; later phases add deferred capabilities without disrupting the active flow.
+
+### Phase 1 (Current MVP)
+
+```text
+Omnigent → Pi → LiteLLM (aigate) → Headroom → OmniRoute (airoute) → Iron-Proxy → Internet
+```
+
+- **Privacy**: LiteLLM's Presidio PII guardrail masks PII on raw text before compression
+- **Observability**: LiteLLM forwards traces to Langfuse (parallel sink)
+- **Egress**: Iron-Proxy egresses directly to the Internet (no VPN chaining)
+
+### Phase 2 (Future) — Forge
+
+Add **Forge** (tool-call repair) between OmniRoute and Iron-Proxy. No Ansible role exists yet; this phase begins when tool-call reliability becomes a blocker with non-conforming backends.
+
+### Phase 3 (Future) — NordVPN
+
+Add **NordVPN** after Iron-Proxy for privacy/geo-obfuscation egress. Iron-Proxy will chain egress through NordVPN's HTTP proxy via `HTTP_PROXY`/`HTTPS_PROXY` env vars.
+
+### Phase 4 (Future) — AI Dashboard Proxy 1/2 + DB
+
+Revisit the **AI Dashboard Proxy 1/2 collectors + shared DB** for deeper per-stage analytics. LiteLLM + Langfuse cover observability for the MVP; the dashboard collectors are deferred until richer comparative analytics are needed.
+
+### Phase 5 (Future) — Standalone Privacy Orchestrator
+
+Revisit the standalone **Privacy Orchestrator** (ai-privacy-proxy) if LiteLLM's Presidio PII masking proves insufficient. The standalone service offers Candle ML-based detection across 22+ PII categories with multiple transformation modes.
+
 ## Pipeline Architecture
 
 ```
-Omnigent → Pi → LiteLLM (aigate) → Headroom → OmniRoute (airoute) → Forge → Iron-Proxy → NordVPN → Internet
-(server)   (harness)  (Entry)        (Compress)  (Routing)          (Tool Fix) (Security)   (Privacy)
+Omnigent → Pi → LiteLLM (aigate) → Headroom → OmniRoute (airoute) → Iron-Proxy → Internet
+(server)   (harness)  (Entry)        (Compress)  (Routing)          (Security)   (Direct)
                       (auth, keys,
                        PII, spend,
                        Langfuse)
@@ -105,7 +154,7 @@ Omnigent → Pi → LiteLLM (aigate) → Headroom → OmniRoute (airoute) → Fo
                 langfuse-web → postgres + clickhouse + redis + minio
 ```
 
-**Note**: LiteLLM is the entry point for the pipeline. It handles auth, virtual keys, spend tracking, PII guardrail (Presidio masking), and forwards traces to Langfuse. LiteLLM routes to Headroom for context compression, then to OmniRoute for provider fanout (tier-based fallback, 9-factor auto-combo scoring, free-tier draining). Forge repairs tool-call format issues from non-conforming backends. Iron-Proxy enforces egress firewall policy. NordVPN provides privacy/geo-obfuscation.
+**Note**: LiteLLM is the entry point for the pipeline. It handles auth, virtual keys, spend tracking, PII guardrail (Presidio masking), and forwards traces to Langfuse. LiteLLM routes to Headroom for context compression, then to OmniRoute for provider fanout (tier-based fallback, 9-factor auto-combo scoring, free-tier draining). Iron-Proxy enforces egress firewall policy and egresses directly to the Internet (NordVPN VPN chaining is deferred to Phase 3). Forge (tool-call repair) is deferred to Phase 2.
 
 **Previous architecture** (pre-2026-06-29): AI Dashboard Proxy 1 → Privacy Orchestrator → Headroom → OmniRoute → Forge → AI Dashboard Proxy 2 → Iron-Proxy. The Proxy 1/2 collectors and Privacy Orchestrator are now absorbed into LiteLLM. See PIPELINE-LITELLM-JANUS-NOTES.md for the full analysis.
 
@@ -160,9 +209,9 @@ Omnigent + Pi are NOT mid-pipeline transformation stages like Headroom or Forge 
    - **Domain**: airoute.levonk.com
    - **Port**: 20128
    - **Upstream from**: Headroom
-   - **Downstream to**: Forge
+   - **Downstream to**: Iron-Proxy (Forge chaining deferred to Phase 2)
 
-4. **Forge (Tool Calling Reliability Layer)**
+4. **Forge (Tool Calling Reliability Layer)** — **DEFERRED — Future Evolution (Phase 2)**
    - Fixes tool calling issues in AI requests
    - Python-based service with guardrails for LLM tool calling
    - Response validation, rescue parsing, retry loop with error tracking
@@ -171,7 +220,7 @@ Omnigent + Pi are NOT mid-pipeline transformation stages like Headroom or Forge 
    - **Port**: 8081
    - **Upstream from**: OmniRoute
    - **Downstream to**: Iron-Proxy
-   - **Status**: **IMPLEMENTED** - deployed as Python service
+   - **Status**: **DEFERRED** — No Ansible role exists yet. Planned for Phase 2 between OmniRoute and Iron-Proxy. See "Pipeline Evolution Roadmap" and "Forge Implementation" section for details.
 
 5. **Iron-Proxy (Egress Firewall — MITM TLS Inspection)**
    - Default-deny egress filtering with domain allowlist
@@ -193,24 +242,26 @@ Omnigent + Pi are NOT mid-pipeline transformation stages like Headroom or Forge 
      HTTPS proxying (used by clients that send CONNECT, e.g. Node.js
      `fetch()` with `HTTPS_PROXY`, `curl --proxy`). The tunnel listener
      performs MITM on the tunneled traffic.
-   - **Upstream proxy chaining**: iron-proxy forwards egress to NordVPN's
-     HTTP proxy (`http://172.28.0.2:8888`) via `HTTP_PROXY`/`HTTPS_PROXY`
-     env vars, so traffic exits through the VPN for privacy.
+   - **Upstream proxy chaining**: NordVPN chaining is DEFERRED to Phase 3.
+     For the MVP, iron-proxy egresses directly to the Internet.
    - Secret injection at boundary
    - Per-request audit trail (host, SNI, method, path, status, duration)
    - **Ports**: 8080 (HTTP listener), 8870 (tunnel/CONNECT listener)
    - **Chain IP**: 172.29.0.17
-   - **Upstream from**: Forge (pipeline) or Pi (direct, bypassing pipeline)
-   - **Downstream to**: NordVPN
+   - **Upstream from**: OmniRoute (pipeline) or Pi (direct, bypassing pipeline)
+   - **Downstream to**: Internet (direct; NordVPN chaining deferred to Phase 3)
 
-6. **NordVPN (Privacy Layer)**
+6. **NordVPN (Privacy Layer)** — **DEFERRED — Future Evolution (Phase 3)**
    - VPN tunnel for privacy and geo-obfuscation
    - Routes all egress traffic through VPN
    - **Port**: 1080
    - **Upstream from**: Iron-Proxy
    - **Downstream to**: Internet
+   - **Status**: **DEFERRED** — Iron-Proxy egresses directly to the Internet for the MVP. NordVPN chaining is planned for Phase 3. See "Pipeline Evolution Roadmap" for details.
 
 ## Analytics Dimensions
+
+**Note**: The analytics dimensions below describe the full planned pipeline. For the Phase 1 MVP, analytics come from LiteLLM (entry stage) and Langfuse (observability sink). The AI Dashboard Proxy 1/2 collectors (Phase 4) will add deeper per-stage analytics when deployed.
 
 The AI Dashboard collects multi-dimensional analytics across:
 
@@ -225,12 +276,18 @@ The AI Dashboard collects multi-dimensional analytics across:
 ## Key Metrics Tracked
 
 ### Entry Stage (Proxy 1)
+
+*Phase 1 MVP: These metrics are collected by LiteLLM. The AI Dashboard Proxy 1 collector is deferred to Phase 4.*
+
 - Original request size and token count
 - Client identification and authentication
 - Request timing and latency
 - Input type classification
 
 ### Forge Analytics
+
+*Deferred to Phase 2 (Forge).*
+
 - Tool calling validation rates and categories
 - Rescue parsing effectiveness (JSON code fences, Mistral `[TOOL_CALLS]`, Qwen XML)
 - Retry loop statistics and success rates
@@ -239,6 +296,9 @@ The AI Dashboard collects multi-dimensional analytics across:
 - Backend compatibility metrics (llama-server, Ollama, vLLM, Anthropic)
 
 ### Privacy Orchestrator Analytics
+
+*Deferred to Phase 5. For the MVP, PII metrics come from LiteLLM's Presidio guardrail.*
+
 - PII detection rates and categories
 - Transformation effectiveness metrics (redaction, masking, tokenization)
 - Processing latency (sub-millisecond expected)
@@ -260,6 +320,9 @@ The AI Dashboard collects multi-dimensional analytics across:
 - Provider performance metrics
 
 ### Pre-Egress Stage (Proxy 2)
+
+*Deferred to Phase 4 (AI Dashboard Proxy 2). For the MVP, pre-egress metrics come from Iron-Proxy audit logs.*
+
 - Optimized request size and token count
 - Final provider selection
 - Cost calculation
@@ -293,32 +356,42 @@ Environment variables for pipeline configuration:
 
 ```bash
 cd ~/p/gh/levonk/infrahub
-devbox run -- docker compose -f shared/active/03-container/docker-compose.localnet.yml --profile ai-dashboard-pipeline up -d
+devbox run -- rtk ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
+  shared/active/02-config/ansible/playbooks/deploy-ai-gateway-pipeline.yml \
+  --vault-password-file ~/.ansible/vault_password
 ```
 
 ### Start with Environment File
 
 ```bash
-cd ~/p/gh/levonk/infrahub/shared/active/03-container/services/ai-dashboard
-docker compose -f docker-compose.ai-dashboard-pipeline.yml --env-file .env.pipeline up -d
+cd ~/p/gh/levonk/infrahub
+devbox run -- rtk ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
+  shared/active/02-config/ansible/playbooks/deploy-ai-gateway-pipeline.yml \
+  --vault-password-file ~/.ansible/vault_password
 ```
 
 ### View Logs
 
 ```bash
-# Entry stage collector
+# LiteLLM (entry stage — Phase 1 MVP)
+docker logs litellm --tail=50 -f
+
+# Langfuse (observability sink — Phase 1 MVP)
+docker logs langfuse-web --tail=50 -f
+
+# Entry stage collector (Phase 4 — deferred)
 docker logs ai-dashboard-proxy-1 --tail=50 -f
 
-# Privacy Orchestrator
+# Privacy Orchestrator (Phase 5 — deferred)
 docker logs privacy-orchestrator --tail=50 -f
 
-# Forge
+# Forge (Phase 2 — deferred)
 docker logs forge --tail=50 -f
 
-# Pre-egress stage collector
+# Pre-egress stage collector (Phase 4 — deferred)
 docker logs ai-dashboard-proxy-2 --tail=50 -f
 
-# Database
+# Database (Phase 4 — deferred)
 docker logs ai-dashboard-db --tail=50 -f
 ```
 
@@ -367,7 +440,7 @@ Omnigent has three components:
 Pi runs in **RPC mode** (`pi --mode rpc`) — a JSONL protocol over stdin/stdout. Omnigent's runner drives pi via this protocol. For local-runner deploys (laptop), the runner spawns pi as a local subprocess. For cloud sandbox hosts, the runner connects to a containerized pi via an HTTP-to-stdin RPC bridge (`rpc-bridge.py`, port 8090).
 
 ### Pipeline Integration
-Pi's LLM requests (chat completions, messages) are routed to the pipeline entry at **AI Dashboard Proxy 1** via a custom "pipeline" provider in pi's `models.json` config. The pipeline entry speaks OpenAI-compatible API, so pi treats it as an OpenAI provider with a custom base URL (`http://ai-dashboard-proxy-1:8081/v1`). The pipeline then collects analytics, detects/transforms PII, compresses context, routes across providers, fixes tool calling, collects pre-egress analytics, enforces egress firewall policy, and routes through VPN — all transparent to the pi agent.
+Pi's LLM requests (chat completions, messages) are routed to the pipeline entry at **LiteLLM (aigate)** via a custom "pipeline" provider in pi's `models.json` config. The pipeline entry speaks OpenAI-compatible API, so pi treats it as an OpenAI provider with a custom base URL (`http://litellm:4000/v1`). The pipeline then handles auth, PII masking (Presidio), spend tracking, Langfuse logging, compresses context (Headroom), routes across providers (OmniRoute), enforces egress firewall policy (Iron-Proxy), and egresses to the Internet — all transparent to the pi agent.
 
 ### Configuration
 **Omnigent:**
@@ -381,7 +454,7 @@ Pi's LLM requests (chat completions, messages) are routed to the pipeline entry 
 **Pi:**
 - **Image**: `localnet-pi:latest` (built from `Dockerfile`, installs `@earendil-works/pi-coding-agent` from npm)
 - **RPC bridge port**: 8090 (container), 8090 (host) — `infra_port_ai_pi_host`
-- **LLM endpoint**: `http://ai-dashboard-proxy-1:8081/v1` (pipeline entry, via custom "pipeline" provider in `models.json`)
+- **LLM endpoint**: `http://litellm:4000/v1` (pipeline entry, via custom "pipeline" provider in `models.json`)
 - **Default model**: `claude-sonnet-4-20250514` (routed through the pipeline to OmniRoute → real provider)
 - **Session storage**: `/data/sessions` (named volume `localnet-pi-sessions-volume`)
 - **Workspace**: `/workspace` (code repos mounted by client overlay)
@@ -391,7 +464,7 @@ Pi's LLM requests (chat completions, messages) are routed to the pipeline entry 
 The Omnigent + Pi stack is deployed as Docker containers with security hardening:
 - **Omnigent**: Pre-built slim Python container from GHCR (FastAPI/WebSocket coordinator) + PostgreSQL 16 Alpine
 - **Pi**: Node.js 22 slim container with `@earendil-works/pi-coding-agent` installed, running `rpc-bridge.py` (HTTP-to-stdin bridge for pi RPC mode)
-- **Networks**: `omnigent-network` (172.36.0.0/16) for Omnigent↔Pi↔Postgres; `ai-dashboard-network` (172.35.0.0/16) for Pi→AI Dashboard Proxy 1; `traefik-network` (external) for public routing
+- **Networks**: `omnigent-network` (172.36.0.0/16) for Omnigent↔Pi↔Postgres; `ai-dashboard-network` (172.35.0.0/16) for Pi→LiteLLM; `traefik-network` (external) for public routing
 - **Volumes**: `omnigent-postgres-data`, `omnigent-artifact-data`, `pi-data`, `pi-sessions`
 - **Traefik**: Public access via `aiif.levonk.com` with GeoBlock → CrowdSec Bouncer → Authelia security middleware chain
 - **Profile**: `omnigent` (both Omnigent and Pi start under this profile)
@@ -463,8 +536,10 @@ docker logs pi --tail=50 -f
 
 ## Forge Implementation
 
+**Status**: DEFERRED — No Ansible role exists yet. Planned for Phase 2 between OmniRoute and Iron-Proxy. The implementation details below are preserved for planning.
+
 ### Overview
-Forge is a reliability layer for self-hosted LLM tool-calling that sits between OmniRoute and AI Dashboard Proxy 2 in the AI analytics pipeline. It applies guardrails to LLM tool calls to improve reliability and correctness.
+Forge is a reliability layer for self-hosted LLM tool-calling that sits between OmniRoute and Iron-Proxy in the AI analytics pipeline. It applies guardrails to LLM tool calls to improve reliability and correctness.
 
 ### Key Features
 - **Response Validation**: Each tool call is checked against the tools array in the request
@@ -517,7 +592,9 @@ curl http://localhost:8081/health
 ## Langfuse Observability Backend
 
 ### Overview
-Langfuse is an open-source LLM engineering platform that provides tracing, analytics, prompt management, and evaluation for LLM applications. It is deployed as a **parallel analytics sink** that receives traces from AI Dashboard Proxy 1 (the entry collector), giving deep visibility into LLM request/response lifecycle, token usage, costs, and quality — without adding latency to the pipeline's request path.
+Langfuse is an open-source LLM engineering platform that provides tracing, analytics, prompt management, and evaluation for LLM applications. It is deployed as a **parallel analytics sink** that receives traces from LiteLLM (the entry stage for the Phase 1 MVP), giving deep visibility into LLM request/response lifecycle, token usage, costs, and quality — without adding latency to the pipeline's request path.
+
+**Note**: For the Phase 1 MVP, LiteLLM forwards traces to Langfuse via its native Langfuse integration. AI Dashboard Proxy 1 as a trace forwarder is deferred to Phase 4 (future).
 
 - **Project**: https://github.com/langfuse/langfuse
 - **Self-hosting docs**: https://langfuse.com/self-hosting/docker-compose
@@ -526,11 +603,13 @@ Langfuse is an open-source LLM engineering platform that provides tracing, analy
 Langfuse is NOT a serial forwarding stage. It runs alongside the pipeline as an observability backend:
 
 ```
-AI Dashboard Proxy 1 ──┬──→ (pipeline continues: Privacy Orchestrator → Headroom → ...)
-                       └──→ (forwards traces) → langfuse-web ingestion API
+LiteLLM ──┬──→ (pipeline continues: Headroom → OmniRoute → Iron-Proxy → Internet)
+          └──→ (forwards traces) → langfuse-web ingestion API
 ```
 
-The ingestion API (`/api/public/ingestion`) accepts OpenTelemetry-style trace data. AI Dashboard Proxy 1 forwards trace events (request, response, generation, span) to Langfuse asynchronously. Langfuse stores metadata in PostgreSQL, event data in ClickHouse, blobs (media) in MinIO, and uses Redis (BullMQ) for async ingestion processing via the worker.
+The ingestion API (`/api/public/ingestion`) accepts OpenTelemetry-style trace data. LiteLLM forwards trace events (request, response, generation, span) to Langfuse asynchronously via its native Langfuse integration. Langfuse stores metadata in PostgreSQL, event data in ClickHouse, blobs (media) in MinIO, and uses Redis (BullMQ) for async ingestion processing via the worker.
+
+*(Phase 4 future: AI Dashboard Proxy 1 will forward trace events to Langfuse when deployed.)*
 
 ### Stack Components
 - **langfuse-web** — Next.js web UI + ingestion API (port 3000 container, 3001 host). Exposed via Traefik at `langfuse.levonk.com` with GeoBlock → CrowdSec → Authelia security chain.
@@ -542,7 +621,7 @@ The ingestion API (`/api/public/ingestion`) accepts OpenTelemetry-style trace da
 
 ### Configuration
 - **Network**: `langfuse-network` (172.37.0.0/16) for internal service communication
-- **Cross-network**: langfuse-web also joins `ai-dashboard-network` (172.35.0.0/16) so Proxy 1 can reach the ingestion API at `http://langfuse-web:3000`, and `traefik-network` (172.31.0.0/16) for public routing
+- **Cross-network**: langfuse-web also joins `ai-dashboard-network` (172.35.0.0/16) so LiteLLM can reach the ingestion API at `http://langfuse-web:3000`, and `traefik-network` (172.31.0.0/16) for public routing
 - **Domain**: `langfuse.levonk.com` — `infra_domain_ai_langfuse`
 - **Secrets**: All sensitive values (postgres password, salt, encryption key, nextauth secret, redis auth, clickhouse password, minio credentials) sourced from the client Ansible vault (`vault_langfuse_*` variables)
 - **Telemetry**: Disabled (`TELEMETRY_ENABLED=false`) — no data leaves the deployment
@@ -599,9 +678,11 @@ docker logs langfuse-clickhouse --tail=50 -f
 ```
 
 ### Pipeline Integration
-AI Dashboard Proxy 1 forwards trace data to Langfuse's ingestion API. The proxy sends trace events (requests, responses, generations) to `http://langfuse-web:3000/api/public/ingestion` using the Langfuse public API key for the target project. This is asynchronous and does not block the pipeline request path.
+LiteLLM forwards trace data to Langfuse's ingestion API via its native Langfuse integration. LiteLLM sends trace events (requests, responses, generations) to `http://langfuse-web:3000/api/public/ingestion` using the Langfuse public API key for the target project. This is asynchronous and does not block the pipeline request path.
 
-To wire a project: create an organization and project in the Langfuse UI, then configure AI Dashboard Proxy 1 with the project's public API key (stored in vault or pipeline env).
+To wire a project: create an organization and project in the Langfuse UI, then configure LiteLLM with the project's public API key (stored in vault or pipeline env).
+
+*(Phase 4 future: AI Dashboard Proxy 1 will forward trace data to Langfuse when deployed.)*
 
 ### References
 - Project: https://github.com/langfuse/langfuse
@@ -618,20 +699,30 @@ To wire a project: create an organization and project in the Langfuse UI, then c
 
 The AI Dashboard web interface is accessible via Traefik with proper domain names and SSL certificates:
 
-- **AI Dashboard**: https://ai-dashboard.levonk.com
+- **AI Dashboard**: https://ai-dashboard.levonk.com *(Phase 4 — deferred)*
   - Single web interface for both proxy collectors (entry and pre-egress)
   - Displays comparative analytics between pipeline stages
   - Authenticated via Authelia with security middleware chain
   - SSL certificates managed by Let's Encrypt via Traefik
 
-- **OmniRoute Dashboard**: https://ai-gateway.levonk.com
+- **OmniRoute Dashboard**: https://ai-gateway.levonk.com *(deprecated — renamed to airoute.levonk.com)*
   - Provider management and configuration interface
   - Auto-fallback chain configuration
   - Usage analytics and provider performance metrics
   - Authenticated via Authelia with security middleware chain
   - SSL certificates managed by Let's Encrypt via Traefik
 
-- **Langfuse Observability**: https://langfuse.levonk.com
+- **LiteLLM Admin (aigate)**: https://aigate.levonk.com *(active — Phase 1 MVP)*
+  - LiteLLM admin dashboard for spend, keys, teams, models
+  - Authenticated via Authelia with security middleware chain
+  - SSL certificates managed by Let's Encrypt via Traefik
+
+- **OmniRoute (airoute)**: https://airoute.levonk.com *(active — Phase 1 MVP)*
+  - OmniRoute provider management and configuration interface
+  - Authenticated via Authelia with security middleware chain
+  - SSL certificates managed by Let's Encrypt via Traefik
+
+- **Langfuse Observability**: https://langfuse.levonk.com *(active — Phase 1 MVP)*
   - LLM tracing, analytics, and prompt management
   - Trace visualization and evaluation
   - Cost and token usage analytics
@@ -666,10 +757,22 @@ For local development, ensure all dependent services are running:
 
 ### Cloud Deployment (OCI)
 
-For deployment to the Levonk OCI cloud server, use the Ansible playbook:
+The primary deployment playbook for the Phase 1 MVP is `deploy-ai-gateway-pipeline.yml`:
+
 ```bash
 cd ~/p/gh/levonk/infrahub
-devbox run -- rtk ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/playbooks/deploy-ai-dashboard-pipeline.yml --vault-password-file ~/.ansible/vault_password
+devbox run -- rtk ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
+  shared/active/02-config/ansible/playbooks/deploy-ai-gateway-pipeline.yml \
+  --vault-password-file ~/.ansible/vault_password
+```
+
+The legacy `deploy-ai-dashboard-pipeline.yml` playbook is deprecated and retained only for Iron-Proxy deployment:
+
+```bash
+cd ~/p/gh/levonk/infrahub
+devbox run -- rtk ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
+  shared/active/02-config/ansible/playbooks/deploy-ai-dashboard-pipeline.yml \
+  --vault-password-file ~/.ansible/vault_password
 ```
 
 ## Network Configuration
@@ -690,11 +793,11 @@ devbox run -- rtk ansible-playbook -i levonk/active/02-config/ansible/inventorie
 
 ## Security Considerations
 
-1. **PII Protection**: Privacy Orchestrator detects and transforms PII before data leaves the system
+1. **PII Protection**: LiteLLM's Presidio PII guardrail masks PII on raw text before compression (standalone Privacy Orchestrator deferred to Phase 5)
 2. **Default-Deny**: Iron-Proxy enforces default-deny egress policy
 3. **Secret Injection**: Credentials injected at boundary, not in workloads
 4. **Audit Trail**: Complete request logging at multiple stages
-5. **VPN Privacy**: All egress traffic routed through NordVPN
+5. **VPN Privacy**: NordVPN egress routing *(deferred to Phase 3 — Iron-Proxy egresses directly to the Internet for the MVP)*
 6. **Data Isolation**: Multi-tenant client isolation in database schema
 
 ## Compression Strategy
@@ -720,7 +823,7 @@ devbox run -- rtk ansible-playbook -i levonk/active/02-config/ansible/inventorie
 ## Privacy Orchestrator Implementation
 
 ### Current Status
-**IMPLEMENTED** - The Privacy Orchestrator stage is fully implemented and deployed.
+**DEFERRED** — Future Evolution (Phase 5). Superseded by LiteLLM's Presidio PII guardrail for the MVP. The implementation details below are preserved for planning.
 
 ### Implementation Details
 
@@ -777,6 +880,8 @@ The Privacy Orchestrator is a Rust-based service that provides PII detection and
 
 ## Troubleshooting
 
+**Note**: Troubleshooting for AI Dashboard Proxy 1/2 and Privacy Orchestrator is deferred to their respective phases (Phase 4, Phase 5). For the MVP, troubleshoot LiteLLM, Headroom, OmniRoute, and Iron-Proxy.
+
 ### Pipeline Not Starting
 
 1. Check if all dependent services are running:
@@ -797,7 +902,11 @@ The Privacy Orchestrator is a Rust-based service that provides PII detection and
    docker logs privacy-orchestrator
    ```
 
+   *(Phase 4/Phase 5 — deferred: proxy-1/proxy-2 and privacy-orchestrator logs are not available in the MVP.)*
+
 ### Privacy Orchestrator Issues
+
+*DEFERRED (Phase 5) — The standalone Privacy Orchestrator is not deployed in the MVP. For PII issues, troubleshoot LiteLLM's Presidio guardrail.*
 
 #### Privacy Orchestrator Not Starting
 
@@ -911,6 +1020,8 @@ The Privacy Orchestrator is a Rust-based service that provides PII detection and
 
 ### Analytics Not Being Collected
 
+*(Phase 4 — deferred: proxy-1/proxy-2 collectors are not deployed in the MVP. For the MVP, analytics come from LiteLLM and Langfuse.)*
+
 1. Verify collectors are in analytics mode:
    ```bash
    docker exec ai-dashboard-proxy-1 env | grep AI_ANALYTICS_PROXY_MODE
@@ -985,9 +1096,13 @@ Configure alerts for:
 - **Deployment playbook**: `shared/active/02-config/ansible/playbooks/deploy-omnigent.yml`
 - **Env template**: `shared/active/03-container/services/ai-codeassist/omnigent/.env.omnigent.j2`
 - **Omnigent + Pi levonk deployment**: `levonk/active/03-container/services/omnigent/DEPLOYMENT.md`
-- **AI Dashboard Project**: https://github.com/levonk/ai-dashboard
-- **AI Dashboard PRD**: `~/p/gh/levonk/ai-dashboard/docs/feature/prd-multi-tenant-ai-analytics.md`
+- **LiteLLM (AI Gateway — entry stage, Phase 1 MVP)**: https://github.com/BerriAI/litellm
+- **Langfuse (LLM observability — Phase 1 MVP)**: https://github.com/langfuse/langfuse
+- **AI Dashboard Project** *(deferred — Phase 4)*: https://github.com/levonk/ai-dashboard
+- **AI Dashboard PRD** *(deferred — Phase 4)*: `~/p/gh/levonk/ai-dashboard/docs/feature/prd-multi-tenant-ai-analytics.md`
 - **Headroom**: Context compression service
 - **OmniRoute**: AI gateway with 177+ providers
 - **Iron-Proxy**: Egress firewall and secret injection
-- **NordVPN**: Privacy and geo-obfuscation
+- **NordVPN** *(deferred — Phase 3)*: Privacy and geo-obfuscation
+- **Forge** *(deferred — Phase 2)*: Tool-call repair reliability layer
+- **Privacy Orchestrator** *(deferred — Phase 5)*: Standalone PII detection/transformation service

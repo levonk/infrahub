@@ -1,11 +1,31 @@
 ---
-# AI Dashboard Pipeline Deployment Playbook
-# Deploys the multi-stage AI analytics pipeline to cloud servers
-# Pipeline: AI Dashboard Proxy 1 → Privacy Orchestrator → Headroom → OmniRoute → Forge → AI Dashboard Proxy 2 → Iron-Proxy → NordVPN → Internet
+# AI Dashboard Pipeline Deployment Playbook (DEPRECATED — partial overlap with gateway playbook)
+#
+# STATUS: Being deprecated in favor of deploy-ai-gateway-pipeline.yml, which is now the
+#         primary playbook for the AI pipeline. The gateway playbook deploys LiteLLM,
+#         Headroom, and OmniRoute (plus pre-stages Langfuse for observability).
+#
+#         This playbook is RETAINED because it is currently the only place Iron-Proxy
+#         (egress firewall) is deployed via an Ansible role include. The gateway playbook
+#         does not yet include the proxy-iron-proxy role. Once Iron-Proxy is folded into
+#         the gateway playbook, this file can be fully retired.
+#
+# CURRENT MVP PIPELINE (active):
+#   Omnigent -> Pi -> LiteLLM (aigate) -> Headroom -> OmniRoute (airoute) -> Iron-Proxy -> Internet
+#                       (auth, keys,      (compress)  (tier fallback,          (egress
+#                        PII, spend,                  9-factor scoring)        firewall)
+#                        Langfuse)
+#
+# DEFERRED TO FUTURE RELEASES (not deployed by this or the gateway playbook):
+#   - Forge                  — Phase 2 (Future): tool-call repair
+#   - Privacy Orchestrator   — Superseded by LiteLLM Presidio; standalone deferred to Phase 5
+#   - AI Dashboard Proxy 1/2 — Phase 4 (Future): deep analytics collectors
+#   - AI Dashboard DB        — Phase 4 (Future): analytics database
+#   - NordVPN                — Deferred (privacy egress handled by Iron-Proxy for MVP)
 #
 # This playbook uses Ansible roles with community.docker modules — NEVER docker compose.
-# Services with existing roles (headroom, omniroute, iron-proxy) are deployed via include_role.
-# Services without roles yet (forge, privacy-orchestrator, dashboard proxies) are marked TODO.
+# Services with existing roles (iron-proxy, headroom, omniroute) are deployed via include_role.
+# Deferred services are marked below with their target phase.
 #
 # Usage:
 #   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
@@ -95,20 +115,26 @@
       tags: ["deploy", "omniroute"]
 
     # ===========================================================================
-    # TODO: Services below need Ansible roles created (community.docker modules)
-    # For now, these stages are not deployed by this playbook. Create roles
-    # following the pattern in roles/omniroute/ and roles/proxy-iron-proxy/.
+    # DEFERRED — Future Evolution
+    # The services below are not part of the current MVP pipeline. They are
+    # retained as placeholders with phase labels for future releases. When a
+    # phase is activated, create Ansible roles following the pattern in
+    # roles/omniroute/ and roles/proxy-iron-proxy/.
     # ===========================================================================
+
+    # --- Phase 2 (Future): Tool-call repair ---
     # - name: "Deploy forge via role"
     #   ansible.builtin.include_role:
     #     name: ai-forge
     #   tags: ["deploy", "forge"]
-    #
+
+    # --- Superseded by LiteLLM Presidio; standalone deferred to Phase 5 ---
     # - name: "Deploy privacy-orchestrator via role"
     #   ansible.builtin.include_role:
     #     name: ai-privacy-orchestrator
     #   tags: ["deploy", "privacy-orchestrator"]
-    #
+
+    # --- Phase 4 (Future): Deep analytics collectors ---
     # - name: "Deploy ai-dashboard-proxy-1 via role"
     #   ansible.builtin.include_role:
     #     name: ai-dashboard-proxy
@@ -122,7 +148,8 @@
     #   vars:
     #     ai_dashboard_proxy_instance: 2
     #   tags: ["deploy", "ai-dashboard-proxy-2"]
-    #
+
+    # --- Phase 4 (Future): Analytics database ---
     # - name: "Deploy ai-dashboard database via role"
     #   ansible.builtin.include_role:
     #     name: ai-dashboard-db
@@ -177,23 +204,28 @@
           ========================================
           AI Dashboard Pipeline Deployment Complete
           ========================================
+          STATUS: DEPRECATED — primary playbook is deploy-ai-gateway-pipeline.yml
           Target: {{ inventory_hostname }}
           Timestamp: {{ ansible_date_time.iso8601 }}
           ----------------------------------------
           Deployed via Ansible roles (community.docker):
           - Iron-Proxy: egress firewall (proxy-chain-network 172.29.0.17)
+            [Unique to this playbook — gateway playbook does not yet include Iron-Proxy]
           - Headroom: context compression (proxy-chain-network 172.29.0.13)
+            [Also deployed by deploy-ai-gateway-pipeline.yml]
           - OmniRoute: AI gateway (proxy-chain-network 172.29.0.14, traefik ai-gateway.levonk.com)
+            [Also deployed by deploy-ai-gateway-pipeline.yml]
           ----------------------------------------
-          TODO — Roles needed for remaining pipeline stages:
-          - Forge (AI tool-calling guardrails)
-          - Privacy Orchestrator (PII masking)
-          - AI Dashboard Proxy 1 (entry analytics)
-          - AI Dashboard Proxy 2 (pre-egress analytics)
-          - AI Dashboard Database (PostgreSQL analytics store)
+          DEFERRED — Future Evolution (not deployed):
+          - Forge (Phase 2 — tool-call repair)
+          - Privacy Orchestrator (superseded by LiteLLM Presidio; standalone deferred to Phase 5)
+          - AI Dashboard Proxy 1/2 (Phase 4 — deep analytics collectors)
+          - AI Dashboard DB (Phase 4 — analytics database)
           ----------------------------------------
-          Pipeline Flow:
-          AI Dashboard Proxy 1 → Privacy Orchestrator → Headroom → OmniRoute → Forge → AI Dashboard Proxy 2 → Iron-Proxy → NordVPN → Internet
+          Current MVP Pipeline Flow:
+          Omnigent -> Pi -> LiteLLM (aigate) -> Headroom -> OmniRoute (airoute) -> Iron-Proxy -> Internet
+          [LiteLLM + Headroom + OmniRoute deployed via deploy-ai-gateway-pipeline.yml]
+          [Iron-Proxy deployed via this playbook]
           Network: proxy-chain-network (172.29.0.0/16)
           ========================================
       tags: ["always", "summary"]
