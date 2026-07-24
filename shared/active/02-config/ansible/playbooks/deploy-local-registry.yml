@@ -51,7 +51,7 @@
     - name: "Deploy registry container"
       community.docker.docker_container:
         name: "local-registry"
-        image: "docker.io/registry:2"
+        image: "docker.io/registry:3.1.1"
         state: started
         restart_policy: unless-stopped
         ports:
