@@ -1,0 +1,12 @@
+---
+# Freenet peer node handlers
+# Uses docker CLI (not community.docker) because the container runs on a
+# Windows Docker Desktop host — see tasks/main.yml for the rationale.
+
+- name: restart freenet
+  ansible.builtin.command: "docker restart {{ p2p_freenet_container_name }}"
+  environment:
+    DOCKER_HOST: "{{ p2p_freenet_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "freenet"]

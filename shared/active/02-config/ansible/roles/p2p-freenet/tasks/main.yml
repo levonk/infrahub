@@ -1,0 +1,175 @@
+---
+# Freenet peer node Deployment
+# Deploys on Windows Docker Desktop hosts via SSH-tunneled Docker CLI.
+# Upstream: https://github.com/freenet/freenet-core (Rust, locally-built image)
+#
+# community.docker Ansible modules can't run on Windows (Ansible core basic.py
+# imports grp, Unix-only). We use ansible.builtin.shell/command with the docker
+# CLI, setting DOCKER_HOST to ssh:// so the system SSH client handles auth.
+# This is the proven pattern for Windows Docker hosts in this codebase — see
+# roles/security-wazuh/tasks/main.yml for the reference implementation.
+
+# 1. Validate required variables
+- name: Validate required freenet variables are defined
+  ansible.builtin.assert:
+    that:
+      - p2p_freenet_container_name is defined
+      - p2p_freenet_image_name is defined
+      - p2p_freenet_image_tag is defined
+      - p2p_freenet_ws_api_host_port is defined
+      - p2p_freenet_ws_api_container_port is defined
+      - p2p_freenet_network_name is defined
+      - p2p_freenet_volume_name is defined
+      - p2p_freenet_docker_host is defined
+    fail_msg: >-
+      Missing required freenet variables. Check
+      levonk/active/02-config/ansible/inventories/windows-docker.yml and the
+      p2p-freenet role defaults.
+    success_msg: "All required freenet variables are defined."
+  tags: ["always", "validate"]
+
+# 2. Pull image from local registry
+- name: Pull freenet image
+  ansible.builtin.command: "docker pull {{ p2p_freenet_image_name }}:{{ p2p_freenet_image_tag }}"
+  environment:
+    DOCKER_HOST: "{{ p2p_freenet_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "pull"]
+
+# 3. Create Docker network
+- name: Create freenet Docker network
+  ansible.builtin.shell: >-
+    docker network inspect {{ p2p_freenet_network_name }} 2>/dev/null
+    || docker network create --driver bridge
+       --subnet {{ p2p_freenet_network_subnet }}
+       --gateway {{ p2p_freenet_network_gateway }}
+       {{ p2p_freenet_network_name }}
+  environment:
+    DOCKER_HOST: "{{ p2p_freenet_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "network"]
+
+# 4. Create volume
+- name: Create freenet data volume
+  ansible.builtin.shell: >-
+    docker volume inspect {{ p2p_freenet_volume_name }} 2>/dev/null
+    || docker volume create {{ p2p_freenet_volume_name }}
+  environment:
+    DOCKER_HOST: "{{ p2p_freenet_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "volume"]
+
+# 5. Stop + remove existing container (if config changed or image updated)
+# We compare the running container's image tag and env; if they match, we
+# leave it alone (idempotent). If they differ, we recreate.
+- name: Inspect existing freenet container
+  ansible.builtin.shell: >-
+    set -o pipefail;
+    docker inspect {{ p2p_freenet_container_name }}
+    --format '{{ '{{' }}.Config.Image{{ '}}' }}|{{ '{{' }}.Config.Env{{ '}}' }}'
+    2>/dev/null || echo "MISSING"
+  args:
+    executable: /bin/bash
+  environment:
+    DOCKER_HOST: "{{ p2p_freenet_docker_host }}"
+  delegate_to: localhost
+  register: freenet_existing_inspect
+  changed_when: false
+  tags: ["deploy", "inspect"]
+
+- name: Set freenet redeploy fact
+  ansible.builtin.set_fact:
+    freenet_needs_redeploy: >-
+      {{
+        freenet_existing_inspect.stdout == "MISSING"
+        or
+        (freenet_existing_inspect.stdout | regex_search(':' ~ p2p_freenet_image_tag ~ '$') is none)
+      }}
+
+- name: Stop existing freenet container for redeploy
+  ansible.builtin.command: "docker stop {{ p2p_freenet_container_name }}"
+  environment:
+    DOCKER_HOST: "{{ p2p_freenet_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  when: freenet_needs_redeploy | bool and freenet_existing_inspect.stdout != "MISSING"
+  tags: ["deploy", "redeploy"]
+
+- name: Remove existing freenet container for redeploy
+  ansible.builtin.command: "docker rm {{ p2p_freenet_container_name }}"
+  environment:
+    DOCKER_HOST: "{{ p2p_freenet_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  when: freenet_needs_redeploy | bool and freenet_existing_inspect.stdout != "MISSING"
+  tags: ["deploy", "redeploy"]
+
+# 6. Deploy container
+- name: Deploy freenet container
+  ansible.builtin.shell: >-
+    docker run -d
+    --name {{ p2p_freenet_container_name }}
+    --restart unless-stopped
+    --network {{ p2p_freenet_network_name }}
+    --ip {{ p2p_freenet_container_ip }}
+    -p {{ p2p_freenet_ws_api_host_port }}:{{ p2p_freenet_ws_api_container_port }}/tcp
+    -v {{ p2p_freenet_volume_name }}:/root/.cache/freenet:rw
+    -e WS_API_PORT={{ p2p_freenet_ws_api_port }}
+    -e RUST_LOG={{ p2p_freenet_log_level }}
+    -e TZ={{ p2p_freenet_tz }}
+    --log-driver json-file
+    --log-opt max-size={{ p2p_freenet_log_max_size }}
+    --log-opt max-file={{ p2p_freenet_log_max_file }}
+    --health-cmd "curl -fsS http://127.0.0.1:{{ p2p_freenet_ws_api_container_port }}/ || exit 1"
+    --health-interval {{ p2p_freenet_healthcheck_interval }}
+    --health-timeout {{ p2p_freenet_healthcheck_timeout }}
+    --health-retries {{ p2p_freenet_healthcheck_retries }}
+    --health-start-period {{ p2p_freenet_healthcheck_start_period }}
+    {{ p2p_freenet_image_name }}:{{ p2p_freenet_image_tag }}
+  environment:
+    DOCKER_HOST: "{{ p2p_freenet_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  when: freenet_needs_redeploy | bool
+  notify: restart freenet
+  tags: ["deploy", "container"]
+
+# 7. Wait for WS API port to open
+- name: Wait for freenet WS API to be reachable
+  ansible.builtin.wait_for:
+    host: "{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.tale-grouper.ts.net') }}"
+    port: "{{ p2p_freenet_ws_api_host_port }}"
+    delay: 10
+    timeout: 120
+  when: freenet_needs_redeploy | bool
+  tags: ["deploy", "verify"]
+
+# 8. Status report
+- name: Get freenet container status
+  ansible.builtin.shell: >-
+    set -o pipefail;
+    docker inspect {{ p2p_freenet_container_name }}
+    --format '{{ '{{' }}.State.Status{{ '}}' }}|{{ '{{' }}.State.Health.Status{{ '}}' }}'
+    2>/dev/null || echo "unknown|unknown"
+  args:
+    executable: /bin/bash
+  environment:
+    DOCKER_HOST: "{{ p2p_freenet_docker_host }}"
+  delegate_to: localhost
+  register: freenet_status_inspect
+  changed_when: false
+  tags: ["always", "info"]
+
+- name: Report freenet status
+  ansible.builtin.debug:
+    msg: |
+      Freenet peer node deployed:
+        - WS API (Tailscale): http://{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.tale-grouper.ts.net') }}:{{ p2p_freenet_ws_api_host_port }}
+        - Container: {{ p2p_freenet_container_name }}
+        - Image: {{ p2p_freenet_image_name }}:{{ p2p_freenet_image_tag }}
+        - State: {{ freenet_status_inspect.stdout.split('|')[0] }}
+        - Health: {{ freenet_status_inspect.stdout.split('|')[1] | default('none') }}
+  tags: ["always", "info"]

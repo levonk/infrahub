@@ -1,0 +1,16 @@
+---
+# Deploy Freenet peer node (freenet-core) on Windows Docker Desktop hosts.
+#
+# Target: windows_docker_hosts group (host dtop202311).
+# Access: Tailscale-only — no public domain, no Traefik routing.
+#
+# The image must be built and pushed to the local registry first:
+#   PLATFORM=linux/amd64 scripts/build-and-push-images.sh localnet-p2p-freenet
+
+- name: "Deploy Freenet Peer Node"
+  hosts: windows_docker_hosts
+  gather_facts: false
+  become: false
+  roles:
+    - role: p2p-freenet
+      tags: ["deploy", "freenet"]

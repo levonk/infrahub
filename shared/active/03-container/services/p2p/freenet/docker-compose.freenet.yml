@@ -1,0 +1,20 @@
+# Reference docker-compose for the Freenet peer node.
+# NOT used for deployment — Ansible deploys via the p2p-freenet role.
+# Kept for local development / image testing only.
+services:
+  freenet-node:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.freenet
+    image: localnet-p2p-freenet:latest
+    environment:
+      - WS_API_PORT=7509
+    ports:
+      - "7509:7509/tcp"
+    volumes:
+      - freenet-data:/root/.cache/freenet
+    restart: unless-stopped
+
+volumes:
+  freenet-data:
+    driver: local

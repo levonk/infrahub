@@ -1,0 +1,24 @@
+---
+# Freenet role metadata
+
+galaxy_info:
+  role_name: p2p_freenet
+  author: localnet
+  description: Deploy Freenet peer node (freenet-core) on Windows Docker Desktop hosts
+  company: localnet
+  license: MIT
+  min_ansible_version: "2.9"
+
+  platforms:
+    - name: Windows
+      versions:
+        - all
+
+  galaxy_tags:
+    - p2p
+    - freenet
+    - decentralized
+    - docker
+    - windows
+
+dependencies: []

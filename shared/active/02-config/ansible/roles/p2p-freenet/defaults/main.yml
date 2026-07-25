@@ -1,0 +1,73 @@
+---
+# Freenet peer node default variables
+# Upstream: https://github.com/freenet/freenet-core
+# Deploys on Windows Docker Desktop hosts via SSH-tunneled Docker CLI.
+# community.docker modules can't run on Windows (Ansible core basic.py
+# imports grp, Unix-only) — see tasks/main.yml for the delegate_to pattern.
+
+# ---------------------------------------------------------------------------
+# Container configuration
+# ---------------------------------------------------------------------------
+p2p_freenet_container_name: "localnet-p2p-freenet"
+p2p_freenet_image_name: "{{ local_registry | default('100.90.22.85:5000') }}/localnet-p2p-freenet"
+p2p_freenet_image_tag: "latest"
+
+# ---------------------------------------------------------------------------
+# Network configuration
+# Dedicated bridge network — no Traefik routing (Tailscale-only access).
+# ---------------------------------------------------------------------------
+p2p_freenet_network_name: "{{ infra_network_p2p_freenet_network_name | default('freenet-network') }}"
+p2p_freenet_network_subnet: "{{ infra_network_p2p_freenet_subnet | default('172.39.0.0/16') }}"
+p2p_freenet_network_gateway: "{{ infra_network_p2p_freenet_gateway | default('172.39.0.1') }}"
+p2p_freenet_container_ip: "{{ infra_network_ip_freenet | default('172.39.0.10') }}"
+
+# ---------------------------------------------------------------------------
+# Port configuration
+# WS API port 7509 is the freenet-node default — fdev + browser UI connect here.
+# ---------------------------------------------------------------------------
+p2p_freenet_ws_api_host_port: "{{ infra_port_p2p_freenet_ws_api_host | default('7509') }}"
+p2p_freenet_ws_api_container_port: "{{ infra_port_p2p_freenet_ws_api_container | default('7509') }}"
+
+# ---------------------------------------------------------------------------
+# Volume configuration
+# Mounted at /root/.cache/freenet (FREENET_BASE_DIR) — holds contracts,
+# delegate state, node identity, and config.
+# ---------------------------------------------------------------------------
+p2p_freenet_volume_name: "{{ infra_storage_freenet_data_volume | default('localnet-freenet-data-volume') }}"
+
+# ---------------------------------------------------------------------------
+# Docker connection (Windows Docker Desktop via SSH-tunneled docker CLI)
+# community.docker modules break on Windows; we delegate_to: localhost and
+# set DOCKER_HOST to ssh:// so the system SSH client handles auth.
+# ---------------------------------------------------------------------------
+p2p_freenet_docker_host: "ssh://ansible@{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.tale-grouper.ts.net') }}"
+
+# ---------------------------------------------------------------------------
+# Freenet node configuration
+# WS_API_PORT is read by the startup script inside the container.
+# Node ID is derived from HOSTNAME inside the container — no need to set here.
+# ---------------------------------------------------------------------------
+p2p_freenet_ws_api_port: "{{ p2p_freenet_ws_api_container_port }}"
+p2p_freenet_log_level: "info,freenet=debug,freenet-stdlib=debug,fdev=debug"
+
+# ---------------------------------------------------------------------------
+# Healthcheck configuration
+# The freenet WS API doesn't have a dedicated health endpoint; we TCP-probe
+# the WS API port. start_period is generous because the first boot involves
+# gateway bootstrap + contract state download.
+# ---------------------------------------------------------------------------
+p2p_freenet_healthcheck_interval: "30s"
+p2p_freenet_healthcheck_timeout: "5s"
+p2p_freenet_healthcheck_retries: 3
+p2p_freenet_healthcheck_start_period: "60s"
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+p2p_freenet_log_max_size: "10m"
+p2p_freenet_log_max_file: "5"
+
+# ---------------------------------------------------------------------------
+# Timezone
+# ---------------------------------------------------------------------------
+p2p_freenet_tz: "{{ localnet_tz | default('UTC') }}"
