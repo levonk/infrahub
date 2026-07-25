@@ -1,0 +1,71 @@
+---
+# Buzz AI agent collaboration workspace default variables
+# Buzz is a self-hostable Nostr relay where humans and AI agents share rooms.
+# Domain: buzz.levonk.com
+
+# Container configuration
+ai_buzz_container_name: "{{ infra_hostname_buzz | default('buzz') }}"
+ai_buzz_image: "ghcr.io/block/buzz:latest"
+
+# Postgres configuration (Buzz event store, channels, workflows, audit, FTS)
+ai_buzz_postgres_container_name: "{{ infra_hostname_buzz_postgres | default('buzz-postgres') }}"
+ai_buzz_postgres_image: "postgres:17-alpine"
+ai_buzz_postgres_db: "buzz"
+ai_buzz_postgres_user: "buzz"
+
+# Redis configuration (Buzz pub/sub, presence, typing)
+ai_buzz_redis_container_name: "{{ infra_hostname_buzz_redis | default('buzz-redis') }}"
+ai_buzz_redis_image: "redis:7-alpine"
+
+# MinIO configuration (Buzz S3-compatible object storage for media)
+ai_buzz_minio_container_name: "{{ infra_hostname_buzz_minio | default('buzz-minio') }}"
+ai_buzz_minio_image: "minio/minio:latest"
+ai_buzz_minio_bucket: "buzz-media"
+
+# Port configuration
+ai_buzz_host_port: "{{ infra_port_ai_buzz_host | default('3101') }}"
+ai_buzz_container_port: "{{ infra_port_ai_buzz_container | default('3000') }}"
+ai_buzz_health_host_port: "{{ infra_port_ai_buzz_health_host | default('3102') }}"
+ai_buzz_health_container_port: "{{ infra_port_ai_buzz_health_container | default('8080') }}"
+ai_buzz_metrics_host_port: "{{ infra_port_ai_buzz_metrics_host | default('3103') }}"
+ai_buzz_metrics_container_port: "{{ infra_port_ai_buzz_metrics_container | default('9102') }}"
+
+# Network configuration
+ai_buzz_network_name: "{{ infra_network_ai_buzz_network_name | default('buzz-network') }}"
+ai_buzz_network_subnet: "{{ infra_network_ai_buzz_subnet | default('172.38.0.0/16') }}"
+ai_buzz_network_gateway: "{{ infra_network_ai_buzz_gateway | default('172.38.0.1') }}"
+ai_buzz_network_ip: "{{ infra_network_ip_buzz | default('172.38.0.10') }}"
+ai_buzz_postgres_ip: "{{ infra_network_ip_buzz_postgres | default('172.38.0.20') }}"
+ai_buzz_redis_ip: "{{ infra_network_ip_buzz_redis | default('172.38.0.30') }}"
+ai_buzz_minio_ip: "{{ infra_network_ip_buzz_minio | default('172.38.0.40') }}"
+ai_buzz_traefik_network_name: "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"
+ai_buzz_traefik_network_ip: "{{ infra_network_ip_buzz_traefik | default('172.31.0.50') }}"
+
+# Domain for Traefik routing
+ai_buzz_domain: "{{ infra_domain_ai_buzz | default('buzz.levonk.com') }}"
+
+# Public relay URL used for NIP-42 auth challenges (wss:// public domain)
+ai_buzz_relay_url: "wss://{{ ai_buzz_domain }}"
+
+# Buzz operational settings
+ai_buzz_auto_migrate: true
+ai_buzz_audit_enabled: true
+ai_buzz_require_auth_token: false
+ai_buzz_require_relay_membership: false
+ai_buzz_require_media_get_auth: false
+ai_buzz_allow_nip_oa_auth: false
+
+# Secrets (from vault)
+ai_buzz_postgres_password: "{{ vault_buzz_postgres_password | default('changeme') }}"
+ai_buzz_relay_private_key: "{{ vault_buzz_relay_private_key | default('') }}"
+ai_buzz_s3_access_key: "{{ vault_buzz_s3_access_key | default('changeme') }}"
+ai_buzz_s3_secret_key: "{{ vault_buzz_s3_secret_key | default('changeme') }}"
+
+# Storage
+ai_buzz_postgres_volume_name: "{{ infra_storage_buzz_postgres_volume | default('localnet-buzz-postgres-data-volume') }}"
+ai_buzz_minio_volume_name: "{{ infra_storage_buzz_minio_volume | default('localnet-buzz-minio-data-volume') }}"
+
+# User/Group IDs and TZ
+ai_buzz_puid: "{{ localnet_puid | default(cuser_uid | default(1000)) | string }}"
+ai_buzz_pgid: "{{ localnet_pgid | default(cuser_gid | default(1000)) | string }}"
+ai_buzz_tz: "{{ localnet_tz | default(timezone | default('UTC')) }}"

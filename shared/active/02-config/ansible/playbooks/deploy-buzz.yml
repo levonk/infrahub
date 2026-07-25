@@ -1,0 +1,81 @@
+---
+# Buzz Deployment Playbook
+# Deploys the Buzz human + AI agent collaboration workspace / Nostr relay
+# to cloud servers. Buzz is a request-origin peer to Paperclip and Omnigent+Pi.
+#
+# Stack: Buzz relay (ghcr.io/block/buzz) + Postgres 17 + Redis 7 + MinIO
+# Uses community.docker modules per AGENTS.md architectural invariants.
+#
+# Usage:
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-buzz.yml \
+#     --vault-password-file ~/.ansible/vault_password
+
+- name: "Deploy Buzz AI Collaboration Workspace"
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: "Load shared infrastructure defaults (ports, networks, domains, storage)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+      tags: ["always"]
+
+    - name: "Load client infrastructure overrides (levonk)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+      tags: ["always"]
+
+    - name: "Display deployment start information"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Buzz Deployment Started
+          ========================================
+          Target: {{ inventory_hostname }}
+          User: {{ ansible_facts['user_id'] }}
+          OS: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}
+          Architecture: {{ ansible_facts['architecture'] }}
+          Timestamp: {{ ansible_facts['date_time']['iso8601'] }}
+          ========================================
+      tags: ["always", "info"]
+
+    - name: "Validate required variables are defined"
+      ansible.builtin.assert:
+        that:
+          - localnet_services_dir is defined
+          - vault_buzz_postgres_password is defined
+          - vault_buzz_s3_access_key is defined
+          - vault_buzz_s3_secret_key is defined
+        fail_msg: >-
+          Missing required variables. Check
+          levonk/active/02-config/ansible/inventories/group_vars/cloud_servers.yml,
+          group_vars/all.yml, and the client vault
+          (infrahub-levonk-all.vault.yml) for vault_buzz_postgres_password,
+          vault_buzz_s3_access_key, and vault_buzz_s3_secret_key.
+        success_msg: "All required Buzz variables are defined."
+      tags: ["always", "validate"]
+
+  roles:
+    - ai-buzz
+
+  post_tasks:
+    - name: "Report Buzz deployment summary"
+      ansible.builtin.debug:
+        msg: |
+          Buzz deployment complete on {{ inventory_hostname }}:
+            - Domain: https://{{ infra_domain_ai_buzz | default('buzz.levonk.com') }}
+            - Relay URL: wss://{{ infra_domain_ai_buzz | default('buzz.levonk.com') }}
+            - Health: http://localhost:{{ infra_port_ai_buzz_health_host | default('3102') }}/_liveness
+      tags: ["always", "info"]
