@@ -141,3 +141,11 @@ infra_storage_wazuh_indexer_data_volume: "wazuh-indexer-data"
 infra_storage_wazuh_dashboard_config_volume: "wazuh-dashboard-config"
 infra_storage_wazuh_dashboard_custom_volume: "wazuh-dashboard-custom"
 infra_storage_wazuh_certs_volume: "wazuh-certs"
+
+# ---------------------------------------------------------------------------
+# Freenet (P2P decentralized app platform — freenet-core peer node)
+# Used by: Windows Docker Desktop hosts (deploy-freenet.yml playbook)
+# Docker volume for persistent node data (contracts, delegate state, keys).
+# Mounted at /root/.cache/freenet inside the container (FREENET_BASE_DIR).
+# ---------------------------------------------------------------------------
+infra_storage_freenet_data_volume: "localnet-freenet-data-volume"

@@ -292,3 +292,13 @@ infra_port_security_wazuh_manager_api_host: "55000"
 infra_port_security_wazuh_manager_api_container: "55000"
 infra_port_security_wazuh_dashboard_host: "5601"
 infra_port_security_wazuh_dashboard_container: "5601"
+
+# ---------------------------------------------------------------------------
+# Freenet (P2P decentralized app platform — freenet-core peer node)
+# Used by: Windows Docker Desktop hosts (deploy-freenet.yml playbook)
+# Locally-built image: localnet-p2p-freenet (Rust, built from upstream Dockerfile)
+# WS API port 7509 is the freenet-node default (fdev + browser UI connect here).
+# No public domain — Tailscale-only access via the Windows host's tailnet FQDN.
+# ---------------------------------------------------------------------------
+infra_port_p2p_freenet_ws_api_host: "7509"
+infra_port_p2p_freenet_ws_api_container: "7509"
