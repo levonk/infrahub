@@ -60,6 +60,17 @@ infra_network_ip_langfuse_traefik: "172.31.0.40"
 # proxy-chain-network IP for langfuse-web (LiteLLM → Langfuse trace forwarding)
 infra_network_ip_langfuse_web_proxy_chain: "172.29.0.19"
 
+# Buzz (human + AI agent collaboration workspace / Nostr relay)
+infra_network_ai_buzz_network_name: "buzz-network"
+infra_network_ai_buzz_subnet: "172.38.0.0/16"
+infra_network_ai_buzz_gateway: "172.38.0.1"
+infra_network_ip_buzz: "172.38.0.10"
+infra_network_ip_buzz_postgres: "172.38.0.20"
+infra_network_ip_buzz_redis: "172.38.0.30"
+infra_network_ip_buzz_minio: "172.38.0.40"
+# Traefik-network IP for buzz (public routing)
+infra_network_ip_buzz_traefik: "172.31.0.50"
+
 # ---------------------------------------------------------------------------
 # DNS Networks
 # ---------------------------------------------------------------------------

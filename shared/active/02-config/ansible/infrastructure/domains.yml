@@ -25,6 +25,7 @@ infra_domain_ai_omniroute: "airoute.levonk.com"
 infra_domain_ai_omnigent: "aiif.levonk.com"  # Public alias "AI InterFace" for the Omnigent service
 infra_domain_ai_agentmemory: "agentmemory.levonk.com"
 infra_domain_ai_langfuse: "langfuse.levonk.com"
+infra_domain_ai_buzz: "buzz.levonk.com"
 
 # ---------------------------------------------------------------------------
 # Proxy Services
@@ -84,6 +85,10 @@ infra_hostname_langfuse_postgres: "langfuse-postgres"
 infra_hostname_langfuse_clickhouse: "langfuse-clickhouse"
 infra_hostname_langfuse_redis: "langfuse-redis"
 infra_hostname_langfuse_minio: "langfuse-minio"
+infra_hostname_buzz: "buzz"
+infra_hostname_buzz_postgres: "buzz-postgres"
+infra_hostname_buzz_redis: "buzz-redis"
+infra_hostname_buzz_minio: "buzz-minio"
 infra_hostname_authelia: "authelia"
 infra_hostname_crowdsec: "crowdsec"
 infra_hostname_traefik: "traefik"
