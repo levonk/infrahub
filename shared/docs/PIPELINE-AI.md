@@ -8,6 +8,8 @@ flowchart LR
         OMN["Omnigent\n(server)"]
         PI["Pi\n(harness)"]
         OMN -- "RPC (JSONL)" --> PI
+        BUZZ["Buzz\n(Nostr relay)"]
+        PAPER["Paperclip\n(agent orchestration)"]
     end
 
     subgraph Pipeline["MVP Pipeline (Phase 1)"]
@@ -26,6 +28,8 @@ flowchart LR
     end
 
     PI -- "OpenAI-compatible\nhttp://litellm:4000/v1" --> LIT
+    BUZZ -. "events/requests" .-> LIT
+    PAPER -. "agent tasks" .-> LIT
     LIT -- "forwards traces" -.-> LF
     LIT --> HEAD --> OR --> IP --> NET
 ```
@@ -43,6 +47,13 @@ flowchart LR
 ```
 
 ## Recent Changes
+
+**2026-07-25**: Added Buzz as a request-origin peer to Paperclip and Omnigent+Pi
+- Buzz (https://github.com/block/buzz) is a self-hostable Nostr relay workspace for human + AI agent collaboration
+- Deployed as `ai-buzz` Ansible role + `deploy-buzz.yml` playbook on the OCI cloud server
+- Domain: https://buzz.levonk.com (Traefik + GeoBlock + CrowdSec + Authelia)
+- Stack: buzz-relay + Postgres 17 + Redis 7 + MinIO; relay URL `wss://buzz.levonk.com`
+- Serves as a request-origin peer alongside Paperclip (agent orchestration) and Omnigent+Pi (agent execution)
 
 **2026-07-23**: Simplified pipeline to MVP, deferred Forge/NordVPN/AI Dashboard/Privacy Orchestrator
 - Active MVP pipeline: `Omnigent → Pi → LiteLLM (aigate) → Headroom → OmniRoute (airoute) → Iron-Proxy → Internet`
@@ -160,7 +171,11 @@ Omnigent → Pi → LiteLLM (aigate) → Headroom → OmniRoute (airoute) → Ir
 
 ### Request Origin
 
-The pipeline originates from the **Omnigent + Pi agent stack**. Omnigent (https://omnigent.ai/docs/deploy/overview) is the AI agent framework & meta-harness that orchestrates coding agents from a central server. Pi (https://github.com/earendil-works/pi) is the minimal terminal coding harness — the agent that actually does the coding work (read, write, edit, bash tools).
+The pipeline originates from one of several **request-origin services** that orchestrate or collaborate with agents before sending LLM requests to the pipeline entry point.
+
+- **Omnigent + Pi** is the primary agent execution stack. Omnigent (https://omnigent.ai/docs/deploy/overview) is the AI agent framework & meta-harness that orchestrates coding agents from a central server. Pi (https://github.com/earendil-works/pi) is the minimal terminal coding harness — the agent that actually does the coding work (read, write, edit, bash tools).
+- **Buzz** is a self-hostable Nostr relay workspace where humans and AI agents share rooms. It is a peer to Paperclip and Omnigent+Pi: events and requests originating from Buzz can be forwarded to the AI pipeline.
+- **Paperclip** is an agent orchestration platform (assign goals, track work/costs, agent employee management). It is a peer to Buzz and Omnigent+Pi in the request-origin layer.
 
 Omnigent's runner drives pi via **RPC mode** (JSONL over stdin/stdout). Pi's LLM requests are routed to the pipeline entry at **LiteLLM (aigate)** via a custom "pipeline" provider in pi's `models.json` config. The pipeline entry speaks OpenAI-compatible API, so pi treats it as an OpenAI provider with a custom base URL (`http://litellm:4000/v1`). LiteLLM then handles auth, PII masking, spend tracking, and Langfuse logging before forwarding to Headroom for compression and OmniRoute for provider fanout.
 
