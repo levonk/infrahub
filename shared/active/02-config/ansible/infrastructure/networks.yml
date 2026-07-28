@@ -71,6 +71,11 @@ infra_network_ip_buzz_minio: "172.38.0.40"
 # Traefik-network IP for buzz (public routing)
 infra_network_ip_buzz_traefik: "172.31.0.50"
 
+# Paperclip (AI agent orchestration platform)
+# Joins traefik-network for public routing via Traefik + Authelia
+infra_network_ip_paperclip: "172.31.0.20"
+infra_network_ip_paperclip_traefik: "172.31.0.21"
+
 # ---------------------------------------------------------------------------
 # DNS Networks
 # ---------------------------------------------------------------------------

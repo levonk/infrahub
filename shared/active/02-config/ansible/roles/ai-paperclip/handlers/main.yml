@@ -1,0 +1,16 @@
+---
+# Paperclip role handlers
+
+- name: restart paperclip
+  community.docker.docker_container:
+    name: "{{ ai_paperclip_container_name }}"
+    state: started
+    restart: true
+  listen: "restart paperclip"
+
+- name: restart paperclip-postgres
+  community.docker.docker_container:
+    name: "{{ ai_paperclip_postgres_container_name }}"
+    state: started
+    restart: true
+  listen: "restart paperclip-postgres"

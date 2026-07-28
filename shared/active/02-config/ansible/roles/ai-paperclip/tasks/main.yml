@@ -1,0 +1,177 @@
+---
+# Paperclip AI Orchestration Deployment
+# Deploys the Paperclip AI agent orchestration platform.
+# Stack: Paperclip (Node.js server + React UI) + external PostgreSQL container.
+# Routing: Traefik at paperclip.levonk.com with Authelia middleware.
+
+- name: Validate required variables are defined
+  ansible.builtin.assert:
+    that:
+      - ai_paperclip_container_name is defined
+      - ai_paperclip_image is defined
+      - ai_paperclip_postgres_password is defined
+      - ai_paperclip_domain is defined
+    fail_msg: >-
+      Missing required variables. Check infrastructure files and vault for
+      ai_paperclip_container_name, ai_paperclip_image, ai_paperclip_domain,
+      and vault_paperclip_postgres_password.
+    success_msg: "All required paperclip variables are defined."
+  tags: ["always", "validate"]
+
+# ============================================================================
+# Volume Management
+# ============================================================================
+- name: Ensure Paperclip data volume exists
+  community.docker.docker_volume:
+    name: "{{ ai_paperclip_volume_name }}"
+    state: present
+
+- name: Ensure Paperclip Postgres data volume exists
+  community.docker.docker_volume:
+    name: "{{ ai_paperclip_postgres_volume_name }}"
+    state: present
+
+# ============================================================================
+# Network Management
+# ============================================================================
+- name: Ensure traefik Docker network exists
+  community.docker.docker_network:
+    name: "{{ ai_paperclip_traefik_network_name }}"
+    state: present
+    driver: bridge
+  ignore_errors: true  # Network may already exist with different config
+
+- name: Ensure localnet Docker network exists
+  community.docker.docker_network:
+    name: "{{ ai_paperclip_localnet_network_name }}"
+    state: present
+    driver: bridge
+  ignore_errors: true
+
+# ============================================================================
+# Pull Image from Local Registry
+# ============================================================================
+- name: Pull Paperclip image from local registry
+  community.docker.docker_image:
+    name: "{{ ai_paperclip_image }}:{{ ai_paperclip_image_tag }}"
+    source: pull
+  tags: ["pull"]
+
+# ============================================================================
+# PostgreSQL Deployment (external database for Paperclip)
+# ============================================================================
+- name: Deploy Paperclip Postgres container
+  community.docker.docker_container:
+    name: "{{ ai_paperclip_postgres_container_name }}"
+    image: "{{ ai_paperclip_postgres_image }}"
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ ai_paperclip_localnet_network_name }}"
+    env:
+      POSTGRES_USER: "{{ ai_paperclip_postgres_user }}"
+      POSTGRES_PASSWORD: "{{ ai_paperclip_postgres_password }}"
+      POSTGRES_DB: "{{ ai_paperclip_postgres_db }}"
+      TZ: "{{ ai_paperclip_tz }}"
+      PGTZ: "{{ ai_paperclip_tz }}"
+    volumes:
+      - "{{ ai_paperclip_postgres_volume_name }}:/var/lib/postgresql/data:rw"
+    log_driver: json-file
+    log_options:
+      max-size: "{{ ai_paperclip_log_max_size }}"
+      max-file: "{{ ai_paperclip_log_max_file }}"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U {{ ai_paperclip_postgres_user }} -d {{ ai_paperclip_postgres_db }}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    security_opts:
+      - no-new-privileges:true
+  notify: restart paperclip-postgres
+
+- name: Wait for Paperclip Postgres to be healthy
+  community.docker.docker_container_info:
+    name: "{{ ai_paperclip_postgres_container_name }}"
+  register: paperclip_pg_info
+  until: paperclip_pg_info.container.State.Health.Status == "healthy"
+  retries: 30
+  delay: 2
+
+# ============================================================================
+# Paperclip Container Deployment
+# ============================================================================
+- name: Deploy Paperclip container
+  community.docker.docker_container:
+    name: "{{ ai_paperclip_container_name }}"
+    image: "{{ ai_paperclip_image }}:{{ ai_paperclip_image_tag }}"
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ ai_paperclip_localnet_network_name }}"
+      - name: "{{ ai_paperclip_traefik_network_name }}"
+        ipv4_address: "{{ ai_paperclip_traefik_network_ip }}"
+    published_ports:
+      - "{{ ai_paperclip_host_port }}:{{ ai_paperclip_container_port }}/tcp"
+    volumes:
+      - "{{ ai_paperclip_volume_name }}:/app/data:rw"
+    env:
+      NODE_ENV: "production"
+      PORT: "{{ ai_paperclip_container_port }}"
+      DATABASE_URL: "postgresql://{{ ai_paperclip_postgres_user }}:{{ ai_paperclip_postgres_password }}@{{ ai_paperclip_postgres_container_name }}:{{ ai_paperclip_postgres_container_port }}/{{ ai_paperclip_postgres_db }}"
+      PAPERCLIP_BIND: "0.0.0.0"
+      TZ: "{{ ai_paperclip_tz }}"
+    log_driver: json-file
+    log_options:
+      max-size: "{{ ai_paperclip_log_max_size }}"
+      max-file: "{{ ai_paperclip_log_max_file }}"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://127.0.0.1:{{ ai_paperclip_container_port }}{{ ai_paperclip_health_endpoint }} || exit 1"]
+      interval: "{{ ai_paperclip_health_interval }}"
+      timeout: "{{ ai_paperclip_health_timeout }}"
+      retries: "{{ ai_paperclip_health_retries }}"
+      start_period: "{{ ai_paperclip_health_start_period }}"
+    security_opts:
+      - no-new-privileges:true
+    labels:
+      traefik.enable: "true"
+      # HTTP router (redirects to HTTPS)
+      traefik.http.routers.paperclip-http.rule: "Host(`{{ ai_paperclip_domain }}`)"
+      traefik.http.routers.paperclip-http.entryPoints: "web"
+      traefik.http.routers.paperclip-http.middlewares: "redirect-to-https-paperclip"
+      # HTTPS router with Authelia + secure headers middleware chain
+      traefik.http.routers.paperclip.rule: "Host(`{{ ai_paperclip_domain }}`)"
+      traefik.http.routers.paperclip.entryPoints: "websecure"
+      traefik.http.routers.paperclip.middlewares: "authelia@docker,secure-headers@file"
+      traefik.http.routers.paperclip.tls: "true"
+      traefik.http.routers.paperclip.tls.certresolver: "letsencrypt"
+      # Service configuration
+      traefik.http.services.paperclip.loadbalancer.server.port: "{{ ai_paperclip_container_port }}"
+      # HTTPS redirect middleware
+      traefik.http.middlewares.redirect-to-https-paperclip.redirectscheme.scheme: "https"
+      traefik.http.middlewares.redirect-to-https-paperclip.redirectscheme.permanent: "true"
+      # Traefik network
+      traefik.docker.network: "{{ ai_paperclip_traefik_network_name }}"
+  notify: restart paperclip
+
+- name: Wait for Paperclip to be healthy
+  ansible.builtin.wait_for:
+    host: localhost
+    port: "{{ ai_paperclip_host_port }}"
+    delay: 15
+    timeout: 120
+  register: paperclip_wait
+
+# ============================================================================
+# Status Report
+# ============================================================================
+- name: Report Paperclip status
+  ansible.builtin.debug:
+    msg: |
+      Paperclip deployed successfully:
+        - URL: https://{{ ai_paperclip_domain }} (Authelia-protected)
+        - Container: {{ ai_paperclip_container_name }}
+        - Postgres: {{ ai_paperclip_postgres_container_name }}
+        - Health: {{ ai_paperclip_health_endpoint }}
+        - Image: {{ ai_paperclip_image }}:{{ ai_paperclip_image_tag }}
+  tags: ["info"]

@@ -85,6 +85,10 @@ infra_storage_buzz_data: "{{ infra_storage_data_dir }}/buzz"
 infra_storage_buzz_postgres_volume: "localnet-buzz-postgres-data-volume"
 infra_storage_buzz_minio_volume: "localnet-buzz-minio-data-volume"
 
+# Paperclip (AI agent orchestration platform)
+infra_storage_paperclip_volume: "localnet-paperclip-data-volume"
+infra_storage_paperclip_postgres_volume: "localnet-paperclip-postgres-data-volume"
+
 # Security Services
 infra_storage_security_config: "{{ infra_storage_services_dir }}/security/config"
 infra_storage_security_data: "{{ infra_storage_services_dir }}/security/data"

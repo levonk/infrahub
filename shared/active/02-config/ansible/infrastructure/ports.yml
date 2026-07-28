@@ -156,6 +156,14 @@ infra_port_ai_buzz_redis_container: "6379"
 infra_port_ai_buzz_minio_api_container: "9000"
 infra_port_ai_buzz_minio_console_container: "9001"
 
+# Paperclip AI Orchestration Ports
+# Used by: OCI cloud server (deploy-paperclip.yml playbook)
+# Locally-built image: localnet-ai-paperclip
+infra_port_ai_paperclip_host: "3100"
+infra_port_ai_paperclip_container: "3100"
+infra_port_ai_paperclip_postgres_host: "5436"
+infra_port_ai_paperclip_postgres_container: "5432"
+
 # Langfuse (LLM observability & tracing platform — parallel analytics sink for the pipeline)
 # Web UI exposed via Traefik; only the web host port is bound (for direct/debug access)
 infra_port_ai_langfuse_web_host: "3001"
