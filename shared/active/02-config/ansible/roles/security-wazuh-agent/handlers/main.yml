@@ -1,0 +1,26 @@
+---
+# Wazuh agent handlers — restart the agent service after config changes
+
+- name: Restart wazuh agent (macOS)
+  ansible.builtin.command: "/Library/Ossec/bin/wazuh-control restart"
+  become: true
+  when: ansible_os_family == "Darwin"
+  listen: restart wazuh agent
+  tags: ["deploy", "wazuh-agent"]
+
+- name: Restart wazuh agent (Windows)
+  ansible.windows.win_service:
+    name: "{{ wazuh_agent_windows_service_name }}"
+    state: restarted
+  when: ansible_os_family == "Windows"
+  listen: restart wazuh agent
+  tags: ["deploy", "wazuh-agent"]
+
+- name: Restart wazuh agent (Linux)
+  ansible.builtin.systemd:
+    name: "{{ wazuh_agent_linux_service_name }}"
+    state: restarted
+  become: true
+  when: ansible_os_family in ["RedHat", "Debian", "Suse", "Alpine"]
+  listen: restart wazuh agent
+  tags: ["deploy", "wazuh-agent"]

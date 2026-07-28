@@ -1,0 +1,69 @@
+---
+# Linux (Oracle Linux / RPM) wazuh agent installation
+# Adds the Wazuh RPM repository and installs the wazuh-agent package
+# with deployment variables for auto-enrollment.
+
+# 1. Import the Wazuh GPG key
+- name: Import Wazuh GPG key (Linux)
+  ansible.builtin.rpm_key:
+    key: "{{ wazuh_agent_linux_repo_gpg_key }}"
+    state: present
+  become: true
+  tags: ["deploy", "wazuh-agent"]
+
+# 2. Add the Wazuh RPM repository
+- name: Add Wazuh RPM repository (Linux)
+  ansible.builtin.yum_repository:
+    name: "{{ wazuh_agent_linux_repo_name }}"
+    description: "Wazuh agent repository"
+    baseurl: "{{ wazuh_agent_linux_repo_baseurl }}"
+    gpgcheck: true
+    gpgkey: "{{ wazuh_agent_linux_repo_gpg_key }}"
+    enabled: true
+    priority: 1
+  become: true
+  tags: ["deploy", "wazuh-agent"]
+
+# 3. Install the wazuh-agent package with deployment variables
+- name: Install wazuh-agent package (Linux)
+  ansible.builtin.dnf:
+    name: wazuh-agent
+    state: present
+    update_cache: true
+  environment:
+    WAZUH_MANAGER: "{{ wazuh_agent_manager_address }}"
+    WAZUH_MANAGER_PORT: "{{ wazuh_agent_manager_port }}"
+    WAZUH_REGISTRATION_SERVER: "{{ wazuh_agent_manager_address }}"
+    WAZUH_REGISTRATION_PORT: "{{ wazuh_agent_enrollment_port }}"
+    WAZUH_AGENT_NAME: "{{ wazuh_agent_name }}"
+    WAZUH_AGENT_GROUP: "{{ wazuh_agent_group }}"
+    WAZUH_REGISTRATION_PASSWORD: "{{ wazuh_agent_enrollment_password }}"
+  become: true
+  no_log: true
+  notify: restart wazuh agent
+  tags: ["deploy", "wazuh-agent"]
+
+# 4. Ensure ossec.conf has the correct manager address
+- name: Ensure ossec.conf manager address is correct (Linux)
+  ansible.builtin.replace:
+    path: "{{ wazuh_agent_linux_config_path }}"
+    regexp: '<address>.*</address>'
+    replace: '<address>{{ wazuh_agent_manager_address }}</address>'
+  become: true
+  notify: restart wazuh agent
+  tags: ["deploy", "wazuh-agent", "config"]
+
+# 5. Enable and start the wazuh-agent service
+- name: Enable wazuh-agent service (Linux)
+  ansible.builtin.systemd:
+    name: "{{ wazuh_agent_linux_service_name }}"
+    enabled: true
+  become: true
+  tags: ["deploy", "wazuh-agent"]
+
+- name: Start wazuh-agent service (Linux)
+  ansible.builtin.systemd:
+    name: "{{ wazuh_agent_linux_service_name }}"
+    state: started
+  become: true
+  tags: ["deploy", "wazuh-agent"]

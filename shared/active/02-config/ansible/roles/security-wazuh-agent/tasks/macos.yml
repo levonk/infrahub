@@ -1,0 +1,78 @@
+---
+# macOS wazuh agent installation
+# Downloads the official .pkg installer from the Wazuh packages repository
+# and installs it with deployment variables for auto-enrollment.
+
+# 1. Check if wazuh agent is already installed
+- name: Check if wazuh agent is already installed (macOS)
+  ansible.builtin.stat:
+    path: "{{ wazuh_agent_macos_bin_path }}/wazuh-control"
+  register: wazuh_agent_macos_installed
+
+# 2. Download the .pkg installer
+- name: Download wazuh agent .pkg installer (macOS)
+  ansible.builtin.get_url:
+    url: "{{ wazuh_agent_macos_pkg_url }}"
+    dest: "/tmp/{{ wazuh_agent_macos_pkg_filename }}"
+    mode: "0644"
+  when: not wazuh_agent_macos_installed.stat.exists
+  tags: ["deploy", "wazuh-agent"]
+
+# 3. Create deployment variables file for the installer
+- name: Create wazuh agent deployment variables (macOS)
+  ansible.builtin.copy:
+    dest: /tmp/wazuh_envs
+    content: |
+      WAZUH_MANAGER='{{ wazuh_agent_manager_address }}'
+      WAZUH_REGISTRATION_SERVER='{{ wazuh_agent_manager_address }}'
+      WAZUH_REGISTRATION_PORT='{{ wazuh_agent_enrollment_port }}'
+      WAZUH_AGENT_NAME='{{ wazuh_agent_name }}'
+      WAZUH_AGENT_GROUP='{{ wazuh_agent_group }}'
+      {% if wazuh_agent_enrollment_password | length > 0 %}
+      WAZUH_REGISTRATION_PASSWORD='{{ wazuh_agent_enrollment_password }}'
+      {% endif %}
+    mode: "0600"
+  when: not wazuh_agent_macos_installed.stat.exists
+  no_log: true
+  tags: ["deploy", "wazuh-agent"]
+
+# 4. Install the .pkg with deployment variables
+- name: Install wazuh agent .pkg (macOS)
+  ansible.builtin.command: "installer -pkg /tmp/{{ wazuh_agent_macos_pkg_filename }} -target /"
+  become: true
+  when: not wazuh_agent_macos_installed.stat.exists
+  tags: ["deploy", "wazuh-agent"]
+
+# 5. Clean up the installer and env file
+- name: Remove wazuh agent .pkg installer (macOS)
+  ansible.builtin.file:
+    path: "/tmp/{{ wazuh_agent_macos_pkg_filename }}"
+    state: absent
+  when: not wazuh_agent_macos_installed.stat.exists
+  tags: ["deploy", "wazuh-agent"]
+
+- name: Remove wazuh agent deployment variables file (macOS)
+  ansible.builtin.file:
+    path: /tmp/wazuh_envs
+    state: absent
+  when: not wazuh_agent_macos_installed.stat.exists
+  tags: ["deploy", "wazuh-agent"]
+
+# 6. Ensure ossec.conf has the correct manager address
+- name: Ensure ossec.conf manager address is correct (macOS)
+  ansible.builtin.replace:
+    path: "{{ wazuh_agent_macos_config_path }}"
+    regexp: '<address>.*</address>'
+    replace: '<address>{{ wazuh_agent_manager_address }}</address>'
+  become: true
+  notify: restart wazuh agent
+  tags: ["deploy", "wazuh-agent", "config"]
+
+# 7. Start the agent service
+- name: Start wazuh agent service (macOS)
+  ansible.builtin.command: "launchctl bootstrap system {{ wazuh_agent_macos_plist_path }}"
+  become: true
+  register: wazuh_agent_macos_start
+  changed_when: "'Already' not in wazuh_agent_macos_start.stderr | default('')"
+  failed_when: false
+  tags: ["deploy", "wazuh-agent"]

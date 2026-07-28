@@ -1,0 +1,8 @@
+---
+# Internal variables for the security-wazuh-agent role
+# These are computed at runtime and not meant to be overridden by users.
+
+# OS family detection flags (set by tasks/main.yml)
+wazuh_agent_is_macos: false
+wazuh_agent_is_windows: false
+wazuh_agent_is_linux: false

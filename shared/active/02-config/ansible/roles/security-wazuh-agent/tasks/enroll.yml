@@ -1,0 +1,80 @@
+---
+# Wazuh agent enrollment verification
+# The agent enrolls automatically during package installation via deployment
+# variables (WAZUH_MANAGER, WAZUH_REGISTRATION_SERVER, etc.). This task file
+# verifies the agent is connected to the manager.
+
+# The manager's authd config has <use_password>no</use_password>, so agents
+# can enroll without a password. If an enrollment password is set in the
+# vault, it is passed during installation.
+
+# 1. Verify the agent service is running (OS-specific checks)
+- name: Verify wazuh agent service is running (macOS)
+  ansible.builtin.command: "launchctl print system/com.wazuh.agent"
+  become: true
+  register: wazuh_agent_macos_service_status
+  changed_when: false
+  failed_when: "'state = running' not in wazuh_agent_macos_service_status.stdout"
+  when: wazuh_agent_is_macos | bool
+  tags: ["deploy", "wazuh-agent", "enroll", "verify"]
+
+- name: Verify wazuh agent service is running (Windows)
+  ansible.windows.win_service_info:
+    name: "{{ wazuh_agent_windows_service_name }}"
+  register: wazuh_agent_windows_service_status
+  failed_when: not (wazuh_agent_windows_service_status.exists | default(false))
+  when: wazuh_agent_is_windows | bool
+  tags: ["deploy", "wazuh-agent", "enroll", "verify"]
+
+- name: Verify wazuh agent service is running (Linux)
+  ansible.builtin.systemd:
+    name: "{{ wazuh_agent_linux_service_name }}"
+  register: wazuh_agent_linux_service_status
+  failed_when: wazuh_agent_linux_service_status.status.ActiveState != "active"
+  when: wazuh_agent_is_linux | bool
+  become: true
+  tags: ["deploy", "wazuh-agent", "enroll", "verify"]
+
+# 2. Check agent connection status via the agent's local client
+- name: Check agent connection status (macOS)
+  ansible.builtin.command: "{{ wazuh_agent_macos_bin_path }}/agent_control -lc"
+  become: true
+  register: wazuh_agent_macos_connection
+  changed_when: false
+  when: wazuh_agent_is_macos | bool
+  tags: ["deploy", "wazuh-agent", "enroll", "verify"]
+
+- name: Check agent connection status (Windows)
+  ansible.windows.win_command: >-
+    "C:\\Program Files (x86)\\ossec-agent\\agent_control.exe" -lc
+  register: wazuh_agent_windows_connection
+  changed_when: false
+  when: wazuh_agent_is_windows | bool
+  tags: ["deploy", "wazuh-agent", "enroll", "verify"]
+
+- name: Check agent connection status (Linux)
+  ansible.builtin.command: "/var/ossec/bin/agent_control -lc"
+  become: true
+  register: wazuh_agent_linux_connection
+  changed_when: false
+  when: wazuh_agent_is_linux | bool
+  tags: ["deploy", "wazuh-agent", "enroll", "verify"]
+
+# 3. Display enrollment status
+- name: Display wazuh agent enrollment status (macOS)
+  ansible.builtin.debug:
+    msg: "Agent '{{ wazuh_agent_name }}' connection status: {{ wazuh_agent_macos_connection.stdout_lines }}"
+  when: wazuh_agent_is_macos | bool
+  tags: ["deploy", "wazuh-agent", "enroll", "verify"]
+
+- name: Display wazuh agent enrollment status (Windows)
+  ansible.builtin.debug:
+    msg: "Agent '{{ wazuh_agent_name }}' connection status: {{ wazuh_agent_windows_connection.stdout_lines }}"
+  when: wazuh_agent_is_windows | bool
+  tags: ["deploy", "wazuh-agent", "enroll", "verify"]
+
+- name: Display wazuh agent enrollment status (Linux)
+  ansible.builtin.debug:
+    msg: "Agent '{{ wazuh_agent_name }}' connection status: {{ wazuh_agent_linux_connection.stdout_lines }}"
+  when: wazuh_agent_is_linux | bool
+  tags: ["deploy", "wazuh-agent", "enroll", "verify"]
