@@ -58,7 +58,9 @@ prime-internal:
     @echo "Prime complete."
 
 doctor:
-    devbox run doctor-internal
+    #!/usr/bin/env sh
+    . {{INFRAHUB_ROOT}}/scripts/ensure-env.sh
+    devbox run -- just doctor-internal
 
 doctor-internal:
     @echo "Checking environment health..."

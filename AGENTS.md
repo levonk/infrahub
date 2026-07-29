@@ -2,51 +2,11 @@
 
 ## CRITICAL: Environment Configuration for Devbox/Nix
 
-**MANDATORY PRE-REQUISITE**: Before running any devbox or Nix commands, you MUST ensure the Nix environment is properly configured in your PATH.
+**MANDATORY PRE-REQUISITE**: Nix and devbox must be in PATH before running any devbox/nix command. The detection logic lives in [`scripts/ensure-env.sh`](scripts/ensure-env.sh) — not inlined here.
 
-### Environment Setup Rule
-
-**ALWAYS** check and add Nix paths to PATH before attempting to use devbox:
-
-```bash
-# Check for Nix binary and add to PATH if found
-if [ -z "$NIX_PATH" ] || ! command -v nix >/dev/null 2>&1; then
-    # Try common Nix installation locations
-    for nix_path in /nix/var/nix/profiles/default/bin/nix ~/.nix-profile/bin/nix /usr/local/bin/nix /usr/bin/nix; do
-        if [ -x "$nix_path" ]; then
-            export NIX_PATH="$(dirname "$nix_path"):${NIX_PATH:-}"
-            export PATH="$(dirname "$nix_path"):$PATH"
-            break
-        fi
-    done
-    
-    # Source Nix environment if available
-    if [ -f /etc/profile.d/nix.sh ]; then
-        . /etc/profile.d/nix.sh
-    elif [ -f ~/.nix-profile/etc/profile.d/nix.sh ]; then
-        . ~/.nix-profile/etc/profile.d/nix.sh
-    fi
-fi
-
-# Check for devbox and add global shim if available
-if ! command -v devbox >/dev/null 2>&1; then
-    if [ -x ~/.local/share/devbox/global/shims/devbox ]; then
-        export PATH="$HOME/.local/share/devbox/global/shims:$PATH"
-    elif [ -x /usr/local/bin/devbox ]; then
-        export PATH="/usr/local/bin:$PATH"
-    fi
-fi
-
-# Verify environment
-echo "Nix: $(command -v nix || echo 'NOT FOUND')"
-echo "Nix: $(nix --version || echo 'NOT FOUND')"
-echo "Devbox: $(command -v devbox || echo 'NOT FOUND')"
-echo "Devbox: $(devbox version || echo 'NOT FOUND')"
-echo "rtk: $(devbox run -- command -v rtk || echo 'NOT FOUND')"
-echo "rtk: $(devbox run -- rtk -V || echo 'NOT FOUND')"
-echo "Just: $(devbox run -- command -v just || echo 'NOT FOUND')"
-echo "Just: $(devbox run -- just -V || echo 'NOT FOUND')"
-```
+- **At session start**: run `source scripts/ensure-env.sh` to fix PATH in your shell. Idempotent and safe to re-run.
+- **For `just` recipes**: `just doctor` self-heals — it sources `ensure-env.sh` before checking tool versions, so it works even from a bare shell.
+- **If `just doctor` reports `NOT FOUND` for nix or devbox**: your shell init is broken. Fix the shell init (e.g., source `/etc/profile.d/nix.sh` from `~/.zshrc`/`~/.bashrc`), do not bypass devbox.
 
 ### CRITICAL RULE
 
