@@ -61,6 +61,7 @@ implementation steps.
 
 ## Phase 1: Initialize
 
+- Run the `git-repository-management` skill to checkpoint the starting tree state.
 - Read `AGENTS.md`.
 - Read `AGENTS.md` for the client you're deploying for
 - If the user didn't specify the service, ask which service to add.
@@ -211,6 +212,8 @@ completes:
   ```
   If the `git-repository-management` skill is installed, use its
   `git-commit-batch.sh` for structured commits.
+- Run the `git-repository-management` skill a final time to checkpoint the
+  completed tree state.
 
 ## Context Declaration
 
