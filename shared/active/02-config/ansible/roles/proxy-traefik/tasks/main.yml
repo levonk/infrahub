@@ -191,6 +191,17 @@
   notify: reload traefik
   when: ai_litellm_enabled | default(false) | bool
 
+- name: Deploy Buzz dynamic configuration template
+  ansible.builtin.template:
+    src: dynamic/buzz-levonk-com.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/buzz-levonk-com.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: reload traefik
+  when: ai_buzz_enabled | default(false) | bool
+
 - name: Deploy AI InterFace (aiif / Omnigent) dynamic configuration template
   ansible.builtin.template:
     src: dynamic/aiif-levonk-com.yml.j2
@@ -201,6 +212,39 @@
   become: true
   notify: reload traefik
   when: aiif_enabled | default(false) | bool
+
+- name: Deploy JobOps dynamic configuration template
+  ansible.builtin.template:
+    src: dynamic/jobops-levonk-com.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/jobops-levonk-com.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: reload traefik
+  when: career_jobops_enabled | default(false) | bool
+
+- name: Deploy RustFS dynamic configuration template
+  ansible.builtin.template:
+    src: dynamic/rustfs-levonk-com.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/rustfs-levonk-com.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: reload traefik
+  when: rustfs_enabled | default(false) | bool
+
+- name: Deploy Wazuh dynamic configuration template
+  ansible.builtin.template:
+    src: dynamic/wazuh-levonk-com.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/wazuh-levonk-com.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: reload traefik
+  when: wazuh_enabled | default(false) | bool
 
 # ---------------------------------------------------------------------------
 # Traefik Container

@@ -70,6 +70,9 @@
     - role: openlit-gpu-collector
       tags: ["openlit", "gpu-collector"]
 
+    - role: common-hosts-blocklist
+      tags: ["hardening", "hosts-blocklist"]
+
   post_tasks:
     - name: "Verify Tailscale status"
       ansible.builtin.command:

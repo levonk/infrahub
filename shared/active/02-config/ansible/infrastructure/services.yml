@@ -1,0 +1,539 @@
+---
+# Service Catalog Metadata
+# Location: shared/active/02-config/ansible/infrastructure/services.yml
+# Purpose: Human-authored metadata for each service (machine, category, description).
+#          The generate_service_catalog.py script reads this + ports.yml + domains.yml
+#          + networks.yml to produce SERVICES.md.
+# ---------------------------------------------------------------------------
+# This is the ONLY manual file. When you add a new service:
+#   1. Add its ports/domains/networks to the infrastructure YAML files (as you already do)
+#   2. Add an entry here with its machine, category, and description
+#   3. Run: just generate-service-catalog
+# ---------------------------------------------------------------------------
+# Categories:
+#   ui         — Web UI accessible via Traefik + Authelia (browser-facing)
+#   api        — HTTP API accessible via Traefik (programmatic, may also have UI)
+#   console    — Admin console / dashboard (not a user-facing app)
+#   passive    — Database, cache, queue, object storage (no HTTP endpoint for users)
+#   proxy      — Internal proxy chain component (not directly user-facing)
+#   vpn        — VPN / mesh networking container
+#   dns        — DNS resolver or DNS-related service
+#   security   — Security engine, bouncer, auth provider
+#   infra      — Infrastructure service (registry, dashboard, VM, etc.)
+# ---------------------------------------------------------------------------
+# Machines:
+#   oci-cloud-server  — OCI ARM cloud server (primary, Tailscale: oci.tale-grouper.ts.net)
+#   kckinai           — Inference host (local, Tailscale: kckinai.tale-grouper.ts.net)
+#   dtop202311        — Windows Docker Desktop (local, Tailscale: dtop202311.tale-grouper.ts.net)
+#   isolation-vm      — QEMU VM on OCI cloud server (192.168.100.147)
+# ---------------------------------------------------------------------------
+
+# ===========================================================================
+# AI Pipeline Services
+# ===========================================================================
+
+- name: "LiteLLM"
+  container: "{{ infra_hostname_litellm }}"
+  machine: "oci-cloud-server"
+  category: "ui"
+  description: "AI Gateway — entry point for the pipeline (auth, virtual keys, spend tracking, PII guardrail)"
+  domains:
+    - "infra_domain_ai_litellm"
+    - "infra_domain_ai_litellm_api"
+  ports:
+    - host: "infra_port_ai_litellm_host"
+      container: "infra_port_ai_litellm_container"
+      label: "Web/API"
+  traefik: true
+
+- name: "LiteLLM Postgres"
+  container: "{{ infra_hostname_litellm_postgres }}"
+  machine: "oci-cloud-server"
+  category: "passive"
+  description: "PostgreSQL database for LiteLLM (keys, spend, config)"
+  ports:
+    - host: "infra_port_ai_litellm_postgres_host"
+      container: "infra_port_ai_litellm_postgres_container"
+      label: "PostgreSQL"
+  network: "proxy-chain-network"
+
+- name: "LiteLLM Redis"
+  container: "{{ infra_hostname_litellm_redis }}"
+  machine: "oci-cloud-server"
+  category: "passive"
+  description: "Redis cache for LiteLLM"
+  ports:
+    - container: "infra_port_ai_litellm_redis_container"
+      label: "Redis"
+  network: "proxy-chain-network"
+
+- name: "OmniRoute"
+  container: "{{ infra_hostname_omniroute }}"
+  machine: "oci-cloud-server"
+  category: "api"
+  description: "AI Gateway with tier fallback, 9-factor scoring, free-tier draining"
+  domains:
+    - "infra_domain_ai_omniroute"
+  ports:
+    - host: "infra_port_ai_omniroute_host"
+      container: "infra_port_ai_omniroute_container"
+      label: "API"
+  traefik: true
+
+- name: "Headroom"
+  container: "{{ infra_hostname_headroom }}"
+  machine: "oci-cloud-server"
+  category: "proxy"
+  description: "Context compression layer for AI agents (upstream of iron-proxy, domain: aishrink.levonk.com)"
+  domains:
+    - "literal:aishrink.levonk.com"
+  ports:
+    - host: "infra_port_ai_headroom_host"
+      container: "infra_port_ai_headroom_container"
+      label: "API"
+  traefik: true
+
+- name: "Forge"
+  container: "{{ infra_hostname_forge }}"
+  machine: "oci-cloud-server"
+  category: "proxy"
+  description: "Tool calling reliability layer for LLMs (between Privacy Orchestrator and Headroom)"
+  ports:
+    - host: "infra_port_ai_forge_host"
+      container: "infra_port_ai_forge_container"
+      label: "API"
+  network: "forge-network"
+
+- name: "iron-proxy"
+  container: "{{ infra_hostname_iron_proxy }}"
+  machine: "oci-cloud-server"
+  category: "proxy"
+  description: "Internal proxy in the AI pipeline chain"
+  ports:
+    - host: "infra_port_proxy_iron_proxy_http_host"
+      label: "HTTP"
+    - host: "infra_port_proxy_iron_proxy_https_host"
+      label: "HTTPS"
+  network: "proxy-chain-network"
+
+- name: "Privacy Orchestrator"
+  container: "{{ infra_hostname_privacy_orchestrator }}"
+  machine: "oci-cloud-server"
+  category: "proxy"
+  description: "PII/privacy guardrail in the AI pipeline"
+  ports:
+    - host: "infra_port_ai_privacy_orchestrator_host"
+      container: "infra_port_ai_privacy_orchestrator_container"
+      label: "API"
+  network: "proxy-chain-network"
+
+- name: "AI Dashboard"
+  container: "{{ infra_hostname_ai_dashboard }}"
+  machine: "oci-cloud-server"
+  category: "ui"
+  description: "AI pipeline dashboard"
+  domains:
+    - "infra_domain_ai_dashboard_web"
+  ports:
+    - host: "infra_port_ai_dashboard_host"
+      container: "infra_port_ai_dashboard_container"
+      label: "Web"
+  traefik: true
+
+- name: "Omnigent"
+  container: "{{ infra_hostname_omnigent }}"
+  machine: "oci-cloud-server"
+  categories: ["ui", "api"]
+  description: "AI agent framework & meta-harness server — web UI + /v1/ API (sessions, hosts, runners, tunnel)"
+  domains:
+    - "infra_domain_ai_omnigent"
+  ports:
+    - host: "infra_port_ai_omnigent_host"
+      container: "infra_port_ai_omnigent_container"
+      label: "Web/API"
+  traefik: true
+
+- name: "Omnigent Postgres"
+  container: "{{ infra_hostname_omnigent_postgres }}"
+  machine: "oci-cloud-server"
+  category: "passive"
+  description: "PostgreSQL database for Omnigent"
+  ports:
+    - host: "infra_port_ai_omnigent_postgres_host"
+      container: "infra_port_ai_omnigent_postgres_container"
+      label: "PostgreSQL"
+  network: "proxy-chain-network"
+
+- name: "Pi"
+  container: "{{ infra_hostname_pi }}"
+  machine: "oci-cloud-server"
+  category: "api"
+  description: "Coding agent harness — driven by Omnigent's runner via RPC"
+  ports:
+    - host: "infra_port_ai_pi_host"
+      container: "infra_port_ai_pi_container"
+      label: "RPC"
+  network: "proxy-chain-network"
+
+- name: "agentmemory"
+  container: "{{ infra_hostname_agentmemory }}"
+  machine: "oci-cloud-server"
+  category: "ui"
+  description: "Persistent memory for AI coding agents (iii-engine + MCP server)"
+  domains:
+    - "infra_domain_ai_agentmemory"
+  ports:
+    - host: "infra_port_ai_agentmemory_host"
+      container: "infra_port_ai_agentmemory_container"
+      label: "REST/MCP"
+  traefik: true
+
+- name: "Langfuse Web"
+  container: "{{ infra_hostname_langfuse_web }}"
+  machine: "oci-cloud-server"
+  category: "ui"
+  description: "LLM observability & tracing platform — web UI"
+  domains:
+    - "infra_domain_ai_langfuse"
+  ports:
+    - host: "infra_port_ai_langfuse_web_host"
+      container: "infra_port_ai_langfuse_web_container"
+      label: "Web"
+  traefik: true
+
+- name: "Langfuse Worker"
+  container: "{{ infra_hostname_langfuse_worker }}"
+  machine: "oci-cloud-server"
+  category: "passive"
+  description: "Langfuse background worker (trace processing)"
+  ports:
+    - container: "infra_port_ai_langfuse_worker_container"
+      label: "Worker"
+  network: "langfuse-network"
+
+- name: "Langfuse Postgres"
+  container: "{{ infra_hostname_langfuse_postgres }}"
+  machine: "oci-cloud-server"
+  category: "passive"
+  description: "PostgreSQL database for Langfuse"
+  ports:
+    - host: "infra_port_ai_langfuse_postgres_host"
+      container: "infra_port_ai_langfuse_postgres_container"
+      label: "PostgreSQL"
+  network: "langfuse-network"
+
+- name: "Langfuse ClickHouse"
+  container: "{{ infra_hostname_langfuse_clickhouse }}"
+  machine: "oci-cloud-server"
+  category: "passive"
+  description: "ClickHouse for Langfuse analytics"
+  ports:
+    - container: "infra_port_ai_langfuse_clickhouse_http_container"
+      label: "HTTP"
+    - container: "infra_port_ai_langfuse_clickhouse_tcp_container"
+      label: "TCP"
+  network: "langfuse-network"
+
+- name: "Langfuse Redis"
+  container: "{{ infra_hostname_langfuse_redis }}"
+  machine: "oci-cloud-server"
+  category: "passive"
+  description: "Redis cache for Langfuse"
+  ports:
+    - container: "infra_port_ai_langfuse_redis_container"
+      label: "Redis"
+  network: "langfuse-network"
+
+- name: "Langfuse MinIO"
+  container: "{{ infra_hostname_langfuse_minio }}"
+  machine: "oci-cloud-server"
+  category: "passive"
+  description: "MinIO object storage for Langfuse"
+  ports:
+    - host: "infra_port_ai_langfuse_minio_api_host"
+      container: "infra_port_ai_langfuse_minio_api_container"
+      label: "S3 API"
+    - container: "infra_port_ai_langfuse_minio_console_container"
+      label: "Console"
+  network: "langfuse-network"
+
+# ===========================================================================
+# Proxy / Reverse Proxy
+# ===========================================================================
+
+- name: "Traefik"
+  container: "{{ infra_hostname_traefik }}"
+  machine: "oci-cloud-server"
+  category: "console"
+  description: "Reverse proxy, TLS termination, routing for all *.levonk.com services"
+  domains:
+    - "infra_domain_traefik_dashboard"
+  ports:
+    - host: "infra_port_proxy_http_host"
+      container: "infra_port_proxy_http_container"
+      label: "HTTP"
+    - host: "infra_port_proxy_https_host"
+      container: "infra_port_proxy_https_container"
+      label: "HTTPS"
+  network: "traefik-network"
+
+# ===========================================================================
+# Security / SSO
+# ===========================================================================
+
+- name: "Authelia"
+  container: "{{ infra_hostname_authelia }}"
+  machine: "oci-cloud-server"
+  category: "security"
+  description: "SSO / authentication provider for all *.levonk.com services (OIDC, 2FA)"
+  domains:
+    - "infra_domain_sso_authelia"
+  ports:
+    - host: "infra_port_sso_authelia_web_host"
+      container: "infra_port_sso_authelia_web_container"
+      label: "Web"
+  traefik: true
+
+- name: "Authelia Postgres"
+  container: "authelia-postgres"
+  machine: "oci-cloud-server"
+  category: "passive"
+  description: "PostgreSQL database for Authelia (user data, OIDC)"
+  ports:
+    - host: "infra_port_sso_authelia_postgres_host"
+      container: "infra_port_sso_authelia_postgres_container"
+      label: "PostgreSQL"
+  network: "authelia-network"
+
+- name: "CrowdSec"
+  container: "{{ infra_hostname_crowdsec }}"
+  machine: "oci-cloud-server"
+  category: "security"
+  description: "Security engine & IP reputation (Traefik bouncer)"
+  ports:
+    - host: "infra_port_security_crowdsec_host"
+      container: "infra_port_security_crowdsec_container"
+      label: "LAPI"
+  network: "crowdsec-network"
+
+# ===========================================================================
+# VPN / Mesh Networking
+# ===========================================================================
+
+- name: "NordVPN"
+  container: "{{ infra_hostname_vpn_nordvpn }}"
+  machine: "oci-cloud-server"
+  category: "vpn"
+  description: "NordVPN WireGuard exit node (SOCKS/HTTP proxy for SearXNG etc.)"
+  ports:
+    - host: "infra_port_vpn_nordvpn_wireguard_host"
+      container: "infra_port_vpn_nordvpn_wireguard_container"
+      label: "WireGuard"
+    - host: "infra_port_vpn_nordvpn_socks_host"
+      container: "infra_port_vpn_nordvpn_socks_container"
+      label: "SOCKS"
+    - host: "infra_port_vpn_nordvpn_http_host"
+      container: "infra_port_vpn_nordvpn_http_container"
+      label: "HTTP Proxy"
+  network: "vpn-network"
+
+- name: "Tailscale"
+  container: "tailscale"
+  machine: "oci-cloud-server"
+  category: "vpn"
+  description: "Tailscale mesh VPN (primary VPN for OCI cloud server)"
+  ports:
+    - host: "infra_port_vpn_tailscale"
+      container: "infra_port_vpn_tailscale"
+      label: "WireGuard"
+
+- name: "Tor Exit Node"
+  container: "{{ infra_hostname_vpn_tor }}"
+  machine: "oci-cloud-server"
+  category: "vpn"
+  description: "Tor relay/exit node (Tailscale-over-Tor)"
+  ports:
+    - host: "infra_port_tor_orport_host"
+      container: "infra_port_tor_orport_container"
+      label: "ORPort"
+    - host: "infra_port_tor_dirport_host"
+      container: "infra_port_tor_dirport_container"
+      label: "DirPort"
+    - host: "infra_port_proxy_tor_socks5_host"
+      container: "infra_port_proxy_tor_socks5_container"
+      label: "SOCKS"
+  network: "tor-network"
+
+# ===========================================================================
+# DNS
+# ===========================================================================
+
+- name: "CoreDNS"
+  container: "coredns"
+  machine: "oci-cloud-server"
+  category: "dns"
+  description: "Primary DNS resolver (local zones, Tailscale MagicDNS forwarding)"
+  ports:
+    - host: "infra_port_dns_coredns_main_host"
+      container: "infra_port_dns_coredns_main_container"
+      label: "DNS"
+    - host: "infra_port_dns_coredns_main_metrics_host"
+      container: "infra_port_dns_coredns_main_metrics_host"
+      label: "Metrics"
+  network: "localnet-network"
+
+- name: "dnsdist"
+  container: "dnsdist"
+  machine: "oci-cloud-server"
+  category: "dns"
+  description: "DNS load balancer / router"
+  ports:
+    - host: "infra_port_dns_dnsdist_main_host"
+      container: "infra_port_dns_dnsdist_main_container"
+      label: "DNS"
+    - host: "infra_port_dns_dnsdist_metrics_host"
+      container: "infra_port_dns_dnsdist_metrics_container"
+      label: "Metrics"
+  network: "localnet-network"
+
+# ===========================================================================
+# Search
+# ===========================================================================
+
+- name: "SearXNG"
+  container: "searxng"
+  machine: "oci-cloud-server"
+  category: "ui"
+  description: "Privacy-respecting metasearch engine (routes through NordVPN)"
+  domains:
+    - "infra_domain_proxy_search"
+  ports:
+    - host: "infra_port_search_searxng_host"
+      container: "infra_port_search_searxng_container"
+      label: "Web"
+  traefik: true
+
+# ===========================================================================
+# Dashboards / Start Pages
+# ===========================================================================
+
+- name: "Homepage"
+  container: "{{ infra_hostname_homepage }}"
+  machine: "oci-cloud-server"
+  category: "infra"
+  description: "Primary startpage (start.levonk.com) — links to TraLa and key services"
+  domains:
+    - "infra_domain_dashboard_homepage"
+  ports:
+    - host: "infra_port_dashboard_homepage_host"
+      container: "infra_port_dashboard_homepage_container"
+      label: "Web"
+  traefik: true
+
+- name: "TraLa"
+  container: "{{ infra_hostname_trala }}"
+  machine: "oci-cloud-server"
+  category: "infra"
+  description: "Traefik-native dashboard — auto-discovers all HTTP routers (start2.levonk.com)"
+  domains:
+    - "infra_domain_dashboard_trala"
+  ports:
+    - host: "infra_port_dashboard_trala_host"
+      container: "infra_port_dashboard_trala_container"
+      label: "Web"
+  traefik: true
+
+# ===========================================================================
+# Infrastructure
+# ===========================================================================
+
+- name: "Local Registry"
+  container: "registry"
+  machine: "oci-cloud-server"
+  category: "infra"
+  description: "Local Docker registry — serves built images to deployment targets over Tailscale"
+  ports:
+    - host: "infra_port_registry_host"
+      container: "infra_port_registry_container"
+      label: "Registry"
+  network: "traefik-network"
+
+- name: "Isolation VM"
+  container: "isolation-vm"
+  machine: "isolation-vm"
+  category: "infra"
+  description: "QEMU VM on OCI for AI agent isolation (Debian bookworm, ARM64)"
+  ports: []
+  notes: "IP: 192.168.100.147, no exposed ports — accessed via SSH through OCI"
+
+# ===========================================================================
+# Windows Docker Desktop Services (dtop202311)
+# ===========================================================================
+
+- name: "WorldMonitor"
+  container: "worldmonitor-app"
+  machine: "dtop202311"
+  category: "ui"
+  description: "Self-hosted WorldMonitor stack (news, finance, weather, geolocation feeds)"
+  ports:
+    - host: "infra_port_worldmonitor_app_host"
+      container: "infra_port_worldmonitor_app_container"
+      label: "Web"
+  network: "worldmonitor-net"
+
+- name: "WorldMonitor Redis"
+  container: "worldmonitor-redis"
+  machine: "dtop202311"
+  category: "passive"
+  description: "Redis for WorldMonitor (data caching + REST API)"
+  ports:
+    - host: "infra_port_worldmonitor_redis_rest_host"
+      container: "infra_port_worldmonitor_redis_rest_container"
+      label: "Redis REST"
+  network: "worldmonitor-net"
+
+- name: "JobOps"
+  container: "localnet-jobops"
+  machine: "dtop202311"
+  category: "ui"
+  description: "Career tool — resume builder & job application tracker"
+  domains:
+    - "infra_domain_career_jobops"
+  ports:
+    - host: "infra_port_career_jobops_host"
+      container: "infra_port_career_jobops_container"
+      label: "Web"
+  traefik: true
+  notes: "Traefik routes cross-machine via Tailscale FQDN (dtop202311.tale-grouper.ts.net)"
+
+- name: "RustFS"
+  container: "{{ infra_hostname_rustfs }}"
+  machine: "dtop202311"
+  category: "passive"
+  description: "S3-compatible object storage (RustFS) on the Windows Docker host"
+  domains:
+    - "infra_domain_storage_rustfs"
+    - "infra_domain_storage_rustfs_console"
+  ports:
+    - host: "infra_port_storage_rustfs_s3_host"
+      container: "infra_port_storage_rustfs_s3_container"
+      label: "S3 API"
+    - host: "infra_port_storage_rustfs_console_host"
+      container: "infra_port_storage_rustfs_console_container"
+      label: "Console"
+  traefik: true
+  notes: "Traefik routes cross-machine via Tailscale FQDN (dtop202311.tale-grouper.ts.net); S3 API on port 9000, console on port 9001"
+
+# ===========================================================================
+# Inference Host Services (kckinai)
+# ===========================================================================
+
+- name: "kckinai Host"
+  container: "kckinai"
+  machine: "kckinai"
+  category: "infra"
+  description: "Inference host — Tailscale-attached machine for AI inference workloads"
+  domains:
+    - "infra_domain_inference_host"
+  ports: []
+  notes: "Tailscale FQDN: kckinai.tale-grouper.ts.net, DDNS: kckinai.mach.levonk.com"

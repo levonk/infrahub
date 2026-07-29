@@ -6,6 +6,9 @@ This guide is for developers/agents working on the infrahub codebase. For user-f
 - Out of Scope: Not yet established — check `internal-docs/` for ADRs and architecture docs before adding features
 - Root AGENTS.md: [`../../AGENTS.md`](../../AGENTS.md) — environment setup, vault, deployment workflow, architectural invariants
 - Add New Service Workflow: [`../workflows/infrahub-add-new-service.md`](../workflows/infrahub-add-new-service.md) — 10-phase checklist for adding a new service end-to-end (shared schemas → client values → vault → role → Traefik → dashboard → deploy → verify)
+- Ansible Lint Troubleshooting: [`../../internal-docs/troubleshooting/ansible-lint.md`](../../internal-docs/troubleshooting/ansible-lint.md) — role naming convention, yamllint config crashes, pre-existing violations
+- Windows Development: [`../../internal-docs/windows-development.md`](../../internal-docs/windows-development.md) — Windows module gaps, cross-platform role patterns, win_shell for blockinfile
+- Ansible Subdirectory Guide: [`../../shared/active/02-config/ansible/AGENTS.md`](../../shared/active/02-config/ansible/AGENTS.md) — playbook-to-inventory mapping, container module parameters, DNS architecture
 
 ## <commands>
 **Devbox Commands (Environment)**
@@ -22,6 +25,11 @@ This guide is for developers/agents working on the infrahub codebase. For user-f
 **Deployment**
 - `devbox run -- ansible-playbook -i <inventory> <playbook> --vault-password-file ~/.ansible/vault_password`
 - See AGENTS.md "Deployment Workflow Rule" section for the full 4-path workflow
+
+**Service Catalog**
+- `just generate-service-catalog` — Regenerate `levonk/SERVICES.md` from infrastructure YAML files
+- `devbox run -- generate-service-catalog` — Same, via devbox script alias
+- Automatically called after `just ansible-deploy-site` (full stack deploy)
 </commands>
 
 ## <workflow>
@@ -64,7 +72,10 @@ infrahub/
 │   │   ├── networks.yml                         #   Network topology schema
 │   │   ├── ports.yml                            #   Port allocation schema
 │   │   ├── storage.yml                          #   Storage path schema
-│   │   └── apps.yml                             #   Application registry schema
+│   │   ├── apps.yml                             #   Application registry schema
+│   │   └── services.yml                         #   Service catalog metadata (machine, category, description per service)
+│   ├── scripts/
+│   │   └── generate_service_catalog.py          # Generates levonk/SERVICES.md from infrastructure YAML + services.yml
 │   ├── roles/                                   # All reusable roles (NEVER put client data here)
 │   └── playbooks/                               # All stack blueprints
 │
@@ -84,6 +95,8 @@ infrahub/
 │       ├── networks.yml                         #   Actual subnets, gateways, IP allocations
 │       ├── ports.yml                            #   Actual port allocations (host/container by service)
 │       └── storage.yml                          #   Actual storage paths, volumes, mounts
+│
+├── levonk/SERVICES.md                           # GENERATED — service catalog (do not edit manually)
 │
 └── shared/active/03-container/services/         # Dockerfiles for locally-built images
     ├── agentmemory/docker/Dockerfile.agentmemory
@@ -141,6 +154,78 @@ infrahub/
 - Create new infrastructure variable files — use the existing 4 (`domains`, `networks`, `ports`, `storage`)
 
 </patterns>
+
+## <service-catalog>
+
+### SERVICES.md — Auto-Generated Service Catalog
+
+`levonk/SERVICES.md` is a browsable catalog of all services across all machines. It includes:
+- **Mermaid topology diagram** — all services color-coded by machine, with AI pipeline chain, Traefik routing, and DB connections
+- **All Services table** — every service with container name, machine, clickable domain links, host→container ports, network, category
+- **Services by Category** — grouped tables (UI, API, Console, Passive, Proxy Chain, VPN, DNS, Security, Infrastructure)
+- **Machine Reference** — Tailscale FQDNs and DDNS records
+
+**The file is generated from two sources:**
+1. `shared/active/02-config/ansible/infrastructure/services.yml` — manual metadata (machine, category, description per service)
+2. `shared/ + levonk/active/02-config/ansible/infrastructure/{ports,domains,networks}.yml` — the existing infrastructure YAML (auto-merged, client overrides shared)
+
+**When to regenerate:**
+- After adding or removing a service
+- After changing any port, domain, or network assignment
+- Automatically after `just ansible-deploy-site` (full stack deploy)
+- Manually anytime: `just generate-service-catalog`
+
+**How to add a new service to the catalog:**
+1. Add ports/domains/networks to the infrastructure YAML files (as you already do)
+2. Add an entry to `shared/active/02-config/ansible/infrastructure/services.yml`:
+   ```yaml
+   - name: "My New Service"
+     container: "my-container"
+     machine: "oci-cloud-server"  # or kckinai, dtop202311, isolation-vm
+     category: "ui"  # ui | api | console | passive | proxy | vpn | dns | security | infra
+     description: "What this service does"
+     domains:
+       - "infra_domain_my_service"  # variable name from domains.yml
+       # or use literal: prefix for domains not in infra YAML:
+       # - "literal:my-service.levonk.com"
+     ports:
+       - host: "infra_port_my_service_host"
+         container: "infra_port_my_service_container"
+         label: "Web"
+     traefik: true  # if routed via Traefik (shows in topology diagram)
+     network: "infra_network_my_service_network_name"  # optional
+   ```
+3. Run `just generate-service-catalog`
+4. Commit `services.yml` (shared repo) and `SERVICES.md` (levonk submodule)
+
+**Categories:**
+| Category | Description |
+|----------|-------------|
+| `ui` | Web UI accessible via Traefik + Authelia (browser-facing) |
+| `api` | HTTP API accessible via Traefik (programmatic, may also have UI) |
+| `console` | Admin console / dashboard (not a user-facing app) |
+| `passive` | Database, cache, queue, object storage (no HTTP endpoint for users) |
+| `proxy` | Internal proxy chain component (not directly user-facing) |
+| `vpn` | VPN / mesh networking container |
+| `dns` | DNS resolver or DNS-related service |
+| `security` | Security engine, bouncer, auth provider |
+| `infra` | Infrastructure service (registry, dashboard, VM, etc.) |
+
+**Machines:**
+| Machine | Tailscale FQDN | Description |
+|---------|----------------|-------------|
+| `oci-cloud-server` | `oci.tale-grouper.ts.net` | OCI ARM cloud server (primary) |
+| `kckinai` | `kckinai.tale-grouper.ts.net` | Inference host (local) |
+| `dtop202311` | `dtop202311.tale-grouper.ts.net` | Windows Docker Desktop (local) |
+| `isolation-vm` | `192.168.100.147` (NAT bridge) | QEMU VM on OCI cloud server |
+
+**Domain variable resolution:**
+- Most domains use `infra_domain_*` variables from `domains.yml`: `- "infra_domain_ai_litellm"`
+- For domains defined in role defaults (not in infra YAML), use the `literal:` prefix: `- "literal:aishrink.levonk.com"`
+
+**NEVER edit `SERVICES.md` directly** — it is generated. Edit `services.yml` and regenerate.
+
+</service-catalog>
 
 ## <boundaries>
 
@@ -201,3 +286,4 @@ infrahub/
 - [ ] Affected AGENTS.md files updated per Maintenance Protocol
 - [ ] If cert/Traefik changes: verify Let's Encrypt issuer (not staging, not TRAEFIK DEFAULT CERT)
 - [ ] If TraLa changes: verify `/api/services` endpoint shows correct services with icons
+- [ ] If services/ports/domains changed: regenerate catalog with `just generate-service-catalog`

@@ -67,6 +67,26 @@ Additional gotchas:
 - **Test Framework**: Molecule for role testing (currently blocked due to Python docker module dependency)
 - **Package Manager**: pnpm for Nix, but Ansible packages via devbox
 
+## Role Naming Convention
+
+All hardening roles follow the pattern `common-{platform}-{concern}-hardening` in the **directory name**, with `role_name: common_{platform}_{concern}_hardening` (underscores) in `meta/main.yml` to satisfy ansible-lint's `role-name` rule. Other roles use functional-group prefixes (`dns-`, `proxy-`, `vpn-`, `ai-`).
+
+Windows platform versions in meta must use `["all"]`, not `["10"]`/`["11"]` (schema rejects those). Enterprise Linux (Oracle Linux) uses platform name `EL` with versions `["8", "9"]`.
+
+See [`internal-docs/troubleshooting/ansible-lint.md`](../../../internal-docs/troubleshooting/ansible-lint.md) for the full naming rules and lint troubleshooting.
+
+## Playbook-to-Inventory Mapping
+
+| Playbook | Inventory | Host group | OS | Hosts |
+|---|---|---|---|---|
+| `cloud-server-bootstrap.yml` | `levonk/.../inventories/oci.yml` | `cloud_servers`, `isolation_vms` | Oracle Linux (EL) | OCI cloud server, QEMU isolation VMs |
+| `harden-windows-host.yml` | `levonk/.../inventories/windows-docker.yml` | `windows_docker_hosts` | Windows | dtop202311 (Windows Docker Desktop) |
+| `bootstrap-macos-host.yml` | `levonk/.../inventories/macos-hosts.yml` | `macos_hosts` | macOS | macOS hosts |
+| `localnet-tailscale.yml` | `levonk/.../inventories/localnet.yml` | `vpn_tailscale_clients` | Linux | localnet hosts |
+| `bootstrap-ai-inference-host.yml` | `levonk/.../inventories/localnet.yml --limit kckinai` | `vpn_tailscale_clients` | Linux | kckinai (NVIDIA inference host) |
+
+When adding a new role to a playbook, check this table to know which playbook(s) cover which hosts. Use `--tags <role-tag>` to deploy only that role across all inventories.
+
 ## DNS Architecture (Two-Layer)
 
 The shared roles provide a two-layer DNS architecture for Tailscale-attached hosts. Clients opt in by setting Tailscale FQDN variables in their `infrastructure/domains.yml` and per-host `cloudflare_ddns_hostname` in their inventory.
@@ -174,6 +194,36 @@ shared/active/02-config/ansible/
 └── collections/        # Ansible Galaxy collections
 ```
 
+## Validation & Testing Layers
+
+Every service should have three layers of validation:
+
+### 1. Playbook validation (`validate-<service>.yml` in `playbooks/`)
+
+Read-only, idempotent post-deployment checks that run against the same inventory(s) as the deployment.
+
+- Use `tags: ["validate", "<service>"]` so `--tags validate` can run only checks.
+- Record results in a `validation_results` fact and display a final summary; do not fail fast on the first failing check.
+- Use `community.docker.docker_container_info` on Linux/OCI and `delegate_to: localhost` with `docker -H` on Windows Docker hosts (`community.docker` modules fail on Windows because `grp` is Unix-only).
+- Use `ansible.builtin.uri`, `ansible.builtin.wait_for`, `ansible.builtin.command` for endpoint, DNS, and log checks.
+- Add a `just ansible-validate-<service>` / `ansible-validate-<service>-internal` recipe and a matching `devbox.json` script when the playbook is created.
+
+Existing examples: `validate-bootstrap.yml`, `validate-vpn.yml`, `validate-infra.yml`, `validate-vms.yml`. For RustFS, the counterpart would be `validate-rustfs.yml`.
+
+### 2. Role-level validation (inside `roles/<service>/`)
+
+- Optional `<service>_verify_health` flag in `defaults/main.yml`.
+- `verify`/`validate` tag in `tasks/main.yml` or a separate `tasks/verify.yml` included from `main.yml`.
+- Runs during the deployment and can be triggered with `--tags verify`.
+- For Windows Docker hosts, delegate to `localhost` and use the Docker CLI or HTTP probes.
+
+Existing examples: `proxy_traefik_verify_health`, `proxy_authelia_verify_health`, `dashboard_homepage_verify_health`.
+
+### 3. Molecule tests (`.molecule/default/verify.yml` in each role)
+
+- Full role-level test with `converge.yml` to apply the role and `verify.yml` to assert outcomes.
+- Currently **BLOCKED** (see Testing Status). Until unblocked, playbook validation and role-level verification are the primary quality gates.
+
 ## Molecule Configuration
 
 Molecule scenarios are in `.molecule/default/` within each role directory:
@@ -187,9 +237,34 @@ Molecule scenarios are in `.molecule/default/` within each role directory:
 - **04-001**: ansible-lint configuration & role linting - DONE
 - **04-002**: Molecule tests for critical roles - BLOCKED
 - **04-003**: Playbook syntax check & dry-run - TODO
+- **04-004**: Playbook validation (`validate-*.yml`) for every deploy playbook - TODO
+- **04-005**: Role-level `verify`/`validate` tags and `<service>_verify_health` flags for all roles - TODO
 
 ## Dependencies
 
 - Depends on: devbox environment
 - Requires: molecule, ansible, docker/podman
 - Docker images: `debian:bookworm-slim` (matches OCI target)
+
+## Wazuh SIEM/XDR
+
+- **Role**: `security-wazuh` (`roles/security-wazuh/`)
+- **Playbook**: `playbooks/deploy-wazuh.yml`
+- **Target**: `windows_docker_hosts` group (dtop202311) for the 3-container stack; `cloud_servers` (OCI) for Traefik routing
+
+### Key Deployment Differences
+
+- **Windows Docker modules are broken**: `community.docker` modules fail on Windows because `ansible.module_utils.basic` imports `grp`. Use `delegate_to: localhost` with `DOCKER_HOST: ssh://<windows-wsl>` and `ansible.windows.win_shell` for WSL2-level tasks.
+- **WSL2 tuning required**: `vm.max_map_count=262144` must be set in `.wslconfig` and WSL2 restarted before the indexer will start.
+- **Indexer single-node discovery**: Do **not** set `cluster.initial_cluster_manager_nodes` when `discovery.type: single-node`. This causes OpenSearch to exit with `IllegalArgumentException`.
+- **Certificates via `wazuh-certs-generator`**: The `certs.yml` must list all nodes and static IPs (`wazuh-indexer`, `wazuh-manager`, `wazuh-dashboard`, plus `filebeat` for the manager's Filebeat output). All OpenSearch certs use the `wazuh-*` names; the manager's `ossec.conf` should reference `wazuh-manager.pem` / `wazuh-manager-key.pem`, not `filebeat.pem`.
+- **Dashboard volume ownership is critical**: The `wazuh-dashboard` image runs as `wazuh-dashboard` (UID `1000`). The `wazuh-dashboard-config` volume (mounted to `/usr/share/wazuh-dashboard/config`) must be writable by UID `1000` so `opensearch-dashboards-keystore` can create `opensearch_dashboards.keystore`. The `wazuh-dashboard-data` volume (mounted to `/usr/share/wazuh-dashboard/data/wazuh/config`) must also be writable by UID `1000` so `wazuh_app_config.sh` can write `wazuh.yml`.
+- **Filebeat config is generated at runtime**: The manager's `1-config-filebeat` s6 script builds `/etc/filebeat/filebeat.yml` from env vars (`INDEXER_USERNAME`, `INDEXER_PASSWORD`, `SSL_CERTIFICATE`, `SSL_KEY`, `SSL_CERTIFICATE_AUTHORITIES`, `FILEBEAT_SSL_VERIFICATION_MODE`). The `wazuh-certs` volume mounts `/etc/ssl/filebeat`.
+- **Dashboard health check**: The Ansible role waits for TCP `5601` to open. The `/login` endpoint returns `401` for unauthenticated requests; use `https://wazuh.levonk.com` (via Traefik/Authelia) to verify the UI is reachable.
+
+## JIT Index
+
+- Ansible Lint Troubleshooting: [`internal-docs/troubleshooting/ansible-lint.md`](../../../internal-docs/troubleshooting/ansible-lint.md) — role naming convention, yamllint config crashes, pre-existing violations
+- Windows Development: [`internal-docs/windows-development.md`](../../../internal-docs/windows-development.md) — Windows module gaps, cross-platform role patterns, win_shell for blockinfile
+- Root AGENTS.md: [`../../../AGENTS.md`](../../../AGENTS.md) — environment setup, vault, deployment workflow, architectural invariants
+- Developer Guide: [`../../../.agents/knowledge/developer.md`](../../../.agents/knowledge/developer.md) — key directories, patterns, boundaries, known gotchas

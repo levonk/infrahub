@@ -950,6 +950,8 @@ roles/
 
 **Why not subdirectories?** Ansible's role loader resolves `roles/<name>/` directly under `roles_path`. `roles/dns/adguard/` is not discoverable as role `adguard` by default. Prefixing (`dns-adguard/`) is the only way to cluster related roles while keeping them valid Ansible roles.
 
+**`role_name` in meta**: The directory name uses hyphens, but `meta/main.yml` must set `role_name` with underscores (e.g., `common_hosts_blocklist`) to satisfy ansible-lint's `role-name` rule. Windows platform versions must be `["all"]` (not `["10"]`/`["11"]`), and Oracle Linux uses platform `EL` with versions `["8","9"]`. See [`internal-docs/troubleshooting/ansible-lint.md`](internal-docs/troubleshooting/ansible-lint.md) for full naming rules and lint troubleshooting.
+
 ### Playbook Structure
 
 Playbooks are stack blueprints. Each targets a functional group defined in the inventory:
@@ -1288,3 +1290,9 @@ Common deployment profiles for client onboarding:
 | `full-mesh` | secure-remote + netbird-control | + Netbird control plane |
 
 Profiles are expressed as group membership in the client's inventory, not as playbook conditionals.
+
+## Troubleshooting & Platform Docs
+
+- **ansible-lint**: [`internal-docs/troubleshooting/ansible-lint.md`](internal-docs/troubleshooting/ansible-lint.md) — role naming convention, yamllint config crashes, pre-existing violations, skip_list rules
+- **Windows development**: [`internal-docs/windows-development.md`](internal-docs/windows-development.md) — Windows module gaps (no `win_blockinfile`), cross-platform role patterns, OS family branching
+- **Ansible subdirectory guide**: [`shared/active/02-config/ansible/AGENTS.md`](shared/active/02-config/ansible/AGENTS.md) — playbook-to-inventory mapping, role naming, container module parameters, DNS architecture

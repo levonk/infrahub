@@ -1,0 +1,30 @@
+---
+# Buzz role handlers
+
+- name: restart buzz
+  community.docker.docker_container:
+    name: "{{ ai_buzz_container_name }}"
+    state: started
+    restart: true
+  listen: "restart buzz"
+
+- name: restart buzz-postgres
+  community.docker.docker_container:
+    name: "{{ ai_buzz_postgres_container_name }}"
+    state: started
+    restart: true
+  listen: "restart buzz-postgres"
+
+- name: restart buzz-redis
+  community.docker.docker_container:
+    name: "{{ ai_buzz_redis_container_name }}"
+    state: started
+    restart: true
+  listen: "restart buzz-redis"
+
+- name: restart buzz-minio
+  community.docker.docker_container:
+    name: "{{ ai_buzz_minio_container_name }}"
+    state: started
+    restart: true
+  listen: "restart buzz-minio"

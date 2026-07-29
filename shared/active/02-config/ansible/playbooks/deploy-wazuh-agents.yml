@@ -1,0 +1,151 @@
+---
+# Deploy Wazuh agents on all physical machines in the levonk fleet
+# Location: shared/active/02-config/ansible/playbooks/deploy-wazuh-agents.yml
+#
+# Installs native Wazuh agents (not Docker) on all 5 physical machines:
+#   - lzkmbp2016 (macOS x86)
+#   - lzkmbp2018 (macOS x86)
+#   - dtop202311 (Windows 11 — also runs the Wazuh manager stack)
+#   - oci-cloud-server (Oracle Linux 9)
+#   - isolation-vm (Oracle Linux QEMU VM on OCI)
+#
+# Agents enroll with the Wazuh manager on dtop202311 via Tailscale.
+# The manager's authd has <use_password>no</use_password>, so agents enroll
+# without a password by default.
+#
+# Usage:
+#   ansible-playbook \
+#     -i levonk/active/02-config/ansible/inventories/macos-hosts.yml \
+#     -i levonk/active/02-config/ansible/inventories/windows-docker.yml \
+#     -i levonk/active/02-config/ansible/inventories/oci.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-wazuh-agents.yml \
+#     --vault-password-file ~/.ansible/vault_password
+
+- name: "Deploy Wazuh agents on macOS hosts"
+  hosts: macos_hosts
+  gather_facts: true
+  become: false
+
+  pre_tasks:
+    - name: "Load shared infrastructure port defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/ports.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure domain defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/domains.yml"
+      tags: ["always"]
+
+    - name: "Load client infrastructure domain overrides"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/domains.yml"
+      tags: ["always"]
+
+    - name: "Validate required variables (macOS)"
+      ansible.builtin.assert:
+        that:
+          - wazuh_agent_enabled is defined
+          - infra_tailscale_fqdn_windows_docker is defined
+        fail_msg: >-
+          Missing required variables. Check infrastructure/domains.yml
+          and the security-wazuh-agent role defaults.
+        success_msg: "All required wazuh-agent variables are defined."
+      tags: ["always", "validate"]
+
+  roles:
+    - role: security-wazuh-agent
+      tags: ["deploy", "wazuh-agent"]
+      when: wazuh_agent_enabled | bool
+      become: true
+
+
+- name: "Deploy Wazuh agent on Windows Docker host"
+  hosts: windows_docker_hosts
+  gather_facts: true
+  become: false
+
+  pre_tasks:
+    - name: "Load shared infrastructure port defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/ports.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure domain defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/domains.yml"
+      tags: ["always"]
+
+    - name: "Load client infrastructure domain overrides"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/domains.yml"
+      tags: ["always"]
+
+    - name: "Validate required variables (Windows)"
+      ansible.builtin.assert:
+        that:
+          - wazuh_agent_enabled is defined
+          - infra_tailscale_fqdn_windows_docker is defined
+        fail_msg: >-
+          Missing required variables. Check infrastructure/domains.yml
+          and the security-wazuh-agent role defaults.
+        success_msg: "All required wazuh-agent variables are defined."
+      tags: ["always", "validate"]
+
+  roles:
+    - role: security-wazuh-agent
+      tags: ["deploy", "wazuh-agent"]
+      when: wazuh_agent_enabled | bool
+
+
+- name: "Deploy Wazuh agents on Oracle Linux hosts (OCI + isolation-vm)"
+  hosts: cloud_servers:isolation_vms
+  gather_facts: true
+  become: true
+
+  pre_tasks:
+    - name: "Load shared infrastructure port defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/ports.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure domain defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/domains.yml"
+      tags: ["always"]
+
+    - name: "Load client infrastructure domain overrides"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/domains.yml"
+      tags: ["always"]
+
+    - name: "Validate required variables (Linux)"
+      ansible.builtin.assert:
+        that:
+          - wazuh_agent_enabled is defined
+          - infra_tailscale_fqdn_windows_docker is defined
+        fail_msg: >-
+          Missing required variables. Check infrastructure/domains.yml
+          and the security-wazuh-agent role defaults.
+        success_msg: "All required wazuh-agent variables are defined."
+      tags: ["always", "validate"]
+
+  roles:
+    - role: security-wazuh-agent
+      tags: ["deploy", "wazuh-agent"]
+      when: wazuh_agent_enabled | bool
+
+
+- name: "Verify Wazuh agent connectivity post-deployment"
+  hosts: macos_hosts:windows_docker_hosts:cloud_servers:isolation_vms
+  gather_facts: false
+  become: false
+
+  tasks:
+    - name: "Display wazuh agent deployment summary"
+      ansible.builtin.debug:
+        msg: >-
+          Wazuh agent '{{ wazuh_agent_name | default(ansible_hostname) }}' deployed
+          and should be connecting to manager at
+          {{ wazuh_agent_manager_address | default(infra_tailscale_fqdn_windows_docker | default('dtop202311.tale-grouper.ts.net')) }}
+      tags: ["validate", "wazuh-agent"]

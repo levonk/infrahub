@@ -1,0 +1,20 @@
+---
+galaxy_info:
+  role_name: security_wazuh_agent
+  author: localnet
+  description: Install and enroll Wazuh agents on macOS, Windows, and Oracle Linux hosts
+  license: MIT
+  min_ansible_version: "2.9"
+  platforms:
+    - name: EL
+      versions:
+        - "8"
+        - "9"
+    - name: macOS
+      versions:
+        - "all"
+    - name: Windows
+      versions:
+        - "all"
+
+dependencies: []

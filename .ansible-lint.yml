@@ -16,6 +16,8 @@ skip_list:
   - jinja[spacing]  # Allow flexible Jinja2 spacing
   - ignore-errors  # Don't fail on parse errors during development
   - yaml[line-length]  # Allow longer lines for readability
+  - yaml[key-ordering]  # Ansible tasks use conventional key order (name, module, when, tags), not alphabetical
+  - yaml[document-end]  # Ansible YAML files don't use "..." document terminators
   - no-changed-when  # Allow commands without changed_when for idempotent operations
 
 # Profile: strict but practical
@@ -36,6 +38,8 @@ exclude_paths:
   - .git/
   - .venv/
   - .vagrant/
+  - .devbox/
+  - node_modules/
   - build/
   - dist/
   - levonk/active/02-config/ansible/inventories/group_vars/all.vault  # Encrypted files

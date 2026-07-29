@@ -35,6 +35,9 @@ IMAGES=(
   "isolation-vm-nix-sidecar|Dockerfile.nix-sidecar|base/nix-sidecar"
   "localnet-ai-omniroute|docker/Dockerfile.omniroute|ai-services/omniroute"
   "headroom|Dockerfile.headroom|ai-codeassist/headroom"
+  # Freenet peer node — linux/amd64 ONLY (target: Windows Docker Desktop).
+  # Build with: PLATFORM=linux/amd64 scripts/build-and-push-images.sh localnet-p2p-freenet
+  "localnet-p2p-freenet|docker/Dockerfile.freenet|p2p/freenet"
 )
 
 # NOTE: envoy, privoxy, squid use upstream Docker Hub images directly (no custom Dockerfile).

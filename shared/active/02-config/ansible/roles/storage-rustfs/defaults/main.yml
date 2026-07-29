@@ -1,0 +1,53 @@
+---
+# RustFS S3-compatible object storage default variables
+# Upstream Docker image: rustfs/rustfs:latest
+# Deploys on Windows Docker Desktop hosts via SSH-tunneled Docker CLI.
+
+# Container configuration
+rustfs_enabled: true
+rustfs_container_name: "{{ infra_hostname_rustfs | default('localnet-rustfs') }}"
+rustfs_image_name: "rustfs/rustfs"
+rustfs_image_tag: "latest"
+
+# Ports (reference infrastructure variables)
+rustfs_s3_host_port: "{{ infra_port_storage_rustfs_s3_host | default('9000') }}"
+rustfs_s3_container_port: "{{ infra_port_storage_rustfs_s3_container | default('9000') }}"
+rustfs_console_host_port: "{{ infra_port_storage_rustfs_console_host | default('9001') }}"
+rustfs_console_container_port: "{{ infra_port_storage_rustfs_console_container | default('9001') }}"
+
+# Domain (reference infrastructure variables)
+rustfs_domain: "{{ infra_domain_storage_rustfs | default('rustfs.levonk.com') }}"
+rustfs_console_domain: "{{ infra_domain_storage_rustfs_console | default('rustfs-console.levonk.com') }}"
+
+# Volumes
+rustfs_data_volume: "{{ infra_storage_rustfs_data_volume | default('localnet-rustfs-data-volume') }}"
+rustfs_logs_volume: "{{ infra_storage_rustfs_logs_volume | default('localnet-rustfs-logs-volume') }}"
+
+# RustFS configuration
+rustfs_volumes: "/data"
+rustfs_console_enable: "true"
+rustfs_cors_allowed_origins: "*"
+rustfs_console_cors_allowed_origins: "*"
+rustfs_log_level: "info"
+rustfs_obs_endpoint: ""
+rustfs_tls_path: ""
+
+# Secrets (reference vault with safe defaults — empty means use RustFS defaults)
+rustfs_access_key: "{{ vault_rustfs_access_key | default('') }}"
+rustfs_secret_key: "{{ vault_rustfs_secret_key | default('') }}"
+
+# Healthcheck — MUST use string with unit suffix, NOT bare integers
+rustfs_healthcheck_interval: "30s"
+rustfs_healthcheck_timeout: "10s"
+rustfs_healthcheck_retries: 3
+rustfs_healthcheck_start_period: "40s"
+
+# Docker connection string for the Windows host (SSH-tunneled)
+# community.docker modules can't run directly on Windows (Ansible core basic.py
+# imports grp, Unix-only). We delegate_to: localhost and connect to the Windows
+# Docker daemon via ssh://. Requires SSH config entry for the Windows host.
+rustfs_docker_host: "ssh://ansible@{{ windows_tailscale_hostname | default('dtop202311') }}.{{ infra_tailscale_tailnet | default('tale-grouper.ts.net') }}"
+
+# Traefik backend URLs (for the dynamic config template)
+rustfs_traefik_backend_url: "http://{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.tale-grouper.ts.net') }}:{{ infra_port_storage_rustfs_s3_host | default('9000') }}"
+rustfs_console_traefik_backend_url: "http://{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.tale-grouper.ts.net') }}:{{ infra_port_storage_rustfs_console_host | default('9001') }}"

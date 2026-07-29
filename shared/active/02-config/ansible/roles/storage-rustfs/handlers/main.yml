@@ -1,0 +1,9 @@
+---
+# RustFS handlers
+
+- name: restart rustfs
+  ansible.builtin.command: "docker restart {{ rustfs_container_name }}"
+  environment:
+    DOCKER_HOST: "{{ rustfs_docker_host }}"
+  delegate_to: localhost
+  tags: ["deploy", "container"]

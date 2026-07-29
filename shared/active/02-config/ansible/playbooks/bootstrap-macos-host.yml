@@ -189,6 +189,27 @@
       when: nix_check.rc != 0
       tags: ["nix", "configure"]
 
+    # ponytail: nixpkgs 26.11 dropped x86_64-darwin; pin 26.05-darwin for x86_64 only
+    - name: "Pin nixpkgs to 26.05-darwin for x86_64-darwin"
+      ansible.builtin.command: |
+        /nix/var/nix/profiles/default/bin/nix-channel --add https://nixos.org/channels/nixpkgs-26.05-darwin nixpkgs
+        /nix/var/nix/profiles/default/bin/nix-channel --update
+      changed_when: true
+      when:
+        - ansible_facts['distribution'] == "MacOSX"
+        - ansible_facts['architecture'] == "x86_64"
+      tags: ["nix", "configure"]
+
+    - name: "Set nixpkgs flake registry to 26.05-darwin for x86_64-darwin"
+      ansible.builtin.command: >
+        /nix/var/nix/profiles/default/bin/nix registry add nixpkgs
+        github:NixOS/nixpkgs/nixpkgs-26.05-darwin
+      changed_when: true
+      when:
+        - ansible_facts['distribution'] == "MacOSX"
+        - ansible_facts['architecture'] == "x86_64"
+      tags: ["nix", "configure"]
+
     - name: "Report Nix version"
       ansible.builtin.command: /nix/var/nix/profiles/default/bin/nix --version
       register: nix_version
@@ -410,6 +431,14 @@
       ansible.builtin.debug:
         msg: "{{ netbird_final_status.stdout_lines[:5] if (netbird_enabled | bool and netbird_final_status.stdout) else 'Netbird not configured (no setup key)' }}"
       tags: ["netbird", "verify"]
+
+    # ---------------------------------------------------------------------------
+    # Hosts-file blocklist — sinkhole IP-logger/tracker/grabber domains
+    # ---------------------------------------------------------------------------
+    - name: "Sinkhole IP-logger/tracker domains in /etc/hosts"
+      ansible.builtin.include_role:
+        name: common-hosts-blocklist
+      tags: ["hardening", "hosts-blocklist"]
 
     # ---------------------------------------------------------------------------
     # Summary

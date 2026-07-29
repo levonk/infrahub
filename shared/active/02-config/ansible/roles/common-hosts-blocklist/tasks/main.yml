@@ -1,0 +1,73 @@
+---
+# tasks file for common-hosts-blocklist
+# Sinkholes IP-logger / IP-tracker / IP-grabber domains via the hosts file.
+# Cross-platform: Linux and macOS use /etc/hosts, Windows uses
+# C:\Windows\System32\drivers\etc\hosts.
+#
+# The blocklist is managed as a marked block so re-runs are idempotent:
+# the old block is removed and the current list is written in its place.
+
+# ---------------------------------------------------------------------------
+# Linux + macOS — /etc/hosts
+# ---------------------------------------------------------------------------
+- name: "HOSTS-BLOCKLIST | Sinkhole IP-logger/tracker domains in /etc/hosts (Linux/macOS)"
+  ansible.builtin.blockinfile:
+    path: /etc/hosts
+    marker: "{mark}"
+    marker_begin: "{{ hosts_blocklist_marker_begin }}"
+    marker_end: "{{ hosts_blocklist_marker_end }}"
+    block: |
+      {% for domain in hosts_blocklist_domains %}
+      {{ hosts_blocklist_sinkhole }} {{ domain }}
+      {% endfor %}
+    state: present
+  become: true
+  when: ansible_facts['os_family'] != "Windows"
+  tags: ["hardening", "hosts-blocklist"]
+
+# ---------------------------------------------------------------------------
+# Windows — C:\Windows\System32\drivers\etc\hosts
+# ansible.windows has no win_blockinfile, so we manage the marked block via
+# PowerShell: remove any existing block between the markers, then append the
+# current blocklist. Idempotent — re-runs replace the block, no duplicates.
+# ---------------------------------------------------------------------------
+- name: "HOSTS-BLOCKLIST | Sinkhole IP-logger/tracker domains in Windows hosts file"
+  ansible.windows.win_shell: |
+    $hostsPath = "C:\Windows\System32\drivers\etc\hosts"
+    $begin = '{{ hosts_blocklist_marker_begin }}'
+    $end = '{{ hosts_blocklist_marker_end }}'
+    $sinkhole = '{{ hosts_blocklist_sinkhole }}'
+    $domains = @(
+    {% for domain in hosts_blocklist_domains %}
+      '{{ domain }}'
+    {% endfor %}
+    )
+
+    $content = Get-Content $hostsPath -Raw -ErrorAction SilentlyContinue
+    if ($null -eq $content) { $content = "" }
+
+    # Remove existing block (everything from $begin to $end inclusive, with newline)
+    $pattern = "(?s)\r?\n?" + [regex]::Escape($begin) + ".*?" + [regex]::Escape($end) + "\r?\n?"
+    $content = [regex]::Replace($content, $pattern, "")
+
+    # Trim trailing whitespace/newlines so the block starts on a fresh line
+    $content = $content.TrimEnd()
+
+    # Build the new block
+    $blockLines = @($begin)
+    foreach ($d in $domains) {
+      $blockLines += "$sinkhole $d"
+    }
+    $blockLines += $end
+    $block = $blockLines -join "`r`n"
+
+    # Append the block
+    if ($content.Length -gt 0) {
+      $newContent = $content + "`r`n" + $block + "`r`n"
+    } else {
+      $newContent = $block + "`r`n"
+    }
+
+    Set-Content -Path $hostsPath -Value $newContent -NoNewline -Encoding ASCII
+  when: ansible_facts['os_family'] == "Windows"
+  tags: ["hardening", "hosts-blocklist"]

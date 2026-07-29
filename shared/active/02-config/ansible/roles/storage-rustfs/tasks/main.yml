@@ -1,0 +1,140 @@
+---
+# RustFS S3-Compatible Object Storage Deployment
+# Deploys on Windows Docker Desktop hosts via SSH-tunneled Docker CLI.
+# Upstream image: rustfs/rustfs:latest
+#
+# community.docker Ansible modules use paramiko for SSH transport, which can't
+# authenticate to the Windows host (key discovery issue). Instead, we use
+# ansible.builtin.shell with the docker CLI, setting DOCKER_HOST to ssh:// so
+# the system SSH client (with ~/.ssh/config) handles auth.
+#
+# This is a pragmatic exception to the "community.docker modules only" rule for
+# Windows Docker hosts. The rule exists to avoid docker compose and ensure
+# idempotent container management. We achieve both with docker CLI commands.
+
+# 1. Validate required variables
+- name: Validate required variables are defined
+  ansible.builtin.assert:
+    that:
+      - rustfs_container_name is defined
+      - rustfs_image_name is defined
+      - rustfs_s3_host_port is defined
+      - rustfs_s3_container_port is defined
+      - rustfs_console_host_port is defined
+      - rustfs_console_container_port is defined
+    fail_msg: "Missing required rustfs variables."
+    success_msg: "All required rustfs variables are defined."
+  tags: ["always", "validate"]
+
+# 2. Pull image from Docker Hub (via docker CLI with SSH transport)
+- name: Pull rustfs image from Docker Hub
+  ansible.builtin.command: "docker pull {{ rustfs_image_name }}:{{ rustfs_image_tag }}"
+  environment:
+    DOCKER_HOST: "{{ rustfs_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "pull"]
+
+# 3. Create data and logs volumes
+- name: Ensure rustfs data volume exists
+  ansible.builtin.shell: "docker volume inspect {{ rustfs_data_volume }} 2>/dev/null || docker volume create {{ rustfs_data_volume }}"
+  environment:
+    DOCKER_HOST: "{{ rustfs_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "volume"]
+
+- name: Ensure rustfs logs volume exists
+  ansible.builtin.shell: "docker volume inspect {{ rustfs_logs_volume }} 2>/dev/null || docker volume create {{ rustfs_logs_volume }}"
+  environment:
+    DOCKER_HOST: "{{ rustfs_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "volume"]
+
+# 4. Stop existing container (if any) before recreating
+- name: Stop existing rustfs container
+  ansible.builtin.shell: "docker rm -f {{ rustfs_container_name }} 2>/dev/null || true"
+  environment:
+    DOCKER_HOST: "{{ rustfs_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "container"]
+
+# 5. Deploy container
+- name: Deploy rustfs container
+  ansible.builtin.shell: >-
+    docker run -d
+    --name {{ rustfs_container_name }}
+    --restart unless-stopped
+    -p {{ rustfs_s3_host_port }}:{{ rustfs_s3_container_port }}/tcp
+    -p {{ rustfs_console_host_port }}:{{ rustfs_console_container_port }}/tcp
+    -v {{ rustfs_data_volume }}:/data:rw
+    -v {{ rustfs_logs_volume }}:/logs:rw
+    -e RUSTFS_VOLUMES={{ rustfs_volumes | quote }}
+    -e RUSTFS_ADDRESS=0.0.0.0:{{ rustfs_s3_container_port }}
+    -e RUSTFS_CONSOLE_ADDRESS=0.0.0.0:{{ rustfs_console_container_port }}
+    -e RUSTFS_CONSOLE_ENABLE={{ rustfs_console_enable }}
+    -e RUSTFS_CORS_ALLOWED_ORIGINS={{ rustfs_cors_allowed_origins | quote }}
+    -e RUSTFS_CONSOLE_CORS_ALLOWED_ORIGINS={{ rustfs_console_cors_allowed_origins | quote }}
+    -e RUSTFS_OBS_LOGGER_LEVEL={{ rustfs_log_level }}
+    -e RUSTFS_OBS_LOG_DIRECTORY=/logs
+    -e TZ={{ localnet_tz | default('UTC') }}
+    {% if rustfs_access_key | length > 0 %}
+    -e RUSTFS_ACCESS_KEY={{ rustfs_access_key | quote }}
+    {% endif %}
+    {% if rustfs_secret_key | length > 0 %}
+    -e RUSTFS_SECRET_KEY={{ rustfs_secret_key | quote }}
+    {% endif %}
+    {% if rustfs_obs_endpoint | length > 0 %}
+    -e RUSTFS_OBS_ENDPOINT={{ rustfs_obs_endpoint | quote }}
+    {% endif %}
+    {% if rustfs_tls_path | length > 0 %}
+    -e RUSTFS_TLS_PATH={{ rustfs_tls_path | quote }}
+    {% endif %}
+    --log-driver json-file
+    --log-opt max-size=10m
+    --log-opt max-file=5
+    --health-cmd "sh -c 'curl -fsS http://127.0.0.1:{{ rustfs_s3_container_port }}/health && curl -fsS http://127.0.0.1:{{ rustfs_console_container_port }}/rustfs/console/health'"
+    --health-interval {{ rustfs_healthcheck_interval }}
+    --health-timeout {{ rustfs_healthcheck_timeout }}
+    --health-retries {{ rustfs_healthcheck_retries }}
+    --health-start-period {{ rustfs_healthcheck_start_period }}
+    {{ rustfs_image_name }}:{{ rustfs_image_tag }}
+  environment:
+    DOCKER_HOST: "{{ rustfs_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "container"]
+
+# 6. Wait for health (run from the control node; Ansible modules fail on Windows because basic.py imports grp)
+- name: Wait for rustfs to be healthy
+  ansible.builtin.wait_for:
+    host: "{{ ansible_host }}"
+    port: "{{ rustfs_s3_host_port }}"
+    delay: 10
+    timeout: 120
+  delegate_to: localhost
+  become: false
+  tags: ["deploy", "verify"]
+
+# 7. Status report
+- name: Get rustfs container status
+  ansible.builtin.command: "docker inspect --format '{% raw %}{{.State.Status}}{% endraw %}' {{ rustfs_container_name }}"
+  environment:
+    DOCKER_HOST: "{{ rustfs_docker_host }}"
+  delegate_to: localhost
+  register: rustfs_status
+  changed_when: false
+  ignore_errors: true
+  tags: ["always", "info"]
+
+- name: Report rustfs status
+  ansible.builtin.debug:
+    msg: |
+      RustFS deployed:
+        - S3 API URL: https://{{ rustfs_domain }}
+        - Console URL: https://{{ rustfs_console_domain }}
+        - Container: {{ rustfs_container_name }}
+        - Status: {{ rustfs_status.stdout | default('unknown') }}
+  tags: ["always", "info"]

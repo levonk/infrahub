@@ -26,6 +26,7 @@ infra_domain_ai_omnigent: "aiif.levonk.com"  # Public alias "AI InterFace" for t
 infra_domain_ai_archon: "archon.levonk.com"   # Archon workflow layer (future Traefik routing)
 infra_domain_ai_agentmemory: "agentmemory.levonk.com"
 infra_domain_ai_langfuse: "langfuse.levonk.com"
+infra_domain_ai_buzz: "buzz.levonk.com"
 
 # ---------------------------------------------------------------------------
 # Proxy Services
@@ -61,6 +62,7 @@ infra_hostname_vpn_tor: "tor"
 # ---------------------------------------------------------------------------
 infra_tailscale_tailnet: "example.ts.net"
 infra_tailscale_fqdn_cloud_server: "{{ infra_tailscale_tailnet }}"
+infra_tailscale_fqdn_windows_docker: "{{ infra_tailscale_tailnet }}"
 
 # ---------------------------------------------------------------------------
 # Service Hostnames (container names)
@@ -86,6 +88,10 @@ infra_hostname_langfuse_postgres: "langfuse-postgres"
 infra_hostname_langfuse_clickhouse: "langfuse-clickhouse"
 infra_hostname_langfuse_redis: "langfuse-redis"
 infra_hostname_langfuse_minio: "langfuse-minio"
+infra_hostname_buzz: "buzz"
+infra_hostname_buzz_postgres: "buzz-postgres"
+infra_hostname_buzz_redis: "buzz-redis"
+infra_hostname_buzz_minio: "buzz-minio"
 infra_hostname_authelia: "authelia"
 infra_hostname_crowdsec: "crowdsec"
 infra_hostname_traefik: "traefik"
@@ -98,6 +104,31 @@ infra_hostname_trala: "trala"
 # ---------------------------------------------------------------------------
 infra_domain_dashboard_homepage: "start.levonk.com"
 infra_domain_dashboard_trala: "start2.levonk.com"
+
+# ---------------------------------------------------------------------------
+# Career Services
+# ---------------------------------------------------------------------------
+infra_domain_career_jobops: "jobops.levonk.com"
+
+# ---------------------------------------------------------------------------
+# Tools / File Transfer
+# ---------------------------------------------------------------------------
+infra_domain_tools_croc_relay: "croc.levonk.com"
+
+# ---------------------------------------------------------------------------
+# Object Storage Services
+# ---------------------------------------------------------------------------
+infra_domain_storage_rustfs: "rustfs.levonk.com"
+infra_domain_storage_rustfs_console: "rustfs-console.levonk.com"
+infra_hostname_rustfs: "localnet-rustfs"
+
+# ---------------------------------------------------------------------------
+# Security/SIEM Services
+# ---------------------------------------------------------------------------
+infra_domain_security_wazuh: "wazuh.levonk.com"
+infra_hostname_wazuh_manager: "wazuh-manager"
+infra_hostname_wazuh_indexer: "wazuh-indexer"
+infra_hostname_wazuh_dashboard: "wazuh-dashboard"
 
 # ---------------------------------------------------------------------------
 # Cloudflare DNS Record Types

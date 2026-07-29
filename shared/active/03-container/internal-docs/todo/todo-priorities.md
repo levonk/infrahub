@@ -79,6 +79,9 @@ Ventoy USB Booter
     - [ ] **Rancher**: https://github.com/rancher/rancher
     - [ ] **Dockge**: https://github.com/louislam/dockge
     - [ ] **Semaphore**: https://github.com/semaphoreui/semaphore
+    - [ ] **Sencho**: https://github.com/Studio-Saelix/sencho
+    - [ ] **HashiCorp Nomad**: https://github.com/hashicorp/nomad
+    - [ ] https://github.com/Clawdlinux/agentic-operator-core
   - [ ] **Talos**
     - [ ] **K8s** https://github.com/kubernetes/kubernetes
 - **Storage Server**: TrueNAS Scale (ZFS + Ceph)
@@ -181,6 +184,7 @@ Ventoy USB Booter
 - [ ] **SSO & IdP**:
   - [ ] **Authentik** (General IdP): https://docs.goauthentik.io/
   - [ ] **Authelia** (Proxy Companion): https://www.authelia.com/
+  - [ ] https://github.com/DiegoGuidaF/PulseWeaver
   - [ ] **Ory Kratos** (Auth Backend): https://github.com/ory/kratos
   - [ ] PocketID
   - [ ] Tinyauth
@@ -241,6 +245,8 @@ Ventoy USB Booter
   - [ ] status monitoring
     - [ ] https://github.com/operacle/checkcle
     - [ ] https://github.com/cachethq/cachet
+  - Release Monitoring
+    - [ ] https://github.com/release-argus/Argus
 
 ### Remote Access
 
@@ -372,10 +378,12 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] **GitVex**: https://github.com/mdhruvil/gitvex
 - [ ] **IDE**: VS Code Server / Coder
   - [ ] https://github.com/asheshgoplani/agent-deck
+    - [ ] https://github.com/coder/code-server
 - [ ] **AI Code Assist (ai-codeassist)**:
   - [ ] FOSS Evals Platform: https://github.com/openlit/openlit
   - [ ] https://github.com/forrestchang/andrej-karpathy-skills/blob/main/skills/karpathy-guidelines/SKILL.md
   - [ ] https://github.com/paperclipai/paperclip https://github.com/gsxdsm/awesome-paperclip https://github.com/gsxdsm/oh-my-paperclip
+  - [ ] https://github.com/block/buzz
   - [ ] https://github.com/AnthonyDavidAdams/zero-employee-company-book
   - [ ] Human Interaction Controller https://github.com/easychen/ask4me
   - [ ] **Code Understanding** https://github.com/HKUDS/FastCode
@@ -439,6 +447,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
 - [ ] **Database Tools**:
   - [ ] Django SQL Explorer https://github.com/explorerhq/django-sql-explorer
   - [ ] AI Agent into Databases https://github.com/agno-agi/dash
+  - [ ] AI Agent sandbox Databases https://github.com/kalamdb/KalamDB
 - [ ] **Data Tooling**: Goose https://github.com/block/goose
 - [ ] **Notebooks**: JupyterLab https://github.com/jupyterlab/jupyterlab
 - [ ] **Project Mgmt**: Focalboard (Trello alt) https://github.com/mattermost-community/focalboard
@@ -472,6 +481,9 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] **Homepage**: Homepage (Startpage)
 - Info: https://github.com/search?q=arr-stack&type=repositories
 - [ ] **Streaming**:
+  - [ ] Hardware portable player https://github.com/Jstudner/Gallion
+    - [ ] ESP32 Hardware portable player https://github.com/Jstudner/jcorp-nomad
+    - [ ] Streaming and more https://github.com/Crosstalk-Solutions/project-nomad
   - [ ] **Jellyfin**: Primary media server https://github.com/jellyfin/jellyfin
     - [ ] **Skip Intro**: https://github.com/ClassicOldSong/SkipIntro plugin a must
     - [ ] https://github.com/mmcdole/kino
@@ -506,6 +518,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] Lidarr Request Manager https://github.com/lklynet/aurral
   - [ ] **Lidify** (Music Favs) https://github.com/Chevron7Locked/lidify
   - [ ] **Your Spotify** (Music) https://github.com/Yooooomi/your_spotify
+  = [ ] AI Music Discovery https://github.com/iuliandita/digarr
   - [ ] **Your LastFM** (Music) https://github.com/Gomaink/your_lastfm
   - [ ] **Agregarr** Movie & TV Aggregator for collections
   - [ ] **Boxarr** Movie charts
@@ -536,6 +549,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
     - [ ] https://github.com/crocodilestick/Calibre-Web-Automated
   - [ ] **Stash**: https://github.com/stashapp/stash
 - [ ] Conversion
+  - [ ] https://github.com/C4illin/ConvertX
   - [ ] https://github.com/VERT-sh/VERT
   - [ ] ffmpeg
 
@@ -549,7 +563,9 @@ _Goal: Privacy, Resilience, Ad-blocking_
     - [ ] https://github.com/safebucket/safebucket
   - [ ] **Paperless-ngx**: Document Management System https://github.com/paperless-ngx/paperless-ngx
   - [ ] **PageIndex**: Document Analysis System https://github.com/VectifyAI/PageIndex
+  - [ ] https://github.com/MertJSX/folderhost
 - [ ] **File Transfer**
+  - [ ] **SoulSeek Network**: Private file exchange https://github.com/slskd/slskd
   - [ ] **Alt-SendMe**: Private file exchange https://github.com/tonyantony300/alt-sendme
   - [ ] **Locker**: Private file exchange https://github.com/zmeyer44/Locker
   - [ ] https://github.com/fatedier/fft
@@ -567,6 +583,8 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] Immich https://github.com/immich-app/immich
   - [ ] Immichframe
   - [ ] PhotoPrism https://github.com/photoprism/photoprism
+- **Location**
+  - [ ] https://github.com/tess1o/geopulse
 - [ ] **Document Specifics**:
   - [ ] PDF:
     - [ ] https://github.com/PDFCraftTool/pdfcraft
@@ -588,6 +606,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] https://github.com/yikart/AiToEarn/blob/main/README_EN.md#use-source
 - [ ] **Chat**:
   - [ ] **Revolt**: Discord Alternative https://github.com/revoltchat/
+  - [ ] Discord Alternative https://github.com/mhumayunsaeed/Corvus
   - [ ] Slack Alternative
     - [ ] **Mattermost without limits**: https://framagit.org/framasoft/framateam/mostlymatter https://github.com/mattermost/mattermost
     - [ ] **Rocket.Chat**: https://github.com/RocketChat/Rocket.Chat
@@ -660,6 +679,8 @@ _Goal: Privacy, Resilience, Ad-blocking_
     - [ ] https://github.com/offendingcommit/openconcho
     - https://www.youtube.com/watch?v=i2KK85h0bYo
   - [ ] https://github.com/langchain-ai/openwiki
+  - [ ] https://github.com/Lumen-Labs/brainapi2
+  - [ ] 
 - [ ] **Inference Engines**:
   - [ ] **Ollama**: LLM Runner https://github.com/ollama/ollama
   - [ ] **LocalAI**: OpenAI compatible API
@@ -687,6 +708,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] **Qwesn3-TTS**: https://huggingface.co/spaces/Qwen/Qwen3-TTS
   - [ ] **Kokorotts**: https://kokorotts.net/
 - [ ] **Integration**:
+  - [ ] https://github.com/oomol-lab/open-connector
   - [ ] **LiteLLM**: LLM Proxy/Router https://github.com/BerriAI/litellm
   - [ ] **ArchGW**: AI Gateway https://github.com/katanemo/archgw
   - [ ] **n8n AI**: AI workflows
@@ -727,6 +749,8 @@ _Goal: Privacy, Resilience, Ad-blocking_
 - [ ] Udemy learning: https://github.com/heliomarpm/udemy-downloader-gui/
 - [ ] video creation https://github.com/Godzilla675/clip-js-copilot
   - [ ] Video editing https://github.com/kevinbadi/hyperedit
+- Notes
+  - [ ] https://github.com/docmost/docmost
 
 ---
 
@@ -759,6 +783,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
 - [ ] **Finance**:
 	- [ ] Personal Finance Tracker https://github.com/we-promise/sure/
 	- [ ] Actual Budget: https://github.com/actualbudget/actual
+  - [ ] https://github.com/simplesuite/simplebudget
 	- [ ] AI Investors
 	  - [ ] https://github.com/ygwyg/MAHORAGA
 - [ ] **Investigate**:
@@ -827,8 +852,10 @@ _Goal: Privacy, Resilience, Ad-blocking_
     - [ ] https://github.com/opslane/opslane --- Ops/infra orchestration platform
     - [ ] https://github.com/phpipam/phpipam --- IP address management (IPAM)
     - [ ] https://github.com/rcourtman/Pulse --- Network/server monitoring dashboard
+    - [ ] https://github.com/scanopy/scanopy -- Network discovery and diagramming tool
     - [ ] https://github.com/amir20/dozzle --- Real‑time container log viewer (Docker)
     - [ ] https://github.com/dockpeek/dockpeek --- Container management and monitoring
+    - [ ] Atlas Computerized Maintenance Management System (CMMS): https://github.com/Grashjs/cmms
     - [ ] https://github.com/pendulum-project/ntpd-rs --- NTP daemon in Rust
     - [ ] https://github.com/pendulum-project/statime --- PTP (Precision Time Protocol) daemon
     - [ ] https://github.com/YunoHost-Apps --- YunoHost app catalog (packaged self‑hosted apps)
@@ -930,6 +957,8 @@ _Goal: Privacy, Resilience, Ad-blocking_
 	- https://github.com/lucasgelfond/zerobrew instead of homebrew / brew.sh
 	- Instead of
 		- Docker: use podman
+## OSINT
+  - https://github.com/zymazza/mazzap
 
 
 ## References

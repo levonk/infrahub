@@ -1,0 +1,54 @@
+---
+# Wazuh agent default variables
+# Installs native Wazuh agents (not Docker) on macOS, Windows, and Oracle Linux.
+# Agents enroll with the Wazuh manager running on the Windows Docker host (dtop202311)
+# via Tailscale.
+
+# Enable/disable
+wazuh_agent_enabled: true
+
+# Version — must match the manager version
+wazuh_agent_version: "4.14.6"
+
+# Manager connection (reference infrastructure variables)
+wazuh_agent_manager_address: "{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.tale-grouper.ts.net') }}"
+wazuh_agent_manager_port: "{{ infra_port_security_wazuh_manager_agent_host | default('1514') }}"
+wazuh_agent_enrollment_port: "{{ infra_port_security_wazuh_manager_enrollment_host | default('1515') }}"
+
+# Agent identity
+wazuh_agent_name: "{{ ansible_hostname }}"
+wazuh_agent_group: "default"
+
+# Enrollment password (from vault — empty means no password, which works when
+# the manager has <use_password>no</use_password> in its authd config)
+wazuh_agent_enrollment_password: "{{ vault_wazuh_agent_enrollment_password | default('') }}"
+
+# Protocol for agent-manager communication
+wazuh_agent_protocol: "tcp"
+
+# --- macOS-specific ---
+# Package download URL base for macOS .pkg installers
+wazuh_agent_macos_pkg_url_base: "https://packages.wazuh.com/4.x/macos"
+# Architecture is auto-detected: intel64 for x86, arm64 for Apple Silicon
+wazuh_agent_macos_pkg_arch: >-
+  {{ 'arm64' if ansible_architecture == 'arm64' else 'intel64' }}
+wazuh_agent_macos_pkg_filename: "wazuh-agent-{{ wazuh_agent_version }}-1.{{ wazuh_agent_macos_pkg_arch }}.pkg"
+wazuh_agent_macos_pkg_url: "{{ wazuh_agent_macos_pkg_url_base }}/{{ wazuh_agent_macos_pkg_filename }}"
+wazuh_agent_macos_config_path: "/Library/Ossec/etc/ossec.conf"
+wazuh_agent_macos_bin_path: "/Library/Ossec/bin"
+wazuh_agent_macos_plist_path: "/Library/LaunchDaemons/com.wazuh.agent.plist"
+
+# --- Windows-specific ---
+# MSI installer download URL for Windows
+wazuh_agent_windows_msi_url: "https://packages.wazuh.com/4.x/windows/wazuh-agent-{{ wazuh_agent_version }}-1.msi"
+wazuh_agent_windows_msi_filename: "wazuh-agent-{{ wazuh_agent_version }}-1.msi"
+wazuh_agent_windows_config_path: "C:\\Program Files (x86)\\ossec-agent\\ossec.conf"
+wazuh_agent_windows_install_dir: "C:\\Program Files (x86)\\ossec-agent"
+wazuh_agent_windows_service_name: "WazuhSvc"
+
+# --- Linux-specific (Oracle Linux / RPM) ---
+wazuh_agent_linux_repo_gpg_key: "https://packages.wazuh.com/key/GPG-KEY-WAZUH"
+wazuh_agent_linux_repo_baseurl: "https://packages.wazuh.com/4.x/yum/"
+wazuh_agent_linux_repo_name: "wazuh"
+wazuh_agent_linux_config_path: "/var/ossec/etc/ossec.conf"
+wazuh_agent_linux_service_name: "wazuh-agent"

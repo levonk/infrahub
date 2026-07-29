@@ -1,0 +1,84 @@
+# syntax=docker/dockerfile:1
+# Freenet peer node (freenet-core, Rust)
+# Upstream: https://github.com/freenet/freenet-core
+#
+# Multi-stage build per AGENTS.md Invariant #2:
+#   - builder: Rust toolchain + cargo install freenet-core
+#   - runtime: debian-slim with only the freenet binary + CA certs
+#
+# The freenet-node startup script runs `freenet network` with the WS API
+# on port 7509 (overridable via WS_API_PORT env). Data lives in
+# /root/.cache/freenet (FREENET_BASE_DIR) — mount a named volume there.
+#
+# Build platform: linux/amd64 (target is Windows Docker Desktop).
+# The OCI registry default in build-and-push-images.sh is linux/arm64;
+# override with: PLATFORM=linux/amd64 scripts/build-and-push-images.sh localnet-p2p-freenet
+
+# ---------------------------------------------------------------------------
+# Builder stage — compile freenet-core from source
+# ---------------------------------------------------------------------------
+FROM rust:1-bookworm AS builder
+
+# Build dependencies
+RUN apt-get update \
+  && apt-get install --no-install-recommends -y \
+    git \
+    pkg-config \
+    libssl-dev \
+    ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
+# wasm32 target is required by freenet-core contracts
+RUN rustup target add wasm32-unknown-unknown
+
+# Clone and build freenet-core
+# Pin to a stable release tag for reproducibility. Update the tag when bumping.
+ARG FREENET_CORE_REF=main
+ENV FREENET_DIR=/usr/src/freenet
+WORKDIR ${FREENET_DIR}
+RUN git clone --depth 1 --branch "${FREENET_CORE_REF}" https://github.com/freenet/freenet-core.git ${FREENET_DIR}/freenet-core \
+  && cd ${FREENET_DIR}/freenet-core \
+  && git submodule update --init --recursive
+
+# cargo install the freenet binary (the `freenet` CLI includes the `network` subcommand)
+WORKDIR ${FREENET_DIR}/freenet-core/crates/core
+RUN cargo install --path . --root /usr/local
+
+# ---------------------------------------------------------------------------
+# Runtime stage — slim image with only the binary
+# ---------------------------------------------------------------------------
+FROM debian:bookworm-slim AS runtime
+
+# Runtime deps: ca-certificates for git/https, libssl3 for the freenet binary,
+# curl for the healthcheck, tini for PID 1 signal handling.
+RUN apt-get update \
+  && apt-get install --no-install-recommends -y \
+    ca-certificates \
+    libssl3 \
+    curl \
+    tini \
+  && rm -rf /var/lib/apt/lists/*
+
+# Copy the freenet binary from the builder
+COPY --from=builder /usr/local/bin/freenet /usr/local/bin/freenet
+
+# Copy the startup script
+COPY docker/freenet-node-startup.sh /usr/local/bin/freenet-node-startup.sh
+RUN chmod +x /usr/local/bin/freenet-node-startup.sh
+
+# Freenet environment
+ENV FREENET_DIR=/root/freenet \
+    BASE_DIR=/root/.cache/freenet \
+    RUST_BACKTRACE=1 \
+    RUST_LOG="info,freenet=debug,freenet-stdlib=debug,fdev=debug" \
+    WS_API_PORT=7509
+
+# Data directory — mount a named volume here
+WORKDIR /root/.cache/freenet
+
+# WS API port (fdev + browser UI connect here)
+EXPOSE 7509
+
+# tini handles SIGTERM cleanly so `docker stop` doesn't wait for the timeout
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["/usr/local/bin/freenet-node-startup.sh"]

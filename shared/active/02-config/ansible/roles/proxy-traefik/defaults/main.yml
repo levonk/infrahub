@@ -89,6 +89,14 @@ agentmemory_container_port: "3111"
 agentmemory_domain: "agentmemory.levonk.com"
 
 # ---------------------------------------------------------------------------
+# JobOps Integration Configuration
+# Cross-machine routing: service runs on Windows Docker host, Traefik on OCI.
+# Backend URL uses the Windows machine's Tailscale FQDN, not a container name.
+# ---------------------------------------------------------------------------
+career_jobops_enabled: false
+career_jobops_domain: "jobops.levonk.com"
+
+# ---------------------------------------------------------------------------
 # headroom (aishrink) Integration Configuration
 # ---------------------------------------------------------------------------
 aishrink_enabled: false

@@ -1,0 +1,60 @@
+---
+# Wazuh agent deployment — native OS packages (not Docker)
+# Installs Wazuh agents on macOS, Windows, and Oracle Linux hosts.
+# Agents enroll with the Wazuh manager on the Windows Docker host (dtop202311)
+# via Tailscale.
+
+# 1. Validate required variables
+- name: Validate required wazuh-agent variables are defined
+  ansible.builtin.assert:
+    that:
+      - wazuh_agent_enabled is defined
+      - wazuh_agent_version is defined
+      - wazuh_agent_manager_address is defined
+      - wazuh_agent_manager_address | length > 0
+      - wazuh_agent_manager_port is defined
+      - wazuh_agent_enrollment_port is defined
+      - wazuh_agent_name is defined
+    fail_msg: >-
+      Missing required wazuh-agent variables. Check the playbook pre_tasks
+      and infrastructure variable loading.
+    success_msg: "All required wazuh-agent variables are defined."
+  tags: ["always", "validate"]
+
+# 2. Detect OS and dispatch to the appropriate task file
+- name: Detect operating system
+  ansible.builtin.set_fact:
+    wazuh_agent_is_macos: "{{ ansible_os_family == 'Darwin' }}"
+    wazuh_agent_is_windows: "{{ ansible_os_family == 'Windows' }}"
+    wazuh_agent_is_linux: "{{ ansible_os_family in ['RedHat', 'Debian', 'Suse', 'Alpine'] }}"
+  tags: ["always"]
+
+- name: Display detected operating system
+  ansible.builtin.debug:
+    msg: >-
+      OS family: {{ ansible_os_family }},
+      macOS={{ wazuh_agent_is_macos }},
+      Windows={{ wazuh_agent_is_windows }},
+      Linux={{ wazuh_agent_is_linux }}
+  tags: ["always", "validate"]
+
+# 3. Include OS-specific installation tasks
+- name: Install wazuh agent on macOS
+  ansible.builtin.include_tasks: macos.yml
+  when: wazuh_agent_is_macos | bool
+  tags: ["deploy", "wazuh-agent"]
+
+- name: Install wazuh agent on Windows
+  ansible.builtin.include_tasks: windows.yml
+  when: wazuh_agent_is_windows | bool
+  tags: ["deploy", "wazuh-agent"]
+
+- name: Install wazuh agent on Linux
+  ansible.builtin.include_tasks: linux.yml
+  when: wazuh_agent_is_linux | bool
+  tags: ["deploy", "wazuh-agent"]
+
+# 4. Enroll the agent with the manager
+- name: Enroll wazuh agent with manager
+  ansible.builtin.include_tasks: enroll.yml
+  tags: ["deploy", "wazuh-agent", "enroll"]

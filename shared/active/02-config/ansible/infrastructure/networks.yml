@@ -29,6 +29,18 @@ infra_network_ai_proxy_chain_network_name: "proxy-chain-network"
 infra_network_ai_proxy_chain_subnet: "172.29.0.0/16"
 infra_network_ai_proxy_chain_gateway: "172.29.0.1"
 
+# ---------------------------------------------------------------------------
+# Wazuh SIEM/XDR Network
+# Used by: Windows Docker Desktop hosts (deploy-wazuh.yml playbook)
+# Internal network for manager ↔ indexer ↔ dashboard communication.
+# ---------------------------------------------------------------------------
+infra_network_security_wazuh_network_name: "wazuh-network"
+infra_network_security_wazuh_subnet: "172.25.0.0/16"
+infra_network_security_wazuh_gateway: "172.25.0.1"
+infra_network_security_wazuh_indexer_ip: "172.25.0.10"
+infra_network_security_wazuh_manager_ip: "172.25.0.11"
+infra_network_security_wazuh_dashboard_ip: "172.25.0.12"
+
 infra_network_ai_forge_network_name: "forge-network"
 infra_network_ai_forge_subnet: "172.35.0.0/16"
 infra_network_ai_forge_gateway: "172.35.0.1"
@@ -47,6 +59,17 @@ infra_network_ip_langfuse_minio: "172.37.0.50"
 infra_network_ip_langfuse_traefik: "172.31.0.40"
 # proxy-chain-network IP for langfuse-web (LiteLLM → Langfuse trace forwarding)
 infra_network_ip_langfuse_web_proxy_chain: "172.29.0.19"
+
+# Buzz (human + AI agent collaboration workspace / Nostr relay)
+infra_network_ai_buzz_network_name: "buzz-network"
+infra_network_ai_buzz_subnet: "172.38.0.0/16"
+infra_network_ai_buzz_gateway: "172.38.0.1"
+infra_network_ip_buzz: "172.38.0.10"
+infra_network_ip_buzz_postgres: "172.38.0.20"
+infra_network_ip_buzz_redis: "172.38.0.30"
+infra_network_ip_buzz_minio: "172.38.0.40"
+# Traefik-network IP for buzz (public routing)
+infra_network_ip_buzz_traefik: "172.31.0.50"
 
 # ---------------------------------------------------------------------------
 # DNS Networks
@@ -102,6 +125,16 @@ infra_network_ip_headroom: "172.29.0.13"
 infra_network_ip_forge: "172.29.0.16"
 infra_network_ip_iron_proxy: "172.29.0.17"
 infra_network_ip_privacy_orchestrator: "172.29.0.15"
+
+# ---------------------------------------------------------------------------
+# Freenet (P2P decentralized app platform — freenet-core peer node)
+# Used by: Windows Docker Desktop hosts (deploy-freenet.yml playbook)
+# Dedicated bridge network — no Traefik routing (Tailscale-only access).
+# ---------------------------------------------------------------------------
+infra_network_p2p_freenet_network_name: "freenet-network"
+infra_network_p2p_freenet_subnet: "172.39.0.0/16"
+infra_network_p2p_freenet_gateway: "172.39.0.1"
+infra_network_ip_freenet: "172.39.0.10"
 
 # ---------------------------------------------------------------------------
 # VPN Subnet Collections

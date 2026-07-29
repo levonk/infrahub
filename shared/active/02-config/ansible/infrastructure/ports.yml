@@ -150,6 +150,20 @@ infra_port_ai_archon_postgres_container: "5432"
 infra_port_ai_agentmemory_host: "3111"
 infra_port_ai_agentmemory_container: "3111"
 
+# Buzz (human + AI agent collaboration workspace / Nostr relay)
+# Pre-built image: ghcr.io/block/buzz (multi-arch, arm64 supported)
+# Container port 3000 is hardcoded in BUZZ_BIND_ADDR; host port 3101 avoids conflicts
+infra_port_ai_buzz_host: "3101"
+infra_port_ai_buzz_container: "3000"
+infra_port_ai_buzz_health_host: "3102"
+infra_port_ai_buzz_health_container: "8080"
+infra_port_ai_buzz_metrics_host: "3103"
+infra_port_ai_buzz_metrics_container: "9102"
+infra_port_ai_buzz_postgres_container: "5432"
+infra_port_ai_buzz_redis_container: "6379"
+infra_port_ai_buzz_minio_api_container: "9000"
+infra_port_ai_buzz_minio_console_container: "9001"
+
 # Langfuse (LLM observability & tracing platform — parallel analytics sink for the pipeline)
 # Web UI exposed via Traefik; only the web host port is bound (for direct/debug access)
 infra_port_ai_langfuse_web_host: "3001"
@@ -238,3 +252,61 @@ infra_port_dashboard_homepage_host: "8084"
 infra_port_dashboard_homepage_container: "3000"
 infra_port_dashboard_trala_host: "8085"
 infra_port_dashboard_trala_container: "8080"
+
+# ---------------------------------------------------------------------------
+# JobOps Career Tool Ports
+# Used by: Windows Docker Desktop hosts (deploy-jobops.yml playbook)
+# Upstream GHCR image: ghcr.io/dakheera47/job-ops:latest
+# ---------------------------------------------------------------------------
+infra_port_career_jobops_host: "3005"
+infra_port_career_jobops_container: "3001"
+
+# ---------------------------------------------------------------------------
+# Croc File Transfer Relay Ports
+# Used by: Windows Docker Desktop hosts (deploy-croc-relay.yml playbook)
+# Upstream image: schollz/croc:latest
+# The relay uses a contiguous range; CROC_PORTS is derived from start/end.
+# ---------------------------------------------------------------------------
+infra_port_tools_croc_relay_comm_host: "9009"
+infra_port_tools_croc_relay_comm_container: "9009"
+infra_port_tools_croc_relay_data_start_host: "9010"
+infra_port_tools_croc_relay_data_start_container: "9010"
+infra_port_tools_croc_relay_data_end_host: "9013"
+infra_port_tools_croc_relay_data_end_container: "9013"
+
+# ---------------------------------------------------------------------------
+# RustFS S3-Compatible Object Storage Ports
+# Used by: Windows Docker Desktop hosts (deploy-rustfs.yml playbook)
+# Upstream image: rustfs/rustfs:latest
+# ---------------------------------------------------------------------------
+infra_port_storage_rustfs_s3_host: "9000"
+infra_port_storage_rustfs_s3_container: "9000"
+infra_port_storage_rustfs_console_host: "9001"
+infra_port_storage_rustfs_console_container: "9001"
+
+# ---------------------------------------------------------------------------
+# Wazuh SIEM/XDR Ports
+# Used by: Windows Docker Desktop hosts (deploy-wazuh.yml playbook)
+# Upstream images: wazuh/wazuh-manager, wazuh/wazuh-indexer, wazuh/wazuh-dashboard
+# Manager ports exposed to host for agent communication + API.
+# Indexer port is internal-only (Docker network) — not exposed to host.
+# Dashboard port exposed to host for Traefik cross-machine routing.
+# ---------------------------------------------------------------------------
+infra_port_security_wazuh_manager_agent_host: "1514"
+infra_port_security_wazuh_manager_agent_container: "1514"
+infra_port_security_wazuh_manager_enrollment_host: "1515"
+infra_port_security_wazuh_manager_enrollment_container: "1515"
+infra_port_security_wazuh_manager_api_host: "55000"
+infra_port_security_wazuh_manager_api_container: "55000"
+infra_port_security_wazuh_dashboard_host: "5601"
+infra_port_security_wazuh_dashboard_container: "5601"
+
+# ---------------------------------------------------------------------------
+# Freenet (P2P decentralized app platform — freenet-core peer node)
+# Used by: Windows Docker Desktop hosts (deploy-freenet.yml playbook)
+# Locally-built image: localnet-p2p-freenet (Rust, built from upstream Dockerfile)
+# WS API port 7509 is the freenet-node default (fdev + browser UI connect here).
+# No public domain — Tailscale-only access via the Windows host's tailnet FQDN.
+# ---------------------------------------------------------------------------
+infra_port_p2p_freenet_ws_api_host: "7509"
+infra_port_p2p_freenet_ws_api_container: "7509"

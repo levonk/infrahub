@@ -79,6 +79,12 @@ infra_storage_litellm_data: "{{ infra_storage_data_dir }}/litellm"
 infra_storage_langfuse_config: "{{ infra_storage_services_dir }}/langfuse/config"
 infra_storage_langfuse_data: "{{ infra_storage_data_dir }}/langfuse"
 
+# Buzz (human + AI agent collaboration workspace / Nostr relay)
+infra_storage_buzz_config: "{{ infra_storage_services_dir }}/buzz/config"
+infra_storage_buzz_data: "{{ infra_storage_data_dir }}/buzz"
+infra_storage_buzz_postgres_volume: "localnet-buzz-postgres-data-volume"
+infra_storage_buzz_minio_volume: "localnet-buzz-minio-data-volume"
+
 # Security Services
 infra_storage_security_config: "{{ infra_storage_services_dir }}/security/config"
 infra_storage_security_data: "{{ infra_storage_services_dir }}/security/data"
@@ -103,3 +109,43 @@ infra_storage_backup_compression: "gzip"
 # Redis data volume name (Docker volume, not a host path — works on any OS)
 # ---------------------------------------------------------------------------
 infra_storage_worldmonitor_redis_data_volume: "worldmonitor-redis-data"
+
+# ---------------------------------------------------------------------------
+# JobOps Career Tool Storage
+# Used by: Windows Docker Desktop hosts (deploy-jobops.yml playbook)
+# Docker volume for persistent data (database, generated PDFs)
+# ---------------------------------------------------------------------------
+infra_storage_jobops_data_volume: "localnet-jobops-data-volume"
+infra_storage_jobops_codex_volume: "localnet-jobops-codex-volume"
+
+# ---------------------------------------------------------------------------
+# RustFS S3-Compatible Object Storage
+# Used by: Windows Docker Desktop hosts (deploy-rustfs.yml playbook)
+# Docker volumes for object data and application logs
+# ---------------------------------------------------------------------------
+infra_storage_rustfs_data_volume: "localnet-rustfs-data-volume"
+infra_storage_rustfs_logs_volume: "localnet-rustfs-logs-volume"
+
+# ---------------------------------------------------------------------------
+# Wazuh SIEM/XDR Storage
+# Used by: Windows Docker Desktop hosts (deploy-wazuh.yml playbook)
+# Docker volumes for manager, indexer, and dashboard persistent data.
+# Cert volume holds generated TLS certs for internal inter-container TLS.
+# ---------------------------------------------------------------------------
+infra_storage_wazuh_manager_api_config_volume: "wazuh-manager-api-config"
+infra_storage_wazuh_manager_etc_volume: "wazuh-manager-etc"
+infra_storage_wazuh_manager_logs_volume: "wazuh-manager-logs"
+infra_storage_wazuh_manager_queue_volume: "wazuh-manager-queue"
+infra_storage_wazuh_manager_multigroups_volume: "wazuh-manager-multigroups"
+infra_storage_wazuh_indexer_data_volume: "wazuh-indexer-data"
+infra_storage_wazuh_dashboard_config_volume: "wazuh-dashboard-config"
+infra_storage_wazuh_dashboard_custom_volume: "wazuh-dashboard-custom"
+infra_storage_wazuh_certs_volume: "wazuh-certs"
+
+# ---------------------------------------------------------------------------
+# Freenet (P2P decentralized app platform — freenet-core peer node)
+# Used by: Windows Docker Desktop hosts (deploy-freenet.yml playbook)
+# Docker volume for persistent node data (contracts, delegate state, keys).
+# Mounted at /root/.cache/freenet inside the container (FREENET_BASE_DIR).
+# ---------------------------------------------------------------------------
+infra_storage_freenet_data_volume: "localnet-freenet-data-volume"
