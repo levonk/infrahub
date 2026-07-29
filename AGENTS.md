@@ -355,6 +355,54 @@ The following files contain hardcoded ports or IPs and need to be refactored:
 
 When working on localnet, always check for hardcoded IPs and ports before committing changes.
 
+## CRITICAL: Host Mutation Policy
+
+**ABSOLUTE GATE**: The agent MUST NOT modify the state of any managed host — including the control machine when it is itself an inventory target, and including the configuration of any web application running on those hosts — outside of a committed Ansible task without **explicit, action-specific permission from the user**.
+
+### What counts as a host mutation
+
+Any action that changes the state of a managed host or a web application running on it — regardless of mechanism — is a host mutation. This includes, but is not limited to:
+
+**Host OS state:**
+- Direct shell commands over SSH (`ssh host -- ...`, `ssh host 'apt install ...'`)
+- `docker exec`/`docker run` on a host that writes to host-mounted paths or changes host state
+- Manual edits to remote filesystems (`scp`, `rsync`, `sed -i` over SSH)
+- Package installation, removal, or upgrade outside an Ansible task
+- Service start/stop/restart outside an Ansible handler or task
+- Firewall, user, cron, or kernel-parameter changes outside an Ansible task
+- Any `--check`-free ad-hoc command that would fail a `--check` run of the equivalent playbook
+
+**Web application configuration:**
+- Editing an app's config file, environment file, or `.env` on the host or in a host-mounted path outside an Ansible template task
+- `docker exec <app-container> ...` that changes app state, reloads config, rotates keys, or mutates app data
+- Restarting, reloading, or re-deploying an application container outside an Ansible handler/task
+- Changing application secrets, feature flags, or runtime settings outside an Ansible task (vault edits are separately governed by the Vault Edits section above)
+- Running an app's admin CLI (`manage.py`, `rails db:`, `npm run ...`, app-specific admin scripts) against the live app outside an Ansible task
+- Mutating app-backed databases or object stores outside an Ansible task (migrations, schema changes, bulk data edits)
+
+### What is NOT a host mutation (no extra permission needed)
+
+- Read-only inspection of hosts or apps: `ssh host -- 'cat ...'`, `systemctl status`, `docker ps`, `docker logs`, `journalctl`, `ss -tlnp`, app health/status endpoints, `SELECT`/read-only DB queries
+- Running Ansible playbooks/roles that are already committed in this repo (those changes are governed by the Deployment Workflow Rule below, not this policy)
+- Operations inside a throwaway container that does not touch host or app state
+- **Source-code work on the control machine** under `~/p` (e.g., editing this repo, dotfiles, sibling repos, devbox, lint, build, local test runs that do not target an inventory host). The control machine is an inventory target for *deployment* purposes; routine development of the source that drives those deployments is not a host mutation.
+- Local lint/build/test of artifacts on the control machine that will later be deployed via Ansible
+
+### The rule
+
+1. **Default to Ansible.** Every host-state or web-application-configuration change must be expressed as an Ansible task in a committed playbook/role. If a change can be done with Ansible, it MUST be done with Ansible. This applies to the control machine too when it is the target of the change — the source-code carve-out in "What is NOT a host mutation" is the only exception.
+2. **Non-Ansible host/app changes require per-action approval.** If a non-Ansible mutation is genuinely necessary (e.g., interactive debugging, a one-off fix that doesn't belong in a playbook, an emergency app reload), the agent MUST:
+   - State exactly what command it intends to run, on which host or application, and why Ansible is not the right tool for it
+   - Wait for the user to approve **that specific action** before running it
+   - Record the action and rationale in the session summary so it can be backfilled into a playbook later
+3. **Prior approval does not carry forward.** Approval for one non-Ansible action does not authorize any subsequent non-Ansible action. Each one needs its own approval.
+4. **"Deploy X" / "Configure X" is not blanket consent.** A user instruction like "deploy Wazuh agents to every physical machine" or "update the Paperclip app config" authorizes writing and running the Ansible playbook for that work. It does NOT authorize ad-hoc SSH commands, `docker exec` into app containers, or manual edits to app config files on the same hosts to "speed things up" or "verify" outside the playbook.
+5. **When in doubt, ask.** If it is unclear whether an action is a host or app mutation, treat it as one and ask first.
+
+### Relationship to the Deployment Workflow Rule
+
+This policy is a **gate that runs before** the Deployment Workflow Rule. The Deployment Workflow Rule governs *how* a build-impacting change is rolled out (Paths A/B/C); the Host Mutation Policy governs *whether* a host-state change may be made outside Ansible at all. They do not override each other.
+
 ## Deployment Workflow Rule
 
 **MANDATORY DEPLOYMENT PROCESS**: When making changes to any deployments (Ansible playbooks, Docker containers, configurations), you MUST follow this workflow:
