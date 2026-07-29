@@ -1,0 +1,173 @@
+---
+# Paperclip AI Orchestration Deployment Playbook
+# Deploys the Paperclip AI agent orchestration platform on the OCI cloud server.
+# Stack: Paperclip (Node.js server + React UI) + external PostgreSQL container.
+# Routing: Traefik at paperclip.levonk.com with Authelia middleware.
+#
+# Usage:
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-paperclip.yml \
+#     --vault-password-file ~/.ansible/vault_password
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-paperclip.yml \
+#     --check --diff --vault-password-file ~/.ansible/vault_password
+
+- name: "Configure Cloudflare DNS for Paperclip"
+  hosts: localhost
+  gather_facts: false
+  become: false
+  vars_files:
+    - "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/inventories/group_vars/infrahub-levonk-all.vault.yml"
+  vars:
+    cloudflare_api_token: "{{ vault_cloudflare_api_token | default('') }}"
+    cloudflare_zone_id: "{{ vault_cloudflare_zone_id | default('') }}"
+    cloudflare_dns_state: "present"
+    cloudflare_dns_ttl: 300
+    cloudflare_dns_proxied: false
+    cloudflare_dns_verify: true
+    cloudflare_dns_verify_propagation: false
+    cloudflare_dns_validate_ip: true
+    cloudflare_dns_allow_private_ip: false
+    cloudflare_dns_records:
+      - name: "{{ infra_domain_ai_paperclip | default('paperclip.levonk.com') }}"
+        type: "CNAME"
+        content: "{{ infra_tailscale_fqdn_cloud_server | default('oci.tale-grouper.ts.net') }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+  roles:
+    - cloudflare-dns
+  tags: ["dns"]
+
+- name: "Deploy Paperclip AI Orchestration"
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+  vars:
+    cloud_server_admin_user: "{{ ansible_user }}"
+  # Vault auto-loads via infrahub-levonk-all.vault parent group in the inventory
+
+  pre_tasks:
+    - name: "Load shared infrastructure defaults (ports, networks, domains, storage)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+      tags: ["always"]
+
+    - name: "Load client infrastructure overrides (levonk)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+      tags: ["always"]
+
+    - name: "Display deployment start information"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Paperclip AI Orchestration Deployment
+          ========================================
+          Target: {{ inventory_hostname }}
+          User: {{ ansible_user_id }}
+          OS: {{ ansible_distribution }} {{ ansible_distribution_version }}
+          Architecture: {{ ansible_facts['architecture'] }}
+          Timestamp: {{ ansible_date_time.iso8601 }}
+          Domain: https://{{ infra_domain_ai_paperclip | default('paperclip.levonk.com') }}
+          Image: localnet-ai-paperclip (locally-built)
+          ========================================
+      tags: ["always", "info"]
+
+    - name: "Validate required variables are defined"
+      ansible.builtin.assert:
+        that:
+          - cloud_server_admin_user is defined
+          - cloud_server_admin_user | length > 0
+          - infra_port_ai_paperclip_host is defined
+          - infra_domain_ai_paperclip is defined
+          - infra_storage_paperclip_volume is defined
+        fail_msg: >-
+          Missing required variables. Check infrastructure files
+          (shared/active/02-config/ansible/infrastructure/{ports,domains,storage,networks}.yml
+          and levonk/active/02-config/ansible/infrastructure/{ports,domains,storage,networks}.yml).
+        success_msg: "All required variables are defined."
+      tags: ["always", "validate"]
+
+    - name: "Verify Docker daemon is responsive"
+      ansible.builtin.command:
+        cmd: "docker info --format '{{ '{{' }} .ServerVersion {{ '}}' }}'"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: docker_daemon_check
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "docker"]
+
+    - name: "Fail if Docker daemon is not responsive"
+      ansible.builtin.fail:
+        msg: |
+          Bootstrap prerequisite failed: Docker daemon is not running or
+          not accessible. Ensure Docker service is started.
+      when: docker_daemon_check.rc != 0
+      tags: ["verify", "docker"]
+
+  roles:
+    - role: ai-paperclip
+      tags: ["paperclip"]
+
+  post_tasks:
+    - name: "Verify Paperclip container is running"
+      ansible.builtin.command:
+        cmd: "docker inspect --format='{{ '{{' }} .State.Status {{ '}}' }}' {{ ai_paperclip_container_name }}"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: paperclip_container_check
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "paperclip"]
+
+    - name: "Warn if Paperclip container is not running"
+      ansible.builtin.debug:
+        msg: "WARNING: Paperclip container ({{ ai_paperclip_container_name }}) is not running."
+      when: paperclip_container_check.rc != 0 or paperclip_container_check.stdout != "running"
+      tags: ["verify", "paperclip"]
+
+    - name: "Verify Paperclip Postgres container is running"
+      ansible.builtin.command:
+        cmd: "docker inspect --format='{{ '{{' }} .State.Status {{ '}}' }}' {{ ai_paperclip_postgres_container_name }}"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: paperclip_postgres_check
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "paperclip"]
+
+    - name: "Warn if Paperclip Postgres container is not running"
+      ansible.builtin.debug:
+        msg: "WARNING: Paperclip Postgres container ({{ ai_paperclip_postgres_container_name }}) is not running."
+      when: paperclip_postgres_check.rc != 0 or paperclip_postgres_check.stdout != "running"
+      tags: ["verify", "paperclip"]
+
+    - name: "Deployment summary"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Paperclip AI Orchestration Deployed
+          ========================================
+          URL: https://{{ infra_domain_ai_paperclip | default('paperclip.levonk.com') }}
+            Direct: http://{{ ansible_host | default('localhost') }}:{{ infra_port_ai_paperclip_host }}
+            Status: {{ paperclip_container_check.stdout | default('unknown') }}
+          Postgres: {{ ai_paperclip_postgres_container_name }}
+            Status: {{ paperclip_postgres_check.stdout | default('unknown') }}
+          Image: localnet-ai-paperclip (locally-built, linux/arm64)
+          ========================================
+          Behind Traefik with Authelia middleware.
+          Auth via Authelia SSO (https://auth.levonk.com).
+          ========================================
+      tags: ["verify", "info"]

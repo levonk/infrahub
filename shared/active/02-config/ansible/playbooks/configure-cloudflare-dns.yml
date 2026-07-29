@@ -134,6 +134,14 @@
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
 
+      # Paperclip (AI agent orchestration platform)
+      - name: "{{ infra_domain_ai_paperclip | default('paperclip.levonk.com') }}"
+        type: "CNAME"
+        content: "{{ ts_fqdn }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
       # AI InterFace (aiif — public alias for the Omnigent agent framework)
       - name: "{{ infra_domain_ai_omnigent | default('aiif.levonk.com') }}"
         type: "CNAME"
