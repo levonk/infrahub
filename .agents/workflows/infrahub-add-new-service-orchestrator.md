@@ -5,12 +5,12 @@ description: "Orchestrate adding a new service end-to-end: research, plan, imple
 use: "When adding a new service, ansible deployment, etc. for all clients in shared/active/"
 date:
   created: "2026-07-08"
-  updated: "2026-07-20"
-  last-used: "2026-07-20"
+  knowledge-basis: "2026-07-20"
+  last-used: "2026-07-29"
 see-also:
   - skill: "execute-upsert"
     relationship: "pipeline-controller"
-    description: "Generic project execution controller that drives PRD → tasks → execute → document. This workflow delegates the implementation pipeline to it. Install from levonk/skills-releases via `npx skills add levonk/skills-releases --skill execute-upsert` (or `just skills-bootstrap`)."
+    description: "Generic project execution controller that drives PRD → tasks → execute → document. This workflow delegates the implementation pipeline to it. Install from levonk/skills-releases via `devbox run -- pnpm dlx skills add levonk/skills-releases --skill execute-upsert` (or `just skills-bootstrap`)."
   - file: "infrahub-add-new-service.md"
     relationship: "implementation-detail"
     description: "Phase-by-phase implementation guide (Phases 1-8: shared role, client infra, vault, Traefik, build pipeline, playbook). Task stories created by execute-upsert should reference this guide for infrahub-specific implementation steps."
@@ -61,7 +61,9 @@ implementation steps.
 
 ## Phase 1: Initialize
 
-- Run the `git-repository-management` skill to checkpoint the starting tree state.
+- Run the `infrahub-git` workflow (`.agents/workflows/infrahub-git.md`) to checkpoint
+  the starting tree state. It wraps the `git-repository-management` skill for the
+  infrahub project and all client submodules.
 - Read `AGENTS.md`.
 - Read `AGENTS.md` for the client you're deploying for
 - If the user didn't specify the service, ask which service to add.
@@ -120,7 +122,9 @@ the user explicitly asks to redo research.
   `internal-docs/research/service/{service-name-kebab-case}/` (create the
   directory if it doesn't exist).
 - When comparing multiple candidate tools/services, use the `project-comparison`
-  skill (`~/p/gh/levonk/skills-src/src/current/skills/software-dev/project-comparison/SKILL.md`)
+  skill (`~/p/gh/levonk/skills-src/build/current/skills/software-dev/project-comparison/SKILL.md`,
+  or install via `devbox run -- pnpm dlx skills add levonk/skills-releases --skill project-comparison`;
+  published at https://github.com/levonk/skills-releases)
   for category discovery, coverage mapping, feature matrix, and maintainability
   scoring. Launch a subagent to run the comparison and present the matrix to the
   user for a decision. (The skill includes the feature-matrix template.)
@@ -182,7 +186,9 @@ completes:
   is valid (e.g. `devbox run -- rtk ansible-playbook --syntax-check`,
   `--check`).
 - Use the `code-quality-validation` skill
-  (`~/p/gh/levonk/skills-src/src/current/skills/software-dev/code-quality-validation/SKILL.md`)
+  (`~/p/gh/levonk/skills-src/build/current/skills/software-dev/code-quality-validation/SKILL.md`,
+  or install via `devbox run -- pnpm dlx skills add levonk/skills-releases --skill code-quality-validation`;
+  published at https://github.com/levonk/skills-releases)
   for comprehensive validation: linting, formatting, testing, and security
   scanning.
 - Fix any failures before moving to deploy.
@@ -212,7 +218,7 @@ completes:
   ```
   If the `git-repository-management` skill is installed, use its
   `git-commit-batch.sh` for structured commits.
-- Run the `git-repository-management` skill a final time to checkpoint the
+- Run the `infrahub-git` workflow a final time to checkpoint the
   completed tree state.
 
 ## Context Declaration
@@ -221,17 +227,17 @@ completes:
 
 - **This workflow**: `~/p/gh/levonk/infrahub/.agents/workflows/infrahub-add-new-service-orchestrator.md`
 - **Implementation detail**: `~/p/gh/levonk/infrahub/.agents/workflows/infrahub-add-new-service.md`
-- **Git state workflow**: `~/p/gh/levonk/infrahub/.agents/workflows/infrahub-git.md`
-- **Pipeline controller skill**: `execute-upsert` (installed via `just skills-bootstrap` from `levonk/skills-releases`)
-- **Project comparison skill**: `~/p/gh/levonk/skills-src/src/current/skills/software-dev/project-comparison/SKILL.md`
-- **Container image build skill**: `~/p/gh/levonk/skills-src/src/current/skills/software-dev/container-image-build/SKILL.md`
-- **Container service deploy skill**: `~/p/gh/levonk/skills-src/src/current/skills/software-dev/container-service-deploy/SKILL.md`
+- **Git state workflow**: `~/p/gh/levonk/infrahub/.agents/workflows/infrahub-git.md` (wraps `git-repository-management` skill for infrahub + submodules)
+- **Pipeline controller skill**: `execute-upsert` (install via `devbox run -- pnpm dlx skills add levonk/skills-releases --skill execute-upsert`, or `just skills-bootstrap`; published at https://github.com/levonk/skills-releases)
+- **Project comparison skill**: `~/p/gh/levonk/skills-src/build/current/skills/software-dev/project-comparison/SKILL.md` (fallback: https://github.com/levonk/skills-releases)
+- **Container image build skill**: `~/p/gh/levonk/skills-src/build/current/skills/software-dev/container-image-build/SKILL.md` (fallback: https://github.com/levonk/skills-releases)
+- **Container service deploy skill**: `~/p/gh/levonk/skills-src/build/current/skills/software-dev/container-service-deploy/SKILL.md` (fallback: https://github.com/levonk/skills-releases)
 - **Infrahub container deploy skill**: `~/p/gh/levonk/infrahub/.agents/skills/devops/infrahub-container-deploy/SKILL.md`
-- **Code quality validation skill**: `~/p/gh/levonk/skills-src/src/current/skills/software-dev/code-quality-validation/SKILL.md`
+- **Code quality validation skill**: `~/p/gh/levonk/skills-src/build/current/skills/software-dev/code-quality-validation/SKILL.md` (fallback: https://github.com/levonk/skills-releases)
 - **Research output**: `~/p/gh/levonk/infrahub/internal-docs/research/service/{service-name-kebab-case}/`
 - **PRD output**: `internal-docs/feature/YYYY/MM/{slug}/` (created by execute-upsert)
 - **Task output**: `internal-docs/feature/YYYY/MM/{slug}/tasks/` (created by execute-upsert)
 
 ### Project Info
 
-See `AGENTS.md` (environment, vault, deployment) and `developer.md` (devbox/rtk, key directories, boundaries, known gotchas).
+See `AGENTS.md` (environment, vault, deployment) and `.agents/knowledge/developer.md` (devbox/rtk, key directories, boundaries, known gotchas).
