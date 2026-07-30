@@ -1,0 +1,21 @@
+---
+# macOS Software Update
+# Location: shared/active/02-config/ansible/playbooks/macos-os-update.yml
+#
+# Installs all available macOS software updates and reboots the host.
+# Run on-demand via: just ansible-macos-os-update
+
+- name: "Install macOS software updates"
+  hosts: macos_hosts
+  gather_facts: false
+  become: true
+
+  tasks:
+    # ponytail: softwareupdate --restart drops SSH mid-task; async/poll:0 lets
+    # Ansible survive the reboot. Re-check the host after it comes back up.
+    - name: "Install all macOS updates and restart"
+      ansible.builtin.command: softwareupdate --install --all --restart
+      async: 300
+      poll: 0
+      changed_when: true
+      tags: ["os-update"]

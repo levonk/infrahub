@@ -25,6 +25,15 @@ in
   };
 
   config = {
+    # Allow unfree packages in nixpkgs for fleet apps (Firefox Dev Edition,
+    # Raycast, OrbStack, RustDesk, etc.).
+    # Nixpkgs 26.11 dropped x86_64-darwin; the x86 host uses 26.05 where
+    # it's deprecated but still supported — force it through.
+    nixpkgs.config = {
+      allowUnfree = true;
+      allowDeprecatedx86_64Darwin = lib.mkIf (pkgs.system == "x86_64-darwin") "force";
+    };
+
     # Admin user account — replaces imperative sysadminctl/dscl creation
     # Password stays vault-owned (Ansible bootstrap sets it), not managed here.
     users.users.auser = {
