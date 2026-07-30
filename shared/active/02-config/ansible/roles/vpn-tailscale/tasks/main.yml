@@ -321,13 +321,6 @@
     volumes:
       - tor-tailscale-exit-state:/var/lib/tailscale
       - tor-tailscale-exit-socket:/var/run/tailscale
-    command: >
-      sh -c "
-        tailscale up --authkey={{ vpn_tailscale_auth_key }} --hostname={{ vpn_tailscale_tor_hostname }} --advertise-exit-node --accept-routes &&
-        tailscale ip -4 &&
-        echo 'Tailscale over Tor is running' &&
-        sleep infinity
-      "
   when:
     - vpn_tailscale_tor_enabled | bool
   become: true

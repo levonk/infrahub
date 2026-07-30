@@ -904,7 +904,9 @@ _Goal: Privacy, Resilience, Ad-blocking_
     - [ ] https://github.com/OctoPrint/OctoPrint --- OctoPrint GitHub repo
     - [ ] https://github.com/home-assistant/ --- Home Assistant (home automation platform)
   - [ ] **Other Services & Utilities**
-    - [ ] LanguageTool grammer checker https://dev.languagetool.org/http-server
+    - Grammar Checker
+      - [ ] https://github.com/Automattic/harper
+      - [ ] https://dev.languagetool.org/http-server
     - [ ] freenet.org
     - [ ] Price tracking https://github.com/clucraft/PriceGhost
     - [ ] SmartSDR for Linux from Simon Ritchie (NVOE) @ Tech Connect Radio Club (NA0TC)

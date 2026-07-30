@@ -11,18 +11,19 @@ EXIT_NODE_CONFIG=""
 if [ "$PROXY_TOR_EXIT_NODE_ENABLED" = "true" ]; then
     echo "Enabling Tor exit node mode..."
     EXIT_NODE_CONFIG="# Exit Node Configuration
-ORPort {PROXY_TOR_ORPORT}
-DirPort {PROXY_TOR_DIRPORT}
-Nickname {PROXY_TOR_NICKNAME}
-ContactInfo {PROXY_TOR_CONTACT_INFO}
-ExitPolicy {PROXY_TOR_EXIT_POLICY}
-RelayBandwidthRate {PROXY_TOR_BANDWIDTH_RATE}
-RelayBandwidthBurst {PROXY_TOR_BANDWIDTH_BURST}"
+ORPort ${PROXY_TOR_ORPORT:-9001}
+DirPort ${PROXY_TOR_DIRPORT:-9030}
+Nickname ${PROXY_TOR_NICKNAME:-levonk-tor-exit}
+ContactInfo ${PROXY_TOR_CONTACT_INFO:-admin@levonk.com}
+ExitPolicy ${PROXY_TOR_EXIT_POLICY:-reject *:*}
+RelayBandwidthRate ${PROXY_TOR_BANDWIDTH_RATE:-100 KB}
+RelayBandwidthBurst ${PROXY_TOR_BANDWIDTH_BURST:-200 KB}"
 fi
 
-# Expand environment variables in template
-sed -e "s|{PROXY_TOR_SOCKS5_CONTAINER_PORT}|$PROXY_TOR_SOCKS5_CONTAINER_PORT|g" \
-    -e "s|{PROXY_TOR_EXIT_NODE_CONFIG}|$EXIT_NODE_CONFIG|g" \
+# Expand environment variables in template (single-line substitutions only)
+# Use a temp file approach to avoid sed issues with multi-line EXIT_NODE_CONFIG
+TMP_FILE=$(mktemp)
+sed -e "s|{PROXY_TOR_SOCKS5_CONTAINER_PORT}|${PROXY_TOR_SOCKS5_CONTAINER_PORT:-9050}|g" \
     -e "s|{PROXY_TOR_ORPORT}|${PROXY_TOR_ORPORT:-9001}|g" \
     -e "s|{PROXY_TOR_DIRPORT}|${PROXY_TOR_DIRPORT:-9030}|g" \
     -e "s|{PROXY_TOR_NICKNAME}|${PROXY_TOR_NICKNAME:-levonk-tor-exit}|g" \
@@ -30,7 +31,20 @@ sed -e "s|{PROXY_TOR_SOCKS5_CONTAINER_PORT}|$PROXY_TOR_SOCKS5_CONTAINER_PORT|g" 
     -e "s|{PROXY_TOR_EXIT_POLICY}|${PROXY_TOR_EXIT_POLICY:-reject *:*}|g" \
     -e "s|{PROXY_TOR_BANDWIDTH_RATE}|${PROXY_TOR_BANDWIDTH_RATE:-100 KB}|g" \
     -e "s|{PROXY_TOR_BANDWIDTH_BURST}|${PROXY_TOR_BANDWIDTH_BURST:-200 KB}|g" \
-    "$TEMPLATE_FILE" > "$CONFIG_FILE"
+    "$TEMPLATE_FILE" > "$TMP_FILE"
+
+# Insert the exit node config block (multi-line safe)
+if [ -n "$EXIT_NODE_CONFIG" ]; then
+    # Replace the placeholder line with the multi-line config block
+    # Using awk for multi-line replacement (sed can't handle newlines in replacement)
+    awk -v block="$EXIT_NODE_CONFIG" '
+        { gsub(/\{PROXY_TOR_EXIT_NODE_CONFIG\}/, block); print }
+    ' "$TMP_FILE" > "$CONFIG_FILE"
+else
+    # Remove the placeholder line if exit node is disabled
+    sed -e "/{PROXY_TOR_EXIT_NODE_CONFIG}/d" "$TMP_FILE" > "$CONFIG_FILE"
+fi
+rm -f "$TMP_FILE"
 
 # Create necessary directories
 mkdir -p /var/lib/tor /var/log/tor
