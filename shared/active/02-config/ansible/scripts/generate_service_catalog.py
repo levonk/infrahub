@@ -45,24 +45,32 @@ MACHINES = {
     "oci-cloud-server": {
         "label": "OCI Cloud Server (cno)",
         "tailscale": "oci.tale-grouper.ts.net",
+        "arch": "arm64",
+        "docker_platform": "linux/arm64",
         "color": "#4A90D9",
         "mermaid_class": "machine_oci",
     },
     "kckinai": {
         "label": "kckinai (Inference Host)",
         "tailscale": "kckinai.tale-grouper.ts.net",
+        "arch": "arm64",
+        "docker_platform": "linux/arm64",
         "color": "#E8743C",
         "mermaid_class": "machine_kckinai",
     },
     "dtop202311": {
         "label": "dtop202311 (nl — Windows Docker)",
         "tailscale": "dtop202311.tale-grouper.ts.net",
+        "arch": "amd64",
+        "docker_platform": "linux/amd64",
         "color": "#50C878",
         "mermaid_class": "machine_dtop",
     },
     "isolation-vm": {
         "label": "Isolation VM (QEMU on OCI)",
         "tailscale": "192.168.100.147 (NAT bridge)",
+        "arch": "amd64",
+        "docker_platform": "linux/amd64",
         "color": "#9B59B6",
         "mermaid_class": "machine_vm",
     },
@@ -574,13 +582,14 @@ def main():
     # Machine reference
     md_parts.append("## Machine Reference")
     md_parts.append("")
-    md_parts.append("| Machine | Tailscale FQDN | DDNS | Description |")
-    md_parts.append("|---------|----------------|------|-------------|")
+    md_parts.append("| Machine | Tailscale FQDN | Arch | DDNS | Description |")
+    md_parts.append("|---------|----------------|------|------|-------------|")
     for mkey, meta in MACHINES.items():
         ddns = f"{mkey.replace('-cloud-server','')}.mach.levonk.com" if mkey != "isolation-vm" else "—"
         if mkey == "oci-cloud-server":
             ddns = "oci.mach.levonk.com"
-        md_parts.append(f"| {meta['label']} | `{meta['tailscale']}` | `{ddns}` | |")
+        arch = meta.get("arch", "—")
+        md_parts.append(f"| {meta['label']} | `{meta['tailscale']}` | `{arch}` | `{ddns}` | |")
     md_parts.append("")
 
     md_parts.append("---")

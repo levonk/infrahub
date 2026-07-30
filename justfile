@@ -176,23 +176,12 @@ ansible-syntax:
     devbox run ansible-syntax-internal
 
 ansible-syntax-internal:
-    @echo "Checking playbook syntax..."
-    ansible-playbook --syntax-check -i {{INVENTORY}} {{PB_BOOTSTRAP}} || true
-    ansible-playbook --syntax-check -i {{INVENTORY}} {{PB_VPN}} || true
-    ansible-playbook --syntax-check -i {{INVENTORY}} {{PB_INFRA}} || true
-    ansible-playbook --syntax-check -i {{INVENTORY}} {{PB_VMS}} || true
-    ansible-playbook --syntax-check -i {{INVENTORY}} {{PB_SITE}} || true
-    ansible-playbook --syntax-check -i {{WINDOWS_DOCKER_INVENTORY}} {{PB_WINDOWS_BOOTSTRAP}} || true
-    ansible-playbook --syntax-check -i {{WINDOWS_DOCKER_INVENTORY}} {{PB_WORLDMONITOR}} || true
-    ansible-playbook --syntax-check -i {{WINDOWS_DOCKER_INVENTORY}} {{PB_BASE_DEV}} || true
-    ansible-playbook --syntax-check -i {{WINDOWS_DOCKER_INVENTORY}} -i {{INVENTORY}} {{PB_RUSTFS}} || true
-    ansible-playbook --syntax-check -i {{WINDOWS_DOCKER_INVENTORY}} -i {{INVENTORY}} {{PB_WAZUH}} || true
-    ansible-playbook --syntax-check -i {{WINDOWS_DOCKER_INVENTORY}} {{PB_CROC_RELAY}} || true
-    ansible-playbook --syntax-check -i {{INVENTORY}} {{PB_LOCAL_REGISTRY}} || true
-    ansible-playbook --syntax-check -i {{MACOS_INVENTORY}} {{PB_MACOS_BOOTSTRAP}} || true
-    ansible-playbook --syntax-check -i {{WINDOWS_DOCKER_INVENTORY}} {{PB_WINDOWS_HARDEN}} || true
-    ansible-playbook --syntax-check -i {{LOCALNET_INVENTORY}} {{PB_LOCALNET_TAILSCALE}} || true
-    ansible-playbook --syntax-check -i {{LOCALNET_INVENTORY}} {{PB_AI_INFERENCE}} || true
+    @echo "Checking playbook syntax (generic, no inventory)..."
+    @for pb in {{ANSIBLE_ROOT}}/playbooks/*.yml; do \
+        echo "  → $$(basename $$pb)"; \
+        ansible-playbook --syntax-check "$$pb" 2>&1 | grep -v "^$" || true; \
+    done
+    @echo "For client-specific syntax checks (with inventory), run: cd levonk && just levonk-syntax"
     @echo "Syntax check complete."
 
 # -- Molecule Tests (Docker-backed) --
@@ -314,152 +303,9 @@ ansible-test-env-stop:
     docker rm {{ANSIBLE_TEST_CONTAINER}} || true
 
 # -- Deploy Playbooks --
-
-ansible-deploy-bootstrap:
-    devbox run ansible-deploy-bootstrap
-
-ansible-deploy-bootstrap-internal:
-    @echo "Deploying bootstrap playbook..."
-    ansible-playbook -i {{INVENTORY}} {{PB_BOOTSTRAP}}
-
-ansible-deploy-vpn:
-    devbox run ansible-deploy-vpn
-
-ansible-deploy-vpn-internal:
-    @echo "Deploying VPN playbook..."
-    ansible-playbook -i {{INVENTORY}} {{PB_VPN}} --ask-vault-pass
-
-ansible-deploy-nordvpn:
-    devbox run ansible-deploy-nordvpn
-
-ansible-deploy-nordvpn-internal:
-    @echo "Deploying NordVPN playbook..."
-    bash scripts/deploy-nordvpn.sh
-
-ansible-deploy-infra:
-    devbox run ansible-deploy-infra
-
-ansible-deploy-infra-internal:
-    @echo "Deploying infrastructure playbook..."
-    ansible-playbook -i {{INVENTORY}} {{PB_INFRA}}
-
-ansible-deploy-vms:
-    devbox run ansible-deploy-vms
-
-ansible-deploy-vms-internal:
-    @echo "Deploying VM playbook..."
-    ansible-playbook -i {{INVENTORY}} {{PB_VMS}}
-
-ansible-deploy-site:
-    devbox run ansible-deploy-site
-
-ansible-deploy-site-internal:
-    @echo "Deploying site playbook (full stack)..."
-    ansible-playbook -i {{INVENTORY}} {{PB_SITE}}
-    @echo "Regenerating service catalog..."
-    just generate-service-catalog-internal
-
-# -- Local Network Deployment --
-
-ansible-deploy-localnet-tailscale:
-    devbox run ansible-deploy-localnet-tailscale
-
-ansible-deploy-localnet-tailscale-internal:
-    @echo "Deploying Tailscale to local network hosts..."
-    ansible-playbook -i {{LOCALNET_INVENTORY}} {{PB_LOCALNET_TAILSCALE}} --ask-vault-pass
-
-# -- Windows Docker Desktop Deployment --
-
-WINDOWS_DOCKER_INVENTORY := INFRAHUB_ROOT + "/levonk/active/02-config/ansible/inventories/windows-docker.yml"
-PB_WINDOWS_BOOTSTRAP := ANSIBLE_ROOT + "/playbooks/bootstrap-windows-docker-host.yml"
-PB_WINDOWS_HARDEN := ANSIBLE_ROOT + "/playbooks/harden-windows-host.yml"
-PB_WORLDMONITOR := ANSIBLE_ROOT + "/playbooks/deploy-worldmonitor.yml"
-PB_BASE_DEV := ANSIBLE_ROOT + "/playbooks/deploy-base-dev.yml"
-PB_RUSTFS := ANSIBLE_ROOT + "/playbooks/deploy-rustfs.yml"
-PB_CROC_RELAY := ANSIBLE_ROOT + "/playbooks/deploy-croc-relay.yml"
-PB_WAZUH := ANSIBLE_ROOT + "/playbooks/deploy-wazuh.yml"
-PB_LOCAL_REGISTRY := ANSIBLE_ROOT + "/playbooks/deploy-local-registry.yml"
-PB_WINDOWS_EXIT_NODES := ANSIBLE_ROOT + "/playbooks/deploy-windows-exit-nodes.yml"
-
-ansible-deploy-local-registry:
-    devbox run ansible-deploy-local-registry
-
-ansible-deploy-local-registry-internal:
-    @echo "Deploying local Docker registry on OCI cloud server..."
-    ansible-playbook -i {{INVENTORY}} {{PB_LOCAL_REGISTRY}} --vault-password-file ~/.ansible/vault_password
-
-ansible-bootstrap-windows-docker:
-    devbox run ansible-bootstrap-windows-docker
-
-ansible-bootstrap-windows-docker-internal:
-    @echo "Bootstrapping Windows Docker host (WSL2, Docker Desktop, Git, Tailscale, registry config)..."
-    ansible-playbook -i {{WINDOWS_DOCKER_INVENTORY}} {{PB_WINDOWS_BOOTSTRAP}} --vault-password-file ~/.ansible/vault_password
-
-ansible-harden-windows:
-    devbox run ansible-harden-windows
-
-ansible-harden-windows-internal:
-    @echo "Hardening Windows host (SSH config, authorized_keys ACL, RDP, scheduled drift check)..."
-    ansible-playbook -i {{WINDOWS_DOCKER_INVENTORY}} {{PB_WINDOWS_HARDEN}} --vault-password-file ~/.ansible/vault_password
-
-ansible-harden-windows-check:
-    @echo "Dry-run Windows hardening (check mode)..."
-    ansible-playbook -i {{WINDOWS_DOCKER_INVENTORY}} {{PB_WINDOWS_HARDEN}} --check --diff --vault-password-file ~/.ansible/vault_password
-
-ansible-deploy-croc-relay:
-    devbox run ansible-deploy-croc-relay
-
-ansible-deploy-croc-relay-internal:
-    @echo "Deploying Croc relay on Windows Docker host..."
-    ansible-playbook -i {{WINDOWS_DOCKER_INVENTORY}} {{PB_CROC_RELAY}} --vault-password-file ~/.ansible/vault_password
-
-ansible-deploy-croc-relay-check:
-    @echo "Dry-run Croc relay deployment (check mode)..."
-    ansible-playbook -i {{WINDOWS_DOCKER_INVENTORY}} {{PB_CROC_RELAY}} --check --diff --vault-password-file ~/.ansible/vault_password
-
-# -- Hosts-file blocklist (IP-logger/tracker/grabber sinkhole) --
-
-# Deploy the hosts-file blocklist to ALL machines in the levonk inventory
-# (OCI cloud server, isolation VMs, localnet hosts, AI inference host, Windows Docker hosts, macOS hosts).
-# Uses --tags hosts-blocklist so only the blocklist role runs, skipping everything else.
-ansible-deploy-hosts-blocklist:
-    devbox run ansible-deploy-hosts-blocklist-internal
-
-ansible-deploy-hosts-blocklist-internal:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    echo "Deploying hosts-file blocklist to all levonk machines..."
-    echo "  → OCI cloud server + isolation VMs (Oracle Linux)..."
-    ansible-playbook -i {{INVENTORY}} {{PB_BOOTSTRAP}} --tags hosts-blocklist --vault-password-file ~/.ansible/vault_password
-    echo "  → Localnet hosts (Linux)..."
-    ansible-playbook -i {{LOCALNET_INVENTORY}} {{PB_LOCALNET_TAILSCALE}} --tags hosts-blocklist --ask-vault-pass
-    echo "  → AI inference host / kckinai (NVIDIA Linux)..."
-    ansible-playbook -i {{LOCALNET_INVENTORY}} {{PB_AI_INFERENCE}} --tags hosts-blocklist --limit kckinai --ask-vault-pass
-    echo "  → Windows Docker hosts..."
-    ansible-playbook -i {{WINDOWS_DOCKER_INVENTORY}} {{PB_WINDOWS_HARDEN}} --tags hosts-blocklist --vault-password-file ~/.ansible/vault_password
-    echo "  → macOS hosts..."
-    ansible-playbook -i {{MACOS_INVENTORY}} {{PB_MACOS_BOOTSTRAP}} --tags hosts-blocklist --vault-password-file ~/.ansible/vault_password --ask-become-pass
-    echo "Hosts-file blocklist deployed to all machines."
-
-# Dry-run the hosts-file blocklist deployment (check mode, no changes)
-ansible-deploy-hosts-blocklist-check:
-    devbox run ansible-deploy-hosts-blocklist-check-internal
-
-ansible-deploy-hosts-blocklist-check-internal:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    echo "Dry-run hosts-file blocklist deployment (check mode)..."
-    echo "  → OCI cloud server + isolation VMs (Oracle Linux)..."
-    ansible-playbook -i {{INVENTORY}} {{PB_BOOTSTRAP}} --tags hosts-blocklist --check --diff --vault-password-file ~/.ansible/vault_password
-    echo "  → Localnet hosts (Linux)..."
-    ansible-playbook -i {{LOCALNET_INVENTORY}} {{PB_LOCALNET_TAILSCALE}} --tags hosts-blocklist --check --diff --ask-vault-pass
-    echo "  → AI inference host / kckinai (NVIDIA Linux)..."
-    ansible-playbook -i {{LOCALNET_INVENTORY}} {{PB_AI_INFERENCE}} --tags hosts-blocklist --check --diff --limit kckinai --ask-vault-pass
-    echo "  → Windows Docker hosts..."
-    ansible-playbook -i {{WINDOWS_DOCKER_INVENTORY}} {{PB_WINDOWS_HARDEN}} --tags hosts-blocklist --check --diff --vault-password-file ~/.ansible/vault_password
-    echo "  → macOS hosts..."
-    ansible-playbook -i {{MACOS_INVENTORY}} {{PB_MACOS_BOOTSTRAP}} --tags hosts-blocklist --check --diff --vault-password-file ~/.ansible/vault_password --ask-become-pass
-    echo "Dry-run complete."
+# Client-specific deploy/validate recipes have been moved to levonk/justfile.
+# Run them from the levonk/ subdirectory:  cd levonk && just --list
+# Or:  just --justfile levonk/justfile levonk-deploy-exit-nodes-cno
 
 # === PowerShell Lint ===
 
@@ -473,133 +319,17 @@ ps-lint-internal:
     pwsh -NoProfile -File "{{INFRAHUB_ROOT}}/shared/scripts/ps-lint.ps1" "{{INFRAHUB_ROOT}}"
     echo "PSScriptAnalyzer complete."
 
-ansible-deploy-worldmonitor:
-    devbox run ansible-deploy-worldmonitor
-
-ansible-deploy-worldmonitor-internal:
-    @echo "Building images on Mac, pushing to registry, deploying on Windows..."
-    ansible-playbook -i {{WINDOWS_DOCKER_INVENTORY}} {{PB_WORLDMONITOR}} --vault-password-file ~/.ansible/vault_password
-
-ansible-deploy-worldmonitor-check:
-    @echo "Dry-run WorldMonitor deployment (check mode)..."
-    ansible-playbook -i {{WINDOWS_DOCKER_INVENTORY}} {{PB_WORLDMONITOR}} --check --diff --vault-password-file ~/.ansible/vault_password
-
-# Deploy NordVPN + Tor exit nodes on Windows Docker Desktop host
-ansible-deploy-windows-exit-nodes:
-    devbox run ansible-deploy-windows-exit-nodes-internal
-
-ansible-deploy-windows-exit-nodes-internal:
-    @echo "Deploying NordVPN + Tor exit nodes on Windows Docker host..."
-    ansible-playbook -i {{WINDOWS_DOCKER_INVENTORY}} {{PB_WINDOWS_EXIT_NODES}} --vault-password-file ~/.ansible/vault_password
-
-ansible-deploy-windows-exit-nodes-check:
-    @echo "Dry-run Windows exit nodes deployment (check mode)..."
-    ansible-playbook -i {{WINDOWS_DOCKER_INVENTORY}} {{PB_WINDOWS_EXIT_NODES}} --check --diff --vault-password-file ~/.ansible/vault_password
-
-ansible-deploy-base-dev:
-    devbox run ansible-deploy-base-dev
-
-ansible-deploy-base-dev-internal:
-    @echo "Building base-dev image on Mac, pushing to registry, deploying on Windows..."
-    ansible-playbook -i {{WINDOWS_DOCKER_INVENTORY}} {{PB_BASE_DEV}} --vault-password-file ~/.ansible/vault_password
-
-ansible-deploy-rustfs:
-    devbox run ansible-deploy-rustfs
-
-ansible-deploy-rustfs-internal:
-    @echo "Deploying RustFS to Windows Docker host and Traefik on OCI..."
-    ansible-playbook -i {{WINDOWS_DOCKER_INVENTORY}} -i {{INVENTORY}} {{PB_RUSTFS}} --vault-password-file ~/.ansible/vault_password
-
-ansible-deploy-rustfs-check:
-    @echo "Dry-run RustFS deployment (check mode) on Windows Docker host and OCI..."
-    ansible-playbook -i {{WINDOWS_DOCKER_INVENTORY}} -i {{INVENTORY}} {{PB_RUSTFS}} --check --diff --vault-password-file ~/.ansible/vault_password
-
-# -- Wazuh SIEM/XDR Deployment --
-
-ansible-deploy-wazuh:
-    devbox run ansible-deploy-wazuh
-
-ansible-deploy-wazuh-internal:
-    @echo "Deploying Wazuh SIEM/XDR to Windows Docker host and Traefik on OCI..."
-    ansible-playbook -i {{WINDOWS_DOCKER_INVENTORY}} -i {{INVENTORY}} {{PB_WAZUH}} --vault-password-file ~/.ansible/vault_password
-
-ansible-deploy-wazuh-check:
-    @echo "Dry-run Wazuh deployment (check mode) on Windows Docker host and OCI..."
-    ansible-playbook -i {{WINDOWS_DOCKER_INVENTORY}} -i {{INVENTORY}} {{PB_WAZUH}} --check --diff --vault-password-file ~/.ansible/vault_password
-
-# -- macOS Host Deployment --
-
-MACOS_INVENTORY := INFRAHUB_ROOT + "/levonk/active/02-config/ansible/inventories/macos-hosts.yml"
-PB_MACOS_BOOTSTRAP := ANSIBLE_ROOT + "/playbooks/bootstrap-macos-host.yml"
-
-ansible-bootstrap-macos:
-    devbox run ansible-bootstrap-macos-internal
-
-ansible-bootstrap-macos-internal:
-    @echo "Bootstrapping macOS host (Nix, Homebrew, OrbStack, apps, Tailscale, Netbird)..."
-    ansible-playbook -i {{MACOS_INVENTORY}} {{PB_MACOS_BOOTSTRAP}} --vault-password-file ~/.ansible/vault_password --ask-become-pass
-
-ansible-bootstrap-macos-check:
-    @echo "Dry-run macOS bootstrap (check mode)..."
-    ansible-playbook -i {{MACOS_INVENTORY}} {{PB_MACOS_BOOTSTRAP}} --check --diff --vault-password-file ~/.ansible/vault_password --ask-become-pass
+# === Manual Bootstrap Scripts (run ON the target machine) ===
 
 # Run the manual bootstrap script on a target Mac (run ON the target, not control machine)
-# Uses embedded default key (lzkmbp2016-micro-oracle); override with --ssh-key <path>
-# Usage: just macos-manual-bootstrap
 macos-manual-bootstrap *ARGS:
     @echo "Running manual bootstrap script..."
     bash {{INFRAHUB_ROOT}}/shared/scripts/bootstrap-macos-manual.sh {{ARGS}}
 
 # Run the manual bootstrap script on a target Windows machine (run ON the target, not control machine)
-# Uses embedded default key (lzkmbp2016-micro-oracle); override with -SshKey <path>
-# Usage: just windows-manual-bootstrap
 windows-manual-bootstrap *ARGS:
     @echo "Run this on the target Windows machine in admin PowerShell:"
     @echo "  powershell -ExecutionPolicy Bypass -File shared\scripts\bootstrap-windows-manual.ps1 {{ARGS}}"
-
-# -- Validation Playbooks --
-
-ansible-validate-bootstrap:
-    devbox run ansible-validate-bootstrap-internal
-
-ansible-validate-bootstrap-internal:
-    @echo "Validating bootstrap deployment..."
-    ansible-playbook -i {{INVENTORY}} {{PB_VAL_BOOTSTRAP}}
-
-ansible-validate-vpn:
-    devbox run ansible-validate-vpn-internal
-
-ansible-validate-vpn-internal:
-    @echo "Validating VPN deployment..."
-    ansible-playbook -i {{INVENTORY}} {{PB_VAL_VPN}}
-
-ansible-validate-infra:
-    devbox run ansible-validate-infra-internal
-
-ansible-validate-infra-internal:
-    @echo "Validating infrastructure deployment..."
-    ansible-playbook -i {{INVENTORY}} {{PB_VAL_INFRA}}
-
-ansible-validate-vms:
-    devbox run ansible-validate-vms-internal
-
-ansible-validate-vms-internal:
-    @echo "Validating VM deployment..."
-    ansible-playbook -i {{INVENTORY}} {{PB_VAL_VMS}}
-
-ansible-validate-all:
-    @echo "Running all validation playbooks..."
-    just ansible-validate-bootstrap-internal
-    just ansible-validate-vpn-internal
-    just ansible-validate-infra-internal
-    just ansible-validate-vms-internal
-
-ansible-final-audit:
-    devbox run ansible-final-audit-internal
-
-ansible-final-audit-internal:
-    @echo "Running final security audit..."
-    ansible-playbook -i {{INVENTORY}} {{PB_FINAL_AUDIT}}
 
 # === Service Catalog Generation ===
 
