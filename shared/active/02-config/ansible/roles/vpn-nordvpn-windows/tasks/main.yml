@@ -2,12 +2,11 @@
 # NordVPN Exit Node for Windows Docker Desktop
 # Deploys NordVPN (gluetun) + Tailscale exit node container on Windows Docker Desktop.
 #
-# Uses community.docker modules with docker_host: ssh:// + delegate_to: localhost.
-# The modules run on the Ansible controller (Mac/Linux) and connect to the Windows
-# Docker daemon via SSH. This complies with Architectural Invariant #4 (community.docker
-# modules manage containers — NEVER docker compose / docker run via shell).
+# Uses ansible.builtin.command with the docker CLI and DOCKER_HOST environment variable.
+# The docker CLI uses the system SSH client (not paramiko) to connect to the Windows
+# Docker daemon via SSH, which works correctly with Tailscale SSH config and keys.
 #
-# Reference: roles/p2p-freenet/tasks/main.yml for the delegate_to + docker_host pattern.
+# Reference: roles/p2p-freenet/tasks/main.yml for the delegate_to + DOCKER_HOST pattern.
 
 # 1. Validate required variables
 - name: "Validate required NordVPN Windows variables"
@@ -26,231 +25,228 @@
     success_msg: "All required NordVPN Windows variables are defined."
   tags: ["always", "validate"]
 
-# 2. Pull images via community.docker (runs on controller, connects to Windows Docker)
+# 2. Pull images via docker CLI (runs on controller, connects to Windows Docker via SSH)
 - name: "Pull gluetun NordVPN image"
-  community.docker.docker_image:
-    name: "{{ vpn_nordvpn_windows_image }}"
-    source: pull
-    state: present
+  ansible.builtin.command: "docker pull {{ vpn_nordvpn_windows_image }}"
+  environment:
+    DOCKER_HOST: "{{ vpn_nordvpn_windows_docker_host }}"
   delegate_to: localhost
-  vars:
-    ansible_docker_host: "{{ vpn_nordvpn_windows_docker_host }}"
+  changed_when: true
   tags: ["deploy", "pull"]
 
 - name: "Pull Tailscale image"
-  community.docker.docker_image:
-    name: "{{ vpn_nordvpn_windows_tailscale_image }}"
-    source: pull
-    state: present
+  ansible.builtin.command: "docker pull {{ vpn_nordvpn_windows_tailscale_image }}"
+  environment:
+    DOCKER_HOST: "{{ vpn_nordvpn_windows_docker_host }}"
   delegate_to: localhost
-  vars:
-    ansible_docker_host: "{{ vpn_nordvpn_windows_docker_host }}"
+  changed_when: true
   tags: ["deploy", "pull"]
 
-# 3. Create Docker network via community.docker
+# 3. Create Docker network
 - name: "Create NordVPN Windows Docker network"
-  community.docker.docker_network:
-    name: "{{ vpn_nordvpn_windows_network_name }}"
-    state: present
-    driver: bridge
-    ipam_config:
-      - subnet: "{{ vpn_nordvpn_windows_network_subnet }}"
-        gateway: "{{ vpn_nordvpn_windows_network_gateway }}"
+  ansible.builtin.shell: >-
+    docker network inspect {{ vpn_nordvpn_windows_network_name }} 2>/dev/null
+    || docker network create --driver bridge
+    --subnet {{ vpn_nordvpn_windows_network_subnet }}
+    --gateway {{ vpn_nordvpn_windows_network_gateway }}
+    {{ vpn_nordvpn_windows_network_name }}
+  environment:
+    DOCKER_HOST: "{{ vpn_nordvpn_windows_docker_host }}"
   delegate_to: localhost
-  vars:
-    ansible_docker_host: "{{ vpn_nordvpn_windows_docker_host }}"
+  changed_when: false
   tags: ["deploy", "network"]
 
-# 4. Create volumes via community.docker
+# 4. Create volumes
 - name: "Create NordVPN Windows volumes"
-  community.docker.docker_volume:
-    name: "{{ item }}"
-    state: present
+  ansible.builtin.shell: >-
+    docker volume inspect {{ item }} 2>/dev/null
+    || docker volume create {{ item }}
+  environment:
+    DOCKER_HOST: "{{ vpn_nordvpn_windows_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
   loop:
     - "{{ vpn_nordvpn_windows_config_volume_name }}"
     - "{{ vpn_nordvpn_windows_data_volume_name }}"
     - "{{ vpn_nordvpn_windows_tailscale_state_volume_name }}"
-  delegate_to: localhost
-  vars:
-    ansible_docker_host: "{{ vpn_nordvpn_windows_docker_host }}"
   tags: ["deploy", "volume"]
 
-# 5. Remove legacy containers (name migration: nordvpn-windows → nordvpn, tailscale-nordvpn-windows → vpn-tailscale-exit)
+# 5. Remove legacy containers (name migration)
 - name: "Remove legacy nordvpn-windows container"
-  community.docker.docker_container:
-    name: "nordvpn-windows"
-    state: absent
-    force_kill: true
+  ansible.builtin.command: "docker rm -f nordvpn-windows"
+  environment:
+    DOCKER_HOST: "{{ vpn_nordvpn_windows_docker_host }}"
   delegate_to: localhost
-  vars:
-    ansible_docker_host: "{{ vpn_nordvpn_windows_docker_host }}"
-  ignore_errors: true
+  changed_when: false
+  failed_when: false
   tags: ["deploy", "migrate"]
 
 - name: "Remove legacy tailscale-nordvpn-windows container"
-  community.docker.docker_container:
-    name: "tailscale-nordvpn-windows"
-    state: absent
-    force_kill: true
+  ansible.builtin.command: "docker rm -f tailscale-nordvpn-windows"
+  environment:
+    DOCKER_HOST: "{{ vpn_nordvpn_windows_docker_host }}"
   delegate_to: localhost
-  vars:
-    ansible_docker_host: "{{ vpn_nordvpn_windows_docker_host }}"
-  ignore_errors: true
+  changed_when: false
+  failed_when: false
   tags: ["deploy", "migrate"]
 
-# 6. Deploy NordVPN (gluetun) container via community.docker
-- name: "Deploy NordVPN Windows container"
-  community.docker.docker_container:
-    name: "{{ vpn_nordvpn_windows_container_name }}"
-    image: "{{ vpn_nordvpn_windows_image }}"
-    state: started
-    restart_policy: unless-stopped
-    capabilities:
-      - NET_ADMIN
-      - NET_RAW
-    devices:
-      - /dev/net/tun:/dev/net/tun
-    env:
-      VPN_SERVICE_PROVIDER: "nordvpn"
-      OPENVPN_VERSION: "2.6"
-      SERVER_COUNTRIES: "{{ vpn_nordvpn_windows_country }}"
-      OPENVPN_USER: "{{ vpn_nordvpn_windows_openvpn_user }}"
-      OPENVPN_PASSWORD: "{{ vpn_nordvpn_windows_openvpn_pass }}"
-      FIREWALL: "on"
-      DOT: "on"
-      TZ: "{{ vpn_nordvpn_windows_tz }}"
-      HTTPPROXY: "on"
-      HTTPPROXY_PORT: "{{ vpn_nordvpn_windows_http_container_port | string }}"
-      HTTPSPROXY: "on"
-      HTTPSPROXY_PORT: "{{ vpn_nordvpn_windows_https_container_port | string }}"
-      SHADOWSOCKS: "on"
-      SHADOWSOCKS_PORT: "{{ vpn_nordvpn_windows_shadowsocks_container_port | string }}"
-    published_ports:
-      - "{{ vpn_nordvpn_windows_socks_host_port }}:{{ vpn_nordvpn_windows_socks_container_port }}"
-      - "{{ vpn_nordvpn_windows_http_host_port }}:{{ vpn_nordvpn_windows_http_container_port }}"
-      - "{{ vpn_nordvpn_windows_https_host_port }}:{{ vpn_nordvpn_windows_https_container_port }}"
-      - "{{ vpn_nordvpn_windows_shadowsocks_host_port }}:{{ vpn_nordvpn_windows_shadowsocks_container_port }}"
-    networks:
-      - name: "{{ vpn_nordvpn_windows_network_name }}"
-    sysctls:
-      net.ipv4.ip_forward: "1"
-      net.ipv6.conf.all.forwarding: "1"
-    security_opts:
-      - no-new-privileges:true
-    volumes:
-      - "{{ vpn_nordvpn_windows_config_volume_name }}:/gluetun"
-      - "{{ vpn_nordvpn_windows_data_volume_name }}:/tmp/gluetun"
-    log_driver: json-file
-    log_options:
-      max-size: "10m"
-      max-file: "5"
+# 6. Remove existing containers for redeploy (idempotent recreation)
+- name: "Remove existing NordVPN container for redeploy"
+  ansible.builtin.command: "docker rm -f {{ vpn_nordvpn_windows_container_name }}"
+  environment:
+    DOCKER_HOST: "{{ vpn_nordvpn_windows_docker_host }}"
   delegate_to: localhost
-  vars:
-    ansible_docker_host: "{{ vpn_nordvpn_windows_docker_host }}"
-  no_log: true
+  changed_when: false
+  failed_when: false
   tags: ["deploy", "container"]
 
-# 7. Wait for NordVPN to initialize
+- name: "Remove existing Tailscale NordVPN container for redeploy"
+  ansible.builtin.command: "docker rm -f {{ vpn_nordvpn_windows_tailscale_container_name }}"
+  environment:
+    DOCKER_HOST: "{{ vpn_nordvpn_windows_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  failed_when: false
+  tags: ["deploy", "container"]
+
+# 7. Deploy NordVPN (gluetun) container
+- name: "Deploy NordVPN Windows container"
+  ansible.builtin.shell: >-
+    docker run -d
+    --name {{ vpn_nordvpn_windows_container_name }}
+    --restart unless-stopped
+    --cap-add NET_ADMIN
+    --cap-add NET_RAW
+    --device /dev/net/tun:/dev/net/tun
+    --network {{ vpn_nordvpn_windows_network_name }}
+    --sysctl net.ipv4.ip_forward=1
+    --sysctl net.ipv6.conf.all.forwarding=1
+    --security-opt no-new-privileges:true
+    -e VPN_SERVICE_PROVIDER=nordvpn
+    -e OPENVPN_VERSION=2.6
+    -e "SERVER_COUNTRIES={{ vpn_nordvpn_windows_country }}"
+    -e "OPENVPN_USER={{ vpn_nordvpn_windows_openvpn_user }}"
+    -e "OPENVPN_PASSWORD={{ vpn_nordvpn_windows_openvpn_pass }}"
+    -e FIREWALL=on
+    -e DOT=on
+    -e TZ={{ vpn_nordvpn_windows_tz }}
+    -e HTTPPROXY=on
+    -e HTTPPROXY_PORT={{ vpn_nordvpn_windows_http_container_port | string }}
+    -e HTTPSPROXY=on
+    -e HTTPSPROXY_PORT={{ vpn_nordvpn_windows_https_container_port | string }}
+    -e SHADOWSOCKS=on
+    -e SHADOWSOCKS_PORT={{ vpn_nordvpn_windows_shadowsocks_container_port | string }}
+    -p {{ vpn_nordvpn_windows_socks_host_port }}:{{ vpn_nordvpn_windows_socks_container_port }}
+    -p {{ vpn_nordvpn_windows_http_host_port }}:{{ vpn_nordvpn_windows_http_container_port }}
+    -p {{ vpn_nordvpn_windows_https_host_port }}:{{ vpn_nordvpn_windows_https_container_port }}
+    -p {{ vpn_nordvpn_windows_shadowsocks_host_port }}:{{ vpn_nordvpn_windows_shadowsocks_container_port }}
+    -v {{ vpn_nordvpn_windows_config_volume_name }}:/gluetun
+    -v {{ vpn_nordvpn_windows_data_volume_name }}:/tmp/gluetun
+    --log-driver json-file
+    --log-opt max-size=10m
+    --log-opt max-file=5
+    {{ vpn_nordvpn_windows_image }}
+  environment:
+    DOCKER_HOST: "{{ vpn_nordvpn_windows_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "container"]
+
+# 8. Wait for NordVPN to initialize
 - name: "Wait for NordVPN Windows container to initialize"
   ansible.builtin.pause:
     seconds: 15
   tags: ["deploy", "wait"]
 
-# 8. Deploy Tailscale exit node container (routes through NordVPN)
+# 9. Deploy Tailscale exit node container (routes through NordVPN)
 - name: "Deploy Tailscale NordVPN Windows exit node container"
-  community.docker.docker_container:
-    name: "{{ vpn_nordvpn_windows_tailscale_container_name }}"
-    image: "{{ vpn_nordvpn_windows_tailscale_image }}"
-    state: started
-    restart_policy: unless-stopped
-    networks:
-      - name: "{{ vpn_nordvpn_windows_network_name }}"
-    capabilities:
-      - NET_ADMIN
-    devices:
-      - /dev/net/tun:/dev/net/tun
-    env:
-      TS_AUTHKEY: "{{ vpn_tailscale_windows_auth_key }}"
-      TS_HOSTNAME: "{{ vpn_tailscale_windows_nordvpn_hostname }}"
-      TS_STATE_DIR: "/var/lib/tailscale"
-      TS_EXTRA_ARGS: "--advertise-exit-node --accept-routes"
-      TZ: "{{ vpn_nordvpn_windows_tz }}"
-    sysctls:
-      net.ipv4.ip_forward: "1"
-      net.ipv6.conf.all.forwarding: "1"
-    security_opts:
-      - no-new-privileges:true
-    volumes:
-      - "{{ vpn_nordvpn_windows_tailscale_state_volume_name }}:/var/lib/tailscale"
-    log_driver: json-file
-    log_options:
-      max-size: "10m"
-      max-file: "5"
+  ansible.builtin.shell: >-
+    docker run -d
+    --name {{ vpn_nordvpn_windows_tailscale_container_name }}
+    --restart unless-stopped
+    --network {{ vpn_nordvpn_windows_network_name }}
+    --cap-add NET_ADMIN
+    --device /dev/net/tun:/dev/net/tun
+    --sysctl net.ipv4.ip_forward=1
+    --sysctl net.ipv6.conf.all.forwarding=1
+    --security-opt no-new-privileges:true
+    -e TS_AUTHKEY={{ vpn_tailscale_windows_auth_key }}
+    -e TS_HOSTNAME={{ vpn_tailscale_windows_nordvpn_hostname }}
+    -e TS_STATE_DIR=/var/lib/tailscale
+    -e 'TS_EXTRA_ARGS=--advertise-exit-node --accept-routes'
+    -e TZ={{ vpn_nordvpn_windows_tz }}
+    -v {{ vpn_nordvpn_windows_tailscale_state_volume_name }}:/var/lib/tailscale
+    --log-driver json-file
+    --log-opt max-size=10m
+    --log-opt max-file=5
+    {{ vpn_nordvpn_windows_tailscale_image }}
+  environment:
+    DOCKER_HOST: "{{ vpn_nordvpn_windows_docker_host }}"
   delegate_to: localhost
-  vars:
-    ansible_docker_host: "{{ vpn_nordvpn_windows_docker_host }}"
+  changed_when: true
   no_log: true
   tags: ["deploy", "container"]
 
-# 9. Wait for Tailscale to initialize
+# 10. Wait for Tailscale to initialize
 - name: "Wait for Tailscale NordVPN Windows to initialize"
   ansible.builtin.pause:
     seconds: 30
   tags: ["deploy", "wait"]
 
-# 10. Configure NordVPN as gateway for Tailscale traffic
+# 11. Configure NordVPN as gateway for Tailscale traffic
 - name: "Get NordVPN Windows container IP"
-  community.docker.docker_container_info:
-    name: "{{ vpn_nordvpn_windows_container_name }}"
+  ansible.builtin.shell: >-
+    docker inspect {{ vpn_nordvpn_windows_container_name }}
+    --format '{% raw %}{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}{% endraw %}'
+  environment:
+    DOCKER_HOST: "{{ vpn_nordvpn_windows_docker_host }}"
   delegate_to: localhost
-  vars:
-    ansible_docker_host: "{{ vpn_nordvpn_windows_docker_host }}"
-  register: nordvpn_windows_info
-  tags: ["deploy", "route"]
-
-- name: "Set NordVPN Windows container IP fact"
-  ansible.builtin.set_fact:
-    nordvpn_windows_ip: "{{ nordvpn_windows_info.container.NetworkSettings.Networks[vpn_nordvpn_windows_network_name].IPAddress }}"
-  when: nordvpn_windows_info.container is defined
+  register: nordvpn_windows_ip_result
+  changed_when: false
   tags: ["deploy", "route"]
 
 - name: "Configure NordVPN Windows as gateway for Tailscale traffic"
-  ansible.builtin.command:
-    cmd: >-
-      docker -H {{ vpn_nordvpn_windows_docker_host }} exec
-      {{ vpn_nordvpn_windows_tailscale_container_name }} sh -c
-      'ip route del default 2>/dev/null; ip route add default via {{ nordvpn_windows_ip }}'
+  ansible.builtin.command: >-
+    docker exec {{ vpn_nordvpn_windows_tailscale_container_name }} sh -c
+    'ip route del default 2>/dev/null; ip route add default via {{ nordvpn_windows_ip_result.stdout }}'
+  environment:
+    DOCKER_HOST: "{{ vpn_nordvpn_windows_docker_host }}"
   delegate_to: localhost
   changed_when: true
-  ignore_errors: true
-  when: nordvpn_windows_ip is defined
+  failed_when: false
   tags: ["deploy", "route"]
 
-# 11. Status report
+# 12. Status report
 - name: "Get NordVPN Windows container status"
-  community.docker.docker_container_info:
-    name: "{{ vpn_nordvpn_windows_container_name }}"
+  ansible.builtin.shell: >-
+    docker inspect {{ vpn_nordvpn_windows_container_name }}
+    --format '{% raw %}{{.State.Status}}{{end}}{% endraw %}'
+  environment:
+    DOCKER_HOST: "{{ vpn_nordvpn_windows_docker_host }}"
   delegate_to: localhost
-  vars:
-    ansible_docker_host: "{{ vpn_nordvpn_windows_docker_host }}"
-  register: nordvpn_windows_status_info
+  register: nordvpn_windows_status
+  changed_when: false
+  failed_when: false
   tags: ["always", "info"]
 
 - name: "Get Tailscale NordVPN Windows container status"
-  community.docker.docker_container_info:
-    name: "{{ vpn_nordvpn_windows_tailscale_container_name }}"
+  ansible.builtin.shell: >-
+    docker inspect {{ vpn_nordvpn_windows_tailscale_container_name }}
+    --format '{% raw %}{{.State.Status}}{{end}}{% endraw %}'
+  environment:
+    DOCKER_HOST: "{{ vpn_nordvpn_windows_docker_host }}"
   delegate_to: localhost
-  vars:
-    ansible_docker_host: "{{ vpn_nordvpn_windows_docker_host }}"
-  register: tailscale_nordvpn_windows_status_info
+  register: tailscale_nordvpn_windows_status
+  changed_when: false
+  failed_when: false
   tags: ["always", "info"]
 
 - name: "Report NordVPN Windows exit node status"
   ansible.builtin.debug:
     msg: |
       NordVPN Windows exit node deployed:
-        - NordVPN container: {{ vpn_nordvpn_windows_container_name }} ({{ nordvpn_windows_status_info.container.State.Status | default('unknown') }})
-        - Tailscale container: {{ vpn_nordvpn_windows_tailscale_container_name }} ({{ tailscale_nordvpn_windows_status_info.container.State.Status | default('unknown') }})
+        - NordVPN container: {{ vpn_nordvpn_windows_container_name }} ({{ nordvpn_windows_status.stdout | default('unknown') }})
+        - Tailscale container: {{ vpn_nordvpn_windows_tailscale_container_name }} ({{ tailscale_nordvpn_windows_status.stdout | default('unknown') }})
         - Tailscale hostname: {{ vpn_tailscale_windows_nordvpn_hostname }}
         - Network: {{ vpn_nordvpn_windows_network_name }}
         - SOCKS proxy: {{ infra_tailscale_fqdn_windows_docker | default('dtop202311.tale-grouper.ts.net') }}:{{ vpn_nordvpn_windows_socks_host_port }}

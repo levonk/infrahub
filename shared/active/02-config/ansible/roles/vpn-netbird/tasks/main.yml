@@ -59,12 +59,20 @@
 # ---------------------------------------------------------------------------
 # Install Netbird (RedHat family)
 # ---------------------------------------------------------------------------
+- name: Check if Netbird binary exists (RedHat)
+  ansible.builtin.stat:
+    path: /usr/bin/netbird
+  register: netbird_binary_check
+  when: ansible_facts.os_family == "RedHat"
+
 - name: Remove existing Netbird installation if present (RedHat)
   ansible.builtin.dnf:
     name: netbird
     state: absent
   become: true
-  when: ansible_facts.os_family == "RedHat"
+  when:
+    - ansible_facts.os_family == "RedHat"
+    - not netbird_binary_check.stat.exists
   ignore_errors: true
 
 - name: Download Netbird installation script (RedHat)
@@ -73,13 +81,17 @@
     dest: /tmp/netbird-install.sh
     mode: "0755"
   become: true
-  when: ansible_facts.os_family == "RedHat"
+  when:
+    - ansible_facts.os_family == "RedHat"
+    - not netbird_binary_check.stat.exists
 
 - name: Install Netbird using official script (RedHat)
   ansible.builtin.command:
     cmd: bash /tmp/netbird-install.sh
   become: true
-  when: ansible_facts.os_family == "RedHat"
+  when:
+    - ansible_facts.os_family == "RedHat"
+    - not netbird_binary_check.stat.exists
   notify: restart netbird
 
 # ---------------------------------------------------------------------------

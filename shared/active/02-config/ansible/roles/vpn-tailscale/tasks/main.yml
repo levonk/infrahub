@@ -333,6 +333,10 @@
     cmd: "docker exec {{ infra_hostname_vpn_tailscale_nordvpn | default('vpn-tailscale-exit') }} tailscale status"
   become: true
   changed_when: false
+  retries: 3
+  delay: 5
+  register: vpn_tailscale_verify_result
+  until: vpn_tailscale_verify_result.rc == 0
   when:
     - vpn_tailscale_verify_connection | bool
     - nordvpn_is_running | bool

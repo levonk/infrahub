@@ -2,12 +2,11 @@
 # Tor Exit Node for Windows Docker Desktop
 # Deploys Tor exit node + Tailscale exit node container on Windows Docker Desktop.
 #
-# Uses community.docker modules with docker_host: ssh:// + delegate_to: localhost.
-# The modules run on the Ansible controller (Mac/Linux) and connect to the Windows
-# Docker daemon via SSH. This complies with Architectural Invariant #4 (community.docker
-# modules manage containers — NEVER docker compose / docker run via shell).
+# Uses ansible.builtin.command with the docker CLI and DOCKER_HOST environment variable.
+# The docker CLI uses the system SSH client (not paramiko) to connect to the Windows
+# Docker daemon via SSH, which works correctly with Tailscale SSH config and keys.
 #
-# Reference: roles/p2p-freenet/tasks/main.yml for the delegate_to + docker_host pattern.
+# Reference: roles/p2p-freenet/tasks/main.yml for the delegate_to + DOCKER_HOST pattern.
 
 # 1. Validate required variables
 - name: "Validate required Tor Windows variables"
@@ -26,198 +25,224 @@
     success_msg: "All required Tor Windows variables are defined."
   tags: ["always", "validate"]
 
-# 2. Pull images via community.docker (runs on controller, connects to Windows Docker)
-- name: "Pull Tor exit node image"
-  community.docker.docker_image:
-    name: "{{ vpn_tor_windows_tor_image }}"
-    source: pull
-    state: present
+# 2. Pull images via docker CLI (skip if image is already loaded)
+- name: "Check if Tor exit node image exists"
+  ansible.builtin.command: "docker image inspect {{ vpn_tor_windows_tor_image }}"
+  environment:
+    DOCKER_HOST: "{{ vpn_tor_windows_docker_host }}"
   delegate_to: localhost
-  vars:
-    ansible_docker_host: "{{ vpn_tor_windows_docker_host }}"
+  changed_when: false
+  failed_when: false
+  register: tor_image_check
+  tags: ["deploy", "pull"]
+
+- name: "Pull Tor exit node image"
+  ansible.builtin.command: "docker pull {{ vpn_tor_windows_tor_image }}"
+  environment:
+    DOCKER_HOST: "{{ vpn_tor_windows_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  when: tor_image_check.rc != 0
+  tags: ["deploy", "pull"]
+
+- name: "Check if Tailscale image exists"
+  ansible.builtin.command: "docker image inspect {{ vpn_tor_windows_tailscale_image }}"
+  environment:
+    DOCKER_HOST: "{{ vpn_tor_windows_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  failed_when: false
+  register: tailscale_image_check
   tags: ["deploy", "pull"]
 
 - name: "Pull Tailscale image"
-  community.docker.docker_image:
-    name: "{{ vpn_tor_windows_tailscale_image }}"
-    source: pull
-    state: present
+  ansible.builtin.command: "docker pull {{ vpn_tor_windows_tailscale_image }}"
+  environment:
+    DOCKER_HOST: "{{ vpn_tor_windows_docker_host }}"
   delegate_to: localhost
-  vars:
-    ansible_docker_host: "{{ vpn_tor_windows_docker_host }}"
+  changed_when: true
+  when: tailscale_image_check.rc != 0
   tags: ["deploy", "pull"]
 
-# 3. Create Docker network via community.docker
+# 3. Create Docker network
 - name: "Create Tor Windows Docker network"
-  community.docker.docker_network:
-    name: "{{ vpn_tor_windows_network_name }}"
-    state: present
-    driver: bridge
-    ipam_config:
-      - subnet: "{{ vpn_tor_windows_network_subnet }}"
-        gateway: "{{ vpn_tor_windows_network_gateway }}"
+  ansible.builtin.shell: >-
+    docker network inspect {{ vpn_tor_windows_network_name }} 2>/dev/null
+    || docker network create --driver bridge
+    --subnet {{ vpn_tor_windows_network_subnet }}
+    --gateway {{ vpn_tor_windows_network_gateway }}
+    {{ vpn_tor_windows_network_name }}
+  environment:
+    DOCKER_HOST: "{{ vpn_tor_windows_docker_host }}"
   delegate_to: localhost
-  vars:
-    ansible_docker_host: "{{ vpn_tor_windows_docker_host }}"
+  changed_when: false
   tags: ["deploy", "network"]
 
-# 4. Create volumes via community.docker
+# 4. Create volumes
 - name: "Create Tor Windows volumes"
-  community.docker.docker_volume:
-    name: "{{ item }}"
-    state: present
+  ansible.builtin.shell: >-
+    docker volume inspect {{ item }} 2>/dev/null
+    || docker volume create {{ item }}
+  environment:
+    DOCKER_HOST: "{{ vpn_tor_windows_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
   loop:
     - "{{ vpn_tor_windows_config_volume_name }}"
     - "{{ vpn_tor_windows_data_volume_name }}"
     - "{{ vpn_tor_windows_logs_volume_name }}"
     - "{{ vpn_tor_windows_tailscale_state_volume_name }}"
-  delegate_to: localhost
-  vars:
-    ansible_docker_host: "{{ vpn_tor_windows_docker_host }}"
   tags: ["deploy", "volume"]
 
-# 5. Remove legacy containers (name migration: tor-exit-windows → tor-exit, tailscale-tor-windows → tor-tailscale-exit)
+# 5. Remove legacy containers (name migration)
 - name: "Remove legacy tor-exit-windows container"
-  community.docker.docker_container:
-    name: "tor-exit-windows"
-    state: absent
-    force_kill: true
+  ansible.builtin.command: "docker rm -f tor-exit-windows"
+  environment:
+    DOCKER_HOST: "{{ vpn_tor_windows_docker_host }}"
   delegate_to: localhost
-  vars:
-    ansible_docker_host: "{{ vpn_tor_windows_docker_host }}"
-  ignore_errors: true
+  changed_when: false
+  failed_when: false
   tags: ["deploy", "migrate"]
 
 - name: "Remove legacy tailscale-tor-windows container"
-  community.docker.docker_container:
-    name: "tailscale-tor-windows"
-    state: absent
-    force_kill: true
+  ansible.builtin.command: "docker rm -f tailscale-tor-windows"
+  environment:
+    DOCKER_HOST: "{{ vpn_tor_windows_docker_host }}"
   delegate_to: localhost
-  vars:
-    ansible_docker_host: "{{ vpn_tor_windows_docker_host }}"
-  ignore_errors: true
+  changed_when: false
+  failed_when: false
   tags: ["deploy", "migrate"]
 
-# 6. Deploy Tor exit node container via community.docker
-- name: "Deploy Tor Windows exit node container"
-  community.docker.docker_container:
-    name: "{{ vpn_tor_windows_tor_container_name }}"
-    image: "{{ vpn_tor_windows_tor_image }}"
-    state: started
-    restart_policy: unless-stopped
-    capabilities:
-      - NET_ADMIN
-    env:
-      PROXY_TOR_SOCKS5_CONTAINER_PORT: "{{ vpn_tor_windows_socks5_container_port | string }}"
-      PROXY_TOR_EXIT_NODE_ENABLED: "true"
-      PROXY_TOR_ORPORT: "{{ vpn_tor_windows_orport_container_port | string }}"
-      PROXY_TOR_DIRPORT: "{{ vpn_tor_windows_dirport_container_port | string }}"
-      PROXY_TOR_NICKNAME: "{{ proxy_tor_windows_nickname }}"
-      PROXY_TOR_CONTACT_INFO: "{{ proxy_tor_windows_contact_info }}"
-      PROXY_TOR_EXIT_POLICY: "{{ proxy_tor_windows_exit_policy }}"
-      PROXY_TOR_BANDWIDTH_RATE: "{{ proxy_tor_windows_bandwidth_rate }}"
-      PROXY_TOR_BANDWIDTH_BURST: "{{ proxy_tor_windows_bandwidth_burst }}"
-      TZ: "{{ vpn_tor_windows_tz }}"
-    published_ports:
-      - "{{ vpn_tor_windows_socks5_host_port }}:{{ vpn_tor_windows_socks5_container_port }}/tcp"
-      - "{{ vpn_tor_windows_orport_host_port }}:{{ vpn_tor_windows_orport_container_port }}/tcp"
-      - "{{ vpn_tor_windows_dirport_host_port }}:{{ vpn_tor_windows_dirport_container_port }}/tcp"
-    networks:
-      - name: "{{ vpn_tor_windows_network_name }}"
-    sysctls:
-      net.ipv4.ip_forward: "1"
-    security_opts:
-      - no-new-privileges:true
-    volumes:
-      - "{{ vpn_tor_windows_config_volume_name }}:/etc/service/config"
-      - "{{ vpn_tor_windows_data_volume_name }}:/var/lib/tor"
-      - "{{ vpn_tor_windows_logs_volume_name }}:/var/log/tor"
-    log_driver: json-file
-    log_options:
-      max-size: "10m"
-      max-file: "5"
+# 6. Remove existing containers for redeploy
+- name: "Remove existing Tor container for redeploy"
+  ansible.builtin.command: "docker rm -f {{ vpn_tor_windows_tor_container_name }}"
+  environment:
+    DOCKER_HOST: "{{ vpn_tor_windows_docker_host }}"
   delegate_to: localhost
-  vars:
-    ansible_docker_host: "{{ vpn_tor_windows_docker_host }}"
+  changed_when: false
+  failed_when: false
   tags: ["deploy", "container"]
 
-# 7. Wait for Tor to initialize
+- name: "Remove existing Tailscale Tor container for redeploy"
+  ansible.builtin.command: "docker rm -f {{ vpn_tor_windows_tailscale_container_name }}"
+  environment:
+    DOCKER_HOST: "{{ vpn_tor_windows_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  failed_when: false
+  tags: ["deploy", "container"]
+
+# 7. Deploy Tor exit node container
+- name: "Deploy Tor Windows exit node container"
+  ansible.builtin.shell: >-
+    docker run -d
+    --name {{ vpn_tor_windows_tor_container_name }}
+    --restart unless-stopped
+    --cap-add NET_ADMIN
+    --network {{ vpn_tor_windows_network_name }}
+    --sysctl net.ipv4.ip_forward=1
+    --security-opt no-new-privileges:true
+    -e PROXY_TOR_SOCKS5_CONTAINER_PORT={{ vpn_tor_windows_socks5_container_port | string }}
+    -e PROXY_TOR_EXIT_NODE_ENABLED=true
+    -e PROXY_TOR_ORPORT={{ vpn_tor_windows_orport_container_port | string }}
+    -e PROXY_TOR_DIRPORT={{ vpn_tor_windows_dirport_container_port | string }}
+    -e PROXY_TOR_NICKNAME={{ proxy_tor_windows_nickname }}
+    -e PROXY_TOR_CONTACT_INFO={{ proxy_tor_windows_contact_info }}
+    -e 'PROXY_TOR_EXIT_POLICY={{ proxy_tor_windows_exit_policy }}'
+    -e 'PROXY_TOR_BANDWIDTH_RATE={{ proxy_tor_windows_bandwidth_rate }}'
+    -e 'PROXY_TOR_BANDWIDTH_BURST={{ proxy_tor_windows_bandwidth_burst }}'
+    -e TZ={{ vpn_tor_windows_tz }}
+    -p {{ vpn_tor_windows_socks5_host_port }}:{{ vpn_tor_windows_socks5_container_port }}/tcp
+    -p {{ vpn_tor_windows_orport_host_port }}:{{ vpn_tor_windows_orport_container_port }}/tcp
+    -p {{ vpn_tor_windows_dirport_host_port }}:{{ vpn_tor_windows_dirport_container_port }}/tcp
+    -v {{ vpn_tor_windows_config_volume_name }}:/etc/service/config
+    -v {{ vpn_tor_windows_data_volume_name }}:/var/lib/tor
+    -v {{ vpn_tor_windows_logs_volume_name }}:/var/log/tor
+    --log-driver json-file
+    --log-opt max-size=10m
+    --log-opt max-file=5
+    {{ vpn_tor_windows_tor_image }}
+  environment:
+    DOCKER_HOST: "{{ vpn_tor_windows_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "container"]
+
+# 8. Wait for Tor to initialize
 - name: "Wait for Tor Windows container to initialize"
   ansible.builtin.pause:
     seconds: 15
   tags: ["deploy", "wait"]
 
-# 8. Deploy Tailscale exit node container (routes through Tor via ALL_PROXY)
+# 9. Deploy Tailscale exit node container (routes through Tor via ALL_PROXY)
 - name: "Deploy Tailscale Tor Windows exit node container"
-  community.docker.docker_container:
-    name: "{{ vpn_tor_windows_tailscale_container_name }}"
-    image: "{{ vpn_tor_windows_tailscale_image }}"
-    state: started
-    restart_policy: unless-stopped
-    networks:
-      - name: "{{ vpn_tor_windows_network_name }}"
-    capabilities:
-      - NET_ADMIN
-    devices:
-      - /dev/net/tun:/dev/net/tun
-    env:
-      TS_AUTHKEY: "{{ vpn_tailscale_windows_auth_key }}"
-      TS_HOSTNAME: "{{ vpn_tailscale_windows_tor_hostname }}"
-      TS_STATE_DIR: "/var/lib/tailscale"
-      TS_EXTRA_ARGS: "--advertise-exit-node --accept-routes"
-      ALL_PROXY: "socks5://{{ vpn_tor_windows_tor_container_name }}:{{ vpn_tor_windows_socks5_container_port }}"
-      all_proxy: "socks5://{{ vpn_tor_windows_tor_container_name }}:{{ vpn_tor_windows_socks5_container_port }}"
-      TZ: "{{ vpn_tor_windows_tz }}"
-    sysctls:
-      net.ipv4.ip_forward: "1"
-      net.ipv6.conf.all.forwarding: "1"
-    security_opts:
-      - no-new-privileges:true
-    volumes:
-      - "{{ vpn_tor_windows_tailscale_state_volume_name }}:/var/lib/tailscale"
-    log_driver: json-file
-    log_options:
-      max-size: "10m"
-      max-file: "5"
+  ansible.builtin.shell: >-
+    docker run -d
+    --name {{ vpn_tor_windows_tailscale_container_name }}
+    --restart unless-stopped
+    --network {{ vpn_tor_windows_network_name }}
+    --cap-add NET_ADMIN
+    --device /dev/net/tun:/dev/net/tun
+    --sysctl net.ipv4.ip_forward=1
+    --sysctl net.ipv6.conf.all.forwarding=1
+    --security-opt no-new-privileges:true
+    -e TS_AUTHKEY={{ vpn_tailscale_windows_auth_key }}
+    -e TS_HOSTNAME={{ vpn_tailscale_windows_tor_hostname }}
+    -e TS_STATE_DIR=/var/lib/tailscale
+    -e 'TS_EXTRA_ARGS=--advertise-exit-node --accept-routes'
+    -e ALL_PROXY=socks5://{{ vpn_tor_windows_tor_container_name }}:{{ vpn_tor_windows_socks5_container_port }}
+    -e all_proxy=socks5://{{ vpn_tor_windows_tor_container_name }}:{{ vpn_tor_windows_socks5_container_port }}
+    -e TZ={{ vpn_tor_windows_tz }}
+    -v {{ vpn_tor_windows_tailscale_state_volume_name }}:/var/lib/tailscale
+    --log-driver json-file
+    --log-opt max-size=10m
+    --log-opt max-file=5
+    {{ vpn_tor_windows_tailscale_image }}
+  environment:
+    DOCKER_HOST: "{{ vpn_tor_windows_docker_host }}"
   delegate_to: localhost
-  vars:
-    ansible_docker_host: "{{ vpn_tor_windows_docker_host }}"
+  changed_when: true
   no_log: true
   tags: ["deploy", "container"]
 
-# 9. Wait for Tailscale to initialize
+# 10. Wait for Tailscale to initialize
 - name: "Wait for Tailscale Tor Windows to initialize"
   ansible.builtin.pause:
     seconds: 30
   tags: ["deploy", "wait"]
 
-# 10. Status report
+# 11. Status report
 - name: "Get Tor Windows container status"
-  community.docker.docker_container_info:
-    name: "{{ vpn_tor_windows_tor_container_name }}"
+  ansible.builtin.shell: >-
+    docker inspect {{ vpn_tor_windows_tor_container_name }}
+    --format '{% raw %}{{.State.Status}}{{end}}{% endraw %}'
+  environment:
+    DOCKER_HOST: "{{ vpn_tor_windows_docker_host }}"
   delegate_to: localhost
-  vars:
-    ansible_docker_host: "{{ vpn_tor_windows_docker_host }}"
-  register: tor_windows_status_info
+  register: tor_windows_status
+  changed_when: false
+  failed_when: false
   tags: ["always", "info"]
 
 - name: "Get Tailscale Tor Windows container status"
-  community.docker.docker_container_info:
-    name: "{{ vpn_tor_windows_tailscale_container_name }}"
+  ansible.builtin.shell: >-
+    docker inspect {{ vpn_tor_windows_tailscale_container_name }}
+    --format '{% raw %}{{.State.Status}}{{end}}{% endraw %}'
+  environment:
+    DOCKER_HOST: "{{ vpn_tor_windows_docker_host }}"
   delegate_to: localhost
-  vars:
-    ansible_docker_host: "{{ vpn_tor_windows_docker_host }}"
-  register: tailscale_tor_windows_status_info
+  register: tailscale_tor_windows_status
+  changed_when: false
+  failed_when: false
   tags: ["always", "info"]
 
 - name: "Report Tor Windows exit node status"
   ansible.builtin.debug:
     msg: |
       Tor Windows exit node deployed:
-        - Tor container: {{ vpn_tor_windows_tor_container_name }} ({{ tor_windows_status_info.container.State.Status | default('unknown') }})
-        - Tailscale container: {{ vpn_tor_windows_tailscale_container_name }} ({{ tailscale_tor_windows_status_info.container.State.Status | default('unknown') }})
+        - Tor container: {{ vpn_tor_windows_tor_container_name }} ({{ tor_windows_status.stdout | default('unknown') }})
+        - Tailscale container: {{ vpn_tor_windows_tailscale_container_name }} ({{ tailscale_tor_windows_status.stdout | default('unknown') }})
         - Tailscale hostname: {{ vpn_tailscale_windows_tor_hostname }}
         - Network: {{ vpn_tor_windows_network_name }}
-        - SOCKS5 proxy: {{ infra_tailscale_fqdn_windows_docker | default('dtop202311.tale-grouper.ts.net') }}:{{ vpn_tor_windows_socks5_host_port }}
+        - SOCKS proxy: {{ infra_tailscale_fqdn_windows_docker | default('dtop202311.tale-grouper.ts.net') }}:{{ vpn_tor_windows_socks5_host_port }}
   tags: ["always", "info"]

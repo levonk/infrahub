@@ -2,19 +2,15 @@
 # NordVPN Exit Node for Windows Docker Desktop — handlers
 
 - name: "Restart nordvpn-windows container"
-  community.docker.docker_container:
-    name: "{{ vpn_nordvpn_windows_container_name }}"
-    state: started
-    restart: true
+  ansible.builtin.command: "docker restart {{ vpn_nordvpn_windows_container_name }}"
+  environment:
+    DOCKER_HOST: "{{ vpn_nordvpn_windows_docker_host }}"
   delegate_to: localhost
-  vars:
-    ansible_docker_host: "{{ vpn_nordvpn_windows_docker_host }}"
+  changed_when: true
 
 - name: "Restart tailscale-nordvpn-windows container"
-  community.docker.docker_container:
-    name: "{{ vpn_nordvpn_windows_tailscale_container_name }}"
-    state: started
-    restart: true
+  ansible.builtin.command: "docker restart {{ vpn_nordvpn_windows_tailscale_container_name }}"
+  environment:
+    DOCKER_HOST: "{{ vpn_nordvpn_windows_docker_host }}"
   delegate_to: localhost
-  vars:
-    ansible_docker_host: "{{ vpn_nordvpn_windows_docker_host }}"
+  changed_when: true

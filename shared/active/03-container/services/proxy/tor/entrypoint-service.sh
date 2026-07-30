@@ -48,6 +48,10 @@ rm -f "$TMP_FILE"
 
 # Create necessary directories
 mkdir -p /var/lib/tor /var/log/tor
+# Tor refuses to run as root with a data directory owned by another user.
+# The Alpine tor package creates /var/lib/tor owned by the 'tor' user (uid 100).
+# Since this container runs as root, chown to root to avoid the conflict.
+chown -R root:root /var/lib/tor /var/log/tor
 
 # Start Tor
 exec tor -f "$CONFIG_FILE"
