@@ -206,5 +206,44 @@
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
 
+      # Exit node CNAMEs (dual-deployment: nl + cno)
+      # Each CNAME points to the Tailscale FQDN of the exit node container,
+      # not the host FQDN. This decouples the public DNS from the host's
+      # Tailscale IP — the exit node container has its own Tailscale identity.
+      # nl = network local (dtop202311, X86 Windows Docker Desktop)
+      # cno = cloud network oracle (oci, ARM64 Oracle Cloud)
+
+      # NordVPN exit node — cno (OCI)
+      - name: "{{ infra_domain_vpn_exit_cno | default('vpn.cno.levonk.com') }}"
+        type: "CNAME"
+        content: "{{ infra_tailscale_fqdn_cno_vpn_exit | default('cno-vpn-tailscale-exit.tale-grouper.ts.net') }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      # Tor exit node — cno (OCI)
+      - name: "{{ infra_domain_tor_exit_cno | default('tor.cno.levonk.com') }}"
+        type: "CNAME"
+        content: "{{ infra_tailscale_fqdn_cno_tor_exit | default('cno-tor-tailscale-exit.tale-grouper.ts.net') }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      # NordVPN exit node — nl (Windows Docker Desktop)
+      - name: "{{ infra_domain_vpn_exit_nl | default('vpn.nl.levonk.com') }}"
+        type: "CNAME"
+        content: "{{ infra_tailscale_fqdn_nl_vpn_exit | default('nl-vpn-tailscale-exit.tale-grouper.ts.net') }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      # Tor exit node — nl (Windows Docker Desktop)
+      - name: "{{ infra_domain_tor_exit_nl | default('tor.nl.levonk.com') }}"
+        type: "CNAME"
+        content: "{{ infra_tailscale_fqdn_nl_tor_exit | default('nl-tor-tailscale-exit.tale-grouper.ts.net') }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
   roles:
     - cloudflare-dns

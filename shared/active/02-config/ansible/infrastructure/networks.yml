@@ -142,6 +142,22 @@ infra_network_p2p_freenet_gateway: "172.39.0.1"
 infra_network_ip_freenet: "172.39.0.10"
 
 # ---------------------------------------------------------------------------
+# Windows Exit Node Networks (nl — Network Local, Windows Docker Desktop)
+# Used by: Windows Docker Desktop hosts (deploy-windows-exit-nodes.yml playbook)
+# Docker networks are local to each host — same names as OCI (cno) since they
+# are on separate Docker daemons. Subnets are different to avoid confusion.
+# NordVPN (nl): gluetun container + vpn-tailscale-exit container
+# Tor (nl): tor-exit container + tor-tailscale-exit container
+# ---------------------------------------------------------------------------
+infra_network_vpn_nordvpn_windows_network_name: "vpn-network"
+infra_network_vpn_nordvpn_windows_subnet: "172.40.0.0/16"
+infra_network_vpn_nordvpn_windows_gateway: "172.40.0.1"
+
+infra_network_proxy_tor_windows_network_name: "tor-network"
+infra_network_proxy_tor_windows_subnet: "172.41.0.0/16"
+infra_network_proxy_tor_windows_gateway: "172.41.0.1"
+
+# ---------------------------------------------------------------------------
 # VPN Subnet Collections
 # ---------------------------------------------------------------------------
 infra_network_vpn_subnets:

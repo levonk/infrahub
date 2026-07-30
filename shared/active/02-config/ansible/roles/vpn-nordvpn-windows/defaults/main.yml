@@ -1,0 +1,78 @@
+---
+# NordVPN Exit Node for Windows Docker Desktop — default variables
+# Deploys NordVPN (gluetun) + Tailscale exit node on Windows Docker Desktop hosts.
+# Uses community.docker modules with docker_host: ssh:// + delegate_to: localhost
+# (community.docker modules can't run ON Windows — Ansible basic.py imports grp,
+# Unix-only — but they CAN run on the Ansible controller and connect to the
+# Windows Docker daemon via SSH).
+# Reference implementation: roles/p2p-freenet/tasks/main.yml
+
+# ---------------------------------------------------------------------------
+# Container configuration
+# Container names follow the naming convention: no -windows suffix.
+# Same names as OCI (cno) since Docker daemons are separate per host.
+# ---------------------------------------------------------------------------
+vpn_nordvpn_windows_container_name: "nordvpn"
+vpn_nordvpn_windows_tailscale_container_name: "vpn-tailscale-exit"
+vpn_nordvpn_windows_image: "qmcgaw/gluetun:latest"
+vpn_nordvpn_windows_tailscale_image: "tailscale/tailscale:latest"
+
+# ---------------------------------------------------------------------------
+# Network configuration (nl — Network Local, Windows Docker Desktop)
+# Docker networks are local to each host — same names as OCI (cno) since
+# they are on separate Docker daemons. Subnets differ to avoid confusion.
+# ---------------------------------------------------------------------------
+vpn_nordvpn_windows_network_name: "{{ infra_network_vpn_nordvpn_windows_network_name | default('vpn-network') }}"
+vpn_nordvpn_windows_network_subnet: "{{ infra_network_vpn_nordvpn_windows_subnet | default('172.40.0.0/16') }}"
+vpn_nordvpn_windows_network_gateway: "{{ infra_network_vpn_nordvpn_windows_gateway | default('172.40.0.1') }}"
+
+# ---------------------------------------------------------------------------
+# Port configuration (ALL ports as variables — offset from OCI to avoid
+# conflicts with existing Windows services)
+# ---------------------------------------------------------------------------
+vpn_nordvpn_windows_wireguard_host_port: "{{ infra_port_vpn_nordvpn_windows_wireguard_host | default('51821') }}"
+vpn_nordvpn_windows_wireguard_container_port: "{{ infra_port_vpn_nordvpn_windows_wireguard_container | default('51820') }}"
+vpn_nordvpn_windows_socks_host_port: "{{ infra_port_vpn_nordvpn_windows_socks_host | default('1081') }}"
+vpn_nordvpn_windows_socks_container_port: "{{ infra_port_vpn_nordvpn_windows_socks_container | default('1080') }}"
+vpn_nordvpn_windows_http_host_port: "{{ infra_port_vpn_nordvpn_windows_http_host | default('8889') }}"
+vpn_nordvpn_windows_http_container_port: "{{ infra_port_vpn_nordvpn_windows_http_container | default('8888') }}"
+vpn_nordvpn_windows_https_host_port: "{{ infra_port_vpn_nordvpn_windows_https_host | default('8444') }}"
+vpn_nordvpn_windows_https_container_port: "{{ infra_port_vpn_nordvpn_windows_https_container | default('8443') }}"
+vpn_nordvpn_windows_shadowsocks_host_port: "{{ infra_port_vpn_nordvpn_windows_shadowsocks_host | default('8389') }}"
+vpn_nordvpn_windows_shadowsocks_container_port: "{{ infra_port_vpn_nordvpn_windows_shadowsocks_container | default('8388') }}"
+
+# ---------------------------------------------------------------------------
+# Volume configuration
+# ---------------------------------------------------------------------------
+vpn_nordvpn_windows_config_volume_name: "localnet-nordvpn-nl-config-volume"
+vpn_nordvpn_windows_data_volume_name: "localnet-nordvpn-nl-data-volume"
+vpn_nordvpn_windows_tailscale_state_volume_name: "localnet-vpn-tailscale-exit-nl-state-volume"
+
+# ---------------------------------------------------------------------------
+# Docker connection (Windows Docker Desktop via SSH-tunneled community.docker)
+# community.docker modules run on the Ansible controller (localhost) and
+# connect to the Windows Docker daemon via SSH using the docker_host parameter.
+# ---------------------------------------------------------------------------
+vpn_nordvpn_windows_docker_host: "{{ windows_exit_nodes_docker_host | default('ssh://ansible@dtop202311.tale-grouper.ts.net') }}"
+
+# ---------------------------------------------------------------------------
+# NordVPN configuration
+# Uses WireGuard token auth (vault_nordvpn_token) — the OpenVPN user/pass
+# in the vault are empty, so we use the token method which is populated.
+# ---------------------------------------------------------------------------
+vpn_nordvpn_windows_token: ""
+vpn_nordvpn_windows_openvpn_user: ""
+vpn_nordvpn_windows_openvpn_pass: ""
+vpn_nordvpn_windows_country: "United States"
+
+# ---------------------------------------------------------------------------
+# Tailscale exit node configuration
+# Hostname is nl-prefixed for tailnet uniqueness (nl = network local).
+# ---------------------------------------------------------------------------
+vpn_tailscale_windows_auth_key: ""
+vpn_tailscale_windows_nordvpn_hostname: "nl-vpn-tailscale-exit"
+
+# ---------------------------------------------------------------------------
+# Timezone
+# ---------------------------------------------------------------------------
+vpn_nordvpn_windows_tz: "UTC"

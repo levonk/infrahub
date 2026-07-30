@@ -159,18 +159,25 @@
 # ---------------------------------------------------------------------------
 # Deploy Tailscale container using dedicated VPN network with NordVPN as gateway
 # ---------------------------------------------------------------------------
-- name: "Remove existing Tailscale container if NordVPN is running"
+- name: "Remove existing Tailscale NordVPN container (legacy name migration)"
   community.docker.docker_container:
     name: "tailscale-nordvpn"
+    state: absent
+    force_kill: true
+  ignore_errors: true
+
+- name: "Remove existing vpn-tailscale-exit container for redeploy"
+  community.docker.docker_container:
+    name: "{{ infra_hostname_vpn_tailscale_nordvpn | default('vpn-tailscale-exit') }}"
     state: absent
     force_kill: true
   when:
     - nordvpn_is_running | bool
   ignore_errors: true
 
-- name: "Deploy Tailscale container using dedicated VPN network"
+- name: "Deploy Tailscale VPN exit node container"
   community.docker.docker_container:
-    name: "tailscale-nordvpn"
+    name: "{{ infra_hostname_vpn_tailscale_nordvpn | default('vpn-tailscale-exit') }}"
     image: "tailscale/tailscale:latest"
     state: started
     restart_policy: unless-stopped
@@ -180,11 +187,11 @@
       - NET_ADMIN
     env:
       TS_AUTHKEY: "{{ vpn_tailscale_auth_key }}"
-      TS_HOSTNAME: "{{ vpn_tailscale_hostname }}-nordvpn"
+      TS_HOSTNAME: "{{ vpn_tailscale_nordvpn_hostname | default('cno-vpn-tailscale-exit') }}"
       TS_STATE_DIR: "/var/lib/tailscale"
       TS_EXTRA_ARGS: "--advertise-exit-node --accept-routes"
     volumes:
-      - tailscale-nordvpn-state:/var/lib/tailscale
+      - vpn-tailscale-exit-state:/var/lib/tailscale
   when:
     - vpn_tailscale_enabled
     - vpn_tailscale_run_exit_node | bool
@@ -192,7 +199,7 @@
   become: true
 
 - name: "Get NordVPN container IP address"
-  ansible.builtin.shell: docker inspect nordvpn --format '{% raw %}{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}{% endraw %}'
+  ansible.builtin.command: docker inspect {{ infra_hostname_nordvpn | default('nordvpn') }} --format '{% raw %}{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}{% endraw %}'
   register: nordvpn_container_ip
   changed_when: false
   when:
@@ -202,8 +209,8 @@
 
 - name: "Configure NordVPN container as gateway for Tailscale traffic"
   ansible.builtin.shell: |
-    docker exec tailscale-nordvpn ip route del default || true
-    docker exec tailscale-nordvpn ip route add default via {{ nordvpn_container_ip.stdout }}
+    docker exec {{ infra_hostname_vpn_tailscale_nordvpn | default('vpn-tailscale-exit') }} ip route del default || true
+    docker exec {{ infra_hostname_vpn_tailscale_nordvpn | default('vpn-tailscale-exit') }} ip route add default via {{ nordvpn_container_ip.stdout }}
   when:
     - vpn_tailscale_enabled
     - vpn_tailscale_run_exit_node | bool
@@ -212,9 +219,9 @@
 
 - name: "Add NAT masquerading rules to NordVPN container"
   ansible.builtin.shell: |
-    docker exec nordvpn iptables -t nat -A POSTROUTING -s 172.28.0.0/16 -j MASQUERADE || true
-    docker exec nordvpn iptables -A FORWARD -i eth0 -o tun0 -j ACCEPT || true
-    docker exec nordvpn iptables -A FORWARD -i tun0 -o eth0 -m state --state RELATED,ESTABLISHED -j ACCEPT || true
+    docker exec {{ infra_hostname_nordvpn | default('nordvpn') }} iptables -t nat -A POSTROUTING -s {{ vpn_nordvpn_network_subnet | default('172.28.0.0/16') }} -j MASQUERADE || true
+    docker exec {{ infra_hostname_nordvpn | default('nordvpn') }} iptables -A FORWARD -i eth0 -o tun0 -j ACCEPT || true
+    docker exec {{ infra_hostname_nordvpn | default('nordvpn') }} iptables -A FORWARD -i tun0 -o eth0 -m state --state RELATED,ESTABLISHED -j ACCEPT || true
   when:
     - vpn_tailscale_enabled
     - vpn_tailscale_run_exit_node | bool
@@ -234,10 +241,17 @@
     - vpn_tailscale_tor_enabled | bool
   become: true
 
-- name: "Deploy Tor exit node container"
+- name: "Remove existing tor-exit container (legacy name migration)"
   community.docker.docker_container:
     name: "tor-exit"
-    image: "localnet-proxy-tor:latest"
+    state: absent
+    force_kill: true
+  ignore_errors: true
+
+- name: "Deploy Tor exit node container"
+  community.docker.docker_container:
+    name: "{{ infra_hostname_vpn_tor | default('tor-exit') }}"
+    image: "{{ proxy_tor_image | default('localnet-proxy-tor:latest') }}"
     state: started
     restart_policy: unless-stopped
     networks:
@@ -245,14 +259,14 @@
     capabilities:
       - NET_ADMIN
     published_ports:
-      - "9050:9050"  # SOCKS5 proxy
-      - "9001:9001"  # ORPort
-      - "9030:9030"  # DirPort
+      - "{{ proxy_tor_socks5_host_port | default('9050') }}:{{ proxy_tor_socks5_container_port | default('9050') }}/tcp"
+      - "{{ proxy_tor_orport_host | default('9001') }}:{{ proxy_tor_orport_container | default('9001') }}/tcp"
+      - "{{ proxy_tor_dirport_host | default('9030') }}:{{ proxy_tor_dirport_container | default('9030') }}/tcp"
     env:
-      PROXY_TOR_SOCKS5_CONTAINER_PORT: "9050"
+      PROXY_TOR_SOCKS5_CONTAINER_PORT: "{{ proxy_tor_socks5_container_port | default('9050') | string }}"
       PROXY_TOR_EXIT_NODE_ENABLED: "true"
-      PROXY_TOR_ORPORT: "9001"
-      PROXY_TOR_DIRPORT: "9030"
+      PROXY_TOR_ORPORT: "{{ proxy_tor_orport_container | default('9001') | string }}"
+      PROXY_TOR_DIRPORT: "{{ proxy_tor_dirport_container | default('9030') | string }}"
       PROXY_TOR_NICKNAME: "{{ proxy_tor_nickname | default('levonk-tor-exit') }}"
       PROXY_TOR_CONTACT_INFO: "{{ proxy_tor_contact_info | default('admin@levonk.com') }}"
       PROXY_TOR_EXIT_POLICY: "{{ proxy_tor_exit_policy | default('reject *:*') }}"
@@ -271,9 +285,16 @@
     - vpn_tailscale_tor_enabled | bool
   become: true
 
-- name: "Deploy Tailscale container configured to use Tor proxy"
+- name: "Remove existing tailscale-tor container (legacy name migration)"
   community.docker.docker_container:
     name: "tailscale-tor"
+    state: absent
+    force_kill: true
+  ignore_errors: true
+
+- name: "Deploy Tailscale Tor exit node container"
+  community.docker.docker_container:
+    name: "{{ infra_hostname_vpn_tailscale_tor | default('tor-tailscale-exit') }}"
     image: "tailscale/tailscale:latest"
     state: started
     restart_policy: unless-stopped
@@ -289,8 +310,8 @@
       TS_EXTRA_ARGS: "--advertise-exit-node --accept-routes"
       TS_STATE_DIR: "/var/lib/tailscale"
       TS_SOCKET_DIR: "/var/run/tailscale"
-      ALL_PROXY: "socks5://tor-exit:9050"
-      all_proxy: "socks5://tor-exit:9050"
+      ALL_PROXY: "socks5://{{ infra_hostname_vpn_tor | default('tor-exit') }}:9050"
+      all_proxy: "socks5://{{ infra_hostname_vpn_tor | default('tor-exit') }}:9050"
       TZ: "{{ localnet_tz | default('UTC') }}"
     sysctls:
       net.ipv4.ip_forward: "1"
@@ -298,8 +319,8 @@
     security_opts:
       - no-new-privileges:true
     volumes:
-      - tailscale-tor-state:/var/lib/tailscale
-      - tailscale-tor-socket:/var/run/tailscale
+      - tor-tailscale-exit-state:/var/lib/tailscale
+      - tor-tailscale-exit-socket:/var/run/tailscale
     command: >
       sh -c "
         tailscale up --authkey={{ vpn_tailscale_auth_key }} --hostname={{ vpn_tailscale_tor_hostname }} --advertise-exit-node --accept-routes &&
@@ -314,9 +335,9 @@
 # ---------------------------------------------------------------------------
 # Verification
 # ---------------------------------------------------------------------------
-- name: Verify Tailscale status
+- name: Verify Tailscale VPN exit node status
   ansible.builtin.command:
-    cmd: docker exec tailscale-nordvpn tailscale status
+    cmd: "docker exec {{ infra_hostname_vpn_tailscale_nordvpn | default('vpn-tailscale-exit') }} tailscale status"
   become: true
   changed_when: false
   when:
@@ -332,9 +353,9 @@
     - vpn_tailscale_verify_connection | bool
     - not nordvpn_is_running | bool
 
-- name: Verify Tailscale IP
+- name: Verify Tailscale VPN exit node IP
   ansible.builtin.command:
-    cmd: docker exec tailscale-nordvpn tailscale ip -4
+    cmd: "docker exec {{ infra_hostname_vpn_tailscale_nordvpn | default('vpn-tailscale-exit') }} tailscale ip -4"
   become: true
   changed_when: false
   register: vpn_tailscale_ip

@@ -1,0 +1,42 @@
+---
+# Deploy Exit Nodes (NordVPN + Tor) on Windows Docker Desktop hosts
+#
+# Target: windows_docker_hosts group (host dtop202311).
+# Access: Tailscale-only — no public domain, no Traefik routing.
+#
+# Deploys two additional Tailscale exit nodes on the Windows host:
+#   1. NordVPN exit node — routes Tailscale traffic through NordVPN (gluetun)
+#   2. Tor exit node — routes Tailscale traffic through Tor (tor-exit)
+#
+# Both exit nodes reuse the same vault credentials as the OCI exit nodes:
+#   - vault_nordvpn_openvpn_user / vault_nordvpn_openvpn_pass
+#   - vault_tailscale_auth_key
+#
+# The Tor exit node image (localnet-proxy-tor) must be built and pushed to the
+# local registry first:
+#   PLATFORM=linux/amd64 scripts/build-and-push-images.sh localnet-proxy-tor
+#
+# Usage:
+#   just ansible-deploy-windows-exit-nodes
+#   or:
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/windows-docker.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-windows-exit-nodes.yml \
+#     --vault-password-file ~/.ansible/vault_password
+
+- name: "Deploy NordVPN Exit Node on Windows Docker Desktop"
+  hosts: windows_docker_hosts
+  gather_facts: false
+  become: false
+  roles:
+    - role: vpn-nordvpn-windows
+      when: vpn_nordvpn_windows_enabled | default(false) | bool
+      tags: ["deploy", "nordvpn", "exit-node"]
+
+- name: "Deploy Tor Exit Node on Windows Docker Desktop"
+  hosts: windows_docker_hosts
+  gather_facts: false
+  become: false
+  roles:
+    - role: vpn-tor-windows
+      when: vpn_tor_windows_enabled | default(false) | bool
+      tags: ["deploy", "tor", "exit-node"]

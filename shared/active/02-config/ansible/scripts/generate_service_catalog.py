@@ -43,7 +43,7 @@ OUTPUT_DEFAULT = INFRAHUB_ROOT / "levonk" / "SERVICES.md"
 # ---------------------------------------------------------------------------
 MACHINES = {
     "oci-cloud-server": {
-        "label": "OCI Cloud Server",
+        "label": "OCI Cloud Server (cno)",
         "tailscale": "oci.tale-grouper.ts.net",
         "color": "#4A90D9",
         "mermaid_class": "machine_oci",
@@ -55,7 +55,7 @@ MACHINES = {
         "mermaid_class": "machine_kckinai",
     },
     "dtop202311": {
-        "label": "dtop202311 (Windows Docker)",
+        "label": "dtop202311 (nl — Windows Docker)",
         "tailscale": "dtop202311.tale-grouper.ts.net",
         "color": "#50C878",
         "mermaid_class": "machine_dtop",
@@ -418,16 +418,18 @@ def gen_mermaid_diagram(services: list, all_vars: dict) -> str:
 def gen_mermaid_legend(services: list, all_vars: dict) -> str:
     """Generate a legend showing machines grouped by physical network (cloud vs local)."""
     # Physical network mapping
+    # cno = cloud network oracle (OCI ARM64)
+    # nl  = network local (dtop202311 X86 Windows Docker Desktop, kckinai inference host)
     PHYSICAL_NETWORKS = {
-        "cloud": ["oci-cloud-server", "isolation-vm"],
-        "local": ["kckinai", "dtop202311"],
+        "cno (Cloud Network Oracle)": ["oci-cloud-server", "isolation-vm"],
+        "nl (Network Local)": ["kckinai", "dtop202311"],
     }
 
     lines = ["```mermaid", "---", "title: Physical Network Topology", "---", "flowchart LR"]
 
     for net_name, machine_keys in PHYSICAL_NETWORKS.items():
-        net_id = f"phys_{net_name}"
-        label = net_name.capitalize()
+        net_id = f"phys_{sanitize_node_id(net_name)}"
+        label = net_name
         lines.append(f'    subgraph {net_id}["{label}"]')
         for machine_key in machine_keys:
             if machine_key not in MACHINES:

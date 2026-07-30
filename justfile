@@ -379,6 +379,7 @@ PB_RUSTFS := ANSIBLE_ROOT + "/playbooks/deploy-rustfs.yml"
 PB_CROC_RELAY := ANSIBLE_ROOT + "/playbooks/deploy-croc-relay.yml"
 PB_WAZUH := ANSIBLE_ROOT + "/playbooks/deploy-wazuh.yml"
 PB_LOCAL_REGISTRY := ANSIBLE_ROOT + "/playbooks/deploy-local-registry.yml"
+PB_WINDOWS_EXIT_NODES := ANSIBLE_ROOT + "/playbooks/deploy-windows-exit-nodes.yml"
 
 ansible-deploy-local-registry:
     devbox run ansible-deploy-local-registry
@@ -482,6 +483,18 @@ ansible-deploy-worldmonitor-internal:
 ansible-deploy-worldmonitor-check:
     @echo "Dry-run WorldMonitor deployment (check mode)..."
     ansible-playbook -i {{WINDOWS_DOCKER_INVENTORY}} {{PB_WORLDMONITOR}} --check --diff --vault-password-file ~/.ansible/vault_password
+
+# Deploy NordVPN + Tor exit nodes on Windows Docker Desktop host
+ansible-deploy-windows-exit-nodes:
+    devbox run ansible-deploy-windows-exit-nodes-internal
+
+ansible-deploy-windows-exit-nodes-internal:
+    @echo "Deploying NordVPN + Tor exit nodes on Windows Docker host..."
+    ansible-playbook -i {{WINDOWS_DOCKER_INVENTORY}} {{PB_WINDOWS_EXIT_NODES}} --vault-password-file ~/.ansible/vault_password
+
+ansible-deploy-windows-exit-nodes-check:
+    @echo "Dry-run Windows exit nodes deployment (check mode)..."
+    ansible-playbook -i {{WINDOWS_DOCKER_INVENTORY}} {{PB_WINDOWS_EXIT_NODES}} --check --diff --vault-password-file ~/.ansible/vault_password
 
 ansible-deploy-base-dev:
     devbox run ansible-deploy-base-dev

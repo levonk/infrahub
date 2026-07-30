@@ -218,12 +218,37 @@ infra_port_rustdesk_hbbr_web_host: "21119"
 infra_port_rustdesk_hbbr_web_container: "21119"
 
 # ---------------------------------------------------------------------------
-# Tor Exit Node Ports
+# Tor Exit Node Ports (OCI cloud server)
 # ---------------------------------------------------------------------------
 infra_port_tor_orport_host: "9001"
 infra_port_tor_orport_container: "9001"
 infra_port_tor_dirport_host: "9030"
 infra_port_tor_dirport_container: "9030"
+
+# ---------------------------------------------------------------------------
+# Windows Exit Node Ports (Windows Docker Desktop hosts)
+# NordVPN + Tor exit nodes on dtop202311 — offset from OCI ports to avoid
+# conflicts with existing Windows services (RustFS uses 9000/9001, etc.)
+# ---------------------------------------------------------------------------
+# NordVPN Windows (gluetun)
+infra_port_vpn_nordvpn_windows_wireguard_host: "51821"
+infra_port_vpn_nordvpn_windows_wireguard_container: "51820"
+infra_port_vpn_nordvpn_windows_socks_host: "1081"
+infra_port_vpn_nordvpn_windows_socks_container: "1080"
+infra_port_vpn_nordvpn_windows_http_host: "8889"
+infra_port_vpn_nordvpn_windows_http_container: "8888"
+infra_port_vpn_nordvpn_windows_https_host: "8444"
+infra_port_vpn_nordvpn_windows_https_container: "8443"
+infra_port_vpn_nordvpn_windows_shadowsocks_host: "8389"
+infra_port_vpn_nordvpn_windows_shadowsocks_container: "8388"
+
+# Tor Windows (exit node)
+infra_port_proxy_tor_windows_socks5_host: "9051"
+infra_port_proxy_tor_windows_socks5_container: "9050"
+infra_port_tor_windows_orport_host: "9011"
+infra_port_tor_windows_orport_container: "9001"
+infra_port_tor_windows_dirport_host: "9031"
+infra_port_tor_windows_dirport_container: "9030"
 
 # ---------------------------------------------------------------------------
 # SearXNG Search Ports

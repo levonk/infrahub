@@ -1,0 +1,74 @@
+---
+# Tor Exit Node for Windows Docker Desktop — default variables
+# Deploys Tor exit node + Tailscale exit node on Windows Docker Desktop hosts.
+# Uses community.docker modules with docker_host: ssh:// + delegate_to: localhost
+# (community.docker modules can't run ON Windows — Ansible basic.py imports grp,
+# Unix-only — but they CAN run on the Ansible controller and connect to the
+# Windows Docker daemon via SSH).
+# Reference implementation: roles/p2p-freenet/tasks/main.yml
+
+# ---------------------------------------------------------------------------
+# Container configuration
+# Container names follow the naming convention: no -windows suffix.
+# Same names as OCI (cno) since Docker daemons are separate per host.
+# ---------------------------------------------------------------------------
+vpn_tor_windows_tor_container_name: "tor-exit"
+vpn_tor_windows_tailscale_container_name: "tor-tailscale-exit"
+vpn_tor_windows_tor_image: "{{ local_registry | default('100.90.22.85:5000') }}/localnet-proxy-tor:latest"
+vpn_tor_windows_tailscale_image: "tailscale/tailscale:latest"
+
+# ---------------------------------------------------------------------------
+# Network configuration (nl — Network Local, Windows Docker Desktop)
+# Docker networks are local to each host — same names as OCI (cno) since
+# they are on separate Docker daemons. Subnets differ to avoid confusion.
+# ---------------------------------------------------------------------------
+vpn_tor_windows_network_name: "{{ infra_network_proxy_tor_windows_network_name | default('tor-network') }}"
+vpn_tor_windows_network_subnet: "{{ infra_network_proxy_tor_windows_subnet | default('172.41.0.0/16') }}"
+vpn_tor_windows_network_gateway: "{{ infra_network_proxy_tor_windows_gateway | default('172.41.0.1') }}"
+
+# ---------------------------------------------------------------------------
+# Port configuration (ALL ports as variables — offset from OCI to avoid
+# conflicts with existing Windows services like RustFS on 9000/9001)
+# ---------------------------------------------------------------------------
+vpn_tor_windows_socks5_host_port: "{{ infra_port_proxy_tor_windows_socks5_host | default('9051') }}"
+vpn_tor_windows_socks5_container_port: "{{ infra_port_proxy_tor_windows_socks5_container | default('9050') }}"
+vpn_tor_windows_orport_host_port: "{{ infra_port_tor_windows_orport_host | default('9011') }}"
+vpn_tor_windows_orport_container_port: "{{ infra_port_tor_windows_orport_container | default('9001') }}"
+vpn_tor_windows_dirport_host_port: "{{ infra_port_tor_windows_dirport_host | default('9031') }}"
+vpn_tor_windows_dirport_container_port: "{{ infra_port_tor_windows_dirport_container | default('9030') }}"
+
+# ---------------------------------------------------------------------------
+# Volume configuration
+# ---------------------------------------------------------------------------
+vpn_tor_windows_config_volume_name: "localnet-tor-nl-config-volume"
+vpn_tor_windows_data_volume_name: "localnet-tor-nl-data-volume"
+vpn_tor_windows_logs_volume_name: "localnet-tor-nl-logs-volume"
+vpn_tor_windows_tailscale_state_volume_name: "localnet-tor-tailscale-exit-nl-state-volume"
+
+# ---------------------------------------------------------------------------
+# Docker connection (Windows Docker Desktop via SSH-tunneled community.docker)
+# community.docker modules run on the Ansible controller (localhost) and
+# connect to the Windows Docker daemon via SSH using the docker_host parameter.
+# ---------------------------------------------------------------------------
+vpn_tor_windows_docker_host: "{{ windows_exit_nodes_docker_host | default('ssh://ansible@dtop202311.tale-grouper.ts.net') }}"
+
+# ---------------------------------------------------------------------------
+# Tor exit node configuration
+# ---------------------------------------------------------------------------
+proxy_tor_windows_nickname: "levonk-tor-exit-nl"
+proxy_tor_windows_contact_info: "admin@levonk.com"
+proxy_tor_windows_exit_policy: "reject *:*"
+proxy_tor_windows_bandwidth_rate: "100 KB"
+proxy_tor_windows_bandwidth_burst: "200 KB"
+
+# ---------------------------------------------------------------------------
+# Tailscale exit node configuration
+# Hostname is nl-prefixed for tailnet uniqueness (nl = network local).
+# ---------------------------------------------------------------------------
+vpn_tailscale_windows_auth_key: ""
+vpn_tailscale_windows_tor_hostname: "nl-tor-tailscale-exit"
+
+# ---------------------------------------------------------------------------
+# Timezone
+# ---------------------------------------------------------------------------
+vpn_tor_windows_tz: "UTC"

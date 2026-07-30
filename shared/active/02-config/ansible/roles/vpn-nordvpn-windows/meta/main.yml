@@ -1,0 +1,12 @@
+---
+galaxy_info:
+  role_name: vpn_nordvpn_windows
+  author: localnet
+  description: Deploy NordVPN exit node (gluetun + Tailscale) on Windows Docker Desktop
+  license: MIT
+  min_ansible_version: "2.9"
+  platforms:
+    - name: Windows
+      versions:
+        - all
+dependencies: []

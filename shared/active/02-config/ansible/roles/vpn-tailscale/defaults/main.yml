@@ -52,6 +52,10 @@ vpn_tailscale_tor_network_name: "tor-network"
 # ---------------------------------------------------------------------------
 vpn_nordvpn_network_name: "{{ cloud_server_nordvpn_network_name | default('vpn-network') }}"
 
+# Tailscale hostname for the NordVPN exit node (must be unique in the tailnet).
+# Override per-client: e.g. "cno-vpn-tailscale-exit" for OCI, "nl-vpn-tailscale-exit" for Windows.
+vpn_tailscale_nordvpn_hostname: "{{ inventory_hostname | default('cloud-server') }}-vpn"
+
 # ---------------------------------------------------------------------------
 # Verification
 # ---------------------------------------------------------------------------
