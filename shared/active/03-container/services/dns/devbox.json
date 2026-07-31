@@ -1,11 +1,14 @@
 {
   "packages": {
-    "just": "latest",
-    "docker": "latest",
-    "docker-compose": "latest",
-    "python3": "latest",
-    "jq": "latest",
-    "yamllint": "latest"
+    "just": "",
+    "docker": "",
+    "docker-compose": "",
+    "python3": "",
+    "jq": "",
+    "yamllint": ""
+  },
+  "nixpkgs": {
+    "commit": "8623c4c20aa4ca2f5fb81510d2944066c3fb0d96"
   },
   "nix_pkgs": [
     "just",
