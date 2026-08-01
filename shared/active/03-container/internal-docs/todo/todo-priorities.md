@@ -247,6 +247,8 @@ Ventoy USB Booter
     - [ ] https://github.com/cachethq/cachet
   - Release Monitoring
     - [ ] https://github.com/release-argus/Argus
+  - MDM
+    - [ ] https://fleetdm.com/docs/configuration/yaml-files https://github.com/fleetdm/fleet 
 
 ### Remote Access
 
