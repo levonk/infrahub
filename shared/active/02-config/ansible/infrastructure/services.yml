@@ -426,6 +426,36 @@
   description: "Tailscale exit node routing through Tor on Windows Docker Desktop (nl)"
   network: "tor-network"
 
+# ---------------------------------------------------------------------------
+# Host-Level Exit Nodes (plain egress via host's own internet, no Tor/VPN)
+# These use the host's own Tailscale daemon — no container.
+# Configured by: levonk/active/02-config/ansible/playbooks/configure-host-exit-nodes.yml
+# ---------------------------------------------------------------------------
+
+- name: "Host Exit Node (cno)"
+  container: "—"
+  machine: "oci-cloud-server"
+  category: "vpn"
+  description: "Host-level Tailscale exit node — plain egress via OCI's internet (no Tor/VPN container)"
+
+- name: "Host Exit Node (nl)"
+  container: "—"
+  machine: "dtop202311"
+  category: "vpn"
+  description: "Host-level Tailscale exit node — plain egress via Windows host's internet (no Tor/VPN container)"
+
+- name: "Host Exit Node (lzkmbp2016)"
+  container: "—"
+  machine: "lzkmbp2016"
+  category: "vpn"
+  description: "Host-level Tailscale exit node — plain egress via lzkmbp2016's internet (laptop)"
+
+- name: "Host Exit Node (lzkmbp2018)"
+  container: "—"
+  machine: "lzkmbp2018"
+  category: "vpn"
+  description: "Host-level Tailscale exit node — plain egress via lzkmbp2018's internet (laptop)"
+
 # ===========================================================================
 # DNS
 # ===========================================================================

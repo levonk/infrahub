@@ -11,6 +11,7 @@
     ../modules/nix/cache.nix
     ../modules/security/privacy-darwin.nix
     ../modules/fleet/default.nix
+    ../modules/networking/default.nix
   ];
 
   # Nix-Darwin configuration
@@ -20,4 +21,7 @@
   # Container runtime: default to orbstack until arch verified
   # ponytail: verify via ssh auser@lzkmbp2018 'sw_vers; uname -m'
   infra.fleet.containerRuntime = "orbstack";
+
+  # Enable IP forwarding so this host can act as a Tailscale exit node
+  infra.networking.ipForwarding = true;
 }

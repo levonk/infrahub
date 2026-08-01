@@ -49,6 +49,8 @@ MACHINES = {
         "docker_platform": "linux/arm64",
         "color": "#4A90D9",
         "mermaid_class": "machine_oci",
+        "ssh_key": "lzkmbp2016-micro-oracle",
+        "ansible_user": "opc",
     },
     "kckinai": {
         "label": "kckinai (Inference Host)",
@@ -57,6 +59,8 @@ MACHINES = {
         "docker_platform": "linux/arm64",
         "color": "#E8743C",
         "mermaid_class": "machine_kckinai",
+        "ssh_key": "lzkmbp2016-micro-oracle",
+        "ansible_user": "cuser",
     },
     "dtop202311": {
         "label": "dtop202311 (nl — Windows Docker)",
@@ -65,6 +69,8 @@ MACHINES = {
         "docker_platform": "linux/amd64",
         "color": "#50C878",
         "mermaid_class": "machine_dtop",
+        "ssh_key": "lzkmbp2016-micro-oracle",
+        "ansible_user": "ansible",
     },
     "isolation-vm": {
         "label": "Isolation VM (QEMU on OCI)",
@@ -73,6 +79,28 @@ MACHINES = {
         "docker_platform": "linux/amd64",
         "color": "#9B59B6",
         "mermaid_class": "machine_vm",
+        "ssh_key": "lzkmbp2016-micro-oracle",
+        "ansible_user": "cuser",
+    },
+    "lzkmbp2016": {
+        "label": "lzkmbp2016 (Laptop — Intel macOS)",
+        "tailscale": "lzkmbp2016.tale-grouper.ts.net",
+        "arch": "x86_64",
+        "docker_platform": "linux/amd64",
+        "color": "#F39C12",
+        "mermaid_class": "machine_laptop1",
+        "ssh_key": "lzkmbp2016-micro-oracle",
+        "ansible_user": "auser",
+    },
+    "lzkmbp2018": {
+        "label": "lzkmbp2018 (Laptop — macOS)",
+        "tailscale": "lzkmbp2018.tale-grouper.ts.net",
+        "arch": "arm64",
+        "docker_platform": "linux/arm64",
+        "color": "#E67E22",
+        "mermaid_class": "machine_laptop2",
+        "ssh_key": "lzkmbp2016-micro-oracle",
+        "ansible_user": "auser",
     },
 }
 
@@ -431,6 +459,7 @@ def gen_mermaid_legend(services: list, all_vars: dict) -> str:
     PHYSICAL_NETWORKS = {
         "cno (Cloud Network Oracle)": ["oci-cloud-server", "isolation-vm"],
         "nl (Network Local)": ["kckinai", "dtop202311"],
+        "Laptops (Roaming)": ["lzkmbp2016", "lzkmbp2018"],
     }
 
     lines = ["```mermaid", "---", "title: Physical Network Topology", "---", "flowchart LR"]
@@ -582,14 +611,16 @@ def main():
     # Machine reference
     md_parts.append("## Machine Reference")
     md_parts.append("")
-    md_parts.append("| Machine | Tailscale FQDN | Arch | DDNS | Description |")
-    md_parts.append("|---------|----------------|------|------|-------------|")
+    md_parts.append("| Machine | Tailscale FQDN | Arch | SSH Key | Ansible User | DDNS | Description |")
+    md_parts.append("|---------|----------------|------|---------|--------------|------|-------------|")
     for mkey, meta in MACHINES.items():
         ddns = f"{mkey.replace('-cloud-server','')}.mach.levonk.com" if mkey != "isolation-vm" else "—"
         if mkey == "oci-cloud-server":
             ddns = "oci.mach.levonk.com"
         arch = meta.get("arch", "—")
-        md_parts.append(f"| {meta['label']} | `{meta['tailscale']}` | `{arch}` | `{ddns}` | |")
+        ssh_key = meta.get("ssh_key", "—")
+        ansible_user = meta.get("ansible_user", "—")
+        md_parts.append(f"| {meta['label']} | `{meta['tailscale']}` | `{arch}` | `~/.ssh/{ssh_key}` | `{ansible_user}` | `{ddns}` | |")
     md_parts.append("")
 
     md_parts.append("---")

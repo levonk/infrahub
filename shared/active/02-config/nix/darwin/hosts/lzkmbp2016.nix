@@ -10,6 +10,7 @@
     ../modules/nix/cache.nix
     ../modules/security/privacy-darwin.nix
     ../modules/fleet/default.nix
+    ../modules/networking/default.nix
   ];
 
   # Nix-Darwin configuration
@@ -18,4 +19,7 @@
 
   # Container runtime: OrbStack (x86 Mac, no Apple Container)
   infra.fleet.containerRuntime = "orbstack";
+
+  # Enable IP forwarding so this host can act as a Tailscale exit node
+  infra.networking.ipForwarding = true;
 }
