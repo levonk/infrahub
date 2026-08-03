@@ -2,22 +2,30 @@
 """Generate SERVICES.md — a browsable service catalog from infrastructure YAML files.
 
 Reads:
-  - shared/active/02-config/ansible/infrastructure/{ports,domains,networks,services}.yml
-  - levonk/active/02-config/ansible/infrastructure/{ports,domains,networks}.yml  (client overrides)
+  - shared/active/02-config/ansible/infrastructure/{ports,domains,networks,services,storage}.yml
+  - levonk/active/02-config/ansible/infrastructure/{ports,domains,networks,storage}.yml  (client overrides)
 
 Produces:
   - levonk/SERVICES.md  (in the private client submodule, viewable on GitHub)
+  - infrahub/SERVICES.md  (repo-root, shared-defaults-only catalog — use --shared-only)
 
 The script merges shared + client YAML (client wins), resolves simple {{ var }} references,
 and renders three sections:
-  1. By Service — every service with its container, machine, domain(s), port(s), network, category
+  1. By Service — every service with its container, machine, domain(s), port(s), network, storage, category
   2. By Category — services grouped by UI / API / Console / Passive / Proxy / VPN / DNS / Security / Infra
   3. Mermaid diagram — all services color-coded by machine, with legend
 
 Usage:
-  python3 generate_service_catalog.py [--output PATH]
+  python3 generate_service_catalog.py [--output PATH] [--shared-only]
 
-Run via: just generate-service-catalog
+Run via:
+  just generate-service-catalog              # levonk/SERVICES.md (client-specific)
+  just generate-service-catalog-shared       # infrahub/SERVICES.md (shared defaults only)
+
+The --shared-only flag produces a repo-root catalog that shows only shared default
+ports, suggested hostnames (no custom domain names), and no deployed machine info.
+This is useful for the public repo view where client-specific deployment details
+should not be exposed.
 """
 import argparse
 import os
@@ -272,29 +280,131 @@ def format_network(svc: dict, all_vars: dict) -> str:
     return net
 
 
+def format_source_repo(svc: dict) -> str:
+    """Format source_repo as a clickable link. Returns '⚠ MISSING' if not set."""
+    repo = svc.get("source_repo", "")
+    if not repo:
+        return "⚠ MISSING"
+    # Extract a short label from the URL for display
+    # e.g. https://github.com/BerriAI/litellm -> BerriAI/litellm
+    # e.g. https://www.qemu.org/ -> qemu.org
+    if "github.com/" in repo:
+        parts = repo.split("github.com/", 1)[1]
+        label = parts.rstrip("/")
+    elif "gitlab.com/" in repo:
+        parts = repo.split("gitlab.com/", 1)[1]
+        label = parts.rstrip("/")
+    else:
+        # Product page — use the domain
+        label = repo.replace("https://", "").replace("http://", "").rstrip("/")
+        # Truncate long product page URLs
+        if len(label) > 40:
+            label = label[:37] + "..."
+    return f"[{label}]({repo})"
+
+
+def format_storage(svc: dict, all_vars: dict) -> str:
+    """Format storage/volume info for a service.
+
+    Looks for storage variables matching the service name pattern:
+    infra_storage_{service}_volume, infra_storage_{service}_data,
+    infra_storage_{service}_config, infra_storage_{service}_data_volume,
+    infra_storage_{service}_config_volume.
+    """
+    name = svc.get("name", "")
+    # Build candidate service slugs from the service name (lowercase, no spaces)
+    slug = name.lower().replace(" ", "").replace("-", "_").replace(".", "_")
+    # Also try with underscores converted (e.g., "LiteLLM Postgres" -> "litellm_postgres")
+    slug_alt = name.lower().replace(" ", "_").replace("-", "_").replace(".", "_")
+
+    candidates = [
+        f"infra_storage_{slug}_volume",
+        f"infra_storage_{slug}_data_volume",
+        f"infra_storage_{slug}_config_volume",
+        f"infra_storage_{slug}_data",
+        f"infra_storage_{slug}_config",
+        f"infra_storage_{slug_alt}_volume",
+        f"infra_storage_{slug_alt}_data_volume",
+        f"infra_storage_{slug_alt}_config_volume",
+        f"infra_storage_{slug_alt}_data",
+        f"infra_storage_{slug_alt}_config",
+    ]
+
+    found = []
+    seen = set()
+    for var_name in candidates:
+        if var_name in all_vars and var_name not in seen:
+            seen.add(var_name)
+            val = resolve_vars(all_vars[var_name], all_vars)
+            if val and not val.startswith("{{"):
+                # Distinguish volumes (named docker volumes) from paths
+                if "_volume" in var_name:
+                    found.append(f"`{val}` (volume)")
+                else:
+                    found.append(f"`{val}`")
+
+    if not found:
+        return "—"
+    return "<br>".join(found)
+
+
 # ---------------------------------------------------------------------------
 # Markdown generation
 # ---------------------------------------------------------------------------
-def gen_by_service_table(services: list, all_vars: dict) -> str:
-    lines = [
-        "| Service | Container | Machine | Domain(s) | Port(s) (host→container) | Network | Category |",
-        "|---------|-----------|---------|-----------|--------------------------|---------|----------|",
-    ]
+def gen_by_service_table(services: list, all_vars: dict, shared_only: bool = False) -> str:
+    if shared_only:
+        lines = [
+            "| Service | Container | Suggested Hostname | Port(s) (default) | Network | Storage | Category | Source |",
+            "|---------|-----------|--------------------|-------------------|---------|---------|----------|--------|",
+        ]
+    else:
+        lines = [
+            "| Service | Container | Machine | Domain(s) | Port(s) (host→container) | Network | Storage | Category | Source |",
+            "|---------|-----------|---------|-----------|--------------------------|---------|---------|----------|--------|",
+        ]
     for svc in sorted(services, key=lambda s: s["name"].lower()):
         name = svc["name"]
         container = svc.get("container", "—")
-        machine = svc.get("machine", "—")
-        machine_label = MACHINES.get(machine, {}).get("label", machine)
-        domains = format_domains(svc, all_vars)
         ports = format_ports_with_vars(svc, all_vars)
         network = format_network(svc, all_vars)
-        cat = svc.get("category", "—")
+        storage = format_storage(svc, all_vars)
         cats = get_categories(svc)
         cat_labels = ", ".join(CATEGORY_LABELS.get(c, c) for c in cats)
-        lines.append(
-            f"| {name} | `{container}` | {machine_label} | {domains} | {ports} | {network} | {cat_labels} |"
-        )
+        source = format_source_repo(svc)
+        if shared_only:
+            # In shared-only mode: show suggested hostname (from domain var name), no machine, no custom domain
+            hostname = format_suggested_hostname(svc, all_vars)
+            lines.append(
+                f"| {name} | `{container}` | {hostname} | {ports} | {network} | {storage} | {cat_labels} | {source} |"
+            )
+        else:
+            machine = svc.get("machine", "—")
+            machine_label = MACHINES.get(machine, {}).get("label", machine)
+            domains = format_domains(svc, all_vars)
+            lines.append(
+                f"| {name} | `{container}` | {machine_label} | {domains} | {ports} | {network} | {storage} | {cat_labels} | {source} |"
+            )
     return "\n".join(lines)
+
+
+def format_suggested_hostname(svc: dict, all_vars: dict) -> str:
+    """Format a suggested hostname for shared-only mode.
+
+    Shows the domain variable name (e.g., infra_domain_ai_litellm) as a suggestion,
+    rather than the resolved client-specific domain value. If no domain var, returns '—'.
+    """
+    domain_vars = svc.get("domains", [])
+    if not domain_vars:
+        return "—"
+    parts = []
+    for dv in domain_vars:
+        if dv.startswith("literal:"):
+            parts.append(f"`{dv[len('literal:'):]}` (literal)")
+        elif dv.startswith("infra_"):
+            parts.append(f"`{dv}` (suggested)")
+        else:
+            parts.append(f"`{dv}`")
+    return "<br>".join(parts)
 
 
 def format_ports_with_vars(svc: dict, all_vars: dict) -> str:
@@ -328,7 +438,7 @@ def resolve_port_val(var_name_or_literal: str, all_vars: dict) -> str:
     return var_name_or_literal
 
 
-def gen_by_category_sections(services: list, all_vars: dict) -> str:
+def gen_by_category_sections(services: list, all_vars: dict, shared_only: bool = False) -> str:
     sections = []
     for cat in CATEGORY_ORDER:
         cat_svcs = [s for s in services if cat in get_categories(s)]
@@ -337,23 +447,39 @@ def gen_by_category_sections(services: list, all_vars: dict) -> str:
         icon = CATEGORY_ICONS.get(cat, "")
         label = CATEGORY_LABELS.get(cat, cat)
         sections.append(f"### {icon} {label}\n")
-        sections.append(
-            "| Service | Container | Machine | Domain(s) | Port(s) | Network |"
-        )
-        sections.append(
-            "|---------|-----------|---------|-----------|---------|---------|"
-        )
+        if shared_only:
+            sections.append(
+                "| Service | Container | Suggested Hostname | Port(s) (default) | Network | Storage | Source |"
+            )
+            sections.append(
+                "|---------|-----------|--------------------|-------------------|---------|---------|--------|"
+            )
+        else:
+            sections.append(
+                "| Service | Container | Machine | Domain(s) | Port(s) | Network | Storage | Source |"
+            )
+            sections.append(
+                "|---------|-----------|---------|-----------|---------|---------|---------|--------|"
+            )
         for svc in sorted(cat_svcs, key=lambda s: s["name"].lower()):
             name = svc["name"]
             container = svc.get("container", "—")
-            machine = svc.get("machine", "—")
-            machine_label = MACHINES.get(machine, {}).get("label", machine)
-            domains = format_domains(svc, all_vars)
             ports = format_ports_with_vars(svc, all_vars)
             network = format_network(svc, all_vars)
-            sections.append(
-                f"| {name} | `{container}` | {machine_label} | {domains} | {ports} | {network} |"
-            )
+            storage = format_storage(svc, all_vars)
+            source = format_source_repo(svc)
+            if shared_only:
+                hostname = format_suggested_hostname(svc, all_vars)
+                sections.append(
+                    f"| {name} | `{container}` | {hostname} | {ports} | {network} | {storage} | {source} |"
+                )
+            else:
+                machine = svc.get("machine", "—")
+                machine_label = MACHINES.get(machine, {}).get("label", machine)
+                domains = format_domains(svc, all_vars)
+                sections.append(
+                    f"| {name} | `{container}` | {machine_label} | {domains} | {ports} | {network} | {storage} | {source} |"
+                )
         sections.append("")
     return "\n".join(sections)
 
@@ -515,33 +641,71 @@ def gen_toc(services: list) -> str:
     return "\n".join(lines)
 
 
+def gen_toc_shared(services: list) -> str:
+    """Generate a table of contents for the shared-only catalog (no machine sections)."""
+    lines = ["## Table of Contents", ""]
+    lines.append("- [All Services (Alphabetical)](#all-services-alphabetical)")
+    lines.append("- [Services by Category](#services-by-category)")
+    present_cats = set()
+    for s in services:
+        present_cats.update(get_categories(s))
+    for cat in CATEGORY_ORDER:
+        if cat not in present_cats:
+            continue
+        label = CATEGORY_LABELS.get(cat, cat)
+        icon = CATEGORY_ICONS.get(cat, "")
+        anchor = label.lower().replace(" / ", "-").replace(" ", "-").replace("(", "").replace(")", "").replace("/", "-")
+        lines.append(f"  - [{icon} {label}](#{anchor})")
+    return "\n".join(lines)
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 def main():
     parser = argparse.ArgumentParser(description="Generate SERVICES.md from infrastructure YAML")
     parser.add_argument("--output", type=Path, default=OUTPUT_DEFAULT, help="Output file path")
+    parser.add_argument(
+        "--shared-only",
+        action="store_true",
+        help="Generate a shared-defaults-only catalog (no client overrides, no deployed machines, "
+        "default ports only, suggested hostnames instead of custom domains). "
+        "Use this for the repo-root SERVICES.md.",
+    )
     args = parser.parse_args()
+
+    shared_only = args.shared_only
 
     # Load all infrastructure YAML files
     shared_ports = load_yaml(SHARED_INFRA / "ports.yml")
-    client_ports = load_yaml(CLIENT_INFRA / "ports.yml")
     shared_domains = load_yaml(SHARED_INFRA / "domains.yml")
-    client_domains = load_yaml(CLIENT_INFRA / "domains.yml")
     shared_networks = load_yaml(SHARED_INFRA / "networks.yml")
-    client_networks = load_yaml(CLIENT_INFRA / "networks.yml")
+    shared_storage = load_yaml(SHARED_INFRA / "storage.yml")
     services_raw = load_yaml(SHARED_INFRA / "services.yml")
 
-    # Merge shared + client (client wins)
-    all_ports = merge_yaml(shared_ports, client_ports)
-    all_domains = merge_yaml(shared_domains, client_domains)
-    all_networks = merge_yaml(shared_networks, client_networks)
+    if shared_only:
+        # Shared-defaults-only mode: skip client overrides entirely
+        all_ports = shared_ports
+        all_domains = shared_domains
+        all_networks = shared_networks
+        all_storage = shared_storage
+    else:
+        # Full mode: merge shared + client (client wins)
+        client_ports = load_yaml(CLIENT_INFRA / "ports.yml")
+        client_domains = load_yaml(CLIENT_INFRA / "domains.yml")
+        client_networks = load_yaml(CLIENT_INFRA / "networks.yml")
+        client_storage = load_yaml(CLIENT_INFRA / "storage.yml")
+        all_ports = merge_yaml(shared_ports, client_ports)
+        all_domains = merge_yaml(shared_domains, client_domains)
+        all_networks = merge_yaml(shared_networks, client_networks)
+        all_storage = merge_yaml(shared_storage, client_storage)
 
     # Combine all vars for resolution
     all_vars = {}
     all_vars.update(all_ports)
     all_vars.update(all_domains)
     all_vars.update(all_networks)
+    all_vars.update(all_storage)
 
     # Services can be a top-level list or under a "services:" key
     if isinstance(services_raw, list):
@@ -557,16 +721,39 @@ def main():
 
     resolved_services = [resolve_service(svc, all_vars) for svc in services]
 
+    # Validate source_repo presence — warn for missing entries
+    missing_source = [s["name"] for s in services if not s.get("source_repo")]
+    if missing_source:
+        print("\n⚠ WARNING: The following services are missing 'source_repo' in services.yml:", file=sys.stderr)
+        for name in missing_source:
+            print(f"  - {name}", file=sys.stderr)
+        print(f"\nTotal: {len(missing_source)} service(s) missing source_repo.", file=sys.stderr)
+        print("Every service entry MUST have a source_repo field linking to its", file=sys.stderr)
+        print("primary source repository or product page.", file=sys.stderr)
+        print("See: infrahub-add-new-service.md → Phase 2f\n", file=sys.stderr)
+
     # Generate markdown
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
 
     md_parts = []
-    md_parts.append("# Levonk Service Catalog")
-    md_parts.append("")
-    md_parts.append(f"> **Auto-generated** from `infrastructure/*.yml` — last updated: {now}")
-    md_parts.append(f"> Regenerate with: `just generate-service-catalog`")
-    md_parts.append(f"> Source: `shared/active/02-config/ansible/infrastructure/services.yml`")
-    md_parts.append("")
+    if shared_only:
+        md_parts.append("# Infrahub Service Catalog (Shared Defaults)")
+        md_parts.append("")
+        md_parts.append(f"> **Auto-generated** from `infrastructure/*.yml` (shared defaults only) — last updated: {now}")
+        md_parts.append(f"> Regenerate with: `just generate-service-catalog-shared`")
+        md_parts.append(f"> Source: `shared/active/02-config/ansible/infrastructure/services.yml`")
+        md_parts.append(f"> Note: This catalog shows **default ports and suggested hostnames** only. "
+                        "Client-specific deployment details (custom domains, deployed machines, "
+                        "client port overrides) are not included. See `levonk/SERVICES.md` for the "
+                        "deployed client catalog.")
+        md_parts.append("")
+    else:
+        md_parts.append("# Levonk Service Catalog")
+        md_parts.append("")
+        md_parts.append(f"> **Auto-generated** from `infrastructure/*.yml` — last updated: {now}")
+        md_parts.append(f"> Regenerate with: `just generate-service-catalog`")
+        md_parts.append(f"> Source: `shared/active/02-config/ansible/infrastructure/services.yml`")
+        md_parts.append("")
 
     # Quick stats
     total = len(resolved_services)
@@ -574,62 +761,77 @@ def main():
     for s in resolved_services:
         m = s.get("machine", "unknown")
         by_machine[m] = by_machine.get(m, 0) + 1
-    stats_parts = [f"**{total} services** across {len(by_machine)} machines:"]
-    for mkey in MACHINES:
-        if mkey in by_machine:
-            stats_parts.append(f"  - {MACHINES[mkey]['label']}: {by_machine[mkey]}")
+    if shared_only:
+        stats_parts = [f"**{total} services** (shared defaults — no deployment info)"]
+    else:
+        stats_parts = [f"**{total} services** across {len(by_machine)} machines:"]
+        for mkey in MACHINES:
+            if mkey in by_machine:
+                stats_parts.append(f"  - {MACHINES[mkey]['label']}: {by_machine[mkey]}")
     md_parts.append("\n".join(stats_parts))
     md_parts.append("")
 
-    # Table of contents
-    md_parts.append(gen_toc(resolved_services))
+    # Table of contents — shared-only mode skips machine legend and topology
+    if shared_only:
+        md_parts.append(gen_toc_shared(resolved_services))
+    else:
+        md_parts.append(gen_toc(resolved_services))
     md_parts.append("")
 
-    # Mermaid legend
-    md_parts.append("## Machine Legend")
-    md_parts.append("")
-    md_parts.append(gen_mermaid_legend(resolved_services, all_vars))
-    md_parts.append("")
+    if not shared_only:
+        # Mermaid legend (client mode only — shows deployed machines)
+        md_parts.append("## Machine Legend")
+        md_parts.append("")
+        md_parts.append(gen_mermaid_legend(resolved_services, all_vars))
+        md_parts.append("")
 
-    # Topology diagram
-    md_parts.append("## Service Topology")
-    md_parts.append("")
-    md_parts.append(gen_mermaid_diagram(resolved_services, all_vars))
-    md_parts.append("")
+        # Topology diagram (client mode only — shows deployment topology)
+        md_parts.append("## Service Topology")
+        md_parts.append("")
+        md_parts.append(gen_mermaid_diagram(resolved_services, all_vars))
+        md_parts.append("")
 
     # By Service
     md_parts.append("## All Services (Alphabetical)")
     md_parts.append("")
-    md_parts.append(gen_by_service_table(resolved_services, all_vars))
+    md_parts.append(gen_by_service_table(resolved_services, all_vars, shared_only=shared_only))
     md_parts.append("")
 
     # By Category
     md_parts.append("## Services by Category")
     md_parts.append("")
-    md_parts.append(gen_by_category_sections(resolved_services, all_vars))
+    md_parts.append(gen_by_category_sections(resolved_services, all_vars, shared_only=shared_only))
 
-    # Machine reference
-    md_parts.append("## Machine Reference")
-    md_parts.append("")
-    md_parts.append("| Machine | Tailscale FQDN | Arch | SSH Key | Ansible User | DDNS | Description |")
-    md_parts.append("|---------|----------------|------|---------|--------------|------|-------------|")
-    for mkey, meta in MACHINES.items():
-        ddns = f"{mkey.replace('-cloud-server','')}.mach.levonk.com" if mkey != "isolation-vm" else "—"
-        if mkey == "oci-cloud-server":
-            ddns = "oci.mach.levonk.com"
-        arch = meta.get("arch", "—")
-        ssh_key = meta.get("ssh_key", "—")
-        ansible_user = meta.get("ansible_user", "—")
-        md_parts.append(f"| {meta['label']} | `{meta['tailscale']}` | `{arch}` | `~/.ssh/{ssh_key}` | `{ansible_user}` | `{ddns}` | |")
-    md_parts.append("")
+    if not shared_only:
+        # Machine reference (client mode only — contains client-specific SSH/Tailscale info)
+        md_parts.append("## Machine Reference")
+        md_parts.append("")
+        md_parts.append("| Machine | Tailscale FQDN | Arch | SSH Key | Ansible User | DDNS | Description |")
+        md_parts.append("|---------|----------------|------|---------|--------------|------|-------------|")
+        for mkey, meta in MACHINES.items():
+            ddns = f"{mkey.replace('-cloud-server','')}.mach.levonk.com" if mkey != "isolation-vm" else "—"
+            if mkey == "oci-cloud-server":
+                ddns = "oci.mach.levonk.com"
+            arch = meta.get("arch", "—")
+            ssh_key = meta.get("ssh_key", "—")
+            ansible_user = meta.get("ansible_user", "—")
+            md_parts.append(f"| {meta['label']} | `{meta['tailscale']}` | `{arch}` | `~/.ssh/{ssh_key}` | `{ansible_user}` | `{ddns}` | |")
+        md_parts.append("")
 
     md_parts.append("---")
     md_parts.append("")
     md_parts.append("*This file is generated by `generate_service_catalog.py`. Do not edit manually.*")
-    md_parts.append(
-        "*To add a service: add its ports/domains to the infrastructure YAML files, "
-        "add an entry to `services.yml`, then run `just generate-service-catalog`.*"
-    )
+    if shared_only:
+        md_parts.append(
+            "*To add a service: add its ports/domains/storage to the shared infrastructure YAML files, "
+            "add an entry to `services.yml` (including `source_repo`), then run "
+            "`just generate-service-catalog-shared` (repo root) and `just generate-service-catalog` (client).*"
+        )
+    else:
+        md_parts.append(
+            "*To add a service: add its ports/domains/storage to the infrastructure YAML files, "
+            "add an entry to `services.yml` (including `source_repo`), then run `just generate-service-catalog`.*"
+        )
 
     output_text = "\n".join(md_parts) + "\n"
 
@@ -639,6 +841,10 @@ def main():
         f.write(output_text)
 
     print(f"Generated {args.output} ({total} services, {len(by_machine)} machines)")
+    if missing_source:
+        print(f"⚠ {len(missing_source)} service(s) missing source_repo — see warnings above")
+    else:
+        print("✓ All services have source_repo links")
 
 
 if __name__ == "__main__":

@@ -7,8 +7,15 @@
 # ---------------------------------------------------------------------------
 # This is the ONLY manual file. When you add a new service:
 #   1. Add its ports/domains/networks to the infrastructure YAML files (as you already do)
-#   2. Add an entry here with its machine, category, and description
+#   2. Add an entry here with its machine, category, description, and source_repo
 #   3. Run: just generate-service-catalog
+# ---------------------------------------------------------------------------
+# source_repo (REQUIRED):
+#   The primary source repository URL (GitHub/GitLab) for the service.
+#   If no source repo exists (commercial product, physical host), use the
+#   product page or official website instead.
+#   The generate_service_catalog.py script validates that every entry has
+#   source_repo and renders it as a clickable link in SERVICES.md.
 # ---------------------------------------------------------------------------
 # Categories:
 #   ui         — Web UI accessible via Traefik + Authelia (browser-facing)
@@ -37,6 +44,7 @@
   machine: "oci-cloud-server"
   category: "ui"
   description: "AI Gateway — entry point for the pipeline (auth, virtual keys, spend tracking, PII guardrail)"
+  source_repo: "https://github.com/BerriAI/litellm"
   domains:
     - "infra_domain_ai_litellm"
     - "infra_domain_ai_litellm_api"
@@ -51,6 +59,7 @@
   machine: "oci-cloud-server"
   category: "passive"
   description: "PostgreSQL database for LiteLLM (keys, spend, config)"
+  source_repo: "https://github.com/docker-library/postgres"
   ports:
     - host: "infra_port_ai_litellm_postgres_host"
       container: "infra_port_ai_litellm_postgres_container"
@@ -62,6 +71,7 @@
   machine: "oci-cloud-server"
   category: "passive"
   description: "Redis cache for LiteLLM"
+  source_repo: "https://github.com/redis/redis"
   ports:
     - container: "infra_port_ai_litellm_redis_container"
       label: "Redis"
@@ -72,6 +82,7 @@
   machine: "oci-cloud-server"
   category: "api"
   description: "AI Gateway with tier fallback, 9-factor scoring, free-tier draining"
+  source_repo: "https://github.com/diegosouzapw/OmniRoute"
   domains:
     - "infra_domain_ai_omniroute"
   ports:
@@ -85,6 +96,7 @@
   machine: "oci-cloud-server"
   category: "proxy"
   description: "Context compression layer for AI agents (upstream of iron-proxy, domain: aishrink.levonk.com)"
+  source_repo: "https://github.com/chopratejas/headroom"
   domains:
     - "literal:aishrink.levonk.com"
   ports:
@@ -98,6 +110,7 @@
   machine: "oci-cloud-server"
   category: "proxy"
   description: "Tool calling reliability layer for LLMs (between Privacy Orchestrator and Headroom)"
+  source_repo: "https://github.com/antoinezambelli/forge"
   ports:
     - host: "infra_port_ai_forge_host"
       container: "infra_port_ai_forge_container"
@@ -109,6 +122,7 @@
   machine: "oci-cloud-server"
   category: "proxy"
   description: "Internal proxy in the AI pipeline chain"
+  source_repo: "https://github.com/ironsh/iron-proxy"
   ports:
     - host: "infra_port_proxy_iron_proxy_http_host"
       label: "HTTP"
@@ -121,6 +135,7 @@
   machine: "oci-cloud-server"
   category: "proxy"
   description: "PII/privacy guardrail in the AI pipeline"
+  source_repo: "https://github.com/levonk/ai-dashboard"
   ports:
     - host: "infra_port_ai_privacy_orchestrator_host"
       container: "infra_port_ai_privacy_orchestrator_container"
@@ -132,6 +147,7 @@
   machine: "oci-cloud-server"
   category: "ui"
   description: "AI pipeline dashboard"
+  source_repo: "https://github.com/levonk/ai-dashboard"
   domains:
     - "infra_domain_ai_dashboard_web"
   ports:
@@ -145,6 +161,7 @@
   machine: "oci-cloud-server"
   categories: ["ui", "api"]
   description: "AI agent framework & meta-harness server — web UI + /v1/ API (sessions, hosts, runners, tunnel)"
+  source_repo: "https://github.com/omnigent-ai/omnigent"
   domains:
     - "infra_domain_ai_omnigent"
   ports:
@@ -158,6 +175,7 @@
   machine: "oci-cloud-server"
   category: "passive"
   description: "PostgreSQL database for Omnigent"
+  source_repo: "https://github.com/docker-library/postgres"
   ports:
     - host: "infra_port_ai_omnigent_postgres_host"
       container: "infra_port_ai_omnigent_postgres_container"
@@ -169,6 +187,7 @@
   machine: "oci-cloud-server"
   category: "api"
   description: "Coding agent harness — driven by Omnigent's runner via RPC"
+  source_repo: "https://github.com/earendil-works/pi"
   ports:
     - host: "infra_port_ai_pi_host"
       container: "infra_port_ai_pi_container"
@@ -180,6 +199,7 @@
   machine: "oci-cloud-server"
   category: "ui"
   description: "Persistent memory for AI coding agents (iii-engine + MCP server)"
+  source_repo: "https://github.com/rohitg00/agentmemory"
   domains:
     - "infra_domain_ai_agentmemory"
   ports:
@@ -193,6 +213,7 @@
   machine: "oci-cloud-server"
   category: "ui"
   description: "LLM observability & tracing platform — web UI"
+  source_repo: "https://github.com/langfuse/langfuse"
   domains:
     - "infra_domain_ai_langfuse"
   ports:
@@ -206,6 +227,7 @@
   machine: "oci-cloud-server"
   category: "passive"
   description: "Langfuse background worker (trace processing)"
+  source_repo: "https://github.com/langfuse/langfuse"
   ports:
     - container: "infra_port_ai_langfuse_worker_container"
       label: "Worker"
@@ -216,6 +238,7 @@
   machine: "oci-cloud-server"
   category: "passive"
   description: "PostgreSQL database for Langfuse"
+  source_repo: "https://github.com/docker-library/postgres"
   ports:
     - host: "infra_port_ai_langfuse_postgres_host"
       container: "infra_port_ai_langfuse_postgres_container"
@@ -227,6 +250,7 @@
   machine: "oci-cloud-server"
   category: "passive"
   description: "ClickHouse for Langfuse analytics"
+  source_repo: "https://github.com/ClickHouse/ClickHouse"
   ports:
     - container: "infra_port_ai_langfuse_clickhouse_http_container"
       label: "HTTP"
@@ -239,6 +263,7 @@
   machine: "oci-cloud-server"
   category: "passive"
   description: "Redis cache for Langfuse"
+  source_repo: "https://github.com/redis/redis"
   ports:
     - container: "infra_port_ai_langfuse_redis_container"
       label: "Redis"
@@ -249,6 +274,7 @@
   machine: "oci-cloud-server"
   category: "passive"
   description: "MinIO object storage for Langfuse"
+  source_repo: "https://github.com/minio/minio"
   ports:
     - host: "infra_port_ai_langfuse_minio_api_host"
       container: "infra_port_ai_langfuse_minio_api_container"
@@ -266,6 +292,7 @@
   machine: "oci-cloud-server"
   category: "console"
   description: "Reverse proxy, TLS termination, routing for all *.levonk.com services"
+  source_repo: "https://github.com/traefik/traefik"
   domains:
     - "infra_domain_traefik_dashboard"
   ports:
@@ -286,6 +313,7 @@
   machine: "oci-cloud-server"
   category: "security"
   description: "SSO / authentication provider for all *.levonk.com services (OIDC, 2FA)"
+  source_repo: "https://github.com/authelia/authelia"
   domains:
     - "infra_domain_sso_authelia"
   ports:
@@ -299,6 +327,7 @@
   machine: "oci-cloud-server"
   category: "passive"
   description: "PostgreSQL database for Authelia (user data, OIDC)"
+  source_repo: "https://github.com/docker-library/postgres"
   ports:
     - host: "infra_port_sso_authelia_postgres_host"
       container: "infra_port_sso_authelia_postgres_container"
@@ -310,6 +339,7 @@
   machine: "oci-cloud-server"
   category: "security"
   description: "Security engine & IP reputation (Traefik bouncer)"
+  source_repo: "https://github.com/crowdsecurity/crowdsec"
   ports:
     - host: "infra_port_security_crowdsec_host"
       container: "infra_port_security_crowdsec_container"
@@ -325,6 +355,7 @@
   machine: "oci-cloud-server"
   category: "vpn"
   description: "NordVPN WireGuard exit node (SOCKS/HTTP proxy for SearXNG etc.)"
+  source_repo: "https://github.com/qdm12/gluetun"
   ports:
     - host: "infra_port_vpn_nordvpn_wireguard_host"
       container: "infra_port_vpn_nordvpn_wireguard_container"
@@ -342,6 +373,7 @@
   machine: "oci-cloud-server"
   category: "vpn"
   description: "Tailscale mesh VPN (primary VPN for OCI cloud server)"
+  source_repo: "https://github.com/tailscale/tailscale"
   ports:
     - host: "infra_port_vpn_tailscale"
       container: "infra_port_vpn_tailscale"
@@ -352,6 +384,7 @@
   machine: "oci-cloud-server"
   category: "vpn"
   description: "Tor relay/exit node on OCI (cno) — Tailscale-over-Tor exit node"
+  source_repo: "https://github.com/torproject/tor"
   ports:
     - host: "infra_port_tor_orport_host"
       container: "infra_port_tor_orport_container"
@@ -369,6 +402,7 @@
   machine: "oci-cloud-server"
   category: "vpn"
   description: "Tailscale exit node routing through NordVPN on OCI (cno)"
+  source_repo: "https://github.com/tailscale/tailscale"
   network: "vpn-network"
 
 - name: "Tor Tailscale Exit (cno)"
@@ -376,6 +410,7 @@
   machine: "oci-cloud-server"
   category: "vpn"
   description: "Tailscale exit node routing through Tor on OCI (cno)"
+  source_repo: "https://github.com/torproject/tor"
   network: "tor-network"
 
 - name: "NordVPN Exit Node (nl)"
@@ -383,6 +418,7 @@
   machine: "dtop202311"
   category: "vpn"
   description: "NordVPN (gluetun) exit node on Windows Docker Desktop (nl)"
+  source_repo: "https://github.com/qdm12/gluetun"
   ports:
     - host: "infra_port_vpn_nordvpn_windows_socks_host"
       container: "infra_port_vpn_nordvpn_windows_socks_container"
@@ -400,6 +436,7 @@
   machine: "dtop202311"
   category: "vpn"
   description: "Tor relay/exit node on Windows Docker Desktop (nl)"
+  source_repo: "https://github.com/torproject/tor"
   ports:
     - host: "infra_port_tor_windows_orport_host"
       container: "infra_port_tor_windows_orport_container"
@@ -417,6 +454,7 @@
   machine: "dtop202311"
   category: "vpn"
   description: "Tailscale exit node routing through NordVPN on Windows Docker Desktop (nl)"
+  source_repo: "https://github.com/tailscale/tailscale"
   network: "vpn-network"
 
 - name: "Tor Tailscale Exit (nl)"
@@ -424,6 +462,7 @@
   machine: "dtop202311"
   category: "vpn"
   description: "Tailscale exit node routing through Tor on Windows Docker Desktop (nl)"
+  source_repo: "https://github.com/torproject/tor"
   network: "tor-network"
 
 # ---------------------------------------------------------------------------
@@ -437,24 +476,28 @@
   machine: "oci-cloud-server"
   category: "vpn"
   description: "Host-level Tailscale exit node — plain egress via OCI's internet (no Tor/VPN container)"
+  source_repo: "https://github.com/tailscale/tailscale"
 
 - name: "Host Exit Node (nl)"
   container: "—"
   machine: "dtop202311"
   category: "vpn"
   description: "Host-level Tailscale exit node — plain egress via Windows host's internet (no Tor/VPN container)"
+  source_repo: "https://github.com/tailscale/tailscale"
 
 - name: "Host Exit Node (lzkmbp2016)"
   container: "—"
   machine: "lzkmbp2016"
   category: "vpn"
   description: "Host-level Tailscale exit node — plain egress via lzkmbp2016's internet (laptop)"
+  source_repo: "https://github.com/tailscale/tailscale"
 
 - name: "Host Exit Node (lzkmbp2018)"
   container: "—"
   machine: "lzkmbp2018"
   category: "vpn"
   description: "Host-level Tailscale exit node — plain egress via lzkmbp2018's internet (laptop)"
+  source_repo: "https://github.com/tailscale/tailscale"
 
 # ===========================================================================
 # DNS
@@ -465,6 +508,7 @@
   machine: "oci-cloud-server"
   category: "dns"
   description: "Primary DNS resolver (local zones, Tailscale MagicDNS forwarding)"
+  source_repo: "https://github.com/coredns/coredns"
   ports:
     - host: "infra_port_dns_coredns_main_host"
       container: "infra_port_dns_coredns_main_container"
@@ -479,6 +523,7 @@
   machine: "oci-cloud-server"
   category: "dns"
   description: "DNS load balancer / router"
+  source_repo: "https://github.com/PowerDNS/dnsdist"
   ports:
     - host: "infra_port_dns_dnsdist_main_host"
       container: "infra_port_dns_dnsdist_main_container"
@@ -497,6 +542,7 @@
   machine: "oci-cloud-server"
   category: "ui"
   description: "Privacy-respecting metasearch engine (routes through NordVPN)"
+  source_repo: "https://github.com/searxng/searxng"
   domains:
     - "infra_domain_proxy_search"
   ports:
@@ -514,6 +560,7 @@
   machine: "oci-cloud-server"
   category: "infra"
   description: "Primary startpage (start.levonk.com) — links to TraLa and key services"
+  source_repo: "https://github.com/gethomepage/homepage"
   domains:
     - "infra_domain_dashboard_homepage"
   ports:
@@ -527,6 +574,7 @@
   machine: "oci-cloud-server"
   category: "infra"
   description: "Traefik-native dashboard — auto-discovers all HTTP routers (start2.levonk.com)"
+  source_repo: "https://github.com/dannybouwers/trala"
   domains:
     - "infra_domain_dashboard_trala"
   ports:
@@ -544,6 +592,7 @@
   machine: "oci-cloud-server"
   category: "infra"
   description: "Local Docker registry — serves built images to deployment targets over Tailscale"
+  source_repo: "https://github.com/distribution/distribution"
   ports:
     - host: "infra_port_registry_host"
       container: "infra_port_registry_container"
@@ -555,6 +604,7 @@
   machine: "isolation-vm"
   category: "infra"
   description: "QEMU VM on OCI for AI agent isolation (Debian bookworm, ARM64)"
+  source_repo: "https://www.qemu.org/"
   ports: []
   notes: "IP: 192.168.100.147, no exposed ports — accessed via SSH through OCI"
 
@@ -567,6 +617,7 @@
   machine: "dtop202311"
   category: "ui"
   description: "Self-hosted WorldMonitor stack (news, finance, weather, geolocation feeds)"
+  source_repo: "https://github.com/koala73/worldmonitor"
   ports:
     - host: "infra_port_worldmonitor_app_host"
       container: "infra_port_worldmonitor_app_container"
@@ -578,6 +629,7 @@
   machine: "dtop202311"
   category: "passive"
   description: "Redis for WorldMonitor (data caching + REST API)"
+  source_repo: "https://github.com/redis/redis"
   ports:
     - host: "infra_port_worldmonitor_redis_rest_host"
       container: "infra_port_worldmonitor_redis_rest_container"
@@ -589,6 +641,7 @@
   machine: "dtop202311"
   category: "ui"
   description: "Career tool — resume builder & job application tracker"
+  source_repo: "https://github.com/DaKheera47/job-ops"
   domains:
     - "infra_domain_career_jobops"
   ports:
@@ -603,6 +656,7 @@
   machine: "dtop202311"
   category: "passive"
   description: "S3-compatible object storage (RustFS) on the Windows Docker host"
+  source_repo: "https://github.com/rustfs/rustfs"
   domains:
     - "infra_domain_storage_rustfs"
     - "infra_domain_storage_rustfs_console"
@@ -625,6 +679,7 @@
   machine: "kckinai"
   category: "infra"
   description: "Inference host — Tailscale-attached machine for AI inference workloads"
+  source_repo: "https://tailscale.com/"
   domains:
     - "infra_domain_inference_host"
   ports: []
