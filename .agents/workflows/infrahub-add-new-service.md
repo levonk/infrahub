@@ -5,8 +5,8 @@ description: "Phase-by-phase implementation guide for adding a new service: shar
 use: "When implementing the actual deployment of a new service — called by infrahub-add-new-service-orchestrator.md or used directly for one-shot service additions"
 date:
   created: "2026-06-30"
-  updated: "2026-07-08"
-  last-used: "2026-07-08"
+  updated: "2026-08-01"
+  last-used: "2026-08-01"
 see-also:
   - file: "infrahub-add-new-service-orchestrator.md"
     relationship: "orchestrator"
@@ -33,6 +33,7 @@ This workflow guides an agent through adding a new service end-to-end: shared ro
 3. Read [`shared/active/02-config/ansible/AGENTS.md`](../../shared/active/02-config/ansible/AGENTS.md) — container module rules, port conflict checking
 4. Read [`levonk/AGENTS.md`](../../levonk/AGENTS.md) — submodule workflow, secret storage rules
 5. Know the service name, upstream image/repo, what ports it needs, what domain it gets, and what secrets it requires
+6. Know the service's **primary source repository URL** (GitHub/GitLab repo) or **product page** (if no source repo exists — e.g., commercial software, physical hosts). This is required for the `source_repo` field in `services.yml` (Phase 2f).
 
 ## Decision: Upstream Image vs Locally-Built Image
 
@@ -134,6 +135,71 @@ If the service gets a public domain, add a CNAME record to the Cloudflare DNS co
 - File: `levonk/active/02-config/ansible/inventories/group_vars/all.yml` (or wherever `cloudflare_dns_records` is defined)
 - Add: `{service}.levonk.com` → CNAME → `oci.tale-grouper.ts.net` (Tailscale FQDN)
 - Deploy DNS: `devbox run -- ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/playbooks/configure-cloudflare-dns.yml --vault-password-file ~/.ansible/vault_password`
+
+### 2f. Update Service Catalog Metadata
+
+Add the new service entry to `shared/active/02-config/ansible/infrastructure/services.yml`. This is the manual metadata file that `generate_service_catalog.py` reads to produce `SERVICES.md`.
+
+```yaml
+# {Service Name}
+- name: "{Service Display Name}"
+  container: "{{ infra_hostname_{service} }}"
+  machine: "{machine}"           # e.g., oci-cloud-server, kckinai, dtop202311
+  category: "{category}"         # ui, api, console, passive, proxy, vpn, dns, security, infra
+  description: "{one-line description}"
+  source_repo: "{primary source repo URL or product page}"
+  domains:                       # only if the service has a public domain
+    - "infra_domain_{category}_{service}"
+  ports:
+    - host: "infra_port_{category}_{service}_host"
+      container: "infra_port_{category}_{service}_container"
+      label: "{Web/API/HTTP/...}"
+  traefik: true                   # only if Traefik routes to this service
+  network: "{network-name}"       # only if the service uses a specific network
+```
+
+**`source_repo` field (REQUIRED)**:
+
+Every service entry MUST include `source_repo` — a link to the service's primary source repository or product page. This ensures all `SERVICES.md` entries are traceable to their upstream source.
+
+- **Open-source projects**: Use the GitHub/GitLab repo URL (e.g., `https://github.com/BerriAI/litellm`)
+- **Commercial/no-source products**: Use the product page or official website (e.g., `https://nordvpn.com/`)
+- **Physical hosts** (not containers): Use the relevant product page (e.g., `https://tailscale.com/` for Tailscale exit nodes, `https://www.qemu.org/` for QEMU VMs)
+- **Locally-built custom services**: Use the GitHub repo where the Dockerfile/source lives (e.g., `https://github.com/levonk/ai-dashboard` for the AI Dashboard project)
+
+The `generate_service_catalog.py` script validates that every entry has `source_repo` and will print warnings for any missing entries. The generator renders `source_repo` as a clickable link in the "Source" column of `SERVICES.md`.
+
+### 2g. Regenerate Service Catalog
+
+After adding the entry to `services.yml`, regenerate **both** catalogs:
+
+```bash
+# 1. Regenerate levonk/SERVICES.md (client-specific, deployed machines, custom domains)
+devbox run -- just generate-service-catalog
+
+# 2. Regenerate infrahub/SERVICES.md (repo-root, shared defaults only)
+devbox run -- just generate-service-catalog-shared
+
+# Or run both at once:
+devbox run -- just generate-service-catalog-all
+```
+
+**Two catalogs, two audiences:**
+
+| Catalog | Path | Audience | Contents |
+|---------|------|----------|----------|
+| Client | `levonk/SERVICES.md` | Client submodule (private) | Deployed machines, custom domains, client port overrides, storage volumes |
+| Repo-root | `infrahub/SERVICES.md` | Parent repo (shared) | Default ports, suggested hostnames (no custom domains), no deployed machines, storage paths |
+
+The repo-root catalog uses `--shared-only` mode: it reads only the shared infrastructure YAML (no client overrides), shows default ports, and displays suggested hostnames (the `infra_domain_*` variable names) instead of resolved client-specific domain values. This keeps client deployment details out of the shared repo view while still documenting what services exist and what ports/defaults they use.
+
+**Storage column**: Both catalogs now include a Storage column showing data volumes and config/data paths from `storage.yml`. When you add or change storage variables (Phase 1d/2d), regenerate both catalogs to reflect the changes.
+
+**Verify the check passes** — all services should have `source_repo` links:
+- The generator prints `✓ All services have source_repo links` on success
+- Or `⚠ N service(s) missing source_repo` with a list of offenders on failure
+
+**If the generator reports missing `source_repo`**: Fix the offending entries in `services.yml` before proceeding. Every entry MUST have a `source_repo` field — this is a hard requirement, not optional.
 
 ---
 
@@ -589,6 +655,11 @@ Do not deploy, verify, or commit from this workflow — that's the orchestrator'
 - [ ] **Build pipeline entry** added to `build-and-push-images.sh` (if locally-built image)
 - [ ] **Image built and pushed** to registry (if locally-built)
 - [ ] **Lint passes**: `devbox run -- just ansible-lint-internal`
+- [ ] **Service catalog metadata**: Entry added to `services.yml` with `source_repo` field (Phase 2f)
+- [ ] **`source_repo` link valid**: Points to the primary source repo (GitHub/GitLab) or product page if no source repo exists
+- [ ] **Client catalog regenerated**: `just generate-service-catalog` run and reports "✓ All services have source_repo links" (Phase 2g)
+- [ ] **Repo-root catalog regenerated**: `just generate-service-catalog-shared` run (Phase 2g) — produces `infrahub/SERVICES.md` with shared defaults only
+- [ ] **Storage column reflects changes**: If storage variables were added/changed (Phase 1d/2d), both catalogs show the updated volumes/paths
 
 ## Context Declaration
 
@@ -599,6 +670,10 @@ Do not deploy, verify, or commit from this workflow — that's the orchestrator'
 - **Git state workflow**: `~/p/gh/levonk/infrahub/.agents/workflows/infrahub-git.md`
 - **Developer guide**: `~/p/gh/levonk/infrahub/.agents/knowledge/developer.md` — critical-files tree, known gotchas, boundaries, definition of done
 - **Infrastructure schemas**: `~/p/gh/levonk/infrahub/shared/active/02-config/ansible/infrastructure/` (ports.yml, networks.yml, domains.yml, storage.yml)
+- **Service catalog metadata**: `~/p/gh/levonk/infrahub/shared/active/02-config/ansible/infrastructure/services.yml` — manual metadata file (name, container, machine, category, description, source_repo, domains, ports, traefik, network)
+- **Service catalog generator**: `~/p/gh/levonk/infrahub/shared/active/02-config/ansible/scripts/generate_service_catalog.py` — reads services.yml + infra YAML (ports, domains, networks, storage) → produces SERVICES.md with Source and Storage columns, source_repo validation, and `--shared-only` mode for repo-root catalog
+- **Generated catalog (client)**: `~/p/gh/levonk/infrahub/levonk/SERVICES.md` — auto-generated (client-specific, deployed machines, custom domains), do not edit manually
+- **Generated catalog (repo-root)**: `~/p/gh/levonk/infrahub/SERVICES.md` — auto-generated (shared defaults only, suggested hostnames, no deployment info), do not edit manually
 - **Client infra overrides**: `~/p/gh/levonk/infrahub/levonk/active/02-config/ansible/infrastructure/`
 - **Ansible roles**: `~/p/gh/levonk/infrahub/shared/active/02-config/ansible/roles/`
 - **Playbooks**: `~/p/gh/levonk/infrahub/shared/active/02-config/ansible/playbooks/`

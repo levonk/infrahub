@@ -334,11 +334,32 @@ windows-manual-bootstrap *ARGS:
 # === Service Catalog Generation ===
 
 generate-service-catalog:
-    devbox run generate-service-catalog-internal
+    @echo "Generating levonk/SERVICES.md from infrastructure YAML..."
+    devbox run -- python3 {{ANSIBLE_ROOT}}/scripts/generate_service_catalog.py
 
 generate-service-catalog-internal:
     @echo "Generating SERVICES.md from infrastructure YAML..."
     python3 {{ANSIBLE_ROOT}}/scripts/generate_service_catalog.py
+
+# Generate repo-root SERVICES.md (shared defaults only — no client deployment info)
+generate-service-catalog-shared:
+    @echo "Generating repo-root SERVICES.md (shared defaults only)..."
+    devbox run -- python3 {{ANSIBLE_ROOT}}/scripts/generate_service_catalog.py --shared-only --output SERVICES.md
+
+generate-service-catalog-shared-internal:
+    @echo "Generating repo-root SERVICES.md (shared defaults only)..."
+    python3 {{ANSIBLE_ROOT}}/scripts/generate_service_catalog.py --shared-only --output SERVICES.md
+
+# Generate both catalogs (client + repo-root)
+generate-service-catalog-all:
+    @echo "Generating both SERVICES.md catalogs (client + repo-root)..."
+    devbox run -- python3 {{ANSIBLE_ROOT}}/scripts/generate_service_catalog.py
+    devbox run -- python3 {{ANSIBLE_ROOT}}/scripts/generate_service_catalog.py --shared-only --output SERVICES.md
+
+generate-service-catalog-all-internal:
+    @echo "Generating both SERVICES.md catalogs (client + repo-root)..."
+    python3 {{ANSIBLE_ROOT}}/scripts/generate_service_catalog.py
+    python3 {{ANSIBLE_ROOT}}/scripts/generate_service_catalog.py --shared-only --output SERVICES.md
 
 # === Packer VM Image Creation ===
 
