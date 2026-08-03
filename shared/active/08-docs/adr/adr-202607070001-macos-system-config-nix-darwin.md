@@ -138,3 +138,93 @@ debian-remote, debian-gui, qubes-dev, nixos) remain untouched.
 - System-level `defaults` can override user-level `defaults` set by
   `osx-settings.py` (system wins on conflict). The split is intentional: if a
   setting must be fleet-mandated, it belongs here, not in dotfiles.
+
+## Supplement: Package Source Deduplication and Determinate Coexistence
+
+**Date:** 2026-08-02
+
+After the initial nix-darwin migration, the first fleet host (`lzkmbp2016`)
+had packages installed via three competing sources: Homebrew (casks +
+formulae), imperative `nix profile install`, and nix-darwin
+`environment.systemPackages`. This supplement codifies five rules to
+eliminate conflicts and establish clear ownership boundaries.
+
+### 1. Homebrew module declares all brew-managed packages
+
+`modules/system/homebrew.nix` now contains the full cask and formulae lists
+instead of being empty. This makes `darwin-rebuild switch` the single
+command that converges the machine to the declared state — no manual
+`brew install` needed.
+
+`onActivation.cleanup` is set to `"none"` (safe default) rather than
+`"zap"` (which would remove any package not in the list). After verifying
+the lists are complete, switch to `"uninstall"` or `"zap"` for full
+declarative enforcement.
+
+### 2. No package exists in both nix and brew
+
+A package is either in `environment.systemPackages` (nix) OR
+`homebrew.brews`/`homebrew.casks` (brew), never both. The following
+packages were removed from Homebrew because they are in nix:
+
+| Package | nix name | Was brew |
+|---------|----------|----------|
+| Discord | `discord` | cask `discord` |
+| Bitwarden | `bitwarden-desktop` | cask `bitwarden` |
+| OrbStack | `orbstack` | cask `orbstack` |
+| Git | `git` | formula `git` |
+| Zsh | `zsh` | formula `zsh` |
+
+**Note:** `firefox` (stable, cask) and `firefox-devedition-bin` (Dev Edition,
+nix) are DIFFERENT products — both are kept. Same for `visual-studio-code`
+(stable, cask) and `vscode-insiders` (nix).
+
+### 3. Nix profile packages migrated to environment.systemPackages
+
+The following were previously installed via imperative
+`nix profile install nixpkgs#<pkg>` and are now declarative in the fleet
+module:
+
+`cargo`, `coreutils`, `delta`, `difftastic`, `eza`, `gh`, `git-lfs`,
+`nodejs`, `pnpm`
+
+After `darwin-rebuild switch`, `nix profile list` should show only
+flake-based entries (e.g., `devbox`). The imperative packages are replaced
+by the system-profile versions automatically.
+
+### 4. nix-darwin owns /etc/zshenv; chezmoi owns ~/.zshenv
+
+New module: `modules/system/zsh.nix`.
+
+Architecture:
+
+```
+/etc/zshenv   (nix-darwin)  → PATH for /run/current-system/sw/bin
+~/.zshenv     (chezmoi)     → sets ZDOTDIR=~/.config/shells/zsh
+$ZDOTDIR/.zshrc (chezmoi)   → interactive shell, entrypoint.zsh, lazy loading
+```
+
+nix-darwin rewrites `/etc/zshenv` on every `darwin-rebuild switch`.
+chezmoi rewrites `~/.zshenv` on every `chezmoi apply`. The two files have
+different responsibilities and never overwrite each other. `programs.zsh.enable`
+installs the nix-provided zsh and adds it to `/etc/shells`.
+
+### 5. Determinate Nix coexistence
+
+This machine uses Determinate Nix, which writes `/etc/nix/nix.conf` with a
+`!include nix.custom.conf` header. nix-darwin also writes `/etc/nix/nix.conf`
+via `nix.settings`. Conflict resolution:
+
+- nix-darwin's `nix.settings` is the declarative source of truth.
+- `darwin-rebuild switch` overwrites Determinate's `/etc/nix/nix.conf`.
+  This is expected.
+- Custom settings not in `nix.settings.*` go in `/etc/nix/nix.custom.conf`
+  (Determinate's include file, not managed by nix-darwin).
+- The Determinate auto-updater continues to work (it updates binaries, not
+  nix.conf).
+- If re-running the Determinate installer, use `--no-modify-nix-conf` to
+  prevent it from overwriting nix-darwin's nix.conf.
+
+`modules/nix/settings.nix` now includes the Determinate default values
+(`always-allow-substitutes`, `eval-cores`, `max-jobs`, `lazy-trees`) to
+minimize disruption on the first `darwin-rebuild switch`.

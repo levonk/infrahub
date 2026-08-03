@@ -7,6 +7,7 @@
   imports = [
     ../modules/system/defaults.nix
     ../modules/system/homebrew.nix
+    ../modules/system/zsh.nix
     ../modules/nix/settings.nix
     ../modules/nix/cache.nix
     ../modules/security/privacy-darwin.nix
