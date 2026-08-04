@@ -39,40 +39,6 @@ services:
     restart: unless-stopped
     profiles: ["all"]
 
-  verdaccio:
-    image: localnet-artifact-verdaccio:latest
-    container_name: localnet-artifact-verdaccio
-    logging: *default-logging
-    build:
-      context: ./verdaccio
-      dockerfile: docker/Dockerfile.verdaccio
-      args:
-        - ARTIFACT_VERDACCIO_CONTAINER_PORT=${ARTIFACT_VERDACCIO_CONTAINER_PORT:-4873}
-        - PUID=${PUID:-1000}
-        - PGID=${PGID:-1000}
-    networks:
-      - localnet
-    user: "0:0"
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=UTC
-    ports:
-      - "${ARTIFACT_VERDACCIO_HOST_PORT:-4873}:${ARTIFACT_VERDACCIO_CONTAINER_PORT:-4873}/tcp"
-    volumes:
-      - verdaccio-data:/verdaccio-data:rw
-      - ./verdaccio/mounts/templates:/templates:ro
-    env_file:
-      - ../../.env
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:4873/-/ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    restart: unless-stopped
-    profiles: ["all"]
-
   turbo-cache:
     image: localnet-turbo-cache:latest
     build:

@@ -730,3 +730,39 @@
     - "infra_domain_inference_host"
   ports: []
   notes: "Tailscale FQDN: kckinai.tale-grouper.ts.net, DDNS: kckinai.mach.levonk.com"
+
+# ---------------------------------------------------------------------------
+# Verdaccio NPM Registry (dual-deployment)
+# Private npm registry + proxy cache. Two independent instances with synced config.
+# Upstream image: verdaccio/verdaccio:latest (multi-arch amd64 + arm64)
+# ---------------------------------------------------------------------------
+
+- name: "Verdaccio NPM Registry (cno)"
+  container: "{{ infra_hostname_verdaccio_cno }}"
+  machine: "oci-cloud-server"
+  category: "infra"
+  description: "Private npm registry + proxy cache on OCI (cno)"
+  source_repo: "https://github.com/verdaccio/verdaccio"
+  domains:
+    - "infra_domain_artifact_verdaccio_cno"
+  ports:
+    - host: "infra_port_artifact_verdaccio_host"
+      container: "infra_port_artifact_verdaccio_container"
+      label: "Web/API"
+  traefik: true
+  network: "traefik-network"
+
+- name: "Verdaccio NPM Registry (nl)"
+  container: "{{ infra_hostname_verdaccio_nl }}"
+  machine: "dtop202311"
+  category: "infra"
+  description: "Private npm registry + proxy cache on Windows Docker Desktop (nl)"
+  source_repo: "https://github.com/verdaccio/verdaccio"
+  domains:
+    - "infra_domain_artifact_verdaccio_nl"
+  ports:
+    - host: "infra_port_artifact_verdaccio_host"
+      container: "infra_port_artifact_verdaccio_container"
+      label: "Web/API"
+  traefik: true
+  notes: "Traefik routes cross-machine via Tailscale FQDN (dtop202311.tale-grouper.ts.net)"

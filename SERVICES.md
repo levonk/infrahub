@@ -1,11 +1,11 @@
 # Infrahub Service Catalog (Shared Defaults)
 
-> **Auto-generated** from `infrastructure/*.yml` (shared defaults only) — last updated: 2026-08-01 13:04
+> **Auto-generated** from `infrastructure/*.yml` (shared defaults only) — last updated: 2026-08-04 12:06
 > Regenerate with: `just generate-service-catalog-shared`
 > Source: `shared/active/02-config/ansible/infrastructure/services.yml`
 > Note: This catalog shows **default ports and suggested hostnames** only. Client-specific deployment details (custom domains, deployed machines, client port overrides) are not included. See `levonk/SERVICES.md` for the deployed client catalog.
 
-**48 services** (shared defaults — no deployment info)
+**53 services** (shared defaults — no deployment info)
 
 ## Table of Contents
 
@@ -60,6 +60,9 @@
 | OmniRoute | `omniroute` | `infra_domain_ai_omniroute` (suggested) | `20128`→`20128` (API) | — | — | API (HTTP Services) | [diegosouzapw/OmniRoute](https://github.com/diegosouzapw/OmniRoute) |
 | Pi | `pi` | — | `8090`→`8090` (RPC) | proxy-chain-network | — | API (HTTP Services) | [earendil-works/pi](https://github.com/earendil-works/pi) |
 | Privacy Orchestrator | `privacy-orchestrator` | — | `8082`→`8082` (API) | proxy-chain-network | — | Proxy Chain (Internal) | [levonk/ai-dashboard](https://github.com/levonk/ai-dashboard) |
+| QM Core | `qm-levonk-core` | — | `3104`→`8080` (Core API) | — | — | API (HTTP Services) | [yc-software/qm](https://github.com/yc-software/qm) |
+| QM Postgres | `qm-levonk-pg` | — | `5437`→`5432` (PostgreSQL) | qm-levonk | `localnet-qm-postgres-data-volume` (volume) | Passive (Databases / Caches / Queues) | [docker-library/postgres](https://github.com/docker-library/postgres) |
+| QM Web UI | `qm-levonk-web-ui` | `infra_domain_ai_qm` (suggested) | `3105`→`8082` (Web UI) | — | — | UI (Web Apps) | [yc-software/qm](https://github.com/yc-software/qm) |
 | RustFS | `localnet-rustfs` | `infra_domain_storage_rustfs` (suggested)<br>`infra_domain_storage_rustfs_console` (suggested) | `9000`→`9000` (S3 API)<br>`9001`→`9001` (Console) | — | `localnet-rustfs-data-volume` (volume) | Passive (Databases / Caches / Queues) | [rustfs/rustfs](https://github.com/rustfs/rustfs) |
 | SearXNG | `searxng` | `infra_domain_proxy_search` (suggested) | `8080`→`8080` (Web) | — | — | UI (Web Apps) | [searxng/searxng](https://github.com/searxng/searxng) |
 | Tailscale | `tailscale` | — | `41641`→`41641` (WireGuard) | — | — | VPN / Mesh Networking | [tailscale/tailscale](https://github.com/tailscale/tailscale) |
@@ -69,6 +72,8 @@
 | Tor Tailscale Exit (nl) | `{{ infra_hostname_vpn_tailscale_tor }}` | — | — | tor-network | — | VPN / Mesh Networking | [torproject/tor](https://github.com/torproject/tor) |
 | Traefik | `traefik` | `infra_domain_traefik_dashboard` (suggested) | `80`→`80` (HTTP)<br>`443`→`443` (HTTPS) | traefik-network | — | Console / Dashboard | [traefik/traefik](https://github.com/traefik/traefik) |
 | TraLa | `trala` | `infra_domain_dashboard_trala` (suggested) | `8085`→`8080` (Web) | — | — | Infrastructure | [dannybouwers/trala](https://github.com/dannybouwers/trala) |
+| Verdaccio NPM Registry (cno) | `localnet-artifact-verdaccio` | `infra_domain_artifact_verdaccio_cno` (suggested) | `4873`→`4873` (Web/API) | traefik-network | — | Infrastructure | [verdaccio/verdaccio](https://github.com/verdaccio/verdaccio) |
+| Verdaccio NPM Registry (nl) | `localnet-artifact-verdaccio-nl` | `infra_domain_artifact_verdaccio_nl` (suggested) | `4873`→`4873` (Web/API) | — | — | Infrastructure | [verdaccio/verdaccio](https://github.com/verdaccio/verdaccio) |
 | VPN Tailscale Exit (cno) | `{{ infra_hostname_vpn_tailscale_nordvpn }}` | — | — | vpn-network | — | VPN / Mesh Networking | [tailscale/tailscale](https://github.com/tailscale/tailscale) |
 | VPN Tailscale Exit (nl) | `{{ infra_hostname_vpn_tailscale_nordvpn }}` | — | — | vpn-network | — | VPN / Mesh Networking | [tailscale/tailscale](https://github.com/tailscale/tailscale) |
 | WorldMonitor | `worldmonitor-app` | — | `3000`→`8080` (Web) | worldmonitor-net | — | UI (Web Apps) | [koala73/worldmonitor](https://github.com/koala73/worldmonitor) |
@@ -86,6 +91,7 @@
 | Langfuse Web | `langfuse-web` | `infra_domain_ai_langfuse` (suggested) | `3001`→`3000` (Web) | — | — | [langfuse/langfuse](https://github.com/langfuse/langfuse) |
 | LiteLLM | `litellm` | `infra_domain_ai_litellm` (suggested)<br>`infra_domain_ai_litellm_api` (suggested) | `4000`→`4000` (Web/API) | — | `/opt/localnet/data/litellm`<br>`/opt/localnet/services/litellm/config` | [BerriAI/litellm](https://github.com/BerriAI/litellm) |
 | Omnigent | `omnigent` | `infra_domain_ai_omnigent` (suggested) | `8000`→`8000` (Web/API) | — | — | [omnigent-ai/omnigent](https://github.com/omnigent-ai/omnigent) |
+| QM Web UI | `qm-levonk-web-ui` | `infra_domain_ai_qm` (suggested) | `3105`→`8082` (Web UI) | — | — | [yc-software/qm](https://github.com/yc-software/qm) |
 | SearXNG | `searxng` | `infra_domain_proxy_search` (suggested) | `8080`→`8080` (Web) | — | — | [searxng/searxng](https://github.com/searxng/searxng) |
 | WorldMonitor | `worldmonitor-app` | — | `3000`→`8080` (Web) | worldmonitor-net | — | [koala73/worldmonitor](https://github.com/koala73/worldmonitor) |
 
@@ -96,6 +102,7 @@
 | Omnigent | `omnigent` | `infra_domain_ai_omnigent` (suggested) | `8000`→`8000` (Web/API) | — | — | [omnigent-ai/omnigent](https://github.com/omnigent-ai/omnigent) |
 | OmniRoute | `omniroute` | `infra_domain_ai_omniroute` (suggested) | `20128`→`20128` (API) | — | — | [diegosouzapw/OmniRoute](https://github.com/diegosouzapw/OmniRoute) |
 | Pi | `pi` | — | `8090`→`8090` (RPC) | proxy-chain-network | — | [earendil-works/pi](https://github.com/earendil-works/pi) |
+| QM Core | `qm-levonk-core` | — | `3104`→`8080` (Core API) | — | — | [yc-software/qm](https://github.com/yc-software/qm) |
 
 ### 🖥️ Console / Dashboard
 
@@ -116,6 +123,7 @@
 | LiteLLM Postgres | `litellm-postgres` | — | `5435`→`5432` (PostgreSQL) | proxy-chain-network | — | [docker-library/postgres](https://github.com/docker-library/postgres) |
 | LiteLLM Redis | `litellm-redis` | — | `6379` (Redis) | proxy-chain-network | — | [redis/redis](https://github.com/redis/redis) |
 | Omnigent Postgres | `omnigent-postgres` | — | `5433`→`5432` (PostgreSQL) | proxy-chain-network | — | [docker-library/postgres](https://github.com/docker-library/postgres) |
+| QM Postgres | `qm-levonk-pg` | — | `5437`→`5432` (PostgreSQL) | qm-levonk | `localnet-qm-postgres-data-volume` (volume) | [docker-library/postgres](https://github.com/docker-library/postgres) |
 | RustFS | `localnet-rustfs` | `infra_domain_storage_rustfs` (suggested)<br>`infra_domain_storage_rustfs_console` (suggested) | `9000`→`9000` (S3 API)<br>`9001`→`9001` (Console) | — | `localnet-rustfs-data-volume` (volume) | [rustfs/rustfs](https://github.com/rustfs/rustfs) |
 | WorldMonitor Redis | `worldmonitor-redis` | — | `8079`→`80` (Redis REST) | worldmonitor-net | `worldmonitor-redis-data` (volume) | [redis/redis](https://github.com/redis/redis) |
 
@@ -169,6 +177,8 @@
 | kckinai Host | `kckinai` | `infra_domain_inference_host` (suggested) | — | — | — | [tailscale.com](https://tailscale.com/) |
 | Local Registry | `registry` | — | `5000`→`5000` (Registry) | traefik-network | — | [distribution/distribution](https://github.com/distribution/distribution) |
 | TraLa | `trala` | `infra_domain_dashboard_trala` (suggested) | `8085`→`8080` (Web) | — | — | [dannybouwers/trala](https://github.com/dannybouwers/trala) |
+| Verdaccio NPM Registry (cno) | `localnet-artifact-verdaccio` | `infra_domain_artifact_verdaccio_cno` (suggested) | `4873`→`4873` (Web/API) | traefik-network | — | [verdaccio/verdaccio](https://github.com/verdaccio/verdaccio) |
+| Verdaccio NPM Registry (nl) | `localnet-artifact-verdaccio-nl` | `infra_domain_artifact_verdaccio_nl` (suggested) | `4873`→`4873` (Web/API) | — | — | [verdaccio/verdaccio](https://github.com/verdaccio/verdaccio) |
 
 ---
 
