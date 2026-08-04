@@ -1186,6 +1186,26 @@ A CNAME decouples Cloudflare DNS from the ephemeral IP. If Tailscale reassigns t
 - Cloudflare must stay in DNS-only mode (grey cloud, not proxied) — if proxied, Cloudflare would try to resolve the CNAME target and fail (Tailscale FQDNs are not publicly resolvable).
 - New Tailscale-attached hosts get a CNAME in `configure-cloudflare-dns.yml` pointing to their Tailscale FQDN.
 
+#### 10. Cross-machine Traefik routing — CNAME points to Traefik host, not service host
+
+When a service runs on a different machine than Traefik (e.g., Verdaccio on Windows Docker Desktop, Traefik on OCI), the Cloudflare CNAME MUST point to the **Traefik host** (OCI), not the service host (Windows). Traefik proxies the request to the service host via Tailscale.
+
+If the CNAME points directly to the service host, HTTPS requests fail because the service host doesn't run Traefik (no port 443 listener, no TLS cert provisioning). The Traefik dynamic config's `loadBalancer.servers[].url` handles the cross-machine proxying via Tailscale FQDN + port.
+
+#### 11. Windows Docker deployments — `become: false` + `delegate_to: localhost`
+
+When deploying containers to Windows Docker Desktop via the `DOCKER_HOST: ssh://` pattern (community.docker modules can't run on Windows), tasks use `delegate_to: localhost`. If the play has `become: true` (for Linux hosts in the same play), the `delegate_to: localhost` inherits `become: true`, requiring sudo on the local Mac.
+
+**Fix**: Split plays by host type — Windows plays use `become: false`, Linux plays use `become: true`. Never combine them in a single play. See `deploy-verdaccio.yml` (Phase 1a/1b split) for the pattern.
+
+#### 12. Windows Docker config transfer — `docker cp`, not volume mounts
+
+When transferring config files to a Windows Docker host via `DOCKER_HOST: ssh://`, never mount a local Mac temp directory as a volume in a helper container — the path doesn't exist on the remote Docker daemon. Use `docker cp` instead, which transfers files from the client to the remote daemon over SSH:
+
+1. `docker create` a temporary container with the target volume mounted
+2. `docker cp` config files from local temp dir into the container
+3. `docker rm -f` the temporary container
+
 ### Per-Client Centralized Files
 
 Every client directory (`<client>/active/02-config/ansible/`) MUST contain this set of centralized files. They are the single source of truth for that client — `shared/` only holds the schemas and neutral defaults, the client directory holds the actual values.
