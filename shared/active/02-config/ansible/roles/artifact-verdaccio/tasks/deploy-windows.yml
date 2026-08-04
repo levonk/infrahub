@@ -1,0 +1,167 @@
+---
+# Verdaccio Windows (nl) deployment — ssh-tunneled Docker CLI pattern
+# Target: Windows Docker Desktop (dtop202311, X86). Standalone container (no traefik-network).
+#
+# community.docker modules can't run on Windows (Ansible core basic.py imports
+# grp, Unix-only). We use ansible.builtin.shell with DOCKER_HOST: ssh:// and
+# delegate_to: localhost, matching the ai-qm pattern. Config files are rendered
+# locally then copied into a Docker config volume via a helper alpine container.
+
+# ============================================================================
+# Render config files locally (delegate_to: localhost)
+# ============================================================================
+- name: Ensure local temp directory for verdaccio config exists
+  ansible.builtin.file:
+    path: "{{ verdaccio_windows_temp_dir }}"
+    state: directory
+    mode: "0755"
+  delegate_to: localhost
+  run_once: true
+  changed_when: false
+  tags: ["deploy", "config"]
+
+- name: Render verdaccio config.yaml locally
+  ansible.builtin.template:
+    src: config.yaml.j2
+    dest: "{{ verdaccio_windows_temp_dir }}/config.yaml"
+    mode: "0644"
+  delegate_to: localhost
+  run_once: true
+  changed_when: false
+  tags: ["deploy", "config"]
+
+- name: Render verdaccio htpasswd locally
+  ansible.builtin.template:
+    src: htpasswd.j2
+    dest: "{{ verdaccio_windows_temp_dir }}/htpasswd"
+    mode: "0640"
+  delegate_to: localhost
+  run_once: true
+  changed_when: false
+  no_log: true
+  tags: ["deploy", "config"]
+
+# ============================================================================
+# Volume Management
+# ============================================================================
+- name: Ensure verdaccio data volume exists
+  ansible.builtin.shell: "docker volume inspect {{ verdaccio_data_volume }} 2>/dev/null || docker volume create {{ verdaccio_data_volume }}"
+  environment:
+    DOCKER_HOST: "{{ verdaccio_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "volume"]
+
+- name: Ensure verdaccio config volume exists
+  ansible.builtin.shell: "docker volume inspect {{ verdaccio_config_volume }} 2>/dev/null || docker volume create {{ verdaccio_config_volume }}"
+  environment:
+    DOCKER_HOST: "{{ verdaccio_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "volume"]
+
+# ============================================================================
+# Copy rendered config files into the config volume via a helper container
+# ============================================================================
+- name: Copy config.yaml and htpasswd into config volume
+  ansible.builtin.shell: >-
+    docker run --rm
+    -v {{ verdaccio_config_volume }}:/conf
+    -v {{ verdaccio_windows_temp_dir }}:/src
+    alpine sh -c "cp /src/config.yaml /conf/config.yaml && cp /src/htpasswd /conf/htpasswd"
+  environment:
+    DOCKER_HOST: "{{ verdaccio_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: true
+  no_log: true
+  tags: ["deploy", "config"]
+
+# ============================================================================
+# Pull Image
+# ============================================================================
+- name: Pull verdaccio image
+  ansible.builtin.command: "docker pull {{ verdaccio_image_name }}:{{ verdaccio_image_tag }}"
+  environment:
+    DOCKER_HOST: "{{ verdaccio_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "pull"]
+
+# ============================================================================
+# Container Deployment
+# ============================================================================
+- name: Stop existing verdaccio container
+  ansible.builtin.shell: "docker rm -f {{ verdaccio_container_name }} 2>/dev/null || true"
+  environment:
+    DOCKER_HOST: "{{ verdaccio_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "container"]
+
+- name: Deploy verdaccio container
+  ansible.builtin.shell: >-
+    docker run -d
+    --name {{ verdaccio_container_name }}
+    --restart unless-stopped
+    -p {{ verdaccio_host_port }}:{{ verdaccio_container_port }}/tcp
+    -v {{ verdaccio_data_volume }}:/verdaccio/storage:rw
+    -v {{ verdaccio_config_volume }}:/verdaccio/conf:ro
+    -e TZ={{ verdaccio_tz }}
+    --log-driver json-file
+    --log-opt max-size={{ verdaccio_log_max_size }}
+    --log-opt max-file={{ verdaccio_log_max_file }}
+    --health-cmd "wget -qO- http://127.0.0.1:{{ verdaccio_container_port }}/-/ping || exit 1"
+    --health-interval {{ verdaccio_healthcheck_interval }}
+    --health-timeout {{ verdaccio_healthcheck_timeout }}
+    --health-retries {{ verdaccio_healthcheck_retries }}
+    --health-start-period {{ verdaccio_healthcheck_start_period }}
+    --security-opt no-new-privileges:true
+    {{ verdaccio_image_name }}:{{ verdaccio_image_tag }}
+  environment:
+    DOCKER_HOST: "{{ verdaccio_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "container"]
+
+# ============================================================================
+# Wait for health
+# ============================================================================
+- name: Wait for verdaccio (nl) to be healthy
+  ansible.builtin.command: >-
+    docker inspect --format '{% raw %}{{.State.Health.Status}}{% endraw %}' {{ verdaccio_container_name }}
+  environment:
+    DOCKER_HOST: "{{ verdaccio_docker_host_windows }}"
+  delegate_to: localhost
+  register: verdaccio_windows_health
+  until: verdaccio_windows_health.stdout == "healthy"
+  retries: 30
+  delay: 3
+  changed_when: false
+  ignore_errors: true
+  tags: ["deploy", "container"]
+
+# ============================================================================
+# Status Report
+# ============================================================================
+- name: Get verdaccio (nl) container status
+  ansible.builtin.command: >-
+    docker inspect --format '{% raw %}{{.Name}}={{.State.Status}} health={{.State.Health.Status}}{% endraw %}'
+    {{ verdaccio_container_name }}
+  environment:
+    DOCKER_HOST: "{{ verdaccio_docker_host_windows }}"
+  delegate_to: localhost
+  register: verdaccio_windows_status
+  changed_when: false
+  ignore_errors: true
+  tags: ["always", "info"]
+
+- name: Report verdaccio (nl) status
+  ansible.builtin.debug:
+    msg: |
+      Verdaccio (nl) deployed:
+        - URL: https://{{ verdaccio_domain }} (via Traefik on OCI, cross-machine Tailscale routing)
+        - Container: {{ verdaccio_container_name }}
+        - Image: {{ verdaccio_image_name }}:{{ verdaccio_image_tag }}
+        - Port: {{ verdaccio_host_port }}:{{ verdaccio_container_port }}/tcp
+        - Status: {{ verdaccio_windows_status.stdout | default('unknown') }}
+  tags: ["always", "info"]

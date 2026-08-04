@@ -1,0 +1,10 @@
+---
+# Verdaccio role handlers
+
+- name: restart verdaccio
+  community.docker.docker_container:
+    name: "{{ verdaccio_container_name }}"
+    state: started
+    restart: true
+  when: ansible_os_family != "Windows"
+  listen: "restart verdaccio"

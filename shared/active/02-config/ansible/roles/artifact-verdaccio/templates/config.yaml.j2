@@ -1,0 +1,41 @@
+# Verdaccio Configuration — rendered by Ansible
+# Domain: {{ verdaccio_domain }}
+
+storage: /verdaccio/storage
+plugins: /verdaccio/plugins
+
+web:
+  title: localnet NPM Registry ({{ verdaccio_domain }})
+  enable: true
+
+auth:
+  htpasswd:
+    file: /verdaccio/conf/htpasswd
+    algorithm: bcrypt
+    rounds: 10
+    max_users: -1
+
+uplinks:
+  npmjs:
+    url: https://registry.npmjs.org/
+    timeout: 30s
+
+packages:
+  '@levonk/*':
+    access: $all
+    publish: $authenticated
+    unpublish: $authenticated
+    proxy: npmjs
+
+  '**':
+    access: $all
+    publish: $authenticated
+    unpublish: $authenticated
+    proxy: npmjs
+
+server:
+  keepAliveTimeout: 60
+
+log: {type: stdout, format: pretty, level: http}
+
+listen: 0.0.0.0:{{ verdaccio_container_port }}

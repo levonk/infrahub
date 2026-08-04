@@ -1,0 +1,49 @@
+---
+# Verdaccio NPM Registry — dual-deployment role
+# cno (OCI Linux, ARM64): community.docker modules, joins traefik-network
+# nl  (Windows Docker Desktop, X86): ssh-tunneled Docker CLI, standalone container
+#
+# The deployment target is selected by inventory group membership:
+#   - cloud_servers        → deploy-linux.yml  (cno instance)
+#   - windows_docker_hosts → deploy-windows.yml (nl instance)
+#
+# Per AGENTS.md, community.docker modules can't run on Windows (Ansible core
+# basic.py imports grp, Unix-only). The Windows path uses ansible.builtin.shell
+# with DOCKER_HOST: ssh:// + delegate_to: localhost, matching the ai-qm pattern.
+
+# 1. Validate required variables
+- name: Validate required variables are defined
+  ansible.builtin.assert:
+    that:
+      - verdaccio_image_name is defined
+      - verdaccio_image_tag is defined
+      - verdaccio_host_port is defined
+      - verdaccio_container_port is defined
+      - verdaccio_admin_username is defined
+    fail_msg: >-
+      Missing required verdaccio variables. Check infrastructure files
+      (ports.yml, domains.yml, storage.yml) and vault for
+      vault_verdaccio_admin_username / vault_verdaccio_admin_password.
+    success_msg: "All required verdaccio variables are defined."
+  tags: ["always", "validate"]
+
+# 2. Determine deployment target and dispatch
+- name: Dispatch Linux (cno) deployment for cloud_servers
+  ansible.builtin.include_tasks: deploy-linux.yml
+  vars:
+    verdaccio_container_name: "{{ verdaccio_container_name_cno }}"
+    verdaccio_domain: "{{ verdaccio_domain_cno }}"
+  when:
+    - verdaccio_enabled | bool
+    - "'cloud_servers' in group_names or ansible_os_family == 'RedHat'"
+  tags: ["deploy"]
+
+- name: Dispatch Windows (nl) deployment for windows_docker_hosts
+  ansible.builtin.include_tasks: deploy-windows.yml
+  vars:
+    verdaccio_container_name: "{{ verdaccio_container_name_nl }}"
+    verdaccio_domain: "{{ verdaccio_domain_nl }}"
+  when:
+    - verdaccio_enabled | bool
+    - "'windows_docker_hosts' in group_names"
+  tags: ["deploy"]

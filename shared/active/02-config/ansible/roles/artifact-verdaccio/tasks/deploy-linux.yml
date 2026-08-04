@@ -1,0 +1,119 @@
+---
+# Verdaccio Linux (cno) deployment — community.docker pattern
+# Target: OCI cloud server (ARM64, Oracle Linux). Container joins traefik-network.
+
+# ============================================================================
+# Config directory + rendered files
+# ============================================================================
+- name: Ensure verdaccio config directory exists on host
+  ansible.builtin.file:
+    path: "{{ verdaccio_config_dir }}"
+    state: directory
+    owner: "{{ verdaccio_config_owner }}"
+    group: "{{ verdaccio_config_owner }}"
+    mode: "0755"
+  tags: ["deploy", "config"]
+
+- name: Render verdaccio config.yaml
+  ansible.builtin.template:
+    src: config.yaml.j2
+    dest: "{{ verdaccio_config_dir }}/config.yaml"
+    owner: "{{ verdaccio_config_owner }}"
+    group: "{{ verdaccio_config_owner }}"
+    mode: "0644"
+  notify: restart verdaccio
+  tags: ["deploy", "config"]
+
+- name: Render verdaccio htpasswd
+  ansible.builtin.template:
+    src: htpasswd.j2
+    dest: "{{ verdaccio_config_dir }}/htpasswd"
+    owner: "{{ verdaccio_config_owner }}"
+    group: "{{ verdaccio_config_owner }}"
+    mode: "0640"
+  notify: restart verdaccio
+  no_log: true
+  tags: ["deploy", "config"]
+
+# ============================================================================
+# Volume Management
+# ============================================================================
+- name: Ensure verdaccio data volume exists
+  community.docker.docker_volume:
+    name: "{{ verdaccio_data_volume }}"
+    state: present
+  tags: ["deploy", "volume"]
+
+# ============================================================================
+# Image + Container
+# ============================================================================
+- name: Pull verdaccio image
+  community.docker.docker_image:
+    name: "{{ verdaccio_image_name }}:{{ verdaccio_image_tag }}"
+    source: pull
+  tags: ["deploy", "pull"]
+
+- name: Deploy verdaccio container
+  community.docker.docker_container:
+    name: "{{ verdaccio_container_name }}"
+    image: "{{ verdaccio_image_name }}:{{ verdaccio_image_tag }}"
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ verdaccio_network_name_cno }}"
+    published_ports:
+      - "{{ verdaccio_host_port }}:{{ verdaccio_container_port }}/tcp"
+    volumes:
+      - "{{ verdaccio_data_volume }}:/verdaccio/storage:rw"
+      - "{{ verdaccio_config_dir }}:/verdaccio/conf:ro"
+    env:
+      TZ: "{{ verdaccio_tz }}"
+    log_driver: json-file
+    log_options:
+      max-size: "{{ verdaccio_log_max_size }}"
+      max-file: "{{ verdaccio_log_max_file }}"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:{{ verdaccio_container_port }}/-/ping || exit 1"]
+      interval: "{{ verdaccio_healthcheck_interval }}"
+      timeout: "{{ verdaccio_healthcheck_timeout }}"
+      retries: "{{ verdaccio_healthcheck_retries }}"
+      start_period: "{{ verdaccio_healthcheck_start_period }}"
+    security_opts:
+      - no-new-privileges:true
+  notify: restart verdaccio
+  tags: ["deploy", "container"]
+
+# ============================================================================
+# Wait for health
+# ============================================================================
+- name: Wait for verdaccio to be reachable
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: "{{ verdaccio_host_port }}"
+    delay: 10
+    timeout: 120
+  register: verdaccio_linux_wait
+  tags: ["deploy", "container"]
+
+# ============================================================================
+# Status Report
+# ============================================================================
+- name: Get verdaccio container info
+  community.docker.docker_container_info:
+    name: "{{ verdaccio_container_name }}"
+  register: verdaccio_linux_info
+  ignore_errors: true
+  tags: ["always", "info"]
+
+- name: Report verdaccio (cno) status
+  ansible.builtin.debug:
+    msg: |
+      Verdaccio (cno) deployed:
+        - URL: https://{{ verdaccio_domain }} (via Traefik on OCI)
+        - Container: {{ verdaccio_container_name }}
+        - Image: {{ verdaccio_image_name }}:{{ verdaccio_image_tag }}
+        - Network: {{ verdaccio_network_name_cno }}
+        - Port: {{ verdaccio_host_port }}:{{ verdaccio_container_port }}/tcp
+        - State: {{ verdaccio_linux_info.container.State.Status | default('unknown') }}
+        - Health: {{ verdaccio_linux_info.container.State.Health.Status | default('unknown') }}
+  tags: ["always", "info"]

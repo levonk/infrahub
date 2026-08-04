@@ -1,0 +1,63 @@
+---
+# Verdaccio NPM Registry default variables
+# Private npm registry + proxy cache. Dual-deployment:
+#   cno (OCI Linux, ARM64) — container joins traefik-network, Traefik routes npmjs.cno.levonk.com
+#   nl  (Windows Docker Desktop, X86) — standalone container, Traefik on OCI routes npmjs.nl.levonk.com cross-machine via Tailscale
+# Upstream image: verdaccio/verdaccio:latest (multi-arch amd64 + arm64)
+# Domains: npmjs.cno.levonk.com, npmjs.nl.levonk.com
+
+# Service toggle
+verdaccio_enabled: true
+
+# Container configuration
+verdaccio_container_name_cno: "{{ infra_hostname_verdaccio_cno | default('localnet-artifact-verdaccio') }}"
+verdaccio_container_name_nl: "{{ infra_hostname_verdaccio_nl | default('localnet-artifact-verdaccio-nl') }}"
+verdaccio_image_name: "verdaccio/verdaccio"
+verdaccio_image_tag: "latest"
+
+# Ports (reference infrastructure variables)
+verdaccio_host_port: "{{ infra_port_artifact_verdaccio_host | default('4873') }}"
+verdaccio_container_port: "{{ infra_port_artifact_verdaccio_container | default('4873') }}"
+
+# Domains (reference infrastructure variables)
+verdaccio_domain_cno: "{{ infra_domain_artifact_verdaccio_cno | default('npmjs.cno.levonk.com') }}"
+verdaccio_domain_nl: "{{ infra_domain_artifact_verdaccio_nl | default('npmjs.nl.levonk.com') }}"
+
+# Network (cno joins traefik-network; nl is standalone)
+verdaccio_network_name_cno: "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"
+
+# Volumes
+verdaccio_data_volume: "{{ infra_storage_verdaccio_data_volume | default('localnet-verdaccio-data-volume') }}"
+verdaccio_config_volume: "{{ infra_storage_verdaccio_config_volume | default('localnet-verdaccio-config-volume') }}"
+
+# Config directory on the Linux host (bind-mounted into the container)
+verdaccio_config_dir: "{{ infra_storage_config_dir | default('/opt/localnet/config') }}/verdaccio"
+
+# Secrets (from vault — user must add these via vault handoff)
+verdaccio_admin_username: "{{ vault_verdaccio_admin_username | default('levonk-admin') }}"
+verdaccio_admin_password: "{{ vault_verdaccio_admin_password | default('') }}"
+
+# Docker host for Windows deployment (ssh-tunneled)
+# community.docker modules can't run directly on Windows (Ansible core basic.py
+# imports grp, Unix-only). We delegate_to: localhost and connect to the Windows
+# Docker daemon via ssh://. Requires SSH config entry for the Windows host.
+verdaccio_docker_host_windows: "ssh://ansible@{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.tale-grouper.ts.net') }}"
+
+# Local temp directory for rendering Windows config files before copying into the config volume
+verdaccio_windows_temp_dir: "/tmp/verdaccio-config-{{ inventory_hostname }}"
+
+# Healthcheck — MUST use string with unit suffix, NOT bare integers
+verdaccio_healthcheck_interval: "30s"
+verdaccio_healthcheck_timeout: "10s"
+verdaccio_healthcheck_retries: 3
+verdaccio_healthcheck_start_period: "30s"
+
+# Logging
+verdaccio_log_max_size: "10m"
+verdaccio_log_max_file: "5"
+
+# Timezone
+verdaccio_tz: "{{ localnet_tz | default(timezone | default('UTC')) }}"
+
+# Admin user for file ownership on the Linux host
+verdaccio_config_owner: "{{ cloud_server_admin_user | default('cuser') }}"

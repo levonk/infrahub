@@ -1,0 +1,20 @@
+---
+galaxy_info:
+  role_name: artifact_verdaccio
+  author: levonk
+  description: Verdaccio private npm registry + proxy cache — dual-deployment (Linux + Windows Docker Desktop)
+  license: MIT
+  min_ansible_version: "2.14"
+  platforms:
+    - name: EL
+      versions: ["8", "9"]
+    - name: Windows
+      versions: ["all"]
+  galaxy_tags:
+    - verdaccio
+    - npm
+    - registry
+    - proxy
+    - cache
+    - docker
+dependencies: []
