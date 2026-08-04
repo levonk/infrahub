@@ -61,19 +61,48 @@
   tags: ["deploy", "volume"]
 
 # ============================================================================
-# Copy rendered config files into the config volume via a helper container
+# Copy rendered config files into the config volume via docker cp
+# (docker cp transfers from the local Mac to the remote Docker daemon over SSH)
 # ============================================================================
-- name: Copy config.yaml and htpasswd into config volume
-  ansible.builtin.shell: >-
-    docker run --rm
+- name: Create temporary container to seed config volume
+  ansible.builtin.command: >-
+    docker create --name {{ verdaccio_container_name }}-config-seed
     -v {{ verdaccio_config_volume }}:/conf
-    -v {{ verdaccio_windows_temp_dir }}:/src
-    alpine sh -c "cp /src/config.yaml /conf/config.yaml && cp /src/htpasswd /conf/htpasswd"
+    alpine:latest sleep infinity
+  environment:
+    DOCKER_HOST: "{{ verdaccio_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "config"]
+
+- name: Copy config.yaml into config volume
+  ansible.builtin.command: >-
+    docker cp {{ verdaccio_windows_temp_dir }}/config.yaml
+    {{ verdaccio_container_name }}-config-seed:/conf/config.yaml
   environment:
     DOCKER_HOST: "{{ verdaccio_docker_host_windows }}"
   delegate_to: localhost
   changed_when: true
   no_log: true
+  tags: ["deploy", "config"]
+
+- name: Copy htpasswd into config volume
+  ansible.builtin.command: >-
+    docker cp {{ verdaccio_windows_temp_dir }}/htpasswd
+    {{ verdaccio_container_name }}-config-seed:/conf/htpasswd
+  environment:
+    DOCKER_HOST: "{{ verdaccio_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: true
+  no_log: true
+  tags: ["deploy", "config"]
+
+- name: Remove temporary seed container
+  ansible.builtin.shell: "docker rm -f {{ verdaccio_container_name }}-config-seed 2>/dev/null || true"
+  environment:
+    DOCKER_HOST: "{{ verdaccio_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: false
   tags: ["deploy", "config"]
 
 # ============================================================================
