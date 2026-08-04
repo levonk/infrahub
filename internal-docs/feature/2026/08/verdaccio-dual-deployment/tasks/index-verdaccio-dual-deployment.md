@@ -7,7 +7,7 @@
 | 01-003 | Vault secrets handoff | [ ] Todo | 01-001 | feature/current/verdaccio-dual-deployment/story-01-003-vault-secrets |
 | 01-004 | Ansible role artifact-verdaccio | [x] Done | 01-001, 01-003 | feature/current/verdaccio-dual-deployment/story-01-004-ansible-role |
 | 01-005 | Traefik dynamic config templates | [x] Done | 01-002, 01-004 | feature/current/verdaccio-dual-deployment/story-01-005-traefik-routing |
-| 01-006 | Deployment + validation playbooks | [ ] Todo | 01-004, 01-005 | feature/current/verdaccio-dual-deployment/story-01-006-playbooks |
+| 01-006 | Deployment + validation playbooks | [x] Done | 01-004, 01-005 | feature/current/verdaccio-dual-deployment/story-01-006-playbooks |
 | 01-007 | Service catalog + cleanup old scaffolding | [x] Done | 01-001, 01-004 | feature/current/verdaccio-dual-deployment/story-01-007-catalog-cleanup |
 
 ## Dependency Graph
