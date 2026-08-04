@@ -670,6 +670,52 @@
   traefik: true
   notes: "Traefik routes cross-machine via Tailscale FQDN (dtop202311.tale-grouper.ts.net); S3 API on port 9000, console on port 9001"
 
+# ---------------------------------------------------------------------------
+# QM (Multiplayer agent harness for work — web UI + core + Postgres)
+# Deployed to Windows Docker Desktop (dtop202311) via WSL Docker.
+# Upstream pre-built images from ghcr.io/yc-software/qm.
+# SANDBOX_BACKEND=local for self-hosted agent sandboxes (dev-only).
+# ---------------------------------------------------------------------------
+
+- name: "QM Web UI"
+  container: "{{ infra_hostname_qm_web }}"
+  machine: "dtop202311"
+  category: "ui"
+  description: "QM multiplayer agent harness — web UI (browser chat interface)"
+  source_repo: "https://github.com/yc-software/qm"
+  domains:
+    - "infra_domain_ai_qm"
+  ports:
+    - host: "infra_port_ai_qm_web_host"
+      container: "infra_port_ai_qm_web_container"
+      label: "Web UI"
+  traefik: true
+  notes: "Traefik routes cross-machine via Tailscale FQDN (dtop202311.tale-grouper.ts.net); SANDBOX_BACKEND=local (dev-only)"
+
+- name: "QM Core"
+  container: "{{ infra_hostname_qm }}"
+  machine: "dtop202311"
+  category: "api"
+  description: "QM headless core — agent runtime, API, identity, policy, scheduler"
+  source_repo: "https://github.com/yc-software/qm"
+  ports:
+    - host: "infra_port_ai_qm_core_host"
+      container: "infra_port_ai_qm_core_container"
+      label: "Core API"
+  notes: "Internal API — not exposed via Traefik; communicates with web-ui and Postgres on qm-levonk network"
+
+- name: "QM Postgres"
+  container: "{{ infra_hostname_qm_postgres }}"
+  machine: "dtop202311"
+  category: "passive"
+  description: "PostgreSQL database for QM (sessions, memory, queue, audit state)"
+  source_repo: "https://github.com/docker-library/postgres"
+  ports:
+    - host: "infra_port_ai_qm_postgres_host"
+      container: "infra_port_ai_qm_postgres_container"
+      label: "PostgreSQL"
+  network: "qm-levonk"
+
 # ===========================================================================
 # Inference Host Services (kckinai)
 # ===========================================================================

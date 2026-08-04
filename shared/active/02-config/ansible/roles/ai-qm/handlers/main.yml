@@ -1,0 +1,26 @@
+---
+# QM role handlers
+
+- name: restart qm-core
+  ansible.builtin.shell: "docker restart {{ qm_core_container_name }}"
+  environment:
+    DOCKER_HOST: "{{ qm_docker_host }}"
+  delegate_to: localhost
+  listen: "restart qm-core"
+  changed_when: true
+
+- name: restart qm-web
+  ansible.builtin.shell: "docker restart {{ qm_web_container_name }}"
+  environment:
+    DOCKER_HOST: "{{ qm_docker_host }}"
+  delegate_to: localhost
+  listen: "restart qm-web"
+  changed_when: true
+
+- name: restart qm-postgres
+  ansible.builtin.shell: "docker restart {{ qm_postgres_container_name }}"
+  environment:
+    DOCKER_HOST: "{{ qm_docker_host }}"
+  delegate_to: localhost
+  listen: "restart qm-postgres"
+  changed_when: true

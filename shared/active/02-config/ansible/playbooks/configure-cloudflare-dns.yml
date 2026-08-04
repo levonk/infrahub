@@ -206,6 +206,14 @@
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
 
+      # QM multiplayer agent harness (runs on Windows Docker, routed via Traefik on OCI)
+      - name: "{{ infra_domain_ai_qm | default('qm.levonk.com') }}"
+        type: "CNAME"
+        content: "{{ ts_fqdn }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
       # Exit node CNAMEs (dual-deployment: nl + cno)
       # Each CNAME points to the Tailscale FQDN of the exit node container,
       # not the host FQDN. This decouples the public DNS from the host's

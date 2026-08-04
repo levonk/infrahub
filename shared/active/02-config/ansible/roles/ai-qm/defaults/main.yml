@@ -1,0 +1,96 @@
+---
+# QM (Multiplayer agent harness) default variables
+# QM is a multiplayer agent harness for work by yc-software.
+# TypeScript/Node core + React web UI + Postgres.
+# Domain: qm.levonk.com
+# Upstream: https://github.com/yc-software/qm
+# Deployed to Windows Docker Desktop hosts via SSH-tunneled Docker CLI.
+
+# Service configuration
+qm_enabled: true
+
+# Container names (match qm init convention: qm-{org}-{service})
+qm_core_container_name: "{{ infra_hostname_qm | default('qm-levonk-core') }}"
+qm_web_container_name: "{{ infra_hostname_qm_web | default('qm-levonk-web-ui') }}"
+qm_postgres_container_name: "{{ infra_hostname_qm_postgres | default('qm-levonk-pg') }}"
+
+# Images — upstream pre-built from ghcr.io/yc-software/qm
+# Pinned by SHA-256 digest (from `qm plan` output)
+qm_core_image: "ghcr.io/yc-software/qm/core@sha256:bee03e7f22719dfe76ea2c83bb65db2bdefd55b714eae4014007033800bdb5ab"
+qm_web_image: "ghcr.io/yc-software/qm/web-ui@sha256:f037834fd726bcff220245665ef46accb10b476331006a85c59defbde1635e52"
+qm_postgres_image: "postgres:16"
+
+# Sandbox image — built locally with `qm sandbox build`, pushed to local registry
+# SANDBOX_BACKEND=local uses this image for agent sandboxes (dev-only)
+qm_sandbox_image: "{{ windows_registry_url | default('100.90.22.85:5000') }}/localnet-qm-sandbox"
+qm_sandbox_image_tag: "latest"
+
+# Port configuration
+qm_core_host_port: "{{ infra_port_ai_qm_core_host | default('3104') }}"
+qm_core_container_port: "{{ infra_port_ai_qm_core_container | default('8080') }}"
+qm_web_host_port: "{{ infra_port_ai_qm_web_host | default('3105') }}"
+qm_web_container_port: "{{ infra_port_ai_qm_web_container | default('8082') }}"
+qm_postgres_host_port: "{{ infra_port_ai_qm_postgres_host | default('5437') }}"
+qm_postgres_container_port: "{{ infra_port_ai_qm_postgres_container | default('5432') }}"
+
+# Domain for Traefik routing
+qm_domain: "{{ infra_domain_ai_qm | default('qm.levonk.com') }}"
+
+# Public URLs (used by QM core for generating links)
+qm_public_url: "https://{{ qm_domain }}"
+qm_public_api_url: "https://{{ qm_domain }}"
+qm_web_ui_public_url: "https://{{ qm_domain }}"
+
+# Network configuration
+qm_network_name: "{{ infra_network_ai_qm_network_name | default('qm-levonk') }}"
+qm_traefik_network_name: "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"
+qm_traefik_network_ip: "{{ infra_network_ip_qm_traefik | default('172.31.0.22') }}"
+
+# Organization ID (matches qm init --org levonk)
+qm_org_id: "levonk"
+
+# PostgreSQL configuration
+qm_postgres_db: "qm"
+qm_postgres_user: "qm"
+qm_postgres_password: "{{ vault_qm_postgres_password | default('changeme') }}"
+
+# Volume names
+qm_postgres_volume_name: "{{ infra_storage_qm_postgres_volume | default('localnet-qm-postgres-data-volume') }}"
+qm_layer_volume_name: "{{ infra_storage_qm_layer_volume | default('localnet-qm-layer-volume') }}"
+
+# Secrets (from vault)
+qm_anthropic_api_key: "{{ vault_qm_anthropic_api_key | default('changeme') }}"
+qm_capability_secret: "{{ vault_qm_capability_secret | default('changeme') }}"
+qm_connector_secret_key: "{{ vault_qm_connector_secret_key | default('changeme') }}"
+qm_core_signing_secret: "{{ vault_qm_core_signing_secret | default('changeme') }}"
+qm_portal_identity_secret: "{{ vault_qm_portal_identity_secret | default('changeme') }}"
+qm_skill_signing_secret: "{{ vault_qm_skill_signing_secret | default('changeme') }}"
+
+# QM harness mode: "pi" (real agent turns) or "mock" (fake turns, no model calls)
+qm_harness: "pi"
+
+# Sandbox backend: "local" (dev-only, self-hosted Docker) or "fly" (Fly.io)
+qm_sandbox_backend: "local"
+qm_fly_sandbox_app_name: "levonk-sandboxes"
+
+# Model provider: "anthropic" or "openrouter"
+qm_model_provider: "anthropic"
+
+# Docker connection string for the Windows host (SSH-tunneled)
+# community.docker modules can't run directly on Windows (Ansible core basic.py
+# imports grp, Unix-only). We delegate_to: localhost and connect to the Windows
+# Docker daemon via ssh://. Requires SSH config entry for the Windows host.
+qm_docker_host: "ssh://ansible@{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.tale-grouper.ts.net') }}"
+
+# Health check configuration
+qm_health_interval: "30s"
+qm_health_timeout: "10s"
+qm_health_start_period: "40s"
+qm_health_retries: 3
+
+# Logging
+qm_log_max_size: "10m"
+qm_log_max_file: "5"
+
+# Timezone
+qm_tz: "{{ localnet_tz | default(timezone | default('UTC')) }}"

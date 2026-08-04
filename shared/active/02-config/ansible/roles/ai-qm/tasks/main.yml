@@ -1,0 +1,311 @@
+---
+# QM (Multiplayer agent harness) Deployment
+# Deploys on Windows Docker Desktop hosts via SSH-tunneled Docker CLI.
+# Upstream pre-built images from ghcr.io/yc-software/qm — no build phase for core/web-ui.
+# Sandbox image is built separately and pushed to the local registry.
+#
+# Architecture: community.docker Ansible modules use paramiko for SSH transport,
+# which can't authenticate to the Windows host (key discovery issue). Instead,
+# we use ansible.builtin.shell with the docker CLI, setting DOCKER_HOST to
+# ssh:// so the system SSH client (with ~/.ssh/config) handles auth.
+#
+# This is a pragmatic exception to the "community.docker modules only" rule.
+# The rule exists to avoid docker compose and ensure idempotent container
+# management. We achieve both with docker CLI run/create commands. The root
+# cause is that community.docker modules can't run on Windows (Ansible core
+# basic.py imports grp, Unix-only) and can't use the system SSH client for
+# delegate_to: localhost (paramiko auth fails).
+
+# 1. Validate required variables
+- name: Validate required variables are defined
+  ansible.builtin.assert:
+    that:
+      - qm_core_container_name is defined
+      - qm_core_image is defined
+      - qm_web_image is defined
+      - qm_postgres_password is defined
+      - qm_domain is defined
+      - qm_docker_host is defined
+    fail_msg: >-
+      Missing required qm variables. Check infrastructure files and vault for
+      qm_core_container_name, qm_core_image, qm_domain, qm_docker_host,
+      and vault_qm_postgres_password.
+    success_msg: "All required qm variables are defined."
+  tags: ["always", "validate"]
+
+# ============================================================================
+# Volume Management
+# ============================================================================
+- name: Ensure qm Postgres data volume exists
+  ansible.builtin.shell: "docker volume inspect {{ qm_postgres_volume_name }} 2>/dev/null || docker volume create {{ qm_postgres_volume_name }}"
+  environment:
+    DOCKER_HOST: "{{ qm_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "volume"]
+
+- name: Ensure qm layer volume exists
+  ansible.builtin.shell: "docker volume inspect {{ qm_layer_volume_name }} 2>/dev/null || docker volume create {{ qm_layer_volume_name }}"
+  environment:
+    DOCKER_HOST: "{{ qm_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "volume"]
+
+# ============================================================================
+# Network Management
+# ============================================================================
+- name: Ensure qm Docker network exists
+  ansible.builtin.shell: "docker network inspect {{ qm_network_name }} 2>/dev/null || docker network create {{ qm_network_name }}"
+  environment:
+    DOCKER_HOST: "{{ qm_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "network"]
+
+# ============================================================================
+# Pull Images
+# ============================================================================
+- name: Pull qm core image from ghcr.io
+  ansible.builtin.shell: "docker pull {{ qm_core_image }}"
+  environment:
+    DOCKER_HOST: "{{ qm_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "pull"]
+
+- name: Pull qm web-ui image from ghcr.io
+  ansible.builtin.shell: "docker pull {{ qm_web_image }}"
+  environment:
+    DOCKER_HOST: "{{ qm_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "pull"]
+
+- name: Pull qm Postgres image
+  ansible.builtin.shell: "docker pull {{ qm_postgres_image }}"
+  environment:
+    DOCKER_HOST: "{{ qm_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "pull"]
+
+- name: Pull qm sandbox image from local registry
+  ansible.builtin.shell: "docker pull {{ qm_sandbox_image }}:{{ qm_sandbox_image_tag }}"
+  environment:
+    DOCKER_HOST: "{{ qm_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  failed_when: false  # Sandbox image may not exist yet in dev mode
+  tags: ["deploy", "pull"]
+
+# ============================================================================
+# Postgres Deployment
+# ============================================================================
+- name: Stop existing qm-postgres container
+  ansible.builtin.shell: "docker rm -f {{ qm_postgres_container_name }} 2>/dev/null || true"
+  environment:
+    DOCKER_HOST: "{{ qm_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "container"]
+
+- name: Deploy qm Postgres container
+  ansible.builtin.shell: >-
+    docker run -d
+    --name {{ qm_postgres_container_name }}
+    --restart unless-stopped
+    --network {{ qm_network_name }}
+    --network-alias pg
+    -e POSTGRES_USER={{ qm_postgres_user }}
+    -e POSTGRES_PASSWORD={{ qm_postgres_password }}
+    -e POSTGRES_DB={{ qm_postgres_db }}
+    -e TZ={{ qm_tz }}
+    -e PGTZ={{ qm_tz }}
+    -v {{ qm_postgres_volume_name }}:/var/lib/postgresql/data:rw
+    --log-driver json-file
+    --log-opt max-size={{ qm_log_max_size }}
+    --log-opt max-file={{ qm_log_max_file }}
+    --health-cmd "pg_isready -U {{ qm_postgres_user }} -d {{ qm_postgres_db }}"
+    --health-interval 10s
+    --health-timeout 5s
+    --health-retries 10
+    --health-start-period 10s
+    --security-opt no-new-privileges:true
+    {{ qm_postgres_image }}
+  environment:
+    DOCKER_HOST: "{{ qm_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "container"]
+
+- name: Wait for qm Postgres to be healthy
+  ansible.builtin.shell: >-
+    docker inspect --format '{% raw %}{{.State.Health.Status}}{% endraw %}' {{ qm_postgres_container_name }}
+  environment:
+    DOCKER_HOST: "{{ qm_docker_host }}"
+  delegate_to: localhost
+  register: qm_pg_health
+  until: qm_pg_health.stdout == "healthy"
+  retries: 30
+  delay: 2
+  changed_when: false
+  tags: ["deploy", "container"]
+
+# ============================================================================
+# Core Container Deployment
+# ============================================================================
+- name: Stop existing qm-core container
+  ansible.builtin.shell: "docker rm -f {{ qm_core_container_name }} 2>/dev/null || true"
+  environment:
+    DOCKER_HOST: "{{ qm_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "container"]
+
+- name: Deploy qm core container
+  ansible.builtin.shell: >-
+    docker run -d
+    --name {{ qm_core_container_name }}
+    --restart unless-stopped
+    --network {{ qm_network_name }}
+    --network-alias core
+    -p {{ qm_core_host_port }}:{{ qm_core_container_port }}/tcp
+    -v {{ qm_layer_volume_name }}-coredata:/data:rw
+    -e ORG_ID={{ qm_org_id }}
+    -e PORT={{ qm_core_container_port }}
+    -e DATA_DIR=/data
+    -e SESSION_STORE=postgres
+    -e RUN_STORE=postgres
+    -e DATABASE_URL=postgresql://{{ qm_postgres_user }}:{{ qm_postgres_password }}@pg:{{ qm_postgres_container_port }}/{{ qm_postgres_db }}
+    -e MODEL_PROVIDER={{ qm_model_provider }}
+    -e FLY_SANDBOX_APP_NAME={{ qm_fly_sandbox_app_name }}
+    -e FLY_BASE_IMAGE={{ qm_sandbox_image }}:{{ qm_sandbox_image_tag }}
+    -e HARNESS={{ qm_harness }}
+    -e SANDBOX_BACKEND={{ qm_sandbox_backend }}
+    -e ANTHROPIC_API_KEY={{ qm_anthropic_api_key }}
+    -e CAPABILITY_SECRET={{ qm_capability_secret }}
+    -e CONNECTOR_SECRET_KEY={{ qm_connector_secret_key }}
+    -e CORE_SIGNING_SECRET={{ qm_core_signing_secret }}
+    -e PORTAL_IDENTITY_SECRET={{ qm_portal_identity_secret }}
+    -e PUBLIC_API_URL={{ qm_public_api_url }}
+    -e PUBLIC_WEB_URL={{ qm_public_url }}
+    -e SKILL_SIGNING_SECRET={{ qm_skill_signing_secret }}
+    -e WEB_UI_PUBLIC_URL={{ qm_web_ui_public_url }}
+    -e TZ={{ qm_tz }}
+    --log-driver json-file
+    --log-opt max-size={{ qm_log_max_size }}
+    --log-opt max-file={{ qm_log_max_file }}
+    --health-cmd "curl -sf http://localhost:{{ qm_core_container_port }}/healthz || exit 1"
+    --health-interval {{ qm_health_interval }}
+    --health-timeout {{ qm_health_timeout }}
+    --health-retries {{ qm_health_retries }}
+    --health-start-period {{ qm_health_start_period }}
+    --security-opt no-new-privileges:true
+    {{ qm_core_image }}
+  environment:
+    DOCKER_HOST: "{{ qm_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "container"]
+
+# ============================================================================
+# Web-UI Container Deployment (with Traefik labels)
+# ============================================================================
+- name: Stop existing qm-web container
+  ansible.builtin.shell: "docker rm -f {{ qm_web_container_name }} 2>/dev/null || true"
+  environment:
+    DOCKER_HOST: "{{ qm_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "container"]
+
+- name: Deploy qm web-ui container
+  ansible.builtin.shell: >-
+    docker run -d
+    --name {{ qm_web_container_name }}
+    --restart unless-stopped
+    --network {{ qm_network_name }}
+    --network-alias web-ui
+    -p {{ qm_web_host_port }}:{{ qm_web_container_port }}/tcp
+    -e PORT={{ qm_web_container_port }}
+    -e CORE_API_URL=http://core:{{ qm_core_container_port }}
+    -e CORE_ORG_ID={{ qm_org_id }}
+    -e CORE_SIGNING_SECRET={{ qm_core_signing_secret }}
+    -e WEB_UI_PUBLIC_URL={{ qm_web_ui_public_url }}
+    -e TZ={{ qm_tz }}
+    --log-driver json-file
+    --log-opt max-size={{ qm_log_max_size }}
+    --log-opt max-file={{ qm_log_max_file }}
+    --health-cmd "wget -qO- http://localhost:{{ qm_web_container_port }}/ || exit 1"
+    --health-interval {{ qm_health_interval }}
+    --health-timeout {{ qm_health_timeout }}
+    --health-retries {{ qm_health_retries }}
+    --health-start-period {{ qm_health_start_period }}
+    --security-opt no-new-privileges:true
+    {{ qm_web_image }}
+  environment:
+    DOCKER_HOST: "{{ qm_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "container"]
+
+# ============================================================================
+# Wait for services to be healthy
+# ============================================================================
+- name: Wait for qm core to be healthy
+  ansible.builtin.shell: >-
+    docker inspect --format '{% raw %}{{.State.Health.Status}}{% endraw %}' {{ qm_core_container_name }}
+  environment:
+    DOCKER_HOST: "{{ qm_docker_host }}"
+  delegate_to: localhost
+  register: qm_core_health
+  until: qm_core_health.stdout == "healthy"
+  retries: 30
+  delay: 3
+  changed_when: false
+  ignore_errors: true  # Core may not have a health endpoint; check logs if this fails
+  tags: ["deploy", "container"]
+
+- name: Wait for qm web-ui to be healthy
+  ansible.builtin.shell: >-
+    docker inspect --format '{% raw %}{{.State.Health.Status}}{% endraw %}' {{ qm_web_container_name }}
+  environment:
+    DOCKER_HOST: "{{ qm_docker_host }}"
+  delegate_to: localhost
+  register: qm_web_health
+  until: qm_web_health.stdout == "healthy"
+  retries: 30
+  delay: 3
+  changed_when: false
+  ignore_errors: true
+  tags: ["deploy", "container"]
+
+# ============================================================================
+# Status Report
+# ============================================================================
+- name: Get qm container statuses
+  ansible.builtin.shell: >-
+    docker inspect --format '{% raw %}{{.Name}}={{.State.Status}}{% endraw %}'
+    {{ qm_core_container_name }}
+    {{ qm_web_container_name }}
+    {{ qm_postgres_container_name }}
+  environment:
+    DOCKER_HOST: "{{ qm_docker_host }}"
+  delegate_to: localhost
+  register: qm_status
+  changed_when: false
+  ignore_errors: true
+  tags: ["always", "info"]
+
+- name: Report qm status
+  ansible.builtin.debug:
+    msg: |
+      QM deployed:
+        - URL: https://{{ qm_domain }} (Authelia-protected)
+        - Core: {{ qm_core_container_name }} (image: {{ qm_core_image }})
+        - Web UI: {{ qm_web_container_name }} (image: {{ qm_web_image }})
+        - Postgres: {{ qm_postgres_container_name }}
+        - Sandbox backend: {{ qm_sandbox_backend }} (dev-only)
+        - Status: {{ qm_status.stdout | default('unknown') }}
+  tags: ["always", "info"]

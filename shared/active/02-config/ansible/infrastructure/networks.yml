@@ -76,6 +76,18 @@ infra_network_ip_buzz_traefik: "172.31.0.50"
 infra_network_ip_paperclip: "172.31.0.20"
 infra_network_ip_paperclip_traefik: "172.31.0.21"
 
+# QM (Multiplayer agent harness — deployed to Windows Docker Desktop)
+# Dedicated bridge network for qm core ↔ web-ui ↔ postgres communication.
+# Joins traefik-network for public routing via Traefik.
+infra_network_ai_qm_network_name: "qm-levonk"
+infra_network_ai_qm_subnet: "172.42.0.0/16"
+infra_network_ai_qm_gateway: "172.42.0.1"
+infra_network_ip_qm_core: "172.42.0.10"
+infra_network_ip_qm_web: "172.42.0.11"
+infra_network_ip_qm_postgres: "172.42.0.20"
+# Traefik-network IP for qm web-ui (public routing)
+infra_network_ip_qm_traefik: "172.31.0.22"
+
 # ---------------------------------------------------------------------------
 # DNS Networks
 # ---------------------------------------------------------------------------

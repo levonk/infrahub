@@ -343,3 +343,18 @@ infra_port_security_wazuh_dashboard_container: "5601"
 # ---------------------------------------------------------------------------
 infra_port_p2p_freenet_ws_api_host: "7509"
 infra_port_p2p_freenet_ws_api_container: "7509"
+
+# ---------------------------------------------------------------------------
+# QM (Multiplayer agent harness for work — Slack + web UI)
+# Used by: Windows Docker Desktop hosts (deploy-qm.yml playbook)
+# Upstream pre-built images: ghcr.io/yc-software/qm/{core,web-ui}
+# SANDBOX_BACKEND=local for self-hosted agent sandboxes (dev-only).
+# Core listens on 8080, web-ui on 8082 (from `qm plan` output).
+# Postgres host port 5437 avoids conflicts with archon (5436) and paperclip (5436).
+# ---------------------------------------------------------------------------
+infra_port_ai_qm_core_host: "3104"
+infra_port_ai_qm_core_container: "8080"
+infra_port_ai_qm_web_host: "3105"
+infra_port_ai_qm_web_container: "8082"
+infra_port_ai_qm_postgres_host: "5437"
+infra_port_ai_qm_postgres_container: "5432"

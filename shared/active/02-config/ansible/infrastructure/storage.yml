@@ -89,6 +89,11 @@ infra_storage_buzz_minio_volume: "localnet-buzz-minio-data-volume"
 infra_storage_paperclip_volume: "localnet-paperclip-data-volume"
 infra_storage_paperclip_postgres_volume: "localnet-paperclip-postgres-data-volume"
 
+# QM (Multiplayer agent harness — deployed to Windows Docker Desktop)
+# Docker volumes for Postgres data and sandbox layer (skills, tools).
+infra_storage_qm_postgres_volume: "localnet-qm-postgres-data-volume"
+infra_storage_qm_layer_volume: "localnet-qm-layer-volume"
+
 # Security Services
 infra_storage_security_config: "{{ infra_storage_services_dir }}/security/config"
 infra_storage_security_data: "{{ infra_storage_services_dir }}/security/data"
