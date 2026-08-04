@@ -144,6 +144,17 @@ infra_hostname_wazuh_indexer: "wazuh-indexer"
 infra_hostname_wazuh_dashboard: "wazuh-dashboard"
 
 # ---------------------------------------------------------------------------
+# Artifact / NPM Registry Services (Verdaccio dual-deployment)
+# nl = network local (dtop202311, X86 Windows Docker Desktop)
+# cno = cloud network oracle (oci, ARM64 Oracle Cloud)
+# Both are independent registries with synced config (same htpasswd, same config template).
+# ---------------------------------------------------------------------------
+infra_domain_artifact_verdaccio_cno: "npmjs.cno.levonk.com"
+infra_domain_artifact_verdaccio_nl: "npmjs.nl.levonk.com"
+infra_hostname_verdaccio_cno: "localnet-artifact-verdaccio"
+infra_hostname_verdaccio_nl: "localnet-artifact-verdaccio-nl"
+
+# ---------------------------------------------------------------------------
 # Cloudflare DNS Record Types
 # ---------------------------------------------------------------------------
 infra_dns_record_type_a: "A"

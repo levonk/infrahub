@@ -158,3 +158,12 @@ infra_storage_wazuh_certs_volume: "wazuh-certs"
 # Mounted at /root/.cache/freenet inside the container (FREENET_BASE_DIR).
 # ---------------------------------------------------------------------------
 infra_storage_freenet_data_volume: "localnet-freenet-data-volume"
+
+# ---------------------------------------------------------------------------
+# Verdaccio NPM Registry
+# Used by: dual-deployment — OCI cloud server (cno) + Windows Docker Desktop (nl)
+# Two independent registries with separate storage volumes.
+# Config dir holds Ansible-rendered config.yaml + htpasswd.
+# ---------------------------------------------------------------------------
+infra_storage_verdaccio_data_volume: "localnet-verdaccio-data-volume"
+infra_storage_verdaccio_config_volume: "localnet-verdaccio-config-volume"
