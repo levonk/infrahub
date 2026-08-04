@@ -1,0 +1,125 @@
+---
+# Deploy Verdaccio NPM Registry to both cno (OCI) and nl (Windows Docker Desktop)
+# Location: shared/active/02-config/ansible/playbooks/deploy-verdaccio.yml
+#
+# Two-phase deployment:
+#   Phase 1 (both hosts): deploy Verdaccio containers
+#            - cno (OCI cloud server, ARM64, Linux): community.docker modules,
+#              container joins traefik-network
+#            - nl (Windows Docker Desktop, X86): ssh-tunneled Docker CLI pattern
+#              (community.docker modules can't run on Windows — Ansible core
+#              basic.py imports grp, Unix-only)
+#   Phase 2 (OCI cloud server): re-run proxy-traefik role with verdaccio_enabled
+#            to deploy the npmjs-cno-levonk-com.yml + npmjs-nl-levonk-com.yml
+#            dynamic config templates (gated on verdaccio_enabled | bool)
+#
+# The artifact-verdaccio role dispatches to deploy-linux.yml or deploy-windows.yml
+# based on inventory group membership (cloud_servers vs windows_docker_hosts).
+#
+# Prerequisites:
+#   1. Traefik deployed on OCI: just levonk-deploy-infra
+#   2. DNS CNAMEs configured: just levonk-deploy-dns
+#   3. SSH config entry for dtop202311.tale-grouper.ts.net (IdentityFile + IdentitiesOnly)
+#   4. Vault secrets added: vault_verdaccio_admin_username, vault_verdaccio_admin_password
+#
+# Usage:
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/windows-docker.yml \
+#     -i levonk/active/02-config/ansible/inventories/oci.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-verdaccio.yml \
+#     --vault-password-file ~/.ansible/vault_password
+
+- name: "Phase 1 — Deploy Verdaccio containers on both hosts"
+  hosts: cloud_servers:windows_docker_hosts
+  gather_facts: true
+  vars:
+    verdaccio_enabled: true
+
+  pre_tasks:
+    - name: "Load shared infrastructure port defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/ports.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure network defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/networks.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure storage defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/storage.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure domain defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/domains.yml"
+      tags: ["always"]
+
+    - name: "Load client infrastructure domain overrides"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/domains.yml"
+      tags: ["always"]
+
+    - name: "Validate required variables"
+      ansible.builtin.assert:
+        that:
+          - verdaccio_enabled is defined
+          - infra_port_artifact_verdaccio_host is defined
+          - infra_domain_artifact_verdaccio_cno is defined
+          - infra_domain_artifact_verdaccio_nl is defined
+        fail_msg: >-
+          Missing required variables. Check infrastructure files
+          (ports.yml, domains.yml) and client overrides.
+        success_msg: "All required verdaccio variables are defined."
+      tags: ["always", "validate"]
+
+  roles:
+    - role: artifact-verdaccio
+      tags: ["deploy", "verdaccio"]
+
+
+- name: "Phase 2 — Deploy Traefik dynamic config for Verdaccio on OCI"
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+  vars:
+    verdaccio_enabled: true
+
+  pre_tasks:
+    - name: "Load shared infrastructure port defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/ports.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure network defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/networks.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure storage defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/storage.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure domain defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/domains.yml"
+      tags: ["always"]
+
+    - name: "Load client infrastructure domain overrides"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/domains.yml"
+      tags: ["always"]
+
+    # The proxy-traefik verdaccio templates reference verdaccio_domain_cno,
+    # verdaccio_container_name_cno, verdaccio_container_port, etc. These are
+    # defined in the artifact-verdaccio role defaults. Load them here so the
+    # templates render with the correct client-specific values.
+    - name: "Load artifact-verdaccio role defaults (for Traefik template vars)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../roles/artifact-verdaccio/defaults/main.yml"
+      tags: ["always"]
+
+  roles:
+    - role: proxy-traefik
+      tags: ["deploy", "traefik", "verdaccio"]

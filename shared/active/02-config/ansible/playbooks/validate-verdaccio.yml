@@ -1,0 +1,223 @@
+---
+# Validate Verdaccio NPM Registry deployment
+# Location: shared/active/02-config/ansible/playbooks/validate-verdaccio.yml
+#
+# Read-only post-deployment checks:
+#   1. Container is running (community.docker on Linux; docker inspect via
+#      DOCKER_HOST ssh:// on Windows — community.docker modules can't run on
+#      Windows because Ansible core basic.py imports grp, Unix-only)
+#   2. Container is healthy (.State.Health.Status)
+#   3. /-/ping endpoint responds on localhost
+#   4. Traefik routing works for both domains (run on OCI only, where Traefik is)
+#
+# Usage:
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/windows-docker.yml \
+#     -i levonk/active/02-config/ansible/inventories/oci.yml \
+#     shared/active/02-config/ansible/playbooks/validate-verdaccio.yml \
+#     --vault-password-file ~/.ansible/vault_password
+
+- name: "Validate Verdaccio NPM Registry"
+  hosts: cloud_servers:windows_docker_hosts
+  gather_facts: true
+  vars:
+    validation_results: {}
+
+  pre_tasks:
+    - name: "Load shared infrastructure port defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/ports.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure network defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/networks.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure storage defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/storage.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure domain defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/domains.yml"
+      tags: ["always"]
+
+    - name: "Load client infrastructure domain overrides"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/domains.yml"
+      tags: ["always"]
+
+    - name: "Load artifact-verdaccio role defaults (for container name + port vars)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../roles/artifact-verdaccio/defaults/main.yml"
+      tags: ["always"]
+
+    - name: "Initialize validation results"
+      ansible.builtin.set_fact:
+        validation_results:
+          cno_container_running: false
+          cno_container_healthy: false
+          cno_ping_ok: false
+          nl_container_running: false
+          nl_container_healthy: false
+          nl_ping_ok: false
+          traefik_cno_route_ok: false
+          traefik_nl_route_ok: false
+      tags: ["always"]
+
+  tasks:
+    # =========================================================================
+    # cno (OCI Linux) — community.docker modules
+    # =========================================================================
+    - name: "Check Verdaccio (cno) container status"
+      community.docker.docker_container_info:
+        name: "{{ verdaccio_container_name_cno }}"
+      register: verdaccio_cno_info
+      failed_when: false
+      when: "'cloud_servers' in group_names"
+      tags: ["validate", "verdaccio"]
+
+    - name: "Record Verdaccio (cno) container running status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'cno_container_running': verdaccio_cno_info.container.State.Status == 'running' if (verdaccio_cno_info.exists | default(false)) else false}) }}"
+      when: "'cloud_servers' in group_names"
+      tags: ["validate", "verdaccio"]
+
+    - name: "Record Verdaccio (cno) container health status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'cno_container_healthy': (verdaccio_cno_info.container.State.Health.Status | default('none')) == 'healthy' if (verdaccio_cno_info.exists | default(false)) else false}) }}"
+      when: "'cloud_servers' in group_names"
+      tags: ["validate", "verdaccio"]
+
+    - name: "Check Verdaccio (cno) /-/ping endpoint"
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ verdaccio_host_port }}/-/ping"
+        method: GET
+        return_content: false
+        status_code: [200]
+      register: verdaccio_cno_ping
+      failed_when: false
+      when: "'cloud_servers' in group_names"
+      tags: ["validate", "verdaccio"]
+
+    - name: "Record Verdaccio (cno) ping status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'cno_ping_ok': verdaccio_cno_ping.status | default(0) == 200}) }}"
+      when: "'cloud_servers' in group_names"
+      tags: ["validate", "verdaccio"]
+
+    # =========================================================================
+    # nl (Windows Docker Desktop) — docker CLI via DOCKER_HOST ssh://
+    # =========================================================================
+    - name: "Check Verdaccio (nl) container status"
+      ansible.builtin.command:
+        cmd: "docker inspect -f {% raw %}'{{.State.Status}}'{% endraw %} {{ verdaccio_container_name_nl }}"
+      environment:
+        DOCKER_HOST: "{{ verdaccio_docker_host_windows }}"
+      delegate_to: localhost
+      register: verdaccio_nl_state
+      changed_when: false
+      failed_when: false
+      when: "'windows_docker_hosts' in group_names"
+      tags: ["validate", "verdaccio"]
+
+    - name: "Record Verdaccio (nl) container running status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'nl_container_running': (verdaccio_nl_state.stdout | default('')).strip() == 'running' and (verdaccio_nl_state.rc | default(1)) == 0}) }}"
+      when: "'windows_docker_hosts' in group_names"
+      tags: ["validate", "verdaccio"]
+
+    - name: "Check Verdaccio (nl) container health status"
+      ansible.builtin.command:
+        cmd: "docker inspect -f {% raw %}'{{.State.Health.Status}}'{% endraw %} {{ verdaccio_container_name_nl }}"
+      environment:
+        DOCKER_HOST: "{{ verdaccio_docker_host_windows }}"
+      delegate_to: localhost
+      register: verdaccio_nl_health
+      changed_when: false
+      failed_when: false
+      when: "'windows_docker_hosts' in group_names"
+      tags: ["validate", "verdaccio"]
+
+    - name: "Record Verdaccio (nl) container health status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'nl_container_healthy': (verdaccio_nl_health.stdout | default('')).strip() == 'healthy' and (verdaccio_nl_health.rc | default(1)) == 0}) }}"
+      when: "'windows_docker_hosts' in group_names"
+      tags: ["validate", "verdaccio"]
+
+    - name: "Check Verdaccio (nl) /-/ping endpoint via Tailscale FQDN"
+      ansible.builtin.uri:
+        url: "http://{{ infra_tailscale_fqdn_windows_docker }}:{{ verdaccio_host_port }}/-/ping"
+        method: GET
+        return_content: false
+        status_code: [200]
+      delegate_to: localhost
+      register: verdaccio_nl_ping
+      failed_when: false
+      when: "'windows_docker_hosts' in group_names"
+      tags: ["validate", "verdaccio"]
+
+    - name: "Record Verdaccio (nl) ping status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'nl_ping_ok': verdaccio_nl_ping.status | default(0) == 200}) }}"
+      when: "'windows_docker_hosts' in group_names"
+      tags: ["validate", "verdaccio"]
+
+    # =========================================================================
+    # Traefik routing — run on OCI (cloud_servers) only, where Traefik lives.
+    # The /-/ paths bypass Authelia so should return 200 directly.
+    # =========================================================================
+    - name: "Check Traefik routing for npmjs.cno.levonk.com"
+      ansible.builtin.uri:
+        url: "https://{{ verdaccio_domain_cno }}/-/ping"
+        method: GET
+        return_content: false
+        status_code: [200]
+      register: traefik_cno_route
+      failed_when: false
+      when: "'cloud_servers' in group_names"
+      tags: ["validate", "verdaccio", "traefik"]
+
+    - name: "Record Traefik cno route status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'traefik_cno_route_ok': traefik_cno_route.status | default(0) == 200}) }}"
+      when: "'cloud_servers' in group_names"
+      tags: ["validate", "verdaccio", "traefik"]
+
+    - name: "Check Traefik routing for npmjs.nl.levonk.com"
+      ansible.builtin.uri:
+        url: "https://{{ verdaccio_domain_nl }}/-/ping"
+        method: GET
+        return_content: false
+        status_code: [200]
+      register: traefik_nl_route
+      failed_when: false
+      when: "'cloud_servers' in group_names"
+      tags: ["validate", "verdaccio", "traefik"]
+
+    - name: "Record Traefik nl route status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'traefik_nl_route_ok': traefik_nl_route.status | default(0) == 200}) }}"
+      when: "'cloud_servers' in group_names"
+      tags: ["validate", "verdaccio", "traefik"]
+
+  post_tasks:
+    - name: "Display validation results (JSON)"
+      ansible.builtin.debug:
+        msg: "{{ validation_results | to_nice_json }}"
+      tags: ["always"]
+
+    - name: "Display validation summary"
+      ansible.builtin.debug:
+        msg:
+          "Verdaccio Validation Summary:\n
+          - cno Container Running: {{ validation_results.cno_container_running }}\n
+          - cno Container Healthy: {{ validation_results.cno_container_healthy }}\n
+          - cno /-/ping OK: {{ validation_results.cno_ping_ok }}\n
+          - nl Container Running: {{ validation_results.nl_container_running }}\n
+          - nl Container Healthy: {{ validation_results.nl_container_healthy }}\n
+          - nl /-/ping OK: {{ validation_results.nl_ping_ok }}\n
+          - Traefik cno Route OK: {{ validation_results.traefik_cno_route_ok }}\n
+          - Traefik nl Route OK: {{ validation_results.traefik_nl_route_ok }}"
+      tags: ["always"]
