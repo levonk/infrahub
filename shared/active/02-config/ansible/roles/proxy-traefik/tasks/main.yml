@@ -246,6 +246,30 @@
   notify: reload traefik
   when: wazuh_enabled | default(false) | bool
 
+- name: Deploy Verdaccio (cno) dynamic configuration template
+  ansible.builtin.template:
+    src: dynamic/npmjs-cno-levonk-com.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/npmjs-cno-levonk-com.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: reload traefik
+  when: verdaccio_enabled | default(false) | bool
+  tags: ["deploy", "traefik", "verdaccio"]
+
+- name: Deploy Verdaccio (nl) dynamic configuration template
+  ansible.builtin.template:
+    src: dynamic/npmjs-nl-levonk-com.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/npmjs-nl-levonk-com.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: reload traefik
+  when: verdaccio_enabled | default(false) | bool
+  tags: ["deploy", "traefik", "verdaccio"]
+
 # ---------------------------------------------------------------------------
 # Traefik Container
 # ---------------------------------------------------------------------------
