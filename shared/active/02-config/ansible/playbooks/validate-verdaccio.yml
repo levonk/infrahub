@@ -19,6 +19,7 @@
 - name: "Validate Verdaccio NPM Registry"
   hosts: cloud_servers:windows_docker_hosts
   gather_facts: true
+  become: false
   vars:
     validation_results: {}
 

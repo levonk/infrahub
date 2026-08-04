@@ -268,9 +268,12 @@
         state: "{{ cloudflare_dns_state }}"
 
       # Verdaccio NPM registry — nl (Windows Docker Desktop)
+      # CNAME points to OCI (where Traefik runs), not to the Windows machine
+      # directly. Traefik on OCI proxies to the Windows machine's Verdaccio
+      # container via Tailscale network.
       - name: "{{ infra_domain_artifact_verdaccio_nl | default('npmjs.nl.levonk.com') }}"
         type: "CNAME"
-        content: "{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.tale-grouper.ts.net') }}"
+        content: "{{ infra_tailscale_fqdn_cloud_server | default('oci.tale-grouper.ts.net') }}"
         ttl: "{{ cloudflare_dns_ttl }}"
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
