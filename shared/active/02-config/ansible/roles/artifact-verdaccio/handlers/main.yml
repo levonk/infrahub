@@ -3,7 +3,7 @@
 
 - name: restart verdaccio
   community.docker.docker_container:
-    name: "{{ verdaccio_container_name }}"
+    name: "{{ verdaccio_container_name_cno }}"
     state: started
     restart: true
   when: ansible_os_family != "Windows"
