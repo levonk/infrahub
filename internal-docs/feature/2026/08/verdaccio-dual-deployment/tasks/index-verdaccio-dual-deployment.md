@@ -4,7 +4,7 @@
 |-------|------|--------|---------|--------|
 | 01-001 | Shared infrastructure schemas | [x] Done | — | feature/current/verdaccio-dual-deployment/story-01-001-shared-infra-schemas |
 | 01-002 | Client infrastructure values + DNS | [x] Done | 01-001 | feature/current/verdaccio-dual-deployment/story-01-002-client-infra-dns |
-| 01-003 | Vault secrets handoff | [ ] Todo | 01-001 | feature/current/verdaccio-dual-deployment/story-01-003-vault-secrets |
+| 01-003 | Vault secrets handoff | [x] Done | 01-001 | feature/current/verdaccio-dual-deployment/story-01-003-vault-secrets |
 | 01-004 | Ansible role artifact-verdaccio | [x] Done | 01-001, 01-003 | feature/current/verdaccio-dual-deployment/story-01-004-ansible-role |
 | 01-005 | Traefik dynamic config templates | [x] Done | 01-002, 01-004 | feature/current/verdaccio-dual-deployment/story-01-005-traefik-routing |
 | 01-006 | Deployment + validation playbooks | [x] Done | 01-004, 01-005 | feature/current/verdaccio-dual-deployment/story-01-006-playbooks |
