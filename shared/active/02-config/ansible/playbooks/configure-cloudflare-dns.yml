@@ -253,5 +253,27 @@
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
 
+      # Verdaccio NPM Registry CNAMEs (dual-deployment: nl + cno)
+      # Each CNAME points to the Tailscale FQDN of the host running the
+      # verdaccio registry container, not a container-specific Tailscale identity.
+      # nl = network local (dtop202311, X86 Windows Docker Desktop)
+      # cno = cloud network oracle (oci, ARM64 Oracle Cloud)
+
+      # Verdaccio NPM registry — cno (OCI cloud server)
+      - name: "{{ infra_domain_artifact_verdaccio_cno | default('npmjs.cno.levonk.com') }}"
+        type: "CNAME"
+        content: "{{ infra_tailscale_fqdn_cloud_server | default('oci.tale-grouper.ts.net') }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      # Verdaccio NPM registry — nl (Windows Docker Desktop)
+      - name: "{{ infra_domain_artifact_verdaccio_nl | default('npmjs.nl.levonk.com') }}"
+        type: "CNAME"
+        content: "{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.tale-grouper.ts.net') }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
   roles:
     - cloudflare-dns
