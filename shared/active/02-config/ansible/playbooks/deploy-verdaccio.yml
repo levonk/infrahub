@@ -28,9 +28,61 @@
 #     shared/active/02-config/ansible/playbooks/deploy-verdaccio.yml \
 #     --vault-password-file ~/.ansible/vault_password
 
-- name: "Phase 1 — Deploy Verdaccio containers on both hosts"
-  hosts: cloud_servers:windows_docker_hosts
+- name: "Phase 1a — Deploy Verdaccio container on Windows Docker host (nl)"
+  hosts: windows_docker_hosts
   gather_facts: true
+  become: false
+  vars:
+    verdaccio_enabled: true
+
+  pre_tasks:
+    - name: "Load shared infrastructure port defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/ports.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure network defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/networks.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure storage defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/storage.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure domain defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/domains.yml"
+      tags: ["always"]
+
+    - name: "Load client infrastructure domain overrides"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/domains.yml"
+      tags: ["always"]
+
+    - name: "Validate required variables"
+      ansible.builtin.assert:
+        that:
+          - verdaccio_enabled is defined
+          - infra_port_artifact_verdaccio_host is defined
+          - infra_domain_artifact_verdaccio_cno is defined
+          - infra_domain_artifact_verdaccio_nl is defined
+        fail_msg: >-
+          Missing required variables. Check infrastructure files
+          (ports.yml, domains.yml) and client overrides.
+        success_msg: "All required verdaccio variables are defined."
+      tags: ["always", "validate"]
+
+  roles:
+    - role: artifact-verdaccio
+      tags: ["deploy", "verdaccio"]
+
+
+- name: "Phase 1b — Deploy Verdaccio container on OCI cloud server (cno)"
+  hosts: cloud_servers
+  gather_facts: true
+  become: true
   vars:
     verdaccio_enabled: true
 
