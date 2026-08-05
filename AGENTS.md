@@ -1186,11 +1186,14 @@ A CNAME decouples Cloudflare DNS from the ephemeral IP. If Tailscale reassigns t
 - Cloudflare must stay in DNS-only mode (grey cloud, not proxied) — if proxied, Cloudflare would try to resolve the CNAME target and fail (Tailscale FQDNs are not publicly resolvable).
 - New Tailscale-attached hosts get a CNAME in `configure-cloudflare-dns.yml` pointing to their Tailscale FQDN.
 
-#### 10. Cross-machine Traefik routing — CNAME points to Traefik host, not service host
+#### 10. Each network runs its own Traefik — CNAME points to the network's Traefik host
 
-When a service runs on a different machine than Traefik (e.g., Verdaccio on Windows Docker Desktop, Traefik on OCI), the Cloudflare CNAME MUST point to the **Traefik host** (OCI), not the service host (Windows). Traefik proxies the request to the service host via Tailscale.
+Each network (cno=OCI, nl=Windows) runs its own Traefik container for TLS termination. The Cloudflare CNAME for a service domain MUST point to the Tailscale FQDN of the host running Traefik for that network — NOT to a different network's Traefik.
 
-If the CNAME points directly to the service host, HTTPS requests fail because the service host doesn't run Traefik (no port 443 listener, no TLS cert provisioning). The Traefik dynamic config's `loadBalancer.servers[].url` handles the cross-machine proxying via Tailscale FQDN + port.
+- `npmjs.cno.levonk.com` → CNAME → `oci.tale-grouper.ts.net` (Traefik on OCI → Verdaccio on OCI)
+- `npmjs.nl.levonk.com` → CNAME → `dtop202311.tale-grouper.ts.net` (Traefik on Windows → Verdaccio on Windows)
+
+The `proxy_traefik_windows` role deploys Traefik on Windows Docker Desktop using the same ssh-tunneled Docker CLI pattern as other Windows containers. It uses Let's Encrypt DNS-01 challenge via Cloudflare API token, and can optionally forward auth to Authelia on OCI via Tailscale.
 
 #### 11. Windows Docker deployments — `become: false` + `delegate_to: localhost`
 
