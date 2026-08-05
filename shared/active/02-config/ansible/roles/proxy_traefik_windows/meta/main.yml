@@ -1,0 +1,11 @@
+---
+galaxy_info:
+  role_name: proxy_traefik_windows
+  author: levonk
+  description: Traefik reverse proxy for Windows Docker Desktop (ssh-tunneled Docker CLI)
+  company: levonk
+  license: "proprietary"
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Windows
+      versions: ["all"]

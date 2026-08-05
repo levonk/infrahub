@@ -1,0 +1,290 @@
+---
+# proxy-traefik-windows — Deploy Traefik on Windows Docker Desktop
+#
+# Uses the ssh-tunneled Docker CLI pattern:
+#   - Config files rendered locally (delegate_to: localhost)
+#   - Transferred to remote Docker daemon via docker cp
+#   - Container managed via docker run with DOCKER_HOST: ssh://
+#
+# community.docker modules can't run on Windows (Ansible core basic.py
+# imports grp, Unix-only), so all Docker operations use shell/command.
+
+# ============================================================================
+# Validate required variables
+# ============================================================================
+- name: Validate required variables
+  ansible.builtin.assert:
+    that:
+      - proxy_traefik_windows_docker_host is defined
+      - proxy_traefik_windows_cf_dns_api_token | length > 0
+      - proxy_traefik_windows_acme_email | length > 0
+    fail_msg: >-
+      Missing required variables for proxy-traefik-windows.
+      Check vault (CF API token) and infrastructure files.
+    success_msg: "All required proxy-traefik-windows variables are defined."
+  tags: ["always", "validate"]
+
+# ============================================================================
+# Render config files locally
+# ============================================================================
+- name: Ensure local temp directory for traefik-windows config exists
+  ansible.builtin.file:
+    path: "{{ proxy_traefik_windows_temp_dir }}/dynamic"
+    state: directory
+    mode: "0755"
+  delegate_to: localhost
+  run_once: true
+  changed_when: false
+  tags: ["deploy", "config"]
+
+- name: Render traefik static config locally
+  ansible.builtin.template:
+    src: traefik.yml.j2
+    dest: "{{ proxy_traefik_windows_temp_dir }}/traefik.yml"
+    mode: "0644"
+  delegate_to: localhost
+  run_once: true
+  changed_when: false
+  tags: ["deploy", "config"]
+
+- name: Render middlewares dynamic config locally
+  ansible.builtin.template:
+    src: dynamic/middlewares.yml.j2
+    dest: "{{ proxy_traefik_windows_temp_dir }}/dynamic/middlewares.yml"
+    mode: "0644"
+  delegate_to: localhost
+  run_once: true
+  changed_when: false
+  tags: ["deploy", "config"]
+
+- name: Render Verdaccio (nl) dynamic config locally
+  ansible.builtin.template:
+    src: dynamic/npmjs-nl-levonk-com.yml.j2
+    dest: "{{ proxy_traefik_windows_temp_dir }}/dynamic/npmjs-nl-levonk-com.yml"
+    mode: "0644"
+  delegate_to: localhost
+  run_once: true
+  changed_when: false
+  when: proxy_traefik_windows_verdaccio_enabled | bool
+  tags: ["deploy", "config"]
+
+# ============================================================================
+# Network Management
+# ============================================================================
+- name: Ensure traefik-windows Docker network exists
+  ansible.builtin.shell: >-
+    docker network inspect {{ proxy_traefik_windows_network_name }} 2>/dev/null
+    || docker network create {{ proxy_traefik_windows_network_name }}
+  environment:
+    DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "network"]
+
+- name: Connect Verdaccio container to traefik-windows network
+  ansible.builtin.shell: >-
+    docker network connect {{ proxy_traefik_windows_network_name }}
+    {{ proxy_traefik_windows_verdaccio_container_name }} 2>/dev/null || true
+  environment:
+    DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  when: proxy_traefik_windows_verdaccio_enabled | bool
+  tags: ["deploy", "network"]
+
+# ============================================================================
+# Volume Management
+# ============================================================================
+- name: Ensure traefik config volume exists (static + dynamic)
+  ansible.builtin.shell: >-
+    docker volume inspect {{ proxy_traefik_windows_config_volume }} 2>/dev/null
+    || docker volume create {{ proxy_traefik_windows_config_volume }}
+  environment:
+    DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "volume"]
+
+- name: Ensure traefik Let's Encrypt volume exists
+  ansible.builtin.shell: >-
+    docker volume inspect {{ proxy_traefik_windows_letsencrypt_volume }} 2>/dev/null
+    || docker volume create {{ proxy_traefik_windows_letsencrypt_volume }}
+  environment:
+    DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "volume"]
+
+- name: Ensure traefik logs volume exists
+  ansible.builtin.shell: >-
+    docker volume inspect {{ proxy_traefik_windows_logs_volume }} 2>/dev/null
+    || docker volume create {{ proxy_traefik_windows_logs_volume }}
+  environment:
+    DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "volume"]
+
+# ============================================================================
+# Transfer config files into config volume via docker cp
+# ============================================================================
+- name: Create temporary container to seed config volume
+  ansible.builtin.command: >-
+    docker create --name {{ proxy_traefik_windows_container_name }}-config-seed
+    -v {{ proxy_traefik_windows_config_volume }}:/config
+    alpine:latest sleep infinity
+  environment:
+    DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "config"]
+
+- name: Create dynamic config directory in volume
+  ansible.builtin.command: >-
+    docker start {{ proxy_traefik_windows_container_name }}-config-seed
+    && docker exec {{ proxy_traefik_windows_container_name }}-config-seed
+    mkdir -p /config/dynamic
+  environment:
+    DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "config"]
+
+- name: Copy static config into config volume
+  ansible.builtin.command: >-
+    docker cp {{ proxy_traefik_windows_temp_dir }}/traefik.yml
+    {{ proxy_traefik_windows_container_name }}-config-seed:/config/traefik.yml
+  environment:
+    DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "config"]
+
+- name: Copy middlewares.yml into dynamic config volume
+  ansible.builtin.command: >-
+    docker cp {{ proxy_traefik_windows_temp_dir }}/dynamic/middlewares.yml
+    {{ proxy_traefik_windows_container_name }}-config-seed:/config/dynamic/middlewares.yml
+  environment:
+    DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "config"]
+
+- name: Copy Verdaccio (nl) dynamic config into volume
+  ansible.builtin.command: >-
+    docker cp {{ proxy_traefik_windows_temp_dir }}/dynamic/npmjs-nl-levonk-com.yml
+    {{ proxy_traefik_windows_container_name }}-config-seed:/config/dynamic/npmjs-nl-levonk-com.yml
+  environment:
+    DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  when: proxy_traefik_windows_verdaccio_enabled | bool
+  tags: ["deploy", "config"]
+
+- name: Remove temporary seed container
+  ansible.builtin.shell: "docker rm -f {{ proxy_traefik_windows_container_name }}-config-seed 2>/dev/null || true"
+  environment:
+    DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "config"]
+
+# ============================================================================
+# Pull Image
+# ============================================================================
+- name: Pull traefik image
+  ansible.builtin.command: "docker pull {{ proxy_traefik_windows_image }}:{{ proxy_traefik_windows_image_tag }}"
+  environment:
+    DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "pull"]
+
+# ============================================================================
+# Container Deployment
+# ============================================================================
+- name: Stop existing traefik-windows container
+  ansible.builtin.shell: "docker rm -f {{ proxy_traefik_windows_container_name }} 2>/dev/null || true"
+  environment:
+    DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "container"]
+
+- name: Deploy traefik-windows container
+  ansible.builtin.shell: >-
+    docker run -d
+    --name {{ proxy_traefik_windows_container_name }}
+    --restart unless-stopped
+    --network {{ proxy_traefik_windows_network_name }}
+    -p {{ proxy_traefik_windows_http_port }}:{{ proxy_traefik_windows_http_port }}/tcp
+    -p {{ proxy_traefik_windows_https_port }}:{{ proxy_traefik_windows_https_port }}/tcp
+    -p {{ proxy_traefik_windows_dashboard_port }}:{{ proxy_traefik_windows_dashboard_port }}/tcp
+    -v {{ proxy_traefik_windows_config_volume }}:/etc/traefik:ro
+    -v {{ proxy_traefik_windows_letsencrypt_volume }}:/letsencrypt:rw
+    -v {{ proxy_traefik_windows_logs_volume }}:/var/log/traefik:rw
+    -e CF_DNS_API_TOKEN={{ proxy_traefik_windows_cf_dns_api_token }}
+    -e TZ=UTC
+    --log-driver json-file
+    --log-opt max-size={{ proxy_traefik_windows_log_max_size }}
+    --log-opt max-file={{ proxy_traefik_windows_log_max_file }}
+    --health-cmd "wget -qO- http://127.0.0.1:{{ proxy_traefik_windows_dashboard_port }}/dashboard/ || exit 1"
+    --health-interval {{ proxy_traefik_windows_healthcheck_interval }}
+    --health-timeout {{ proxy_traefik_windows_healthcheck_timeout }}
+    --health-retries {{ proxy_traefik_windows_healthcheck_retries }}
+    --health-start-period {{ proxy_traefik_windows_healthcheck_start_period }}
+    --security-opt no-new-privileges:true
+    {{ proxy_traefik_windows_image }}:{{ proxy_traefik_windows_image_tag }}
+    --configFile=/etc/traefik/traefik.yml
+  environment:
+    DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  no_log: true
+  tags: ["deploy", "container"]
+
+# ============================================================================
+# Wait for health
+# ============================================================================
+- name: Wait for traefik-windows to be healthy
+  ansible.builtin.command: >-
+    docker inspect --format '{% raw %}{{.State.Health.Status}}{% endraw %}' {{ proxy_traefik_windows_container_name }}
+  environment:
+    DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
+  delegate_to: localhost
+  register: proxy_traefik_windows_health
+  until: proxy_traefik_windows_health.stdout == "healthy"
+  retries: 30
+  delay: 5
+  changed_when: false
+  ignore_errors: true
+  tags: ["deploy", "container"]
+
+# ============================================================================
+# Status Report
+# ============================================================================
+- name: Get traefik-windows container status
+  ansible.builtin.command: >-
+    docker inspect --format '{% raw %}{{.Name}}={{.State.Status}} health={{.State.Health.Status}}{% endraw %}'
+    {{ proxy_traefik_windows_container_name }}
+  environment:
+    DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
+  delegate_to: localhost
+  register: proxy_traefik_windows_status
+  changed_when: false
+  ignore_errors: true
+  tags: ["always", "info"]
+
+- name: Report traefik-windows status
+  ansible.builtin.debug:
+    msg: |
+      Traefik (Windows/nl) deployed:
+        - Container: {{ proxy_traefik_windows_container_name }}
+        - Image: {{ proxy_traefik_windows_image }}:{{ proxy_traefik_windows_image_tag }}
+        - HTTP: port {{ proxy_traefik_windows_http_port }}
+        - HTTPS: port {{ proxy_traefik_windows_https_port }}
+        - Dashboard: port {{ proxy_traefik_windows_dashboard_port }}
+        - ACME: Let's Encrypt (Cloudflare DNS-01 challenge)
+        - Authelia: {{ proxy_traefik_windows_authelia_enabled | bool }}
+        - Status: {{ proxy_traefik_windows_status.stdout | default('unknown') }}
+  tags: ["always", "info"]

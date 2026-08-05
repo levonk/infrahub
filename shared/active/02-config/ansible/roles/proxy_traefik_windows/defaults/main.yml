@@ -1,0 +1,80 @@
+---
+# proxy-traefik-windows — Traefik reverse proxy for Windows Docker Desktop
+#
+# Deploys a Traefik container on a Windows Docker host using the
+# ssh-tunneled Docker CLI pattern (DOCKER_HOST: ssh:// + delegate_to: localhost).
+# community.docker modules can't run on Windows (Ansible core basic.py imports
+# grp, Unix-only), so all tasks use ansible.builtin.shell/command with
+# DOCKER_HOST environment variable.
+#
+# This role is the Windows equivalent of proxy-traefik (Linux/OCI).
+# It handles TLS termination via Let's Encrypt DNS-01 challenge (Cloudflare)
+# and routes traffic to containers running on the Windows Docker host.
+
+# ---------------------------------------------------------------------------
+# Service Configuration
+# ---------------------------------------------------------------------------
+proxy_traefik_windows_enabled: true
+proxy_traefik_windows_container_name: "traefik-windows"
+proxy_traefik_windows_image: "traefik"
+proxy_traefik_windows_image_tag: "v3.0"
+proxy_traefik_windows_temp_dir: "/tmp/traefik-windows-config"
+
+# ---------------------------------------------------------------------------
+# Network / Port Configuration
+# ---------------------------------------------------------------------------
+proxy_traefik_windows_network_name: "traefik-windows-network"
+proxy_traefik_windows_http_port: "80"
+proxy_traefik_windows_https_port: "443"
+proxy_traefik_windows_dashboard_port: "8882"
+
+# ---------------------------------------------------------------------------
+# Volume Configuration
+# ---------------------------------------------------------------------------
+proxy_traefik_windows_config_volume: "traefik-windows-config"
+proxy_traefik_windows_letsencrypt_volume: "traefik-windows-letsencrypt"
+proxy_traefik_windows_logs_volume: "traefik-windows-logs"
+
+# ---------------------------------------------------------------------------
+# ACME / Let's Encrypt Configuration
+# ---------------------------------------------------------------------------
+proxy_traefik_windows_acme_email: "{{ cloud_server_acme_email | default('admin@example.com') }}"
+proxy_traefik_windows_acme_staging: false
+
+# Cloudflare DNS challenge env vars (passed to Traefik container)
+# CF_DNS_API_TOKEN is the Cloudflare API token for DNS-01 challenge
+proxy_traefik_windows_cf_dns_api_token: "{{ vault_cloudflare_api_token | default('') }}"
+
+# ---------------------------------------------------------------------------
+# Authelia Integration (optional — Authelia runs on OCI, reachable via Tailscale)
+# ---------------------------------------------------------------------------
+proxy_traefik_windows_authelia_enabled: true
+proxy_traefik_windows_authelia_url: "http://{{ infra_tailscale_fqdn_cloud_server | default('oci.tale-grouper.ts.net') }}:{{ infra_port_sso_authelia_web_host | default('9091') }}/api/verify?rd=https://{{ infra_domain_sso_authelia | default('auth.levonk.com') }}"
+
+# ---------------------------------------------------------------------------
+# Verdaccio Integration
+# ---------------------------------------------------------------------------
+proxy_traefik_windows_verdaccio_enabled: true
+proxy_traefik_windows_verdaccio_domain: "{{ infra_domain_artifact_verdaccio_nl | default('npmjs.nl.levonk.com') }}"
+proxy_traefik_windows_verdaccio_container_name: "{{ verdaccio_container_name_nl | default('localnet-artifact-verdaccio-nl') }}"
+proxy_traefik_windows_verdaccio_container_port: "{{ verdaccio_container_port | default('4873') }}"
+
+# ---------------------------------------------------------------------------
+# Docker Host (Windows — ssh-tunneled)
+# ---------------------------------------------------------------------------
+proxy_traefik_windows_docker_host: "{{ verdaccio_docker_host_windows | default('ssh://ansible@dtop202311.tale-grouper.ts.net') }}"
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+proxy_traefik_windows_log_level: "INFO"
+proxy_traefik_windows_log_max_size: "10m"
+proxy_traefik_windows_log_max_file: "3"
+
+# ---------------------------------------------------------------------------
+# Healthcheck
+# ---------------------------------------------------------------------------
+proxy_traefik_windows_healthcheck_interval: "30s"
+proxy_traefik_windows_healthcheck_timeout: "5s"
+proxy_traefik_windows_healthcheck_retries: 3
+proxy_traefik_windows_healthcheck_start_period: "10s"
