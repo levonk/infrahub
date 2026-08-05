@@ -68,6 +68,28 @@
   when: proxy_traefik_windows_verdaccio_enabled | bool
   tags: ["deploy", "config"]
 
+- name: Render Homepage (nl) dynamic config locally
+  ansible.builtin.template:
+    src: dynamic/start-nl-levonk-com.yml.j2
+    dest: "{{ proxy_traefik_windows_temp_dir }}/dynamic/start-nl-levonk-com.yml"
+    mode: "0644"
+  delegate_to: localhost
+  run_once: true
+  changed_when: false
+  when: proxy_traefik_windows_homepage_enabled | bool
+  tags: ["deploy", "config"]
+
+- name: Render TraLa (nl) dynamic config locally
+  ansible.builtin.template:
+    src: dynamic/start2-nl-levonk-com.yml.j2
+    dest: "{{ proxy_traefik_windows_temp_dir }}/dynamic/start2-nl-levonk-com.yml"
+    mode: "0644"
+  delegate_to: localhost
+  run_once: true
+  changed_when: false
+  when: proxy_traefik_windows_trala_enabled | bool
+  tags: ["deploy", "config"]
+
 # ============================================================================
 # Network Management
 # ============================================================================
@@ -198,6 +220,28 @@
   when: proxy_traefik_windows_verdaccio_enabled | bool
   tags: ["deploy", "config"]
 
+- name: Copy Homepage (nl) dynamic config into volume
+  ansible.builtin.command: >-
+    docker cp {{ proxy_traefik_windows_temp_dir }}/dynamic/start-nl-levonk-com.yml
+    {{ proxy_traefik_windows_container_name }}-config-seed:/config/dynamic/start-nl-levonk-com.yml
+  environment:
+    DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  when: proxy_traefik_windows_homepage_enabled | bool
+  tags: ["deploy", "config"]
+
+- name: Copy TraLa (nl) dynamic config into volume
+  ansible.builtin.command: >-
+    docker cp {{ proxy_traefik_windows_temp_dir }}/dynamic/start2-nl-levonk-com.yml
+    {{ proxy_traefik_windows_container_name }}-config-seed:/config/dynamic/start2-nl-levonk-com.yml
+  environment:
+    DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  when: proxy_traefik_windows_trala_enabled | bool
+  tags: ["deploy", "config"]
+
 - name: Remove temporary seed container
   ansible.builtin.shell: "docker rm -f {{ proxy_traefik_windows_container_name }}-config-seed 2>/dev/null || true"
   environment:
@@ -259,6 +303,89 @@
   changed_when: true
   no_log: true
   tags: ["deploy", "container"]
+
+# ============================================================================
+# Homepage (nl) Container
+# ============================================================================
+- name: Pull Homepage image
+  ansible.builtin.command: "docker pull {{ proxy_traefik_windows_homepage_image }}:{{ proxy_traefik_windows_homepage_image_tag }}"
+  environment:
+    DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  when: proxy_traefik_windows_homepage_enabled | bool
+  tags: ["deploy", "homepage"]
+
+- name: Stop existing homepage-nl container
+  ansible.builtin.shell: "docker rm -f {{ proxy_traefik_windows_homepage_container_name }} 2>/dev/null || true"
+  environment:
+    DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  when: proxy_traefik_windows_homepage_enabled | bool
+  tags: ["deploy", "homepage"]
+
+- name: Deploy homepage-nl container
+  ansible.builtin.command: >-
+    docker run -d
+    --name {{ proxy_traefik_windows_homepage_container_name }}
+    --restart unless-stopped
+    --network {{ proxy_traefik_windows_network_name }}
+    -p {{ proxy_traefik_windows_homepage_host_port }}:{{ proxy_traefik_windows_homepage_container_port }}/tcp
+    -e TZ=UTC
+    --log-driver json-file
+    --log-opt max-size={{ proxy_traefik_windows_log_max_size }}
+    --log-opt max-file={{ proxy_traefik_windows_log_max_file }}
+    --security-opt no-new-privileges:true
+    {{ proxy_traefik_windows_homepage_image }}:{{ proxy_traefik_windows_homepage_image_tag }}
+  environment:
+    DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  when: proxy_traefik_windows_homepage_enabled | bool
+  tags: ["deploy", "homepage"]
+
+# ============================================================================
+# TraLa (nl) Container
+# ============================================================================
+- name: Pull TraLa image
+  ansible.builtin.command: "docker pull {{ proxy_traefik_windows_trala_image }}:{{ proxy_traefik_windows_trala_image_tag }}"
+  environment:
+    DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  when: proxy_traefik_windows_trala_enabled | bool
+  tags: ["deploy", "trala"]
+
+- name: Stop existing trala-nl container
+  ansible.builtin.shell: "docker rm -f {{ proxy_traefik_windows_trala_container_name }} 2>/dev/null || true"
+  environment:
+    DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  when: proxy_traefik_windows_trala_enabled | bool
+  tags: ["deploy", "trala"]
+
+- name: Deploy trala-nl container
+  ansible.builtin.command: >-
+    docker run -d
+    --name {{ proxy_traefik_windows_trala_container_name }}
+    --restart unless-stopped
+    --network {{ proxy_traefik_windows_network_name }}
+    -p {{ proxy_traefik_windows_trala_host_port }}:{{ proxy_traefik_windows_trala_container_port }}/tcp
+    -e TRAEFIK_API_HOST=http://{{ proxy_traefik_windows_container_name }}:8080
+    -e TZ=UTC
+    --log-driver json-file
+    --log-opt max-size={{ proxy_traefik_windows_log_max_size }}
+    --log-opt max-file={{ proxy_traefik_windows_log_max_file }}
+    --security-opt no-new-privileges:true
+    {{ proxy_traefik_windows_trala_image }}:{{ proxy_traefik_windows_trala_image_tag }}
+  environment:
+    DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  when: proxy_traefik_windows_trala_enabled | bool
+  tags: ["deploy", "trala"]
 
 # ============================================================================
 # Wait for health

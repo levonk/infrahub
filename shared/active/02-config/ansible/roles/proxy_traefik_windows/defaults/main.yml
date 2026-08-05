@@ -60,6 +60,25 @@ proxy_traefik_windows_verdaccio_container_name: "{{ verdaccio_container_name_nl 
 proxy_traefik_windows_verdaccio_container_port: "{{ verdaccio_container_port | default('4873') }}"
 
 # ---------------------------------------------------------------------------
+# Homepage + TraLa Integration (nl dashboards)
+# ---------------------------------------------------------------------------
+proxy_traefik_windows_homepage_enabled: true
+proxy_traefik_windows_homepage_domain: "{{ infra_domain_dashboard_homepage_nl | default('start.nl.levonk.com') }}"
+proxy_traefik_windows_homepage_container_name: "homepage-nl"
+proxy_traefik_windows_homepage_container_port: "3000"
+proxy_traefik_windows_homepage_image: "ghcr.io/gethomepage/homepage"
+proxy_traefik_windows_homepage_image_tag: "latest"
+proxy_traefik_windows_homepage_host_port: "8084"
+
+proxy_traefik_windows_trala_enabled: true
+proxy_traefik_windows_trala_domain: "{{ infra_domain_dashboard_trala_nl | default('start2.nl.levonk.com') }}"
+proxy_traefik_windows_trala_container_name: "trala-nl"
+proxy_traefik_windows_trala_container_port: "8080"
+proxy_traefik_windows_trala_image: "ghcr.io/dannybouwers/trala"
+proxy_traefik_windows_trala_image_tag: "latest"
+proxy_traefik_windows_trala_host_port: "8085"
+
+# ---------------------------------------------------------------------------
 # Docker Host (Windows — ssh-tunneled)
 # ---------------------------------------------------------------------------
 proxy_traefik_windows_docker_host: "{{ verdaccio_docker_host_windows | default('ssh://ansible@dtop202311.tale-grouper.ts.net') }}"

@@ -95,6 +95,7 @@
         state: "{{ cloudflare_dns_state }}"
 
       # Homepage startpage (rich dashboard with service widgets)
+      # Bare domain → cno (OCI), same as the cno-specific variant
       - name: "{{ infra_domain_dashboard_homepage | default('start.levonk.com') }}"
         type: "CNAME"
         content: "{{ ts_fqdn }}"
@@ -103,9 +104,42 @@
         state: "{{ cloudflare_dns_state }}"
 
       # TraLa startpage (Traefik auto-discovery catalog)
+      # Bare domain → cno (OCI), same as the cno-specific variant
       - name: "{{ infra_domain_dashboard_trala | default('start2.levonk.com') }}"
         type: "CNAME"
         content: "{{ ts_fqdn }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      # Homepage startpage — cno (OCI)
+      - name: "{{ infra_domain_dashboard_homepage_cno | default('start.cno.levonk.com') }}"
+        type: "CNAME"
+        content: "{{ ts_fqdn }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      # TraLa startpage — cno (OCI)
+      - name: "{{ infra_domain_dashboard_trala_cno | default('start2.cno.levonk.com') }}"
+        type: "CNAME"
+        content: "{{ ts_fqdn }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      # Homepage startpage — nl (Windows Docker Desktop)
+      - name: "{{ infra_domain_dashboard_homepage_nl | default('start.nl.levonk.com') }}"
+        type: "CNAME"
+        content: "{{ ts_fqdn_windows_docker }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      # TraLa startpage — nl (Windows Docker Desktop)
+      - name: "{{ infra_domain_dashboard_trala_nl | default('start2.nl.levonk.com') }}"
+        type: "CNAME"
+        content: "{{ ts_fqdn_windows_docker }}"
         ttl: "{{ cloudflare_dns_ttl }}"
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"

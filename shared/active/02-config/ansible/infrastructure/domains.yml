@@ -114,9 +114,15 @@ infra_hostname_trala: "trala"
 # ---------------------------------------------------------------------------
 # Start / Launch Page Dashboards
 # See ADR-20260629001 for the decision rationale.
+# Dual-deployment: each network (cno + nl) runs its own Homepage + TraLa.
+# The bare domains (start.levonk.com, start2.levonk.com) point to cno (OCI).
 # ---------------------------------------------------------------------------
 infra_domain_dashboard_homepage: "start.levonk.com"
 infra_domain_dashboard_trala: "start2.levonk.com"
+infra_domain_dashboard_homepage_cno: "start.cno.levonk.com"
+infra_domain_dashboard_trala_cno: "start2.cno.levonk.com"
+infra_domain_dashboard_homepage_nl: "start.nl.levonk.com"
+infra_domain_dashboard_trala_nl: "start2.nl.levonk.com"
 
 # ---------------------------------------------------------------------------
 # Career Services

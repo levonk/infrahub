@@ -169,6 +169,28 @@
   notify: reload traefik
   when: dashboard_trala_enabled | default(true) | bool
 
+- name: Deploy Homepage (start.cno) dynamic configuration template
+  ansible.builtin.template:
+    src: dynamic/start-cno-levonk-com.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/start-cno-levonk-com.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: reload traefik
+  when: dashboard_homepage_enabled | default(true) | bool
+
+- name: Deploy TraLa (start2.cno) dynamic configuration template
+  ansible.builtin.template:
+    src: dynamic/start2-cno-levonk-com.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/start2-cno-levonk-com.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: reload traefik
+  when: dashboard_trala_enabled | default(true) | bool
+
 - name: Deploy OmniRoute (airoute) dynamic configuration template
   ansible.builtin.template:
     src: dynamic/airoute-levonk-com.yml.j2
