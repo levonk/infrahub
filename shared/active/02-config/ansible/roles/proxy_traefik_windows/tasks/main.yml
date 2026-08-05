@@ -325,6 +325,15 @@
   when: proxy_traefik_windows_homepage_enabled | bool
   tags: ["deploy", "homepage"]
 
+- name: Ensure homepage-nl config volume exists
+  ansible.builtin.command: "docker volume create {{ proxy_traefik_windows_homepage_container_name }}-config"
+  environment:
+    DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  when: proxy_traefik_windows_homepage_enabled | bool
+  tags: ["deploy", "homepage"]
+
 - name: Deploy homepage-nl container
   ansible.builtin.command: >-
     docker run -d
@@ -332,6 +341,7 @@
     --restart unless-stopped
     --network {{ proxy_traefik_windows_network_name }}
     -p {{ proxy_traefik_windows_homepage_host_port }}:{{ proxy_traefik_windows_homepage_container_port }}/tcp
+    -v {{ proxy_traefik_windows_homepage_container_name }}-config:/config:rw
     -e TZ=UTC
     --log-driver json-file
     --log-opt max-size={{ proxy_traefik_windows_log_max_size }}
@@ -366,6 +376,15 @@
   when: proxy_traefik_windows_trala_enabled | bool
   tags: ["deploy", "trala"]
 
+- name: Ensure trala-nl config volume exists
+  ansible.builtin.command: "docker volume create {{ proxy_traefik_windows_trala_container_name }}-config"
+  environment:
+    DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  when: proxy_traefik_windows_trala_enabled | bool
+  tags: ["deploy", "trala"]
+
 - name: Deploy trala-nl container
   ansible.builtin.command: >-
     docker run -d
@@ -373,6 +392,7 @@
     --restart unless-stopped
     --network {{ proxy_traefik_windows_network_name }}
     -p {{ proxy_traefik_windows_trala_host_port }}:{{ proxy_traefik_windows_trala_container_port }}/tcp
+    -v {{ proxy_traefik_windows_trala_container_name }}-config:/config:rw
     -e TRAEFIK_API_HOST=http://{{ proxy_traefik_windows_container_name }}:8080
     -e TZ=UTC
     --log-driver json-file
@@ -439,7 +459,7 @@
 - name: Copy Homepage (nl) settings.yaml into container
   ansible.builtin.command: >-
     docker cp {{ proxy_traefik_windows_temp_dir }}/homepage/settings.yaml
-    {{ proxy_traefik_windows_homepage_container_name }}:/app/config/settings.yaml
+    {{ proxy_traefik_windows_homepage_container_name }}:/config/settings.yaml
   environment:
     DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
   delegate_to: localhost
@@ -450,7 +470,7 @@
 - name: Copy Homepage (nl) services.yaml into container
   ansible.builtin.command: >-
     docker cp {{ proxy_traefik_windows_temp_dir }}/homepage/services.yaml
-    {{ proxy_traefik_windows_homepage_container_name }}:/app/config/services.yaml
+    {{ proxy_traefik_windows_homepage_container_name }}:/config/services.yaml
   environment:
     DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
   delegate_to: localhost
@@ -461,7 +481,7 @@
 - name: Copy Homepage (nl) widgets.yaml into container
   ansible.builtin.command: >-
     docker cp {{ proxy_traefik_windows_temp_dir }}/homepage/widgets.yaml
-    {{ proxy_traefik_windows_homepage_container_name }}:/app/config/widgets.yaml
+    {{ proxy_traefik_windows_homepage_container_name }}:/config/widgets.yaml
   environment:
     DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
   delegate_to: localhost
@@ -495,7 +515,7 @@
 - name: Copy TraLa (nl) configuration.yml into container
   ansible.builtin.command: >-
     docker cp {{ proxy_traefik_windows_temp_dir }}/trala/configuration.yml
-    {{ proxy_traefik_windows_trala_container_name }}:/app/configuration.yml
+    {{ proxy_traefik_windows_trala_container_name }}:/config/configuration.yml
   environment:
     DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
   delegate_to: localhost
