@@ -128,6 +128,15 @@
 # ============================================================================
 # Transfer config files into config volume via docker cp
 # ============================================================================
+- name: Remove stale seed container from previous runs
+  ansible.builtin.shell: >-
+    docker rm -f {{ proxy_traefik_windows_container_name }}-config-seed 2>/dev/null || true
+  environment:
+    DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "config"]
+
 - name: Create temporary container to seed config volume
   ansible.builtin.command: >-
     docker create --name {{ proxy_traefik_windows_container_name }}-config-seed
