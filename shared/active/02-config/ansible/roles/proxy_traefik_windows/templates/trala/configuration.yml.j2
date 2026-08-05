@@ -1,0 +1,132 @@
+---
+# TraLa Configuration — nl (Windows)
+# Auto-discovers routers from the Windows Traefik instance.
+# Manual entries list services from the cno network that are not on this Traefik.
+
+version: "3.0"
+
+environment:
+  selfhst_icon_url: https://cdn.jsdelivr.net/gh/selfhst/icons/
+  traefik:
+    enable_basic_auth: false
+
+services:
+  # Exclude HTTP-to-HTTPS redirect routers, the Traefik API router,
+  # and the trala/homepage routers themselves
+  exclude:
+    routers:
+      - "*-http"
+      - "traefik-api"
+      - "web-to-websecure"
+      - "prometheus"
+      - "trala-nl-http"
+      - "trala-nl-https"
+      - "homepage-nl-http"
+      - "homepage-nl-https"
+    entrypoints:
+      - "web"
+
+  overrides:
+    - service: "verdaccio-nl-https"
+      display_name: "Verdaccio (nl)"
+      icon: mdi-package-variant
+      group: NPM Registries
+
+  manual:
+    # Cross-network dashboards
+    - name: Homepage (cno)
+      url: https://start.cno.levonk.com
+      icon: mdi-view-dashboard
+      group: Launch Pages
+    - name: Homepage (nl)
+      url: https://start.nl.levonk.com
+      icon: mdi-view-dashboard
+      group: Launch Pages
+    - name: TraLa (cno)
+      url: https://start2.cno.levonk.com
+      icon: mdi-view-dashboard
+      group: Launch Pages
+
+    # NPM Registries — cno duplicate
+    - name: Verdaccio (cno)
+      url: https://npmjs.cno.levonk.com
+      icon: mdi-package-variant
+      group: NPM Registries
+
+    # AI Services (cno only)
+    - name: AI Gateway (LiteLLM)
+      url: https://aigate.levonk.com
+      icon: litellm.svg
+      group: AI Services
+    - name: OmniRoute
+      url: https://airoute.levonk.com
+      icon: mdi-route
+      group: AI Services
+    - name: AI InterFace (Omnigent)
+      url: https://aiif.levonk.com
+      icon: mdi-robot-outline
+      group: AI Services
+    - name: Agent Memory
+      url: https://agentmemory.levonk.com
+      icon: mdi-database-outline
+      group: AI Services
+    - name: Headroom (AI Shrink)
+      url: https://aishrink.levonk.com
+      icon: mdi-compress
+      group: AI Services
+    - name: Langfuse
+      url: https://langfuse.levonk.com
+      icon: langfuse.svg
+      group: AI Services
+    - name: Paperclip
+      url: https://paperclip.levonk.com
+      icon: mdi-robot-outline
+      group: AI Services
+    - name: Buzz
+      url: https://buzz.levonk.com
+      icon: mdi-bug
+      group: AI Services
+
+    # Search & Tools (cno only)
+    - name: SearXNG Search
+      url: https://search.levonk.com
+      icon: searxng.svg
+      group: Search & Tools
+    - name: Croc Relay
+      url: https://croc.levonk.com
+      icon: mdi-file-send
+      group: Search & Tools
+
+    # Security (cno only)
+    - name: Authelia SSO
+      url: https://auth.levonk.com
+      icon: authelia.svg
+      group: Security
+    - name: Wazuh
+      url: https://wazuh.levonk.com
+      icon: wazuh.svg
+      group: Security
+
+    # Infrastructure (cno only)
+    - name: Traefik Dashboard (cno)
+      url: https://traefik.levonk.com
+      icon: mdi-router-network
+      group: Infrastructure
+    - name: RustFS
+      url: https://rustfs.levonk.com
+      icon: mdi-database
+      group: Infrastructure
+    - name: RustFS Console
+      url: https://rustfs-console.levonk.com
+      icon: mdi-console
+      group: Infrastructure
+    - name: QM
+      url: https://qm.levonk.com
+      icon: mdi-account-group
+      group: Infrastructure
+
+    # Career (cno only)
+    - name: JobOps
+      url: https://jobops.levonk.com
+      icon: mdi-briefcase
+      group: Career

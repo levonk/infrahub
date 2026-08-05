@@ -24,7 +24,11 @@ services:
       - "prometheus"
       - "trala-http"
       - "trala-https"
+      - "trala-cno-http"
+      - "trala-cno-https"
       - "litellm-api-https"
+      - "verdaccio-cno-npm-cli"
+      - "verdaccio-nl-npm-cli"
     entrypoints:
       - "web"
 
@@ -41,15 +45,23 @@ services:
     - service: "searxng-https"
       display_name: "SearXNG Search"
       icon: searxng.svg
-      group: Tools
+      group: Search & Tools
     - service: "authelia-https"
       display_name: "Authelia SSO"
       icon: authelia.svg
-      group: Infrastructure
+      group: Security
     - service: "homepage-https"
-      display_name: "Homepage Dashboard"
+      display_name: "Homepage (cno)"
       icon: homepage.svg
-      group: Dashboards
+      group: Launch Pages
+    - service: "homepage-cno-https"
+      display_name: "Homepage (cno)"
+      icon: homepage.svg
+      group: Launch Pages
+    - service: "trala-cno-https"
+      display_name: "TraLa (cno)"
+      icon: mdi-view-dashboard
+      group: Launch Pages
     - service: "agentmemory-https"
       display_name: "Agent Memory"
       icon: mdi-database-outline
@@ -62,9 +74,24 @@ services:
       display_name: "Headroom (AI Shrink)"
       icon: mdi-compress
       group: AI Services
+    - service: "verdaccio-cno-https"
+      display_name: "Verdaccio (cno)"
+      icon: mdi-package-variant
+      group: NPM Registries
 
   manual:
-    - name: TraLa
-      url: https://{{ dashboard_trala_domain | default('start2.localhost') }}
+    # Cross-network dashboards
+    - name: Homepage (nl)
+      url: https://{{ infra_domain_dashboard_homepage_nl | default('start.nl.levonk.com') }}
       icon: mdi-view-dashboard
       group: Launch Pages
+    - name: TraLa (nl)
+      url: https://{{ infra_domain_dashboard_trala_nl | default('start2.nl.levonk.com') }}
+      icon: mdi-view-dashboard
+      group: Launch Pages
+
+    # NPM Registries — nl duplicate
+    - name: Verdaccio (nl)
+      url: https://{{ infra_domain_artifact_verdaccio_nl | default('npmjs.nl.levonk.com') }}
+      icon: mdi-package-variant
+      group: NPM Registries
