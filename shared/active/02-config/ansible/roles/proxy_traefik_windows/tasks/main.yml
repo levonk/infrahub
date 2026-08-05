@@ -390,6 +390,19 @@
 # ============================================================================
 # Homepage (nl) Configuration
 # ============================================================================
+- name: Ensure local temp subdirectories for homepage + trala configs exist
+  ansible.builtin.file:
+    path: "{{ proxy_traefik_windows_temp_dir }}/{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - homepage
+    - trala
+  delegate_to: localhost
+  run_once: true
+  changed_when: false
+  tags: ["deploy", "homepage", "trala"]
+
 - name: Render Homepage (nl) settings.yaml locally
   ansible.builtin.template:
     src: homepage/settings.yaml.j2
