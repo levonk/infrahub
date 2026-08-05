@@ -245,7 +245,7 @@
     --log-driver json-file
     --log-opt max-size={{ proxy_traefik_windows_log_max_size }}
     --log-opt max-file={{ proxy_traefik_windows_log_max_file }}
-    --health-cmd "wget -qO- http://127.0.0.1:{{ proxy_traefik_windows_dashboard_port }}/dashboard/ || exit 1"
+    --health-cmd "wget -qO- http://127.0.0.1:8080/dashboard/ || exit 1"
     --health-interval {{ proxy_traefik_windows_healthcheck_interval }}
     --health-timeout {{ proxy_traefik_windows_healthcheck_timeout }}
     --health-retries {{ proxy_traefik_windows_healthcheck_retries }}

@@ -8,9 +8,12 @@ global:
   sendAnonymousUsage: false
 
 # API and Dashboard configuration
+# insecure: true serves the dashboard on the internal traefik entrypoint
+# (port 8080) without authentication. The container maps 8882:8080 so the
+# dashboard is accessible on the host's port 8882 but not exposed externally.
 api:
   dashboard: true
-  insecure: false
+  insecure: true
 
 # Entry points
 entryPoints:
@@ -27,9 +30,6 @@ entryPoints:
     address: ":{{ proxy_traefik_windows_https_port }}"
     http:
       tls: true
-
-  traefik-api:
-    address: ":{{ proxy_traefik_windows_dashboard_port }}"
 
 # File provider — dynamic config from mounted volume
 providers:
