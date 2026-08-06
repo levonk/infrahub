@@ -766,3 +766,64 @@
       label: "Web/API"
   traefik: true
   notes: "Traefik routes cross-machine via Tailscale FQDN (dtop202311.tale-grouper.ts.net)"
+
+# ---------------------------------------------------------------------------
+# n8n (Workflow automation — self-hosted)
+# Standalone mode with PostgreSQL + Prometheus + Grafana observability.
+# Upstream images: docker.n8n.io/n8nio/n8n, postgres:16-alpine,
+#                  prom/prometheus, grafana/grafana
+# ---------------------------------------------------------------------------
+
+- name: "n8n"
+  container: "{{ infra_hostname_n8n }}"
+  machine: "oci-cloud-server"
+  category: "ui"
+  description: "Self-hosted workflow automation platform (standalone + Postgres)"
+  source_repo: "https://github.com/n8n-io/n8n"
+  domains:
+    - "infra_domain_ai_n8n"
+  ports:
+    - host: "infra_port_ai_n8n_host"
+      container: "infra_port_ai_n8n_container"
+      label: "Web UI"
+  traefik: true
+  network: "n8n-network"
+
+- name: "n8n Postgres"
+  container: "{{ infra_hostname_n8n_postgres }}"
+  machine: "oci-cloud-server"
+  category: "passive"
+  description: "PostgreSQL database for n8n (workflow data, credentials, executions)"
+  source_repo: "https://github.com/postgres/postgres"
+  ports:
+    - host: "infra_port_ai_n8n_postgres_host"
+      container: "infra_port_ai_n8n_postgres_container"
+      label: "PostgreSQL"
+  network: "n8n-network"
+
+- name: "n8n Grafana"
+  container: "{{ infra_hostname_n8n_grafana }}"
+  machine: "oci-cloud-server"
+  category: "console"
+  description: "Grafana dashboards for n8n observability (webhook/form executions)"
+  source_repo: "https://github.com/n8n-io/n8n-observability"
+  domains:
+    - "infra_domain_ai_n8n_grafana"
+  ports:
+    - host: "infra_port_ai_n8n_grafana_host"
+      container: "infra_port_ai_n8n_grafana_container"
+      label: "Web UI"
+  traefik: true
+  network: "n8n-network"
+
+- name: "n8n Prometheus"
+  container: "{{ infra_hostname_n8n_prometheus }}"
+  machine: "oci-cloud-server"
+  category: "passive"
+  description: "Prometheus metrics scraper for n8n observability"
+  source_repo: "https://github.com/prometheus/prometheus"
+  ports:
+    - host: "infra_port_ai_n8n_prometheus_host"
+      container: "infra_port_ai_n8n_prometheus_container"
+      label: "Web UI"
+  network: "n8n-network"

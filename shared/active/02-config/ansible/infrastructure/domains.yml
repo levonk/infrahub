@@ -174,3 +174,15 @@ infra_dns_record_type_mx: "MX"
 infra_dns_ttl_default: "300"
 infra_dns_ttl_long: "3600"
 infra_dns_ttl_short: "60"
+
+# ---------------------------------------------------------------------------
+# n8n (Workflow automation — self-hosted)
+# Used by: deploy-n8n.yml playbook on cloud_servers (OCI)
+# Two public domains: n8n app + Grafana dashboards, both behind Traefik + Authelia.
+# ---------------------------------------------------------------------------
+infra_domain_ai_n8n: "n8n.levonk.com"
+infra_domain_ai_n8n_grafana: "n8n-grafana.levonk.com"
+infra_hostname_n8n: "localnet-n8n"
+infra_hostname_n8n_postgres: "localnet-n8n-postgres"
+infra_hostname_n8n_prometheus: "localnet-n8n-prometheus"
+infra_hostname_n8n_grafana: "localnet-n8n-grafana"

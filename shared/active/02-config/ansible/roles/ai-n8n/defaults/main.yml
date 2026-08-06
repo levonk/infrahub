@@ -1,0 +1,99 @@
+---
+# n8n default variables
+# Self-hosted workflow automation platform (standalone mode + observability).
+# Domain: n8n.levonk.com (app), n8n-grafana.levonk.com (dashboards)
+# Upstream: https://github.com/n8n-io/n8n
+
+# Service configuration
+n8n_enabled: true
+n8n_container_name: "{{ infra_hostname_n8n | default('localnet-n8n') }}"
+n8n_image: "docker.n8n.io/n8nio/n8n"
+n8n_image_tag: "latest"
+
+# Postgres configuration
+n8n_postgres_container_name: "{{ infra_hostname_n8n_postgres | default('localnet-n8n-postgres') }}"
+n8n_postgres_image: "postgres:16-alpine"
+n8n_postgres_db: "n8n"
+n8n_postgres_user: "n8n"
+
+# Prometheus configuration
+n8n_prometheus_container_name: "{{ infra_hostname_n8n_prometheus | default('localnet-n8n-prometheus') }}"
+n8n_prometheus_image: "prom/prometheus"
+n8n_prometheus_image_tag: "latest"
+
+# Grafana configuration
+n8n_grafana_container_name: "{{ infra_hostname_n8n_grafana | default('localnet-n8n-grafana') }}"
+n8n_grafana_image: "grafana/grafana"
+n8n_grafana_image_tag: "latest"
+
+# Port configuration (reference infrastructure variables)
+n8n_host_port: "{{ infra_port_ai_n8n_host | default('3106') }}"
+n8n_container_port: "{{ infra_port_ai_n8n_container | default('5678') }}"
+n8n_postgres_host_port: "{{ infra_port_ai_n8n_postgres_host | default('5438') }}"
+n8n_postgres_container_port: "{{ infra_port_ai_n8n_postgres_container | default('5432') }}"
+n8n_prometheus_host_port: "{{ infra_port_ai_n8n_prometheus_host | default('3107') }}"
+n8n_prometheus_container_port: "{{ infra_port_ai_n8n_prometheus_container | default('9090') }}"
+n8n_grafana_host_port: "{{ infra_port_ai_n8n_grafana_host | default('3108') }}"
+n8n_grafana_container_port: "{{ infra_port_ai_n8n_grafana_container | default('3000') }}"
+
+# Network configuration
+n8n_network_name: "{{ infra_network_ai_n8n_network_name | default('n8n-network') }}"
+n8n_network_subnet: "{{ infra_network_ai_n8n_subnet | default('172.44.0.0/16') }}"
+n8n_network_gateway: "{{ infra_network_ai_n8n_gateway | default('172.44.0.1') }}"
+n8n_network_ip: "{{ infra_network_ip_n8n | default('172.44.0.10') }}"
+n8n_postgres_network_ip: "{{ infra_network_ip_n8n_postgres | default('172.44.0.20') }}"
+n8n_prometheus_network_ip: "{{ infra_network_ip_n8n_prometheus | default('172.44.0.30') }}"
+n8n_grafana_network_ip: "{{ infra_network_ip_n8n_grafana | default('172.44.0.40') }}"
+n8n_traefik_network_name: "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"
+n8n_traefik_network_ip: "{{ infra_network_ip_n8n_traefik | default('172.31.0.20') }}"
+n8n_grafana_traefik_network_ip: "{{ infra_network_ip_n8n_grafana_traefik | default('172.31.0.21') }}"
+
+# Domain configuration
+n8n_domain: "{{ infra_domain_ai_n8n | default('n8n.levonk.com') }}"
+n8n_grafana_domain: "{{ infra_domain_ai_n8n_grafana | default('n8n-grafana.levonk.com') }}"
+
+# Volume configuration
+n8n_volume_name: "{{ infra_storage_n8n_data_volume | default('localnet-n8n-data-volume') }}"
+n8n_postgres_volume_name: "{{ infra_storage_n8n_postgres_volume | default('localnet-n8n-postgres-data-volume') }}"
+n8n_prometheus_volume_name: "{{ infra_storage_n8n_prometheus_volume | default('localnet-n8n-prometheus-data-volume') }}"
+n8n_grafana_volume_name: "{{ infra_storage_n8n_grafana_volume | default('localnet-n8n-grafana-data-volume') }}"
+n8n_config_dir: "{{ infra_storage_n8n_config_dir | default('/opt/services/n8n') }}"
+
+# Secrets (from vault)
+n8n_encryption_key: "{{ vault_n8n_encryption_key | default('') }}"
+n8n_postgres_admin_password: "{{ vault_n8n_postgres_admin_password | default('') }}"
+n8n_postgres_user_password: "{{ vault_n8n_postgres_user_password | default('') }}"
+n8n_grafana_admin_password: "{{ vault_n8n_grafana_admin_password | default('') }}"
+
+# User/Group IDs and timezone
+n8n_tz: "{{ localnet_tz | default(timezone | default('UTC')) }}"
+
+# Health check configuration
+n8n_healthcheck_interval: "30s"
+n8n_healthcheck_timeout: "10s"
+n8n_healthcheck_retries: 5
+n8n_healthcheck_start_period: "60s"
+
+n8n_postgres_healthcheck_interval: "10s"
+n8n_postgres_healthcheck_timeout: "5s"
+n8n_postgres_healthcheck_retries: 10
+n8n_postgres_healthcheck_start_period: "10s"
+
+n8n_prometheus_healthcheck_interval: "30s"
+n8n_prometheus_healthcheck_timeout: "10s"
+n8n_prometheus_healthcheck_retries: 3
+n8n_prometheus_healthcheck_start_period: "10s"
+
+n8n_grafana_healthcheck_interval: "30s"
+n8n_grafana_healthcheck_timeout: "10s"
+n8n_grafana_healthcheck_retries: 5
+n8n_grafana_healthcheck_start_period: "30s"
+
+# Logging
+n8n_log_max_size: "10m"
+n8n_log_max_file: "5"
+
+# n8n application configuration
+n8n_protocol: "https"
+n8n_proxy_hops: 1
+n8n_node_env: "production"

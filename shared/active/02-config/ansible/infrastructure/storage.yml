@@ -167,3 +167,24 @@ infra_storage_freenet_data_volume: "localnet-freenet-data-volume"
 # ---------------------------------------------------------------------------
 infra_storage_verdaccio_data_volume: "localnet-verdaccio-data-volume"
 infra_storage_verdaccio_config_volume: "localnet-verdaccio-config-volume"
+
+# ---------------------------------------------------------------------------
+# Sandboxed CLI Proxy Storage
+# Used by: deploy-sandbox-proxy.yml playbook on sandbox_proxy_hosts
+# CA certificate directory shared across all egress profiles.
+# See ADR-202608051501 for the sandboxed CLI egress architecture.
+# ---------------------------------------------------------------------------
+infra_storage_sandbox_ca_dir: "/opt/sandbox-cli"
+infra_storage_sandbox_config_dir: "{{ infra_storage_services_dir }}/sandbox-cli/config"
+
+# ---------------------------------------------------------------------------
+# n8n (Workflow automation — self-hosted)
+# Used by: deploy-n8n.yml playbook on cloud_servers (OCI)
+# Volumes: n8n app data, postgres data, prometheus TSDB, grafana data.
+# Config dir holds Ansible-rendered prometheus.yml + grafana provisioning.
+# ---------------------------------------------------------------------------
+infra_storage_n8n_data_volume: "localnet-n8n-data-volume"
+infra_storage_n8n_postgres_volume: "localnet-n8n-postgres-data-volume"
+infra_storage_n8n_prometheus_volume: "localnet-n8n-prometheus-data-volume"
+infra_storage_n8n_grafana_volume: "localnet-n8n-grafana-data-volume"
+infra_storage_n8n_config_dir: "{{ infra_storage_services_dir }}/n8n"

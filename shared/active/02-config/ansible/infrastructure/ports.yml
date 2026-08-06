@@ -367,3 +367,34 @@ infra_port_ai_qm_postgres_container: "5432"
 # ---------------------------------------------------------------------------
 infra_port_artifact_verdaccio_host: "4873"
 infra_port_artifact_verdaccio_container: "4873"
+
+# ---------------------------------------------------------------------------
+# Sandboxed CLI Proxy Ports
+# Used by: deploy-sandbox-proxy.yml playbook on sandbox_proxy_hosts
+# Each egress profile gets its own iron-proxy instance with dedicated ports.
+# See ADR-202608051501 for the sandboxed CLI egress architecture.
+# ---------------------------------------------------------------------------
+# OSINT profile (search engines + social networks — sherlock, subfinder, etc.)
+infra_port_sandbox_osint_http_host: "18080"
+infra_port_sandbox_osint_http_container: "80"
+infra_port_sandbox_osint_https_host: "18443"
+infra_port_sandbox_osint_https_container: "443"
+infra_port_sandbox_osint_dns_host: "18053"
+infra_port_sandbox_osint_dns_container: "53"
+
+# ---------------------------------------------------------------------------
+# n8n (Workflow automation — self-hosted)
+# Used by: deploy-n8n.yml playbook on cloud_servers (OCI)
+# Upstream images: docker.n8n.io/n8nio/n8n, postgres:16-alpine, valkey/valkey,
+#                  prom/prometheus, grafana/grafana
+# Standalone mode (no queue/worker) + observability stack.
+# Host port 5438 avoids conflicts with qm (5437), langfuse (5434), litellm (5435).
+# ---------------------------------------------------------------------------
+infra_port_ai_n8n_host: "3106"
+infra_port_ai_n8n_container: "5678"
+infra_port_ai_n8n_postgres_host: "5438"
+infra_port_ai_n8n_postgres_container: "5432"
+infra_port_ai_n8n_prometheus_host: "3107"
+infra_port_ai_n8n_prometheus_container: "9090"
+infra_port_ai_n8n_grafana_host: "3108"
+infra_port_ai_n8n_grafana_container: "3000"

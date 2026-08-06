@@ -1,11 +1,11 @@
 # Infrahub Service Catalog (Shared Defaults)
 
-> **Auto-generated** from `infrastructure/*.yml` (shared defaults only) — last updated: 2026-08-04 12:06
+> **Auto-generated** from `infrastructure/*.yml` (shared defaults only) — last updated: 2026-08-05 16:15
 > Regenerate with: `just generate-service-catalog-shared`
 > Source: `shared/active/02-config/ansible/infrastructure/services.yml`
 > Note: This catalog shows **default ports and suggested hostnames** only. Client-specific deployment details (custom domains, deployed machines, client port overrides) are not included. See `levonk/SERVICES.md` for the deployed client catalog.
 
-**53 services** (shared defaults — no deployment info)
+**57 services** (shared defaults — no deployment info)
 
 ## Table of Contents
 
@@ -53,6 +53,10 @@
 | LiteLLM Postgres | `litellm-postgres` | — | `5435`→`5432` (PostgreSQL) | proxy-chain-network | — | Passive (Databases / Caches / Queues) | [docker-library/postgres](https://github.com/docker-library/postgres) |
 | LiteLLM Redis | `litellm-redis` | — | `6379` (Redis) | proxy-chain-network | — | Passive (Databases / Caches / Queues) | [redis/redis](https://github.com/redis/redis) |
 | Local Registry | `registry` | — | `5000`→`5000` (Registry) | traefik-network | — | Infrastructure | [distribution/distribution](https://github.com/distribution/distribution) |
+| n8n | `localnet-n8n` | `infra_domain_ai_n8n` (suggested) | `3106`→`5678` (Web UI) | n8n-network | `localnet-n8n-data-volume` (volume) | UI (Web Apps) | [n8n-io/n8n](https://github.com/n8n-io/n8n) |
+| n8n Grafana | `localnet-n8n-grafana` | `infra_domain_ai_n8n_grafana` (suggested) | `3108`→`3000` (Web UI) | n8n-network | `localnet-n8n-grafana-data-volume` (volume) | Console / Dashboard | [n8n-io/n8n-observability](https://github.com/n8n-io/n8n-observability) |
+| n8n Postgres | `localnet-n8n-postgres` | — | `5438`→`5432` (PostgreSQL) | n8n-network | `localnet-n8n-postgres-data-volume` (volume) | Passive (Databases / Caches / Queues) | [postgres/postgres](https://github.com/postgres/postgres) |
+| n8n Prometheus | `localnet-n8n-prometheus` | — | `3107`→`9090` (Web UI) | n8n-network | `localnet-n8n-prometheus-data-volume` (volume) | Passive (Databases / Caches / Queues) | [prometheus/prometheus](https://github.com/prometheus/prometheus) |
 | NordVPN | `nordvpn` | — | `51820`→`51820` (WireGuard)<br>`1080`→`1080` (SOCKS)<br>`8888`→`8888` (HTTP Proxy) | vpn-network | — | VPN / Mesh Networking | [qdm12/gluetun](https://github.com/qdm12/gluetun) |
 | NordVPN Exit Node (nl) | `nordvpn` | — | `1081`→`1080` (SOCKS)<br>`8889`→`8888` (HTTP Proxy)<br>`8444`→`8443` (HTTPS Proxy) | vpn-network | — | VPN / Mesh Networking | [qdm12/gluetun](https://github.com/qdm12/gluetun) |
 | Omnigent | `omnigent` | `infra_domain_ai_omnigent` (suggested) | `8000`→`8000` (Web/API) | — | — | UI (Web Apps), API (HTTP Services) | [omnigent-ai/omnigent](https://github.com/omnigent-ai/omnigent) |
@@ -90,6 +94,7 @@
 | JobOps | `localnet-jobops` | `infra_domain_career_jobops` (suggested) | `3005`→`3001` (Web) | — | `localnet-jobops-data-volume` (volume) | [DaKheera47/job-ops](https://github.com/DaKheera47/job-ops) |
 | Langfuse Web | `langfuse-web` | `infra_domain_ai_langfuse` (suggested) | `3001`→`3000` (Web) | — | — | [langfuse/langfuse](https://github.com/langfuse/langfuse) |
 | LiteLLM | `litellm` | `infra_domain_ai_litellm` (suggested)<br>`infra_domain_ai_litellm_api` (suggested) | `4000`→`4000` (Web/API) | — | `/opt/localnet/data/litellm`<br>`/opt/localnet/services/litellm/config` | [BerriAI/litellm](https://github.com/BerriAI/litellm) |
+| n8n | `localnet-n8n` | `infra_domain_ai_n8n` (suggested) | `3106`→`5678` (Web UI) | n8n-network | `localnet-n8n-data-volume` (volume) | [n8n-io/n8n](https://github.com/n8n-io/n8n) |
 | Omnigent | `omnigent` | `infra_domain_ai_omnigent` (suggested) | `8000`→`8000` (Web/API) | — | — | [omnigent-ai/omnigent](https://github.com/omnigent-ai/omnigent) |
 | QM Web UI | `qm-levonk-web-ui` | `infra_domain_ai_qm` (suggested) | `3105`→`8082` (Web UI) | — | — | [yc-software/qm](https://github.com/yc-software/qm) |
 | SearXNG | `searxng` | `infra_domain_proxy_search` (suggested) | `8080`→`8080` (Web) | — | — | [searxng/searxng](https://github.com/searxng/searxng) |
@@ -108,6 +113,7 @@
 
 | Service | Container | Suggested Hostname | Port(s) (default) | Network | Storage | Source |
 |---------|-----------|--------------------|-------------------|---------|---------|--------|
+| n8n Grafana | `localnet-n8n-grafana` | `infra_domain_ai_n8n_grafana` (suggested) | `3108`→`3000` (Web UI) | n8n-network | `localnet-n8n-grafana-data-volume` (volume) | [n8n-io/n8n-observability](https://github.com/n8n-io/n8n-observability) |
 | Traefik | `traefik` | `infra_domain_traefik_dashboard` (suggested) | `80`→`80` (HTTP)<br>`443`→`443` (HTTPS) | traefik-network | — | [traefik/traefik](https://github.com/traefik/traefik) |
 
 ### 🗄️ Passive (Databases / Caches / Queues)
@@ -122,6 +128,8 @@
 | Langfuse Worker | `langfuse-worker` | — | `3030` (Worker) | langfuse-network | — | [langfuse/langfuse](https://github.com/langfuse/langfuse) |
 | LiteLLM Postgres | `litellm-postgres` | — | `5435`→`5432` (PostgreSQL) | proxy-chain-network | — | [docker-library/postgres](https://github.com/docker-library/postgres) |
 | LiteLLM Redis | `litellm-redis` | — | `6379` (Redis) | proxy-chain-network | — | [redis/redis](https://github.com/redis/redis) |
+| n8n Postgres | `localnet-n8n-postgres` | — | `5438`→`5432` (PostgreSQL) | n8n-network | `localnet-n8n-postgres-data-volume` (volume) | [postgres/postgres](https://github.com/postgres/postgres) |
+| n8n Prometheus | `localnet-n8n-prometheus` | — | `3107`→`9090` (Web UI) | n8n-network | `localnet-n8n-prometheus-data-volume` (volume) | [prometheus/prometheus](https://github.com/prometheus/prometheus) |
 | Omnigent Postgres | `omnigent-postgres` | — | `5433`→`5432` (PostgreSQL) | proxy-chain-network | — | [docker-library/postgres](https://github.com/docker-library/postgres) |
 | QM Postgres | `qm-levonk-pg` | — | `5437`→`5432` (PostgreSQL) | qm-levonk | `localnet-qm-postgres-data-volume` (volume) | [docker-library/postgres](https://github.com/docker-library/postgres) |
 | RustFS | `localnet-rustfs` | `infra_domain_storage_rustfs` (suggested)<br>`infra_domain_storage_rustfs_console` (suggested) | `9000`→`9000` (S3 API)<br>`9001`→`9001` (Console) | — | `localnet-rustfs-data-volume` (volume) | [rustfs/rustfs](https://github.com/rustfs/rustfs) |

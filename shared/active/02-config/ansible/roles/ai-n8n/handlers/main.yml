@@ -1,0 +1,30 @@
+---
+# n8n role handlers
+
+- name: restart n8n
+  community.docker.docker_container:
+    name: "{{ n8n_container_name }}"
+    state: started
+    restart: true
+  listen: "restart n8n"
+
+- name: restart n8n-postgres
+  community.docker.docker_container:
+    name: "{{ n8n_postgres_container_name }}"
+    state: started
+    restart: true
+  listen: "restart n8n-postgres"
+
+- name: restart n8n-prometheus
+  community.docker.docker_container:
+    name: "{{ n8n_prometheus_container_name }}"
+    state: started
+    restart: true
+  listen: "restart n8n-prometheus"
+
+- name: restart n8n-grafana
+  community.docker.docker_container:
+    name: "{{ n8n_grafana_container_name }}"
+    state: started
+    restart: true
+  listen: "restart n8n-grafana"

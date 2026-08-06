@@ -1,0 +1,156 @@
+---
+# n8n Deployment Playbook
+# Deploys n8n (self-hosted workflow automation) in standalone mode with PostgreSQL
+# + Prometheus + Grafana observability stack. All containers run on the OCI cloud
+# server behind Traefik + Authelia.
+#
+# Stack: n8n (web UI + API) + postgres (database) + prometheus (metrics) + grafana (dashboards)
+# Domains: n8n.levonk.com (app), n8n-grafana.levonk.com (dashboards)
+#
+# Usage:
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-n8n.yml \
+#     --vault-password-file ~/.ansible/vault_password
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-n8n.yml \
+#     --check --diff --vault-password-file ~/.ansible/vault_password
+
+- name: "Configure Cloudflare DNS for n8n"
+  hosts: localhost
+  gather_facts: false
+  become: false
+  vars_files:
+    - "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/inventories/group_vars/infrahub-levonk-all.vault.yml"
+  vars:
+    cloudflare_api_token: "{{ vault_cloudflare_api_token | default('') }}"
+    cloudflare_zone_id: "{{ vault_cloudflare_zone_id | default('') }}"
+    cloudflare_dns_state: "present"
+    cloudflare_dns_ttl: 300
+    cloudflare_dns_proxied: false
+    cloudflare_dns_verify: true
+    cloudflare_dns_verify_propagation: false
+    cloudflare_dns_validate_ip: true
+    cloudflare_dns_allow_private_ip: false
+    ts_fqdn: "{{ infra_tailscale_fqdn_cloud_server | default('oci.tale-grouper.ts.net') }}"
+    cloudflare_dns_records:
+      - name: "{{ infra_domain_ai_n8n | default('n8n.levonk.com') }}"
+        type: "CNAME"
+        content: "{{ ts_fqdn }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+      - name: "{{ infra_domain_ai_n8n_grafana | default('n8n-grafana.levonk.com') }}"
+        type: "CNAME"
+        content: "{{ ts_fqdn }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+  roles:
+    - cloudflare-dns
+  tags: ["dns"]
+
+- name: "Deploy n8n Workflow Automation"
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+  vars:
+    cloud_server_admin_user: "{{ ansible_user }}"
+
+  pre_tasks:
+    - name: "Load shared infrastructure defaults (ports, networks, domains, storage)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+      tags: ["always"]
+
+    - name: "Load client infrastructure overrides (levonk)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+      tags: ["always"]
+
+    - name: "Display deployment start information"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Deploying n8n Workflow Automation
+          ========================================
+          App domain:      {{ infra_domain_ai_n8n | default('n8n.levonk.com') }}
+          Grafana domain:  {{ infra_domain_ai_n8n_grafana | default('n8n-grafana.levonk.com') }}
+          App port:        {{ infra_port_ai_n8n_host | default('3106') }} → {{ infra_port_ai_n8n_container | default('5678') }}
+          Postgres port:   {{ infra_port_ai_n8n_postgres_host | default('5438') }} → {{ infra_port_ai_n8n_postgres_container | default('5432') }}
+          Prometheus port: {{ infra_port_ai_n8n_prometheus_host | default('3107') }} → {{ infra_port_ai_n8n_prometheus_container | default('9090') }}
+          Grafana port:    {{ infra_port_ai_n8n_grafana_host | default('3108') }} → {{ infra_port_ai_n8n_grafana_container | default('3000') }}
+          Network:         {{ infra_network_ai_n8n_network_name | default('n8n-network') }} ({{ infra_network_ai_n8n_subnet | default('172.44.0.0/16') }})
+          ========================================
+      tags: ["always"]
+
+  roles:
+    - role: ai-n8n
+      tags: ["deploy", "n8n"]
+      when: n8n_enabled | default(true) | bool
+
+- name: "Deploy Traefik routing for n8n"
+  hosts: cloud_servers
+  become: true
+  gather_facts: false
+
+  pre_tasks:
+    - name: "Load shared infrastructure defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+      tags: ["always"]
+
+    - name: "Load client infrastructure overrides (levonk)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+      tags: ["always"]
+
+  tasks:
+    - name: "Deploy n8n Traefik dynamic configuration"
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/../roles/proxy-traefik/templates/dynamic/n8n-levonk-com.yml.j2"
+        dest: "{{ proxy_traefik_data_dir | default('/opt/traefik') }}/config/dynamic/n8n-levonk-com.yml"
+        owner: root
+        group: root
+        mode: "0644"
+      notify: reload traefik
+      tags: ["traefik", "routing"]
+      when: n8n_enabled | default(true) | bool
+
+    - name: "Deploy n8n Grafana Traefik dynamic configuration"
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/../roles/proxy-traefik/templates/dynamic/n8n-grafana-levonk-com.yml.j2"
+        dest: "{{ proxy_traefik_data_dir | default('/opt/traefik') }}/config/dynamic/n8n-grafana-levonk-com.yml"
+        owner: root
+        group: root
+        mode: "0644"
+      notify: reload traefik
+      tags: ["traefik", "routing"]
+      when: n8n_enabled | default(true) | bool
+
+  handlers:
+    - name: reload traefik
+      community.docker.docker_container:
+        name: "{{ proxy_traefik_container_name | default('traefik') }}"
+        state: started
+        restart: true
+      when: n8n_enabled | default(true) | bool
