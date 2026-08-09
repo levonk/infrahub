@@ -1,11 +1,11 @@
 # Infrahub Service Catalog (Shared Defaults)
 
-> **Auto-generated** from `infrastructure/*.yml` (shared defaults only) — last updated: 2026-08-05 16:15
+> **Auto-generated** from `infrastructure/*.yml` (shared defaults only) — last updated: 2026-08-09 11:17
 > Regenerate with: `just generate-service-catalog-shared`
 > Source: `shared/active/02-config/ansible/infrastructure/services.yml`
 > Note: This catalog shows **default ports and suggested hostnames** only. Client-specific deployment details (custom domains, deployed machines, client port overrides) are not included. See `levonk/SERVICES.md` for the deployed client catalog.
 
-**57 services** (shared defaults — no deployment info)
+**60 services** (shared defaults — no deployment info)
 
 ## Table of Contents
 
@@ -57,6 +57,9 @@
 | n8n Grafana | `localnet-n8n-grafana` | `infra_domain_ai_n8n_grafana` (suggested) | `3108`→`3000` (Web UI) | n8n-network | `localnet-n8n-grafana-data-volume` (volume) | Console / Dashboard | [n8n-io/n8n-observability](https://github.com/n8n-io/n8n-observability) |
 | n8n Postgres | `localnet-n8n-postgres` | — | `5438`→`5432` (PostgreSQL) | n8n-network | `localnet-n8n-postgres-data-volume` (volume) | Passive (Databases / Caches / Queues) | [postgres/postgres](https://github.com/postgres/postgres) |
 | n8n Prometheus | `localnet-n8n-prometheus` | — | `3107`→`9090` (Web UI) | n8n-network | `localnet-n8n-prometheus-data-volume` (volume) | Passive (Databases / Caches / Queues) | [prometheus/prometheus](https://github.com/prometheus/prometheus) |
+| Nix Harmonia | `localnet-nix-harmonia` | — | `4523`→`5000` (HTTP (local only)) | traefik-windows-network | `localnet-harmonia-data-volume` (volume) | Infrastructure | [nix-community/harmonia](https://github.com/nix-community/harmonia) |
+| Nix ncps | `localnet-nix-ncps` | `infra_domain_nix_cache_nl` (suggested) | `4524`→`8080` (HTTP (via Traefik)) | traefik-windows-network | `localnet-ncps-data-volume` (volume) | Infrastructure | [kalbasit/ncps](https://github.com/kalbasit/ncps) |
+| Nix ncro | `localnet-nix-ncro` | — | `4525`→`8081` (HTTP (internal, behind ncps)) | traefik-windows-network | — | Proxy Chain (Internal) | [manic-systems/ncro](https://github.com/manic-systems/ncro) |
 | NordVPN | `nordvpn` | — | `51820`→`51820` (WireGuard)<br>`1080`→`1080` (SOCKS)<br>`8888`→`8888` (HTTP Proxy) | vpn-network | — | VPN / Mesh Networking | [qdm12/gluetun](https://github.com/qdm12/gluetun) |
 | NordVPN Exit Node (nl) | `nordvpn` | — | `1081`→`1080` (SOCKS)<br>`8889`→`8888` (HTTP Proxy)<br>`8444`→`8443` (HTTPS Proxy) | vpn-network | — | VPN / Mesh Networking | [qdm12/gluetun](https://github.com/qdm12/gluetun) |
 | Omnigent | `omnigent` | `infra_domain_ai_omnigent` (suggested) | `8000`→`8000` (Web/API) | — | — | UI (Web Apps), API (HTTP Services) | [omnigent-ai/omnigent](https://github.com/omnigent-ai/omnigent) |
@@ -142,6 +145,7 @@
 | Forge | `forge` | — | `8083`→`8081` (API) | forge-network | — | [antoinezambelli/forge](https://github.com/antoinezambelli/forge) |
 | Headroom | `headroom` | `aishrink.levonk.com` (literal) | `8787`→`8787` (API) | — | — | [chopratejas/headroom](https://github.com/chopratejas/headroom) |
 | iron-proxy | `iron-proxy` | — | `8080` (HTTP)<br>`8443` (HTTPS) | proxy-chain-network | — | [ironsh/iron-proxy](https://github.com/ironsh/iron-proxy) |
+| Nix ncro | `localnet-nix-ncro` | — | `4525`→`8081` (HTTP (internal, behind ncps)) | traefik-windows-network | — | [manic-systems/ncro](https://github.com/manic-systems/ncro) |
 | Privacy Orchestrator | `privacy-orchestrator` | — | `8082`→`8082` (API) | proxy-chain-network | — | [levonk/ai-dashboard](https://github.com/levonk/ai-dashboard) |
 
 ### 🔒 VPN / Mesh Networking
@@ -184,6 +188,8 @@
 | Isolation VM | `isolation-vm` | — | — | — | — | [www.qemu.org](https://www.qemu.org/) |
 | kckinai Host | `kckinai` | `infra_domain_inference_host` (suggested) | — | — | — | [tailscale.com](https://tailscale.com/) |
 | Local Registry | `registry` | — | `5000`→`5000` (Registry) | traefik-network | — | [distribution/distribution](https://github.com/distribution/distribution) |
+| Nix Harmonia | `localnet-nix-harmonia` | — | `4523`→`5000` (HTTP (local only)) | traefik-windows-network | `localnet-harmonia-data-volume` (volume) | [nix-community/harmonia](https://github.com/nix-community/harmonia) |
+| Nix ncps | `localnet-nix-ncps` | `infra_domain_nix_cache_nl` (suggested) | `4524`→`8080` (HTTP (via Traefik)) | traefik-windows-network | `localnet-ncps-data-volume` (volume) | [kalbasit/ncps](https://github.com/kalbasit/ncps) |
 | TraLa | `trala` | `infra_domain_dashboard_trala` (suggested) | `8085`→`8080` (Web) | — | — | [dannybouwers/trala](https://github.com/dannybouwers/trala) |
 | Verdaccio NPM Registry (cno) | `localnet-artifact-verdaccio` | `infra_domain_artifact_verdaccio_cno` (suggested) | `4873`→`4873` (Web/API) | traefik-network | — | [verdaccio/verdaccio](https://github.com/verdaccio/verdaccio) |
 | Verdaccio NPM Registry (nl) | `localnet-artifact-verdaccio-nl` | `infra_domain_artifact_verdaccio_nl` (suggested) | `4873`→`4873` (Web/API) | — | — | [verdaccio/verdaccio](https://github.com/verdaccio/verdaccio) |

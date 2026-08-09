@@ -827,3 +827,53 @@
       container: "infra_port_ai_n8n_prometheus_container"
       label: "Web UI"
   network: "n8n-network"
+
+# ===========================================================================
+# Nix Cache Chain (nl region — dtop202311)
+# Implements ADR-20260708001: Harmonia (local store) + ncps (NAR cache) +
+# ncro (parallel racing proxy). Topology: ncps → ncro → upstreams.
+# ===========================================================================
+
+- name: "Nix Harmonia"
+  container: "{{ infra_hostname_nix_harmonia }}"
+  machine: "dtop202311"
+  category: "infra"
+  description: "Serves the shared /nix/store over HTTP (local only, 127.0.0.1). Signs NARs with vault key."
+  source_repo: "https://github.com/nix-community/harmonia"
+  ports:
+    - host: "infra_port_nix_harmonia_host"
+      container: "infra_port_nix_harmonia_container"
+      label: "HTTP (local only)"
+  network: "traefik-windows-network"
+  storage:
+    - "localnet-base-nix-store-volume (shared nix store, ro)"
+    - "localnet-harmonia-data-volume (signing key, config)"
+
+- name: "Nix ncps"
+  container: "{{ infra_hostname_nix_ncps }}"
+  machine: "dtop202311"
+  category: "infra"
+  description: "Nix Binary Cache Proxy Service — front door for Nix clients. Caches NARs in SQLite + local storage."
+  source_repo: "https://github.com/kalbasit/ncps"
+  domains:
+    - "infra_domain_nix_cache_nl"
+  ports:
+    - host: "infra_port_nix_ncps_host"
+      container: "infra_port_nix_ncps_container"
+      label: "HTTP (via Traefik)"
+  traefik: true
+  network: "traefik-windows-network"
+  storage:
+    - "localnet-ncps-data-volume (cached NARs + SQLite db)"
+
+- name: "Nix ncro"
+  container: "{{ infra_hostname_nix_ncro }}"
+  machine: "dtop202311"
+  category: "proxy"
+  description: "Nix Cache Route Optimizer — races all upstreams in parallel, returns fastest. Stateless (no NAR storage)."
+  source_repo: "https://github.com/manic-systems/ncro"
+  ports:
+    - host: "infra_port_nix_ncro_host"
+      container: "infra_port_nix_ncro_container"
+      label: "HTTP (internal, behind ncps)"
+  network: "traefik-windows-network"
