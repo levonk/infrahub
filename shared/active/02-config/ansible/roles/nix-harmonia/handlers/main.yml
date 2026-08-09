@@ -4,5 +4,6 @@
 - name: restart nix-harmonia
   community.docker.docker_container:
     name: "{{ nix_harmonia_container_name | default(nix_harmonia_container_name_cno) }}"
+    image: "{{ nix_harmonia_image_name }}:{{ nix_harmonia_image_tag }}"
     state: started
     restart: true

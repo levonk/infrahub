@@ -12,10 +12,12 @@ nix_ncps_enabled: true
 # Container configuration — per-region container names
 nix_ncps_container_name_nl: "{{ infra_hostname_nix_ncps_nl | default('localnet-nix-ncps') }}"
 nix_ncps_container_name_cno: "{{ infra_hostname_nix_ncps_cno | default('localnet-nix-ncps-cno') }}"
-# Upstream image: ghcr.io/kalbasit/ncps (multi-arch, v0.9.4)
+# Upstream image: ghcr.io/kalbasit/ncps (multi-arch)
 # https://github.com/kalbasit/ncps/releases
+# Using :main tag because v0.9.4 doesn't have the `migrate up` command
+# (goose-based migration). The :main tag includes the migrate command.
 nix_ncps_image_name: "ghcr.io/kalbasit/ncps"
-nix_ncps_image_tag: "v0.9.4"
+nix_ncps_image_tag: "main"
 
 # Ports — ncps is the front door, exposed via Traefik
 nix_ncps_host_port: "{{ infra_port_nix_ncps_host | default('4524') }}"
@@ -31,7 +33,7 @@ nix_ncps_data_volume_cno: "{{ infra_storage_nix_ncps_data_volume_cno | default('
 
 # ncps storage paths (inside the container)
 nix_ncps_storage_path: "/storage"
-nix_ncps_db_path: "{{ nix_ncps_storage_path }}/var/ncps/db/db.sqlite"
+nix_ncps_db_path: "{{ nix_ncps_storage_path }}/ncps.db"
 nix_ncps_db_url: "sqlite:{{ nix_ncps_db_path }}"
 
 # Cache hostname (used by ncps for signing and Nix cache-info)

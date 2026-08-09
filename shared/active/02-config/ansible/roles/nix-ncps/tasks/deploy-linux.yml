@@ -2,8 +2,8 @@
 # nix-ncps Linux (cno) deployment — community.docker pattern
 # Target: OCI cloud server (ARM64, Oracle Linux).
 # Uses upstream ncps image: ghcr.io/kalbasit/ncps:v0.9.4
-# ncps is configured via CLI flags (not a config file) and needs a SQLite
-# database initialized via `ncps migrate up` before serving.
+# ncps v0.9.4 commands: serve, migrate-narinfo, migrate-nar-to-chunks, fsck
+# No explicit migration needed — database is auto-created on first serve.
 
 # ============================================================================
 # Pull Image
@@ -32,15 +32,14 @@
     name: "{{ nix_ncps_container_name }}-migrate"
     image: "{{ nix_ncps_image_name }}:{{ nix_ncps_image_tag }}"
     state: started
-    command: "migrate up"
-    env:
-      NCPS_DB_URL: "{{ nix_ncps_db_url }}"
+    entrypoint: "/bin/ncps"
+    command: "migrate up --cache-database-url={{ nix_ncps_db_url }}"
     volumes:
       - "{{ nix_ncps_data_volume }}:{{ nix_ncps_storage_path }}:rw"
     detach: false
     cleanup: true
   register: nix_ncps_migrate_result
-  changed_when: "'migrated' in (nix_ncps_migrate_result.stdout | default('')) or nix_ncps_migrate_result.changed"
+  changed_when: "'migrate up complete' in (nix_ncps_migrate_result.stdout | default(''))"
   tags: ["deploy", "migrate"]
 
 # ============================================================================
@@ -58,13 +57,17 @@
     image: "{{ nix_ncps_image_name }}:{{ nix_ncps_image_tag }}"
     state: started
     restart_policy: unless-stopped
+    # ncps image has no entrypoint — set it explicitly to /bin/ncps
+    entrypoint: "/bin/ncps"
+    # ncps v0.9.4 serve command with CLI flags
     command: >-
       serve
+      --server-addr=0.0.0.0:{{ nix_ncps_container_port }}
       --cache-hostname={{ nix_ncps_cache_hostname }}
-      --db-url={{ nix_ncps_db_url }}
-      --listen=0.0.0.0:{{ nix_ncps_container_port }}
-      {% for url in nix_ncps_upstream_urls %}--upstream={{ url }} {% endfor %}
-      {% for key in nix_ncps_upstream_public_keys %}--upstream-public-key={{ key }} {% endfor %}
+      --cache-database-url={{ nix_ncps_db_url }}
+      --cache-storage-local={{ nix_ncps_storage_path }}
+      {% for url in nix_ncps_upstream_urls %}--cache-upstream-url={{ url }} {% endfor %}
+      {% for key in nix_ncps_upstream_public_keys %}--cache-upstream-public-key={{ key }} {% endfor %}
     networks:
       - name: "{{ nix_ncps_network_name }}"
     published_ports:
@@ -77,12 +80,10 @@
     log_options:
       max-size: "{{ nix_ncps_log_max_size }}"
       max-file: "{{ nix_ncps_log_max_file }}"
+    # No Docker healthcheck — the ncps image is a minimal Nix image with no
+    # shell. The Ansible wait_for task verifies the port is listening.
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:{{ nix_ncps_container_port }}/healthz || exit 1"]
-      interval: "{{ nix_ncps_healthcheck_interval }}"
-      timeout: "{{ nix_ncps_healthcheck_timeout }}"
-      retries: "{{ nix_ncps_healthcheck_retries }}"
-      start_period: "{{ nix_ncps_healthcheck_start_period }}"
+      test: ["NONE"]
     security_opts:
       - no-new-privileges:true
   tags: ["deploy", "container"]
