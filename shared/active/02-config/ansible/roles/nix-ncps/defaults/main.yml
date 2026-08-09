@@ -32,15 +32,27 @@ nix_ncps_db_url: "sqlite:{{ nix_ncps_db_path }}"
 # Cache hostname (used by ncps for signing and Nix cache-info)
 nix_ncps_cache_hostname: "{{ nix_ncps_domain }}"
 
-# Upstream caches — ncps queries these on cache miss
-# Point to ncro (parallel racing proxy) as the primary upstream
-nix_ncps_upstream_urls:
-  - "https://cache.nixos.org"
-  - "https://cache.garnix.io"
+# Local temp directory for rendering config files
+nix_ncps_windows_temp_dir: "/tmp/nix-ncps-config-{{ inventory_hostname }}"
 
+# Upstream caches — ncps queries these on cache miss
+# Per ADR-20260708001: ncps → ncro → upstreams. ncro races all upstreams
+# (Harmonia, cache.nixos.org, cache.garnix.io, nix-community.cachix.org) in
+# parallel and returns the fastest response. ncps only needs ncro as its
+# single upstream — ncro handles the racing and EMA latency learning.
+# ncro is on the same Docker network (traefik-windows-network), so ncps
+# reaches it via the container name.
+nix_ncps_upstream_urls:
+  - "http://{{ nix_ncro_container_name | default('localnet-nix-ncro') }}:{{ nix_ncro_container_port | default('8081') }}"
+
+# ncro is a local racing proxy (no signing key of its own). The public keys
+# of the upstreams ncro races are trusted by ncps so that NARs fetched via
+# ncro pass ncps's signature verification.
 nix_ncps_upstream_public_keys:
   - "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPSQZNGZfdL7Q="
   - "cache.garnix.io:CTFPyKSLcx5RMJKfLo5EEPUObbA78b0YQ2DTCJXqr3g="
+  - "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CXHQrkxhLww6X236k="
+  - "{{ vault_nix_harmonia_public_key | default('cache.nl.levonk.com-1:6G59STN6BT8UeIjLG5gAksFvjp1BwjQYx/uerbSJCBM=') }}"
 
 # Network — join the traefik-windows network for Traefik routing
 nix_ncps_network_name: "traefik-windows-network"

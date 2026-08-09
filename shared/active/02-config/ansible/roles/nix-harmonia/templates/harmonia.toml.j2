@@ -1,8 +1,15 @@
 # Harmonia configuration — rendered by Ansible
-# Serves /nix/store over HTTP on 127.0.0.1
-bind = "127.0.0.1:{{ nix_harmonia_container_port }}"
+# Serves the shared nix store over HTTP.
+# The shared nix directory is mounted at /shared-nix (the entire /nix tree
+# from the nix-sidecar, including /nix/store and /nix/var/nix/db/db.sqlite).
+# This avoids overlaying the image's /nix/store where the harmonia binary lives.
+bind = "0.0.0.0:{{ nix_harmonia_container_port }}"
+workers = 4
+# Serve NARs from the shared nix store (mounted at /shared-nix)
+real_nix_store = "/shared-nix/store"
+# Nix SQLite database (in the shared nix volume)
+nix_db_path = "/shared-nix/var/nix/db/db.sqlite"
 {% if vault_nix_harmonia_sign_key is defined and vault_nix_harmonia_sign_key | length > 0 %}
-signing-key = "{{ nix_harmonia_sign_key_path }}"
+# Signing key for the cache (sign_key_paths is an array)
+sign_key_paths = ["{{ nix_harmonia_sign_key_path }}"]
 {% endif %}
-# Read-only mode — serve the local nix store
-store = "/nix/store"

@@ -34,18 +34,18 @@ nix_ncro_windows_temp_dir: "/tmp/nix-ncro-config-{{ inventory_hostname }}"
 # Upstream caches that ncro races in parallel
 # Lower priority = preferred. Local Harmonia has priority 10 (sub-ms for local store hits).
 # Remote caches have priority 20+ (raced in parallel, winner cached in SQLite).
+# Note: ncro is a stateless racing proxy — it does NOT verify NAR signatures.
+# Signature verification is handled by ncps (the caching proxy in front of ncro).
+# Public keys are intentionally omitted from ncro's upstream config.
 nix_ncro_upstreams:
   - url: "http://{{ nix_harmonia_container_name | default('localnet-nix-harmonia') }}:{{ infra_port_nix_harmonia_container | default('5000') }}"
     priority: 10
   - url: "https://cache.nixos.org"
     priority: 20
-    public_key: "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPSQZNGZfdL7Q="
   - url: "https://cache.garnix.io"
     priority: 30
-    public_key: "cache.garnix.io:CTFPyKSLcx5RMJKfLo5EEPUObbA78b0YQ2DTCJXqr3g="
   - url: "https://nix-community.cachix.org"
     priority: 30
-    public_key: "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CXHQrkxhLww6X236k="
 
 # Healthcheck
 nix_ncro_healthcheck_interval: "30s"

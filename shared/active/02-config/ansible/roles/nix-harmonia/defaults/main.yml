@@ -34,6 +34,16 @@ nix_harmonia_windows_temp_dir: "/tmp/nix-harmonia-config-{{ inventory_hostname }
 # When empty, Harmonia runs in read-only mode (serves but doesn't sign)
 nix_harmonia_sign_key_path: "/data/signing-key"
 
+# Entrypoint override — the image's default entrypoint (harmonia wrapper) calls
+# `nix store --serve` which is not available in Nix 2.34+. We use harmonia-cache
+# (the actual Rust binary) directly with CONFIG_FILE env var.
+# This path is the Nix store path for the harmonia-cache binary in the image.
+# If the image is rebuilt, update this path (check with:
+#   docker run --rm --entrypoint="" localnet-nix-harmonia:latest \
+#     ls /nix/store/*/bin/harmonia-cache
+# )
+nix_harmonia_entrypoint: "/nix/store/8vbf9a8ma61yzypb8cnpz912fffvrf1f-harmonia-3.1.0/bin/harmonia-cache"
+
 # Healthcheck — MUST use string with unit suffix, NOT bare integers
 nix_harmonia_healthcheck_interval: "30s"
 nix_harmonia_healthcheck_timeout: "10s"

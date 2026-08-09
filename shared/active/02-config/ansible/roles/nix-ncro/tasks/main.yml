@@ -107,14 +107,23 @@
   tags: ["deploy", "config"]
 
 # ============================================================================
-# 6. Pull image
+# 6. Verify image (locally-built, not pulled from a registry)
 # ============================================================================
-- name: Pull ncro image
-  ansible.builtin.command: "docker pull {{ nix_ncro_image_name }}:{{ nix_ncro_image_tag }}"
+- name: Check if ncro image exists on target
+  ansible.builtin.shell: "docker image inspect {{ nix_ncro_image_name }}:{{ nix_ncro_image_tag }} >/dev/null 2>&1 && echo EXISTS || echo MISSING"
   environment:
     DOCKER_HOST: "{{ nix_ncro_docker_host_windows }}"
   delegate_to: localhost
-  changed_when: true
+  register: nix_ncro_image_check
+  changed_when: false
+  tags: ["deploy", "pull"]
+
+- name: Fail if ncro image is missing
+  ansible.builtin.fail:
+    msg: >-
+      Image {{ nix_ncro_image_name }}:{{ nix_ncro_image_tag }} not found on target.
+      Build it with the flake and transfer via: docker save {{ nix_ncro_image_name }}:{{ nix_ncro_image_tag }} | ssh ansible@dtop202311.tale-grouper.ts.net "docker load"
+  when: nix_ncro_image_check.stdout != "EXISTS"
   tags: ["deploy", "pull"]
 
 # ============================================================================
@@ -145,7 +154,7 @@
     --log-driver json-file
     --log-opt max-size={{ nix_ncro_log_max_size }}
     --log-opt max-file={{ nix_ncro_log_max_file }}
-    --health-cmd "wget -qO- http://127.0.0.1:{{ nix_ncro_container_port }}/nix-cache-info || exit 1"
+    --health-cmd "echo > /dev/tcp/127.0.0.1/{{ nix_ncro_container_port }}"
     --health-interval {{ nix_ncro_healthcheck_interval }}
     --health-timeout {{ nix_ncro_healthcheck_timeout }}
     --health-retries {{ nix_ncro_healthcheck_retries }}

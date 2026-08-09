@@ -50,15 +50,16 @@
 
 # ============================================================================
 # Database Migration
-# ncps embeds migrations and applies them via goose — run once before serving
+# ncps v0.9.4 does NOT auto-migrate on serve. The ncps image includes dbmate
+# which is used to apply schema migrations before starting the server.
 # ============================================================================
-- name: Run ncps database migration
+- name: Run ncps database migration via dbmate
   ansible.builtin.shell: >-
     docker run --rm
     -v {{ nix_ncps_data_volume }}:/storage
+    -e DATABASE_URL={{ nix_ncps_db_url }}
     {{ nix_ncps_image_name }}:{{ nix_ncps_image_tag }}
-    /bin/ncps migrate up
-    --cache-database-url={{ nix_ncps_db_url }}
+    /bin/dbmate up
   environment:
     DOCKER_HOST: "{{ nix_ncps_docker_host_windows }}"
   delegate_to: localhost
@@ -88,23 +89,15 @@
     --log-driver json-file
     --log-opt max-size={{ nix_ncps_log_max_size }}
     --log-opt max-file={{ nix_ncps_log_max_file }}
-    --health-cmd "wget -qO- http://127.0.0.1:{{ nix_ncps_container_port }}/healthz || exit 1"
-    --health-interval {{ nix_ncps_healthcheck_interval }}
-    --health-timeout {{ nix_ncps_healthcheck_timeout }}
-    --health-retries {{ nix_ncps_healthcheck_retries }}
-    --health-start-period {{ nix_ncps_healthcheck_start_period }}
     --security-opt no-new-privileges:true
     {{ nix_ncps_image_name }}:{{ nix_ncps_image_tag }}
     /bin/ncps serve
     --cache-hostname={{ nix_ncps_cache_hostname }}
     --cache-storage-local={{ nix_ncps_storage_path }}
     --cache-database-url={{ nix_ncps_db_url }}
-    --server-listen=0.0.0.0:{{ nix_ncps_container_port }}
+    --server-addr=:{{ nix_ncps_container_port }}
     {% for url in nix_ncps_upstream_urls %}
     --cache-upstream-url={{ url }}
-    {% endfor %}
-    {% for key in nix_ncps_upstream_public_keys %}
-    --cache-upstream-public-key={{ key }}
     {% endfor %}
   environment:
     DOCKER_HOST: "{{ nix_ncps_docker_host_windows }}"
@@ -113,16 +106,16 @@
   tags: ["deploy", "container"]
 
 # ============================================================================
-# Wait for health
+# Wait for container to be running (ncps image has no shell for healthcheck)
 # ============================================================================
-- name: Wait for nix-ncps (nl) to be healthy
+- name: Wait for nix-ncps (nl) to be running
   ansible.builtin.command: >-
-    docker inspect --format '{% raw %}{{.State.Health.Status}}{% endraw %}' {{ nix_ncps_container_name }}
+    docker inspect --format '{% raw %}{{.State.Status}}{% endraw %}' {{ nix_ncps_container_name }}
   environment:
     DOCKER_HOST: "{{ nix_ncps_docker_host_windows }}"
   delegate_to: localhost
   register: nix_ncps_windows_health
-  until: nix_ncps_windows_health.stdout == "healthy"
+  until: nix_ncps_windows_health.stdout == "running"
   retries: 30
   delay: 3
   changed_when: false
@@ -134,7 +127,7 @@
 # ============================================================================
 - name: Get nix-ncps (nl) container status
   ansible.builtin.command: >-
-    docker inspect --format '{% raw %}{{.Name}}={{.State.Status}} health={{.State.Health.Status}}{% endraw %}'
+    docker inspect --format '{% raw %}{{.Name}}={{.State.Status}}{% endraw %}'
     {{ nix_ncps_container_name }}
   environment:
     DOCKER_HOST: "{{ nix_ncps_docker_host_windows }}"

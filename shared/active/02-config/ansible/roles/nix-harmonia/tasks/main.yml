@@ -113,14 +113,71 @@
   tags: ["deploy", "config"]
 
 # ============================================================================
-# Pull Image
+# Write signing key to data volume (if vault key is defined)
 # ============================================================================
-- name: Pull nix-harmonia image
-  ansible.builtin.command: "docker pull {{ nix_harmonia_image_name }}:{{ nix_harmonia_image_tag }}"
+- name: Write Harmonia signing key to local temp file
+  ansible.builtin.copy:
+    dest: "{{ nix_harmonia_windows_temp_dir }}/signing-key"
+    content: "{{ vault_nix_harmonia_sign_key }}"
+    mode: "0600"
+  delegate_to: localhost
+  run_once: true
+  changed_when: false
+  no_log: true
+  when: vault_nix_harmonia_sign_key is defined and vault_nix_harmonia_sign_key | length > 0
+  tags: ["deploy", "config"]
+
+- name: Create temporary container to seed signing key
+  ansible.builtin.command: >-
+    docker create --name {{ nix_harmonia_container_name }}-key-seed
+    -v {{ nix_harmonia_data_volume }}:/data
+    alpine:latest sleep infinity
   environment:
     DOCKER_HOST: "{{ nix_harmonia_docker_host_windows }}"
   delegate_to: localhost
   changed_when: true
+  when: vault_nix_harmonia_sign_key is defined and vault_nix_harmonia_sign_key | length > 0
+  tags: ["deploy", "config"]
+
+- name: Copy signing key into data volume
+  ansible.builtin.command: >-
+    docker cp {{ nix_harmonia_windows_temp_dir }}/signing-key
+    {{ nix_harmonia_container_name }}-key-seed:/data/signing-key
+  environment:
+    DOCKER_HOST: "{{ nix_harmonia_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: true
+  no_log: true
+  when: vault_nix_harmonia_sign_key is defined and vault_nix_harmonia_sign_key | length > 0
+  tags: ["deploy", "config"]
+
+- name: Remove temporary key seed container
+  ansible.builtin.shell: "docker rm -f {{ nix_harmonia_container_name }}-key-seed 2>/dev/null || true"
+  environment:
+    DOCKER_HOST: "{{ nix_harmonia_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: false
+  when: vault_nix_harmonia_sign_key is defined and vault_nix_harmonia_sign_key | length > 0
+  tags: ["deploy", "config"]
+
+# ============================================================================
+# Verify Image (locally-built, not pulled from a registry)
+# ============================================================================
+- name: Check if nix-harmonia image exists on target
+  ansible.builtin.shell: "docker image inspect {{ nix_harmonia_image_name }}:{{ nix_harmonia_image_tag }} >/dev/null 2>&1 && echo EXISTS || echo MISSING"
+  environment:
+    DOCKER_HOST: "{{ nix_harmonia_docker_host_windows }}"
+  delegate_to: localhost
+  register: nix_harmonia_image_check
+  changed_when: false
+  tags: ["deploy", "pull"]
+
+- name: Fail if nix-harmonia image is missing
+  ansible.builtin.fail:
+    msg: >-
+      Image {{ nix_harmonia_image_name }}:{{ nix_harmonia_image_tag }} not found on target.
+      Build it with the flake and transfer via: docker save {{ nix_harmonia_image_name }}:{{ nix_harmonia_image_tag }} | ssh ansible@dtop202311.tale-grouper.ts.net "docker load"
+  when: nix_harmonia_image_check.stdout != "EXISTS"
   tags: ["deploy", "pull"]
 
 # ============================================================================
@@ -140,15 +197,17 @@
     --name {{ nix_harmonia_container_name }}
     --restart unless-stopped
     -p 127.0.0.1:{{ nix_harmonia_host_port }}:{{ nix_harmonia_container_port }}/tcp
-    -v {{ nix_harmonia_nix_store_volume }}:/nix/store:ro
+    -v {{ nix_harmonia_nix_store_volume }}:/shared-nix:ro
     -v {{ nix_harmonia_nix_config_volume }}:/etc/nix:ro
     -v {{ nix_harmonia_data_volume }}:/data:rw
     --network {{ nix_harmonia_network_name }}
     -e TZ={{ nix_harmonia_tz }}
+    -e CONFIG_FILE=/data/harmonia.toml
+    --entrypoint {{ nix_harmonia_entrypoint }}
     --log-driver json-file
     --log-opt max-size={{ nix_harmonia_log_max_size }}
     --log-opt max-file={{ nix_harmonia_log_max_file }}
-    --health-cmd "wget -qO- http://127.0.0.1:{{ nix_harmonia_container_port }}/nix-cache-info || exit 1"
+    --health-cmd "echo > /dev/tcp/127.0.0.1/{{ nix_harmonia_container_port }}"
     --health-interval {{ nix_harmonia_healthcheck_interval }}
     --health-timeout {{ nix_harmonia_healthcheck_timeout }}
     --health-retries {{ nix_harmonia_healthcheck_retries }}
