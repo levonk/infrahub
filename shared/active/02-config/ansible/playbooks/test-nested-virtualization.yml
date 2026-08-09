@@ -1,11 +1,36 @@
 ---
-# Nested Virtualization Support Test Playbook
-# Tests whether the OCI Cloud Server Host hardware supports nested KVM virtualization
-# This is a critical decision point for KVM vs QEMU hypervisor choice
+# Nested Virtualization Support Test Playbook (Cross-Platform)
+# Tests whether a host supports nested KVM virtualization.
+# Works on both Linux (OCI cloud server) and Windows (Docker Desktop / WSL2).
+#
+# Linux path:  Checks CPU flags, KVM module, and nested parameter (Intel/AMD).
+# Windows path: Checks Windows version (11+ required), CPU firmware virt,
+#               Virtual Machine Platform feature, WSL2 nestedVirtualization
+#               setting, and /dev/kvm availability inside WSL2.
+#
 # Usage:
-#   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/playbooks/test-nested-virtualization.yml
+#   # Linux only (OCI cloud server):
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
+#     shared/active/02-config/ansible/playbooks/test-nested-virtualization.yml
+#
+#   # Windows only (dtop202311):
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/windows-docker.yml \
+#     shared/active/02-config/ansible/playbooks/test-nested-virtualization.yml
+#
+#   # Both (pass both inventories):
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
+#     -i levonk/active/02-config/ansible/inventories/windows-docker.yml \
+#     shared/active/02-config/ansible/playbooks/test-nested-virtualization.yml
+#
+# Or via justfile:
+#   just ansible-test-nested-virt
+#   just ansible-test-nested-virt-windows
 
-- name: "Test Nested Virtualization Support"
+# =============================================================================
+# Play 1: Linux hosts (OCI cloud server, other Linux hosts)
+# =============================================================================
+
+- name: "Test Nested Virtualization Support (Linux)"
   hosts: cloud_servers
   become: true
   gather_facts: true
@@ -22,6 +47,7 @@
     - name: "Initialize nested virtualization test results"
       ansible.builtin.set_fact:
         nested_virt_results:
+          platform: "linux"
           cpu_architecture: ""
           virtualization_supported: false
           kvm_module_loaded: false
@@ -237,42 +263,41 @@
         - nested_virt_amd_param_after.rc == 0
       tags: ["test", "nested", "enable"]
 
-    - name: "Determine nested virtualization support"
+    - name: "Determine nested virtualization support (Linux)"
       ansible.builtin.set_fact:
         nested_virt_results: "{{ nested_virt_results | combine({'nested_virtualization_supported': nested_virt_results.virtualization_supported and nested_virt_results.kvm_module_loaded and nested_virt_results.nested_virtualization_enabled}) }}"
       tags: ["test", "final"]
 
-    - name: "Record test timestamp"
+    - name: "Record test timestamp (Linux)"
       ansible.builtin.set_fact:
-        nested_virt_results: "{{ nested_virt_results | combine({'test_timestamp': ansible_date_time.iso8601}) }}"
+        nested_virt_results: "{{ nested_virt_results | combine({'test_timestamp': ansible_facts.date_time.iso8601}) }}"
       tags: ["test", "final"]
 
-    - name: "Display nested virtualization test results"
+    - name: "Display nested virtualization test results (Linux)"
       ansible.builtin.debug:
         msg: "{{ nested_virt_results }}"
       tags: ["test", "final"]
 
-    - name: "Create results directory"
+    - name: "Create results directory (Linux)"
       ansible.builtin.file:
         path: /tmp/nested-virtualization-test
         state: directory
         mode: "0755"
-      become: true
       tags: ["test", "final"]
 
-    - name: "Save test results to file"
+    - name: "Save test results to file (Linux)"
       ansible.builtin.copy:
         content: "{{ nested_virt_results | to_nice_json }}"
         dest: /tmp/nested-virtualization-test/results.json
         mode: "0644"
-      become: true
       tags: ["test", "final"]
 
-    - name: "Generate summary report"
+    - name: "Generate summary report (Linux)"
       ansible.builtin.debug:
         msg: |
-          Nested Virtualization Support Test Summary
+          Nested Virtualization Support Test Summary (Linux)
           ============================================
+          Platform: {{ nested_virt_results.platform }}
           CPU Architecture: {{ nested_virt_results.cpu_architecture }}
           CPU Vendor: {{ nested_virt_results.cpu_vendor }}
           Virtualization Supported: {{ nested_virt_results.virtualization_supported }}
@@ -284,7 +309,382 @@
           Recommendation: {% if nested_virt_results.nested_virtualization_supported %}Use KVM with nested virtualization for optimal performance{% else %}Use QEMU without KVM acceleration (nested virtualization not supported){% endif %}
       tags: ["test", "final"]
 
-    - name: "Set Ansible fact for nested virtualization support"
+    - name: "Set Ansible fact for nested virtualization support (Linux)"
+      ansible.builtin.set_fact:
+        nested_virtualization_supported: "{{ nested_virt_results.nested_virtualization_supported }}"
+      tags: ["test", "final"]
+
+# =============================================================================
+# Play 2: Windows hosts (Docker Desktop / WSL2)
+# =============================================================================
+# WSL2 nested virtualization is ON BY DEFAULT on Windows 11 amd64
+# (since WSL build 20175, July 2020). It does NOT require Enterprise —
+# works on Home and Pro. Windows 10 does NOT support it.
+# The setting can be explicitly disabled via .wslconfig [wsl2] nestedVirtualization=false.
+# Ref: https://learn.microsoft.com/en-us/windows/wsl/release-notes
+# Ref: https://github.com/microsoft/WSL/issues/9400
+
+- name: "Test Nested Virtualization Support (Windows / WSL2)"
+  hosts: windows_docker_hosts
+  gather_facts: true
+  become: false
+
+  vars:
+    nested_virt_results: {}
+
+  pre_tasks:
+    - name: "Gather ansible_facts (Windows)"
+      ansible.builtin.setup:
+        gather_subset: ["all"]
+      tags: ["always"]
+
+    - name: "Initialize nested virtualization test results (Windows)"
+      ansible.builtin.set_fact:
+        nested_virt_results:
+          platform: "windows-wsl2"
+          cpu_architecture: ""
+          windows_version: ""
+          windows_build: ""
+          virtualization_supported: false
+          vmp_feature_enabled: false
+          wsl2_nested_virt_setting: ""
+          kvm_device_available: false
+          nested_virtualization_enabled: false
+          nested_virtualization_supported: false
+          cpu_vendor: ""
+          test_timestamp: ""
+
+  tasks:
+    # ---------------------------------------------------------------------------
+    # Windows version — must be Windows 11 (build >= 22000) for WSL2 nested virt
+    # ---------------------------------------------------------------------------
+    - name: "Get Windows version and build number"
+      ansible.windows.win_shell: |
+        $os = Get-CimInstance -ClassName Win32_OperatingSystem
+        $build = [int]($os.BuildNumber)
+        $caption = $os.Caption
+        Write-Output "CAPTION=$caption"
+        Write-Output "BUILD=$build"
+      register: win_version_raw
+      changed_when: false
+      tags: ["test", "windows-version"]
+
+    - name: "Parse Windows version"
+      ansible.builtin.set_fact:
+        win_caption: "{{ (win_version_raw.stdout | regex_search('CAPTION=(.*)', '\\1') | first | trim) }}"
+        win_build: "{{ (win_version_raw.stdout | regex_search('BUILD=(\\d+)', '\\1') | first | trim) }}"
+      tags: ["test", "windows-version"]
+
+    - name: "Record Windows version"
+      ansible.builtin.set_fact:
+        nested_virt_results: "{{ nested_virt_results | combine({
+          'windows_version': win_caption,
+          'windows_build': win_build
+        }) }}"
+      tags: ["test", "windows-version"]
+
+    - name: "Check if Windows 11+ (build >= 22000)"
+      ansible.builtin.set_fact:
+        is_windows_11: "{{ win_build | int >= 22000 }}"
+      tags: ["test", "windows-version"]
+
+    - name: "Warn if Windows 10 detected"
+      ansible.builtin.debug:
+        msg: |
+          WARNING: Windows 10 detected (build {{ win_build }}).
+          WSL2 nested virtualization requires Windows 11+ (build >= 22000).
+          Windows 10 does NOT support nested virtualization in WSL2.
+          Ref: https://github.com/microsoft/WSL/issues/9400
+      when: "not is_windows_11 | bool"
+      tags: ["test", "windows-version"]
+
+    # ---------------------------------------------------------------------------
+    # CPU architecture — must be amd64 for WSL2 nested virt
+    # ---------------------------------------------------------------------------
+    - name: "Get CPU architecture (Windows)"
+      ansible.windows.win_shell: |
+        $arch = $env:PROCESSOR_ARCHITECTURE
+        Write-Output $arch
+      register: win_arch_raw
+      changed_when: false
+      tags: ["test", "cpu"]
+
+    - name: "Record CPU architecture (Windows)"
+      ansible.builtin.set_fact:
+        nested_virt_results: "{{ nested_virt_results | combine({'cpu_architecture': win_arch_raw.stdout | trim | lower}) }}"
+      tags: ["test", "cpu"]
+
+    - name: "Get CPU vendor (Windows)"
+      ansible.windows.win_shell: |
+        $cpu = Get-CimInstance -ClassName Win32_Processor | Select-Object -First 1
+        Write-Output $cpu.Manufacturer
+      register: win_cpu_vendor_raw
+      changed_when: false
+      tags: ["test", "cpu"]
+
+    - name: "Record CPU vendor (Windows)"
+      ansible.builtin.set_fact:
+        nested_virt_results: "{{ nested_virt_results | combine({'cpu_vendor': win_cpu_vendor_raw.stdout | trim}) }}"
+      tags: ["test", "cpu"]
+
+    # ---------------------------------------------------------------------------
+    # CPU firmware virtualization support (VT-x / AMD-V)
+    # NOTE: Get-ComputerInfo.HyperVRequirementVirtualizationFirmwareEnabled
+    # reports false when Hyper-V is already running (which it is, since Docker
+    # Desktop uses it). We use multiple checks:
+    #   1. Win32_Processor.VirtualizationFirmwareEnabled (CIM, more reliable)
+    #   2. Hyper-V service running status (if Hyper-V is running, VT-x is on)
+    #   3. Task Manager "Virtualization: Enabled" via WMI
+    # ---------------------------------------------------------------------------
+    - name: "Check CPU firmware virtualization support (multi-method)"
+      ansible.windows.win_shell: |
+        $results = @()
+
+        # Method 1: Win32_Processor (CIM — most reliable when Hyper-V is active)
+        $cpu = Get-CimInstance -ClassName Win32_Processor | Select-Object -First 1
+        if ($cpu.VirtualizationFirmwareEnabled) {
+          $results += "CIM_VIRT_ENABLED"
+        } else {
+          $results += "CIM_VIRT_DISABLED"
+        }
+
+        # Method 2: Hyper-V service status (if running, VT-x must be on)
+        $hyperv = Get-Service -Name vmcompute -ErrorAction SilentlyContinue
+        if ($hyperv -and $hyperv.Status -eq 'Running') {
+          $results += "HYPERV_RUNNING"
+        } else {
+          $results += "HYPERV_NOT_RUNNING"
+        }
+
+        # Method 3: Check if WSL2 is actually running (proves VT-x works)
+        $wslStatus = wsl --status 2>$null
+        if ($LASTEXITCODE -eq 0 -and $wslStatus -match 'WSL version') {
+          $results += "WSL2_RUNNING"
+        }
+
+        Write-Output ($results -join "`n")
+      register: win_firmware_virt
+      changed_when: false
+      failed_when: false
+      tags: ["test", "cpu"]
+
+    - name: "Record virtualization support (Windows)"
+      ansible.builtin.set_fact:
+        # VT-x is confirmed if ANY of: CIM says enabled, Hyper-V is running, or WSL2 is running
+        # (If Docker Desktop works, VT-x is on — regardless of what Get-ComputerInfo says)
+        nested_virt_results: "{{ nested_virt_results | combine({'virtualization_supported': 'CIM_VIRT_ENABLED' in win_firmware_virt.stdout or 'HYPERV_RUNNING' in win_firmware_virt.stdout or 'WSL2_RUNNING' in win_firmware_virt.stdout}) }}"
+      tags: ["test", "cpu"]
+
+    # ---------------------------------------------------------------------------
+    # Virtual Machine Platform feature — required for WSL2
+    # ---------------------------------------------------------------------------
+    - name: "Check Virtual Machine Platform feature"
+      ansible.windows.win_shell: |
+        $feature = Get-WindowsOptionalFeature -Online -FeatureName VirtualMachinePlatform
+        Write-Output $feature.State
+      register: win_vmp_feature
+      changed_when: false
+      tags: ["test", "vmp"]
+
+    - name: "Record VMP feature status"
+      ansible.builtin.set_fact:
+        nested_virt_results: "{{ nested_virt_results | combine({'vmp_feature_enabled': 'Enabled' in win_vmp_feature.stdout}) }}"
+      tags: ["test", "vmp"]
+
+    # ---------------------------------------------------------------------------
+    # WSL2 nestedVirtualization setting in .wslconfig
+    # Default is true on Windows 11 amd64 — may be explicitly disabled
+    # ---------------------------------------------------------------------------
+    - name: "Check .wslconfig for nestedVirtualization setting"
+      ansible.windows.win_shell: |
+        $wslconfig = "$env:USERPROFILE\.wslconfig"
+        if (Test-Path $wslconfig) {
+          $content = Get-Content $wslconfig -Raw
+          if ($content -match 'nestedVirtualization\s*=\s*false') {
+            Write-Output "EXPLICITLY_DISABLED"
+          } elseif ($content -match 'nestedVirtualization\s*=\s*true') {
+            Write-Output "EXPLICITLY_ENABLED"
+          } else {
+            Write-Output "NOT_SET"
+          }
+        } else {
+          Write-Output "NO_WSLCONFIG"
+        }
+      register: win_wslconfig_nested
+      changed_when: false
+      tags: ["test", "wslconfig"]
+
+    - name: "Record WSL2 nested virt setting"
+      ansible.builtin.set_fact:
+        nested_virt_results: "{{ nested_virt_results | combine({'wsl2_nested_virt_setting': win_wslconfig_nested.stdout | trim}) }}"
+      tags: ["test", "wslconfig"]
+
+    - name: "Determine WSL2 nested virt effective state"
+      ansible.builtin.set_fact:
+        # On Windows 11 amd64: default is true unless explicitly disabled
+        # On Windows 10 or non-amd64: always false
+        wsl2_nested_virt_effective: "{{ (
+          is_windows_11 | bool and
+          'amd64' in nested_virt_results.cpu_architecture and
+          win_wslconfig_nested.stdout | trim != 'EXPLICITLY_DISABLED'
+        ) }}"
+      tags: ["test", "wslconfig"]
+
+    - name: "Record nested virtualization enabled status (Windows)"
+      ansible.builtin.set_fact:
+        nested_virt_results: "{{ nested_virt_results | combine({'nested_virtualization_enabled': wsl2_nested_virt_effective | bool}) }}"
+      tags: ["test", "wslconfig"]
+
+    # ---------------------------------------------------------------------------
+    # WSL version and kernel info — needed to diagnose /dev/kvm issues
+    # Known issue: WSL 2.5.9.0 regression (microsoft/WSL#13262)
+    # ---------------------------------------------------------------------------
+    - name: "Get WSL version and kernel info"
+      ansible.windows.win_shell: |
+        $wslVer = wsl --version 2>&1
+        Write-Output "WSL_VERSION_INFO:"
+        Write-Output $wslVer
+        Write-Output "---"
+        $kernel = wsl -e uname -r 2>&1
+        Write-Output "WSL_KERNEL: $kernel"
+      register: win_wsl_version
+      changed_when: false
+      failed_when: false
+      tags: ["test", "wsl-version"]
+
+    - name: "Display WSL version info"
+      ansible.builtin.debug:
+        msg: "{{ win_wsl_version.stdout }}"
+      tags: ["test", "wsl-version"]
+
+    # ---------------------------------------------------------------------------
+    # Test /dev/kvm availability inside WSL2
+    # This is the definitive test — if /dev/kvm exists inside WSL2, nested virt
+    # is working. Docker Desktop containers can access it with --device /dev/kvm.
+    #
+    # If /dev/kvm is missing, check if KVM modules can be loaded (microsoft/WSL#13262):
+    #   - The WSL2 kernel may not have KVM compiled in
+    #   - The kvm module may need to be loaded via /etc/wsl.conf [boot] command
+    #   - There may be a WSL version regression
+    # ---------------------------------------------------------------------------
+    - name: "Test /dev/kvm availability inside WSL2 (with diagnostics)"
+      ansible.windows.win_shell: |
+        $output = @()
+
+        # Check default WSL2 distro
+        $kvmTest = wsl -e test -e /dev/kvm 2>&1
+        $kvmExit = $LASTEXITCODE
+        if ($kvmExit -eq 0) {
+          $output += "KVM_AVAILABLE"
+        } else {
+          # Try docker-desktop distro
+          $kvmTest2 = wsl -d docker-desktop -e test -e /dev/kvm 2>&1
+          if ($LASTEXITCODE -eq 0) {
+            $output += "KVM_AVAILABLE_DOCKER_DESKTOP"
+          } else {
+            $output += "KVM_NOT_AVAILABLE"
+          }
+        }
+
+        # Diagnostics: check if kvm module exists in WSL2 kernel
+        $modprobe = wsl -e modprobe kvm_intel 2>&1
+        $output += "MODPROBE_KVM_INTEL_EXIT=$LASTEXITCODE"
+        if ($modprobe -match 'Module not found|FATAL') {
+          $output += "KVM_INTEL_MODULE_MISSING"
+        }
+
+        $modprobe2 = wsl -e modprobe kvm 2>&1
+        $output += "MODPROBE_KVM_EXIT=$LASTEXITCODE"
+        if ($modprobe2 -match 'Module not found|FATAL') {
+          $output += "KVM_MODULE_MISSING"
+        }
+
+        # Check if /dev/kvm appeared after modprobe
+        $kvmRetest = wsl -e test -e /dev/kvm 2>&1
+        if ($LASTEXITCODE -eq 0) {
+          $output += "KVM_AVAILABLE_AFTER_MODPROBE"
+        }
+
+        # Check lsmod for kvm
+        $lsmod = wsl -e lsmod 2>&1
+        if ($lsmod -match 'kvm') {
+          $output += "KVM_MODULE_LOADED"
+        } else {
+          $output += "KVM_MODULE_NOT_LOADED"
+        }
+
+        # Check dmesg for KVM messages
+        $dmesg = wsl -e dmesg 2>&1 | Select-String -Pattern 'kvm|KVM' | Select-Object -First 5
+        if ($dmesg) {
+          $output += "DMESG_KVM_MESSAGES:"
+          $output += $dmesg
+        } else {
+          $output += "DMESG_NO_KVM_MESSAGES"
+        }
+
+        Write-Output ($output -join "`n")
+      register: win_kvm_test
+      changed_when: false
+      failed_when: false
+      tags: ["test", "kvm"]
+
+    - name: "Display KVM diagnostics"
+      ansible.builtin.debug:
+        msg: "{{ win_kvm_test.stdout }}"
+      tags: ["test", "kvm"]
+
+    - name: "Record KVM device availability (Windows)"
+      ansible.builtin.set_fact:
+        nested_virt_results: "{{ nested_virt_results | combine({'kvm_device_available': 'KVM_AVAILABLE' in win_kvm_test.stdout or 'KVM_AVAILABLE_DOCKER_DESKTOP' in win_kvm_test.stdout or 'KVM_AVAILABLE_AFTER_MODPROBE' in win_kvm_test.stdout}) }}"
+      tags: ["test", "kvm"]
+
+    # ---------------------------------------------------------------------------
+    # Final determination
+    # ---------------------------------------------------------------------------
+    - name: "Determine nested virtualization support (Windows)"
+      ansible.builtin.set_fact:
+        nested_virt_results: "{{ nested_virt_results | combine({
+          'nested_virtualization_supported': (
+            nested_virt_results.virtualization_supported and
+            nested_virt_results.vmp_feature_enabled and
+            nested_virt_results.nested_virtualization_enabled and
+            nested_virt_results.kvm_device_available
+          )
+        }) }}"
+      tags: ["test", "final"]
+
+    - name: "Record test timestamp (Windows)"
+      ansible.builtin.set_fact:
+        nested_virt_results: "{{ nested_virt_results | combine({'test_timestamp': ansible_facts.date_time.iso8601}) }}"
+      tags: ["test", "final"]
+
+    - name: "Display nested virtualization test results (Windows)"
+      ansible.builtin.debug:
+        msg: "{{ nested_virt_results }}"
+      tags: ["test", "final"]
+
+    - name: "Generate summary report (Windows)"
+      ansible.builtin.debug:
+        msg: |
+          Nested Virtualization Support Test Summary (Windows / WSL2)
+          ============================================
+          Platform: {{ nested_virt_results.platform }}
+          CPU Architecture: {{ nested_virt_results.cpu_architecture }}
+          CPU Vendor: {{ nested_virt_results.cpu_vendor }}
+          Windows Version: {{ nested_virt_results.windows_version }}
+          Windows Build: {{ nested_virt_results.windows_build }}
+          CPU Firmware Virtualization: {{ nested_virt_results.virtualization_supported }}
+          Virtual Machine Platform Feature: {{ nested_virt_results.vmp_feature_enabled }}
+          WSL2 nestedVirtualization Setting: {{ nested_virt_results.wsl2_nested_virt_setting }}
+          Nested Virtualization Enabled: {{ nested_virt_results.nested_virtualization_enabled }}
+          /dev/kvm Available in WSL2: {{ nested_virt_results.kvm_device_available }}
+          Nested Virtualization Supported: {{ nested_virt_results.nested_virtualization_supported }}
+          Test Timestamp: {{ nested_virt_results.test_timestamp }}
+
+          Recommendation: {% if nested_virt_results.nested_virtualization_supported %}WSL2 nested virtualization is working. /dev/kvm is available for containers with --device /dev/kvm.{% elif is_windows_11 | bool and 'amd64' in nested_virt_results.cpu_architecture and not nested_virt_results.kvm_device_available %}Windows 11 amd64 detected — nested virt should be on by default. /dev/kvm not found in WSL2. See KVM diagnostics above. Likely fixes: (1) Add [boot] command = "modprobe kvm_intel" to /etc/wsl.conf inside WSL2 distro, then wsl --shutdown, (2) Check WSL version — 2.5.9.0 has a known regression (microsoft/WSL#13262), try downgrading with 'wsl --update --version 2.4.13.0', (3) Ensure VT-x is enabled in BIOS (CIM check: {{ win_firmware_virt.stdout | trim }}).{% elif not is_windows_11 | bool %}Windows 10 does not support WSL2 nested virtualization. Upgrade to Windows 11.{% else %}Nested virtualization not supported on this host.{% endif %}
+      tags: ["test", "final"]
+
+    - name: "Set Ansible fact for nested virtualization support (Windows)"
       ansible.builtin.set_fact:
         nested_virtualization_supported: "{{ nested_virt_results.nested_virtualization_supported }}"
       tags: ["test", "final"]

@@ -1,0 +1,205 @@
+---
+# nix-harmonia — Windows Docker Desktop deployment
+# Target: Windows Docker Desktop (dtop202311, X86). Harmonia serves the local
+# /nix/store over HTTP on 127.0.0.1 only (local access, not exposed externally).
+#
+# community.docker modules can't run on Windows (Ansible core basic.py imports
+# grp, Unix-only). We use ansible.builtin.shell with DOCKER_HOST: ssh:// and
+# delegate_to: localhost, matching the ai-qm / verdaccio pattern. Config files
+# are rendered locally then copied into a Docker volume via a helper alpine
+# container.
+
+# 1. Validate required variables
+- name: Validate required variables are defined
+  ansible.builtin.assert:
+    that:
+      - nix_harmonia_image_name is defined
+      - nix_harmonia_image_tag is defined
+      - nix_harmonia_host_port is defined
+      - nix_harmonia_container_port is defined
+      - nix_harmonia_nix_store_volume is defined
+      - nix_harmonia_nix_config_volume is defined
+      - nix_harmonia_data_volume is defined
+      - nix_harmonia_network_name is defined
+      - nix_harmonia_docker_host_windows is defined
+    fail_msg: >-
+      Missing required nix_harmonia variables. Check infrastructure files
+      (ports.yml, storage.yml, domains.yml) and vault for
+      vault_nix_harmonia_sign_key.
+    success_msg: "All required nix_harmonia variables are defined."
+  tags: ["always", "validate"]
+
+# ============================================================================
+# Render config files locally (delegate_to: localhost)
+# ============================================================================
+- name: Ensure local temp directory for nix-harmonia config exists
+  ansible.builtin.file:
+    path: "{{ nix_harmonia_windows_temp_dir }}"
+    state: directory
+    mode: "0755"
+  delegate_to: localhost
+  run_once: true
+  changed_when: false
+  tags: ["deploy", "config"]
+
+- name: Render harmonia.toml locally
+  ansible.builtin.template:
+    src: harmonia.toml.j2
+    dest: "{{ nix_harmonia_windows_temp_dir }}/harmonia.toml"
+    mode: "0644"
+  delegate_to: localhost
+  run_once: true
+  changed_when: false
+  tags: ["deploy", "config"]
+
+# ============================================================================
+# Volume Management
+# ============================================================================
+- name: Ensure harmonia data volume exists
+  ansible.builtin.shell: "docker volume inspect {{ nix_harmonia_data_volume }} 2>/dev/null || docker volume create {{ nix_harmonia_data_volume }}"
+  environment:
+    DOCKER_HOST: "{{ nix_harmonia_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "volume"]
+
+- name: Ensure shared nix store volume exists
+  ansible.builtin.shell: "docker volume inspect {{ nix_harmonia_nix_store_volume }} 2>/dev/null || docker volume create {{ nix_harmonia_nix_store_volume }}"
+  environment:
+    DOCKER_HOST: "{{ nix_harmonia_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "volume"]
+
+- name: Ensure shared nix config volume exists
+  ansible.builtin.shell: "docker volume inspect {{ nix_harmonia_nix_config_volume }} 2>/dev/null || docker volume create {{ nix_harmonia_nix_config_volume }}"
+  environment:
+    DOCKER_HOST: "{{ nix_harmonia_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "volume"]
+
+# ============================================================================
+# Copy rendered config files into the data volume via docker cp
+# (docker cp transfers from the local Mac to the remote Docker daemon over SSH)
+# ============================================================================
+- name: Create temporary container to seed harmonia config volume
+  ansible.builtin.command: >-
+    docker create --name {{ nix_harmonia_container_name }}-config-seed
+    -v {{ nix_harmonia_data_volume }}:/data
+    alpine:latest sleep infinity
+  environment:
+    DOCKER_HOST: "{{ nix_harmonia_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "config"]
+
+- name: Copy harmonia.toml into data volume
+  ansible.builtin.command: >-
+    docker cp {{ nix_harmonia_windows_temp_dir }}/harmonia.toml
+    {{ nix_harmonia_container_name }}-config-seed:/data/harmonia.toml
+  environment:
+    DOCKER_HOST: "{{ nix_harmonia_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "config"]
+
+- name: Remove temporary seed container
+  ansible.builtin.shell: "docker rm -f {{ nix_harmonia_container_name }}-config-seed 2>/dev/null || true"
+  environment:
+    DOCKER_HOST: "{{ nix_harmonia_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "config"]
+
+# ============================================================================
+# Pull Image
+# ============================================================================
+- name: Pull nix-harmonia image
+  ansible.builtin.command: "docker pull {{ nix_harmonia_image_name }}:{{ nix_harmonia_image_tag }}"
+  environment:
+    DOCKER_HOST: "{{ nix_harmonia_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "pull"]
+
+# ============================================================================
+# Container Deployment
+# ============================================================================
+- name: Stop existing nix-harmonia container
+  ansible.builtin.shell: "docker rm -f {{ nix_harmonia_container_name }} 2>/dev/null || true"
+  environment:
+    DOCKER_HOST: "{{ nix_harmonia_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "container"]
+
+- name: Deploy nix-harmonia container
+  ansible.builtin.shell: >-
+    docker run -d
+    --name {{ nix_harmonia_container_name }}
+    --restart unless-stopped
+    -p 127.0.0.1:{{ nix_harmonia_host_port }}:{{ nix_harmonia_container_port }}/tcp
+    -v {{ nix_harmonia_nix_store_volume }}:/nix/store:ro
+    -v {{ nix_harmonia_nix_config_volume }}:/etc/nix:ro
+    -v {{ nix_harmonia_data_volume }}:/data:rw
+    --network {{ nix_harmonia_network_name }}
+    -e TZ={{ nix_harmonia_tz }}
+    --log-driver json-file
+    --log-opt max-size={{ nix_harmonia_log_max_size }}
+    --log-opt max-file={{ nix_harmonia_log_max_file }}
+    --health-cmd "wget -qO- http://127.0.0.1:{{ nix_harmonia_container_port }}/nix-cache-info || exit 1"
+    --health-interval {{ nix_harmonia_healthcheck_interval }}
+    --health-timeout {{ nix_harmonia_healthcheck_timeout }}
+    --health-retries {{ nix_harmonia_healthcheck_retries }}
+    --health-start-period {{ nix_harmonia_healthcheck_start_period }}
+    --security-opt no-new-privileges:true
+    {{ nix_harmonia_image_name }}:{{ nix_harmonia_image_tag }}
+  environment:
+    DOCKER_HOST: "{{ nix_harmonia_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "container"]
+
+# ============================================================================
+# Wait for health
+# ============================================================================
+- name: Wait for nix-harmonia to be healthy
+  ansible.builtin.command: >-
+    docker inspect --format '{% raw %}{{.State.Health.Status}}{% endraw %}' {{ nix_harmonia_container_name }}
+  environment:
+    DOCKER_HOST: "{{ nix_harmonia_docker_host_windows }}"
+  delegate_to: localhost
+  register: nix_harmonia_windows_health
+  until: nix_harmonia_windows_health.stdout == "healthy"
+  retries: 30
+  delay: 3
+  changed_when: false
+  ignore_errors: true
+  tags: ["deploy", "container"]
+
+# ============================================================================
+# Status Report
+# ============================================================================
+- name: Get nix-harmonia container status
+  ansible.builtin.command: >-
+    docker inspect --format '{% raw %}{{.Name}}={{.State.Status}} health={{.State.Health.Status}}{% endraw %}'
+    {{ nix_harmonia_container_name }}
+  environment:
+    DOCKER_HOST: "{{ nix_harmonia_docker_host_windows }}"
+  delegate_to: localhost
+  register: nix_harmonia_windows_status
+  changed_when: false
+  ignore_errors: true
+  tags: ["always", "info"]
+
+- name: Report nix-harmonia status
+  ansible.builtin.debug:
+    msg: |
+      nix-harmonia deployed:
+        - URL: http://127.0.0.1:{{ nix_harmonia_host_port }} (local access only, not exposed externally)
+        - Container: {{ nix_harmonia_container_name }}
+        - Image: {{ nix_harmonia_image_name }}:{{ nix_harmonia_image_tag }}
+        - Port: 127.0.0.1:{{ nix_harmonia_host_port }}:{{ nix_harmonia_container_port }}/tcp
+        - Status: {{ nix_harmonia_windows_status.stdout | default('unknown') }}
+  tags: ["always", "info"]

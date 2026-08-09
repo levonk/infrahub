@@ -327,5 +327,25 @@
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
 
+      # Nix Cache Chain — ncps NAR caching proxy (nl region)
+      # CNAME points to the Windows Docker host which runs its own Traefik
+      # for TLS termination + routing to the ncps container.
+      - name: "{{ infra_domain_nix_cache_nl | default('cache.nl.levonk.com') }}"
+        type: "CNAME"
+        content: "{{ ts_fqdn_windows_docker }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      # Garnix CI builder — web UI + API (nl region)
+      # CNAME points to the Windows Docker host which runs its own Traefik
+      # for TLS termination + routing to the garnix-ci container.
+      - name: "{{ infra_domain_garnix_ci_nl | default('ci.nl.levonk.com') }}"
+        type: "CNAME"
+        content: "{{ ts_fqdn_windows_docker }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
   roles:
     - cloudflare-dns

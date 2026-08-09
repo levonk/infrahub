@@ -64,7 +64,7 @@ This gives both parallel racing AND local NAR caching. See the PRD for the full 
 - [Attic](https://github.com/zhaofengli/attic)
 - [Harmonia](https://github.com/nix-community/harmonia)
 - [NCPS](https://github.com/kalbasit/ncps)
-- [ncro](https://github.com/feel-co/ncro)
+- [ncro](https://github.com/manic-systems/ncro)
 - [selector4nix](https://github.com/StarryReverie/selector4nix)
 - [nix-serve-ng](https://github.com/aristanetworks/nix-serve-ng)
 - [Cachix](https://www.cachix.org/)

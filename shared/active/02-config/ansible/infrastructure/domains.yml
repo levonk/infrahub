@@ -186,3 +186,23 @@ infra_hostname_n8n: "localnet-n8n"
 infra_hostname_n8n_postgres: "localnet-n8n-postgres"
 infra_hostname_n8n_prometheus: "localnet-n8n-prometheus"
 infra_hostname_n8n_grafana: "localnet-n8n-grafana"
+
+# ---------------------------------------------------------------------------
+# Nix Cache Chain Services (nl region — dtop202311, Windows Docker Desktop)
+# Implements ADR-20260708001: regional multi-layer cache chain.
+# Harmonia serves local /nix/store (internal, 127.0.0.1 only).
+# ncps is the front-door NAR caching proxy (exposed via Traefik).
+# ncro races upstreams in parallel (internal, behind ncps).
+# ---------------------------------------------------------------------------
+infra_domain_nix_cache_nl: "cache.nl.levonk.com"
+infra_hostname_nix_harmonia: "localnet-nix-harmonia"
+infra_hostname_nix_ncps: "localnet-nix-ncps"
+infra_hostname_nix_ncro: "localnet-nix-ncro"
+
+# ---------------------------------------------------------------------------
+# Garnix CI Builder (nl region — dtop202311, Windows Docker Desktop)
+# Nix-based CI builder with /dev/kvm + shared nix store from nix-sidecar.
+# Web UI exposed via Traefik at ci.nl.levonk.com.
+# ---------------------------------------------------------------------------
+infra_domain_garnix_ci_nl: "ci.nl.levonk.com"
+infra_hostname_garnix_ci: "localnet-garnix-ci"

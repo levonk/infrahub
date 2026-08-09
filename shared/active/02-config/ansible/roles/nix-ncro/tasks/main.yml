@@ -1,0 +1,204 @@
+---
+# nix-ncro — Nix parallel racing proxy (behind ncps)
+# Target: Windows Docker Desktop (dtop202311, X86). Stateless container.
+#
+# community.docker modules can't run on Windows (Ansible core basic.py imports
+# grp, Unix-only). We use ansible.builtin.shell with DOCKER_HOST: ssh:// and
+# delegate_to: localhost, matching the verdaccio (nl) pattern. Config files are
+# rendered locally then copied into a Docker config volume via a helper alpine
+# container.
+
+# ============================================================================
+# 1. Validate required variables
+# ============================================================================
+- name: Validate required variables are defined
+  ansible.builtin.assert:
+    that:
+      - nix_ncro_image_name is defined
+      - nix_ncro_image_tag is defined
+      - nix_ncro_host_port is defined
+      - nix_ncro_container_port is defined
+      - nix_ncro_container_name is defined
+      - nix_ncro_config_volume is defined
+      - nix_ncro_network_name is defined
+      - nix_ncro_docker_host_windows is defined
+      - nix_ncro_upstreams is defined
+    fail_msg: >-
+      Missing required nix_ncro variables. Check infrastructure files
+      (ports.yml, domains.yml, storage.yml) and defaults/main.yml.
+    success_msg: "All required nix_ncro variables are defined."
+  tags: ["always", "validate"]
+
+# ============================================================================
+# 2. Ensure local temp directory exists (delegate_to: localhost)
+# ============================================================================
+- name: Ensure local temp directory for ncro config exists
+  ansible.builtin.file:
+    path: "{{ nix_ncro_windows_temp_dir }}"
+    state: directory
+    mode: "0755"
+  delegate_to: localhost
+  run_once: true
+  changed_when: false
+  tags: ["deploy", "config"]
+
+# ============================================================================
+# 3. Render ncro config.toml locally
+# ============================================================================
+- name: Render ncro config.toml locally
+  ansible.builtin.template:
+    src: config.toml.j2
+    dest: "{{ nix_ncro_windows_temp_dir }}/config.toml"
+    mode: "0644"
+  delegate_to: localhost
+  run_once: true
+  changed_when: false
+  tags: ["deploy", "config"]
+
+# ============================================================================
+# 4. Ensure Docker volumes exist (config + SQLite route cache data)
+# ============================================================================
+- name: Ensure ncro config volume exists
+  ansible.builtin.shell: "docker volume inspect {{ nix_ncro_config_volume }} 2>/dev/null || docker volume create {{ nix_ncro_config_volume }}"
+  environment:
+    DOCKER_HOST: "{{ nix_ncro_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "volume"]
+
+- name: Ensure ncro data volume exists
+  ansible.builtin.shell: "docker volume inspect {{ nix_ncro_data_volume }} 2>/dev/null || docker volume create {{ nix_ncro_data_volume }}"
+  environment:
+    DOCKER_HOST: "{{ nix_ncro_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "volume"]
+
+# ============================================================================
+# 5. Create temporary alpine seed container, docker cp config, remove seed
+# ============================================================================
+- name: Create temporary container to seed config volume
+  ansible.builtin.command: >-
+    docker create --name {{ nix_ncro_container_name }}-config-seed
+    -v {{ nix_ncro_config_volume }}:/config
+    alpine:latest sleep infinity
+  environment:
+    DOCKER_HOST: "{{ nix_ncro_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "config"]
+
+- name: Copy config.toml into config volume
+  ansible.builtin.command: >-
+    docker cp {{ nix_ncro_windows_temp_dir }}/config.toml
+    {{ nix_ncro_container_name }}-config-seed:/config/config.toml
+  environment:
+    DOCKER_HOST: "{{ nix_ncro_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "config"]
+
+- name: Remove temporary seed container
+  ansible.builtin.shell: "docker rm -f {{ nix_ncro_container_name }}-config-seed 2>/dev/null || true"
+  environment:
+    DOCKER_HOST: "{{ nix_ncro_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "config"]
+
+# ============================================================================
+# 6. Pull image
+# ============================================================================
+- name: Pull ncro image
+  ansible.builtin.command: "docker pull {{ nix_ncro_image_name }}:{{ nix_ncro_image_tag }}"
+  environment:
+    DOCKER_HOST: "{{ nix_ncro_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "pull"]
+
+# ============================================================================
+# 7. Stop existing container
+# ============================================================================
+- name: Stop existing ncro container
+  ansible.builtin.shell: "docker rm -f {{ nix_ncro_container_name }} 2>/dev/null || true"
+  environment:
+    DOCKER_HOST: "{{ nix_ncro_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "container"]
+
+# ============================================================================
+# 8. Deploy container
+# ============================================================================
+- name: Deploy ncro container
+  ansible.builtin.shell: >-
+    docker run -d
+    --name {{ nix_ncro_container_name }}
+    --restart unless-stopped
+    -p 127.0.0.1:{{ nix_ncro_host_port }}:{{ nix_ncro_container_port }}/tcp
+    -v {{ nix_ncro_config_volume }}:/config:ro
+    -v {{ nix_ncro_data_volume }}:/data:rw
+    --network {{ nix_ncro_network_name }}
+    -e TZ={{ nix_ncro_tz }}
+    -e NCRO_DB_PATH=/data/routes.db
+    --log-driver json-file
+    --log-opt max-size={{ nix_ncro_log_max_size }}
+    --log-opt max-file={{ nix_ncro_log_max_file }}
+    --health-cmd "wget -qO- http://127.0.0.1:{{ nix_ncro_container_port }}/nix-cache-info || exit 1"
+    --health-interval {{ nix_ncro_healthcheck_interval }}
+    --health-timeout {{ nix_ncro_healthcheck_timeout }}
+    --health-retries {{ nix_ncro_healthcheck_retries }}
+    --health-start-period {{ nix_ncro_healthcheck_start_period }}
+    --security-opt no-new-privileges:true
+    {{ nix_ncro_image_name }}:{{ nix_ncro_image_tag }}
+    --config /config/config.toml
+  environment:
+    DOCKER_HOST: "{{ nix_ncro_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "container"]
+
+# ============================================================================
+# 9. Wait for health
+# ============================================================================
+- name: Wait for ncro to be healthy
+  ansible.builtin.command: >-
+    docker inspect --format '{% raw %}{{.State.Health.Status}}{% endraw %}' {{ nix_ncro_container_name }}
+  environment:
+    DOCKER_HOST: "{{ nix_ncro_docker_host_windows }}"
+  delegate_to: localhost
+  register: nix_ncro_health
+  until: nix_ncro_health.stdout == "healthy"
+  retries: 30
+  delay: 3
+  changed_when: false
+  ignore_errors: true
+  tags: ["deploy", "container"]
+
+# ============================================================================
+# 10. Report status
+# ============================================================================
+- name: Get ncro container status
+  ansible.builtin.command: >-
+    docker inspect --format '{% raw %}{{.Name}}={{.State.Status}} health={{.State.Health.Status}}{% endraw %}'
+    {{ nix_ncro_container_name }}
+  environment:
+    DOCKER_HOST: "{{ nix_ncro_docker_host_windows }}"
+  delegate_to: localhost
+  register: nix_ncro_status
+  changed_when: false
+  ignore_errors: true
+  tags: ["always", "info"]
+
+- name: Report ncro status
+  ansible.builtin.debug:
+    msg: |
+      ncro deployed:
+        - Container: {{ nix_ncro_container_name }}
+        - Image: {{ nix_ncro_image_name }}:{{ nix_ncro_image_tag }}
+        - Port: 127.0.0.1:{{ nix_ncro_host_port }}:{{ nix_ncro_container_port }}/tcp (internal only, behind ncps)
+        - Network: {{ nix_ncro_network_name }}
+        - Upstreams: {{ nix_ncro_upstreams | map(attribute='url') | list | join(', ') }}
+        - Status: {{ nix_ncro_status.stdout | default('unknown') }}
+  tags: ["always", "info"]

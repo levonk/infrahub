@@ -1,0 +1,62 @@
+---
+# nix-ncps — Nix NAR caching proxy (front door for Nix clients)
+# Caches NARs locally for LAN bandwidth savings.
+# Implements ADR-20260708001: ncps on regional hubs.
+# Target: Windows Docker Desktop (dtop202311, X86)
+
+# Service toggle
+nix_ncps_enabled: true
+
+# Container configuration
+nix_ncps_container_name: "{{ infra_hostname_nix_ncps | default('localnet-nix-ncps') }}"
+# Upstream image: ghcr.io/kalbasit/ncps (multi-arch, v0.9.4)
+# https://github.com/kalbasit/ncps/releases
+nix_ncps_image_name: "ghcr.io/kalbasit/ncps"
+nix_ncps_image_tag: "v0.9.4"
+
+# Ports — ncps is the front door, exposed via Traefik
+nix_ncps_host_port: "{{ infra_port_nix_ncps_host | default('4524') }}"
+nix_ncps_container_port: "{{ infra_port_nix_ncps_container | default('8080') }}"
+
+# Domain (for Traefik routing)
+nix_ncps_domain: "{{ infra_domain_nix_cache_nl | default('cache.nl.levonk.com') }}"
+
+# Volumes — ncps uses /storage for data (database + cached NARs)
+nix_ncps_data_volume: "{{ infra_storage_nix_ncps_data_volume | default('localnet-ncps-data-volume') }}"
+
+# ncps storage paths (inside the container)
+nix_ncps_storage_path: "/storage"
+nix_ncps_db_path: "{{ nix_ncps_storage_path }}/var/ncps/db/db.sqlite"
+nix_ncps_db_url: "sqlite:{{ nix_ncps_db_path }}"
+
+# Cache hostname (used by ncps for signing and Nix cache-info)
+nix_ncps_cache_hostname: "{{ nix_ncps_domain }}"
+
+# Upstream caches — ncps queries these on cache miss
+# Point to ncro (parallel racing proxy) as the primary upstream
+nix_ncps_upstream_urls:
+  - "https://cache.nixos.org"
+  - "https://cache.garnix.io"
+
+nix_ncps_upstream_public_keys:
+  - "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPSQZNGZfdL7Q="
+  - "cache.garnix.io:CTFPyKSLcx5RMJKfLo5EEPUObbA78b0YQ2DTCJXqr3g="
+
+# Network — join the traefik-windows network for Traefik routing
+nix_ncps_network_name: "traefik-windows-network"
+
+# Docker host for Windows deployment (ssh-tunneled)
+nix_ncps_docker_host_windows: "ssh://ansible@{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.tale-grouper.ts.net') }}"
+
+# Healthcheck — MUST use string with unit suffix, NOT bare integers
+nix_ncps_healthcheck_interval: "30s"
+nix_ncps_healthcheck_timeout: "10s"
+nix_ncps_healthcheck_retries: 3
+nix_ncps_healthcheck_start_period: "15s"
+
+# Logging
+nix_ncps_log_max_size: "10m"
+nix_ncps_log_max_file: "5"
+
+# Timezone
+nix_ncps_tz: "{{ localnet_tz | default(timezone | default('UTC')) }}"

@@ -188,3 +188,28 @@ infra_storage_n8n_postgres_volume: "localnet-n8n-postgres-data-volume"
 infra_storage_n8n_prometheus_volume: "localnet-n8n-prometheus-data-volume"
 infra_storage_n8n_grafana_volume: "localnet-n8n-grafana-data-volume"
 infra_storage_n8n_config_dir: "{{ infra_storage_services_dir }}/n8n"
+
+# ---------------------------------------------------------------------------
+# Nix Cache Chain Storage (nl region — dtop202311)
+# Implements ADR-20260708001. Harmonia reads the shared nix store (ro).
+# ncps caches NARs in its own volume. ncro is stateless (no storage).
+# The nix-sidecar volumes are reused for /nix and /etc/nix — all cache
+# services share the same store as the nix-sidecar for maximum reuse.
+# ---------------------------------------------------------------------------
+# Shared nix store + config volumes (same as nix-sidecar — reuse, don't duplicate)
+infra_storage_nix_shared_store_volume: "localnet-base-nix-store-volume"
+infra_storage_nix_shared_config_volume: "localnet-base-nix-config-volume"
+infra_storage_nix_shared_cache_volume: "localnet-base-nix-cache-volume"
+# Harmonia-specific data volume (signing key, etc.)
+infra_storage_nix_harmonia_data_volume: "localnet-harmonia-data-volume"
+# ncps-specific data volume (cached NARs + SQLite database)
+infra_storage_nix_ncps_data_volume: "localnet-ncps-data-volume"
+
+# ---------------------------------------------------------------------------
+# Garnix CI Builder Storage (nl region — dtop202311)
+# Reuses the shared nix store from nix-sidecar so builds don't re-download.
+# /dev/kvm is passed through for nested virtualization (NixOS VM builds).
+# Work data volume holds CI workspace, build results, and action runner state.
+# ---------------------------------------------------------------------------
+infra_storage_garnix_ci_work_volume: "localnet-garnix-ci-work-volume"
+infra_storage_garnix_ci_config_volume: "localnet-garnix-ci-config-volume"

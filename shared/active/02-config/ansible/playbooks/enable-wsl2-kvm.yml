@@ -1,0 +1,487 @@
+---
+# Enable WSL2 KVM Nested Virtualization on Windows Docker Hosts
+# Installs Debian minimal WSL2 distro, builds KVM kernel modules from the
+# matching WSL2-Linux-Kernel source, and configures auto-load at boot.
+#
+# Since all WSL2 distros share the same kernel, loading kvm_intel from
+# Debian makes /dev/kvm available in all distros (including docker-desktop).
+#
+# Prerequisites:
+#   - Windows 11+ (build >= 22000) with amd64 CPU
+#   - Virtual Machine Platform feature enabled
+#   - WSL2 nestedVirtualization not explicitly disabled in .wslconfig
+#   - CPU firmware VT-x/AMD-V enabled
+#
+# Usage:
+#   just ansible-enable-wsl2-kvm
+#   # or directly:
+#   ansible-playbook -i inventories/windows-docker.yml playbooks/enable-wsl2-kvm.yml
+#
+# After running, verify with:
+#   just ansible-test-nested-virt-windows
+
+- name: "Enable WSL2 KVM Nested Virtualization"
+  hosts: windows_docker_hosts
+  gather_facts: true
+  become: false
+
+  vars:
+    debian_distro_name: "Debian"
+    wsl_kernel_repo: "https://github.com/microsoft/WSL2-Linux-Kernel"
+    kernel_build_deps: "build-essential flex bison dwarves libssl-dev libelf-dev cpio bc wget ca-certificates python3"
+
+  pre_tasks:
+    - name: "Gather ansible_facts"
+      ansible.builtin.setup:
+        gather_subset: ["all"]
+      tags: ["always"]
+
+    - name: "Check if WSL2 nested virtualization is already working"
+      ansible.windows.win_shell: |
+        $kvm = wsl -e test -e /dev/kvm 2>&1
+        if ($LASTEXITCODE -eq 0) {
+          Write-Output "KVM_ALREADY_WORKING"
+        } else {
+          $kvm2 = wsl -d docker-desktop -e test -e /dev/kvm 2>&1
+          if ($LASTEXITCODE -eq 0) {
+            Write-Output "KVM_ALREADY_WORKING"
+          } else {
+            Write-Output "KVM_NOT_WORKING"
+          }
+        }
+      register: wsl_kvm_check
+      changed_when: false
+      tags: ["always"]
+
+    - name: "Skip if KVM is already available"
+      ansible.builtin.debug:
+        msg: "/dev/kvm is already available in WSL2. Nothing to do."
+      when: "'KVM_ALREADY_WORKING' in wsl_kvm_check.stdout"
+      tags: ["always"]
+
+  tasks:
+    - name: "Get WSL2 kernel version"
+      ansible.windows.win_shell: |
+        $kernel = wsl -e uname -r 2>&1
+        # Strip UTF-16 null chars that WSL sometimes injects
+        $kernel = $kernel -replace "`0", ""
+        Write-Output $kernel.Trim()
+      register: wsl_kernel_version
+      changed_when: false
+      when: "'KVM_NOT_WORKING' in wsl_kvm_check.stdout"
+      tags: ["kernel"]
+
+    - name: "Display WSL2 kernel version"
+      ansible.builtin.debug:
+        msg: "WSL2 kernel: {{ wsl_kernel_version.stdout | trim }}"
+      when: "'KVM_NOT_WORKING' in wsl_kvm_check.stdout"
+      tags: ["kernel"]
+
+    - name: "Derive kernel tag from version"
+      ansible.builtin.set_fact:
+        # uname -r returns e.g. "6.6.87.2-microsoft-standard-WSL2"
+        # The GitHub release tag is "linux-msft-wsl-6.6.87.2"
+        wsl_kernel_tag: "linux-msft-wsl-{{ (wsl_kernel_version.stdout | trim).split('-')[0] }}"
+      when: "'KVM_NOT_WORKING' in wsl_kvm_check.stdout"
+      tags: ["kernel"]
+
+    - name: "Display kernel tag"
+      ansible.builtin.debug:
+        msg: "Will build modules from WSL2-Linux-Kernel tag: {{ wsl_kernel_tag }}"
+      when: "'KVM_NOT_WORKING' in wsl_kvm_check.stdout"
+      tags: ["kernel"]
+
+    # ---------------------------------------------------------------------------
+    # Step 1: Install Debian minimal WSL2 distro
+    # ---------------------------------------------------------------------------
+    - name: "Check if Debian WSL2 distro is already installed"
+      ansible.windows.win_shell: |
+        $distros = wsl --list --quiet 2>&1
+        $distros = $distros -replace "`0", ""
+        if ($distros -match 'Debian') {
+          Write-Output "DEBIAN_INSTALLED"
+        } else {
+          Write-Output "DEBIAN_NOT_INSTALLED"
+        }
+      register: debian_check
+      changed_when: false
+      when: "'KVM_NOT_WORKING' in wsl_kvm_check.stdout"
+      tags: ["debian"]
+
+    - name: "Install Debian WSL2 distro (no-launch)"
+      ansible.windows.win_shell: |
+        wsl --install -d Debian --no-launch --web-download 2>&1
+        Write-Output "EXIT_CODE=$LASTEXITCODE"
+      register: debian_install
+      changed_when: true
+      when:
+        - "'KVM_NOT_WORKING' in wsl_kvm_check.stdout"
+        - "'DEBIAN_NOT_INSTALLED' in debian_check.stdout"
+      tags: ["debian"]
+
+    - name: "Display Debian install result"
+      ansible.builtin.debug:
+        msg: "{{ debian_install.stdout }}"
+      when:
+        - "'KVM_NOT_WORKING' in wsl_kvm_check.stdout"
+        - "'DEBIAN_NOT_INSTALLED' in debian_check.stdout"
+      tags: ["debian"]
+
+    - name: "Initialize Debian (set root password, create user)"
+      ansible.windows.win_shell: |
+        # Run first-time setup non-interactively
+        $initScript = @'
+        #!/bin/bash
+        # Set root password
+        echo "root:root" | chpasswd
+        # Allow root login
+        sed -i 's/#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config 2>/dev/null || true
+        # Install sudo if not present
+        apt-get update -qq
+        DEBIAN_FRONTEND=noninteractive apt-get install -y -qq sudo
+        # Create ansible user with sudo nopasswd
+        useradd -m -s /bin/bash ansible 2>/dev/null || true
+        echo "ansible:ansible" | chpasswd
+        echo "ansible ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/ansible
+        # Done
+        echo "DEBIAN_INIT_DONE"
+        '@
+        $initScript | wsl -d Debian -- bash -s 2>&1
+      register: debian_init
+      changed_when: true
+      when: "'KVM_NOT_WORKING' in wsl_kvm_check.stdout"
+      tags: ["debian"]
+
+    - name: "Display Debian init result"
+      ansible.builtin.debug:
+        msg: "{{ debian_init.stdout }}"
+      when: "'KVM_NOT_WORKING' in wsl_kvm_check.stdout"
+      tags: ["debian"]
+
+    # ---------------------------------------------------------------------------
+    # Step 2: Install build dependencies in Debian
+    # ---------------------------------------------------------------------------
+    - name: "Install kernel build dependencies in Debian"
+      ansible.windows.win_shell: |
+        $script = @'
+        #!/bin/bash
+        set -e
+        export DEBIAN_FRONTEND=noninteractive
+        apt-get update -qq
+        apt-get install -y -qq {{ kernel_build_deps }}
+        echo "BUILD_DEPS_INSTALLED"
+        '@
+        $script | wsl -d Debian -- bash -s 2>&1
+      register: deps_install
+      changed_when: true
+      when: "'KVM_NOT_WORKING' in wsl_kvm_check.stdout"
+      tags: ["build-deps"]
+
+    - name: "Display build deps install result"
+      ansible.builtin.debug:
+        msg: "{{ deps_install.stdout_lines[-5:] }}"
+      when: "'KVM_NOT_WORKING' in wsl_kvm_check.stdout"
+      tags: ["build-deps"]
+
+    # ---------------------------------------------------------------------------
+    # Step 3: Download and extract WSL2-Linux-Kernel source
+    # ---------------------------------------------------------------------------
+    - name: "Download WSL2-Linux-Kernel source"
+      ansible.windows.win_shell: |
+        $script = @'
+        #!/bin/bash
+        set -e
+        cd /usr/src
+        TAG="{{ wsl_kernel_tag }}"
+        URL="https://github.com/microsoft/WSL2-Linux-Kernel/archive/refs/tags/${TAG}.tar.gz"
+        echo "Downloading ${URL}..."
+        wget -q "${URL}" -O "wsl-kernel.tar.gz"
+        echo "Extracting..."
+        tar xf "wsl-kernel.tar.gz"
+        rm "wsl-kernel.tar.gz"
+        # Find the extracted directory
+        DIR=$(ls -d WSL2-Linux-Kernel-* | head -1)
+        echo "Extracted to /usr/src/${DIR}"
+        ln -sf "/usr/src/${DIR}" /usr/src/wsl-kernel
+        echo "KERNEL_SOURCE_READY"
+        '@
+        $script | wsl -d Debian -- bash -s 2>&1
+      register: kernel_download
+      changed_when: true
+      when: "'KVM_NOT_WORKING' in wsl_kvm_check.stdout"
+      tags: ["kernel-source"]
+
+    - name: "Display kernel download result"
+      ansible.builtin.debug:
+        msg: "{{ kernel_download.stdout_lines[-5:] }}"
+      when: "'KVM_NOT_WORKING' in wsl_kvm_check.stdout"
+      tags: ["kernel-source"]
+
+    # ---------------------------------------------------------------------------
+    # Step 4: Build KVM modules
+    # ---------------------------------------------------------------------------
+    - name: "Build KVM kernel modules"
+      ansible.windows.win_shell: |
+        $script = @'
+        #!/bin/bash
+        set -e
+        cd /usr/src/wsl-kernel
+        echo "Preparing kernel config..."
+        make KCONFIG_CONFIG=Microsoft/config-wsl olddefconfig -j$(nproc) 2>&1 | tail -5
+        echo "Building modules..."
+        make KCONFIG_CONFIG=Microsoft/config-wsl modules -j$(nproc) 2>&1 | tail -20
+        echo "Installing modules to /tmp/modules..."
+        make KCONFIG_CONFIG=Microsoft/config-wsl INSTALL_MOD_PATH=/tmp/modules modules_install 2>&1 | tail -5
+        KERNEL_VER=$(make -s KCONFIG_CONFIG=Microsoft/config-wsl kernelrelease)
+        echo "KERNEL_VER=${KERNEL_VER}"
+        echo "MODULES_BUILD_DONE"
+        '@
+        $script | wsl -d Debian -- bash -s 2>&1
+      register: modules_build
+      changed_when: true
+      # Building kernel modules can take 10+ minutes
+      async: 1800
+      poll: 30
+      when: "'KVM_NOT_WORKING' in wsl_kvm_check.stdout"
+      tags: ["build-modules"]
+
+    - name: "Display modules build result"
+      ansible.builtin.debug:
+        msg: "{{ modules_build.stdout_lines[-10:] }}"
+      when: "'KVM_NOT_WORKING' in wsl_kvm_check.stdout"
+      tags: ["build-modules"]
+
+    # ---------------------------------------------------------------------------
+    # Step 5: Install modules into /lib/modules/ and load KVM
+    # ---------------------------------------------------------------------------
+    - name: "Install KVM modules into /lib/modules/"
+      ansible.windows.win_shell: |
+        $script = @'
+        #!/bin/bash
+        set -e
+        KERNEL_VER=$(uname -r)
+        echo "Installing modules for kernel ${KERNEL_VER}..."
+        mkdir -p "/lib/modules/${KERNEL_VER}"
+        # Copy all built modules
+        cp -a /tmp/modules/lib/modules/*/kernel "/lib/modules/${KERNEL_VER}/"
+        # Generate modules dependency database
+        depmod "${KERNEL_VER}" 2>&1 || true
+        # Verify KVM modules are available
+        echo "Checking modinfo kvm..."
+        modinfo kvm 2>&1 | head -5
+        echo "Checking modinfo kvm_intel..."
+        modinfo kvm_intel 2>&1 | head -5
+        echo "MODULES_INSTALLED"
+        '@
+        $script | wsl -d Debian -- bash -s 2>&1
+      register: modules_install
+      changed_when: true
+      when: "'KVM_NOT_WORKING' in wsl_kvm_check.stdout"
+      tags: ["install-modules"]
+
+    - name: "Display modules install result"
+      ansible.builtin.debug:
+        msg: "{{ modules_install.stdout }}"
+      when: "'KVM_NOT_WORKING' in wsl_kvm_check.stdout"
+      tags: ["install-modules"]
+
+    # ---------------------------------------------------------------------------
+    # Step 6: Test loading KVM module
+    # ---------------------------------------------------------------------------
+    - name: "Test loading kvm_intel module"
+      ansible.windows.win_shell: |
+        $script = @'
+        #!/bin/bash
+        echo "Loading kvm module..."
+        modprobe kvm 2>&1
+        echo "KVM_EXIT=$?"
+        echo "Loading kvm_intel module..."
+        modprobe kvm_intel 2>&1
+        echo "KVM_INTEL_EXIT=$?"
+        echo "Checking /dev/kvm..."
+        if [ -e /dev/kvm ]; then
+          ls -la /dev/kvm
+          echo "KVM_DEVICE_AVAILABLE"
+        else
+          echo "KVM_DEVICE_NOT_AVAILABLE"
+          echo "Checking dmesg for KVM messages..."
+          dmesg 2>/dev/null | grep -i kvm | tail -10
+        fi
+        echo "Checking lsmod..."
+        lsmod | grep kvm
+        '@
+        $script | wsl -d Debian -- bash -s 2>&1
+      register: kvm_load_test
+      changed_when: true
+      when: "'KVM_NOT_WORKING' in wsl_kvm_check.stdout"
+      tags: ["test-load"]
+
+    - name: "Display KVM load test result"
+      ansible.builtin.debug:
+        msg: "{{ kvm_load_test.stdout }}"
+      when: "'KVM_NOT_WORKING' in wsl_kvm_check.stdout"
+      tags: ["test-load"]
+
+    # ---------------------------------------------------------------------------
+    # Step 7: Configure /etc/wsl.conf to auto-load KVM at boot
+    # ---------------------------------------------------------------------------
+    - name: "Configure /etc/wsl.conf to auto-load kvm_intel at boot"
+      ansible.windows.win_shell: |
+        $script = @'
+        #!/bin/bash
+        # Check if wsl.conf already has a boot section
+        if [ -f /etc/wsl.conf ]; then
+          if grep -q "\[boot\]" /etc/wsl.conf; then
+            # Update existing boot command
+            sed -i '/^\[boot\]/,/^\[/ s/^command\s*=.*/command = "modprobe kvm_intel"/' /etc/wsl.conf
+          else
+            printf '\n[boot]\ncommand = "modprobe kvm_intel"\n' >> /etc/wsl.conf
+          fi
+        else
+          printf '[boot]\ncommand = "modprobe kvm_intel"\n' > /etc/wsl.conf
+        fi
+        echo "wsl.conf contents:"
+        cat /etc/wsl.conf
+        echo "WSL_CONF_CONFIGURED"
+        '@
+        $script | wsl -d Debian -- bash -s 2>&1
+      register: wsl_conf_config
+      changed_when: true
+      when: "'KVM_NOT_WORKING' in wsl_kvm_check.stdout"
+      tags: ["wsl-conf"]
+
+    - name: "Display wsl.conf config result"
+      ansible.builtin.debug:
+        msg: "{{ wsl_conf_config.stdout }}"
+      when: "'KVM_NOT_WORKING' in wsl_kvm_check.stdout"
+      tags: ["wsl-conf"]
+
+    # ---------------------------------------------------------------------------
+    # Step 8: Set Debian as default WSL2 distro
+    # This ensures Debian starts first (loading kvm_intel) when WSL is invoked
+    # ---------------------------------------------------------------------------
+    - name: "Set Debian as default WSL2 distro"
+      ansible.windows.win_shell: |
+        wsl --set-default Debian 2>&1
+        Write-Output "EXIT_CODE=$LASTEXITCODE"
+      register: set_default
+      changed_when: true
+      when: "'KVM_NOT_WORKING' in wsl_kvm_check.stdout"
+      tags: ["default-distro"]
+
+    - name: "Display set default result"
+      ansible.builtin.debug:
+        msg: "{{ set_default.stdout }}"
+      when: "'KVM_NOT_WORKING' in wsl_kvm_check.stdout"
+      tags: ["default-distro"]
+
+    # ---------------------------------------------------------------------------
+    # Step 9: Restart WSL2 to apply changes
+    # ---------------------------------------------------------------------------
+    - name: "Restart WSL2 (wsl --shutdown)"
+      ansible.windows.win_shell: |
+        wsl --shutdown 2>&1
+        Start-Sleep -Seconds 5
+        # Start Debian to trigger kvm_intel load
+        wsl -d Debian -e true 2>&1
+        Start-Sleep -Seconds 3
+        Write-Output "WSL_RESTARTED"
+      register: wsl_restart
+      changed_when: true
+      when: "'KVM_NOT_WORKING' in wsl_kvm_check.stdout"
+      tags: ["restart"]
+
+    # ---------------------------------------------------------------------------
+    # Step 10: Verify /dev/kvm is available in all distros
+    # ---------------------------------------------------------------------------
+    - name: "Verify /dev/kvm in Debian distro"
+      ansible.windows.win_shell: |
+        $result = wsl -d Debian -e test -e /dev/kvm 2>&1
+        if ($LASTEXITCODE -eq 0) {
+          Write-Output "DEBIAN_KVM_OK"
+          wsl -d Debian -e ls -la /dev/kvm 2>&1
+        } else {
+          Write-Output "DEBIAN_KVM_FAIL"
+        }
+      register: debian_kvm_verify
+      changed_when: false
+      when: "'KVM_NOT_WORKING' in wsl_kvm_check.stdout"
+      tags: ["verify"]
+
+    - name: "Verify /dev/kvm in docker-desktop distro"
+      ansible.windows.win_shell: |
+        # Start docker-desktop distro first
+        wsl -d docker-desktop -e true 2>&1
+        $result = wsl -d docker-desktop -e test -e /dev/kvm 2>&1
+        if ($LASTEXITCODE -eq 0) {
+          Write-Output "DOCKER_DESKTOP_KVM_OK"
+          wsl -d docker-desktop -e ls -la /dev/kvm 2>&1
+        } else {
+          Write-Output "DOCKER_DESKTOP_KVM_FAIL"
+        }
+      register: docker_kvm_verify
+      changed_when: false
+      when: "'KVM_NOT_WORKING' in wsl_kvm_check.stdout"
+      tags: ["verify"]
+
+    - name: "Verify /dev/kvm in default WSL context"
+      ansible.windows.win_shell: |
+        $result = wsl -e test -e /dev/kvm 2>&1
+        if ($LASTEXITCODE -eq 0) {
+          Write-Output "DEFAULT_KVM_OK"
+        } else {
+          Write-Output "DEFAULT_KVM_FAIL"
+        }
+      register: default_kvm_verify
+      changed_when: false
+      when: "'KVM_NOT_WORKING' in wsl_kvm_check.stdout"
+      tags: ["verify"]
+
+    - name: "Display verification results"
+      ansible.builtin.debug:
+        msg: |
+          KVM Verification Results:
+          Debian: {{ debian_kvm_verify.stdout | trim }}
+          Docker Desktop: {{ docker_kvm_verify.stdout | trim }}
+          Default WSL: {{ default_kvm_verify.stdout | trim }}
+      when: "'KVM_NOT_WORKING' in wsl_kvm_check.stdout"
+      tags: ["verify"]
+
+    # ---------------------------------------------------------------------------
+    # Step 11: Summary
+    # ---------------------------------------------------------------------------
+    - name: "Set KVM enabled fact"
+      ansible.builtin.set_fact:
+        wsl2_kvm_enabled: "{{ 'DEBIAN_KVM_OK' in debian_kvm_verify.stdout | default('') }}"
+      when: "'KVM_NOT_WORKING' in wsl_kvm_check.stdout"
+      tags: ["summary"]
+
+    - name: "Set KVM already working fact"
+      ansible.builtin.set_fact:
+        wsl2_kvm_enabled: true
+      when: "'KVM_ALREADY_WORKING' in wsl_kvm_check.stdout"
+      tags: ["summary"]
+
+    - name: "Final summary"
+      ansible.builtin.debug:
+        msg: |
+          ============================================
+          WSL2 KVM Nested Virtualization Setup Summary
+          ============================================
+          WSL2 KVM Enabled: {{ wsl2_kvm_enabled | default(false) }}
+
+          {% if wsl2_kvm_enabled | default(false) %}
+          /dev/kvm is available in WSL2. Docker containers can use --device /dev/kvm
+          for KVM-accelerated nested virtualization (e.g., garnix-ci action runner).
+
+          Next steps:
+          1. Run 'just ansible-test-nested-virt-windows' to verify
+          2. Deploy garnix-ci container with --device /dev/kvm
+          {% else %}
+          /dev/kvm is NOT available. Check the build logs above for errors.
+          Common issues:
+          - Kernel version mismatch (ensure WSL2-Linux-Kernel tag matches uname -r)
+          - Missing build dependencies
+          - CPU does not support VT-x (check BIOS settings)
+          {% endif %}
+      tags: ["summary"]

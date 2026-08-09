@@ -34,7 +34,7 @@ scope:
 
 The existing Nix cache strategy documented in `shared/active/03-container/internal-docs/requirements/nix/nix-package-store.md` describes a sequential "waterfall" of caches: Harmonia (priority 30) → ncps (priority 40) → Attic (priority 50) → Garnix (priority 60) → nixos.org (priority 80).
 
-Research conducted in July 2026 (see `internal-docs/research/service/nix-cache-chain/tool-comparison.md`) revealed that this approach is outdated for two reasons. First, Nix's substituter model is fundamentally sequential — it walks caches in priority order, one at a time, so a miss on the first cache adds full round-trip latency before even trying the second. The waterfall tries to work around this with priorities, but the core problem remains. Second, new proxy tools like [ncro](https://github.com/feel-co/ncro) solve this by racing all upstream caches simultaneously and picking the fastest response, with EMA latency learning to optimize future requests.
+Research conducted in July 2026 (see `internal-docs/research/service/nix-cache-chain/tool-comparison.md`) revealed that this approach is outdated for two reasons. First, Nix's substituter model is fundamentally sequential — it walks caches in priority order, one at a time, so a miss on the first cache adds full round-trip latency before even trying the second. The waterfall tries to work around this with priorities, but the core problem remains. Second, new proxy tools like [ncro](https://github.com/manic-systems/ncro) solve this by racing all upstream caches simultaneously and picking the fastest response, with EMA latency learning to optimize future requests.
 
 The tool landscape as of July 2026: Harmonia v3.1.0 is still the gold standard for serving local /nix/store (major improvements — removed nix-daemon dependency, reads SQLite directly, 49% latency reduction). Attic is maintained but still labeled "early prototype" with 171 open issues. ncps v0.9.4 is active but carries production warnings. ncro is new (May 2026) but stable with no production warnings — it races all upstreams in parallel with EMA latency learning and streams NARs without storing them.
 
@@ -171,7 +171,7 @@ Rollback: If the new chain causes issues, revert nix.conf to point directly at c
 
 - [Harmonia](https://github.com/nix-community/harmonia) — local /nix/store server
 - [ncps](https://github.com/kalbasit/ncps) — NAR caching proxy
-- [ncro](https://github.com/feel-co/ncro) — parallel racing proxy
+- [ncro](https://github.com/manic-systems/ncro) — parallel racing proxy
 - [Attic](https://github.com/zhaofengli/attic) — multi-tenant binary cache
 - [Cachix](https://www.cachix.org/) — hosted binary cache (optional upstream)
 - Previous strategy (superseded): `shared/active/03-container/internal-docs/requirements/nix/nix-package-store.md`

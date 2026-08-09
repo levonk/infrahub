@@ -23,7 +23,7 @@ updated_at: "2026-07-08"
 
 ## Summary
 
-Create a Nix flake container definition for ncro (parallel racing Nix cache proxy) under `shared/active/03-container/services/artifact/nix-ncro/`. ncro has no official Docker image and is not in nixpkgs, so it must be built from source via a Nix flake. This follows the exact pattern of the existing nix-harmonia, nix-ncps, and nix-attic flake definitions. ncro is a Rust project from https://github.com/feel-co/ncro.
+Create a Nix flake container definition for ncro (parallel racing Nix cache proxy) under `shared/active/03-container/services/artifact/nix-ncro/`. ncro has no official Docker image and is not in nixpkgs, so it must be built from source via a Nix flake. This follows the exact pattern of the existing nix-harmonia, nix-ncps, and nix-attic flake definitions. ncro is a Rust project from https://github.com/manic-systems/ncro.
 
 ## Current State
 
@@ -69,7 +69,7 @@ Create a Nix flake container definition for ncro (parallel racing Nix cache prox
   ```
 
 - **ncro specifics (from ADR and research):**
-  - Source: https://github.com/feel-co/ncro
+  - Source: https://github.com/manic-systems/ncro
   - Language: Rust
   - Config: TOML format
   - Port: 8081 (per PRD FR-3)

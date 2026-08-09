@@ -398,3 +398,31 @@ infra_port_ai_n8n_prometheus_host: "3107"
 infra_port_ai_n8n_prometheus_container: "9090"
 infra_port_ai_n8n_grafana_host: "3108"
 infra_port_ai_n8n_grafana_container: "3000"
+
+# ---------------------------------------------------------------------------
+# Nix Cache Chain Ports
+# Used by: deploy-nix-cache.yml playbook on windows_docker_hosts (nl region)
+# Implements ADR-20260708001: Harmonia (local store) + ncps (NAR cache) +
+# ncro (parallel racing proxy). Harmonia binds 127.0.0.1 only (local).
+# ncps is the front door for Nix clients. ncro sits behind ncps (internal).
+# ---------------------------------------------------------------------------
+# Harmonia — serves /nix/store over HTTP (local only, 127.0.0.1)
+infra_port_nix_harmonia_host: "4523"
+infra_port_nix_harmonia_container: "5000"
+# ncps — NAR caching proxy (front door, exposed via Traefik)
+infra_port_nix_ncps_host: "4524"
+infra_port_nix_ncps_container: "8080"
+# ncro — parallel racing proxy (internal, behind ncps)
+infra_port_nix_ncro_host: "4525"
+infra_port_nix_ncro_container: "8081"
+
+# ---------------------------------------------------------------------------
+# Garnix CI Builder Ports
+# Used by: deploy-garnix-ci.yml playbook on windows_docker_hosts (nl region)
+# Nix-based CI builder with /dev/kvm + shared nix store from nix-sidecar.
+# Web UI exposed via Traefik at ci.nl.levonk.com.
+# ---------------------------------------------------------------------------
+infra_port_garnix_ci_web_host: "4526"
+infra_port_garnix_ci_web_container: "3000"
+infra_port_garnix_ci_api_host: "4527"
+infra_port_garnix_ci_api_container: "8080"

@@ -1,0 +1,121 @@
+---
+# Deploy Nix Cache Chain + Garnix CI to Windows Docker Desktop (nl region)
+# Location: shared/active/02-config/ansible/playbooks/deploy-nix-cache-and-garnix.yml
+#
+# Deploys the full Nix cache chain (Harmonia + ncps + ncro) and garnix-ci
+# builder on the Windows Docker host (dtop202311). All services share the
+# nix-sidecar's /nix/store volume for maximum package reuse.
+#
+# Architecture (ADR-20260708001):
+#   Harmonia (127.0.0.1:4523) — serves local /nix/store (read-only)
+#   ncps (4524, cache.nl.levonk.com) — NAR caching proxy (front door)
+#   ncro (127.0.0.1:4525) — parallel racing proxy (behind ncps)
+#   garnix-ci (4526/4527, ci.nl.levonk.com) — Nix CI builder with /dev/kvm
+#
+# The nix-sidecar must already be running (it manages the shared /nix/store).
+# Traefik Windows must already be running (it routes cache.nl.levonk.com and
+# ci.nl.levonk.com to ncps and garnix-ci respectively).
+#
+# Prerequisites:
+#   1. nix-sidecar running: docker ps | grep nix-sidecar
+#   2. Traefik Windows deployed: just ansible-deploy-traefik-windows
+#   3. WSL2 KVM enabled (for garnix-ci): just ansible-enable-wsl2-kvm
+#   4. DNS CNAMEs configured: just ansible-deploy-dns
+#   5. Container images built: just build-nix-cache-images, just build-garnix-ci-image
+#   6. SSH config entry for dtop202311.tale-grouper.ts.net
+#
+# Usage:
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/windows-docker.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-nix-cache-and-garnix.yml \
+#     --vault-password-file ~/.ansible/vault_password
+
+- name: "Deploy Nix Cache Chain + Garnix CI on Windows Docker host"
+  hosts: windows_docker_hosts
+  gather_facts: false
+  become: false
+
+  pre_tasks:
+    - name: "Load shared infrastructure port defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/ports.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure storage defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/storage.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure domain defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/domains.yml"
+      tags: ["always"]
+
+    - name: "Load client infrastructure domain overrides"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/domains.yml"
+      tags: ["always"]
+
+    - name: "Validate required variables"
+      ansible.builtin.assert:
+        that:
+          - infra_port_nix_harmonia_host is defined
+          - infra_port_nix_ncps_host is defined
+          - infra_port_nix_ncro_host is defined
+          - infra_port_garnix_ci_web_host is defined
+          - infra_domain_nix_cache_nl is defined
+          - infra_domain_garnix_ci_nl is defined
+          - infra_tailscale_fqdn_windows_docker is defined
+        fail_msg: >-
+          Missing required infrastructure variables. Check ports.yml,
+          domains.yml, storage.yml, and client domain overrides.
+        success_msg: "All required infrastructure variables are defined."
+      tags: ["always", "validate"]
+
+  roles:
+    # Deploy in order: Harmonia first (serves /nix/store), then ncro (races
+    # upstreams), then ncps (front door, depends on ncro), then garnix-ci
+    # (depends on cache chain for substituters).
+    - role: nix-harmonia
+      tags: ["deploy", "harmonia"]
+      when: nix_harmonia_enabled | default(true) | bool
+
+    - role: nix-ncro
+      tags: ["deploy", "ncro"]
+      when: nix_ncro_enabled | default(true) | bool
+
+    - role: nix-ncps
+      tags: ["deploy", "ncps"]
+      when: nix_ncps_enabled | default(true) | bool
+
+    - role: garnix-ci
+      tags: ["deploy", "garnix-ci"]
+      when: garnix_ci_enabled | default(true) | bool
+
+  post_tasks:
+    - name: "Report deployment summary"
+      ansible.builtin.debug:
+        msg: |
+          ================================================
+          Nix Cache Chain + Garnix CI Deployed (nl region)
+          ================================================
+          Host: {{ inventory_hostname }}
+
+          Nix Cache Chain:
+            Harmonia:  http://127.0.0.1:{{ infra_port_nix_harmonia_host }} (local only)
+            ncps:      https://{{ infra_domain_nix_cache_nl }} (via Traefik)
+            ncro:      http://127.0.0.1:{{ infra_port_nix_ncro_host }} (internal, behind ncps)
+
+          Garnix CI:
+            Web UI:    https://{{ infra_domain_garnix_ci_nl }} (via Traefik, SSO-protected)
+            API:       https://{{ infra_domain_garnix_ci_nl }}/api/ (via Traefik, token auth)
+            KVM:       /dev/kvm (nested virtualization for NixOS VM builds)
+            Nix store: shared with nix-sidecar (no re-downloads)
+
+          Next steps:
+            1. Verify Harmonia: curl http://127.0.0.1:{{ infra_port_nix_harmonia_host }}/nix-cache-info
+            2. Verify ncps: curl https://{{ infra_domain_nix_cache_nl }}/healthz
+            3. Verify garnix-ci: curl https://{{ infra_domain_garnix_ci_nl }}/
+            4. Configure nix.conf on clients to use the cache chain:
+               substituters = http://127.0.0.1:{{ infra_port_nix_harmonia_host }} https://{{ infra_domain_nix_cache_nl }}
+          ================================================
+      tags: ["always", "summary"]

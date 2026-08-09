@@ -1,0 +1,159 @@
+---
+# nix-ncps Windows (nl) deployment — ssh-tunneled Docker CLI pattern
+# Target: Windows Docker Desktop (dtop202311, X86). Joins traefik-windows-network.
+#
+# Uses upstream ncps image: ghcr.io/kalbasit/ncps:v0.9.4
+# ncps uses CLI flags (not a config file), needs database initialization,
+# and uses /storage as its data directory.
+#
+# community.docker modules can't run on Windows (Ansible core basic.py imports
+# grp, Unix-only). We use ansible.builtin.shell with DOCKER_HOST: ssh:// and
+# delegate_to: localhost, matching the ai-qm / verdaccio pattern.
+
+# ============================================================================
+# Volume Management
+# ============================================================================
+- name: Ensure nix-ncps data volume exists
+  ansible.builtin.shell: "docker volume inspect {{ nix_ncps_data_volume }} 2>/dev/null || docker volume create {{ nix_ncps_data_volume }}"
+  environment:
+    DOCKER_HOST: "{{ nix_ncps_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "volume"]
+
+# ============================================================================
+# Initialize storage directory structure
+# ncps expects /storage/var/ncps/db/ to exist for the SQLite database
+# ============================================================================
+- name: Initialize ncps storage directory structure
+  ansible.builtin.shell: >-
+    docker run --rm
+    -v {{ nix_ncps_data_volume }}:/storage
+    alpine:latest /bin/sh -c
+    "mkdir -m 0755 -p /storage/var && mkdir -m 0700 -p /storage/var/ncps && mkdir -m 0700 -p /storage/var/ncps/db"
+  environment:
+    DOCKER_HOST: "{{ nix_ncps_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "volume"]
+
+# ============================================================================
+# Pull Image
+# ============================================================================
+- name: Pull nix-ncps image
+  ansible.builtin.command: "docker pull {{ nix_ncps_image_name }}:{{ nix_ncps_image_tag }}"
+  environment:
+    DOCKER_HOST: "{{ nix_ncps_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "pull"]
+
+# ============================================================================
+# Database Migration
+# ncps embeds migrations and applies them via goose — run once before serving
+# ============================================================================
+- name: Run ncps database migration
+  ansible.builtin.shell: >-
+    docker run --rm
+    -v {{ nix_ncps_data_volume }}:/storage
+    {{ nix_ncps_image_name }}:{{ nix_ncps_image_tag }}
+    /bin/ncps migrate up
+    --cache-database-url={{ nix_ncps_db_url }}
+  environment:
+    DOCKER_HOST: "{{ nix_ncps_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "migrate"]
+
+# ============================================================================
+# Container Deployment
+# ============================================================================
+- name: Stop existing nix-ncps container
+  ansible.builtin.shell: "docker rm -f {{ nix_ncps_container_name }} 2>/dev/null || true"
+  environment:
+    DOCKER_HOST: "{{ nix_ncps_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "container"]
+
+- name: Deploy nix-ncps container
+  ansible.builtin.shell: >-
+    docker run -d
+    --name {{ nix_ncps_container_name }}
+    --restart unless-stopped
+    -p {{ nix_ncps_host_port }}:{{ nix_ncps_container_port }}/tcp
+    -v {{ nix_ncps_data_volume }}:/storage:rw
+    -e TZ={{ nix_ncps_tz }}
+    --network {{ nix_ncps_network_name }}
+    --log-driver json-file
+    --log-opt max-size={{ nix_ncps_log_max_size }}
+    --log-opt max-file={{ nix_ncps_log_max_file }}
+    --health-cmd "wget -qO- http://127.0.0.1:{{ nix_ncps_container_port }}/healthz || exit 1"
+    --health-interval {{ nix_ncps_healthcheck_interval }}
+    --health-timeout {{ nix_ncps_healthcheck_timeout }}
+    --health-retries {{ nix_ncps_healthcheck_retries }}
+    --health-start-period {{ nix_ncps_healthcheck_start_period }}
+    --security-opt no-new-privileges:true
+    {{ nix_ncps_image_name }}:{{ nix_ncps_image_tag }}
+    /bin/ncps serve
+    --cache-hostname={{ nix_ncps_cache_hostname }}
+    --cache-storage-local={{ nix_ncps_storage_path }}
+    --cache-database-url={{ nix_ncps_db_url }}
+    --server-listen=0.0.0.0:{{ nix_ncps_container_port }}
+    {% for url in nix_ncps_upstream_urls %}
+    --cache-upstream-url={{ url }}
+    {% endfor %}
+    {% for key in nix_ncps_upstream_public_keys %}
+    --cache-upstream-public-key={{ key }}
+    {% endfor %}
+  environment:
+    DOCKER_HOST: "{{ nix_ncps_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "container"]
+
+# ============================================================================
+# Wait for health
+# ============================================================================
+- name: Wait for nix-ncps (nl) to be healthy
+  ansible.builtin.command: >-
+    docker inspect --format '{% raw %}{{.State.Health.Status}}{% endraw %}' {{ nix_ncps_container_name }}
+  environment:
+    DOCKER_HOST: "{{ nix_ncps_docker_host_windows }}"
+  delegate_to: localhost
+  register: nix_ncps_windows_health
+  until: nix_ncps_windows_health.stdout == "healthy"
+  retries: 30
+  delay: 3
+  changed_when: false
+  ignore_errors: true
+  tags: ["deploy", "container"]
+
+# ============================================================================
+# Status Report
+# ============================================================================
+- name: Get nix-ncps (nl) container status
+  ansible.builtin.command: >-
+    docker inspect --format '{% raw %}{{.Name}}={{.State.Status}} health={{.State.Health.Status}}{% endraw %}'
+    {{ nix_ncps_container_name }}
+  environment:
+    DOCKER_HOST: "{{ nix_ncps_docker_host_windows }}"
+  delegate_to: localhost
+  register: nix_ncps_windows_status
+  changed_when: false
+  ignore_errors: true
+  tags: ["always", "info"]
+
+- name: Report nix-ncps (nl) status
+  ansible.builtin.debug:
+    msg: |
+      nix-ncps (nl) deployed:
+        - URL: https://{{ nix_ncps_domain }} (via Traefik on Windows Docker Desktop)
+        - Container: {{ nix_ncps_container_name }}
+        - Image: {{ nix_ncps_image_name }}:{{ nix_ncps_image_tag }}
+        - Port: {{ nix_ncps_host_port }}:{{ nix_ncps_container_port }}/tcp
+        - Network: {{ nix_ncps_network_name }}
+        - Database: {{ nix_ncps_db_url }}
+        - Upstreams: {{ nix_ncps_upstream_urls | join(', ') }}
+        - Status: {{ nix_ncps_windows_status.stdout | default('unknown') }}
+  tags: ["always", "info"]

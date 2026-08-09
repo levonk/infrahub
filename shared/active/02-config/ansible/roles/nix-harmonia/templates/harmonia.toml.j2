@@ -1,0 +1,8 @@
+# Harmonia configuration — rendered by Ansible
+# Serves /nix/store over HTTP on 127.0.0.1
+bind = "127.0.0.1:{{ nix_harmonia_container_port }}"
+{% if vault_nix_harmonia_sign_key is defined and vault_nix_harmonia_sign_key | length > 0 %}
+signing-key = "{{ nix_harmonia_sign_key_path }}"
+{% endif %}
+# Read-only mode — serve the local nix store
+store = "/nix/store"

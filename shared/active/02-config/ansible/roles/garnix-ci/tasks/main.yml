@@ -1,0 +1,234 @@
+---
+# garnix-ci — Nix-based CI builder with /dev/kvm + shared nix store
+# Target: Windows Docker Desktop (dtop202311, X86). Joins traefik-windows-network.
+#
+# community.docker modules can't run on Windows (Ansible core basic.py imports
+# grp, Unix-only). We use ansible.builtin.shell with DOCKER_HOST: ssh:// and
+# delegate_to: localhost, matching the verdaccio (nl) pattern. Config files are
+# rendered locally then copied into a Docker config volume via a helper alpine
+# container.
+
+# ============================================================================
+# 1. Validate required variables (including KVM availability check)
+# ============================================================================
+- name: Validate required variables are defined
+  ansible.builtin.assert:
+    that:
+      - garnix_ci_image_name is defined
+      - garnix_ci_image_tag is defined
+      - garnix_ci_web_host_port is defined
+      - garnix_ci_web_container_port is defined
+      - garnix_ci_api_host_port is defined
+      - garnix_ci_api_container_port is defined
+      - garnix_ci_kvm_device is defined
+      - garnix_ci_nix_store_volume is defined
+      - garnix_ci_nix_config_volume is defined
+      - garnix_ci_nix_cache_volume is defined
+      - garnix_ci_work_volume is defined
+      - garnix_ci_config_volume is defined
+    fail_msg: >-
+      Missing required garnix-ci variables. Check infrastructure files
+      (ports.yml, domains.yml, storage.yml) and ensure the shared nix-sidecar
+      volume variables are defined.
+    success_msg: "All required garnix-ci variables are defined."
+  tags: ["always", "validate"]
+
+- name: Check that /dev/kvm is available on the Windows Docker host
+  ansible.builtin.shell: "docker run --rm --device {{ garnix_ci_kvm_device }} alpine:latest test -c {{ garnix_ci_kvm_device }} && echo kvm-ok || echo kvm-missing"
+  environment:
+    DOCKER_HOST: "{{ garnix_ci_docker_host_windows }}"
+  delegate_to: localhost
+  register: garnix_ci_kvm_check
+  changed_when: false
+  failed_when: false
+  tags: ["always", "validate"]
+
+- name: Fail if /dev/kvm is not available
+  ansible.builtin.assert:
+    that:
+      - garnix_ci_kvm_check.stdout | default('') == "kvm-ok"
+    fail_msg: >-
+      /dev/kvm is not available on the Windows Docker host. Run the
+      enable-wsl2-kvm.yml playbook first to enable WSL2 nested virtualization.
+    success_msg: "/dev/kvm is available for nested virtualization."
+  tags: ["always", "validate"]
+
+# ============================================================================
+# 2. Ensure local temp directory exists (delegate_to: localhost)
+# ============================================================================
+- name: Ensure local temp directory for garnix-ci config exists
+  ansible.builtin.file:
+    path: "{{ garnix_ci_windows_temp_dir }}"
+    state: directory
+    mode: "0755"
+  delegate_to: localhost
+  run_once: true
+  changed_when: false
+  tags: ["deploy", "config"]
+
+# ============================================================================
+# 3. Render nix.conf locally (with substituters pointing to local cache chain)
+# ============================================================================
+- name: Render garnix-ci nix.conf locally
+  ansible.builtin.template:
+    src: nix.conf.j2
+    dest: "{{ garnix_ci_windows_temp_dir }}/nix.conf"
+    mode: "0644"
+  delegate_to: localhost
+  run_once: true
+  changed_when: false
+  tags: ["deploy", "config"]
+
+# ============================================================================
+# 4. Ensure Docker volumes exist (work, config — nix store/config/cache are shared)
+# ============================================================================
+- name: Ensure garnix-ci work volume exists
+  ansible.builtin.shell: "docker volume inspect {{ garnix_ci_work_volume }} 2>/dev/null || docker volume create {{ garnix_ci_work_volume }}"
+  environment:
+    DOCKER_HOST: "{{ garnix_ci_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "volume"]
+
+- name: Ensure garnix-ci config volume exists
+  ansible.builtin.shell: "docker volume inspect {{ garnix_ci_config_volume }} 2>/dev/null || docker volume create {{ garnix_ci_config_volume }}"
+  environment:
+    DOCKER_HOST: "{{ garnix_ci_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "volume"]
+
+# ============================================================================
+# 5. Create temporary alpine seed container, docker cp nix.conf into config volume, remove seed
+# (docker cp transfers from the local Mac to the remote Docker daemon over SSH)
+# ============================================================================
+- name: Create temporary container to seed garnix-ci config volume
+  ansible.builtin.command: >-
+    docker create --name {{ garnix_ci_container_name }}-config-seed
+    -v {{ garnix_ci_config_volume }}:/garnix-config
+    alpine:latest sleep infinity
+  environment:
+    DOCKER_HOST: "{{ garnix_ci_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "config"]
+
+- name: Copy nix.conf into garnix-ci config volume
+  ansible.builtin.command: >-
+    docker cp {{ garnix_ci_windows_temp_dir }}/nix.conf
+    {{ garnix_ci_container_name }}-config-seed:/garnix-config/nix.conf
+  environment:
+    DOCKER_HOST: "{{ garnix_ci_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "config"]
+
+- name: Remove temporary garnix-ci seed container
+  ansible.builtin.shell: "docker rm -f {{ garnix_ci_container_name }}-config-seed 2>/dev/null || true"
+  environment:
+    DOCKER_HOST: "{{ garnix_ci_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "config"]
+
+# ============================================================================
+# 6. Pull image
+# ============================================================================
+- name: Pull garnix-ci image
+  ansible.builtin.command: "docker pull {{ garnix_ci_image_name }}:{{ garnix_ci_image_tag }}"
+  environment:
+    DOCKER_HOST: "{{ garnix_ci_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "pull"]
+
+# ============================================================================
+# 7. Stop existing container
+# ============================================================================
+- name: Stop existing garnix-ci container
+  ansible.builtin.shell: "docker rm -f {{ garnix_ci_container_name }} 2>/dev/null || true"
+  environment:
+    DOCKER_HOST: "{{ garnix_ci_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "container"]
+
+# ============================================================================
+# 8. Deploy container
+# ============================================================================
+- name: Deploy garnix-ci container
+  ansible.builtin.shell: >-
+    docker run -d
+    --name {{ garnix_ci_container_name }}
+    --restart unless-stopped
+    -p {{ garnix_ci_web_host_port }}:{{ garnix_ci_web_container_port }}/tcp
+    -p {{ garnix_ci_api_host_port }}:{{ garnix_ci_api_container_port }}/tcp
+    --device {{ garnix_ci_kvm_device }}
+    -v {{ garnix_ci_nix_store_volume }}:/nix:rw
+    -v {{ garnix_ci_nix_config_volume }}:/etc/nix:rw
+    -v {{ garnix_ci_nix_cache_volume }}:/root/.cache/nix:rw
+    -v {{ garnix_ci_work_volume }}:/work:rw
+    -v {{ garnix_ci_config_volume }}:/garnix-config:ro
+    --network {{ garnix_ci_network_name }}
+    -e TZ={{ garnix_ci_tz }}
+    --log-driver json-file
+    --log-opt max-size={{ garnix_ci_log_max_size }}
+    --log-opt max-file={{ garnix_ci_log_max_file }}
+    --health-cmd "wget -qO- http://127.0.0.1:{{ garnix_ci_web_container_port }}/ || exit 1"
+    --health-interval {{ garnix_ci_healthcheck_interval }}
+    --health-timeout {{ garnix_ci_healthcheck_timeout }}
+    --health-retries {{ garnix_ci_healthcheck_retries }}
+    --health-start-period {{ garnix_ci_healthcheck_start_period }}
+    --security-opt no-new-privileges:true
+    {{ garnix_ci_image_name }}:{{ garnix_ci_image_tag }}
+  environment:
+    DOCKER_HOST: "{{ garnix_ci_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "container"]
+
+# ============================================================================
+# 9. Wait for health
+# ============================================================================
+- name: Wait for garnix-ci to be healthy
+  ansible.builtin.command: >-
+    docker inspect --format '{% raw %}{{.State.Health.Status}}{% endraw %}' {{ garnix_ci_container_name }}
+  environment:
+    DOCKER_HOST: "{{ garnix_ci_docker_host_windows }}"
+  delegate_to: localhost
+  register: garnix_ci_health
+  until: garnix_ci_health.stdout == "healthy"
+  retries: 30
+  delay: 3
+  changed_when: false
+  ignore_errors: true
+  tags: ["deploy", "container"]
+
+# ============================================================================
+# 10. Report status
+# ============================================================================
+- name: Get garnix-ci container status
+  ansible.builtin.command: >-
+    docker inspect --format '{% raw %}{{.Name}}={{.State.Status}} health={{.State.Health.Status}}{% endraw %}'
+    {{ garnix_ci_container_name }}
+  environment:
+    DOCKER_HOST: "{{ garnix_ci_docker_host_windows }}"
+  delegate_to: localhost
+  register: garnix_ci_status
+  changed_when: false
+  ignore_errors: true
+  tags: ["always", "info"]
+
+- name: Report garnix-ci status
+  ansible.builtin.debug:
+    msg: |
+      garnix-ci deployed:
+        - URL: https://{{ garnix_ci_domain }} (via Traefik on traefik-windows-network)
+        - Container: {{ garnix_ci_container_name }}
+        - Image: {{ garnix_ci_image_name }}:{{ garnix_ci_image_tag }}
+        - Web port: {{ garnix_ci_web_host_port }}:{{ garnix_ci_web_container_port }}/tcp
+        - API port: {{ garnix_ci_api_host_port }}:{{ garnix_ci_api_container_port }}/tcp
+        - KVM device: {{ garnix_ci_kvm_device }} (nested virtualization for NixOS VM builds)
+        - Nix store volume: {{ garnix_ci_nix_store_volume }} (shared with nix-sidecar)
+        - Status: {{ garnix_ci_status.stdout | default('unknown') }}
+  tags: ["always", "info"]

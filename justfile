@@ -30,6 +30,10 @@ PB_VAL_VPN := ANSIBLE_ROOT + "/playbooks/validate-vpn.yml"
 PB_VAL_INFRA := ANSIBLE_ROOT + "/playbooks/validate-infra.yml"
 PB_VAL_VMS := ANSIBLE_ROOT + "/playbooks/validate-vms.yml"
 PB_FINAL_AUDIT := ANSIBLE_ROOT + "/playbooks/final-audit.yml"
+PB_NESTED_VIRT := ANSIBLE_ROOT + "/playbooks/test-nested-virtualization.yml"
+PB_ENABLE_WSL2_KVM := ANSIBLE_ROOT + "/playbooks/enable-wsl2-kvm.yml"
+PB_NIX_CACHE_GARNIX := ANSIBLE_ROOT + "/playbooks/deploy-nix-cache-and-garnix.yml"
+WINDOWS_INVENTORY := INFRAHUB_ROOT + "/levonk/active/02-config/ansible/inventories/windows-docker.yml"
 
 # Docker commands for Ansible test containers
 ANSIBLE_TEST_IMAGE := "ansible-test-runner:latest"
@@ -302,6 +306,84 @@ ansible-test-env-stop:
     docker stop {{ANSIBLE_TEST_CONTAINER}} || true
     docker rm {{ANSIBLE_TEST_CONTAINER}} || true
 
+# -- Nested Virtualization Tests (cross-platform) --
+
+ansible-test-nested-virt:
+    @echo "Testing nested virtualization on Linux (OCI cloud server)..."
+    devbox run -- ansible-playbook -i {{INVENTORY}} {{PB_NESTED_VIRT}} --vault-password-file ~/.ansible/vault_password
+
+ansible-test-nested-virt-internal:
+    @echo "Testing nested virtualization on Linux (OCI cloud server)..."
+    ansible-playbook -i {{INVENTORY}} {{PB_NESTED_VIRT}} --vault-password-file ~/.ansible/vault_password
+
+ansible-test-nested-virt-windows:
+    @echo "Testing nested virtualization on Windows (dtop202311 / WSL2)..."
+    devbox run -- ansible-playbook -i {{WINDOWS_INVENTORY}} {{PB_NESTED_VIRT}} --vault-password-file ~/.ansible/vault_password
+
+ansible-test-nested-virt-windows-internal:
+    @echo "Testing nested virtualization on Windows (dtop202311 / WSL2)..."
+    ansible-playbook -i {{WINDOWS_INVENTORY}} {{PB_NESTED_VIRT}} --vault-password-file ~/.ansible/vault_password
+
+ansible-test-nested-virt-all:
+    @echo "Testing nested virtualization on all hosts (Linux + Windows)..."
+    devbox run -- ansible-playbook -i {{INVENTORY}} -i {{WINDOWS_INVENTORY}} {{PB_NESTED_VIRT}} --vault-password-file ~/.ansible/vault_password
+
+ansible-test-nested-virt-all-internal:
+    @echo "Testing nested virtualization on all hosts (Linux + Windows)..."
+    ansible-playbook -i {{INVENTORY}} -i {{WINDOWS_INVENTORY}} {{PB_NESTED_VIRT}} --vault-password-file ~/.ansible/vault_password
+
+# -- Enable WSL2 KVM Nested Virtualization on Windows Docker Hosts --
+# Installs Debian minimal WSL2 distro, builds KVM kernel modules from
+# the matching WSL2-Linux-Kernel source, and configures auto-load at boot.
+# WARNING: This restarts WSL2 (wsl --shutdown), which will stop all running
+# Docker containers on the host. Run during a maintenance window.
+
+ansible-enable-wsl2-kvm:
+    @echo "Enabling WSL2 KVM nested virtualization on Windows host..."
+    @echo "WARNING: This will restart WSL2 and stop all running Docker containers."
+    @echo "Press Ctrl+C to abort, or wait 5 seconds..."
+    @sleep 5
+    devbox run -- ansible-playbook -i {{WINDOWS_INVENTORY}} {{PB_ENABLE_WSL2_KVM}} --vault-password-file ~/.ansible/vault_password
+
+ansible-enable-wsl2-kvm-internal:
+    @echo "Enabling WSL2 KVM nested virtualization on Windows host..."
+    @echo "WARNING: This will restart WSL2 and stop all running Docker containers."
+    @echo "Press Ctrl+C to abort, or wait 5 seconds..."
+    @sleep 5
+    ansible-playbook -i {{WINDOWS_INVENTORY}} {{PB_ENABLE_WSL2_KVM}} --vault-password-file ~/.ansible/vault_password
+
+# -- Deploy Nix Cache Chain + Garnix CI (nl region) --
+# Deploys Harmonia + ncps + ncro + garnix-ci on dtop202311.
+# All services share the nix-sidecar's /nix/store for package reuse.
+# Prerequisites: nix-sidecar running, Traefik Windows deployed, WSL2 KVM enabled,
+# DNS CNAMEs configured, container images built.
+
+ansible-deploy-nix-cache-garnix:
+    @echo "Deploying Nix Cache Chain + Garnix CI on Windows Docker host..."
+    devbox run -- ansible-playbook -i {{WINDOWS_INVENTORY}} {{PB_NIX_CACHE_GARNIX}} --vault-password-file ~/.ansible/vault_password
+
+ansible-deploy-nix-cache-garnix-internal:
+    @echo "Deploying Nix Cache Chain + Garnix CI on Windows Docker host..."
+    ansible-playbook -i {{WINDOWS_INVENTORY}} {{PB_NIX_CACHE_GARNIX}} --vault-password-file ~/.ansible/vault_password
+
+# Deploy only the Nix cache chain (Harmonia + ncps + ncro), skip garnix-ci
+ansible-deploy-nix-cache:
+    @echo "Deploying Nix Cache Chain (Harmonia + ncps + ncro) on Windows Docker host..."
+    devbox run -- ansible-playbook -i {{WINDOWS_INVENTORY}} {{PB_NIX_CACHE_GARNIX}} --vault-password-file ~/.ansible/vault_password --skip-tags garnix-ci
+
+ansible-deploy-nix-cache-internal:
+    @echo "Deploying Nix Cache Chain (Harmonia + ncps + ncro) on Windows Docker host..."
+    ansible-playbook -i {{WINDOWS_INVENTORY}} {{PB_NIX_CACHE_GARNIX}} --vault-password-file ~/.ansible/vault_password --skip-tags garnix-ci
+
+# Deploy only garnix-ci, skip the cache chain
+ansible-deploy-garnix-ci:
+    @echo "Deploying Garnix CI on Windows Docker host..."
+    devbox run -- ansible-playbook -i {{WINDOWS_INVENTORY}} {{PB_NIX_CACHE_GARNIX}} --vault-password-file ~/.ansible/vault_password --skip-tags harmonia,ncro,ncps
+
+ansible-deploy-garnix-ci-internal:
+    @echo "Deploying Garnix CI on Windows Docker host..."
+    ansible-playbook -i {{WINDOWS_INVENTORY}} {{PB_NIX_CACHE_GARNIX}} --vault-password-file ~/.ansible/vault_password --skip-tags harmonia,ncro,ncps
+
 # -- Deploy Playbooks --
 # Client-specific deploy/validate recipes have been moved to levonk/justfile.
 # Run them from the levonk/ subdirectory:  cd levonk && just --list
@@ -360,6 +442,106 @@ generate-service-catalog-all-internal:
     @echo "Generating both SERVICES.md catalogs (client + repo-root)..."
     python3 {{ANSIBLE_ROOT}}/scripts/generate_service_catalog.py
     python3 {{ANSIBLE_ROOT}}/scripts/generate_service_catalog.py --shared-only --output SERVICES.md
+
+# === Tool Catalog Generation ===
+
+generate-tool-catalog:
+    @echo "Generating levonk/TOOLS.md from infrastructure YAML..."
+    devbox run -- python3 {{ANSIBLE_ROOT}}/scripts/generate_tool_catalog.py
+
+generate-tool-catalog-internal:
+    @echo "Generating TOOLS.md from infrastructure YAML..."
+    python3 {{ANSIBLE_ROOT}}/scripts/generate_tool_catalog.py
+
+# Generate repo-root TOOLS.md (shared defaults only — no client deployment info)
+generate-tool-catalog-shared:
+    @echo "Generating repo-root TOOLS.md (shared defaults only)..."
+    devbox run -- python3 {{ANSIBLE_ROOT}}/scripts/generate_tool_catalog.py --shared-only --output TOOLS.md
+
+generate-tool-catalog-shared-internal:
+    @echo "Generating repo-root TOOLS.md (shared defaults only)..."
+    python3 {{ANSIBLE_ROOT}}/scripts/generate_tool_catalog.py --shared-only --output TOOLS.md
+
+# Generate both tool catalogs (client + repo-root)
+generate-tool-catalog-all:
+    @echo "Generating both TOOLS.md catalogs (client + repo-root)..."
+    devbox run -- python3 {{ANSIBLE_ROOT}}/scripts/generate_tool_catalog.py
+    devbox run -- python3 {{ANSIBLE_ROOT}}/scripts/generate_tool_catalog.py --shared-only --output TOOLS.md
+
+generate-tool-catalog-all-internal:
+    @echo "Generating both TOOLS.md catalogs (client + repo-root)..."
+    python3 {{ANSIBLE_ROOT}}/scripts/generate_tool_catalog.py
+    python3 {{ANSIBLE_ROOT}}/scripts/generate_tool_catalog.py --shared-only --output TOOLS.md
+
+# === Sandboxed CLI Proxy Deployment ===
+
+# Deploy the sandbox CLI proxy (iron-proxy) to Mac hosts
+deploy-sandbox-proxy-macos:
+    @echo "Deploying sandbox CLI proxy to macOS hosts..."
+    devbox run -- rtk ansible-playbook \
+      -i {{INFRAHUB_ROOT}}/levonk/active/02-config/ansible/inventories/macos-hosts.yml \
+      {{ANSIBLE_ROOT}}/playbooks/deploy-sandbox-proxy.yml \
+      --vault-password-file ~/.ansible/vault_password
+
+# Deploy the sandbox CLI proxy (iron-proxy) to OCI cloud server
+deploy-sandbox-proxy-oci:
+    @echo "Deploying sandbox CLI proxy to OCI cloud server..."
+    devbox run -- rtk ansible-playbook \
+      -i {{INFRAHUB_ROOT}}/levonk/active/02-config/ansible/inventories/oci.yml \
+      {{ANSIBLE_ROOT}}/playbooks/deploy-sandbox-proxy.yml \
+      --vault-password-file ~/.ansible/vault_password
+
+# === Sandboxed CLI Tools ===
+
+# Run a sandboxed CLI tool through the iron-proxy egress boundary.
+# Usage: just sandbox-run osint sherlock/sherlock "target.com"
+sandbox-run profile image *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    SANDBOX_ENV="{{INFRAHUB_ROOT}}/.sandbox-env"
+    if [ ! -f "$SANDBOX_ENV" ]; then
+        echo "Error: .sandbox-env not found at $SANDBOX_ENV"
+        echo "Deploy the sandbox proxy first: just deploy-sandbox-proxy-macos"
+        exit 1
+    fi
+    source "$SANDBOX_ENV"
+    # Build profile-specific variable names
+    PROFILE_UPPER=$(echo "{{profile}}" | tr '[:lower:]' '[:upper:]')
+    NETWORK_VAR="SANDBOX_${PROFILE_UPPER}_NETWORK"
+    PROXY_HOST_VAR="SANDBOX_${PROFILE_UPPER}_PROXY_HOST"
+    NETWORK="${!NETWORK_VAR}"
+    PROXY_HOST="${!PROXY_HOST_VAR}"
+    CA_HOST_PATH="SANDBOX_${PROFILE_UPPER}_CA_HOST_PATH"
+    CA_HOST="${!CA_HOST_PATH}"
+    if [ -z "$NETWORK" ] || [ -z "$PROXY_HOST" ]; then
+        echo "Error: Profile '{{profile}}' not found in .sandbox-env"
+        echo "Available profiles: check $SANDBOX_ENV"
+        exit 1
+    fi
+    echo "Running {{image}} through sandbox profile '{{profile}}' (network: $NETWORK, proxy: $PROXY_HOST)"
+    docker run --rm -i \
+      --network "$NETWORK" \
+      --read-only \
+      --tmpfs /tmp:rw,size=64m \
+      --cap-drop ALL \
+      --security-opt no-new-privileges \
+      --user 1000:1000 \
+      -e HTTP_PROXY="http://${PROXY_HOST}:80" \
+      -e HTTPS_PROXY="http://${PROXY_HOST}:443" \
+      -e REQUESTS_CA_BUNDLE="${SANDBOX_CA_CERT_CONTAINER_PATH}" \
+      -e SSL_CERT_FILE="${SANDBOX_CA_CERT_CONTAINER_PATH}" \
+      -v "${CA_HOST}:${SANDBOX_CA_CERT_SYSTEM_PATH}:ro" \
+      --entrypoint sh \
+      "{{image}}" \
+      -c "update-ca-certificates 2>/dev/null || true; exec {{args}}"
+
+# Sandboxed Sherlock — username enumeration across social networks
+# Usage: just sandbox-sherlock username1 username2
+sandbox-sherlock *args: (sandbox-run "osint" "sherlock/sherlock" "sherlock" args)
+
+# Sandboxed Subfinder — subdomain discovery via passive sources
+# Usage: just sandbox-subfinder -d example.com
+sandbox-subfinder *args: (sandbox-run "osint" "projectdiscovery/subfinder" "subfinder" args)
 
 # === Packer VM Image Creation ===
 

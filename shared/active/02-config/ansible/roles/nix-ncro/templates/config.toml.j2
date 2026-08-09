@@ -1,0 +1,22 @@
+# ncro configuration — rendered by Ansible
+# Nix Cache Route Optimizer — races all upstreams in parallel, returns fastest
+# Stateless — no NAR storage (ncps handles caching)
+# Upstream: https://github.com/manic-systems/ncro
+
+[server]
+listen = "0.0.0.0:{{ nix_ncro_container_port }}"
+
+# Upstream caches to race in parallel (lower priority = preferred)
+{% for upstream in nix_ncro_upstreams %}
+[[upstreams]]
+url = "{{ upstream.url }}"
+priority = {{ upstream.priority | default(10) }}
+{% if upstream.public_key is defined %}
+public_key = "{{ upstream.public_key }}"
+{% endif %}
+
+{% endfor %}
+# Route cache TTL — how long to remember which upstream won a race
+[cache]
+ttl = "2h"
+negative_ttl = "15m"

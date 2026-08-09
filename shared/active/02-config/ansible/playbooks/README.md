@@ -186,6 +186,64 @@ ansible-playbook -i inventories/oci.yml playbooks/cloud-server-vms.yml
 - `cloud_server_admin_user` defined in `group_vars`
 - Nested virtualization or bare-metal host with VT-x/AMD-V
 
+### `test-nested-virtualization.yml`
+
+Cross-platform nested virtualization support test. Works on both Linux (OCI cloud server) and Windows (Docker Desktop / WSL2). Determines whether a host can run KVM-accelerated nested VMs (critical for services like garnix-ci that need `/dev/kvm`).
+
+**Linux path:** Checks CPU flags (vmx/svm), KVM module, and nested parameter (Intel/AMD). Can attempt to enable nested virt via `modprobe`.
+
+**Windows path:** Checks Windows version (11+ required, build >= 22000), CPU firmware virtualization, Virtual Machine Platform feature, WSL2 `nestedVirtualization` setting in `.wslconfig`, and `/dev/kvm` availability inside WSL2.
+
+**Key finding:** WSL2 nested virtualization is ON BY DEFAULT on Windows 11 amd64 (since WSL build 20175). Does NOT require Enterprise — works on Home and Pro. Windows 10 does NOT support it.
+
+**Usage:**
+
+```bash
+# Linux only (OCI cloud server):
+just ansible-test-nested-virt
+
+# Windows only (dtop202311):
+just ansible-test-nested-virt-windows
+
+# Both platforms:
+just ansible-test-nested-virt-all
+```
+
+**Target groups:** `cloud_servers` (Linux play), `windows_docker_hosts` (Windows play)
+
+**Output:** Sets `nested_virtualization_supported` fact and displays a summary report with recommendation.
+
+### `deploy-nix-cache-and-garnix.yml`
+
+Deploys the Nix cache chain (Harmonia + ncps + ncro) and garnix-ci CI builder on the Windows Docker host (dtop202311, nl region). All services share the nix-sidecar's `/nix/store` volume for maximum package reuse — Nix builds in garnix-ci use already-downloaded packages instead of re-downloading from cache.nixos.org.
+
+**Architecture (ADR-20260708001):**
+- **Harmonia** (`127.0.0.1:4523`) — serves local `/nix/store` read-only (sub-millisecond hits)
+- **ncro** (`127.0.0.1:4525`) — parallel racing proxy, races all upstream caches in parallel
+- **ncps** (`cache.nl.levonk.com:4524`) — NAR caching proxy, front door for Nix clients
+- **garnix-ci** (`ci.nl.levonk.com:4526/4527`) — Nix CI builder with `/dev/kvm` + shared nix store
+
+**Usage:**
+```bash
+# Deploy everything (cache chain + garnix-ci):
+just ansible-deploy-nix-cache-garnix
+
+# Deploy only the cache chain (skip garnix-ci):
+just ansible-deploy-nix-cache
+
+# Deploy only garnix-ci (skip cache chain):
+just ansible-deploy-garnix-ci
+```
+
+**Target group:** `windows_docker_hosts`
+
+**Prerequisites:**
+- nix-sidecar running on dtop202311 (manages the shared `/nix/store`)
+- Traefik Windows deployed (routes `cache.nl.levonk.com` and `ci.nl.levonk.com`)
+- WSL2 KVM enabled (for garnix-ci `/dev/kvm`): `just ansible-enable-wsl2-kvm`
+- DNS CNAMEs configured: `just ansible-deploy-dns`
+- Container images built and available on the Windows Docker host
+
 ### `vpn-stack.yml`
 
 Deploys the VPN stack.

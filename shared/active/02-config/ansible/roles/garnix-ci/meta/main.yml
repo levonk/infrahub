@@ -1,0 +1,18 @@
+---
+galaxy_info:
+  role_name: garnix_ci
+  author: levonk
+  description: garnix-ci Nix-based CI builder with /dev/kvm + shared nix store — Windows Docker Desktop (dtop202311)
+  license: MIT
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Windows
+      versions: ["all"]
+  galaxy_tags:
+    - garnix
+    - ci
+    - nix
+    - builder
+    - docker
+    - kvm
+dependencies: []

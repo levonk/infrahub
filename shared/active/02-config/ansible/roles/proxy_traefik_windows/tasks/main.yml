@@ -90,6 +90,28 @@
   when: proxy_traefik_windows_trala_enabled | bool
   tags: ["deploy", "config"]
 
+- name: Render ncps Nix Cache (nl) dynamic config locally
+  ansible.builtin.template:
+    src: dynamic/cache-nl-levonk-com.yml.j2
+    dest: "{{ proxy_traefik_windows_temp_dir }}/dynamic/cache-nl-levonk-com.yml"
+    mode: "0644"
+  delegate_to: localhost
+  run_once: true
+  changed_when: false
+  when: proxy_traefik_windows_nix_ncps_enabled | bool
+  tags: ["deploy", "config"]
+
+- name: Render Garnix CI (nl) dynamic config locally
+  ansible.builtin.template:
+    src: dynamic/ci-nl-levonk-com.yml.j2
+    dest: "{{ proxy_traefik_windows_temp_dir }}/dynamic/ci-nl-levonk-com.yml"
+    mode: "0644"
+  delegate_to: localhost
+  run_once: true
+  changed_when: false
+  when: proxy_traefik_windows_garnix_ci_enabled | bool
+  tags: ["deploy", "config"]
+
 # ============================================================================
 # Network Management
 # ============================================================================
@@ -240,6 +262,28 @@
   delegate_to: localhost
   changed_when: true
   when: proxy_traefik_windows_trala_enabled | bool
+  tags: ["deploy", "config"]
+
+- name: Copy ncps Nix Cache (nl) dynamic config into volume
+  ansible.builtin.command: >-
+    docker cp {{ proxy_traefik_windows_temp_dir }}/dynamic/cache-nl-levonk-com.yml
+    {{ proxy_traefik_windows_container_name }}-config-seed:/config/dynamic/cache-nl-levonk-com.yml
+  environment:
+    DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  when: proxy_traefik_windows_nix_ncps_enabled | bool
+  tags: ["deploy", "config"]
+
+- name: Copy Garnix CI (nl) dynamic config into volume
+  ansible.builtin.command: >-
+    docker cp {{ proxy_traefik_windows_temp_dir }}/dynamic/ci-nl-levonk-com.yml
+    {{ proxy_traefik_windows_container_name }}-config-seed:/config/dynamic/ci-nl-levonk-com.yml
+  environment:
+    DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  when: proxy_traefik_windows_garnix_ci_enabled | bool
   tags: ["deploy", "config"]
 
 - name: Remove temporary seed container

@@ -1,0 +1,10 @@
+# Nix configuration for garnix-ci — rendered by Ansible
+# Points to the local cache chain (Harmonia + ncps) for fast builds
+# Reuses the shared nix-sidecar store so packages aren't re-downloaded
+
+substituters = {{ garnix_ci_substituters | to_json }}
+trusted-public-keys = {{ garnix_ci_trusted_public_keys | to_json | replace('"', '') }}
+max-jobs = auto
+cores = 0
+sandbox = false
+trusted-users = root cuser

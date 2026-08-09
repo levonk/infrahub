@@ -1,0 +1,71 @@
+---
+# garnix-ci — Nix-based CI builder with /dev/kvm + shared nix store
+# Reuses the nix-sidecar's /nix/store so builds don't re-download packages.
+# /dev/kvm passed through for nested virtualization (NixOS VM builds).
+# Target: Windows Docker Desktop (dtop202311, X86)
+# Requires: WSL2 KVM enabled (run enable-wsl2-kvm.yml playbook first)
+
+# Service toggle
+garnix_ci_enabled: true
+
+# Container configuration
+garnix_ci_container_name: "{{ infra_hostname_garnix_ci | default('localnet-garnix-ci') }}"
+garnix_ci_image_name: "localnet-garnix-ci"
+garnix_ci_image_tag: "latest"
+
+# Ports — Web UI exposed via Traefik
+garnix_ci_web_host_port: "{{ infra_port_garnix_ci_web_host | default('4526') }}"
+garnix_ci_web_container_port: "{{ infra_port_garnix_ci_web_container | default('3000') }}"
+garnix_ci_api_host_port: "{{ infra_port_garnix_ci_api_host | default('4527') }}"
+garnix_ci_api_container_port: "{{ infra_port_garnix_ci_api_container | default('8080') }}"
+
+# Domain (for Traefik routing)
+garnix_ci_domain: "{{ infra_domain_garnix_ci_nl | default('ci.nl.levonk.com') }}"
+
+# Volumes — reuse shared nix-sidecar volumes for maximum cache reuse
+garnix_ci_nix_store_volume: "{{ infra_storage_nix_shared_store_volume | default('localnet-base-nix-store-volume') }}"
+garnix_ci_nix_config_volume: "{{ infra_storage_nix_shared_config_volume | default('localnet-base-nix-config-volume') }}"
+garnix_ci_nix_cache_volume: "{{ infra_storage_nix_shared_cache_volume | default('localnet-base-nix-cache-volume') }}"
+garnix_ci_work_volume: "{{ infra_storage_garnix_ci_work_volume | default('localnet-garnix-ci-work-volume') }}"
+garnix_ci_config_volume: "{{ infra_storage_garnix_ci_config_volume | default('localnet-garnix-ci-config-volume') }}"
+
+# Network — join the traefik-windows network for Traefik routing
+garnix_ci_network_name: "traefik-windows-network"
+
+# Docker host for Windows deployment (ssh-tunneled)
+garnix_ci_docker_host_windows: "ssh://ansible@{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.tale-grouper.ts.net') }}"
+
+# Local temp directory for rendering config files
+garnix_ci_windows_temp_dir: "/tmp/garnix-ci-config-{{ inventory_hostname }}"
+
+# KVM device — required for NixOS VM builds
+# /dev/kvm is made available via the enable-wsl2-kvm.yml playbook
+garnix_ci_kvm_device: "/dev/kvm"
+
+# Nix substituters — point to local cache chain (Harmonia + ncps)
+# This makes garnix-ci builds use the local cache chain instead of
+# downloading from cache.nixos.org directly
+garnix_ci_substituters:
+  - "http://127.0.0.1:{{ infra_port_nix_harmonia_host | default('4523') }}"
+  - "http://{{ nix_ncps_container_name | default('localnet-nix-ncps') }}:{{ infra_port_nix_ncps_container | default('8080') }}"
+  - "https://cache.nixos.org"
+  - "https://cache.garnix.io"
+
+# Trusted public keys for substituters
+garnix_ci_trusted_public_keys:
+  - "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPSQZNGZfdL7Q="
+  - "cache.garnix.io:CTFPyKSLcx5RMJKfLo5EEPUObbA78b0YQ2DTCJXqr3g="
+  - "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CXHQrkxhLww6X236k="
+
+# Healthcheck
+garnix_ci_healthcheck_interval: "60s"
+garnix_ci_healthcheck_timeout: "30s"
+garnix_ci_healthcheck_retries: 3
+garnix_ci_healthcheck_start_period: "60s"
+
+# Logging
+garnix_ci_log_max_size: "10m"
+garnix_ci_log_max_file: "5"
+
+# Timezone
+garnix_ci_tz: "{{ localnet_tz | default(timezone | default('UTC')) }}"
