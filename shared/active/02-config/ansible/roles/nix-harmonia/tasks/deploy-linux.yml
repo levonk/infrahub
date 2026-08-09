@@ -80,7 +80,14 @@
     image: "{{ nix_harmonia_image_name }}:{{ nix_harmonia_image_tag }}"
     state: started
     restart_policy: unless-stopped
-    entrypoint: "{{ nix_harmonia_entrypoint }}"
+    # Use /bin/harmonia-cache (symlink to the nix store path).
+    # The harmonia binary is a wrapper around `nix store --serve` which was
+    # removed in Nix 2.34+. harmonia-cache is the standalone cache server.
+    # The image also has /bin/harmonia-cache as a symlink to the nix store path.
+    entrypoint: "/bin/harmonia-cache"
+    env:
+      CONFIG_FILE: "/data/harmonia.toml"
+      TZ: "{{ nix_harmonia_tz }}"
     networks:
       - name: "{{ nix_harmonia_network_name }}"
     published_ports:
@@ -91,9 +98,6 @@
       - "{{ nix_harmonia_host_nix_var }}:/shared-nix/var/nix/db:ro"
       # Config dir with harmonia.toml + signing key
       - "{{ nix_harmonia_config_dir | default('/opt/localnet/config/nix-harmonia') }}:/data:rw"
-    env:
-      TZ: "{{ nix_harmonia_tz }}"
-      CONFIG_FILE: "/data/harmonia.toml"
     log_driver: json-file
     log_options:
       max-size: "{{ nix_harmonia_log_max_size }}"

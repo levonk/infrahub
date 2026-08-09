@@ -43,7 +43,6 @@
             WorkingDir = "/data";
             Volumes = {
               "/data" = {};
-              "/nix/store" = {};
             };
             Env = [
               "SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
