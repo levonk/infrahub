@@ -169,6 +169,10 @@ Every service entry MUST include `source_repo` — a link to the service's prima
 
 The `generate_service_catalog.py` script validates that every entry has `source_repo` and will print warnings for any missing entries. The generator renders `source_repo` as a clickable link in the "Source" column of `SERVICES.md`.
 
+**`services:` key**: All service entries must be under the top-level `services:` key (not as a bare top-level list). This allows `services.yml` to also contain the `chains:` key for service chain definitions.
+
+**Service chains**: If the new service is part of a proxy chain or cache hierarchy (e.g., joins an existing flow like the AI Pipeline or Nix Cache Chain), add or update the relevant chain under the `chains:` key. See the developer guide (`developer.md` → `<service-catalog>` → "How to add or update a service chain") for the chain schema and examples.
+
 ### 2g. Regenerate Service Catalog
 
 After adding the entry to `services.yml`, regenerate **both** catalogs:
@@ -659,6 +663,7 @@ Do not deploy, verify, or commit from this workflow — that's the orchestrator'
 - [ ] **`source_repo` link valid**: Points to the primary source repo (GitHub/GitLab) or product page if no source repo exists
 - [ ] **Client catalog regenerated**: `just generate-service-catalog` run and reports "✓ All services have source_repo links" (Phase 2g)
 - [ ] **Repo-root catalog regenerated**: `just generate-service-catalog-shared` run (Phase 2g) — produces `infrahub/SERVICES.md` with shared defaults only
+- [ ] **Service chain updated**: If the new service is part of a proxy/cache chain, the `chains:` entry in `services.yml` has been updated (Phase 2f)
 - [ ] **Storage column reflects changes**: If storage variables were added/changed (Phase 1d/2d), both catalogs show the updated volumes/paths
 
 ## Context Declaration
@@ -670,8 +675,8 @@ Do not deploy, verify, or commit from this workflow — that's the orchestrator'
 - **Git state workflow**: `~/p/gh/levonk/infrahub/.agents/workflows/infrahub-git.md`
 - **Developer guide**: `~/p/gh/levonk/infrahub/.agents/knowledge/developer.md` — critical-files tree, known gotchas, boundaries, definition of done
 - **Infrastructure schemas**: `~/p/gh/levonk/infrahub/shared/active/02-config/ansible/infrastructure/` (ports.yml, networks.yml, domains.yml, storage.yml)
-- **Service catalog metadata**: `~/p/gh/levonk/infrahub/shared/active/02-config/ansible/infrastructure/services.yml` — manual metadata file (name, container, machine, category, description, source_repo, domains, ports, traefik, network)
-- **Service catalog generator**: `~/p/gh/levonk/infrahub/shared/active/02-config/ansible/scripts/generate_service_catalog.py` — reads services.yml + infra YAML (ports, domains, networks, storage) → produces SERVICES.md with Source and Storage columns, source_repo validation, and `--shared-only` mode for repo-root catalog
+- **Service catalog metadata**: `~/p/gh/levonk/infrahub/shared/active/02-config/ansible/infrastructure/services.yml` — manual metadata file (services: list with name, container, machine, category, description, source_repo, domains, ports, traefik, network; chains: list with request-flow topology for proxy/cache chains)
+- **Service catalog generator**: `~/p/gh/levonk/infrahub/shared/active/02-config/ansible/scripts/generate_service_catalog.py` — reads services.yml + infra YAML (ports, domains, networks, storage) → produces SERVICES.md with Source and Storage columns, source_repo validation, data-driven chain diagrams, and `--shared-only` mode for repo-root catalog
 - **Generated catalog (client)**: `~/p/gh/levonk/infrahub/levonk/SERVICES.md` — auto-generated (client-specific, deployed machines, custom domains), do not edit manually
 - **Generated catalog (repo-root)**: `~/p/gh/levonk/infrahub/SERVICES.md` — auto-generated (shared defaults only, suggested hostnames, no deployment info), do not edit manually
 - **Client infra overrides**: `~/p/gh/levonk/infrahub/levonk/active/02-config/ansible/infrastructure/`

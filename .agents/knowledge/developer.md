@@ -152,33 +152,61 @@ infrahub/
 - Put secrets in plaintext files, group_vars, or host_vars (use the vault)
 - Duplicate infrastructure values across files (single source of truth)
 - Create new infrastructure variable files — use the existing 4 (`domains`, `networks`, `ports`, `storage`)
+- **Refuse to consider containerizing a service because upstream doesn't ship a Dockerfile** — this repo's entire purpose is to build and deploy containers for services that don't provide one. The absence of an upstream Dockerfile is irrelevant. The correct response is to assess whether the service *can* be containerized (Nix `dockerTools.buildImage`, hand-written Dockerfile, etc.) and deployed to a target host, not to dismiss the request because the upstream repo doesn't provide a container image. See `<agent-response-rules>` below.
 
 </patterns>
+
+## <agent-response-rules>
+
+### Containerization requests — MANDATORY context check
+
+**CRITICAL**: This repo (`infrahub`) is a container-build-and-deploy pipeline. It contains:
+- `shared/active/03-container/services/` — Dockerfiles written by us for services that don't ship one
+- `scripts/build-and-push-images.sh` — builds and pushes locally-built images to a registry
+- A multi-host inventory including `dtop202311` (Windows Docker Desktop), `oci-cloud-server` (ARM), `kckinai`, and `isolation-vm`
+
+**When a user asks "can I run X on host Y?" or "can X be containerized?":**
+
+1. **NEVER** answer "no, because the upstream repo doesn't provide a Dockerfile/container image." That is a non-answer in this repo. The absence of an upstream container is the *normal* starting condition here, not a blocker.
+2. **ALWAYS** first read this repo's structure (`SERVICES.md`, the inventory files, `shared/active/03-container/services/`, the justfile build targets) to understand the deployment context before answering.
+3. **ALWAYS** frame the answer around whether the service *can be containerized* by us, considering:
+   - Can a Dockerfile be written for it? (Most stateless services: yes.)
+   - Can Nix `dockerTools.buildImage` produce an image from a NixOS config? (For Nix-based services: yes.)
+   - What runtime requirements does it have (KVM, systemd, specific kernel features, GPU) that may constrain *which host* it can run on?
+   - Which target host in the inventory is appropriate given those constraints?
+4. **If there are real blockers** (e.g., the service needs `/dev/kvm` and the target host is a Windows Docker Desktop box without nested virtualization), state the blocker specifically and propose alternatives (different host, remote builders, architecture change) — do not generalize "it's not a container" as the blocker.
+
+**The only acceptable "no" is a specific, verified technical constraint on the target host — never "upstream doesn't ship a container."**
+
+</agent-response-rules>
 
 ## <service-catalog>
 
 ### SERVICES.md — Auto-Generated Service Catalog
 
 `levonk/SERVICES.md` is a browsable catalog of all services across all machines. It includes:
-- **Mermaid topology diagram** — all services color-coded by machine, with AI pipeline chain, Traefik routing, and DB connections
+- **Mermaid topology diagram** — all services color-coded by machine, with data-driven chain connections, Traefik routing, and DB connections
+- **Service Chains** — one Mermaid diagram per chain showing request flow, branch points (fan-out), and external upstreams
 - **All Services table** — every service with container name, machine, clickable domain links, host→container ports, network, category
 - **Services by Category** — grouped tables (UI, API, Console, Passive, Proxy Chain, VPN, DNS, Security, Infrastructure)
 - **Machine Reference** — Tailscale FQDNs and DDNS records
 
 **The file is generated from two sources:**
-1. `shared/active/02-config/ansible/infrastructure/services.yml` — manual metadata (machine, category, description per service)
+1. `shared/active/02-config/ansible/infrastructure/services.yml` — manual metadata (machine, category, description per service, chain definitions)
 2. `shared/ + levonk/active/02-config/ansible/infrastructure/{ports,domains,networks}.yml` — the existing infrastructure YAML (auto-merged, client overrides shared)
 
 **When to regenerate:**
 - After adding or removing a service
+- After adding, removing, or modifying a chain definition
 - After changing any port, domain, or network assignment
 - Automatically after `just ansible-deploy-site` (full stack deploy)
 - Manually anytime: `just generate-service-catalog`
 
 **How to add a new service to the catalog:**
 1. Add ports/domains/networks to the infrastructure YAML files (as you already do)
-2. Add an entry to `shared/active/02-config/ansible/infrastructure/services.yml`:
+2. Add an entry under the `services:` key in `shared/active/02-config/ansible/infrastructure/services.yml`:
    ```yaml
+   services:
    - name: "My New Service"
      container: "my-container"
      machine: "oci-cloud-server"  # or kckinai, dtop202311, isolation-vm
@@ -197,6 +225,46 @@ infrahub/
    ```
 3. Run `just generate-service-catalog`
 4. Commit `services.yml` (shared repo) and `SERVICES.md` (levonk submodule)
+
+**How to add or update a service chain:**
+
+Chains define request-flow topology for proxy/cache chains (e.g., AI Pipeline, Nix Cache Chain). They are rendered as dedicated Mermaid diagrams in the "Service Chains" section and injected into the main topology diagram. Chain definitions live under the top-level `chains:` key in `services.yml`.
+
+1. Add or update an entry under the `chains:` key in `shared/active/02-config/ansible/infrastructure/services.yml`:
+   ```yaml
+   chains:
+     - name: "My Chain"
+       description: "One-line summary of the chain's purpose"
+       flow:
+         - service: "Service A"       # must match a service name in services: list
+           role: "gateway"            # optional: shown as edge label
+         - service: "Service B"
+           role: "proxy"
+           branches:                  # optional: fan-out from this step
+             - service: "Service C"   # branch to another service
+               role: "local cache"
+             - upstream: "https://external-cache.example.com"  # branch to external upstream
+   ```
+2. Run `just generate-service-catalog` (and `just generate-service-catalog-shared` for the repo-root catalog)
+3. Commit `services.yml` (shared repo) and both `SERVICES.md` files (repo root + levonk submodule)
+
+**Chain schema:**
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | yes | Human-readable chain name (rendered as diagram title and TOC entry) |
+| `description` | yes | One-line summary (rendered as italic text under the title) |
+| `flow` | yes | Ordered list of steps representing request flow |
+| `flow[].service` | yes | Service name — must match a `name` in the `services:` list |
+| `flow[].role` | no | Edge label shown on the arrow from the previous step |
+| `flow[].branches` | no | Fan-out from this step to multiple targets |
+| `flow[].branches[].service` | one of | Branch to a service (must match a `name` in `services:`) |
+| `flow[].branches[].upstream` | one of | Branch to an external upstream URL (rendered as a cloud node) |
+| `flow[].branches[].role` | no | Edge label for this branch |
+
+**When to add a chain:**
+- When deploying a new proxy chain or cache hierarchy (e.g., Nix cache: ncps → ncro → upstreams)
+- When a set of services has a meaningful request-flow relationship that isn't obvious from the flat category tables
+- When the existing topology diagram doesn't show a connection that should be visible
 
 **Categories:**
 | Category | Description |
