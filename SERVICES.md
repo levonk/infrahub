@@ -1,6 +1,6 @@
 # Infrahub Service Catalog (Shared Defaults)
 
-> **Auto-generated** from `infrastructure/*.yml` (shared defaults only) — last updated: 2026-08-09 11:17
+> **Auto-generated** from `infrastructure/*.yml` (shared defaults only) — last updated: 2026-08-09 11:25
 > Regenerate with: `just generate-service-catalog-shared`
 > Source: `shared/active/02-config/ansible/infrastructure/services.yml`
 > Note: This catalog shows **default ports and suggested hostnames** only. Client-specific deployment details (custom domains, deployed machines, client port overrides) are not included. See `levonk/SERVICES.md` for the deployed client catalog.
@@ -9,6 +9,9 @@
 
 ## Table of Contents
 
+- [Service Chains](#service-chains)
+  - [AI Pipeline](#ai-pipeline)
+  - [Nix Cache Chain](#nix-cache-chain)
 - [All Services (Alphabetical)](#all-services-alphabetical)
 - [Services by Category](#services-by-category)
   - [🌐 UI (Web Apps)](#ui-web-apps)
@@ -20,6 +23,60 @@
   - [📡 DNS](#dns)
   - [🛡️ Security / SSO](#security-sso)
   - [⚙️ Infrastructure](#infrastructure)
+
+## Service Chains
+
+### AI Pipeline
+
+*Request flow for AI inference — gateway → proxy chain → upstream providers*
+
+```mermaid
+---
+title: AI Pipeline
+---
+flowchart TD
+    LiteLLM["LiteLLM"]
+    Privacy_Orchestrator["Privacy Orchestrator"]
+    LiteLLM -->|PII guardrail| Privacy_Orchestrator
+    Forge["Forge"]
+    Privacy_Orchestrator -->|load balancer| Forge
+    Headroom["Headroom"]
+    Forge -->|context compression| Headroom
+    iron_proxy["iron-proxy"]
+    Headroom -->|egress proxy| iron_proxy
+    OmniRoute["OmniRoute"]
+    iron_proxy -->|upstream router| OmniRoute
+
+    %% Machine color coding
+    classDef machine_oci_AI_Pipeline fill:#4A90D9,color:#fff,stroke:#333,stroke-width:1px
+    class OmniRoute,LiteLLM,Forge,iron_proxy,Headroom,Privacy_Orchestrator machine_oci_AI_Pipeline
+```
+
+### Nix Cache Chain
+
+*Nix binary cache proxy chain — client → cache → racer → upstreams*
+
+```mermaid
+---
+title: Nix Cache Chain
+---
+flowchart TD
+    Nix_ncps["Nix ncps"]
+    Nix_ncro["Nix ncro"]
+    Nix_ncps -->|racing proxy| Nix_ncro
+    Nix_Harmonia["Nix Harmonia"]
+    Nix_ncro -->|local /nix/store| Nix_Harmonia
+    https___cache_nixos_org_Nix_Cache_Chain[("cache.nixos.org")]
+    Nix_ncro -.-> https___cache_nixos_org_Nix_Cache_Chain
+    https___cache_garnix_io_Nix_Cache_Chain[("cache.garnix.io")]
+    Nix_ncro -.-> https___cache_garnix_io_Nix_Cache_Chain
+    https___nix_community_cachix_org_Nix_Cache_Chain[("nix-community.cachix.org")]
+    Nix_ncro -.-> https___nix_community_cachix_org_Nix_Cache_Chain
+
+    %% Machine color coding
+    classDef machine_dtop_Nix_Cache_Chain fill:#50C878,color:#fff,stroke:#333,stroke-width:1px
+    class Nix_Harmonia,Nix_ncps,Nix_ncro machine_dtop_Nix_Cache_Chain
+```
 
 ## All Services (Alphabetical)
 

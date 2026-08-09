@@ -39,6 +39,7 @@
 # AI Pipeline Services
 # ===========================================================================
 
+services:
 - name: "LiteLLM"
   container: "{{ infra_hostname_litellm }}"
   machine: "oci-cloud-server"
@@ -877,3 +878,52 @@
       container: "infra_port_nix_ncro_container"
       label: "HTTP (internal, behind ncps)"
   network: "traefik-windows-network"
+
+# ===========================================================================
+# Service Chains
+# Data-driven request-flow topology for proxy/cache chains.
+# The generate_service_catalog.py script renders each chain as a Mermaid
+# diagram in the "Service Chains" section and injects connections into the
+# main topology diagram. Supports linear flow and fan-out (branches).
+#
+# Schema:
+#   name:        Human-readable chain name
+#   description: One-line summary
+#   flow:        Ordered list of steps. Each step is either:
+#     - service: "Service Name"     # matches a service name in services.yml
+#       role: "optional label"      # shown on the edge
+#       branches:                   # fan-out from this step
+#         - service: "Name"         # branch to a service
+#         - upstream: "URL"         # branch to an external upstream
+# ===========================================================================
+
+chains:
+  - name: "AI Pipeline"
+    description: "Request flow for AI inference — gateway → proxy chain → upstream providers"
+    flow:
+      - service: "LiteLLM"
+        role: "gateway (auth, virtual keys, spend)"
+      - service: "Privacy Orchestrator"
+        role: "PII guardrail"
+      - service: "Forge"
+        role: "load balancer"
+      - service: "Headroom"
+        role: "context compression"
+      - service: "iron-proxy"
+        role: "egress proxy"
+      - service: "OmniRoute"
+        role: "upstream router"
+
+  - name: "Nix Cache Chain"
+    description: "Nix binary cache proxy chain — client → cache → racer → upstreams"
+    flow:
+      - service: "Nix ncps"
+        role: "front door (Traefik)"
+      - service: "Nix ncro"
+        role: "racing proxy"
+        branches:
+          - service: "Nix Harmonia"
+            role: "local /nix/store"
+          - upstream: "https://cache.nixos.org"
+          - upstream: "https://cache.garnix.io"
+          - upstream: "https://nix-community.cachix.org"

@@ -484,7 +484,7 @@ def gen_by_category_sections(services: list, all_vars: dict, shared_only: bool =
     return "\n".join(sections)
 
 
-def gen_mermaid_diagram(services: list, all_vars: dict) -> str:
+def gen_mermaid_diagram(services: list, all_vars: dict, chains: list = None) -> str:
     """Generate a Mermaid flowchart with services grouped by machine."""
     lines = ["```mermaid", "---", "title: Levonk Service Topology", "---", "flowchart TD"]
 
@@ -502,14 +502,21 @@ def gen_mermaid_diagram(services: list, all_vars: dict) -> str:
             lines.append(f'        {node_id}["{icon} {svc["name"]}"]')
         lines.append("    end")
 
-    # AI pipeline chain connections
-    lines.append("")
-    lines.append("    %% AI Pipeline Chain (request flow)")
-    chain = ["LiteLLM", "Privacy Orchestrator", "Forge", "Headroom", "iron-proxy", "OmniRoute"]
-    for i in range(len(chain) - 1):
-        a = sanitize_node_id(chain[i])
-        b = sanitize_node_id(chain[i + 1])
-        lines.append(f"    {a} --> {b}")
+    # Data-driven chain connections (replaces hardcoded AI pipeline)
+    if chains:
+        chain_connections = get_chain_connections(chains)
+        lines.append("")
+        lines.append("    %% Service chain connections (data-driven from services.yml)")
+        for src, tgt, role in chain_connections:
+            a = sanitize_node_id(src)
+            b = sanitize_node_id(tgt)
+            if role:
+                lines.append(f"    {a} -->|{role}| {b}")
+            else:
+                lines.append(f"    {a} --> {b}")
+    else:
+        # Fallback: no chains defined — no chain connections
+        pass
 
     # LiteLLM → Langfuse (trace forwarding)
     lines.append("    %% Trace forwarding")
@@ -619,11 +626,180 @@ def sanitize_node_id(name: str) -> str:
     return re.sub(r"[^a-zA-Z0-9_]", "_", name)
 
 
-def gen_toc(services: list) -> str:
+def sanitize_chain_id(name: str) -> str:
+    """Convert a chain name to a valid Mermaid subgraph/node ID prefix."""
+    return re.sub(r"[^a-zA-Z0-9_]", "_", name)
+
+
+def gen_chains_section(chains: list, services: list, all_vars: dict) -> str:
+    """Generate a Mermaid diagram per chain, showing request flow and branch points.
+
+    Each chain gets its own Mermaid block with:
+    - Linear flow: A --> B --> C
+    - Fan-out: A --> B, B --> C1, B --> C2 (branches)
+    - Edge labels from 'role' fields
+    - External upstreams rendered as cloud-shaped nodes
+    - Service nodes colored by machine (same classDef as main topology)
+    """
+    if not chains:
+        return ""
+
+    # Build a lookup: service name → service dict (for machine info)
+    svc_by_name = {}
+    for svc in services:
+        svc_by_name[svc["name"]] = svc
+
+    sections = []
+    for chain in chains:
+        chain_name = chain.get("name", "Unnamed Chain")
+        chain_desc = chain.get("description", "")
+        chain_id = sanitize_chain_id(chain_name)
+        flow = chain.get("flow", [])
+
+        lines = ["```mermaid", "---", f"title: {chain_name}", "---", "flowchart TD"]
+
+        # Track which machine classes are used in this chain for styling
+        used_machines = set()
+        # Track all node IDs that are services (for machine coloring)
+        svc_node_ids = set()
+
+        # Render nodes and edges
+        prev_node = None
+        for i, step in enumerate(flow):
+            svc_name = step.get("service")
+            role = step.get("role", "")
+            branches = step.get("branches", [])
+
+            if svc_name:
+                node_id = sanitize_node_id(svc_name)
+                svc_node_ids.add(node_id)
+                # Determine machine for coloring
+                svc = svc_by_name.get(svc_name)
+                if svc:
+                    machine = svc.get("machine", "")
+                    if machine:
+                        used_machines.add(machine)
+                # Node label — just the service name
+                lines.append(f'    {node_id}["{svc_name}"]')
+            else:
+                node_id = None
+
+            # Connect from previous step to this step
+            if prev_node and node_id:
+                if role:
+                    lines.append(f"    {prev_node} -->|{role}| {node_id}")
+                else:
+                    lines.append(f"    {prev_node} --> {node_id}")
+
+            # Handle branches (fan-out from this step)
+            if branches:
+                for branch in branches:
+                    b_svc = branch.get("service")
+                    b_upstream = branch.get("upstream")
+                    b_role = branch.get("role", "")
+
+                    if b_svc:
+                        b_node_id = sanitize_node_id(b_svc)
+                        svc_node_ids.add(b_node_id)
+                        b_svc_obj = svc_by_name.get(b_svc)
+                        if b_svc_obj:
+                            b_machine = b_svc_obj.get("machine", "")
+                            if b_machine:
+                                used_machines.add(b_machine)
+                        lines.append(f'    {b_node_id}["{b_svc}"]')
+                        if node_id:
+                            if b_role:
+                                lines.append(f"    {node_id} -->|{b_role}| {b_node_id}")
+                            else:
+                                lines.append(f"    {node_id} --> {b_node_id}")
+                    elif b_upstream:
+                        # External upstream — cloud-shaped node
+                        b_node_id = sanitize_chain_id(b_upstream) + f"_{chain_id}"
+                        # Extract short label from URL
+                        short = b_upstream.replace("https://", "").replace("http://", "").rstrip("/")
+                        lines.append(f'    {b_node_id}[("{short}")]')
+                        if node_id:
+                            if b_role:
+                                lines.append(f"    {node_id} -.->|{b_role}| {b_node_id}")
+                            else:
+                                lines.append(f"    {node_id} -.-> {b_node_id}")
+
+            if node_id:
+                prev_node = node_id
+
+        # Machine color coding for service nodes in this chain
+        lines.append("")
+        lines.append("    %% Machine color coding")
+        for machine_key in used_machines:
+            meta = MACHINES.get(machine_key)
+            if not meta:
+                continue
+            # Find service node IDs on this machine within this chain
+            machine_svc_ids = []
+            for nid in svc_node_ids:
+                # Reverse-lookup: node_id → service name → service dict → machine
+                for svc in services:
+                    if sanitize_node_id(svc["name"]) == nid and svc.get("machine") == machine_key:
+                        machine_svc_ids.append(nid)
+            if machine_svc_ids:
+                cls = f"{meta['mermaid_class']}_{chain_id}"
+                lines.append(f'    classDef {cls} fill:{meta["color"]},color:#fff,stroke:#333,stroke-width:1px')
+                lines.append(f'    class {",".join(machine_svc_ids)} {cls}')
+
+        lines.append("```")
+        sections.append(f"### {chain_name}\n")
+        if chain_desc:
+            sections.append(f"*{chain_desc}*\n")
+        sections.append("\n".join(lines))
+        sections.append("")
+
+    return "\n".join(sections)
+
+
+def get_chain_connections(chains: list) -> list:
+    """Extract all (source_service, target_service) pairs from chains for the main topology diagram.
+
+    Returns a list of (source, target, role) tuples where source/target are service names.
+    External upstreams are excluded (they're not service nodes in the main topology).
+    """
+    connections = []
+    for chain in chains:
+        flow = chain.get("flow", [])
+        prev_svc = None
+        for step in flow:
+            svc_name = step.get("service")
+            role = step.get("role", "")
+            branches = step.get("branches", [])
+
+            # Linear connection from previous to current
+            if prev_svc and svc_name:
+                connections.append((prev_svc, svc_name, role))
+
+            # Branch connections
+            if branches:
+                for branch in branches:
+                    b_svc = branch.get("service")
+                    b_role = branch.get("role", "")
+                    if b_svc and svc_name:
+                        connections.append((svc_name, b_svc, b_role))
+
+            if svc_name:
+                prev_svc = svc_name
+    return connections
+
+
+def gen_toc(services: list, chains: list = None) -> str:
     """Generate a table of contents for the markdown document."""
     lines = ["## Table of Contents", ""]
     lines.append("- [Machine Legend](#machine-legend)")
     lines.append("- [Service Topology](#service-topology)")
+    if chains:
+        lines.append("- [Service Chains](#service-chains)")
+        for chain in chains:
+            chain_name = chain.get("name", "")
+            if chain_name:
+                anchor = chain_name.lower().replace(" ", "-").replace("(", "").replace(")", "")
+                lines.append(f"  - [{chain_name}](#{anchor})")
     lines.append("- [All Services (Alphabetical)](#all-services-alphabetical)")
     lines.append("- [Services by Category](#services-by-category)")
     # Sub-entries for each category that has services
@@ -641,9 +817,16 @@ def gen_toc(services: list) -> str:
     return "\n".join(lines)
 
 
-def gen_toc_shared(services: list) -> str:
+def gen_toc_shared(services: list, chains: list = None) -> str:
     """Generate a table of contents for the shared-only catalog (no machine sections)."""
     lines = ["## Table of Contents", ""]
+    if chains:
+        lines.append("- [Service Chains](#service-chains)")
+        for chain in chains:
+            chain_name = chain.get("name", "")
+            if chain_name:
+                anchor = chain_name.lower().replace(" ", "-").replace("(", "").replace(")", "")
+                lines.append(f"  - [{chain_name}](#{anchor})")
     lines.append("- [All Services (Alphabetical)](#all-services-alphabetical)")
     lines.append("- [Services by Category](#services-by-category)")
     present_cats = set()
@@ -708,10 +891,13 @@ def main():
     all_vars.update(all_storage)
 
     # Services can be a top-level list or under a "services:" key
+    # Chains are optional, under a "chains:" key (only when services_raw is a dict)
+    chains = []
     if isinstance(services_raw, list):
         services = services_raw
     elif isinstance(services_raw, dict):
         services = services_raw.get("services", [])
+        chains = services_raw.get("chains", [])
     else:
         services = []
 
@@ -773,9 +959,9 @@ def main():
 
     # Table of contents — shared-only mode skips machine legend and topology
     if shared_only:
-        md_parts.append(gen_toc_shared(resolved_services))
+        md_parts.append(gen_toc_shared(resolved_services, chains))
     else:
-        md_parts.append(gen_toc(resolved_services))
+        md_parts.append(gen_toc(resolved_services, chains))
     md_parts.append("")
 
     if not shared_only:
@@ -788,8 +974,14 @@ def main():
         # Topology diagram (client mode only — shows deployment topology)
         md_parts.append("## Service Topology")
         md_parts.append("")
-        md_parts.append(gen_mermaid_diagram(resolved_services, all_vars))
+        md_parts.append(gen_mermaid_diagram(resolved_services, all_vars, chains))
         md_parts.append("")
+
+    # Service Chains (both modes — chains are shared defaults, not client-specific)
+    if chains:
+        md_parts.append("## Service Chains")
+        md_parts.append("")
+        md_parts.append(gen_chains_section(chains, resolved_services, all_vars))
 
     # By Service
     md_parts.append("## All Services (Alphabetical)")
@@ -840,7 +1032,7 @@ def main():
     with open(args.output, "w") as f:
         f.write(output_text)
 
-    print(f"Generated {args.output} ({total} services, {len(by_machine)} machines)")
+    print(f"Generated {args.output} ({total} services, {len(by_machine)} machines, {len(chains)} chains)")
     if missing_source:
         print(f"⚠ {len(missing_source)} service(s) missing source_repo — see warnings above")
     else:
