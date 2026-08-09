@@ -188,16 +188,24 @@ infra_hostname_n8n_prometheus: "localnet-n8n-prometheus"
 infra_hostname_n8n_grafana: "localnet-n8n-grafana"
 
 # ---------------------------------------------------------------------------
-# Nix Cache Chain Services (nl region — dtop202311, Windows Docker Desktop)
+# Nix Cache Chain Services (dual-deployment: nl + cno)
 # Implements ADR-20260708001: regional multi-layer cache chain.
 # Harmonia serves local /nix/store (internal, 127.0.0.1 only).
 # ncps is the front-door NAR caching proxy (exposed via Traefik).
 # ncro races upstreams in parallel (internal, behind ncps).
+# nl  = network local (dtop202311, X86 Windows Docker Desktop)
+# cno = cloud network oracle (oci-cloud-server, ARM64 Linux)
 # ---------------------------------------------------------------------------
 infra_domain_nix_cache_nl: "cache.nl.levonk.com"
-infra_hostname_nix_harmonia: "localnet-nix-harmonia"
-infra_hostname_nix_ncps: "localnet-nix-ncps"
-infra_hostname_nix_ncro: "localnet-nix-ncro"
+infra_domain_nix_cache_cno: "cache.cno.levonk.com"
+# nl hostnames (Windows Docker Desktop — dtop202311)
+infra_hostname_nix_harmonia_nl: "localnet-nix-harmonia"
+infra_hostname_nix_ncps_nl: "localnet-nix-ncps"
+infra_hostname_nix_ncro_nl: "localnet-nix-ncro"
+# cno hostnames (OCI cloud server — ARM64 Linux)
+infra_hostname_nix_harmonia_cno: "localnet-nix-harmonia-cno"
+infra_hostname_nix_ncps_cno: "localnet-nix-ncps-cno"
+infra_hostname_nix_ncro_cno: "localnet-nix-ncro-cno"
 
 # ---------------------------------------------------------------------------
 # Garnix CI Builder (nl region — dtop202311, Windows Docker Desktop)

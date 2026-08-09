@@ -830,13 +830,15 @@ services:
   network: "n8n-network"
 
 # ===========================================================================
-# Nix Cache Chain (nl region — dtop202311)
+# Nix Cache Chain (dual-deployment: nl + cno)
 # Implements ADR-20260708001: Harmonia (local store) + ncps (NAR cache) +
 # ncro (parallel racing proxy). Topology: ncps → ncro → upstreams.
+# nl  = dtop202311 (Windows Docker Desktop, X86) — nix-sidecar volumes
+# cno = oci-cloud-server (Linux, ARM64) — bind mounts /nix/store from host
 # ===========================================================================
 
-- name: "Nix Harmonia"
-  container: "{{ infra_hostname_nix_harmonia }}"
+- name: "Nix Harmonia (nl)"
+  container: "{{ infra_hostname_nix_harmonia_nl }}"
   machine: "dtop202311"
   category: "infra"
   description: "Serves the shared /nix/store over HTTP (local only, 127.0.0.1). Signs NARs with vault key."
@@ -850,8 +852,24 @@ services:
     - "localnet-base-nix-store-volume (shared nix store, ro)"
     - "localnet-harmonia-data-volume (signing key, config)"
 
-- name: "Nix ncps"
-  container: "{{ infra_hostname_nix_ncps }}"
+- name: "Nix Harmonia (cno)"
+  container: "{{ infra_hostname_nix_harmonia_cno }}"
+  machine: "oci-cloud-server"
+  category: "infra"
+  description: "Serves the host /nix/store over HTTP (local only, 127.0.0.1). Bind-mounts /nix/store from host (Nix native on OCI)."
+  source_repo: "https://github.com/nix-community/harmonia"
+  ports:
+    - host: "infra_port_nix_harmonia_host"
+      container: "infra_port_nix_harmonia_container"
+      label: "HTTP (local only)"
+  network: "traefik-network"
+  storage:
+    - "/nix/store (bind mount from host, ro)"
+    - "/nix/var/nix/db (bind mount from host, ro)"
+    - "localnet-harmonia-cno-data-volume (signing key, config)"
+
+- name: "Nix ncps (nl)"
+  container: "{{ infra_hostname_nix_ncps_nl }}"
   machine: "dtop202311"
   category: "infra"
   description: "Nix Binary Cache Proxy Service — front door for Nix clients. Caches NARs in SQLite + local storage."
@@ -867,8 +885,25 @@ services:
   storage:
     - "localnet-ncps-data-volume (cached NARs + SQLite db)"
 
-- name: "Nix ncro"
-  container: "{{ infra_hostname_nix_ncro }}"
+- name: "Nix ncps (cno)"
+  container: "{{ infra_hostname_nix_ncps_cno }}"
+  machine: "oci-cloud-server"
+  category: "infra"
+  description: "Nix Binary Cache Proxy Service — front door for Nix clients. Caches NARs in SQLite + local storage."
+  source_repo: "https://github.com/kalbasit/ncps"
+  domains:
+    - "infra_domain_nix_cache_cno"
+  ports:
+    - host: "infra_port_nix_ncps_host"
+      container: "infra_port_nix_ncps_container"
+      label: "HTTP (via Traefik)"
+  traefik: true
+  network: "traefik-network"
+  storage:
+    - "localnet-ncps-cno-data-volume (cached NARs + SQLite db)"
+
+- name: "Nix ncro (nl)"
+  container: "{{ infra_hostname_nix_ncro_nl }}"
   machine: "dtop202311"
   category: "proxy"
   description: "Nix Cache Route Optimizer — races all upstreams in parallel, returns fastest. Stateless (no NAR storage)."
@@ -878,6 +913,18 @@ services:
       container: "infra_port_nix_ncro_container"
       label: "HTTP (internal, behind ncps)"
   network: "traefik-windows-network"
+
+- name: "Nix ncro (cno)"
+  container: "{{ infra_hostname_nix_ncro_cno }}"
+  machine: "oci-cloud-server"
+  category: "proxy"
+  description: "Nix Cache Route Optimizer — races all upstreams in parallel, returns fastest. Stateless (no NAR storage)."
+  source_repo: "https://github.com/manic-systems/ncro"
+  ports:
+    - host: "infra_port_nix_ncro_host"
+      container: "infra_port_nix_ncro_container"
+      label: "HTTP (internal, behind ncps)"
+  network: "traefik-network"
 
 # ===========================================================================
 # Service Chains
@@ -914,15 +961,29 @@ chains:
       - service: "OmniRoute"
         role: "upstream router"
 
-  - name: "Nix Cache Chain"
-    description: "Nix binary cache proxy chain — client → cache → racer → upstreams"
+  - name: "Nix Cache Chain (nl)"
+    description: "Nix binary cache proxy chain (nl region) — client → cache → racer → upstreams"
     flow:
-      - service: "Nix ncps"
+      - service: "Nix ncps (nl)"
         role: "front door (Traefik)"
-      - service: "Nix ncro"
+      - service: "Nix ncro (nl)"
         role: "racing proxy"
         branches:
-          - service: "Nix Harmonia"
+          - service: "Nix Harmonia (nl)"
+            role: "local /nix/store"
+          - upstream: "https://cache.nixos.org"
+          - upstream: "https://cache.garnix.io"
+          - upstream: "https://nix-community.cachix.org"
+
+  - name: "Nix Cache Chain (cno)"
+    description: "Nix binary cache proxy chain (cno region) — client → cache → racer → upstreams"
+    flow:
+      - service: "Nix ncps (cno)"
+        role: "front door (Traefik)"
+      - service: "Nix ncro (cno)"
+        role: "racing proxy"
+        branches:
+          - service: "Nix Harmonia (cno)"
             role: "local /nix/store"
           - upstream: "https://cache.nixos.org"
           - upstream: "https://cache.garnix.io"

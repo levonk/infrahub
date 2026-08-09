@@ -1,0 +1,143 @@
+---
+# nix-harmonia Linux (cno) deployment — community.docker pattern
+# Target: OCI cloud server (ARM64, Oracle Linux). Harmonia serves the local
+# /nix/store over HTTP on 127.0.0.1 only (local access, not exposed externally).
+#
+# On cno, Nix is installed natively on the host. Harmonia bind-mounts
+# /nix/store and /nix/var/nix/db directly from the host filesystem (no Docker
+# volume for the nix store, unlike nl which uses nix-sidecar volumes).
+
+# ============================================================================
+# Config directory + rendered files
+# ============================================================================
+- name: Ensure nix-harmonia config directory exists on host
+  ansible.builtin.file:
+    path: "{{ nix_harmonia_config_dir | default('/opt/localnet/config/nix-harmonia') }}"
+    state: directory
+    owner: "{{ cloud_server_admin_user | default('cuser') }}"
+    group: "{{ cloud_server_admin_user | default('cuser') }}"
+    mode: "0755"
+  tags: ["deploy", "config"]
+
+- name: Render harmonia.toml
+  ansible.builtin.template:
+    src: harmonia.toml.j2
+    dest: "{{ nix_harmonia_config_dir | default('/opt/localnet/config/nix-harmonia') }}/harmonia.toml"
+    owner: "{{ cloud_server_admin_user | default('cuser') }}"
+    group: "{{ cloud_server_admin_user | default('cuser') }}"
+    mode: "0644"
+  notify: restart nix-harmonia
+  tags: ["deploy", "config"]
+
+# ============================================================================
+# Write signing key (if vault key is defined)
+# ============================================================================
+- name: Write Harmonia signing key to config dir
+  ansible.builtin.copy:
+    dest: "{{ nix_harmonia_config_dir | default('/opt/localnet/config/nix-harmonia') }}/signing-key"
+    content: "{{ vault_nix_harmonia_sign_key }}"
+    owner: "{{ cloud_server_admin_user | default('cuser') }}"
+    group: "{{ cloud_server_admin_user | default('cuser') }}"
+    mode: "0600"
+  no_log: true
+  when: vault_nix_harmonia_sign_key is defined and vault_nix_harmonia_sign_key | length > 0
+  notify: restart nix-harmonia
+  tags: ["deploy", "config"]
+
+# ============================================================================
+# Volume Management
+# ============================================================================
+- name: Ensure nix-harmonia data volume exists
+  community.docker.docker_volume:
+    name: "{{ nix_harmonia_data_volume }}"
+    state: present
+  tags: ["deploy", "volume"]
+
+# ============================================================================
+# Verify Image (locally-built, not pulled from a registry)
+# ============================================================================
+- name: Check if nix-harmonia image exists on target
+  ansible.builtin.command: "docker image inspect {{ nix_harmonia_image_name }}:{{ nix_harmonia_image_tag }}"
+  register: nix_harmonia_image_check
+  changed_when: false
+  failed_when: false
+  tags: ["deploy", "pull"]
+
+- name: Fail if nix-harmonia image is missing
+  ansible.builtin.fail:
+    msg: >-
+      Image {{ nix_harmonia_image_name }}:{{ nix_harmonia_image_tag }} not found on target.
+      Build it on OCI with: cd shared/active/03-container/services/artifact/nix-harmonia && nix build .#docker-prod && docker load < result
+  when: nix_harmonia_image_check.rc != 0
+  tags: ["deploy", "pull"]
+
+# ============================================================================
+# Container Deployment
+# ============================================================================
+- name: Deploy nix-harmonia container
+  community.docker.docker_container:
+    name: "{{ nix_harmonia_container_name }}"
+    image: "{{ nix_harmonia_image_name }}:{{ nix_harmonia_image_tag }}"
+    state: started
+    restart_policy: unless-stopped
+    entrypoint: "{{ nix_harmonia_entrypoint }}"
+    networks:
+      - name: "{{ nix_harmonia_network_name }}"
+    published_ports:
+      - "127.0.0.1:{{ nix_harmonia_host_port }}:{{ nix_harmonia_container_port }}/tcp"
+    volumes:
+      # Bind mount /nix/store from the host (Nix is native on OCI)
+      - "{{ nix_harmonia_host_nix_store }}:/shared-nix/store:ro"
+      - "{{ nix_harmonia_host_nix_var }}:/shared-nix/var/nix/db:ro"
+      # Config dir with harmonia.toml + signing key
+      - "{{ nix_harmonia_config_dir | default('/opt/localnet/config/nix-harmonia') }}:/data:rw"
+    env:
+      TZ: "{{ nix_harmonia_tz }}"
+      CONFIG_FILE: "/data/harmonia.toml"
+    log_driver: json-file
+    log_options:
+      max-size: "{{ nix_harmonia_log_max_size }}"
+      max-file: "{{ nix_harmonia_log_max_file }}"
+    healthcheck:
+      test: ["CMD-SHELL", "echo > /dev/tcp/127.0.0.1/{{ nix_harmonia_container_port }} || exit 1"]
+      interval: "{{ nix_harmonia_healthcheck_interval }}"
+      timeout: "{{ nix_harmonia_healthcheck_timeout }}"
+      retries: "{{ nix_harmonia_healthcheck_retries }}"
+      start_period: "{{ nix_harmonia_healthcheck_start_period }}"
+    security_opts:
+      - no-new-privileges:true
+  notify: restart nix-harmonia
+  tags: ["deploy", "container"]
+
+# ============================================================================
+# Wait for health
+# ============================================================================
+- name: Wait for nix-harmonia (cno) to be healthy
+  ansible.builtin.wait_for:
+    host: "127.0.0.1"
+    port: "{{ nix_harmonia_host_port }}"
+    delay: 5
+    timeout: 60
+  tags: ["deploy", "container"]
+
+# ============================================================================
+# Status Report
+# ============================================================================
+- name: Get nix-harmonia (cno) container info
+  community.docker.docker_container_info:
+    name: "{{ nix_harmonia_container_name }}"
+  register: nix_harmonia_cno_info
+  ignore_errors: true
+  tags: ["always", "info"]
+
+- name: Report nix-harmonia (cno) status
+  ansible.builtin.debug:
+    msg: |
+      nix-harmonia (cno) deployed:
+        - URL: http://127.0.0.1:{{ nix_harmonia_host_port }} (local access only, not exposed externally)
+        - Container: {{ nix_harmonia_container_name }}
+        - Image: {{ nix_harmonia_image_name }}:{{ nix_harmonia_image_tag }}
+        - Network: {{ nix_harmonia_network_name }}
+        - State: {{ nix_harmonia_cno_info.container.State.Status | default('unknown') }}
+        - Health: {{ nix_harmonia_cno_info.container.State.Health.Status | default('unknown') }}
+  tags: ["always", "info"]

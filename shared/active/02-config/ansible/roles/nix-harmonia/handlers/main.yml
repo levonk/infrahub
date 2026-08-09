@@ -1,0 +1,8 @@
+---
+# nix-harmonia handlers (Linux/cno only — Windows path uses docker rm/run)
+
+- name: restart nix-harmonia
+  community.docker.docker_container:
+    name: "{{ nix_harmonia_container_name | default(nix_harmonia_container_name_cno) }}"
+    state: started
+    restart: true

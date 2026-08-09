@@ -280,6 +280,18 @@
   when: verdaccio_enabled | default(false) | bool
   tags: ["deploy", "traefik", "verdaccio"]
 
+- name: Deploy Nix Cache Chain (cno) dynamic configuration template
+  ansible.builtin.template:
+    src: dynamic/cache-cno-levonk-com.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/cache-cno-levonk-com.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: reload traefik
+  when: nix_ncps_enabled | default(false) | bool
+  tags: ["deploy", "traefik", "nix-cache"]
+
 # ---------------------------------------------------------------------------
 # Traefik Container
 # ---------------------------------------------------------------------------

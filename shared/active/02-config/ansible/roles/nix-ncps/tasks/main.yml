@@ -1,14 +1,21 @@
 ---
 # nix-ncps — Nix NAR caching proxy (front door for Nix clients)
-# Target: Windows Docker Desktop (dtop202311, X86)
+# Dual-deployment:
+#   nl  (dtop202311, Windows Docker Desktop, X86) — traefik-windows-network
+#   cno (oci-cloud-server, Linux ARM64) — traefik-network
 #
 # Uses upstream ncps image: ghcr.io/kalbasit/ncps:v0.9.4
 # ncps is configured via CLI flags (not a config file) and needs a SQLite
 # database initialized via `ncps migrate up` before serving.
 #
-# community.docker modules can't run on Windows (Ansible core basic.py imports
-# grp, Unix-only). We use ansible.builtin.shell with DOCKER_HOST: ssh:// and
-# delegate_to: localhost, matching the ai-qm / verdaccio pattern.
+# The deployment target is selected by inventory group membership:
+#   - cloud_servers        → deploy-linux.yml   (cno instance)
+#   - windows_docker_hosts → deploy-windows.yml (nl instance)
+#
+# Per AGENTS.md, community.docker modules can't run on Windows (Ansible core
+# basic.py imports grp, Unix-only). The Windows path uses ansible.builtin.shell
+# with DOCKER_HOST: ssh:// + delegate_to: localhost, matching the verdaccio
+# pattern.
 
 # 1. Validate required variables
 - name: Validate required variables are defined
@@ -19,19 +26,41 @@
       - nix_ncps_host_port is defined
       - nix_ncps_container_port is defined
       - nix_ncps_docker_host_windows is defined
-      - nix_ncps_upstream_urls is defined
-      - nix_ncps_upstream_urls | length > 0
+      - nix_ncps_upstream_urls_nl is defined
+      - nix_ncps_upstream_urls_cno is defined
       - nix_ncps_upstream_public_keys is defined
     fail_msg: >-
       Missing required nix_ncps variables. Check infrastructure files
-      (ports.yml, domains.yml, storage.yml) and ensure nix_ncps_upstream_urls
-      and nix_ncps_upstream_public_keys are populated.
+      (ports.yml, domains.yml, storage.yml) and ensure nix_ncps_upstream_urls_nl
+      and nix_ncps_upstream_urls_cno are populated.
     success_msg: "All required nix_ncps variables are defined."
   tags: ["always", "validate"]
 
-# 2. Dispatch Windows deployment
+# 2. Dispatch Linux (cno) deployment for cloud_servers
+- name: Dispatch Linux (cno) deployment for cloud_servers
+  ansible.builtin.include_tasks: deploy-linux.yml
+  vars:
+    nix_ncps_container_name: "{{ nix_ncps_container_name_cno }}"
+    nix_ncps_domain: "{{ nix_ncps_domain_cno }}"
+    nix_ncps_data_volume: "{{ nix_ncps_data_volume_cno }}"
+    nix_ncps_network_name: "{{ nix_ncps_network_name_cno }}"
+    nix_ncps_cache_hostname: "{{ nix_ncps_cache_hostname_cno }}"
+    nix_ncps_upstream_urls: "{{ nix_ncps_upstream_urls_cno }}"
+  when:
+    - nix_ncps_enabled | bool
+    - "'cloud_servers' in group_names or ansible_os_family == 'RedHat'"
+  tags: ["deploy"]
+
+# 3. Dispatch Windows (nl) deployment for windows_docker_hosts
 - name: Dispatch Windows (nl) deployment for windows_docker_hosts
   ansible.builtin.include_tasks: deploy-windows.yml
+  vars:
+    nix_ncps_container_name: "{{ nix_ncps_container_name_nl }}"
+    nix_ncps_domain: "{{ nix_ncps_domain_nl }}"
+    nix_ncps_data_volume: "{{ nix_ncps_data_volume_nl }}"
+    nix_ncps_network_name: "{{ nix_ncps_network_name_nl }}"
+    nix_ncps_cache_hostname: "{{ nix_ncps_cache_hostname_nl }}"
+    nix_ncps_upstream_urls: "{{ nix_ncps_upstream_urls_nl }}"
   when:
     - nix_ncps_enabled | bool
     - "'windows_docker_hosts' in group_names"

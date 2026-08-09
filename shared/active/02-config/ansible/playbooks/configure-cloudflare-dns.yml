@@ -337,6 +337,16 @@
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
 
+      # Nix Cache Chain — ncps NAR caching proxy (cno region)
+      # CNAME points to the OCI cloud server which runs Traefik for TLS
+      # termination + routing to the ncps container on traefik-network.
+      - name: "{{ infra_domain_nix_cache_cno | default('cache.cno.levonk.com') }}"
+        type: "CNAME"
+        content: "{{ ts_fqdn }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
       # Garnix CI builder — web UI + API (nl region)
       # CNAME points to the Windows Docker host which runs its own Traefik
       # for TLS termination + routing to the garnix-ci container.

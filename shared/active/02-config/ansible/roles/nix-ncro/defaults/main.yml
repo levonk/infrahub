@@ -4,13 +4,17 @@
 # Stateless — no NAR storage (ncps handles caching).
 # Upstream: https://github.com/manic-systems/ncro
 # Implements ADR-20260708001: ncro on regional hubs.
-# Target: Windows Docker Desktop (dtop202311, X86)
+# Dual-deployment:
+#   nl  (dtop202311, Windows Docker Desktop, X86) — traefik-windows-network
+#   cno (oci-cloud-server, Linux ARM64) — traefik-network
 
 # Service toggle
 nix_ncro_enabled: true
 
-# Container configuration
-nix_ncro_container_name: "{{ infra_hostname_nix_ncro | default('localnet-nix-ncro') }}"
+# Container configuration — per-region container names
+nix_ncro_container_name_nl: "{{ infra_hostname_nix_ncro_nl | default('localnet-nix-ncro') }}"
+nix_ncro_container_name_cno: "{{ infra_hostname_nix_ncro_cno | default('localnet-nix-ncro-cno') }}"
+# Locally-built image from Nix flake (harmonia + ncro flakes now support aarch64-linux)
 nix_ncro_image_name: "localnet-nix-ncro"
 nix_ncro_image_tag: "latest"
 
@@ -18,12 +22,17 @@ nix_ncro_image_tag: "latest"
 nix_ncro_host_port: "{{ infra_port_nix_ncro_host | default('4525') }}"
 nix_ncro_container_port: "{{ infra_port_nix_ncro_container | default('8081') }}"
 
-# Volumes — ncro is stateless (no NAR storage), only needs config + SQLite route cache
-nix_ncro_config_volume: "localnet-ncro-config-volume"
-nix_ncro_data_volume: "localnet-ncro-data-volume"
+# nl: Volumes — ncro is stateless (no NAR storage), only needs config + SQLite route cache
+nix_ncro_config_volume_nl: "localnet-ncro-config-volume"
+nix_ncro_data_volume_nl: "localnet-ncro-data-volume"
+# cno: Volumes
+nix_ncro_config_volume_cno: "{{ infra_storage_nix_ncro_config_volume_cno | default('localnet-ncro-cno-config-volume') }}"
+nix_ncro_data_volume_cno: "{{ infra_storage_nix_ncro_data_volume_cno | default('localnet-ncro-cno-data-volume') }}"
 
-# Network — same network as ncps for internal communication
-nix_ncro_network_name: "traefik-windows-network"
+# nl: Network — same network as ncps for internal communication
+nix_ncro_network_name_nl: "traefik-windows-network"
+# cno: Network — join traefik-network for container DNS resolution
+nix_ncro_network_name_cno: "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"
 
 # Docker host for Windows deployment (ssh-tunneled)
 nix_ncro_docker_host_windows: "ssh://ansible@{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.tale-grouper.ts.net') }}"
@@ -37,8 +46,19 @@ nix_ncro_windows_temp_dir: "/tmp/nix-ncro-config-{{ inventory_hostname }}"
 # Note: ncro is a stateless racing proxy — it does NOT verify NAR signatures.
 # Signature verification is handled by ncps (the caching proxy in front of ncro).
 # Public keys are intentionally omitted from ncro's upstream config.
-nix_ncro_upstreams:
-  - url: "http://{{ nix_harmonia_container_name | default('localnet-nix-harmonia') }}:{{ infra_port_nix_harmonia_container | default('5000') }}"
+# nl: Harmonia container name on nl network
+nix_ncro_upstreams_nl:
+  - url: "http://{{ nix_harmonia_container_name_nl | default('localnet-nix-harmonia') }}:{{ infra_port_nix_harmonia_container | default('5000') }}"
+    priority: 10
+  - url: "https://cache.nixos.org"
+    priority: 20
+  - url: "https://cache.garnix.io"
+    priority: 30
+  - url: "https://nix-community.cachix.org"
+    priority: 30
+# cno: Harmonia container name on cno network
+nix_ncro_upstreams_cno:
+  - url: "http://{{ nix_harmonia_container_name_cno | default('localnet-nix-harmonia-cno') }}:{{ infra_port_nix_harmonia_container | default('5000') }}"
     priority: 10
   - url: "https://cache.nixos.org"
     priority: 20
@@ -47,7 +67,7 @@ nix_ncro_upstreams:
   - url: "https://nix-community.cachix.org"
     priority: 30
 
-# Healthcheck
+# Healthcheck — MUST use string with unit suffix, NOT bare integers
 nix_ncro_healthcheck_interval: "30s"
 nix_ncro_healthcheck_timeout: "10s"
 nix_ncro_healthcheck_retries: 3

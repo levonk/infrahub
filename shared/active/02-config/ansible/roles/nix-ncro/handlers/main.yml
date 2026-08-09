@@ -1,0 +1,8 @@
+---
+# nix-ncro handlers (Linux/cno only — Windows path uses docker rm/run)
+
+- name: restart nix-ncro
+  community.docker.docker_container:
+    name: "{{ nix_ncro_container_name | default(nix_ncro_container_name_cno) }}"
+    state: started
+    restart: true

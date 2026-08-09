@@ -9,8 +9,9 @@
 
   outputs = { self, nixpkgs, ncro }:
     let
-      system = "x86_64-linux";
-      pkgs = import nixpkgs {
+      supportedSystems = [ "x86_64-linux" "aarch64-linux" ];
+      forAllSystems = f: nixpkgs.lib.genAttrs supportedSystems (system: f system);
+      pkgsFor = system: import nixpkgs {
         inherit system;
         config = {
           allowUnfree = false;
@@ -26,78 +27,82 @@
           ];
         };
       };
-      ncroPkg = ncro.packages.${system}.default;
-
-      commonConfig = {
-        Entrypoint = [ "${ncroPkg}/bin/ncro" ];
-        ExposedPorts = {
-          "8081/tcp" = {};
-        };
-        WorkingDir = "/data";
-        Volumes = {
-          "/data" = {};
-          "/config" = {};
-        };
-        Env = [
-          "SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
-          "NCRO_DB_PATH=/data/routes.db"
-        ];
-      };
     in
     {
-      packages.${system} = {
-        default = ncroPkg;
+      packages = forAllSystems (system:
+        let
+          pkgs = pkgsFor system;
+          ncroPkg = ncro.packages.${system}.default;
 
-        docker-prod = pkgs.dockerTools.buildLayeredImage {
-          name = "localnet-nix-ncro";
-          tag = "latest";
-          created = "now";
-          contents = [
-            ncroPkg
-            pkgs.bash
-            pkgs.coreutils
-            pkgs.cacert
-            pkgs.iana-etc
-          ];
-          config = commonConfig;
-        };
-
-        docker-debug = pkgs.dockerTools.buildLayeredImage {
-          name = "localnet-nix-ncro-debug";
-          tag = "latest";
-          created = "now";
-          contents = [
-            ncroPkg
-            pkgs.bashInteractive
-            pkgs.coreutils
-            pkgs.zsh
-            pkgs.curl
-            pkgs.wget
-            pkgs.iproute2
-            pkgs.dnsutils
-            pkgs.netcat-gnu
-            pkgs.socat
-            pkgs.procps
-            pkgs.lsof
-            pkgs.htop
-            pkgs.vim
-            pkgs.jq
-            pkgs.ripgrep
-            pkgs.findutils
-            pkgs.tree
-            pkgs.gnused
-            pkgs.gnugrep
-            pkgs.less
-            pkgs.which
-            pkgs.iana-etc
-            pkgs.cacert
-          ];
-          config = commonConfig // {
-            Env = commonConfig.Env ++ [
-              "PATH=/bin:${pkgs.zsh}/bin:${pkgs.bashInteractive}/bin:${pkgs.coreutils}/bin:${pkgs.curl}/bin:${pkgs.procps}/bin:${pkgs.iproute2}/bin:${pkgs.jq}/bin:${pkgs.vim}/bin"
+          commonConfig = {
+            Entrypoint = [ "${ncroPkg}/bin/ncro" ];
+            ExposedPorts = {
+              "8081/tcp" = {};
+            };
+            WorkingDir = "/data";
+            Volumes = {
+              "/data" = {};
+              "/config" = {};
+            };
+            Env = [
+              "SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
+              "NCRO_DB_PATH=/data/routes.db"
             ];
           };
-        };
-      };
+        in
+        {
+          default = ncroPkg;
+
+          docker-prod = pkgs.dockerTools.buildLayeredImage {
+            name = "localnet-nix-ncro";
+            tag = "latest";
+            created = "now";
+            contents = [
+              ncroPkg
+              pkgs.bash
+              pkgs.coreutils
+              pkgs.cacert
+              pkgs.iana-etc
+            ];
+            config = commonConfig;
+          };
+
+          docker-debug = pkgs.dockerTools.buildLayeredImage {
+            name = "localnet-nix-ncro-debug";
+            tag = "latest";
+            created = "now";
+            contents = [
+              ncroPkg
+              pkgs.bashInteractive
+              pkgs.coreutils
+              pkgs.zsh
+              pkgs.curl
+              pkgs.wget
+              pkgs.iproute2
+              pkgs.dnsutils
+              pkgs.netcat-gnu
+              pkgs.socat
+              pkgs.procps
+              pkgs.lsof
+              pkgs.htop
+              pkgs.vim
+              pkgs.jq
+              pkgs.ripgrep
+              pkgs.findutils
+              pkgs.tree
+              pkgs.gnused
+              pkgs.gnugrep
+              pkgs.less
+              pkgs.which
+              pkgs.iana-etc
+              pkgs.cacert
+            ];
+            config = commonConfig // {
+              Env = commonConfig.Env ++ [
+                "PATH=/bin:${pkgs.zsh}/bin:${pkgs.bashInteractive}/bin:${pkgs.coreutils}/bin:${pkgs.curl}/bin:${pkgs.procps}/bin:${pkgs.iproute2}/bin:${pkgs.jq}/bin:${pkgs.vim}/bin"
+              ];
+            };
+          };
+        });
     };
 }

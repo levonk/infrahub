@@ -190,20 +190,34 @@ infra_storage_n8n_grafana_volume: "localnet-n8n-grafana-data-volume"
 infra_storage_n8n_config_dir: "{{ infra_storage_services_dir }}/n8n"
 
 # ---------------------------------------------------------------------------
-# Nix Cache Chain Storage (nl region — dtop202311)
+# Nix Cache Chain Storage (dual-deployment: nl + cno)
 # Implements ADR-20260708001. Harmonia reads the shared nix store (ro).
 # ncps caches NARs in its own volume. ncro is stateless (no storage).
-# The nix-sidecar volumes are reused for /nix and /etc/nix — all cache
-# services share the same store as the nix-sidecar for maximum reuse.
+#
+# nl (dtop202311, Windows Docker Desktop):
+#   The nix-sidecar volumes are reused for /nix and /etc/nix — all cache
+#   services share the same store as the nix-sidecar for maximum reuse.
+# cno (oci-cloud-server, Linux ARM64):
+#   Nix is installed natively on the host. Harmonia bind-mounts /nix/store
+#   and /nix/var/nix/db directly from the host filesystem (no Docker volume).
+#   ncps and ncro use Docker volumes for their data.
 # ---------------------------------------------------------------------------
-# Shared nix store + config volumes (same as nix-sidecar — reuse, don't duplicate)
+# nl: Shared nix store + config volumes (same as nix-sidecar — reuse)
 infra_storage_nix_shared_store_volume: "localnet-base-nix-store-volume"
 infra_storage_nix_shared_config_volume: "localnet-base-nix-config-volume"
 infra_storage_nix_shared_cache_volume: "localnet-base-nix-cache-volume"
-# Harmonia-specific data volume (signing key, etc.)
+# nl: Harmonia-specific data volume (signing key, etc.)
 infra_storage_nix_harmonia_data_volume: "localnet-harmonia-data-volume"
-# ncps-specific data volume (cached NARs + SQLite database)
+# nl: ncps-specific data volume (cached NARs + SQLite database)
 infra_storage_nix_ncps_data_volume: "localnet-ncps-data-volume"
+# cno: Harmonia data volume (signing key, config — /nix/store is bind-mounted from host)
+infra_storage_nix_harmonia_data_volume_cno: "localnet-harmonia-cno-data-volume"
+# cno: ncps data volume (cached NARs + SQLite database)
+infra_storage_nix_ncps_data_volume_cno: "localnet-ncps-cno-data-volume"
+# cno: ncro data volume (SQLite route cache)
+infra_storage_nix_ncro_data_volume_cno: "localnet-ncro-cno-data-volume"
+# cno: ncro config volume
+infra_storage_nix_ncro_config_volume_cno: "localnet-ncro-cno-config-volume"
 
 # ---------------------------------------------------------------------------
 # Garnix CI Builder Storage (nl region — dtop202311)

@@ -2,13 +2,16 @@
 # nix-harmonia — local Nix binary cache server
 # Serves /nix/store over HTTP on 127.0.0.1 only (local access).
 # Implements ADR-20260708001: Harmonia on every Nix machine.
-# Target: Windows Docker Desktop (dtop202311, X86)
+# Dual-deployment:
+#   nl  (dtop202311, Windows Docker Desktop, X86) — nix-sidecar Docker volumes
+#   cno (oci-cloud-server, Linux ARM64) — bind mounts /nix/store from host
 
 # Service toggle
 nix_harmonia_enabled: true
 
-# Container configuration
-nix_harmonia_container_name: "{{ infra_hostname_nix_harmonia | default('localnet-nix-harmonia') }}"
+# Container configuration — per-region container names
+nix_harmonia_container_name_nl: "{{ infra_hostname_nix_harmonia_nl | default('localnet-nix-harmonia') }}"
+nix_harmonia_container_name_cno: "{{ infra_hostname_nix_harmonia_cno | default('localnet-nix-harmonia-cno') }}"
 nix_harmonia_image_name: "localnet-nix-harmonia"
 nix_harmonia_image_tag: "latest"
 
@@ -16,13 +19,21 @@ nix_harmonia_image_tag: "latest"
 nix_harmonia_host_port: "{{ infra_port_nix_harmonia_host | default('4523') }}"
 nix_harmonia_container_port: "{{ infra_port_nix_harmonia_container | default('5000') }}"
 
-# Volumes — reuse the shared nix-sidecar volumes
+# nl: Volumes — reuse the shared nix-sidecar volumes
 nix_harmonia_nix_store_volume: "{{ infra_storage_nix_shared_store_volume | default('localnet-base-nix-store-volume') }}"
 nix_harmonia_nix_config_volume: "{{ infra_storage_nix_shared_config_volume | default('localnet-base-nix-config-volume') }}"
-nix_harmonia_data_volume: "{{ infra_storage_nix_harmonia_data_volume | default('localnet-harmonia-data-volume') }}"
+nix_harmonia_data_volume_nl: "{{ infra_storage_nix_harmonia_data_volume | default('localnet-harmonia-data-volume') }}"
 
-# Network — join the traefik-windows network for DNS resolution
-nix_harmonia_network_name: "traefik-windows-network"
+# cno: Bind mounts — Nix is installed natively on the OCI host
+# /nix/store and /nix/var/nix/db are bind-mounted directly from the host
+nix_harmonia_host_nix_store: "/nix/store"
+nix_harmonia_host_nix_var: "/nix/var/nix/db"
+nix_harmonia_data_volume_cno: "{{ infra_storage_nix_harmonia_data_volume_cno | default('localnet-harmonia-cno-data-volume') }}"
+
+# nl: Network — join the traefik-windows network for DNS resolution
+nix_harmonia_network_name_nl: "traefik-windows-network"
+# cno: Network — join traefik-network for container DNS resolution
+nix_harmonia_network_name_cno: "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"
 
 # Docker host for Windows deployment (ssh-tunneled)
 nix_harmonia_docker_host_windows: "ssh://ansible@{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.tale-grouper.ts.net') }}"

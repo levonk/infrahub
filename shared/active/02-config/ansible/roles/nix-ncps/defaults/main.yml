@@ -2,13 +2,16 @@
 # nix-ncps — Nix NAR caching proxy (front door for Nix clients)
 # Caches NARs locally for LAN bandwidth savings.
 # Implements ADR-20260708001: ncps on regional hubs.
-# Target: Windows Docker Desktop (dtop202311, X86)
+# Dual-deployment:
+#   nl  (dtop202311, Windows Docker Desktop, X86) — traefik-windows-network
+#   cno (oci-cloud-server, Linux ARM64) — traefik-network
 
 # Service toggle
 nix_ncps_enabled: true
 
-# Container configuration
-nix_ncps_container_name: "{{ infra_hostname_nix_ncps | default('localnet-nix-ncps') }}"
+# Container configuration — per-region container names
+nix_ncps_container_name_nl: "{{ infra_hostname_nix_ncps_nl | default('localnet-nix-ncps') }}"
+nix_ncps_container_name_cno: "{{ infra_hostname_nix_ncps_cno | default('localnet-nix-ncps-cno') }}"
 # Upstream image: ghcr.io/kalbasit/ncps (multi-arch, v0.9.4)
 # https://github.com/kalbasit/ncps/releases
 nix_ncps_image_name: "ghcr.io/kalbasit/ncps"
@@ -18,11 +21,13 @@ nix_ncps_image_tag: "v0.9.4"
 nix_ncps_host_port: "{{ infra_port_nix_ncps_host | default('4524') }}"
 nix_ncps_container_port: "{{ infra_port_nix_ncps_container | default('8080') }}"
 
-# Domain (for Traefik routing)
-nix_ncps_domain: "{{ infra_domain_nix_cache_nl | default('cache.nl.levonk.com') }}"
+# Domains (for Traefik routing)
+nix_ncps_domain_nl: "{{ infra_domain_nix_cache_nl | default('cache.nl.levonk.com') }}"
+nix_ncps_domain_cno: "{{ infra_domain_nix_cache_cno | default('cache.cno.levonk.com') }}"
 
 # Volumes — ncps uses /storage for data (database + cached NARs)
-nix_ncps_data_volume: "{{ infra_storage_nix_ncps_data_volume | default('localnet-ncps-data-volume') }}"
+nix_ncps_data_volume_nl: "{{ infra_storage_nix_ncps_data_volume | default('localnet-ncps-data-volume') }}"
+nix_ncps_data_volume_cno: "{{ infra_storage_nix_ncps_data_volume_cno | default('localnet-ncps-cno-data-volume') }}"
 
 # ncps storage paths (inside the container)
 nix_ncps_storage_path: "/storage"
@@ -30,7 +35,9 @@ nix_ncps_db_path: "{{ nix_ncps_storage_path }}/var/ncps/db/db.sqlite"
 nix_ncps_db_url: "sqlite:{{ nix_ncps_db_path }}"
 
 # Cache hostname (used by ncps for signing and Nix cache-info)
-nix_ncps_cache_hostname: "{{ nix_ncps_domain }}"
+# Per-region: each ncps signs with its own cache hostname
+nix_ncps_cache_hostname_nl: "{{ nix_ncps_domain_nl }}"
+nix_ncps_cache_hostname_cno: "{{ nix_ncps_domain_cno }}"
 
 # Local temp directory for rendering config files
 nix_ncps_windows_temp_dir: "/tmp/nix-ncps-config-{{ inventory_hostname }}"
@@ -40,10 +47,11 @@ nix_ncps_windows_temp_dir: "/tmp/nix-ncps-config-{{ inventory_hostname }}"
 # (Harmonia, cache.nixos.org, cache.garnix.io, nix-community.cachix.org) in
 # parallel and returns the fastest response. ncps only needs ncro as its
 # single upstream — ncro handles the racing and EMA latency learning.
-# ncro is on the same Docker network (traefik-windows-network), so ncps
-# reaches it via the container name.
-nix_ncps_upstream_urls:
-  - "http://{{ nix_ncro_container_name | default('localnet-nix-ncro') }}:{{ nix_ncro_container_port | default('8081') }}"
+# ncro is on the same Docker network, so ncps reaches it via the container name.
+nix_ncps_upstream_urls_nl:
+  - "http://{{ nix_ncro_container_name_nl | default('localnet-nix-ncro') }}:{{ nix_ncro_container_port | default('8081') }}"
+nix_ncps_upstream_urls_cno:
+  - "http://{{ nix_ncro_container_name_cno | default('localnet-nix-ncro-cno') }}:{{ nix_ncro_container_port | default('8081') }}"
 
 # ncro is a local racing proxy (no signing key of its own). The public keys
 # of the upstreams ncro races are trusted by ncps so that NARs fetched via
@@ -54,8 +62,10 @@ nix_ncps_upstream_public_keys:
   - "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CXHQrkxhLww6X236k="
   - "{{ vault_nix_harmonia_public_key | default('cache.nl.levonk.com-1:6G59STN6BT8UeIjLG5gAksFvjp1BwjQYx/uerbSJCBM=') }}"
 
-# Network — join the traefik-windows network for Traefik routing
-nix_ncps_network_name: "traefik-windows-network"
+# nl: Network — join the traefik-windows network for Traefik routing
+nix_ncps_network_name_nl: "traefik-windows-network"
+# cno: Network — join traefik-network for Traefik routing
+nix_ncps_network_name_cno: "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"
 
 # Docker host for Windows deployment (ssh-tunneled)
 nix_ncps_docker_host_windows: "ssh://ansible@{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.tale-grouper.ts.net') }}"

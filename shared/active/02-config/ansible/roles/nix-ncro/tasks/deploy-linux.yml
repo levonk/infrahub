@@ -1,0 +1,122 @@
+---
+# nix-ncro Linux (cno) deployment — community.docker pattern
+# Target: OCI cloud server (ARM64, Oracle Linux). Stateless container.
+# Locally-built image from Nix flake (supports aarch64-linux).
+
+# ============================================================================
+# Config directory + rendered files
+# ============================================================================
+- name: Ensure nix-ncro config directory exists on host
+  ansible.builtin.file:
+    path: "{{ nix_ncro_config_dir | default('/opt/localnet/config/nix-ncro') }}"
+    state: directory
+    owner: "{{ cloud_server_admin_user | default('cuser') }}"
+    group: "{{ cloud_server_admin_user | default('cuser') }}"
+    mode: "0755"
+  tags: ["deploy", "config"]
+
+- name: Render ncro config.toml
+  ansible.builtin.template:
+    src: config.toml.j2
+    dest: "{{ nix_ncro_config_dir | default('/opt/localnet/config/nix-ncro') }}/config.toml"
+    owner: "{{ cloud_server_admin_user | default('cuser') }}"
+    group: "{{ cloud_server_admin_user | default('cuser') }}"
+    mode: "0644"
+  notify: restart nix-ncro
+  tags: ["deploy", "config"]
+
+# ============================================================================
+# Volume Management
+# ============================================================================
+- name: Ensure nix-ncro data volume exists
+  community.docker.docker_volume:
+    name: "{{ nix_ncro_data_volume }}"
+    state: present
+  tags: ["deploy", "volume"]
+
+# ============================================================================
+# Verify Image (locally-built, not pulled from a registry)
+# ============================================================================
+- name: Check if ncro image exists on target
+  ansible.builtin.command: "docker image inspect {{ nix_ncro_image_name }}:{{ nix_ncro_image_tag }}"
+  register: nix_ncro_image_check
+  changed_when: false
+  failed_when: false
+  tags: ["deploy", "pull"]
+
+- name: Fail if ncro image is missing
+  ansible.builtin.fail:
+    msg: >-
+      Image {{ nix_ncro_image_name }}:{{ nix_ncro_image_tag }} not found on target.
+      Build it on OCI with: cd shared/active/03-container/services/artifact/nix-ncro && nix build .#docker-prod && docker load < result
+  when: nix_ncro_image_check.rc != 0
+  tags: ["deploy", "pull"]
+
+# ============================================================================
+# Container Deployment
+# ============================================================================
+- name: Deploy ncro container
+  community.docker.docker_container:
+    name: "{{ nix_ncro_container_name }}"
+    image: "{{ nix_ncro_image_name }}:{{ nix_ncro_image_tag }}"
+    state: started
+    restart_policy: unless-stopped
+    command: "--config /config/config.toml"
+    networks:
+      - name: "{{ nix_ncro_network_name }}"
+    published_ports:
+      - "127.0.0.1:{{ nix_ncro_host_port }}:{{ nix_ncro_container_port }}/tcp"
+    volumes:
+      - "{{ nix_ncro_config_dir | default('/opt/localnet/config/nix-ncro') }}:/config:ro"
+      - "{{ nix_ncro_data_volume }}:/data:rw"
+    env:
+      TZ: "{{ nix_ncro_tz }}"
+      NCRO_DB_PATH: "/data/routes.db"
+    log_driver: json-file
+    log_options:
+      max-size: "{{ nix_ncro_log_max_size }}"
+      max-file: "{{ nix_ncro_log_max_file }}"
+    healthcheck:
+      test: ["CMD-SHELL", "echo > /dev/tcp/127.0.0.1/{{ nix_ncro_container_port }} || exit 1"]
+      interval: "{{ nix_ncro_healthcheck_interval }}"
+      timeout: "{{ nix_ncro_healthcheck_timeout }}"
+      retries: "{{ nix_ncro_healthcheck_retries }}"
+      start_period: "{{ nix_ncro_healthcheck_start_period }}"
+    security_opts:
+      - no-new-privileges:true
+  notify: restart nix-ncro
+  tags: ["deploy", "container"]
+
+# ============================================================================
+# Wait for health
+# ============================================================================
+- name: Wait for ncro (cno) to be healthy
+  ansible.builtin.wait_for:
+    host: "127.0.0.1"
+    port: "{{ nix_ncro_host_port }}"
+    delay: 5
+    timeout: 60
+  tags: ["deploy", "container"]
+
+# ============================================================================
+# Status Report
+# ============================================================================
+- name: Get ncro (cno) container info
+  community.docker.docker_container_info:
+    name: "{{ nix_ncro_container_name }}"
+  register: nix_ncro_cno_info
+  ignore_errors: true
+  tags: ["always", "info"]
+
+- name: Report ncro (cno) status
+  ansible.builtin.debug:
+    msg: |
+      ncro (cno) deployed:
+        - Container: {{ nix_ncro_container_name }}
+        - Image: {{ nix_ncro_image_name }}:{{ nix_ncro_image_tag }}
+        - Port: 127.0.0.1:{{ nix_ncro_host_port }}:{{ nix_ncro_container_port }}/tcp (internal only, behind ncps)
+        - Network: {{ nix_ncro_network_name }}
+        - Upstreams: {{ nix_ncro_upstreams | map(attribute='url') | list | join(', ') }}
+        - State: {{ nix_ncro_cno_info.container.State.Status | default('unknown') }}
+        - Health: {{ nix_ncro_cno_info.container.State.Health.Status | default('unknown') }}
+  tags: ["always", "info"]

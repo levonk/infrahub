@@ -1,0 +1,280 @@
+---
+# Deploy Nix Cache Chain (Harmonia + ncps + ncro) to both cno (OCI) and nl (Windows Docker Desktop)
+# Location: shared/active/02-config/ansible/playbooks/deploy-nix-cache-chain.yml
+#
+# Two-phase deployment:
+#   Phase 1 (both hosts): deploy Harmonia + ncps + ncro containers
+#            - cno (OCI cloud server, ARM64, Linux): community.docker modules,
+#              containers join traefik-network. Harmonia bind-mounts /nix/store
+#              from the host (Nix is native on OCI).
+#            - nl (Windows Docker Desktop, X86): ssh-tunneled Docker CLI pattern
+#              (community.docker modules can't run on Windows — Ansible core
+#              basic.py imports grp, Unix-only). Harmonia uses nix-sidecar volumes.
+#   Phase 2 (OCI cloud server): re-run proxy-traefik role with nix_ncps_enabled
+#            to deploy the cache-cno-levonk-com.yml dynamic config template
+#            (gated on nix_ncps_enabled | bool)
+#
+# The nix-harmonia, nix-ncps, and nix-ncro roles dispatch to deploy-linux.yml or
+# deploy-windows.yml based on inventory group membership (cloud_servers vs
+# windows_docker_hosts).
+#
+# Architecture (ADR-20260708001):
+#   Harmonia (127.0.0.1:4523) — serves local /nix/store (read-only)
+#   ncps (4524, cache.{nl,cno}.levonk.com) — NAR caching proxy (front door)
+#   ncro (127.0.0.1:4525) — parallel racing proxy (behind ncps)
+#
+# Prerequisites:
+#   1. Traefik deployed on OCI: just levonk-deploy-infra
+#   2. Traefik deployed on Windows: just ansible-deploy-traefik-windows
+#   3. DNS CNAMEs configured: just levonk-deploy-dns
+#   4. SSH config entry for dtop202311.tale-grouper.ts.net
+#   5. Container images built:
+#      - ncps: pulled from ghcr.io/kalbasit/ncps:v0.9.4 (multi-arch)
+#      - harmonia: built on each host via Nix flake (x86_64 on nl, aarch64 on cno)
+#      - ncro: built on each host via Nix flake (x86_64 on nl, aarch64 on cno)
+#   6. Nix installed on OCI (via cloud-server-bootstrap.yml → nix-installation)
+#   7. nix-sidecar running on nl (for shared /nix/store volume)
+#
+# Usage:
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/windows-docker.yml \
+#     -i levonk/active/02-config/ansible/inventories/oci.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-nix-cache-chain.yml \
+#     --vault-password-file ~/.ansible/vault_password
+
+# ============================================================================
+# Phase 1a — Deploy Nix Cache Chain on Windows Docker host (nl)
+# ============================================================================
+- name: "Phase 1a — Deploy Nix Cache Chain on Windows Docker host (nl)"
+  hosts: windows_docker_hosts
+  gather_facts: false
+  become: false
+  vars:
+    nix_harmonia_enabled: true
+    nix_ncps_enabled: true
+    nix_ncro_enabled: true
+
+  pre_tasks:
+    - name: "Load shared infrastructure port defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/ports.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure storage defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/storage.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure domain defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/domains.yml"
+      tags: ["always"]
+
+    - name: "Load client infrastructure domain overrides"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/domains.yml"
+      tags: ["always"]
+
+    - name: "Validate required variables"
+      ansible.builtin.assert:
+        that:
+          - infra_port_nix_harmonia_host is defined
+          - infra_port_nix_ncps_host is defined
+          - infra_port_nix_ncro_host is defined
+          - infra_domain_nix_cache_nl is defined
+          - infra_tailscale_fqdn_windows_docker is defined
+        fail_msg: >-
+          Missing required infrastructure variables. Check ports.yml,
+          domains.yml, storage.yml, and client domain overrides.
+        success_msg: "All required infrastructure variables are defined."
+      tags: ["always", "validate"]
+
+  roles:
+    # Deploy in order: Harmonia first (serves /nix/store), then ncro (races
+    # upstreams), then ncps (front door, depends on ncro).
+    - role: nix-harmonia
+      tags: ["deploy", "harmonia"]
+      when: nix_harmonia_enabled | default(true) | bool
+
+    - role: nix-ncro
+      tags: ["deploy", "ncro"]
+      when: nix_ncro_enabled | default(true) | bool
+
+    - role: nix-ncps
+      tags: ["deploy", "ncps"]
+      when: nix_ncps_enabled | default(true) | bool
+
+
+# ============================================================================
+# Phase 1b — Deploy Nix Cache Chain on OCI cloud server (cno)
+# ============================================================================
+- name: "Phase 1b — Deploy Nix Cache Chain on OCI cloud server (cno)"
+  hosts: cloud_servers
+  gather_facts: true
+  become: true
+  vars:
+    nix_harmonia_enabled: true
+    nix_ncps_enabled: true
+    nix_ncro_enabled: true
+
+  pre_tasks:
+    - name: "Load shared infrastructure port defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/ports.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure storage defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/storage.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure domain defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/domains.yml"
+      tags: ["always"]
+
+    - name: "Load client infrastructure domain overrides"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/domains.yml"
+      tags: ["always"]
+
+    - name: "Validate required variables"
+      ansible.builtin.assert:
+        that:
+          - infra_port_nix_harmonia_host is defined
+          - infra_port_nix_ncps_host is defined
+          - infra_port_nix_ncro_host is defined
+          - infra_domain_nix_cache_cno is defined
+        fail_msg: >-
+          Missing required infrastructure variables. Check ports.yml,
+          domains.yml, storage.yml, and client domain overrides.
+        success_msg: "All required infrastructure variables are defined."
+      tags: ["always", "validate"]
+
+  roles:
+    # Deploy in order: Harmonia first (serves /nix/store), then ncro (races
+    # upstreams), then ncps (front door, depends on ncro).
+    - role: nix-harmonia
+      tags: ["deploy", "harmonia"]
+      when: nix_harmonia_enabled | default(true) | bool
+
+    - role: nix-ncro
+      tags: ["deploy", "ncro"]
+      when: nix_ncro_enabled | default(true) | bool
+
+    - role: nix-ncps
+      tags: ["deploy", "ncps"]
+      when: nix_ncps_enabled | default(true) | bool
+
+
+# ============================================================================
+# Phase 2 — Deploy Traefik dynamic config for Nix Cache Chain on OCI (cno)
+# ============================================================================
+- name: "Phase 2 — Deploy Traefik dynamic config for Nix Cache Chain on OCI (cno)"
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+  vars:
+    nix_ncps_enabled: true
+
+  pre_tasks:
+    - name: "Load shared infrastructure port defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/ports.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure network defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/networks.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure storage defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/storage.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure domain defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/domains.yml"
+      tags: ["always"]
+
+    - name: "Load client infrastructure domain overrides"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/domains.yml"
+      tags: ["always"]
+
+    # The proxy-traefik nix-cache template references nix_ncps_domain_cno,
+    # nix_ncps_container_name_cno, nix_ncps_container_port, etc. These are
+    # defined in the nix-ncps role defaults. Load them here so the template
+    # renders with the correct client-specific values.
+    - name: "Load nix-ncps role defaults (for Traefik template vars)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../roles/nix-ncps/defaults/main.yml"
+      tags: ["always"]
+
+  roles:
+    - role: proxy-traefik
+      tags: ["deploy", "traefik", "nix-cache"]
+
+
+# ============================================================================
+# Phase 3 — Report deployment summary
+# ============================================================================
+- name: "Phase 3 — Report deployment summary"
+  hosts: all
+  gather_facts: false
+  become: false
+  vars:
+    nix_harmonia_enabled: true
+    nix_ncps_enabled: true
+    nix_ncro_enabled: true
+
+  pre_tasks:
+    - name: "Load shared infrastructure port defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/ports.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure domain defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/domains.yml"
+      tags: ["always"]
+
+    - name: "Load client infrastructure domain overrides"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/domains.yml"
+      tags: ["always"]
+
+  tasks:
+    - name: "Report deployment summary"
+      ansible.builtin.debug:
+        msg: |
+          ================================================
+          Nix Cache Chain Deployed (dual-deployment: nl + cno)
+          ================================================
+          Host: {{ inventory_hostname }}
+
+          {% if 'cloud_servers' in group_names %}
+          cno (OCI cloud server, ARM64):
+            Harmonia:  http://127.0.0.1:{{ infra_port_nix_harmonia_host }} (local only, bind-mount /nix/store)
+            ncps:      https://{{ infra_domain_nix_cache_cno }} (via Traefik on OCI)
+            ncro:      http://127.0.0.1:{{ infra_port_nix_ncro_host }} (internal, behind ncps)
+
+          Next steps:
+            1. Verify Harmonia: curl http://127.0.0.1:{{ infra_port_nix_harmonia_host }}/nix-cache-info
+            2. Verify ncps: curl https://{{ infra_domain_nix_cache_cno }}/healthz
+            3. Configure nix.conf on clients:
+               substituters = https://{{ infra_domain_nix_cache_cno }}
+          {% elif 'windows_docker_hosts' in group_names %}
+          nl (Windows Docker Desktop, X86):
+            Harmonia:  http://127.0.0.1:{{ infra_port_nix_harmonia_host }} (local only, nix-sidecar volume)
+            ncps:      https://{{ infra_domain_nix_cache_nl }} (via Traefik on Windows)
+            ncro:      http://127.0.0.1:{{ infra_port_nix_ncro_host }} (internal, behind ncps)
+
+          Next steps:
+            1. Verify Harmonia: curl http://127.0.0.1:{{ infra_port_nix_harmonia_host }}/nix-cache-info
+            2. Verify ncps: curl https://{{ infra_domain_nix_cache_nl }}/healthz
+            3. Configure nix.conf on clients:
+               substituters = https://{{ infra_domain_nix_cache_nl }}
+          {% endif %}
+          ================================================
+      tags: ["always", "summary"]

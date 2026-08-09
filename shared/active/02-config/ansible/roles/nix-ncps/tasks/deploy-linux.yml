@@ -1,0 +1,122 @@
+---
+# nix-ncps Linux (cno) deployment — community.docker pattern
+# Target: OCI cloud server (ARM64, Oracle Linux).
+# Uses upstream ncps image: ghcr.io/kalbasit/ncps:v0.9.4
+# ncps is configured via CLI flags (not a config file) and needs a SQLite
+# database initialized via `ncps migrate up` before serving.
+
+# ============================================================================
+# Pull Image
+# ============================================================================
+- name: Pull nix-ncps image
+  community.docker.docker_image:
+    name: "{{ nix_ncps_image_name }}"
+    tag: "{{ nix_ncps_image_tag }}"
+    source: pull
+  tags: ["deploy", "pull"]
+
+# ============================================================================
+# Volume Management
+# ============================================================================
+- name: Ensure nix-ncps data volume exists
+  community.docker.docker_volume:
+    name: "{{ nix_ncps_data_volume }}"
+    state: present
+  tags: ["deploy", "volume"]
+
+# ============================================================================
+# Database Migration (run in a one-shot container)
+# ============================================================================
+- name: Run ncps database migration
+  community.docker.docker_container:
+    name: "{{ nix_ncps_container_name }}-migrate"
+    image: "{{ nix_ncps_image_name }}:{{ nix_ncps_image_tag }}"
+    state: started
+    command: "migrate up"
+    env:
+      NCPS_DB_URL: "{{ nix_ncps_db_url }}"
+    volumes:
+      - "{{ nix_ncps_data_volume }}:{{ nix_ncps_storage_path }}:rw"
+    detach: false
+    cleanup: true
+  register: nix_ncps_migrate_result
+  changed_when: "'migrated' in (nix_ncps_migrate_result.stdout | default('')) or nix_ncps_migrate_result.changed"
+  tags: ["deploy", "migrate"]
+
+# ============================================================================
+# Container Deployment
+# ============================================================================
+- name: Stop existing nix-ncps container
+  community.docker.docker_container:
+    name: "{{ nix_ncps_container_name }}"
+    state: absent
+  tags: ["deploy", "container"]
+
+- name: Deploy nix-ncps container
+  community.docker.docker_container:
+    name: "{{ nix_ncps_container_name }}"
+    image: "{{ nix_ncps_image_name }}:{{ nix_ncps_image_tag }}"
+    state: started
+    restart_policy: unless-stopped
+    command: >-
+      serve
+      --cache-hostname={{ nix_ncps_cache_hostname }}
+      --db-url={{ nix_ncps_db_url }}
+      --listen=0.0.0.0:{{ nix_ncps_container_port }}
+      {% for url in nix_ncps_upstream_urls %}--upstream={{ url }} {% endfor %}
+      {% for key in nix_ncps_upstream_public_keys %}--upstream-public-key={{ key }} {% endfor %}
+    networks:
+      - name: "{{ nix_ncps_network_name }}"
+    published_ports:
+      - "127.0.0.1:{{ nix_ncps_host_port }}:{{ nix_ncps_container_port }}/tcp"
+    volumes:
+      - "{{ nix_ncps_data_volume }}:{{ nix_ncps_storage_path }}:rw"
+    env:
+      TZ: "{{ nix_ncps_tz }}"
+    log_driver: json-file
+    log_options:
+      max-size: "{{ nix_ncps_log_max_size }}"
+      max-file: "{{ nix_ncps_log_max_file }}"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:{{ nix_ncps_container_port }}/healthz || exit 1"]
+      interval: "{{ nix_ncps_healthcheck_interval }}"
+      timeout: "{{ nix_ncps_healthcheck_timeout }}"
+      retries: "{{ nix_ncps_healthcheck_retries }}"
+      start_period: "{{ nix_ncps_healthcheck_start_period }}"
+    security_opts:
+      - no-new-privileges:true
+  tags: ["deploy", "container"]
+
+# ============================================================================
+# Wait for health
+# ============================================================================
+- name: Wait for nix-ncps (cno) to be healthy
+  ansible.builtin.wait_for:
+    host: "127.0.0.1"
+    port: "{{ nix_ncps_host_port }}"
+    delay: 5
+    timeout: 60
+  tags: ["deploy", "container"]
+
+# ============================================================================
+# Status Report
+# ============================================================================
+- name: Get nix-ncps (cno) container info
+  community.docker.docker_container_info:
+    name: "{{ nix_ncps_container_name }}"
+  register: nix_ncps_cno_info
+  ignore_errors: true
+  tags: ["always", "info"]
+
+- name: Report nix-ncps (cno) status
+  ansible.builtin.debug:
+    msg: |
+      nix-ncps (cno) deployed:
+        - URL: https://{{ nix_ncps_domain }} (via Traefik on OCI cloud server)
+        - Container: {{ nix_ncps_container_name }}
+        - Image: {{ nix_ncps_image_name }}:{{ nix_ncps_image_tag }}
+        - Network: {{ nix_ncps_network_name }}
+        - State: {{ nix_ncps_cno_info.container.State.Status | default('unknown') }}
+        - Health: {{ nix_ncps_cno_info.container.State.Health.Status | default('unknown') }}
+        - Upstreams: {{ nix_ncps_upstream_urls | join(', ') }}
+  tags: ["always", "info"]

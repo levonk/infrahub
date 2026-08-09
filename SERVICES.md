@@ -1,17 +1,18 @@
 # Infrahub Service Catalog (Shared Defaults)
 
-> **Auto-generated** from `infrastructure/*.yml` (shared defaults only) — last updated: 2026-08-09 11:25
+> **Auto-generated** from `infrastructure/*.yml` (shared defaults only) — last updated: 2026-08-09 11:51
 > Regenerate with: `just generate-service-catalog-shared`
 > Source: `shared/active/02-config/ansible/infrastructure/services.yml`
 > Note: This catalog shows **default ports and suggested hostnames** only. Client-specific deployment details (custom domains, deployed machines, client port overrides) are not included. See `levonk/SERVICES.md` for the deployed client catalog.
 
-**60 services** (shared defaults — no deployment info)
+**63 services** (shared defaults — no deployment info)
 
 ## Table of Contents
 
 - [Service Chains](#service-chains)
   - [AI Pipeline](#ai-pipeline)
-  - [Nix Cache Chain](#nix-cache-chain)
+  - [Nix Cache Chain (nl)](#nix-cache-chain-nl)
+  - [Nix Cache Chain (cno)](#nix-cache-chain-cno)
 - [All Services (Alphabetical)](#all-services-alphabetical)
 - [Services by Category](#services-by-category)
   - [🌐 UI (Web Apps)](#ui-web-apps)
@@ -52,30 +53,56 @@ flowchart TD
     class OmniRoute,LiteLLM,Forge,iron_proxy,Headroom,Privacy_Orchestrator machine_oci_AI_Pipeline
 ```
 
-### Nix Cache Chain
+### Nix Cache Chain (nl)
 
-*Nix binary cache proxy chain — client → cache → racer → upstreams*
+*Nix binary cache proxy chain (nl region) — client → cache → racer → upstreams*
 
 ```mermaid
 ---
-title: Nix Cache Chain
+title: Nix Cache Chain (nl)
 ---
 flowchart TD
-    Nix_ncps["Nix ncps"]
-    Nix_ncro["Nix ncro"]
-    Nix_ncps -->|racing proxy| Nix_ncro
-    Nix_Harmonia["Nix Harmonia"]
-    Nix_ncro -->|local /nix/store| Nix_Harmonia
-    https___cache_nixos_org_Nix_Cache_Chain[("cache.nixos.org")]
-    Nix_ncro -.-> https___cache_nixos_org_Nix_Cache_Chain
-    https___cache_garnix_io_Nix_Cache_Chain[("cache.garnix.io")]
-    Nix_ncro -.-> https___cache_garnix_io_Nix_Cache_Chain
-    https___nix_community_cachix_org_Nix_Cache_Chain[("nix-community.cachix.org")]
-    Nix_ncro -.-> https___nix_community_cachix_org_Nix_Cache_Chain
+    Nix_ncps__nl_["Nix ncps (nl)"]
+    Nix_ncro__nl_["Nix ncro (nl)"]
+    Nix_ncps__nl_ -->|racing proxy| Nix_ncro__nl_
+    Nix_Harmonia__nl_["Nix Harmonia (nl)"]
+    Nix_ncro__nl_ -->|local /nix/store| Nix_Harmonia__nl_
+    https___cache_nixos_org_Nix_Cache_Chain__nl_[("cache.nixos.org")]
+    Nix_ncro__nl_ -.-> https___cache_nixos_org_Nix_Cache_Chain__nl_
+    https___cache_garnix_io_Nix_Cache_Chain__nl_[("cache.garnix.io")]
+    Nix_ncro__nl_ -.-> https___cache_garnix_io_Nix_Cache_Chain__nl_
+    https___nix_community_cachix_org_Nix_Cache_Chain__nl_[("nix-community.cachix.org")]
+    Nix_ncro__nl_ -.-> https___nix_community_cachix_org_Nix_Cache_Chain__nl_
 
     %% Machine color coding
-    classDef machine_dtop_Nix_Cache_Chain fill:#50C878,color:#fff,stroke:#333,stroke-width:1px
-    class Nix_Harmonia,Nix_ncps,Nix_ncro machine_dtop_Nix_Cache_Chain
+    classDef machine_dtop_Nix_Cache_Chain__nl_ fill:#50C878,color:#fff,stroke:#333,stroke-width:1px
+    class Nix_Harmonia__nl_,Nix_ncro__nl_,Nix_ncps__nl_ machine_dtop_Nix_Cache_Chain__nl_
+```
+
+### Nix Cache Chain (cno)
+
+*Nix binary cache proxy chain (cno region) — client → cache → racer → upstreams*
+
+```mermaid
+---
+title: Nix Cache Chain (cno)
+---
+flowchart TD
+    Nix_ncps__cno_["Nix ncps (cno)"]
+    Nix_ncro__cno_["Nix ncro (cno)"]
+    Nix_ncps__cno_ -->|racing proxy| Nix_ncro__cno_
+    Nix_Harmonia__cno_["Nix Harmonia (cno)"]
+    Nix_ncro__cno_ -->|local /nix/store| Nix_Harmonia__cno_
+    https___cache_nixos_org_Nix_Cache_Chain__cno_[("cache.nixos.org")]
+    Nix_ncro__cno_ -.-> https___cache_nixos_org_Nix_Cache_Chain__cno_
+    https___cache_garnix_io_Nix_Cache_Chain__cno_[("cache.garnix.io")]
+    Nix_ncro__cno_ -.-> https___cache_garnix_io_Nix_Cache_Chain__cno_
+    https___nix_community_cachix_org_Nix_Cache_Chain__cno_[("nix-community.cachix.org")]
+    Nix_ncro__cno_ -.-> https___nix_community_cachix_org_Nix_Cache_Chain__cno_
+
+    %% Machine color coding
+    classDef machine_oci_Nix_Cache_Chain__cno_ fill:#4A90D9,color:#fff,stroke:#333,stroke-width:1px
+    class Nix_Harmonia__cno_,Nix_ncps__cno_,Nix_ncro__cno_ machine_oci_Nix_Cache_Chain__cno_
 ```
 
 ## All Services (Alphabetical)
@@ -114,9 +141,12 @@ flowchart TD
 | n8n Grafana | `localnet-n8n-grafana` | `infra_domain_ai_n8n_grafana` (suggested) | `3108`→`3000` (Web UI) | n8n-network | `localnet-n8n-grafana-data-volume` (volume) | Console / Dashboard | [n8n-io/n8n-observability](https://github.com/n8n-io/n8n-observability) |
 | n8n Postgres | `localnet-n8n-postgres` | — | `5438`→`5432` (PostgreSQL) | n8n-network | `localnet-n8n-postgres-data-volume` (volume) | Passive (Databases / Caches / Queues) | [postgres/postgres](https://github.com/postgres/postgres) |
 | n8n Prometheus | `localnet-n8n-prometheus` | — | `3107`→`9090` (Web UI) | n8n-network | `localnet-n8n-prometheus-data-volume` (volume) | Passive (Databases / Caches / Queues) | [prometheus/prometheus](https://github.com/prometheus/prometheus) |
-| Nix Harmonia | `localnet-nix-harmonia` | — | `4523`→`5000` (HTTP (local only)) | traefik-windows-network | `localnet-harmonia-data-volume` (volume) | Infrastructure | [nix-community/harmonia](https://github.com/nix-community/harmonia) |
-| Nix ncps | `localnet-nix-ncps` | `infra_domain_nix_cache_nl` (suggested) | `4524`→`8080` (HTTP (via Traefik)) | traefik-windows-network | `localnet-ncps-data-volume` (volume) | Infrastructure | [kalbasit/ncps](https://github.com/kalbasit/ncps) |
-| Nix ncro | `localnet-nix-ncro` | — | `4525`→`8081` (HTTP (internal, behind ncps)) | traefik-windows-network | — | Proxy Chain (Internal) | [manic-systems/ncro](https://github.com/manic-systems/ncro) |
+| Nix Harmonia (cno) | `localnet-nix-harmonia-cno` | — | `4523`→`5000` (HTTP (local only)) | traefik-network | — | Infrastructure | [nix-community/harmonia](https://github.com/nix-community/harmonia) |
+| Nix Harmonia (nl) | `localnet-nix-harmonia` | — | `4523`→`5000` (HTTP (local only)) | traefik-windows-network | — | Infrastructure | [nix-community/harmonia](https://github.com/nix-community/harmonia) |
+| Nix ncps (cno) | `localnet-nix-ncps-cno` | `infra_domain_nix_cache_cno` (suggested) | `4524`→`8080` (HTTP (via Traefik)) | traefik-network | — | Infrastructure | [kalbasit/ncps](https://github.com/kalbasit/ncps) |
+| Nix ncps (nl) | `localnet-nix-ncps` | `infra_domain_nix_cache_nl` (suggested) | `4524`→`8080` (HTTP (via Traefik)) | traefik-windows-network | — | Infrastructure | [kalbasit/ncps](https://github.com/kalbasit/ncps) |
+| Nix ncro (cno) | `localnet-nix-ncro-cno` | — | `4525`→`8081` (HTTP (internal, behind ncps)) | traefik-network | — | Proxy Chain (Internal) | [manic-systems/ncro](https://github.com/manic-systems/ncro) |
+| Nix ncro (nl) | `localnet-nix-ncro` | — | `4525`→`8081` (HTTP (internal, behind ncps)) | traefik-windows-network | — | Proxy Chain (Internal) | [manic-systems/ncro](https://github.com/manic-systems/ncro) |
 | NordVPN | `nordvpn` | — | `51820`→`51820` (WireGuard)<br>`1080`→`1080` (SOCKS)<br>`8888`→`8888` (HTTP Proxy) | vpn-network | — | VPN / Mesh Networking | [qdm12/gluetun](https://github.com/qdm12/gluetun) |
 | NordVPN Exit Node (nl) | `nordvpn` | — | `1081`→`1080` (SOCKS)<br>`8889`→`8888` (HTTP Proxy)<br>`8444`→`8443` (HTTPS Proxy) | vpn-network | — | VPN / Mesh Networking | [qdm12/gluetun](https://github.com/qdm12/gluetun) |
 | Omnigent | `omnigent` | `infra_domain_ai_omnigent` (suggested) | `8000`→`8000` (Web/API) | — | — | UI (Web Apps), API (HTTP Services) | [omnigent-ai/omnigent](https://github.com/omnigent-ai/omnigent) |
@@ -202,7 +232,8 @@ flowchart TD
 | Forge | `forge` | — | `8083`→`8081` (API) | forge-network | — | [antoinezambelli/forge](https://github.com/antoinezambelli/forge) |
 | Headroom | `headroom` | `aishrink.levonk.com` (literal) | `8787`→`8787` (API) | — | — | [chopratejas/headroom](https://github.com/chopratejas/headroom) |
 | iron-proxy | `iron-proxy` | — | `8080` (HTTP)<br>`8443` (HTTPS) | proxy-chain-network | — | [ironsh/iron-proxy](https://github.com/ironsh/iron-proxy) |
-| Nix ncro | `localnet-nix-ncro` | — | `4525`→`8081` (HTTP (internal, behind ncps)) | traefik-windows-network | — | [manic-systems/ncro](https://github.com/manic-systems/ncro) |
+| Nix ncro (cno) | `localnet-nix-ncro-cno` | — | `4525`→`8081` (HTTP (internal, behind ncps)) | traefik-network | — | [manic-systems/ncro](https://github.com/manic-systems/ncro) |
+| Nix ncro (nl) | `localnet-nix-ncro` | — | `4525`→`8081` (HTTP (internal, behind ncps)) | traefik-windows-network | — | [manic-systems/ncro](https://github.com/manic-systems/ncro) |
 | Privacy Orchestrator | `privacy-orchestrator` | — | `8082`→`8082` (API) | proxy-chain-network | — | [levonk/ai-dashboard](https://github.com/levonk/ai-dashboard) |
 
 ### 🔒 VPN / Mesh Networking
@@ -245,8 +276,10 @@ flowchart TD
 | Isolation VM | `isolation-vm` | — | — | — | — | [www.qemu.org](https://www.qemu.org/) |
 | kckinai Host | `kckinai` | `infra_domain_inference_host` (suggested) | — | — | — | [tailscale.com](https://tailscale.com/) |
 | Local Registry | `registry` | — | `5000`→`5000` (Registry) | traefik-network | — | [distribution/distribution](https://github.com/distribution/distribution) |
-| Nix Harmonia | `localnet-nix-harmonia` | — | `4523`→`5000` (HTTP (local only)) | traefik-windows-network | `localnet-harmonia-data-volume` (volume) | [nix-community/harmonia](https://github.com/nix-community/harmonia) |
-| Nix ncps | `localnet-nix-ncps` | `infra_domain_nix_cache_nl` (suggested) | `4524`→`8080` (HTTP (via Traefik)) | traefik-windows-network | `localnet-ncps-data-volume` (volume) | [kalbasit/ncps](https://github.com/kalbasit/ncps) |
+| Nix Harmonia (cno) | `localnet-nix-harmonia-cno` | — | `4523`→`5000` (HTTP (local only)) | traefik-network | — | [nix-community/harmonia](https://github.com/nix-community/harmonia) |
+| Nix Harmonia (nl) | `localnet-nix-harmonia` | — | `4523`→`5000` (HTTP (local only)) | traefik-windows-network | — | [nix-community/harmonia](https://github.com/nix-community/harmonia) |
+| Nix ncps (cno) | `localnet-nix-ncps-cno` | `infra_domain_nix_cache_cno` (suggested) | `4524`→`8080` (HTTP (via Traefik)) | traefik-network | — | [kalbasit/ncps](https://github.com/kalbasit/ncps) |
+| Nix ncps (nl) | `localnet-nix-ncps` | `infra_domain_nix_cache_nl` (suggested) | `4524`→`8080` (HTTP (via Traefik)) | traefik-windows-network | — | [kalbasit/ncps](https://github.com/kalbasit/ncps) |
 | TraLa | `trala` | `infra_domain_dashboard_trala` (suggested) | `8085`→`8080` (Web) | — | — | [dannybouwers/trala](https://github.com/dannybouwers/trala) |
 | Verdaccio NPM Registry (cno) | `localnet-artifact-verdaccio` | `infra_domain_artifact_verdaccio_cno` (suggested) | `4873`→`4873` (Web/API) | traefik-network | — | [verdaccio/verdaccio](https://github.com/verdaccio/verdaccio) |
 | Verdaccio NPM Registry (nl) | `localnet-artifact-verdaccio-nl` | `infra_domain_artifact_verdaccio_nl` (suggested) | `4873`→`4873` (Web/API) | — | — | [verdaccio/verdaccio](https://github.com/verdaccio/verdaccio) |
