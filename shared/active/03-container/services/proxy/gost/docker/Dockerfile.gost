@@ -1,6 +1,6 @@
 FROM localnet-base-alpine:latest
 
-ARG GOST_VERSION=3.0.0-rc8
+ARG GOST_VERSION=3.2.6
 ARG TARGETPLATFORM
 
 RUN case ${TARGETPLATFORM} in \
@@ -8,10 +8,11 @@ RUN case ${TARGETPLATFORM} in \
       "linux/arm64") ARCH="arm64" ;; \
       *) echo "Unsupported platform: ${TARGETPLATFORM}" && exit 1 ;; \
     esac && \
-    curl -LO https://github.com/ginuerzh/gost/releases/download/v${GOST_VERSION}/gost-linux-${ARCH}-${GOST_VERSION}.gz && \
-    gunzip gost-linux-${ARCH}-${GOST_VERSION}.gz && \
-    mv gost-linux-${ARCH}-${GOST_VERSION} /usr/bin/gost && \
-    chmod +x /usr/bin/gost
+    curl -LO https://github.com/go-gost/gost/releases/download/v${GOST_VERSION}/gost_${GOST_VERSION}_linux_${ARCH}.tar.gz && \
+    tar xzf gost_${GOST_VERSION}_linux_${ARCH}.tar.gz gost && \
+    mv gost /usr/bin/gost && \
+    chmod +x /usr/bin/gost && \
+    rm -f gost_${GOST_VERSION}_linux_${ARCH}.tar.gz
 
 COPY healthcheck/check-gost.sh /healthcheck/
 RUN chmod +x /healthcheck/check-gost.sh
