@@ -213,7 +213,7 @@
             [Unique to this playbook — gateway playbook does not yet include Iron-Proxy]
           - Headroom: context compression (proxy-chain-network 172.29.0.13)
             [Also deployed by deploy-ai-gateway-pipeline.yml]
-          - OmniRoute: AI gateway (proxy-chain-network 172.29.0.14, traefik ai-gateway.levonk.com)
+          - OmniRoute: AI gateway (proxy-chain-network 172.29.0.14, traefik airoute.<base>)
             [Also deployed by deploy-ai-gateway-pipeline.yml]
           ----------------------------------------
           DEFERRED — Future Evolution (not deployed):

@@ -1,7 +1,7 @@
 ---
 # Buzz AI agent collaboration workspace default variables
 # Buzz is a self-hostable Nostr relay where humans and AI agents share rooms.
-# Domain: buzz.levonk.com
+# Domain: buzz.<base>
 
 # Container configuration
 ai_buzz_container_name: "{{ infra_hostname_buzz | default('buzz') }}"
@@ -42,7 +42,7 @@ ai_buzz_traefik_network_name: "{{ infra_network_proxy_traefik_network_name | def
 ai_buzz_traefik_network_ip: "{{ infra_network_ip_buzz_traefik | default('172.31.0.50') }}"
 
 # Domain for Traefik routing
-ai_buzz_domain: "{{ infra_domain_ai_buzz | default('buzz.levonk.com') }}"
+ai_buzz_domain: "{{ infra_domain_ai_buzz | default('buzz.' ~ (infra_domain_base | default('example.com'))) }}"
 
 # Public relay URL used for NIP-42 auth challenges (wss:// public domain)
 ai_buzz_relay_url: "wss://{{ ai_buzz_domain }}"

@@ -14,7 +14,7 @@ dns_network_subnet: "{{ infra_network_dns_localnet_subnet | default('172.26.0.0/
 dns_registry: "{{ local_registry | default('100.90.22.85:5000') }}"
 
 # Docker host for Windows deployment (ssh-tunneled)
-dns_docker_host_windows: "ssh://ansible@{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.tale-grouper.ts.net') }}"
+dns_docker_host_windows: "ssh://ansible@{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) }}"
 
 # IP allocations (from networks.yml)
 dns_adguard_ip: "{{ infra_network_ip_dns_adguard | default('172.26.255.67') }}"

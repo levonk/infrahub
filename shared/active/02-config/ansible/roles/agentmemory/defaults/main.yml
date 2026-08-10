@@ -39,7 +39,7 @@ agentmemory_data_dir: "/data"
 # ---------------------------------------------------------------------------
 # Domain Configuration (for Traefik routing)
 # ---------------------------------------------------------------------------
-agentmemory_domain: "{{ infra_domain_ai_agentmemory | default('agentmemory.levonk.com') }}"
+agentmemory_domain: "{{ infra_domain_ai_agentmemory | default('agentmemory.' ~ (infra_domain_base | default('example.com'))) }}"
 
 # ---------------------------------------------------------------------------
 # Security — HMAC secret for API authentication

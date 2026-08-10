@@ -8,13 +8,13 @@
 # and pushed to the local registry before deployment.
 #
 # Architecture:
-#   directory-empire (4530, de.nl.levonk.com) — Next.js dashboard via Traefik
+#   directory-empire (4530, de.nl.{{ infra_domain_base }}) — Next.js dashboard via Traefik
 #
 # Prerequisites:
 #   1. Traefik Windows deployed: just ansible-deploy-traefik-windows
 #   2. DNS CNAME configured: just ansible-deploy-dns
 #   3. Container image built+pushed: just build-directory-empire-image
-#   4. SSH config entry for dtop202311.tale-grouper.ts.net
+#   4. SSH config entry for dtop202311.<tailnet>
 #
 # Usage:
 #   ansible-playbook -i levonk/active/02-config/ansible/inventories/windows-docker.yml \

@@ -248,7 +248,7 @@
       - no-new-privileges:true
     labels:
       traefik.enable: "true"
-      # === aigate.levonk.com — Admin UI (SSO-protected) ===
+      # === aigate.<base> — Admin UI (SSO-protected) ===
       # HTTP router (redirects to HTTPS)
       traefik.http.routers.litellm-http.rule: "Host(`{{ ai_litellm_domain }}`)"
       traefik.http.routers.litellm-http.entryPoints: "web"
@@ -259,7 +259,7 @@
       traefik.http.routers.litellm-https.middlewares: "geoblock,crowdsec-bouncer,authelia"
       traefik.http.routers.litellm-https.tls: "true"
       traefik.http.routers.litellm-https.tls.certresolver: "letsencrypt"
-      # === aigate-api.levonk.com — API + Swagger (master_key auth, no Authelia) ===
+      # === aigate-api.<base> — API + Swagger (master_key auth, no Authelia) ===
       traefik.http.routers.litellm-api-http.rule: "Host(`{{ ai_litellm_api_domain }}`)"
       traefik.http.routers.litellm-api-http.entryPoints: "web"
       traefik.http.routers.litellm-api-http.middlewares: "redirect-to-https-litellm-api"

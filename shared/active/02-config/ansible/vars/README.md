@@ -75,7 +75,7 @@ proxy_traefik_container_dashboard_port: "8080"
 proxy_traefik_network_name: "traefik-network"
 proxy_traefik_network_subnet: "172.31.0.0/16"
 proxy_traefik_network_gateway: "172.31.0.1"
-vault_traefik_acme_email: "admin@levonk.com"
+vault_traefik_acme_email: "admin@example.com"
 ```
 
 ### Authelia Variables
@@ -88,7 +88,7 @@ proxy_authelia_host_port: "9091"
 proxy_authelia_container_port: "9091"
 proxy_authelia_postgres_password: "{{ vault_authelia_postgres_password }}"
 vault_authelia_admin_password: "change-me-in-vault"
-vault_authelia_admin_email: "admin@levonk.com"
+vault_authelia_admin_email: "admin@example.com"
 vault_authelia_session_secret: "change-me-in-vault"
 vault_authelia_jwt_secret: "change-me-in-vault"
 ```
@@ -111,8 +111,8 @@ security_crowdsec_ban_duration: "672h"
 cloudflare_dns_enabled: true
 vault_cloudflare_zone_id: "change-me-in-vault"
 vault_cloudflare_api_token: "change-me-in-vault"
-vault_cloudflare_account_email: "admin@levonk.com"
-cloudflare_domain: "levonk.com"
+vault_cloudflare_account_email: "admin@example.com"
+cloudflare_domain: "example.com"
 cloudflare_subdomain_search: "search"
 cloudflare_search_fqdn: "{{ cloudflare_subdomain_search }}.{{ cloudflare_domain }}"
 ```
@@ -238,7 +238,7 @@ proxy_traefik_version: "v3.0"
 
 # ACME Configuration for Let's Encrypt SSL
 # Email used for Let's Encrypt certificate notifications
-vault_traefik_acme_email: "admin@levonk.com"
+vault_traefik_acme_email: "admin@example.com"
 ```
 
 ## Validation Rules

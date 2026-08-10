@@ -1,9 +1,9 @@
 ---
 # Cloudflare DDNS Default Variables
 # Deploys a lightweight container that updates Cloudflare A records with the
-# host's current PUBLIC IP. The *.mach.levonk.com records provide a non-Tailscale
+# host's current PUBLIC IP. The *.mach.<base> records provide a non-Tailscale
 # fallback path — services are reachable via public IP when Tailscale is down.
-# The CNAME layer (*.levonk.com → *.tale-grouper.ts.net) handles Tailscale access.
+# The CNAME layer (*.<base> → *.<tailnet>) handles Tailscale access.
 
 # ---------------------------------------------------------------------------
 # Service Configuration
@@ -24,7 +24,7 @@ cloudflare_ddns_update_interval: 300  # seconds between checks
 # The record name is {hostname}.mach.{domain} — one A record per Tailscale host.
 # cloudflare_ddns_hostname MUST be set per-host in inventory vars.
 # ---------------------------------------------------------------------------
-cloudflare_ddns_record_name: "{{ cloudflare_ddns_hostname | default('host') }}.mach.{{ infra_domain_base | default('levonk.com') }}"
+cloudflare_ddns_record_name: "{{ cloudflare_ddns_hostname | default('host') }}.mach.{{ infra_domain_base | default('example.com') }}"
 cloudflare_ddns_record_ttl: 300
 cloudflare_ddns_record_proxied: false
 

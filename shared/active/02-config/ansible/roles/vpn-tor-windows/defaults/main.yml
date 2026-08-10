@@ -50,13 +50,13 @@ vpn_tor_windows_tailscale_state_volume_name: "localnet-tor-tailscale-exit-nl-sta
 # community.docker modules run on the Ansible controller (localhost) and
 # connect to the Windows Docker daemon via SSH using the docker_host parameter.
 # ---------------------------------------------------------------------------
-vpn_tor_windows_docker_host: "{{ windows_exit_nodes_docker_host | default('ssh://ansible@dtop202311.tale-grouper.ts.net') }}"
+vpn_tor_windows_docker_host: "{{ windows_exit_nodes_docker_host | default('ssh://ansible@dtop202311.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) }}"
 
 # ---------------------------------------------------------------------------
 # Tor exit node configuration
 # ---------------------------------------------------------------------------
 proxy_tor_windows_nickname: "levonk-tor-exit-nl"
-proxy_tor_windows_contact_info: "admin@levonk.com"
+proxy_tor_windows_contact_info: "admin@example.com"
 proxy_tor_windows_exit_policy: "reject *:*"
 proxy_tor_windows_bandwidth_rate: "100 KB"
 proxy_tor_windows_bandwidth_burst: "200 KB"

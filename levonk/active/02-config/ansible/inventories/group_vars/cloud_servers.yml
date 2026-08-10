@@ -312,6 +312,23 @@ proxy_traefik_config_volume: "localnet-traefik-config-volume"
 # DNS AdGuard Home (cross-machine routing via Tailscale to Windows Docker host)
 dns_adguard_enabled: true
 
+# Langfuse (LLM observability — runs on OCI, routed via OCI Traefik)
+ai_langfuse_enabled: true
+
+# Traefik routing flags for services running on OCI
+ai_buzz_enabled: true
+ai_omniroute_enabled: true
+ai_litellm_enabled: true
+aiif_enabled: true
+agentmemory_enabled: true
+aishrink_enabled: true
+career_jobops_enabled: true
+rustfs_enabled: true
+wazuh_enabled: true
+verdaccio_enabled: true
+nix_ncps_enabled: true
+qm_enabled: true
+
 # Logging Configuration
 proxy_traefik_log_level: "INFO"
 proxy_traefik_log_format: "json"

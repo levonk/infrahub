@@ -104,7 +104,7 @@ sudo chmod 600 /Users/auser/.ssh/authorized_keys
 ssh auser@<mac-ip>
 
 # If using Tailscale (after the machine is on the Tailnet):
-ssh auser@<hostname>.tale-grouper.ts.net
+ssh auser@<hostname>.<tailnet>
 ```
 
 If this works, you're done with manual setup. Ansible takes over from here.
@@ -159,7 +159,7 @@ That's it — the new machine is back to the same state.
 
 ### SSH connection refused
 - Check **System Settings** → **General** → **Sharing** → **Remote Login** is ON
-- Check the machine is reachable: `ping <hostname>.tale-grouper.ts.net`
+- Check the machine is reachable: `ping <hostname>.<tailnet>`
 - Check firewall: **System Settings** → **Network** → **Firewall**
 
 ### auser not found

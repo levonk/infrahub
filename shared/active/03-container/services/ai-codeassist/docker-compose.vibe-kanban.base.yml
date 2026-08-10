@@ -17,7 +17,7 @@ services:
       - /home/micro/p:/p  # Multi-repo mount
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.vibe-kanban.rule=Host(`kanban.levonk.com`)"
+      - "traefik.http.routers.vibe-kanban.rule=Host(`kanban.example.com`)"
       - "traefik.http.routers.vibe-kanban.entrypoints=websecure"
       - "traefik.http.routers.vibe-kanban.tls=true"
       - "traefik.http.services.vibe-kanban.loadbalancer.server.port=3000"

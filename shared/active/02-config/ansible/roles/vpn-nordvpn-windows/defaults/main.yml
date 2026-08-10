@@ -53,7 +53,7 @@ vpn_nordvpn_windows_tailscale_state_volume_name: "localnet-vpn-tailscale-exit-nl
 # community.docker modules run on the Ansible controller (localhost) and
 # connect to the Windows Docker daemon via SSH using the docker_host parameter.
 # ---------------------------------------------------------------------------
-vpn_nordvpn_windows_docker_host: "{{ windows_exit_nodes_docker_host | default('ssh://ansible@dtop202311.tale-grouper.ts.net') }}"
+vpn_nordvpn_windows_docker_host: "{{ windows_exit_nodes_docker_host | default('ssh://ansible@dtop202311.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) }}"
 
 # ---------------------------------------------------------------------------
 # NordVPN configuration

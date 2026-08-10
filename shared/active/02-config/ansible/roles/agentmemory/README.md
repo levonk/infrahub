@@ -13,7 +13,7 @@ Deploy [agentmemory](https://github.com/rohitg00/agentmemory) — persistent mem
 
 | Interface | Access Method |
 |-----------|---------------|
-| Web viewer | Traefik + Authelia SSO at `https://agentmemory.levonk.com` |
+| Web viewer | Traefik + Authelia SSO at `https://agentmemory.<base>` |
 | MCP API | Tailscale-only direct access at `http://<tailscale-ip>:3111` |
 
 ## Variables
@@ -27,7 +27,7 @@ Deploy [agentmemory](https://github.com/rohitg00/agentmemory) — persistent mem
 | `agentmemory_container_port` | `3111` | Container HTTP API port |
 | `agentmemory_host_port` | `3111` | Host port (published for Tailscale MCP) |
 | `agentmemory_container_ip` | `172.31.0.7` | Container IP on traefik-network |
-| `agentmemory_domain` | `agentmemory.levonk.com` | Traefik domain for web UI |
+| `agentmemory_domain` | `agentmemory.<base>` | Traefik domain for web UI |
 | `agentmemory_secret` | (from vault) | HMAC secret for API auth |
 | `agentmemory_anthropic_api_key` | (from vault) | Anthropic API key for LLM compression |
 | `agentmemory_openai_api_key` | (from vault) | OpenAI API key for embeddings |

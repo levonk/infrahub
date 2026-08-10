@@ -82,16 +82,16 @@ services:
   manual:
     # Cross-network dashboards
     - name: Homepage (nl)
-      url: https://{{ infra_domain_dashboard_homepage_nl | default('start.nl.levonk.com') }}
+      url: https://{{ infra_domain_dashboard_homepage_nl | default('start.nl.' ~ (infra_domain_base | default('example.com'))) }}
       icon: mdi-view-dashboard
       group: Launch Pages
     - name: TraLa (nl)
-      url: https://{{ infra_domain_dashboard_trala_nl | default('start2.nl.levonk.com') }}
+      url: https://{{ infra_domain_dashboard_trala_nl | default('start2.nl.' ~ (infra_domain_base | default('example.com'))) }}
       icon: mdi-view-dashboard
       group: Launch Pages
 
     # NPM Registries — nl duplicate
     - name: Verdaccio (nl)
-      url: https://{{ infra_domain_artifact_verdaccio_nl | default('npmjs.nl.levonk.com') }}
+      url: https://{{ infra_domain_artifact_verdaccio_nl | default('npmjs.nl.' ~ (infra_domain_base | default('example.com'))) }}
       icon: mdi-package-variant
       group: NPM Registries

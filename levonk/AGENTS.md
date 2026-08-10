@@ -32,6 +32,8 @@ The parent repo's `shared/` directory must NEVER contain client-specific secrets
 - All secrets must use vault variable references
 - Client-specific configurations only in this submodule (`levonk/`)
 
+**Public-key exception (ADR-20260624001 §4):** Public SSH keys are non-secret and may be embedded in `shared/scripts/bootstrap-*.sh` / `.ps1` as defaults. The operator-owned admin bootstrap key (`lzkmbp2016-micro-oracle`) is repo-wide, not client-specific — it bootstraps `auser` on every client's hosts, and a fresh host cannot clone the client submodule to read a key path until it has been bootstrapped. Client-specific keys (per-client CI deploy keys, per-client service accounts) still belong in this submodule.
+
 ## Submodule Workflow
 
 ### Updating This Submodule

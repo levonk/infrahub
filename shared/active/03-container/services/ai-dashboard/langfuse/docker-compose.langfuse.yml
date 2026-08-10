@@ -269,11 +269,11 @@ services:
       # The domain is client-specific — override the Host rule in client overlays.
       - "traefik.enable=true"
       # HTTP router (redirects to HTTPS)
-      - "traefik.http.routers.langfuse-http.rule=Host(`${LANGFUSE_TRAEFIK_HOST:-langfuse.levonk.com}`)"
+      - "traefik.http.routers.langfuse-http.rule=Host(`${LANGFUSE_TRAEFIK_HOST:-langfuse.example.com}`)"
       - "traefik.http.routers.langfuse-http.entryPoints=web"
       - "traefik.http.routers.langfuse-http.middlewares=redirect-to-https"
       # HTTPS router with security middleware chain
-      - "traefik.http.routers.langfuse-https.rule=Host(`${LANGFUSE_TRAEFIK_HOST:-langfuse.levonk.com}`)"
+      - "traefik.http.routers.langfuse-https.rule=Host(`${LANGFUSE_TRAEFIK_HOST:-langfuse.example.com}`)"
       - "traefik.http.routers.langfuse-https.entryPoints=websecure"
       - "traefik.http.routers.langfuse-https.middlewares=geoblock,crowdsec-bouncer,authelia"
       - "traefik.http.routers.langfuse-https.tls=true"

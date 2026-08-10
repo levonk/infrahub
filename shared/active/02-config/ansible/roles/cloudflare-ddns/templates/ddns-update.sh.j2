@@ -1,7 +1,7 @@
 #!/bin/sh
 # Cloudflare DDNS Update Script — Public IP
 # Detects the host's public (external) IP and updates the Cloudflare A record.
-# This provides a non-Tailscale fallback path — the *.mach.levonk.com records
+# This provides a non-Tailscale fallback path — the *.mach.<base> records
 # point to the public IP so services are reachable when Tailscale is down.
 # Runs in a loop inside the container.
 set -eu

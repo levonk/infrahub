@@ -24,8 +24,8 @@ nix_ncps_host_port: "{{ infra_port_nix_ncps_host | default('4524') }}"
 nix_ncps_container_port: "{{ infra_port_nix_ncps_container | default('8080') }}"
 
 # Domains (for Traefik routing)
-nix_ncps_domain_nl: "{{ infra_domain_nix_cache_nl | default('nixcache.nl.levonk.com') }}"
-nix_ncps_domain_cno: "{{ infra_domain_nix_cache_cno | default('nixcache.cno.levonk.com') }}"
+nix_ncps_domain_nl: "{{ infra_domain_nix_cache_nl | default('nixcache.nl.' ~ (infra_domain_base | default('example.com'))) }}"
+nix_ncps_domain_cno: "{{ infra_domain_nix_cache_cno | default('nixcache.cno.' ~ (infra_domain_base | default('example.com'))) }}"
 
 # Volumes — ncps uses /storage for data (database + cached NARs)
 nix_ncps_data_volume_nl: "{{ infra_storage_nix_ncps_data_volume | default('localnet-ncps-data-volume') }}"
@@ -62,7 +62,7 @@ nix_ncps_upstream_public_keys:
   - "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPSQZNGZfdL7Q="
   - "cache.garnix.io:CTFPyKSLcx5RMJKfLo5EEPUObbA78b0YQ2DTCJXqr3g="
   - "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CXHQrkxhLww6X236k="
-  - "{{ vault_nix_harmonia_public_key | default('nixcache.nl.levonk.com-1:6G59STN6BT8UeIjLG5gAksFvjp1BwjQYx/uerbSJCBM=') }}"
+  - "{{ vault_nix_harmonia_public_key | default('nixcache.nl.example.com-1:placeholder') }}"
 
 # nl: Network — join the traefik-windows network for Traefik routing
 nix_ncps_network_name_nl: "traefik-windows-network"
@@ -70,7 +70,7 @@ nix_ncps_network_name_nl: "traefik-windows-network"
 nix_ncps_network_name_cno: "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"
 
 # Docker host for Windows deployment (ssh-tunneled)
-nix_ncps_docker_host_windows: "ssh://ansible@{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.tale-grouper.ts.net') }}"
+nix_ncps_docker_host_windows: "ssh://ansible@{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) }}"
 
 # Healthcheck — MUST use string with unit suffix, NOT bare integers
 nix_ncps_healthcheck_interval: "30s"

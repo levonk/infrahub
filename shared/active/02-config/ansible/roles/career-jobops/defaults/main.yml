@@ -12,7 +12,7 @@ jobops_host_port: "{{ infra_port_career_jobops_host | default('3005') }}"
 jobops_container_port: "{{ infra_port_career_jobops_container | default('3001') }}"
 
 # Domain (reference infrastructure variables)
-jobops_domain: "{{ infra_domain_career_jobops | default('jobops.levonk.com') }}"
+jobops_domain: "{{ infra_domain_career_jobops | default('jobops.' ~ (infra_domain_base | default('example.com'))) }}"
 
 # Volumes
 jobops_data_volume: "{{ infra_storage_jobops_data_volume | default('localnet-jobops-data-volume') }}"
@@ -31,4 +31,4 @@ jobops_enabled: true
 # community.docker modules can't run directly on Windows (Ansible core basic.py
 # imports grp, Unix-only). We delegate_to: localhost and connect to the Windows
 # Docker daemon via ssh://. Requires SSH config entry for the Windows host.
-jobops_docker_host: "ssh://ansible@{{ windows_tailscale_hostname | default('dtop202311') }}.{{ infra_tailscale_tailnet | default('tale-grouper.ts.net') }}"
+jobops_docker_host: "ssh://ansible@{{ windows_tailscale_hostname | default('dtop202311') }}.{{ infra_tailscale_tailnet | default('example.ts.net') }}"

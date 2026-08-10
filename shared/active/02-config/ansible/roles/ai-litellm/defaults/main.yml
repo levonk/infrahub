@@ -2,7 +2,7 @@
 # LiteLLM AI Gateway default variables
 # LiteLLM is the entry point for the AI pipeline: auth, virtual keys, spend
 # tracking, PII guardrail (Presidio), Langfuse logging, provider routing.
-# Domain: aigate.levonk.com
+# Domain: aigate.<base>
 
 # Container configuration
 ai_litellm_container_name: litellm
@@ -31,8 +31,8 @@ ai_litellm_traefik_network_ip: "{{ infra_network_ip_litellm_traefik | default('1
 ai_litellm_localnet_network_name: "{{ localnet_network_name | default('cloud-server') }}"
 
 # Domain for Traefik routing
-ai_litellm_domain: "{{ infra_domain_ai_litellm | default('aigate.levonk.com') }}"
-ai_litellm_api_domain: "{{ infra_domain_ai_litellm_api | default('aigate-api.levonk.com') }}"
+ai_litellm_domain: "{{ infra_domain_ai_litellm | default('aigate.' ~ (infra_domain_base | default('example.com'))) }}"
+ai_litellm_api_domain: "{{ infra_domain_ai_litellm_api | default('aigate-api.' ~ (infra_domain_base | default('example.com'))) }}"
 
 # Upstream: Headroom (context compression) — LiteLLM routes to Headroom which routes to OmniRoute
 ai_litellm_upstream_url: "http://headroom:{{ infra_port_ai_headroom_container | default('8787') }}"
@@ -56,9 +56,9 @@ ai_litellm_otel_service_name: "litellm-gateway"
 ai_litellm_sso_enabled: false
 ai_litellm_oidc_client_id: "{{ vault_litellm_oidc_client_id | default('litellm') }}"
 ai_litellm_oidc_client_secret: "{{ vault_litellm_oidc_client_secret | default('') }}"
-ai_litellm_oidc_authorization_endpoint: "https://{{ infra_domain_sso_authelia | default('auth.levonk.com') }}/api/oidc/authorization"
-ai_litellm_oidc_token_endpoint: "https://{{ infra_domain_sso_authelia | default('auth.levonk.com') }}/api/oidc/token"
-ai_litellm_oidc_userinfo_endpoint: "https://{{ infra_domain_sso_authelia | default('auth.levonk.com') }}/api/oidc/userinfo"
+ai_litellm_oidc_authorization_endpoint: "https://{{ infra_domain_sso_authelia | default('auth.' ~ (infra_domain_base | default('example.com'))) }}/api/oidc/authorization"
+ai_litellm_oidc_token_endpoint: "https://{{ infra_domain_sso_authelia | default('auth.' ~ (infra_domain_base | default('example.com'))) }}/api/oidc/token"
+ai_litellm_oidc_userinfo_endpoint: "https://{{ infra_domain_sso_authelia | default('auth.' ~ (infra_domain_base | default('example.com'))) }}/api/oidc/userinfo"
 
 # Secrets (from vault)
 ai_litellm_master_key: "{{ vault_litellm_master_key | default('sk-changeme') }}"

@@ -86,7 +86,7 @@ proxy_envoy_internal_host_port: 3129
 proxy_envoy_admin_host_port: 9901
 
 # Traefik
-proxy_traefik_dashboard_host: "traefik.levonk.com"
+proxy_traefik_dashboard_host: "{{ infra_domain_traefik_dashboard | default('traefik.' ~ (infra_domain_base | default('example.com'))) }}"
 
 # ---------------------------------------------------------------------------
 # VPN Stack Variables

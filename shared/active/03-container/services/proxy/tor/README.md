@@ -74,7 +74,7 @@ make clean
 | `PROXY_TOR_ORPORT` | Tor ORPort for relay/exit | `9001` |
 | `PROXY_TOR_DIRPORT` | Tor DirPort for directory | `9030` |
 | `PROXY_TOR_NICKNAME` | Tor relay nickname | `levonk-tor-exit` |
-| `PROXY_TOR_CONTACT_INFO` | Contact information | `admin@levonk.com` |
+| `PROXY_TOR_CONTACT_INFO` | Contact information | `admin@example.com` |
 | `PROXY_TOR_EXIT_POLICY` | Exit policy for traffic | `reject *:*` |
 | `PROXY_TOR_BANDWIDTH_RATE` | Bandwidth rate limit | `100 KB` |
 | `PROXY_TOR_BANDWIDTH_BURST` | Bandwidth burst limit | `200 KB` |

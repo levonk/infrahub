@@ -48,14 +48,14 @@ Icons: 🏆 best · ✅ good · ➖ neutral · ⚠️ weak · ❌ worst.
 
 Deploy a **three-tool stack** on the OCI cloud server, each behind Traefik with the Authelia/CrowdSec/GeoBlock middleware chain:
 
-### 1. Homepage — `start.levonk.com`
+### 1. Homepage — `start.<base>`
 - **Role**: Primary startpage with rich service widgets and OIDC login via Authelia.
 - **Image**: `ghcr.io/gethomepage/homepage:latest`
 - **Discovery**: Docker label-based (`homepage.group`, `homepage.href`, `homepage.icon`, `homepage.widget.*`). Add labels to containers you want surfaced with live stats.
 - **Port**: Host `8084` → Container `3000`
 - **Config**: YAML files in a config volume (`services.yaml`, `settings.yaml`, `bookmarks.yaml`, `docker.yaml`, `kubernetes.yaml`).
 
-### 2. TraLa — `start2.levonk.com`
+### 2. TraLa — `start2.<base>`
 - **Role**: Live Traefik service catalog. Auto-discovers all HTTP routers from the Traefik API — zero per-service config.
 - **Image**: `ghcr.io/dannybouwers/trala:latest`
 - **Discovery**: Reads `TRAEFIK_API_HOST=http://traefik:8080` and fetches all HTTP routers. Services appear/disappear as Traefik routes them.
@@ -71,8 +71,8 @@ Deploy a **three-tool stack** on the OCI cloud server, each behind Traefik with 
 ```
                     ┌─────────────────────────────────────────┐
                     │           Cloudflare DNS                 │
-                    │  start.levonk.com  → 100.90.22.85       │
-                    │  start2.levonk.com → 100.90.22.85       │
+                    │  start.<base>  → 100.90.22.85       │
+                    │  start2.<base> → 100.90.22.85       │
                     └──────────────────┬──────────────────────┘
                                        │
                     ┌──────────────────▼──────────────────────┐
@@ -82,7 +82,7 @@ Deploy a **three-tool stack** on the OCI cloud server, each behind Traefik with 
                            │                   │
               ┌────────────▼──────┐  ┌─────────▼──────────┐
               │   Homepage:3000   │  │   TraLa:8080        │
-              │  start.levonk.com │  │  start2.levonk.com  │
+              │  start.<base> │  │  start2.<base>  │
               │                   │  │                     │
               │  Docker socket    │  │  TRAEFIK_API_HOST   │
               │  (label discovery)│  │  =http://traefik:8080│
@@ -90,8 +90,8 @@ Deploy a **three-tool stack** on the OCI cloud server, each behind Traefik with 
 ```
 
 ### Cross-linking
-- Homepage's `bookmarks.yaml` includes a link to `start2.levonk.com` (TraLa) for the live Traefik catalog.
-- TraLa's manual services include a link back to `start.levonk.com` (Homepage).
+- Homepage's `bookmarks.yaml` includes a link to `start2.<base>` (TraLa) for the live Traefik catalog.
+- TraLa's manual services include a link back to `start.<base>` (Homepage).
 
 ### Compass — Deferred
 Compass is **not** deployed now. Its Tailscale source discovery is a compelling differentiator for the multi-exit-node topology, but at 44 stars (May 2026) it carries early-adopter risk. Revisit in 3–6 months. If Tailscale-only services (not exposed to Traefik) become a real category, Compass earns its place and may replace TraLa.
@@ -108,7 +108,7 @@ Compass is **not** deployed now. Its Tailscale source discovery is a compelling 
 - **Two containers** to maintain instead of one. Two Traefik routes, two DNS records, two config volumes.
 - **Homepage** still requires per-container `homepage.*` Docker labels for services you want surfaced with widgets — not zero-config.
 - **TraLa** is a young project (v0.15.x, 2026) — small community, limited widget depth. If it goes unmaintained, the Traefik catalog breaks.
-- **Domain sprawl**: `start.levonk.com` + `start2.levonk.com` — not the cleanest naming, but functional.
+- **Domain sprawl**: `start.<base>` + `start2.<base>` — not the cleanest naming, but functional.
 
 ### Neutral
 - Glances (system monitor) is deferred to a future phase. It will be a per-host deployment, not a cloud-server service.
@@ -119,8 +119,8 @@ Compass is **not** deployed now. Its Tailscale source discovery is a compelling 
 ### Infrastructure Variables
 - `infra_port_dashboard_homepage_host: "8084"` / `infra_port_dashboard_homepage_container: "3000"`
 - `infra_port_dashboard_trala_host: "8085"` / `infra_port_dashboard_trala_container: "8080"`
-- `infra_domain_dashboard_homepage: "start.levonk.com"`
-- `infra_domain_dashboard_trala: "start2.levonk.com"`
+- `infra_domain_dashboard_homepage: "start.<base>"`
+- `infra_domain_dashboard_trala: "start2.<base>"`
 
 ### Traefik API Access (for TraLa)
 TraLa reads the Traefik API at `http://traefik:8080` on the `traefik-network`. The API is secured with **HTTP basic auth** (bcrypt-hashed password) on a dedicated `traefik-api` entrypoint:

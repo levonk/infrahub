@@ -11,7 +11,7 @@
 #              (community.docker modules can't run on Windows — Ansible core
 #              basic.py imports grp, Unix-only). Harmonia uses nix-sidecar volumes.
 #   Phase 2 (OCI cloud server): re-run proxy-traefik role with nix_ncps_enabled
-#            to deploy the cache-cno-levonk-com.yml dynamic config template
+#            to deploy the nixcache-cno.yml dynamic config template
 #            (gated on nix_ncps_enabled | bool)
 #
 # The nix-harmonia, nix-ncps, and nix-ncro roles dispatch to deploy-linux.yml or
@@ -20,14 +20,14 @@
 #
 # Architecture (ADR-20260708001):
 #   Harmonia (127.0.0.1:4523) — serves local /nix/store (read-only)
-#   ncps (4524, cache.{nl,cno}.levonk.com) — NAR caching proxy (front door)
+#   ncps (4524, nixcache.{nl,cno}.{{ infra_domain_base }}) — NAR caching proxy (front door)
 #   ncro (127.0.0.1:4525) — parallel racing proxy (behind ncps)
 #
 # Prerequisites:
 #   1. Traefik deployed on OCI: just levonk-deploy-infra
 #   2. Traefik deployed on Windows: just ansible-deploy-traefik-windows
 #   3. DNS CNAMEs configured: just levonk-deploy-dns
-#   4. SSH config entry for dtop202311.tale-grouper.ts.net
+#   4. SSH config entry for dtop202311.<tailnet>
 #   5. Container images built:
 #      - ncps: pulled from ghcr.io/kalbasit/ncps:v0.9.4 (multi-arch)
 #      - harmonia: built on each host via Nix flake (x86_64 on nl, aarch64 on cno)

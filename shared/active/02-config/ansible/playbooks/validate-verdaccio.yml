@@ -169,7 +169,7 @@
     # Traefik routing — run on OCI (cloud_servers) only, where Traefik lives.
     # The /-/ paths bypass Authelia so should return 200 directly.
     # =========================================================================
-    - name: "Check Traefik routing for npmjs.cno.levonk.com"
+    - name: "Check Traefik routing for npmjs.cno.{{ infra_domain_base | default('example.com') }}"
       ansible.builtin.uri:
         url: "https://{{ verdaccio_domain_cno }}/-/ping"
         method: GET
@@ -186,7 +186,7 @@
       when: "'cloud_servers' in group_names"
       tags: ["validate", "verdaccio", "traefik"]
 
-    - name: "Check Traefik routing for npmjs.nl.levonk.com"
+    - name: "Check Traefik routing for npmjs.nl.{{ infra_domain_base | default('example.com') }}"
       ansible.builtin.uri:
         url: "https://{{ verdaccio_domain_nl }}/-/ping"
         method: GET

@@ -8,7 +8,7 @@
 # Auth: HMAC bearer token (AGENTMEMORY_SECRET) generated on first boot, persisted to /data/.hmac
 #
 # Exposure:
-#   - Web viewer + REST API: proxied through Traefik with Authelia SSO (agentmemory.levonk.com)
+#   - Web viewer + REST API: proxied through Traefik with Authelia SSO (agentmemory.<base-domain>)
 #   - MCP direct access: Tailscale-only via host port 3111 (firewall blocks external)
 #
 # Ports (all via infrastructure variables — see levonk/active/02-config/ansible/infrastructure/ports.yml):

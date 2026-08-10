@@ -40,7 +40,7 @@ wazuh_manager_ip: "{{ infra_network_security_wazuh_manager_ip | default('172.25.
 wazuh_dashboard_ip: "{{ infra_network_security_wazuh_dashboard_ip | default('172.25.0.12') }}"
 
 # Domain (reference infrastructure variables)
-wazuh_domain: "{{ infra_domain_security_wazuh | default('wazuh.levonk.com') }}"
+wazuh_domain: "{{ infra_domain_security_wazuh | default('wazuh.' ~ (infra_domain_base | default('example.com'))) }}"
 
 # Volumes (reference infrastructure variables)
 wazuh_manager_api_config_volume: "{{ infra_storage_wazuh_manager_api_config_volume | default('wazuh-manager-api-config') }}"
@@ -87,7 +87,7 @@ wazuh_dashboard_healthcheck_start_period: "30s"
 # community.docker modules can't run directly on Windows (Ansible core basic.py
 # imports grp, Unix-only). We delegate_to: localhost and connect to the Windows
 # Docker daemon via ssh://. Requires SSH config entry for the Windows host.
-wazuh_docker_host: "ssh://ansible@{{ windows_tailscale_hostname | default('dtop202311') }}.{{ infra_tailscale_tailnet | default('tale-grouper.ts.net') }}"
+wazuh_docker_host: "ssh://ansible@{{ windows_tailscale_hostname | default('dtop202311') }}.{{ infra_tailscale_tailnet | default('example.ts.net') }}"
 
 # Traefik backend URL (for the dynamic config template — cross-machine routing via Tailscale)
-wazuh_traefik_backend_url: "http://{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.tale-grouper.ts.net') }}:{{ infra_port_security_wazuh_dashboard_host | default('5601') }}"
+wazuh_traefik_backend_url: "http://{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) }}:{{ infra_port_security_wazuh_dashboard_host | default('5601') }}"

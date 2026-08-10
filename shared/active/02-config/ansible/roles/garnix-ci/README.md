@@ -7,7 +7,7 @@ Ansible role that deploys **garnix-ci** — a Nix-based CI builder — as a Dock
 - **Shared nix store reuse** — mounts the shared nix-sidecar volumes (`/nix/store`, `/etc/nix`, `/root/.cache/nix`) so Nix builds reuse already-downloaded packages instead of re-downloading from `cache.nixos.org`.
 - **`/dev/kvm` passthrough** — passes `/dev/kvm` into the container for nested virtualization (NixOS VM builds). Uses `--device /dev/kvm` (not `--privileged`) for least-privilege access.
 - **Local cache chain** — Nix substituters point to the local cache chain (Harmonia + ncps) first, then fall back to `cache.nixos.org` and `cache.garnix.io`.
-- **Traefik routing** — joins the `traefik-windows-network` so the Windows Traefik instance routes `ci.nl.levonk.com` to the Web UI.
+- **Traefik routing** — joins the `traefik-windows-network` so the Windows Traefik instance routes `{{ infra_domain_garnix_ci_nl }}` to the Web UI.
 
 ## Prerequisites
 
@@ -30,7 +30,7 @@ The shared nix-sidecar volumes (`localnet-base-nix-store-volume`, `localnet-base
 | `garnix_ci_web_container_port` | `3000` | `infra_port_garnix_ci_web_container` |
 | `garnix_ci_api_host_port` | `4527` | `infra_port_garnix_ci_api_host` |
 | `garnix_ci_api_container_port` | `8080` | `infra_port_garnix_ci_api_container` |
-| `garnix_ci_domain` | `ci.nl.levonk.com` | `infra_domain_garnix_ci_nl` |
+| `garnix_ci_domain` | `{{ infra_domain_garnix_ci_nl }}` | `infra_domain_garnix_ci_nl` |
 | `garnix_ci_network_name` | `traefik-windows-network` | — |
 | `garnix_ci_nix_store_volume` | `localnet-base-nix-store-volume` | `infra_storage_nix_shared_store_volume` |
 | `garnix_ci_nix_config_volume` | `localnet-base-nix-config-volume` | `infra_storage_nix_shared_config_volume` |
@@ -38,7 +38,7 @@ The shared nix-sidecar volumes (`localnet-base-nix-store-volume`, `localnet-base
 | `garnix_ci_work_volume` | `localnet-garnix-ci-work-volume` | `infra_storage_garnix_ci_work_volume` |
 | `garnix_ci_config_volume` | `localnet-garnix-ci-config-volume` | `infra_storage_garnix_ci_config_volume` |
 | `garnix_ci_kvm_device` | `/dev/kvm` | — |
-| `garnix_ci_docker_host_windows` | `ssh://ansible@dtop202311.tale-grouper.ts.net` | `infra_tailscale_fqdn_windows_docker` |
+| `garnix_ci_docker_host_windows` | `ssh://ansible@dtop202311.<tailnet>` | `infra_tailscale_fqdn_windows_docker` |
 
 All IPs, ports, domains, and volume names reference `infra_*` infrastructure variables — no hardcoding.
 

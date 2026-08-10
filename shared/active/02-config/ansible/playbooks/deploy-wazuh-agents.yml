@@ -146,5 +146,5 @@
         msg: >-
           Wazuh agent '{{ wazuh_agent_name | default(ansible_hostname) }}' deployed
           and should be connecting to manager at
-          {{ wazuh_agent_manager_address | default(infra_tailscale_fqdn_windows_docker | default('dtop202311.tale-grouper.ts.net')) }}
+          {{ wazuh_agent_manager_address | default(infra_tailscale_fqdn_windows_docker | default('dtop202311.' ~ (infra_tailscale_tailnet | default('example.ts.net')))) }}
       tags: ["validate", "wazuh-agent"]

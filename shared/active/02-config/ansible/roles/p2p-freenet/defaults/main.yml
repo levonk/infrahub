@@ -40,7 +40,7 @@ p2p_freenet_volume_name: "{{ infra_storage_freenet_data_volume | default('localn
 # community.docker modules break on Windows; we delegate_to: localhost and
 # set DOCKER_HOST to ssh:// so the system SSH client handles auth.
 # ---------------------------------------------------------------------------
-p2p_freenet_docker_host: "ssh://ansible@{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.tale-grouper.ts.net') }}"
+p2p_freenet_docker_host: "ssh://ansible@{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) }}"
 
 # ---------------------------------------------------------------------------
 # Freenet node configuration

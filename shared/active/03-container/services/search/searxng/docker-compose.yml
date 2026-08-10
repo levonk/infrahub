@@ -60,11 +60,11 @@ services:
       # Traefik labels for automatic routing with security middleware chain
       - "traefik.enable=true"
       # HTTP router (redirects to HTTPS)
-      - "traefik.http.routers.searxng-http.rule=Host(`search.levonk.com`)"
+      - "traefik.http.routers.searxng-http.rule=Host(`search.example.com`)"
       - "traefik.http.routers.searxng-http.entryPoints=web"
       - "traefik.http.routers.searxng-http.middlewares=redirect-to-https"
       # HTTPS router with security middleware chain
-      - "traefik.http.routers.searxng-https.rule=Host(`search.levonk.com`)"
+      - "traefik.http.routers.searxng-https.rule=Host(`search.example.com`)"
       - "traefik.http.routers.searxng-https.entryPoints=websecure"
       - "traefik.http.routers.searxng-https.middlewares=geoblock,crowdsec-bouncer,authelia"
       - "traefik.http.routers.searxng-https.tls=true"

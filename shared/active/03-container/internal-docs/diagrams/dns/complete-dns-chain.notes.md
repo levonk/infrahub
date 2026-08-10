@@ -17,13 +17,13 @@
 
 6. **Added Tailscale trust boundary** — internal queries (Tailscale MagicDNS, local zones) bypass the fallback chain entirely. WireGuard encrypts the transport, so no encryption stack is needed for internal queries. Only external queries (leaving Tailscale) go through the full security chain.
 
-7. **Added multi-host topology note** — keepalived VIP applies only within the local LAN cluster (Windows host + Raspberry Pi on `nl.levonk.com`). VRRP needs L2 multicast, which does not cross Tailscale. The cloud host (OCI on `cno.levonk.com`) is a standalone cluster. See `requirements/dns/cross-cluster-dns-failover.md`.
+7. **Added multi-host topology note** — keepalived VIP applies only within the local LAN cluster (Windows host + Raspberry Pi on `nl.<base>`). VRRP needs L2 multicast, which does not cross Tailscale. The cloud host (OCI on `cno.<base>`) is a standalone cluster. See `requirements/dns/cross-cluster-dns-failover.md`.
 
 8. **Marked tiers as ACTIVE or DARK** — active tiers (1, 2, 3, 10) are running containers. Dark tiers (4–9, 11–12) are documented, config-ready, but not running by default. Dark tiers are greyed out in the diagram.
 
 9. **Added DNSSEC trust level annotation per tier** — each tier's node label documents where DNSSEC validation happens (upstream, natively by Unbound, or not at all for plaintext tiers).
 
-10. **Added cross-cluster failover subgraph** — shows the local cluster (nl.levonk.com LAN with keepalived VIP) and cloud cluster (cno.levonk.com OCI standalone), with the fallback path via direct Tailscale IPs (not hostname, since you can't use DNS to fix DNS). Documents the constraint that cno has no blanket LAN access — only DNS port exposed via Tailscale.
+10. **Added cross-cluster failover subgraph** — shows the local cluster (nl.<base> LAN with keepalived VIP) and cloud cluster (cno.<base> OCI standalone), with the fallback path via direct Tailscale IPs (not hostname, since you can't use DNS to fix DNS). Documents the constraint that cno has no blanket LAN access — only DNS port exposed via Tailscale.
 
 ## IP Allocation
 

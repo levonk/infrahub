@@ -425,7 +425,7 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] ClaudCode
     - [ ] Caludit plugin to audit how much garbage is in claude.md
   - [ ] **Vibe Kanban / Auto-Claude rollout checklist**
-    - [x] Hostname: `kanban.levonk.com`, Traefik router with Authelia + geoblock (LAN-only) — confirmed 2025-12-19.
+    - [x] Hostname: `kanban.<base>`, Traefik router with Authelia + geoblock (LAN-only) — confirmed 2025-12-19.
     - [x] Runtime shape: Vibe Kanban container (Node + pnpm) per `services/ai-codeassist/vibe-kanban/`, Linux uses Sysbox+DIND, WSL uses dockerproxy; `/p` repo mount required.
       - [ ] Alternative https://github.com/BradGroux/veritas-kanban
     - [x] Opencode agent: runs as a separate container (`services/ai-codeassist/opencode-runner/`) to allow multiple instances per project; expose control API to Kanban.
@@ -435,10 +435,10 @@ _Goal: Privacy, Resilience, Ad-blocking_
       - `AUTOCLAUDE_OPENAI_API_KEY` (or equivalent provider key if using OpenCode/GPT-based automations).
       - `KANBAN_SESSION_SECRET`, `KANBAN_AUTH_PASSWORD` (bootstrap admin for Vibe Kanban UI).
       - `OPENCODE_GITHUB_TOKEN` (repo automation), optional `GIT_SSH_PRIVATE_KEY` for multi-repo mounts.
-      - `AUTHELIA_POLICY` update granting `kanban.levonk.com`.
+      - `AUTHELIA_POLICY` update granting `kanban.<base>`.
     - [ ] Tasks:
       - Add compose fragments (base/linux/wsl) for Vibe Kanban + Opencode with Traefik labels and healthchecks.
-      - Update Traefik `dynamic.yml` with `kanban.levonk.com` router/service and Authelia middleware link.
+      - Update Traefik `dynamic.yml` with `kanban.<base>` router/service and Authelia middleware link.
       - Extend `.env.localnet` / `env.template` with new env vars above (flag sensitive).
       - Write smoke test doc covering agent launch via Vibe Kanban -> Opencode -> Auto-Claude pipeline.
 - [ ] **Database Tools**:

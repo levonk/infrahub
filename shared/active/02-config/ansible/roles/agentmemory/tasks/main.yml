@@ -91,7 +91,7 @@
       # The viewer is a bearer-authenticated proxy to the REST API; non-loopback
       # bind requires AGENTMEMORY_SECRET (set above) + VIEWER_ALLOWED_HOSTS.
       AGENTMEMORY_VIEWER_HOST: "0.0.0.0"
-      VIEWER_ALLOWED_HOSTS: "{{ agentmemory_domain | default('agentmemory.levonk.com') }}"
+      VIEWER_ALLOWED_HOSTS: "{{ agentmemory_domain | default('agentmemory.' ~ (infra_domain_base | default('example.com'))) }}"
       TZ: "{{ localnet_tz | default('UTC') }}"
     log_driver: json-file
     log_options:

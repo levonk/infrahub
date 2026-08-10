@@ -946,9 +946,9 @@ def main():
         md_parts.append("| Machine | Tailscale FQDN | Arch | SSH Key | Ansible User | DDNS | Description |")
         md_parts.append("|---------|----------------|------|---------|--------------|------|-------------|")
         for mkey, meta in MACHINES.items():
-            ddns = f"{mkey.replace('-cloud-server','')}.mach.levonk.com" if mkey != "isolation-vm" else "—"
+            ddns = f"{mkey.replace('-cloud-server','')}.mach.{all_vars.get('infra_domain_base', 'example.com')}" if mkey != "isolation-vm" else "—"
             if mkey == "oci-cloud-server":
-                ddns = "oci.mach.levonk.com"
+                ddns = f"oci.mach.{all_vars.get('infra_domain_base', 'example.com')}"
             arch = meta.get("arch", "—")
             ssh_key = meta.get("ssh_key", "—")
             ansible_user = meta.get("ansible_user", "—")

@@ -29,7 +29,7 @@
       - "--entrypoints.health.address=:8882"
       - "--ping=true"
       - "--ping.entrypoint=health"
-      - "--certificatesresolvers.le.acme.email=letsencrypt@levonk.com"
+      - "--certificatesresolvers.le.acme.email=letsencrypt@example.com"
       - "--certificatesresolvers.le.acme.storage=./acme/acme.json"
       - "--certificatesresolvers.le.acme.tlschallenge=true"
       - "--accesslog=true"

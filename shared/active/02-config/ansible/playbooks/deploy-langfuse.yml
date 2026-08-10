@@ -35,9 +35,9 @@
     cloudflare_dns_validate_ip: true
     cloudflare_dns_allow_private_ip: false
     cloudflare_dns_records:
-      - name: "{{ infra_domain_ai_langfuse | default('langfuse.levonk.com') }}"
+      - name: "{{ infra_domain_ai_langfuse | default('langfuse.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
-        content: "{{ infra_tailscale_fqdn_cloud_server | default('oci.tale-grouper.ts.net') }}"
+        content: "{{ infra_tailscale_fqdn_cloud_server | default('oci.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) }}"
         ttl: "{{ cloudflare_dns_ttl }}"
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
@@ -308,11 +308,11 @@
           AI Dashboard Proxy 1 → (forwards traces) → langfuse-web ingestion API
           ----------------------------------------
           Public Access:
-          - Web UI: https://{{ infra_domain_ai_langfuse | default('langfuse.levonk.com') }}
+          - Web UI: https://{{ infra_domain_ai_langfuse | default('langfuse.' ~ (infra_domain_base | default('example.com'))) }}
           ----------------------------------------
           Next Steps:
           1. Verify containers: docker ps | grep langfuse
-          2. Open web UI: https://{{ infra_domain_ai_langfuse | default('langfuse.levonk.com') }}
+          2. Open web UI: https://{{ infra_domain_ai_langfuse | default('langfuse.' ~ (infra_domain_base | default('example.com'))) }}
           3. Create org/project via UI (or set LANGFUSE_INIT_* vault vars for headless init)
           4. Wire AI Dashboard Proxy 1 to forward traces to http://langfuse-web:3000
           ========================================

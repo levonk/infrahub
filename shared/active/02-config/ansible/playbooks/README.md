@@ -220,8 +220,8 @@ Deploys the Nix cache chain (Harmonia + ncps + ncro) and garnix-ci CI builder on
 **Architecture (ADR-20260708001):**
 - **Harmonia** (`127.0.0.1:4523`) — serves local `/nix/store` read-only (sub-millisecond hits)
 - **ncro** (`127.0.0.1:4525`) — parallel racing proxy, races all upstream caches in parallel
-- **ncps** (`cache.nl.levonk.com:4524`) — NAR caching proxy, front door for Nix clients
-- **garnix-ci** (`ci.nl.levonk.com:4526/4527`) — Nix CI builder with `/dev/kvm` + shared nix store
+- **ncps** (`nixcache.nl.<base>:4524`) — NAR caching proxy, front door for Nix clients
+- **garnix-ci** (`ci.nl.<base>:4526/4527`) — Nix CI builder with `/dev/kvm` + shared nix store
 
 **Usage:**
 ```bash
@@ -239,7 +239,7 @@ just ansible-deploy-garnix-ci
 
 **Prerequisites:**
 - nix-sidecar running on dtop202311 (manages the shared `/nix/store`)
-- Traefik Windows deployed (routes `cache.nl.levonk.com` and `ci.nl.levonk.com`)
+- Traefik Windows deployed (routes `nixcache.nl.<base>` and `ci.nl.<base>`)
 - WSL2 KVM enabled (for garnix-ci `/dev/kvm`): `just ansible-enable-wsl2-kvm`
 - DNS CNAMEs configured: `just ansible-deploy-dns`
 - Container images built and available on the Windows Docker host

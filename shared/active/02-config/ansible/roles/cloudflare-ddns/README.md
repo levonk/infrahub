@@ -8,8 +8,8 @@ This role provides a **non-Tailscale fallback path** for DNS resolution. The inf
 
 | Layer | Record type | Target | Purpose |
 |-------|------------|--------|---------|
-| `*.levonk.com` | CNAME | `*.tale-grouper.ts.net` (Tailscale FQDN) | Primary access via Tailscale |
-| `*.mach.levonk.com` | A | Public IP (auto-updated by this role) | Fallback when Tailscale DNS is down |
+| `*.<base>` | CNAME | `*.<tailnet>` (Tailscale FQDN) | Primary access via Tailscale |
+| `*.mach.<base>` | A | Public IP (auto-updated by this role) | Fallback when Tailscale DNS is down |
 
 The CNAME layer handles Tailscale access. This DDNS role handles the fallback layer — it tracks the host's public IP so services remain reachable even when Tailscale MagicDNS is unavailable.
 
@@ -64,7 +64,7 @@ cloudflare_ddns_log_max_file: "3"
 
 ```yaml
 # Record name is built from hostname + mach subdomain + base domain
-cloudflare_ddns_record_name: "{{ cloudflare_ddns_hostname }}.mach.{{ infra_domain_base | default('levonk.com') }}"
+cloudflare_ddns_record_name: "{{ cloudflare_ddns_hostname }}.mach.{{ infra_domain_base | default('example.com') }}"
 ```
 
 ## Example Playbook
@@ -99,12 +99,12 @@ ansible-playbook \
 3. Verify the record was created:
 
 ```bash
-dig +short <hostname>.mach.levonk.com A
+dig +short <hostname>.mach.<base> A
 ```
 
 ## Clients Using This Feature
 
-- **levonk**: hosts `oci` (`oci.mach.levonk.com`) and `kckinai` (`kckinai.mach.levonk.com`)
+- **levonk**: hosts `oci` (`oci.mach.<base>`) and `kckinai` (`kckinai.mach.<base>`)
 
 ## Security Considerations
 

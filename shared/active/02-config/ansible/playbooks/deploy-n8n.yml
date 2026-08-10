@@ -5,7 +5,7 @@
 # server behind Traefik + Authelia.
 #
 # Stack: n8n (web UI + API) + postgres (database) + prometheus (metrics) + grafana (dashboards)
-# Domains: n8n.levonk.com (app), n8n-grafana.levonk.com (dashboards)
+# Domains: n8n app + Grafana dashboards (both behind Traefik + Authelia)
 #
 # Usage:
 #   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
@@ -20,6 +20,8 @@
   gather_facts: false
   become: false
   vars_files:
+    - "{{ playbook_dir }}/../infrastructure/domains.yml"
+    - "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/domains.yml"
     - "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/inventories/group_vars/infrahub-levonk-all.vault.yml"
   vars:
     cloudflare_api_token: "{{ vault_cloudflare_api_token | default('') }}"
@@ -31,15 +33,15 @@
     cloudflare_dns_verify_propagation: false
     cloudflare_dns_validate_ip: true
     cloudflare_dns_allow_private_ip: false
-    ts_fqdn: "{{ infra_tailscale_fqdn_cloud_server | default('oci.tale-grouper.ts.net') }}"
+    ts_fqdn: "{{ infra_tailscale_fqdn_cloud_server | default(infra_tailscale_tailnet | default('example.ts.net')) }}"
     cloudflare_dns_records:
-      - name: "{{ infra_domain_ai_n8n | default('n8n.levonk.com') }}"
+      - name: "{{ infra_domain_ai_n8n | default('n8n.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
         content: "{{ ts_fqdn }}"
         ttl: "{{ cloudflare_dns_ttl }}"
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
-      - name: "{{ infra_domain_ai_n8n_grafana | default('n8n-grafana.levonk.com') }}"
+      - name: "{{ infra_domain_ai_n8n_grafana | default('n8n-grafana.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
         content: "{{ ts_fqdn }}"
         ttl: "{{ cloudflare_dns_ttl }}"
@@ -83,8 +85,8 @@
           ========================================
           Deploying n8n Workflow Automation
           ========================================
-          App domain:      {{ infra_domain_ai_n8n | default('n8n.levonk.com') }}
-          Grafana domain:  {{ infra_domain_ai_n8n_grafana | default('n8n-grafana.levonk.com') }}
+          App domain:      {{ infra_domain_ai_n8n }}
+          Grafana domain:  {{ infra_domain_ai_n8n_grafana }}
           App port:        {{ infra_port_ai_n8n_host | default('3106') }} → {{ infra_port_ai_n8n_container | default('5678') }}
           Postgres port:   {{ infra_port_ai_n8n_postgres_host | default('5438') }} → {{ infra_port_ai_n8n_postgres_container | default('5432') }}
           Prometheus port: {{ infra_port_ai_n8n_prometheus_host | default('3107') }} → {{ infra_port_ai_n8n_prometheus_container | default('9090') }}
@@ -124,11 +126,16 @@
         - storage.yml
       tags: ["always"]
 
+    - name: "Load proxy-traefik role defaults (for domain variable mappings)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../roles/proxy-traefik/defaults/main.yml"
+      tags: ["always"]
+
   tasks:
     - name: "Deploy n8n Traefik dynamic configuration"
       ansible.builtin.template:
-        src: "{{ playbook_dir }}/../roles/proxy-traefik/templates/dynamic/n8n-levonk-com.yml.j2"
-        dest: "{{ proxy_traefik_data_dir | default('/opt/traefik') }}/config/dynamic/n8n-levonk-com.yml"
+        src: "{{ playbook_dir }}/../roles/proxy-traefik/templates/dynamic/n8n.yml.j2"
+        dest: "{{ proxy_traefik_data_dir | default('/opt/traefik') }}/config/dynamic/n8n.yml"
         owner: root
         group: root
         mode: "0644"
@@ -138,8 +145,8 @@
 
     - name: "Deploy n8n Grafana Traefik dynamic configuration"
       ansible.builtin.template:
-        src: "{{ playbook_dir }}/../roles/proxy-traefik/templates/dynamic/n8n-grafana-levonk-com.yml.j2"
-        dest: "{{ proxy_traefik_data_dir | default('/opt/traefik') }}/config/dynamic/n8n-grafana-levonk-com.yml"
+        src: "{{ playbook_dir }}/../roles/proxy-traefik/templates/dynamic/n8n-grafana.yml.j2"
+        dest: "{{ proxy_traefik_data_dir | default('/opt/traefik') }}/config/dynamic/n8n-grafana.yml"
         owner: root
         group: root
         mode: "0644"

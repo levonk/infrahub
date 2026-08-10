@@ -80,12 +80,12 @@ services:
       - localnet
     environment:
       - OLLAMA_BASE_URL=http://ollama:${AI_OLLAMA_CONTAINER_PORT:-11434}
-      - WEBUI_URL=https://${AI_SERVICES_OPENWEBUI_HOST_NAME:-openwebui.levonk.com}/
+      - WEBUI_URL=https://${AI_SERVICES_OPENWEBUI_HOST_NAME:-openwebui.example.com}/
       - ENABLE_OAUTH_SIGNUP=true
       - OAUTH_MERGE_ACCOUNTS_BY_EMAIL=true
       - OAUTH_CLIENT_ID=open-webui
       - OAUTH_CLIENT_SECRET=${AI_SERVICES_OPENWEBUI_CLIENT_SECRET:-changeme} # Corresponds to 'client_secret' in configuration.yml
-      - OPENID_PROVIDER_URL=https://${LOCALNET_AUTH_HOSTNAME:-auth.levonk.com}/.well-known/openid-configuration
+      - OPENID_PROVIDER_URL=https://${LOCALNET_AUTH_HOSTNAME:-auth.example.com}/.well-known/openid-configuration
       - OAUTH_PROVIDER_NAME=${LOCALNET_AUTH_PROVIDER_NAME:-Authelia}
       - OAUTH_SCOPES=openid email profile groups
       - ENABLE_OAUTH_ROLE_MANAGEMENT=true
@@ -105,7 +105,7 @@ services:
     profiles: ["all"]
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.open-webui.rule=Host(`${AI_SERVICES_OPENWEBUI_HOST_NAME:-openwebui.levonk.com}`)"
+      - "traefik.http.routers.open-webui.rule=Host(`${AI_SERVICES_OPENWEBUI_HOST_NAME:-openwebui.example.com}`)"
       - "traefik.http.routers.open-webui.entryPoints=websecure"
       - "traefik.http.routers.open-webui.tls.certresolver=le"
       - "traefik.http.routers.open-webui.tls=true"
@@ -290,11 +290,11 @@ services:
       # Traefik labels for automatic routing with security middleware chain
       - "traefik.enable=true"
       # HTTP router (redirects to HTTPS)
-      - "traefik.http.routers.omniroute-http.rule=Host(`ai-gateway.levonk.com`)"
+      - "traefik.http.routers.omniroute-http.rule=Host(`airoute.example.com`)"
       - "traefik.http.routers.omniroute-http.entryPoints=web"
       - "traefik.http.routers.omniroute-http.middlewares=redirect-to-https"
       # HTTPS router with security middleware chain
-      - "traefik.http.routers.omniroute-https.rule=Host(`ai-gateway.levonk.com`)"
+      - "traefik.http.routers.omniroute-https.rule=Host(`airoute.example.com`)"
       - "traefik.http.routers.omniroute-https.entryPoints=websecure"
       - "traefik.http.routers.omniroute-https.middlewares=geoblock,crowdsec-bouncer,authelia"
       - "traefik.http.routers.omniroute-https.tls=true"

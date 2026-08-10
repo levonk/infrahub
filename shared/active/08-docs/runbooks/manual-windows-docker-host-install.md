@@ -5,7 +5,7 @@
 > Tailscale, configure the host, deploy containers).
 >
 > **Target machine**: `dtop202311` (Windows desktop running Docker Desktop)
-> **Tailscale name**: `dtop202311.tale-grouper.ts.net`
+> **Tailscale name**: `dtop202311.<tailnet>`
 > **Ansible user**: `ansible` (dedicated service account)
 >
 > **Location**: `shared/active/08-docs/runbooks/` — generic instructions,
@@ -141,7 +141,7 @@ Or if you can't SSH yet (no admin SSH key set up), copy the key manually:
 ssh ansible@<windows-ip>
 
 # If using Tailscale (after the machine is on the Tailnet):
-ssh ansible@dtop202311.tale-grouper.ts.net
+ssh ansible@dtop202311.<tailnet>
 ```
 
 If this works, you're done with manual setup. Ansible takes over from here.
@@ -211,7 +211,7 @@ That's it — the new machine is back to the same state.
 ### SSH connection refused
 - Check `Get-Service sshd` shows Running status
 - Check firewall: `Get-NetFirewallRule -Name sshd | Select Enabled`
-- Check the machine is reachable: `ping dtop202311.tale-grouper.ts.net`
+- Check the machine is reachable: `ping dtop202311.<tailnet>`
 
 ### Python not found by Ansible
 - Check the path in `ansible_python_interpreter` matches the installed version

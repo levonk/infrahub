@@ -20,7 +20,7 @@ garnix_ci_api_host_port: "{{ infra_port_garnix_ci_api_host | default('4527') }}"
 garnix_ci_api_container_port: "{{ infra_port_garnix_ci_api_container | default('8080') }}"
 
 # Domain (for Traefik routing)
-garnix_ci_domain: "{{ infra_domain_garnix_ci_nl | default('ci.nl.levonk.com') }}"
+garnix_ci_domain: "{{ infra_domain_garnix_ci_nl | default('ci.nl.' ~ (infra_domain_base | default('example.com'))) }}"
 
 # Volumes — reuse shared nix-sidecar volumes for maximum cache reuse
 garnix_ci_nix_store_volume: "{{ infra_storage_nix_shared_store_volume | default('localnet-base-nix-store-volume') }}"
@@ -33,7 +33,7 @@ garnix_ci_config_volume: "{{ infra_storage_garnix_ci_config_volume | default('lo
 garnix_ci_network_name: "traefik-windows-network"
 
 # Docker host for Windows deployment (ssh-tunneled)
-garnix_ci_docker_host_windows: "ssh://ansible@{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.tale-grouper.ts.net') }}"
+garnix_ci_docker_host_windows: "ssh://ansible@{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) }}"
 
 # Local temp directory for rendering config files
 garnix_ci_windows_temp_dir: "/tmp/garnix-ci-config-{{ inventory_hostname }}"

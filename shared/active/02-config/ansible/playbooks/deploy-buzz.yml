@@ -75,7 +75,7 @@
       ansible.builtin.debug:
         msg: |
           Buzz deployment complete on {{ inventory_hostname }}:
-            - Domain: https://{{ infra_domain_ai_buzz | default('buzz.levonk.com') }}
-            - Relay URL: wss://{{ infra_domain_ai_buzz | default('buzz.levonk.com') }}
+            - Domain: https://{{ infra_domain_ai_buzz | default('buzz.' ~ (infra_domain_base | default('example.com'))) }}
+            - Relay URL: wss://{{ infra_domain_ai_buzz | default('buzz.' ~ (infra_domain_base | default('example.com'))) }}
             - Health: http://localhost:{{ infra_port_ai_buzz_health_host | default('3102') }}/_liveness
       tags: ["always", "info"]

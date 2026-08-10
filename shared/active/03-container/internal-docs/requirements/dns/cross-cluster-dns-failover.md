@@ -10,18 +10,18 @@ The DNS stack runs on two clusters:
 
 | Cluster | Location | Hosts | keepalived | Access |
 |---------|----------|-------|------------|--------|
-| **Local** | nl.levonk.com (LAN) | Windows host + Raspberry Pi | Yes — VIP floats between them | LAN clients use VIP |
-| **Cloud** | cno.levonk.com (OCI) | OCI machine (single host) | No — single host | Tailscale clients use OCI Tailscale IP |
+| **Local** | nl.<base> (LAN) | Windows host + Raspberry Pi | Yes — VIP floats between them | LAN clients use VIP |
+| **Cloud** | cno.<base> (OCI) | OCI machine (single host) | No — single host | Tailscale clients use OCI Tailscale IP |
 
 If the **cloud cluster's DNS stack fails**, Oracle nodes on OCI need a
-fallback DNS resolver. They cannot use `dns.levonk.com` to find one —
+fallback DNS resolver. They cannot use `dns.<base>` to find one —
 **you can't use DNS to fix DNS.** The fallback must be configured as
 hardcoded IP addresses.
 
 ## Constraint
 
-**cno.levonk.com (OCI) must NOT have blanket access to the nl.levonk.com LAN.**
-nl.levonk.com advertises specific services to cno.levonk.com — it does not
+**cno.<base> (OCI) must NOT have blanket access to the nl.<base> LAN.**
+nl.<base> advertises specific services to cno.<base> — it does not
 expose the entire LAN subnet. This rules out full Tailscale subnet routing
 (`--advertise-routes=192.168.x.0/24`).
 
@@ -47,7 +47,7 @@ nameserver 100.x.x.11    # Raspberry Pi DNS (fallback 2)
 - No DNS lookup needed to find the fallback servers — they're literal IPs
 - Only DNS port (53 or 5353) needs to be reachable via Tailscale
 
-**What nl.levonk.com exposes to cno.levonk.com:**
+**What nl.<base> exposes to cno.<base>:**
 - Nothing new. Tailscale already allows node-to-node connectivity.
 - The Windows host and Pi must run the DNS stack and listen on their
   Tailscale IPs (or on all interfaces, with the DNS port reachable
@@ -81,7 +81,7 @@ Oracle nodes (with `accept_routes: true`, which they already have) can
 then reach the LAN VIP. keepalived failover between Windows/Pi works
 transparently — Oracle nodes just point to the VIP.
 
-**What nl.levonk.com exposes to cno.levonk.com:**
+**What nl.<base> exposes to cno.<base>:**
 - Only the DNS VIP IP — not the rest of the LAN
 - More surgical than full subnet routing, but still a route into the LAN
 
@@ -109,10 +109,10 @@ more reliable for this use case.
 ### Option 3: Full subnet routing (rejected)
 
 Advertising the entire LAN subnet (`192.168.x.0/24`) via Tailscale would
-give Oracle nodes access to every device on the nl.levonk.com LAN.
+give Oracle nodes access to every device on the nl.<base> LAN.
 
-**Rejected because:** violates the constraint that cno.levonk.com must not
-have blanket access to nl.levonk.com outside of advertised services.
+**Rejected because:** violates the constraint that cno.<base> must not
+have blanket access to nl.<base> outside of advertised services.
 
 ## Recommendation
 

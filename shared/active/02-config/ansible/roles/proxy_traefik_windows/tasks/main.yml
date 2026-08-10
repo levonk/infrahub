@@ -59,8 +59,8 @@
 
 - name: Render Verdaccio (nl) dynamic config locally
   ansible.builtin.template:
-    src: dynamic/npmjs-nl-levonk-com.yml.j2
-    dest: "{{ proxy_traefik_windows_temp_dir }}/dynamic/npmjs-nl-levonk-com.yml"
+    src: dynamic/npmjs-nl.yml.j2
+    dest: "{{ proxy_traefik_windows_temp_dir }}/dynamic/npmjs-nl.yml"
     mode: "0644"
   delegate_to: localhost
   run_once: true
@@ -70,8 +70,8 @@
 
 - name: Render Homepage (nl) dynamic config locally
   ansible.builtin.template:
-    src: dynamic/start-nl-levonk-com.yml.j2
-    dest: "{{ proxy_traefik_windows_temp_dir }}/dynamic/start-nl-levonk-com.yml"
+    src: dynamic/start-nl.yml.j2
+    dest: "{{ proxy_traefik_windows_temp_dir }}/dynamic/start-nl.yml"
     mode: "0644"
   delegate_to: localhost
   run_once: true
@@ -81,8 +81,8 @@
 
 - name: Render TraLa (nl) dynamic config locally
   ansible.builtin.template:
-    src: dynamic/start2-nl-levonk-com.yml.j2
-    dest: "{{ proxy_traefik_windows_temp_dir }}/dynamic/start2-nl-levonk-com.yml"
+    src: dynamic/start2-nl.yml.j2
+    dest: "{{ proxy_traefik_windows_temp_dir }}/dynamic/start2-nl.yml"
     mode: "0644"
   delegate_to: localhost
   run_once: true
@@ -92,8 +92,8 @@
 
 - name: Render ncps Nix Cache (nl) dynamic config locally
   ansible.builtin.template:
-    src: dynamic/nixcache-nl-levonk-com.yml.j2
-    dest: "{{ proxy_traefik_windows_temp_dir }}/dynamic/nixcache-nl-levonk-com.yml"
+    src: dynamic/nixcache-nl.yml.j2
+    dest: "{{ proxy_traefik_windows_temp_dir }}/dynamic/nixcache-nl.yml"
     mode: "0644"
   delegate_to: localhost
   run_once: true
@@ -103,8 +103,8 @@
 
 - name: Render Garnix CI (nl) dynamic config locally
   ansible.builtin.template:
-    src: dynamic/ci-nl-levonk-com.yml.j2
-    dest: "{{ proxy_traefik_windows_temp_dir }}/dynamic/ci-nl-levonk-com.yml"
+    src: dynamic/ci-nl.yml.j2
+    dest: "{{ proxy_traefik_windows_temp_dir }}/dynamic/ci-nl.yml"
     mode: "0644"
   delegate_to: localhost
   run_once: true
@@ -114,13 +114,24 @@
 
 - name: Render Directory Empire (nl) dynamic config locally
   ansible.builtin.template:
-    src: dynamic/de-nl-levonk-com.yml.j2
-    dest: "{{ proxy_traefik_windows_temp_dir }}/dynamic/de-nl-levonk-com.yml"
+    src: dynamic/de-nl.yml.j2
+    dest: "{{ proxy_traefik_windows_temp_dir }}/dynamic/de-nl.yml"
     mode: "0644"
   delegate_to: localhost
   run_once: true
   changed_when: false
   when: proxy_traefik_windows_directory_empire_enabled | bool
+  tags: ["deploy", "config"]
+
+- name: Render DNSDist dynamic config locally
+  ansible.builtin.template:
+    src: dynamic/dnsdist.yml.j2
+    dest: "{{ proxy_traefik_windows_temp_dir }}/dynamic/dnsdist.yml"
+    mode: "0644"
+  delegate_to: localhost
+  run_once: true
+  changed_when: false
+  when: dns_dnsdist_enabled | default(false) | bool
   tags: ["deploy", "config"]
 
 # ============================================================================
@@ -244,8 +255,8 @@
 
 - name: Copy Verdaccio (nl) dynamic config into volume
   ansible.builtin.command: >-
-    docker cp {{ proxy_traefik_windows_temp_dir }}/dynamic/npmjs-nl-levonk-com.yml
-    {{ proxy_traefik_windows_container_name }}-config-seed:/config/dynamic/npmjs-nl-levonk-com.yml
+    docker cp {{ proxy_traefik_windows_temp_dir }}/dynamic/npmjs-nl.yml
+    {{ proxy_traefik_windows_container_name }}-config-seed:/config/dynamic/npmjs-nl.yml
   environment:
     DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
   delegate_to: localhost
@@ -255,8 +266,8 @@
 
 - name: Copy Homepage (nl) dynamic config into volume
   ansible.builtin.command: >-
-    docker cp {{ proxy_traefik_windows_temp_dir }}/dynamic/start-nl-levonk-com.yml
-    {{ proxy_traefik_windows_container_name }}-config-seed:/config/dynamic/start-nl-levonk-com.yml
+    docker cp {{ proxy_traefik_windows_temp_dir }}/dynamic/start-nl.yml
+    {{ proxy_traefik_windows_container_name }}-config-seed:/config/dynamic/start-nl.yml
   environment:
     DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
   delegate_to: localhost
@@ -266,8 +277,8 @@
 
 - name: Copy TraLa (nl) dynamic config into volume
   ansible.builtin.command: >-
-    docker cp {{ proxy_traefik_windows_temp_dir }}/dynamic/start2-nl-levonk-com.yml
-    {{ proxy_traefik_windows_container_name }}-config-seed:/config/dynamic/start2-nl-levonk-com.yml
+    docker cp {{ proxy_traefik_windows_temp_dir }}/dynamic/start2-nl.yml
+    {{ proxy_traefik_windows_container_name }}-config-seed:/config/dynamic/start2-nl.yml
   environment:
     DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
   delegate_to: localhost
@@ -277,8 +288,8 @@
 
 - name: Copy ncps Nix Cache (nl) dynamic config into volume
   ansible.builtin.command: >-
-    docker cp {{ proxy_traefik_windows_temp_dir }}/dynamic/nixcache-nl-levonk-com.yml
-    {{ proxy_traefik_windows_container_name }}-config-seed:/config/dynamic/nixcache-nl-levonk-com.yml
+    docker cp {{ proxy_traefik_windows_temp_dir }}/dynamic/nixcache-nl.yml
+    {{ proxy_traefik_windows_container_name }}-config-seed:/config/dynamic/nixcache-nl.yml
   environment:
     DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
   delegate_to: localhost
@@ -288,8 +299,8 @@
 
 - name: Copy Garnix CI (nl) dynamic config into volume
   ansible.builtin.command: >-
-    docker cp {{ proxy_traefik_windows_temp_dir }}/dynamic/ci-nl-levonk-com.yml
-    {{ proxy_traefik_windows_container_name }}-config-seed:/config/dynamic/ci-nl-levonk-com.yml
+    docker cp {{ proxy_traefik_windows_temp_dir }}/dynamic/ci-nl.yml
+    {{ proxy_traefik_windows_container_name }}-config-seed:/config/dynamic/ci-nl.yml
   environment:
     DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
   delegate_to: localhost
@@ -299,13 +310,24 @@
 
 - name: Copy Directory Empire (nl) dynamic config into volume
   ansible.builtin.command: >-
-    docker cp {{ proxy_traefik_windows_temp_dir }}/dynamic/de-nl-levonk-com.yml
-    {{ proxy_traefik_windows_container_name }}-config-seed:/config/dynamic/de-nl-levonk-com.yml
+    docker cp {{ proxy_traefik_windows_temp_dir }}/dynamic/de-nl.yml
+    {{ proxy_traefik_windows_container_name }}-config-seed:/config/dynamic/de-nl.yml
   environment:
     DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
   delegate_to: localhost
   changed_when: true
   when: proxy_traefik_windows_directory_empire_enabled | bool
+  tags: ["deploy", "config"]
+
+- name: Copy DNSDist dynamic config into volume
+  ansible.builtin.command: >-
+    docker cp {{ proxy_traefik_windows_temp_dir }}/dynamic/dnsdist.yml
+    {{ proxy_traefik_windows_container_name }}-config-seed:/config/dynamic/dnsdist.yml
+  environment:
+    DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  when: dns_dnsdist_enabled | default(false) | bool
   tags: ["deploy", "config"]
 
 - name: Remove temporary seed container

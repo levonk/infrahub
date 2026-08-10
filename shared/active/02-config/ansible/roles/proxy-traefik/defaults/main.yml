@@ -67,16 +67,16 @@ proxy_traefik_acme_cloudflare_api_key: "{{ vault_cloudflare_api_key | default('c
 search_searxng_enabled: true
 search_searxng_container_ip: "172.31.0.5"
 search_searxng_container_port: "8080"
-search_searxng_domain: "search.levonk.com"
+search_searxng_domain: "{{ infra_domain_proxy_search }}"
 
 # ---------------------------------------------------------------------------
 # AI InterFace (Omnigent) Integration Configuration
-# Public domain: aiif.levonk.com — user-facing alias for the Omnigent agent
+# Public domain: aiif — user-facing alias for the Omnigent agent
 # framework & meta-harness. Container name stays "omnigent" (see aigate pattern
-# where LiteLLM container is exposed as aigate.levonk.com).
+# where LiteLLM container is exposed as aigate).
 # ---------------------------------------------------------------------------
 aiif_enabled: false
-aiif_domain: "aiif.levonk.com"
+aiif_domain: "{{ infra_domain_ai_omnigent }}"
 aiif_container_name: "omnigent"
 aiif_container_port: "8000"
 
@@ -86,7 +86,7 @@ aiif_container_port: "8000"
 agentmemory_enabled: false
 agentmemory_container_ip: "172.31.0.7"
 agentmemory_container_port: "3111"
-agentmemory_domain: "agentmemory.levonk.com"
+agentmemory_domain: "{{ infra_domain_ai_agentmemory }}"
 
 # ---------------------------------------------------------------------------
 # JobOps Integration Configuration
@@ -94,13 +94,35 @@ agentmemory_domain: "agentmemory.levonk.com"
 # Backend URL uses the Windows machine's Tailscale FQDN, not a container name.
 # ---------------------------------------------------------------------------
 career_jobops_enabled: false
-career_jobops_domain: "jobops.levonk.com"
+career_jobops_domain: "{{ infra_domain_career_jobops }}"
 
 # ---------------------------------------------------------------------------
 # headroom (aishrink) Integration Configuration
 # ---------------------------------------------------------------------------
 aishrink_enabled: false
-aishrink_domain: "aishrink.levonk.com"
+aishrink_domain: "{{ infra_domain_ai_aishrink }}"
+
+# ---------------------------------------------------------------------------
+# Domain variable mappings (for templates that use role-specific names)
+# These map to the consolidated infra_domain_* variables loaded from domains.yml
+# ---------------------------------------------------------------------------
+ai_litellm_domain: "{{ infra_domain_ai_litellm }}"
+ai_litellm_api_domain: "{{ infra_domain_ai_litellm_api }}"
+ai_omniroute_domain: "{{ infra_domain_ai_omniroute }}"
+ai_buzz_domain: "{{ infra_domain_ai_buzz }}"
+jobops_domain: "{{ infra_domain_career_jobops }}"
+nix_ncps_domain: "{{ infra_domain_nix_cache_cno }}"
+nix_ncps_domain_cno: "{{ infra_domain_nix_cache_cno }}"
+verdaccio_domain: "{{ infra_domain_artifact_verdaccio_cno }}"
+verdaccio_domain_cno: "{{ infra_domain_artifact_verdaccio_cno }}"
+qm_domain: "{{ infra_domain_ai_qm }}"
+rustfs_domain: "{{ infra_domain_storage_rustfs }}"
+rustfs_console_domain: "{{ infra_domain_storage_rustfs_console }}"
+dashboard_homepage_domain: "{{ infra_domain_dashboard_homepage }}"
+dashboard_trala_domain: "{{ infra_domain_dashboard_trala }}"
+wazuh_domain: "{{ infra_domain_security_wazuh }}"
+n8n_domain: "{{ infra_domain_ai_n8n }}"
+n8n_grafana_domain: "{{ infra_domain_ai_n8n_grafana }}"
 
 # ---------------------------------------------------------------------------
 # AI Gateway Integration Flags (enable Traefik dynamic config for each service)

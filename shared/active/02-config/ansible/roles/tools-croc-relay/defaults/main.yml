@@ -27,7 +27,7 @@ croc_relay_enabled: true
 # Docker connection string for the Windows host (SSH-tunneled Docker CLI).
 # community.docker modules cannot run on Windows (Ansible core basic.py imports grp,
 # which is Unix-only), so we delegate to localhost and use the docker CLI with DOCKER_HOST=ssh://.
-croc_relay_docker_host: "ssh://ansible@{{ windows_tailscale_hostname | default('dtop202311') }}.{{ infra_tailscale_tailnet | default('tale-grouper.ts.net') }}"
+croc_relay_docker_host: "ssh://ansible@{{ windows_tailscale_hostname | default('dtop202311') }}.{{ infra_tailscale_tailnet | default('example.ts.net') }}"
 
 # Healthcheck durations (strings with unit suffix, NOT bare integers)
 croc_relay_healthcheck_interval: "30s"

@@ -35,98 +35,98 @@ services:
   manual:
     # Cross-network dashboards
     - name: Homepage (cno)
-      url: https://start.cno.levonk.com
+      url: https://{{ infra_domain_dashboard_homepage_cno }}
       icon: mdi-view-dashboard
       group: Launch Pages
     - name: Homepage (nl)
-      url: https://start.nl.levonk.com
+      url: https://{{ infra_domain_dashboard_homepage_nl }}
       icon: mdi-view-dashboard
       group: Launch Pages
     - name: TraLa (cno)
-      url: https://start2.cno.levonk.com
+      url: https://{{ infra_domain_dashboard_trala_cno }}
       icon: mdi-view-dashboard
       group: Launch Pages
 
     # NPM Registries — cno duplicate
     - name: Verdaccio (cno)
-      url: https://npmjs.cno.levonk.com
+      url: https://{{ infra_domain_artifact_verdaccio_cno }}
       icon: mdi-package-variant
       group: NPM Registries
 
     # AI Services (cno only)
     - name: AI Gateway (LiteLLM)
-      url: https://aigate.levonk.com
+      url: https://{{ infra_domain_ai_litellm }}
       icon: litellm.svg
       group: AI Services
     - name: OmniRoute
-      url: https://airoute.levonk.com
+      url: https://{{ infra_domain_ai_omniroute }}
       icon: mdi-route
       group: AI Services
     - name: AI InterFace (Omnigent)
-      url: https://aiif.levonk.com
+      url: https://{{ infra_domain_ai_omnigent }}
       icon: mdi-robot-outline
       group: AI Services
     - name: Agent Memory
-      url: https://agentmemory.levonk.com
+      url: https://{{ infra_domain_ai_agentmemory }}
       icon: mdi-database-outline
       group: AI Services
     - name: Headroom (AI Shrink)
-      url: https://aishrink.levonk.com
+      url: https://{{ infra_domain_ai_aishrink }}
       icon: mdi-compress
       group: AI Services
     - name: Langfuse
-      url: https://langfuse.levonk.com
+      url: https://{{ infra_domain_ai_langfuse }}
       icon: langfuse.svg
       group: AI Services
     - name: Paperclip
-      url: https://paperclip.levonk.com
+      url: https://{{ infra_domain_ai_paperclip }}
       icon: mdi-robot-outline
       group: AI Services
     - name: Buzz
-      url: https://buzz.levonk.com
+      url: https://{{ infra_domain_ai_buzz }}
       icon: mdi-bug
       group: AI Services
 
     # Search & Tools (cno only)
     - name: SearXNG Search
-      url: https://search.levonk.com
+      url: https://{{ infra_domain_proxy_search }}
       icon: searxng.svg
       group: Search & Tools
     - name: Croc Relay
-      url: https://croc.levonk.com
+      url: https://{{ infra_domain_tools_croc_relay }}
       icon: mdi-file-send
       group: Search & Tools
 
     # Security (cno only)
     - name: Authelia SSO
-      url: https://auth.levonk.com
+      url: https://{{ infra_domain_sso_authelia }}
       icon: authelia.svg
       group: Security
     - name: Wazuh
-      url: https://wazuh.levonk.com
+      url: https://{{ infra_domain_security_wazuh }}
       icon: wazuh.svg
       group: Security
 
     # Infrastructure (cno only)
     - name: Traefik Dashboard (cno)
-      url: https://traefik.levonk.com
+      url: https://{{ infra_domain_traefik_dashboard }}
       icon: mdi-router-network
       group: Infrastructure
     - name: RustFS
-      url: https://rustfs.levonk.com
+      url: https://{{ infra_domain_storage_rustfs }}
       icon: mdi-database
       group: Infrastructure
     - name: RustFS Console
-      url: https://rustfs-console.levonk.com
+      url: https://{{ infra_domain_storage_rustfs_console }}
       icon: mdi-console
       group: Infrastructure
     - name: QM
-      url: https://qm.levonk.com
+      url: https://{{ infra_domain_ai_qm }}
       icon: mdi-account-group
       group: Infrastructure
 
     # Career (cno only)
     - name: JobOps
-      url: https://jobops.levonk.com
+      url: https://{{ infra_domain_career_jobops }}
       icon: mdi-briefcase
       group: Career

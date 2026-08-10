@@ -10,7 +10,7 @@
 #              (community.docker modules can't run on Windows — Ansible core
 #              basic.py imports grp, Unix-only)
 #   Phase 2 (OCI cloud server): re-run proxy-traefik role with verdaccio_enabled
-#            to deploy the npmjs-cno-levonk-com.yml + npmjs-nl-levonk-com.yml
+#            to deploy the npmjs-cno.yml + npmjs-nl-levonk-com.yml
 #            dynamic config templates (gated on verdaccio_enabled | bool)
 #
 # The artifact-verdaccio role dispatches to deploy-linux.yml or deploy-windows.yml
@@ -19,7 +19,7 @@
 # Prerequisites:
 #   1. Traefik deployed on OCI: just levonk-deploy-infra
 #   2. DNS CNAMEs configured: just levonk-deploy-dns
-#   3. SSH config entry for dtop202311.tale-grouper.ts.net (IdentityFile + IdentitiesOnly)
+#   3. SSH config entry for dtop202311.<tailnet> (IdentityFile + IdentitiesOnly)
 #   4. Vault secrets added: vault_verdaccio_admin_username, vault_verdaccio_admin_password
 #
 # Usage:

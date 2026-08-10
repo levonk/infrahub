@@ -4,7 +4,7 @@ Ansible role that deploys **ncps** (Nix Caching Proxy Server) as a Docker contai
 
 | Host | OS | Arch | Network | Domain |
 |------|----|------|---------|--------|
-| Windows Docker Desktop (`windows_docker_hosts`, dtop202311) | Windows | X86 | joins `traefik-windows-network` | `cache.nl.levonk.com` |
+| Windows Docker Desktop (`windows_docker_hosts`, dtop202311) | Windows | X86 | joins `traefik-windows-network` | `{{ infra_domain_nix_cache_nl }}` |
 
 Implements ADR-20260708001: ncps on regional hubs.
 
@@ -25,11 +25,11 @@ The target is selected by inventory group membership in `tasks/main.yml`:
 | `nix_ncps_image_tag` | `latest` | — |
 | `nix_ncps_host_port` | `4524` | `infra_port_nix_ncps_host` |
 | `nix_ncps_container_port` | `8080` | `infra_port_nix_ncps_container` |
-| `nix_ncps_domain` | `cache.nl.levonk.com` | `infra_domain_nix_cache_nl` |
+| `nix_ncps_domain` | `{{ infra_domain_nix_cache_nl }}` | `infra_domain_nix_cache_nl` |
 | `nix_ncps_network_name` | `traefik-windows-network` | — |
 | `nix_ncps_data_volume` | `localnet-ncps-data-volume` | `infra_storage_nix_ncps_data_volume` |
 | `nix_ncps_config_volume` | `localnet-ncps-config-volume` | `infra_storage_nix_ncps_config_volume` |
-| `nix_ncps_docker_host_windows` | `ssh://ansible@dtop202311.tale-grouper.ts.net` | `infra_tailscale_fqdn_windows_docker` |
+| `nix_ncps_docker_host_windows` | `ssh://ansible@dtop202311.<tailnet>` | `infra_tailscale_fqdn_windows_docker` |
 | `nix_ncps_ncro_url` | `http://localnet-nix-ncro:8081` | `nix_ncro_container_name`, `infra_port_nix_ncro_container` |
 
 All ports, domains, and volume names reference `infra_*` infrastructure variables — no hardcoding.

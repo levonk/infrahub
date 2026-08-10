@@ -133,7 +133,7 @@ This is the gap neither closes alone: Archon has workflow structure but ephemera
 
 ### LiteLLM's Role (Already Deployed)
 
-LiteLLM is already the pipeline entry (`aigate.levonk.com`, Ansible role `roles/ai-litellm/`). It is **not** a peer to Omnigent/Archon — it's the layer underneath both:
+LiteLLM is already the pipeline entry (`aigate.<base-domain>`, Ansible role `roles/ai-litellm/`). It is **not** a peer to Omnigent/Archon — it's the layer underneath both:
 
 | What LiteLLM solves | What it doesn't solve |
 |---|---|

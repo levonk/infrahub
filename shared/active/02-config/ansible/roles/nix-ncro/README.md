@@ -32,7 +32,7 @@ ncro races these upstreams in parallel (defined in `defaults/main.yml`):
 | `nix_ncro_container_port` | `8081` | `infra_port_nix_ncro_container` |
 | `nix_ncro_config_volume` | `localnet-ncro-config-volume` | — |
 | `nix_ncro_network_name` | `traefik-windows-network` | — |
-| `nix_ncro_docker_host_windows` | `ssh://ansible@dtop202311.tale-grouper.ts.net` | `infra_tailscale_fqdn_windows_docker` |
+| `nix_ncro_docker_host_windows` | `ssh://ansible@dtop202311.<tailnet>` | `infra_tailscale_fqdn_windows_docker` |
 
 All ports reference `infra_*` infrastructure variables — no hardcoding.
 

@@ -115,7 +115,7 @@ sudo chmod 600 /home/auser/.ssh/authorized_keys
 ssh auser@<linux-ip>
 
 # If using Tailscale (after the machine is on the Tailnet):
-ssh auser@kckinai.tale-grouper.ts.net
+ssh auser@kckinai.<tailnet>
 ```
 
 If this works, you're done with manual setup. Ansible takes over from here.

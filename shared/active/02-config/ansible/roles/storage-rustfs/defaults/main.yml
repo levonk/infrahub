@@ -16,8 +16,8 @@ rustfs_console_host_port: "{{ infra_port_storage_rustfs_console_host | default('
 rustfs_console_container_port: "{{ infra_port_storage_rustfs_console_container | default('9001') }}"
 
 # Domain (reference infrastructure variables)
-rustfs_domain: "{{ infra_domain_storage_rustfs | default('rustfs.levonk.com') }}"
-rustfs_console_domain: "{{ infra_domain_storage_rustfs_console | default('rustfs-console.levonk.com') }}"
+rustfs_domain: "{{ infra_domain_storage_rustfs | default('rustfs.' ~ (infra_domain_base | default('example.com'))) }}"
+rustfs_console_domain: "{{ infra_domain_storage_rustfs_console | default('rustfs-console.' ~ (infra_domain_base | default('example.com'))) }}"
 
 # Volumes
 rustfs_data_volume: "{{ infra_storage_rustfs_data_volume | default('localnet-rustfs-data-volume') }}"
@@ -46,8 +46,8 @@ rustfs_healthcheck_start_period: "40s"
 # community.docker modules can't run directly on Windows (Ansible core basic.py
 # imports grp, Unix-only). We delegate_to: localhost and connect to the Windows
 # Docker daemon via ssh://. Requires SSH config entry for the Windows host.
-rustfs_docker_host: "ssh://ansible@{{ windows_tailscale_hostname | default('dtop202311') }}.{{ infra_tailscale_tailnet | default('tale-grouper.ts.net') }}"
+rustfs_docker_host: "ssh://ansible@{{ windows_tailscale_hostname | default('dtop202311') }}.{{ infra_tailscale_tailnet | default('example.ts.net') }}"
 
 # Traefik backend URLs (for the dynamic config template)
-rustfs_traefik_backend_url: "http://{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.tale-grouper.ts.net') }}:{{ infra_port_storage_rustfs_s3_host | default('9000') }}"
-rustfs_console_traefik_backend_url: "http://{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.tale-grouper.ts.net') }}:{{ infra_port_storage_rustfs_console_host | default('9001') }}"
+rustfs_traefik_backend_url: "http://{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) }}:{{ infra_port_storage_rustfs_s3_host | default('9000') }}"
+rustfs_console_traefik_backend_url: "http://{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) }}:{{ infra_port_storage_rustfs_console_host | default('9001') }}"

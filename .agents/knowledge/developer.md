@@ -147,8 +147,8 @@ infrahub/
 
 ### ❌ DON'T
 - Hardcode IPs, ports, domains, or storage paths in roles/playbooks/templates
-- Put client-specific values in `shared/` roles or defaults — this includes **hostnames**, **SSH key names/paths**, **public keys**, **Tailscale FQDNs**, and any other client-identifying data (ADR-20260624001)
-- Embed SSH public keys (even public ones) in `shared/` scripts — client keys belong in client submodules
+- Put client-specific values in `shared/` roles or defaults — this includes **hostnames**, **SSH key names/paths**, **Tailscale FQDNs**, and any other client-identifying data (ADR-20260624001)
+- Embed *client-specific* SSH public keys in `shared/` scripts — client keys belong in client submodules. (The operator-owned repo-wide admin bootstrap key in `shared/scripts/bootstrap-*.sh`/`.ps1` is the documented exception — see ADR-20260624001 §4. Public keys are non-secret; the exception is narrow and only covers the single operator admin key.)
 - Use `source: build` in `docker_image` tasks (violates Invariant #2)
 - Put secrets in plaintext files, group_vars, or host_vars (use the vault)
 - Duplicate infrastructure values across files (single source of truth)
@@ -319,8 +319,8 @@ Chains define request-flow topology for proxy/cache chains (e.g., AI Pipeline, N
 
 ### <never>
 - Commit secrets or credentials in plaintext
-- Put client-specific values in `shared/` directory — this includes hostnames, SSH keys (public or private), Tailscale FQDNs, and machine metadata
-- Embed SSH public keys in `shared/` scripts or playbooks — require them as parameters instead
+- Put client-specific values in `shared/` directory — this includes hostnames, SSH keys (public or private, client-specific), Tailscale FQDNs, and machine metadata
+- Embed *client-specific* SSH public keys in `shared/` scripts or playbooks — require them as parameters instead. (The operator-owned repo-wide admin bootstrap key in `shared/scripts/bootstrap-*.sh`/`.ps1` is the documented exception — see ADR-20260624001 §4.)
 - Use `source: build` in `docker_image` tasks on target hosts
 - Use `docker compose` for deployments (use `community.docker` modules only)
 - Hardcode IPs, ports, domains, or storage paths

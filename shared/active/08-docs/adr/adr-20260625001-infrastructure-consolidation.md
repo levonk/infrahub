@@ -47,7 +47,7 @@ Contains client-specific infrastructure value overrides:
 ```yaml
 infra_network_vpn_nordvpn_subnet: "172.28.0.0/16"
 infra_port_forge_host_http: "8083"
-infra_domain_ai_dashboard_web: "ai-dashboard.levonk.com"
+infra_domain_ai_dashboard_web: "ai-dashboard.<base>"
 infra_storage_vault_path: "/opt/localnet/config/vault"
 ```
 

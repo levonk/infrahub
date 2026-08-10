@@ -12,7 +12,7 @@
 # LLM routing: ANTHROPIC_BASE_URL points at LiteLLM (aigate) on the OCI server
 # via Tailscale, so all Claude Code SDK calls flow through the pipeline.
 #
-# Pipeline position: Archon → Omnigent (aiif.levonk.com) → Herdr → Pi → LiteLLM → ...
+# Pipeline position: Archon → Omnigent (aiif.<base>) → Herdr → Pi → LiteLLM → ...
 #
 # Prerequisites:
 #   1. Bootstrap playbook run on Windows: just ansible-bootstrap-windows-docker

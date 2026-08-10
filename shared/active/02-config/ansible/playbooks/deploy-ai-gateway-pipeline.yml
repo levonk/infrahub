@@ -96,7 +96,7 @@
     # ===========================================================================
     # Stage 1: LiteLLM (AI Gateway — entry point)
     # Provides: auth, virtual keys, spend tracking, PII guardrail, Langfuse logging
-    # Domain: aigate.levonk.com
+    # Domain: aigate.<base>
     # ===========================================================================
     - name: "Deploy LiteLLM via role"
       ansible.builtin.include_role:
@@ -117,7 +117,7 @@
     # ===========================================================================
     # Stage 3: OmniRoute (AI Gateway — provider fanout)
     # Tier-based fallback, 9-factor auto-combo scoring, free-tier draining
-    # Domain: airoute.levonk.com
+    # Domain: airoute.<base>
     # Upstream from: Headroom
     # Downstream to: Forge (then Iron-Proxy, NordVPN)
     # ===========================================================================
@@ -190,20 +190,20 @@
           Timestamp: {{ ansible_date_time.iso8601 }}
           ----------------------------------------
           Deployed via Ansible roles (community.docker):
-          - LiteLLM: AI gateway entry point (aigate.levonk.com, proxy-chain 172.29.0.18)
+          - LiteLLM: AI gateway entry point (aigate.<base>, proxy-chain 172.29.0.18)
             - Auth, virtual keys, spend tracking, PII guardrail (Presidio), Langfuse logging
             - Postgres database for keys/spend/teams
           - Headroom: context compression (proxy-chain 172.29.0.13)
-          - OmniRoute: provider fanout (airoute.levonk.com, proxy-chain 172.29.0.14)
+          - OmniRoute: provider fanout (airoute.<base>, proxy-chain 172.29.0.14)
             - Tier-based fallback, 9-factor auto-combo scoring, free-tier draining
           ----------------------------------------
           Pipeline Flow:
           Omnigent -> Pi -> LiteLLM (aigate) -> Headroom -> OmniRoute (airoute) -> Forge -> Iron-Proxy -> NordVPN
           ----------------------------------------
           Access Points:
-          - LiteLLM Admin UI: https://aigate.levonk.com
-          - LiteLLM API: https://aigate.levonk.com/v1 (or http://localhost:4000)
-          - OmniRoute Dashboard: https://airoute.levonk.com
-          - OmniRoute API: https://airoute.levonk.com/v1 (or http://localhost:20128)
+          - LiteLLM Admin UI: https://aigate.<base>
+          - LiteLLM API: https://aigate.<base>/v1 (or http://localhost:4000)
+          - OmniRoute Dashboard: https://airoute.<base>
+          - OmniRoute API: https://airoute.<base>/v1 (or http://localhost:20128)
           ========================================
       tags: ["always", "summary"]

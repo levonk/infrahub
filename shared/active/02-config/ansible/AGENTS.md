@@ -96,7 +96,7 @@ The shared roles provide a two-layer DNS architecture for Tailscale-attached hos
 **Role**: `cloudflare-dns`  
 **Playbook**: `playbooks/configure-cloudflare-dns.yml`
 
-Service domains (`*.levonk.com`) are CNAMEs to Tailscale FQDNs (`*.tale-grouper.ts.net`). This decouples Cloudflare DNS from ephemeral Tailscale IPs — if Tailscale reassigns the IP, only Tailscale's internal DNS updates. See AGENTS.md (root) → Architectural Invariant #9 for the full rule.
+Service domains (`*.<base>`) are CNAMEs to Tailscale FQDNs (`*.<tailnet>`). This decouples Cloudflare DNS from ephemeral Tailscale IPs — if Tailscale reassigns the IP, only Tailscale's internal DNS updates. See AGENTS.md (root) → Architectural Invariant #9 for the full rule.
 
 ### Layer 2: DDNS → Public IP (Fallback)
 
@@ -109,14 +109,14 @@ A lightweight container on each host updates an A record (`{hostname}.mach.{doma
 
 | Variable | Shared default | Client override |
 |----------|---------------|-----------------|
-| `infra_tailscale_tailnet` | `example.ts.net` | `tale-grouper.ts.net` |
-| `infra_tailscale_fqdn_cloud_server` | `{{ infra_tailscale_tailnet }}` | `oci.tale-grouper.ts.net` |
-| `infra_tailscale_fqdn_inference_host` | (none) | `kckinai.tale-grouper.ts.net` |
+| `infra_tailscale_tailnet` | `example.ts.net` | `<tailnet>` |
+| `infra_tailscale_fqdn_cloud_server` | `{{ infra_tailscale_tailnet }}` | `oci.<tailnet>` |
+| `infra_tailscale_fqdn_inference_host` | (none) | `kckinai.<tailnet>` |
 | `cloudflare_ddns_hostname` | (none — set per-host) | `"oci"`, `"kckinai"` |
 
 ### Clients Using This Feature
 
-- **levonk**: `oci.mach.levonk.com` → public IP, `kckinai.mach.levonk.com` → public IP. See `levonk/AGENTS.md` → "DNS & DDNS Rollout" for the client-specific deployment status.
+- **levonk**: `oci.mach.<base>` → public IP, `kckinai.mach.<base>` → public IP. See `levonk/AGENTS.md` → "DNS & DDNS Rollout" for the client-specific deployment status.
 
 ## Devbox & Just Commands
 
@@ -260,7 +260,7 @@ Molecule scenarios are in `.molecule/default/` within each role directory:
 - **Certificates via `wazuh-certs-generator`**: The `certs.yml` must list all nodes and static IPs (`wazuh-indexer`, `wazuh-manager`, `wazuh-dashboard`, plus `filebeat` for the manager's Filebeat output). All OpenSearch certs use the `wazuh-*` names; the manager's `ossec.conf` should reference `wazuh-manager.pem` / `wazuh-manager-key.pem`, not `filebeat.pem`.
 - **Dashboard volume ownership is critical**: The `wazuh-dashboard` image runs as `wazuh-dashboard` (UID `1000`). The `wazuh-dashboard-config` volume (mounted to `/usr/share/wazuh-dashboard/config`) must be writable by UID `1000` so `opensearch-dashboards-keystore` can create `opensearch_dashboards.keystore`. The `wazuh-dashboard-data` volume (mounted to `/usr/share/wazuh-dashboard/data/wazuh/config`) must also be writable by UID `1000` so `wazuh_app_config.sh` can write `wazuh.yml`.
 - **Filebeat config is generated at runtime**: The manager's `1-config-filebeat` s6 script builds `/etc/filebeat/filebeat.yml` from env vars (`INDEXER_USERNAME`, `INDEXER_PASSWORD`, `SSL_CERTIFICATE`, `SSL_KEY`, `SSL_CERTIFICATE_AUTHORITIES`, `FILEBEAT_SSL_VERIFICATION_MODE`). The `wazuh-certs` volume mounts `/etc/ssl/filebeat`.
-- **Dashboard health check**: The Ansible role waits for TCP `5601` to open. The `/login` endpoint returns `401` for unauthenticated requests; use `https://wazuh.levonk.com` (via Traefik/Authelia) to verify the UI is reachable.
+- **Dashboard health check**: The Ansible role waits for TCP `5601` to open. The `/login` endpoint returns `401` for unauthenticated requests; use `https://wazuh.<base>` (via Traefik/Authelia) to verify the UI is reachable.
 
 ## JIT Index
 

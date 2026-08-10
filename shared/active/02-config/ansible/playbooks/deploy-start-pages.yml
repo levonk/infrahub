@@ -1,6 +1,6 @@
 ---
 # Start / Launch Page Dashboards Deployment Playbook
-# Deploys Homepage (start.levonk.com) and TraLa (start2.levonk.com) on the OCI
+# Deploys Homepage (start.<base>) and TraLa (start2.<base>) on the OCI
 # cloud server. Both sit behind Traefik with the Authelia/CrowdSec/GeoBlock
 # middleware chain. See ADR-20260629001 for the decision rationale.
 #
@@ -33,15 +33,15 @@
     cloudflare_dns_validate_ip: true
     cloudflare_dns_allow_private_ip: false
     cloudflare_dns_records:
-      - name: "{{ infra_domain_dashboard_homepage | default('start.levonk.com') }}"
+      - name: "{{ infra_domain_dashboard_homepage | default('start.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
-        content: "{{ infra_tailscale_fqdn_cloud_server | default('oci.tale-grouper.ts.net') }}"
+        content: "{{ infra_tailscale_fqdn_cloud_server | default('oci.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) }}"
         ttl: "{{ cloudflare_dns_ttl }}"
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
-      - name: "{{ infra_domain_dashboard_trala | default('start2.levonk.com') }}"
+      - name: "{{ infra_domain_dashboard_trala | default('start2.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
-        content: "{{ infra_tailscale_fqdn_cloud_server | default('oci.tale-grouper.ts.net') }}"
+        content: "{{ infra_tailscale_fqdn_cloud_server | default('oci.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) }}"
         ttl: "{{ cloudflare_dns_ttl }}"
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
@@ -89,8 +89,8 @@
           OS: {{ ansible_distribution }} {{ ansible_distribution_version }}
           Architecture: {{ ansible_facts['architecture'] }}
           Timestamp: {{ ansible_date_time.iso8601 }}
-          Homepage: https://{{ infra_domain_dashboard_homepage | default('start.levonk.com') }}
-          TraLa:   https://{{ infra_domain_dashboard_trala | default('start2.levonk.com') }}
+          Homepage: https://{{ infra_domain_dashboard_homepage | default('start.' ~ (infra_domain_base | default('example.com'))) }}
+          TraLa:   https://{{ infra_domain_dashboard_trala | default('start2.' ~ (infra_domain_base | default('example.com'))) }}
           ========================================
       tags: ["always", "info"]
 
@@ -174,14 +174,14 @@
           ========================================
           Start / Launch Page Dashboards Deployed
           ========================================
-          Homepage: https://{{ infra_domain_dashboard_homepage | default('start.levonk.com') }}
+          Homepage: https://{{ infra_domain_dashboard_homepage | default('start.' ~ (infra_domain_base | default('example.com'))) }}
             Direct: http://{{ ansible_host | default('localhost') }}:{{ infra_port_dashboard_homepage_host }}
             Status: {{ homepage_container_check.stdout | default('unknown') }}
-          TraLa:   https://{{ infra_domain_dashboard_trala | default('start2.levonk.com') }}
+          TraLa:   https://{{ infra_domain_dashboard_trala | default('start2.' ~ (infra_domain_base | default('example.com'))) }}
             Direct: http://{{ ansible_host | default('localhost') }}:{{ infra_port_dashboard_trala_host }}
             Status: {{ trala_container_check.stdout | default('unknown') }}
           ========================================
           Both are behind Traefik with Authelia/CrowdSec/GeoBlock middleware.
-          Auth via Authelia SSO (https://auth.levonk.com).
+          Auth via Authelia SSO (https://auth.<base>).
           ========================================
       tags: ["verify", "info"]

@@ -2,14 +2,14 @@
 
 ## Overview
 
-Deploys SearXNG as a Docker container with NordVPN proxy integration for privacy-respecting metasearch functionality. Integrated with Traefik reverse proxy for secure external access via `search.levonk.com` with comprehensive security middleware chain.
+Deploys SearXNG as a Docker container with NordVPN proxy integration for privacy-respecting metasearch functionality. Integrated with Traefik reverse proxy for secure external access via `search.example.com` with comprehensive security middleware chain.
 
 ## Requirements
 
 - Docker installed on target host
 - NordVPN container running on vpn-network
 - Traefik reverse proxy with security middleware (GeoBlock, CrowdSec, Authelia)
-- Cloudflare DNS configured for `search.levonk.com`
+- Cloudflare DNS configured for `search.example.com`
 
 ## Role Variables
 
@@ -44,7 +44,7 @@ Deploys SearXNG as a Docker container with NordVPN proxy integration for privacy
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `search_searxng_domain` | `search.levonk.com` | External domain |
+| `search_searxng_domain` | `search.example.com` | External domain |
 | `search_searxng_enabled` | `true` | Enable Traefik integration |
 
 ## Security Middleware Chain
@@ -64,7 +64,7 @@ Requests from Tailscale (`100.64.0.0/10`) and NetBird (`100.100.0.0/10`) network
 - NordVPN container must be running on vpn-network
 - Docker service must be active
 - Traefik reverse proxy with security middleware must be deployed
-- Cloudflare DNS must be configured for `search.levonk.com`
+- Cloudflare DNS must be configured for `search.example.com`
 
 ## Example Playbook
 
@@ -76,7 +76,7 @@ Requests from Tailscale (`100.64.0.0/10`) and NetBird (`100.100.0.0/10`) network
       vars:
         search_searxng_host_port: 8080
         search_searxng_http_proxy: "http://nordvpn:1080"
-        search_searxng_domain: "search.levonk.com"
+        search_searxng_domain: "search.example.com"
 ```
 
 ## Traefik Configuration
@@ -91,13 +91,13 @@ The role includes Traefik labels in the docker-compose configuration for automat
 ## Access Control
 
 ### External Access
-- **URL**: https://search.levonk.com
+- **URL**: https://search.example.com
 - **Authentication**: Required (Authelia password)
 - **Geographic**: US-only (GeoBlock middleware)
 - **IP Filtering**: CrowdSec threat protection
 
 ### Internal Access (Tailscale/NetBird)
-- **URL**: https://search.levonk.com
+- **URL**: https://search.example.com
 - **Authentication**: Not required (bypass)
 - **Geographic**: No restrictions
 - **IP Filtering**: None

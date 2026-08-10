@@ -1,10 +1,10 @@
 ---
 # Verdaccio NPM Registry default variables
 # Private npm registry + proxy cache. Dual-deployment:
-#   cno (OCI Linux, ARM64) — container joins traefik-network, Traefik routes npmjs.cno.levonk.com
-#   nl  (Windows Docker Desktop, X86) — standalone container, Traefik on OCI routes npmjs.nl.levonk.com cross-machine via Tailscale
+#   cno (OCI Linux, ARM64) — container joins traefik-network, Traefik routes npmjs.cno.{{ infra_domain_base }}
+#   nl  (Windows Docker Desktop, X86) — standalone container, Traefik on OCI routes npmjs.nl.{{ infra_domain_base }} cross-machine via Tailscale
 # Upstream image: verdaccio/verdaccio:latest (multi-arch amd64 + arm64)
-# Domains: npmjs.cno.levonk.com, npmjs.nl.levonk.com
+# Domains: npmjs.cno.{{ infra_domain_base }}, npmjs.nl.{{ infra_domain_base }}
 
 # Service toggle
 verdaccio_enabled: true
@@ -20,8 +20,8 @@ verdaccio_host_port: "{{ infra_port_artifact_verdaccio_host | default('4873') }}
 verdaccio_container_port: "{{ infra_port_artifact_verdaccio_container | default('4873') }}"
 
 # Domains (reference infrastructure variables)
-verdaccio_domain_cno: "{{ infra_domain_artifact_verdaccio_cno | default('npmjs.cno.levonk.com') }}"
-verdaccio_domain_nl: "{{ infra_domain_artifact_verdaccio_nl | default('npmjs.nl.levonk.com') }}"
+verdaccio_domain_cno: "{{ infra_domain_artifact_verdaccio_cno | default('npmjs.cno.' ~ (infra_domain_base | default('example.com'))) }}"
+verdaccio_domain_nl: "{{ infra_domain_artifact_verdaccio_nl | default('npmjs.nl.' ~ (infra_domain_base | default('example.com'))) }}"
 
 # Network (cno joins traefik-network; nl is standalone)
 verdaccio_network_name_cno: "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"
@@ -41,7 +41,7 @@ verdaccio_admin_password: "{{ vault_verdaccio_admin_password | default('') }}"
 # community.docker modules can't run directly on Windows (Ansible core basic.py
 # imports grp, Unix-only). We delegate_to: localhost and connect to the Windows
 # Docker daemon via ssh://. Requires SSH config entry for the Windows host.
-verdaccio_docker_host_windows: "ssh://ansible@{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.tale-grouper.ts.net') }}"
+verdaccio_docker_host_windows: "ssh://ansible@{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) }}"
 
 # Local temp directory for rendering Windows config files before copying into the config volume
 verdaccio_windows_temp_dir: "/tmp/verdaccio-config-{{ inventory_hostname }}"

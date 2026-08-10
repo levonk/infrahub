@@ -63,7 +63,7 @@ A comprehensive development container built on Debian with Nix package manager a
 - **claude-code**: Anthropic's Claude Code CLI
 - **claude-code-router**: Router for Claude Code services
 - **claude-monitor**: Monitoring tool for Claude Code
-- **omnigent** (via uv): AI agent framework & meta-harness — installed as a `uv tool` on first shell init, registers as a runner against `OMNIGENT_SERVER_URL` (default: `https://aiif.levonk.com`)
+- **omnigent** (via uv): AI agent framework & meta-harness — installed as a `uv tool` on first shell init, registers as a runner against `OMNIGENT_SERVER_URL` (default: `https://aiif.<base-domain>`)
 
 ### Vim Plugins
 - **opencode-nvim**: OpenCode integration for Neovim

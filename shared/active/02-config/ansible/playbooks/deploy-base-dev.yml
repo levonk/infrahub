@@ -179,7 +179,7 @@
           Target: {{ inventory_hostname }}
           Host: {{ ansible_host }}
           Registry: {{ windows_registry_url }}
-          Omnigent Server: {{ omnigent_server_url | default('https://aiif.levonk.com') }}
+          Omnigent Server: {{ omnigent_server_url | default('https://aiif.' ~ (infra_domain_base | default('example.com'))) }}
           ========================================
       tags: ["always", "info"]
 
@@ -233,16 +233,16 @@
           PGID: "1000"
           TZ: "UTC"
           USERNAME: "cuser"
-          OMNIGENT_SERVER_URL: "{{ omnigent_server_url | default('https://aiif.levonk.com') }}"
+          OMNIGENT_SERVER_URL: "{{ omnigent_server_url | default('https://aiif.' ~ (infra_domain_base | default('example.com'))) }}"
           OMNIGENT_USERNAME: "{{ omnigent_admin_username | default('root') }}"
           OMNIGENT_PASSWORD: "{{ omnigent_accounts_init_admin_password }}"
-        # ponytail: aiif.levonk.com is a CNAME to oci.tale-grouper.ts.net
+        # ponytail: aiif.<base> is a CNAME to oci.<tailnet>
         # (Tailscale DNS). Docker Desktop's embedded DNS doesn't forward to
         # the Tailscale resolver, so the container can't resolve the name.
         # Hardcode the OCI server's Tailscale IP until Docker Desktop DNS
         # supports Tailscale, or we switch to a public DNS name.
         etc_hosts:
-          "aiif.levonk.com": "{{ omnigent_server_ip | default('100.90.22.85') }}"
+          "{{ 'aiif.' ~ (infra_domain_base | default('example.com')) }}": "{{ omnigent_server_ip | default('100.90.22.85') }}"
         volumes:
           - nix-cache:/root/.cache/nix
           - nix-config:/etc/nix
@@ -274,7 +274,7 @@
           ========================================
           Container: localnet-base-dev
           Ports: 33000 (app), 33080 (alt)
-          Omnigent Server: {{ omnigent_server_url | default('https://aiif.levonk.com') }}
+          Omnigent Server: {{ omnigent_server_url | default('https://aiif.' ~ (infra_domain_base | default('example.com'))) }}
           ========================================
           The container will install the omni CLI on first shell init
           and register as a runner against the Omnigent server.

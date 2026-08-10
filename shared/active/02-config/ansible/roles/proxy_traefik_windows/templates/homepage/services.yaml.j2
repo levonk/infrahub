@@ -5,110 +5,110 @@
 
 - Launch Pages:
     - Homepage (cno):
-        href: https://start.cno.levonk.com
+        href: https://{{ infra_domain_dashboard_homepage_cno }}
         icon: mdi-view-dashboard
         description: Homepage dashboard on OCI (cno network)
     - Homepage (nl):
-        href: https://start.nl.levonk.com
+        href: https://{{ infra_domain_dashboard_homepage_nl }}
         icon: mdi-view-dashboard
         description: Homepage dashboard on Windows (nl network)
     - TraLa (cno):
-        href: https://start2.cno.levonk.com
+        href: https://{{ infra_domain_dashboard_trala_cno }}
         icon: mdi-view-dashboard
         description: Traefik service catalog on OCI (cno network)
     - TraLa (nl):
-        href: https://start2.nl.levonk.com
+        href: https://{{ infra_domain_dashboard_trala_nl }}
         icon: mdi-view-dashboard
         description: Traefik service catalog on Windows (nl network)
 
 - NPM Registries:
     - Verdaccio (cno):
-        href: https://npmjs.cno.levonk.com
+        href: https://{{ infra_domain_artifact_verdaccio_cno }}
         icon: mdi-package-variant
         description: NPM registry on OCI (cno network)
     - Verdaccio (nl):
-        href: https://npmjs.nl.levonk.com
+        href: https://{{ infra_domain_artifact_verdaccio_nl }}
         icon: mdi-package-variant
         description: NPM registry on Windows (nl network)
 
 - AI Services:
     - AI Gateway (LiteLLM):
-        href: https://aigate.levonk.com
+        href: https://{{ infra_domain_ai_litellm }}
         icon: litellm.svg
         description: LLM proxy gateway
     - AI Gateway API:
-        href: https://aigate-api.levonk.com
+        href: https://{{ infra_domain_ai_litellm_api }}
         icon: mdi-api
         description: LiteLLM API endpoint
     - OmniRoute:
-        href: https://airoute.levonk.com
+        href: https://{{ infra_domain_ai_omniroute }}
         icon: mdi-route
         description: AI routing service
     - AI InterFace (Omnigent):
-        href: https://aiif.levonk.com
+        href: https://{{ infra_domain_ai_omnigent }}
         icon: mdi-robot-outline
         description: Agent framework
     - Agent Memory:
-        href: https://agentmemory.levonk.com
+        href: https://{{ infra_domain_ai_agentmemory }}
         icon: mdi-database-outline
         description: Agent memory store
     - Headroom (AI Shrink):
-        href: https://aishrink.levonk.com
+        href: https://{{ infra_domain_ai_aishrink }}
         icon: mdi-compress
         description: AI response compression
     - Langfuse:
-        href: https://langfuse.levonk.com
+        href: https://{{ infra_domain_ai_langfuse }}
         icon: langfuse.svg
         description: LLM observability & tracing
     - Paperclip:
-        href: https://paperclip.levonk.com
+        href: https://{{ infra_domain_ai_paperclip }}
         icon: mdi-robot-outline
         description: AI agent orchestration platform
     - Buzz:
-        href: https://buzz.levonk.com
+        href: https://{{ infra_domain_ai_buzz }}
         icon: mdi-bug
         description: Buzz service
 
 - Search & Tools:
     - SearXNG:
-        href: https://search.levonk.com
+        href: https://{{ infra_domain_proxy_search }}
         icon: searxng.svg
         description: Privacy-focused meta search engine
     - Croc Relay:
-        href: https://croc.levonk.com
+        href: https://{{ infra_domain_tools_croc_relay }}
         icon: mdi-file-send
         description: File transfer relay
 
 - Security:
     - Authelia SSO:
-        href: https://auth.levonk.com
+        href: https://{{ infra_domain_sso_authelia }}
         icon: authelia.svg
         description: Single sign-on authentication
     - Wazuh:
-        href: https://wazuh.levonk.com
+        href: https://{{ infra_domain_security_wazuh }}
         icon: wazuh.svg
         description: Security monitoring & SIEM
 
 - Infrastructure:
     - Traefik Dashboard (cno):
-        href: https://traefik.levonk.com
+        href: https://{{ infra_domain_traefik_dashboard }}
         icon: mdi-router-network
         description: Traefik reverse proxy dashboard on OCI
     - RustFS:
-        href: https://rustfs.levonk.com
+        href: https://{{ infra_domain_storage_rustfs }}
         icon: mdi-database
         description: S3-compatible object storage
     - RustFS Console:
-        href: https://rustfs-console.levonk.com
+        href: https://{{ infra_domain_storage_rustfs_console }}
         icon: mdi-console
         description: RustFS management console
     - QM:
-        href: https://qm.levonk.com
+        href: https://{{ infra_domain_ai_qm }}
         icon: mdi-account-group
         description: QM multiplayer agent harness
 
 - Career:
     - JobOps:
-        href: https://jobops.levonk.com
+        href: https://{{ infra_domain_career_jobops }}
         icon: mdi-briefcase
         description: Job operations platform

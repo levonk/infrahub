@@ -8,13 +8,13 @@
 #
 # Architecture (ADR-20260708001):
 #   Harmonia (127.0.0.1:4523) — serves local /nix/store (read-only)
-#   ncps (4524, cache.nl.levonk.com) — NAR caching proxy (front door)
+#   ncps (4524, nixcache.nl.{{ infra_domain_base }}) — NAR caching proxy (front door)
 #   ncro (127.0.0.1:4525) — parallel racing proxy (behind ncps)
-#   garnix-ci (4526/4527, ci.nl.levonk.com) — Nix CI builder with /dev/kvm
+#   garnix-ci (4526/4527, ci.nl.{{ infra_domain_base }}) — Nix CI builder with /dev/kvm
 #
 # The nix-sidecar must already be running (it manages the shared /nix/store).
-# Traefik Windows must already be running (it routes cache.nl.levonk.com and
-# ci.nl.levonk.com to ncps and garnix-ci respectively).
+# Traefik Windows must already be running (it routes nixcache.nl.{{ infra_domain_base }} and
+# ci.nl.{{ infra_domain_base }} to ncps and garnix-ci respectively).
 #
 # Prerequisites:
 #   1. nix-sidecar running: docker ps | grep nix-sidecar
@@ -22,7 +22,7 @@
 #   3. WSL2 KVM enabled (for garnix-ci): just ansible-enable-wsl2-kvm
 #   4. DNS CNAMEs configured: just ansible-deploy-dns
 #   5. Container images built: just build-nix-cache-images, just build-garnix-ci-image
-#   6. SSH config entry for dtop202311.tale-grouper.ts.net
+#   6. SSH config entry for dtop202311.<tailnet>
 #
 # Usage:
 #   ansible-playbook -i levonk/active/02-config/ansible/inventories/windows-docker.yml \

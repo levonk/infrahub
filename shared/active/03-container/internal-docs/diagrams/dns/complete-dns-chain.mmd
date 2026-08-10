@@ -95,8 +95,8 @@ graph TD
 
     subgraph "Cross-Cluster Failover see cross-cluster-dns-failover.md"
         direction TB
-        LocalCluster["Local Cluster — nl.levonk.com LAN<br/>Windows host + Raspberry Pi<br/>keepalived VIP floats between them<br/>LAN clients use VIP"]
-        CloudCluster["Cloud Cluster — cno.levonk.com OCI<br/>Single host, no keepalived<br/>Tailscale clients use OCI Tailscale IP"]
+        LocalCluster["Local Cluster — nl.<base> LAN<br/>Windows host + Raspberry Pi<br/>keepalived VIP floats between them<br/>LAN clients use VIP"]
+        CloudCluster["Cloud Cluster — cno.<base> OCI<br/>Single host, no keepalived<br/>Tailscale clients use OCI Tailscale IP"]
         FailoverNote["If cloud DNS fails:<br/>Oracle nodes fall back to local cluster<br/>via direct Tailscale IPs not hostname<br/>Constraint: cno has no blanket LAN access<br/>Only DNS port exposed via Tailscale"]
         LocalCluster -.-> "Tailscale node-to-node<br/>DNS port only" -.-> CloudCluster
         CloudCluster -.-> "Fallback direct Tailscale IPs<br/>100.x.x.10 Windows 100.x.x.11 Pi" -.-> LocalCluster

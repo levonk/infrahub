@@ -15,6 +15,16 @@
         gather_subset: ["all"]
       tags: ["always"]
 
+    - name: "Load shared infrastructure domains"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/domains.yml"
+      tags: ["always"]
+
+    - name: "Load client infrastructure domain overrides"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/domains.yml"
+      tags: ["always"]
+
     - name: "Validate required Traefik variables are defined"
       ansible.builtin.assert:
         that:

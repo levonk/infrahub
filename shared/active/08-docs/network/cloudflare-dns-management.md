@@ -6,7 +6,7 @@ This document outlines the procedures for managing Cloudflare DNS records for th
 
 ## Prerequisites
 
-- Cloudflare account with domain `levonk.com` configured
+- Cloudflare account with domain `<base-domain>` configured
 - Cloudflare API token with `Zone - DNS - Edit` and `Zone - Zone - Read` permissions
 - Ansible vault password file at `~/.ansible/vault_password`
 - Access to the infrahub repository
@@ -24,8 +24,8 @@ This document outlines the procedures for managing Cloudflare DNS records for th
 
 | Domain | Type | Content | TTL | Proxy Mode | Purpose |
 |--------|------|---------|-----|------------|---------|
-| search.levonk.com | A | 161.153.91.163 | 300 | DNS-only | SearXNG search service |
-| traefik.levonk.com | A | 161.153.91.163 | 300 | DNS-only | Traefik dashboard (optional) |
+| search.<base-domain> | A | 161.153.91.163 | 300 | DNS-only | SearXNG search service |
+| traefik.<base-domain> | A | 161.153.91.163 | 300 | DNS-only | Traefik dashboard (optional) |
 
 ### Configuration Variables
 
@@ -57,7 +57,7 @@ cloudflare_dns_allow_private_ip: false     # Reject private IP addresses
    - Copy the generated token
 
 2. **Get Cloudflare Zone ID**:
-   - Go to Cloudflare Dashboard → Select domain `levonk.com`
+   - Go to Cloudflare Dashboard → Select domain `<base-domain>`
    - Scroll down to "API" section on the right sidebar
    - Copy the "Zone ID"
 
@@ -88,7 +88,7 @@ cloudflare_dns_allow_private_ip: false     # Reject private IP addresses
 2. **Add new record to `cloudflare_dns_records` list**:
    ```yaml
    cloudflare_dns_records:
-     - name: "new-service.levonk.com"
+     - name: "new-service.<base-domain>"
        type: "A"
        content: "{{ cloud_server_ansible_host_ip }}"
        ttl: "{{ cloudflare_dns_ttl }}"
@@ -112,7 +112,7 @@ cloudflare_dns_allow_private_ip: false     # Reject private IP addresses
 
 1. **Edit the DNS configuration playbook** and set `state: "absent"` for the record:
    ```yaml
-   - name: "old-service.levonk.com"
+   - name: "old-service.<base-domain>"
      type: "A"
      content: "{{ cloud_server_ansible_host_ip }}"
      state: "absent"  # This will delete the record
@@ -131,14 +131,14 @@ cloudflare_dns_allow_private_ip: false     # Reject private IP addresses
 2. **Manual DNS testing**:
    ```bash
    # Test A record resolution
-   dig +short search.levonk.com
-   dig +short traefik.levonk.com
+   dig +short search.<base-domain>
+   dig +short traefik.<base-domain>
 
    # Test with specific DNS server
-   dig @8.8.8.8 search.levonk.com
+   dig @8.8.8.8 search.<base-domain>
 
    # Check DNS propagation
-   dig search.levonk.com +nssearch
+   dig search.<base-domain> +nssearch
    ```
 
 ### Monitoring DNS Propagation

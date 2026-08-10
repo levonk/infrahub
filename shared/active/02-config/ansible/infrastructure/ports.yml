@@ -450,7 +450,7 @@ infra_port_nix_ncro_container: "8081"
 # Garnix CI Builder Ports
 # Used by: deploy-garnix-ci.yml playbook on windows_docker_hosts (nl region)
 # Nix-based CI builder with /dev/kvm + shared nix store from nix-sidecar.
-# Web UI exposed via Traefik at ci.nl.levonk.com.
+# Web UI exposed via Traefik at ci.nl.{{ infra_domain_base }}.
 # ---------------------------------------------------------------------------
 infra_port_garnix_ci_web_host: "4526"
 infra_port_garnix_ci_web_container: "3000"
@@ -461,7 +461,7 @@ infra_port_garnix_ci_api_container: "8080"
 # Directory Empire Dashboard Ports
 # Used by: deploy-directory-empire.yml playbook on windows_docker_hosts (nl region)
 # Next.js orchestration dashboard — multi-stage Docker build from the
-# directory-empire repo. Web UI exposed via Traefik at de.nl.levonk.com.
+# directory-empire repo. Web UI exposed via Traefik at de.nl.{{ infra_domain_base }}.
 # ---------------------------------------------------------------------------
 infra_port_dashboard_directory_empire_host: "4530"
 infra_port_dashboard_directory_empire_container: "3000"

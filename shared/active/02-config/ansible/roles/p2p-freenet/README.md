@@ -24,7 +24,7 @@ because `community.docker` modules break on Windows — see
 Tailscale-only. No public domain, no Traefik routing. Reach the WS API at:
 
 ```
-http://dtop202311.tale-grouper.ts.net:7509
+http://dtop202311.<tailnet>:7509
 ```
 
 ## Variables
@@ -39,7 +39,7 @@ required for the levonk client.
 | `p2p_freenet_ws_api_host_port` | `7509` | `infra_port_p2p_freenet_ws_api_host` |
 | `p2p_freenet_network_name` | `freenet-network` | `infra_network_p2p_freenet_network_name` |
 | `p2p_freenet_volume_name` | `localnet-freenet-data-volume` | `infra_storage_freenet_data_volume` |
-| `p2p_freenet_docker_host` | `ssh://ansible@dtop202311.tale-grouper.ts.net` | `infra_tailscale_fqdn_windows_docker` |
+| `p2p_freenet_docker_host` | `ssh://ansible@dtop202311.<tailnet>` | `infra_tailscale_fqdn_windows_docker` |
 
 ## Build the image first
 

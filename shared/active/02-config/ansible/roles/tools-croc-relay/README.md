@@ -25,8 +25,8 @@ See `defaults/main.yml` for the full list. The most important ones are:
 ## Client usage
 
 ```bash
-croc --pass <relay-password> --relay "croc.levonk.com:9009" send <file>
+croc --pass <relay-password> --relay "croc.<base>:9009" send <file>
 ```
 
-`croc.levonk.com` is a CNAME to the Windows Docker host's Tailscale FQDN
-(`dtop202311.tale-grouper.ts.net`).
+`croc.<base>` is a CNAME to the Windows Docker host's Tailscale FQDN
+(`dtop202311.<tailnet>`).

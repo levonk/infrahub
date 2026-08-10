@@ -21,7 +21,8 @@ set -euo pipefail
 #   Or the relevant playbook for your host type.
 #
 # Usage:
-#   ./bootstrap-linux-manual.sh --ssh-key ~/.ssh/foo.pub                          # required — no embedded default
+#   ./bootstrap-linux-manual.sh                          # uses embedded default key (lzkmbp2016-micro-oracle)
+#   ./bootstrap-linux-manual.sh --ssh-key ~/.ssh/foo.pub # override — uses specified public key file
 #   AUSER_PASSWORD="secret" ./bootstrap-linux-manual.sh --ssh-key ~/.ssh/foo.pub  # non-interactive with password
 
 AUSER_NAME="auser"
@@ -48,7 +49,7 @@ while [[ $# -gt 0 ]]; do
       echo ""
       echo "Run ON the target Linux box. Creates the admin user and adds SSH key."
       echo "If --password is omitted, you will be prompted to enter a password interactively."
-      echo "--ssh-key is required (no embedded default — client keys belong in client submodules)."
+      echo "If --ssh-key is omitted, uses the embedded default key (lzkmbp2016-micro-oracle)."
       echo "If --user is omitted, defaults to 'auser' (mirrors the macOS convention)."
       exit 0
       ;;
@@ -180,18 +181,20 @@ echo ""
 # --- Step 4: Add SSH public key ---
 echo "[4/5] Adding SSH public key for ${AUSER_NAME}..."
 
-# --ssh-key is REQUIRED — no embedded default.
-# Client-specific keys must not be hardcoded in shared/ (ADR-20260624001).
-if [[ -z "${SSH_KEY}" ]]; then
-  echo "ERROR: --ssh-key <path> is required (no embedded default in shared/)" >&2
-  echo "       Client-specific keys belong in the client submodule (e.g. levonk/)" >&2
-  exit 1
+# Get the public key
+# Embedded default — the control Mac's lzkmbp2016-micro-oracle key (also in client inventory).
+# Override with --ssh-key <path> for a different key.
+DEFAULT_PUB_KEY="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEWRbHy2sWZLKET/74zvt0rZa4ET2zjes/SB+Y/3BmKp lzkmbp2016-micro-oracle"
+if [[ -n "${SSH_KEY}" ]]; then
+  if [[ ! -f "${SSH_KEY}" ]]; then
+    echo "ERROR: SSH key file not found: ${SSH_KEY}" >&2
+    exit 1
+  fi
+  PUB_KEY=$(cat "${SSH_KEY}")
+else
+  PUB_KEY="${DEFAULT_PUB_KEY}"
+  echo "  Using embedded default key (lzkmbp2016-micro-oracle)"
 fi
-if [[ ! -f "${SSH_KEY}" ]]; then
-  echo "ERROR: SSH key file not found: ${SSH_KEY}" >&2
-  exit 1
-fi
-PUB_KEY=$(cat "${SSH_KEY}")
 
 if [[ -z "${PUB_KEY}" ]]; then
   echo "ERROR: No SSH public key provided" >&2

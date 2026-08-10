@@ -9,7 +9,7 @@
 
 ## Executive Summary
 
-Deploy a production-ready Traefik reverse proxy stack with Authelia authentication, CrowdSec security, and Cloudflare DNS integration on the OCI cloud server. The system will provide secure HTTPS access to services via `search.levonk.com` with password-based authentication, automated Let's Encrypt certificate management, and IP-based security protection. This deployment focuses initially on SearXNG as the first service, with a hybrid automation approach for future service registration.
+Deploy a production-ready Traefik reverse proxy stack with Authelia authentication, CrowdSec security, and Cloudflare DNS integration on the OCI cloud server. The system will provide secure HTTPS access to services via `search.<base-domain>` with password-based authentication, automated Let's Encrypt certificate management, and IP-based security protection. This deployment focuses initially on SearXNG as the first service, with a hybrid automation approach for future service registration.
 
 ## Problem Statement
 
@@ -40,8 +40,8 @@ The current infrastructure lacks secure external access to services. SearXNG is 
 ## Success Criteria
 
 ### Functional Requirements
-- [ ] Traefik accessible via `frontdoor.levonk.com` with valid Let's Encrypt certificate
-- [ ] SearXNG accessible via `search.levonk.com` with Authelia password authentication
+- [ ] Traefik accessible via `frontdoor.<base-domain>` with valid Let's Encrypt certificate
+- [ ] SearXNG accessible via `search.<base-domain>` with Authelia password authentication
 - [ ] Authelia admin user can successfully authenticate and access protected services
 - [ ] CrowdSec actively monitoring and blocking suspicious IPs
 - [ ] Cloudflare DNS records automatically configured for new services
@@ -95,7 +95,7 @@ The current infrastructure lacks secure external access to services. SearXNG is 
 ```
 Internet
     ↓
-Cloudflare DNS (search.levonk.com → OCI IP)
+Cloudflare DNS (search.<base-domain> → OCI IP)
     ↓
 Traefik (443/80) → Let's Encrypt SSL
     ↓
@@ -192,15 +192,15 @@ Port Mappings:
 ### Phase 3: Service Integration
 1. **SearXNG Integration**
    - Add Traefik labels to SearXNG container
-   - Configure dynamic routing rule for `search.levonk.com`
+   - Configure dynamic routing rule for `search.<base-domain>`
    - Add security middleware chain (GeoBlock + CrowdSec + Authelia) to SearXNG route
    - Test authentication flow end-to-end
    - Verify US-only geographic access control
 
 2. **Cloudflare DNS Configuration**
    - Create Cloudflare API credentials in vault
-   - Configure A record for `search.levonk.com`
-   - Configure A record for `traefik.levonk.com`
+   - Configure A record for `search.<base-domain>`
+   - Configure A record for `traefik.<base-domain>`
    - Test DNS resolution and SSL certificate generation
 
 ### Phase 4: Service Registration System
@@ -236,12 +236,12 @@ Port Mappings:
 # Core services defined in Ansible
 proxy_services:
   traefik:
-    domain: "traefik.levonk.com"
+    domain: "traefik.<base-domain>"
     auth_enabled: false
     security_level: "public"
     
   searxng:
-    domain: "search.levonk.com"
+    domain: "search.<base-domain>"
     auth_enabled: true
     security_level: "protected"
     middleware:
@@ -258,7 +258,7 @@ users:
     disabled: false
     displayname: "Admin"
     password: "$argon2id$v=19$m=65536,t=3,p=2..." # Hashed
-    email: "admin@levonk.com"
+    email: "admin@example.com"
     groups:
       - admins
 ```
@@ -348,7 +348,7 @@ profiles:
 1. **Prerequisites**
    - OCI cloud server with Docker installed
    - Cloudflare account with API token
-   - Domain `levonk.com` configured in Cloudflare
+   - Domain `<base-domain>` configured in Cloudflare
    - Ansible vault password file at `~/.ansible/vault_password`
 
 2. **Ansible Environment**
@@ -378,13 +378,13 @@ profiles:
 3. **Verification Phase**
    ```bash
    # Test Traefik dashboard
-   curl -I https://traefik.levonk.com
+   curl -I https://traefik.<base-domain>
    
    # Test SearXNG with authentication
-   curl -I https://search.levonk.com
+   curl -I https://search.<base-domain>
    
    # Check SSL certificate
-   openssl s_client -connect search.levonk.com:443
+   openssl s_client -connect search.<base-domain>:443
    ```
 
 ### Rollback Procedure
@@ -530,12 +530,12 @@ profiles:
 
 ### Functional Testing
 1. **Access Traefik Dashboard**
-   - Navigate to `https://traefik.levonk.com`
+   - Navigate to `https://traefik.<base-domain>`
    - Verify valid SSL certificate
    - Verify dashboard loads without authentication
 
 2. **Access SearXNG with Authentication**
-   - Navigate to `https://search.levonk.com`
+   - Navigate to `https://search.<base-domain>`
    - Verify redirect to Authelia login
    - Login with admin credentials
    - Verify access to SearXNG interface
@@ -637,7 +637,7 @@ profiles:
 http:
   routers:
     searxng:
-      rule: 'Host(`search.levonk.com`)'
+      rule: 'Host(`search.<base-domain>`)'
       service: searxng
       entryPoints:
         - websecure
@@ -664,7 +664,7 @@ http:
 # To register a new service, add to host_vars:
 proxy_services:
   myservice:
-    domain: "myservice.levonk.com"
+    domain: "myservice.<base-domain>"
     auth_enabled: true
     security_level: "protected"
     middleware:
@@ -681,16 +681,16 @@ docker logs authelia --tail=50
 docker logs crowdsec --tail=50
 
 # Test SSL certificate
-openssl s_client -connect search.levonk.com:443
+openssl s_client -connect search.<base-domain>:443
 
 # Test authentication
-curl -I https://search.levonk.com
+curl -I https://search.<base-domain>
 
 # Check CrowdSec decisions
 docker exec crowdsec cscli decisions list
 
 # Verify DNS resolution
-nslookup search.levonk.com
+nslookup search.<base-domain>
 ```
 
 ### E. References

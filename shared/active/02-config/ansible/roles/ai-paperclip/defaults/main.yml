@@ -2,7 +2,7 @@
 # Paperclip AI Orchestration default variables
 # Paperclip is an open-source orchestration platform for teams of AI agents.
 # Node.js server + React UI that orchestrates a team of AI agents.
-# Domain: paperclip.levonk.com
+# Domain: paperclip.{{ infra_domain_base }}
 # Upstream: https://github.com/paperclipai/paperclip (MIT license)
 
 # Service configuration
@@ -20,7 +20,7 @@ ai_paperclip_host_port: "{{ infra_port_ai_paperclip_host | default('3100') }}"
 ai_paperclip_container_port: "{{ infra_port_ai_paperclip_container | default('3100') }}"
 
 # Domain for Traefik routing
-ai_paperclip_domain: "{{ infra_domain_ai_paperclip | default('paperclip.levonk.com') }}"
+ai_paperclip_domain: "{{ infra_domain_ai_paperclip | default('paperclip.' ~ (infra_domain_base | default('example.com'))) }}"
 
 # Network configuration
 ai_paperclip_traefik_network_name: "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"

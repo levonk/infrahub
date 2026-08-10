@@ -140,7 +140,7 @@
 # 7. Wait for WS API port to open
 - name: Wait for freenet WS API to be reachable
   ansible.builtin.wait_for:
-    host: "{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.tale-grouper.ts.net') }}"
+    host: "{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) }}"
     port: "{{ p2p_freenet_ws_api_host_port }}"
     delay: 10
     timeout: 120
@@ -167,7 +167,7 @@
   ansible.builtin.debug:
     msg: |
       Freenet peer node deployed:
-        - WS API (Tailscale): http://{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.tale-grouper.ts.net') }}:{{ p2p_freenet_ws_api_host_port }}
+        - WS API (Tailscale): http://{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) }}:{{ p2p_freenet_ws_api_host_port }}
         - Container: {{ p2p_freenet_container_name }}
         - Image: {{ p2p_freenet_image_name }}:{{ p2p_freenet_image_tag }}
         - State: {{ freenet_status_inspect.stdout.split('|')[0] }}

@@ -101,7 +101,7 @@
   ansible.builtin.fail:
     msg: >-
       Image {{ nix_ncro_image_name }}:{{ nix_ncro_image_tag }} not found on target.
-      Build it with the flake and transfer via: docker save {{ nix_ncro_image_name }}:{{ nix_ncro_image_tag }} | ssh ansible@dtop202311.tale-grouper.ts.net "docker load"
+      Build it with the flake and transfer via: docker save {{ nix_ncro_image_name }}:{{ nix_ncro_image_tag }} | ssh ansible@dtop202311.<tailnet> "docker load"
   when: nix_ncro_image_check.stdout != "EXISTS"
   tags: ["deploy", "pull"]
 

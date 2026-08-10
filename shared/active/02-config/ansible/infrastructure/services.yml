@@ -29,9 +29,9 @@
 #   infra      — Infrastructure service (registry, dashboard, VM, etc.)
 # ---------------------------------------------------------------------------
 # Machines:
-#   oci-cloud-server  — OCI ARM cloud server (primary, Tailscale: oci.tale-grouper.ts.net)
-#   kckinai           — Inference host (local, Tailscale: kckinai.tale-grouper.ts.net)
-#   dtop202311        — Windows Docker Desktop (local, Tailscale: dtop202311.tale-grouper.ts.net)
+#   oci-cloud-server  — OCI ARM cloud server (primary, Tailscale: oci.<tailnet>)
+#   kckinai           — Inference host (local, Tailscale: kckinai.<tailnet>)
+#   dtop202311        — Windows Docker Desktop (local, Tailscale: dtop202311.<tailnet>)
 #   isolation-vm      — QEMU VM on OCI cloud server (192.168.100.147)
 # ---------------------------------------------------------------------------
 
@@ -96,10 +96,10 @@ services:
   container: "{{ infra_hostname_headroom }}"
   machine: "oci-cloud-server"
   category: "proxy"
-  description: "Context compression layer for AI agents (upstream of iron-proxy, domain: aishrink.levonk.com)"
+  description: "Context compression layer for AI agents (upstream of iron-proxy, domain: aishrink.<base>)"
   source_repo: "https://github.com/chopratejas/headroom"
   domains:
-    - "literal:aishrink.levonk.com"
+    - "infra_domain_ai_aishrink"
   ports:
     - host: "infra_port_ai_headroom_host"
       container: "infra_port_ai_headroom_container"
@@ -292,7 +292,7 @@ services:
   container: "{{ infra_hostname_traefik }}"
   machine: "oci-cloud-server"
   category: "console"
-  description: "Reverse proxy, TLS termination, routing for all *.levonk.com services"
+  description: "Reverse proxy, TLS termination, routing for all *.{{ infra_domain_base }} services"
   source_repo: "https://github.com/traefik/traefik"
   domains:
     - "infra_domain_traefik_dashboard"
@@ -313,7 +313,7 @@ services:
   container: "{{ infra_hostname_authelia }}"
   machine: "oci-cloud-server"
   category: "security"
-  description: "SSO / authentication provider for all *.levonk.com services (OIDC, 2FA)"
+  description: "SSO / authentication provider for all *.{{ infra_domain_base }} services (OIDC, 2FA)"
   source_repo: "https://github.com/authelia/authelia"
   domains:
     - "infra_domain_sso_authelia"
@@ -549,7 +549,7 @@ services:
   container: "{{ infra_hostname_homepage }}"
   machine: "oci-cloud-server"
   category: "infra"
-  description: "Primary startpage (start.levonk.com) — links to TraLa and key services"
+  description: "Primary startpage (start.{{ infra_domain_base }}) — links to TraLa and key services"
   source_repo: "https://github.com/gethomepage/homepage"
   domains:
     - "infra_domain_dashboard_homepage"
@@ -563,7 +563,7 @@ services:
   container: "{{ infra_hostname_trala }}"
   machine: "oci-cloud-server"
   category: "infra"
-  description: "Traefik-native dashboard — auto-discovers all HTTP routers (start2.levonk.com)"
+  description: "Traefik-native dashboard — auto-discovers all HTTP routers (start2.{{ infra_domain_base }})"
   source_repo: "https://github.com/dannybouwers/trala"
   domains:
     - "infra_domain_dashboard_trala"
@@ -639,7 +639,7 @@ services:
       container: "infra_port_career_jobops_container"
       label: "Web"
   traefik: true
-  notes: "Traefik routes cross-machine via Tailscale FQDN (dtop202311.tale-grouper.ts.net)"
+  notes: "Traefik routes cross-machine via Tailscale FQDN (dtop202311.<tailnet>)"
 
 - name: "RustFS"
   container: "{{ infra_hostname_rustfs }}"
@@ -658,7 +658,7 @@ services:
       container: "infra_port_storage_rustfs_console_container"
       label: "Console"
   traefik: true
-  notes: "Traefik routes cross-machine via Tailscale FQDN (dtop202311.tale-grouper.ts.net); S3 API on port 9000, console on port 9001"
+  notes: "Traefik routes cross-machine via Tailscale FQDN (dtop202311.<tailnet>); S3 API on port 9000, console on port 9001"
 
 # ---------------------------------------------------------------------------
 # QM (Multiplayer agent harness for work — web UI + core + Postgres)
@@ -680,7 +680,7 @@ services:
       container: "infra_port_ai_qm_web_container"
       label: "Web UI"
   traefik: true
-  notes: "Traefik routes cross-machine via Tailscale FQDN (dtop202311.tale-grouper.ts.net); SANDBOX_BACKEND=local (dev-only)"
+  notes: "Traefik routes cross-machine via Tailscale FQDN (dtop202311.<tailnet>); SANDBOX_BACKEND=local (dev-only)"
 
 - name: "QM Core"
   container: "{{ infra_hostname_qm }}"
@@ -719,7 +719,7 @@ services:
   domains:
     - "infra_domain_inference_host"
   ports: []
-  notes: "Tailscale FQDN: kckinai.tale-grouper.ts.net, DDNS: kckinai.mach.levonk.com"
+  notes: "Tailscale FQDN: {{ infra_tailscale_fqdn_inference_host | default(infra_tailscale_tailnet) }}, DDNS: client-specific"
 
 # ---------------------------------------------------------------------------
 # Verdaccio NPM Registry (dual-deployment)
@@ -755,7 +755,7 @@ services:
       container: "infra_port_artifact_verdaccio_container"
       label: "Web/API"
   traefik: true
-  notes: "Traefik routes cross-machine via Tailscale FQDN (dtop202311.tale-grouper.ts.net)"
+  notes: "Traefik routes cross-machine via Tailscale FQDN (dtop202311.<tailnet>)"
 
 # ---------------------------------------------------------------------------
 # n8n (Workflow automation — self-hosted)

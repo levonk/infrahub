@@ -13,13 +13,13 @@
 # Docker modules use delegate_to: localhost with ssh:// Docker connection
 # because community.docker modules can't run directly on Windows (Ansible's
 # core basic.py imports grp, which is Unix-only). The SSH config entry for
-# dtop202311.tale-grouper.ts.net provides the key.
+# dtop202311.<tailnet> provides the key.
 #
 # Prerequisites:
 #   1. Bootstrap playbook run on Windows: just ansible-bootstrap-windows-docker
 #   2. Traefik deployed on OCI: just ansible-deploy-infra
 #   3. DNS CNAME configured: just ansible-deploy-dns (configure-cloudflare-dns.yml)
-#   4. SSH config entry for dtop202311.tale-grouper.ts.net (IdentityFile + IdentitiesOnly)
+#   4. SSH config entry for dtop202311.<tailnet> (IdentityFile + IdentitiesOnly)
 #   5. python313Packages.docker in devbox.json (for community.docker modules on OCI phase)
 #
 # Usage:
@@ -94,8 +94,8 @@
   tasks:
     - name: "Deploy RustFS Traefik dynamic configuration"
       ansible.builtin.template:
-        src: "{{ playbook_dir }}/../roles/proxy-traefik/templates/dynamic/rustfs-levonk-com.yml.j2"
-        dest: "{{ proxy_traefik_data_dir | default('/opt/traefik') }}/config/dynamic/rustfs-levonk-com.yml"
+        src: "{{ playbook_dir }}/../roles/proxy-traefik/templates/dynamic/rustfs.yml.j2"
+        dest: "{{ proxy_traefik_data_dir | default('/opt/traefik') }}/config/dynamic/rustfs.yml"
         owner: root
         group: root
         mode: "0644"

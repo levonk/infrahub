@@ -9,7 +9,7 @@ Upstream: https://github.com/manic-systems/ncro
 ncro sits behind ncps in the cache chain:
 
 ```
-Nix client → ncps (cache.nl.levonk.com) → ncro (127.0.0.1:4525) → races upstreams
+Nix client → ncps (nixcache.nl.<base>) → ncro (127.0.0.1:4525) → races upstreams
                                                         ├→ Harmonia (local /nix/store)
                                                         ├→ cache.nixos.org
                                                         ├→ cache.garnix.io

@@ -1,7 +1,7 @@
 ---
 # n8n default variables
 # Self-hosted workflow automation platform (standalone mode + observability).
-# Domain: n8n.levonk.com (app), n8n-grafana.levonk.com (dashboards)
+# Domain: n8n.{{ infra_domain_base }} (app), n8n-grafana.{{ infra_domain_base }} (dashboards)
 # Upstream: https://github.com/n8n-io/n8n
 
 # Service configuration
@@ -49,8 +49,8 @@ n8n_traefik_network_ip: "{{ infra_network_ip_n8n_traefik | default('172.31.0.20'
 n8n_grafana_traefik_network_ip: "{{ infra_network_ip_n8n_grafana_traefik | default('172.31.0.21') }}"
 
 # Domain configuration
-n8n_domain: "{{ infra_domain_ai_n8n | default('n8n.levonk.com') }}"
-n8n_grafana_domain: "{{ infra_domain_ai_n8n_grafana | default('n8n-grafana.levonk.com') }}"
+n8n_domain: "{{ infra_domain_ai_n8n | default('n8n.' ~ (infra_domain_base | default('example.com'))) }}"
+n8n_grafana_domain: "{{ infra_domain_ai_n8n_grafana | default('n8n-grafana.' ~ (infra_domain_base | default('example.com'))) }}"
 
 # Volume configuration
 n8n_volume_name: "{{ infra_storage_n8n_data_volume | default('localnet-n8n-data-volume') }}"

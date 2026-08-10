@@ -51,8 +51,8 @@ flowchart LR
 **2026-07-25**: Added Buzz as a request-origin peer to Paperclip and Omnigent+Pi
 - Buzz (https://github.com/block/buzz) is a self-hostable Nostr relay workspace for human + AI agent collaboration
 - Deployed as `ai-buzz` Ansible role + `deploy-buzz.yml` playbook on the OCI cloud server
-- Domain: https://buzz.levonk.com (Traefik + GeoBlock + CrowdSec + Authelia)
-- Stack: buzz-relay + Postgres 17 + Redis 7 + MinIO; relay URL `wss://buzz.levonk.com`
+- Domain: https://buzz.<base-domain> (Traefik + GeoBlock + CrowdSec + Authelia)
+- Stack: buzz-relay + Postgres 17 + Redis 7 + MinIO; relay URL `wss://buzz.<base-domain>`
 - Serves as a request-origin peer alongside Paperclip (agent orchestration) and Omnigent+Pi (agent execution)
 
 **2026-07-23**: Simplified pipeline to MVP, deferred Forge/NordVPN/AI Dashboard/Privacy Orchestrator
@@ -71,15 +71,15 @@ flowchart LR
 - Verified end-to-end: Pi → iron-proxy (MITM + audit) → NordVPN → Cognition Cloud (Windsurf)
 - See "Iron-Proxy (Egress Firewall — MITM TLS Inspection)" stage for details
 
-**2026-06-29**: Added LiteLLM as the AI gateway entry point (aigate.levonk.com)
+**2026-06-29**: Added LiteLLM as the AI gateway entry point (aigate.<base-domain>)
 - LiteLLM (https://github.com/BerriAI/litellm) is an OSS AI Gateway with auth, virtual keys, spend tracking, PII guardrail (Presidio), and native Langfuse logging
 - Replaces AI Dashboard Proxy 1/2 (analytics collectors) and Privacy Orchestrator (PII detection) as the pipeline entry point
 - LiteLLM sits BEFORE Headroom: PII guardrail runs on raw text (more reliable), spend tracking on original request size, auth/keys reject bad requests early
-- Domain: aigate.levonk.com (Traefik + GeoBlock + CrowdSec + Authelia)
+- Domain: aigate.<base-domain> (Traefik + GeoBlock + CrowdSec + Authelia)
 - Ansible role: `roles/ai-litellm/`, deploy playbook: `playbooks/deploy-ai-gateway-pipeline.yml`
 - **Status**: DEFINED - Ansible role created, vault secrets added, DNS configured
 
-**2026-06-29**: Renamed OmniRoute domain from ai-gateway.levonk.com to airoute.levonk.com
+**2026-06-29**: Renamed OmniRoute domain from ai-gateway.<base-domain> to airoute.<base-domain>
 - LiteLLM (aigate) is now the gateway entry point; OmniRoute (airoute) is the routing layer
 - OmniRoute's unique strengths preserved: 4-tier subscription-draining fallback, 9-factor auto-combo scoring, free-tier maximization, 14 routing strategies
 - See PIPELINE-LITELLM-JANUS-NOTES.md for the full LiteLLM vs OmniRoute comparison
@@ -89,7 +89,7 @@ flowchart LR
 - Deployed as a parallel analytics sink receiving traces from AI Dashboard Proxy 1 (entry collector)
 - NOT a serial forwarding stage — receives trace data alongside the pipeline's own analytics DB
 - Stack: langfuse-web (UI + ingestion API) + langfuse-worker (async ingestion) + postgres + clickhouse + redis + minio
-- Web UI at https://langfuse.levonk.com (Traefik + GeoBlock + CrowdSec + Authelia)
+- Web UI at https://langfuse.<base-domain> (Traefik + GeoBlock + CrowdSec + Authelia)
 - **Status**: DEFINED - shared stack at `services/ai-dashboard/langfuse/`, deploy playbook at `playbooks/deploy-langfuse.yml`
 - See "Langfuse Observability Backend" section for details
 
@@ -199,7 +199,7 @@ Omnigent + Pi are NOT mid-pipeline transformation stages like Headroom or Forge 
    - Admin dashboard UI for spend, keys, teams, models
    - Routes all requests to Headroom as upstream
    - **Implementation**: LiteLLM (https://github.com/BerriAI/litellm)
-   - **Domain**: aigate.levonk.com
+   - **Domain**: aigate.<base-domain>
    - **Port**: 4000
    - **Chain IP**: 172.29.0.18
    - **Traefik IP**: 172.31.0.18
@@ -221,7 +221,7 @@ Omnigent + Pi are NOT mid-pipeline transformation stages like Headroom or Forge 
    - **Compression completely disabled** (Headroom handles compression)
    - **RTK disabled** (avoids redundancy with Headroom)
    - **Caveman disabled** (avoids redundancy with Headroom)
-   - **Domain**: airoute.levonk.com
+   - **Domain**: airoute.<base-domain>
    - **Port**: 20128
    - **Upstream from**: Headroom
    - **Downstream to**: Iron-Proxy (Forge chaining deferred to Phase 2)
@@ -431,7 +431,7 @@ docker exec ai-dashboard-db pg_isready -U postgres
 
 ### Access Analytics
 
-- **AI Dashboard Web Interface**: https://ai-dashboard.levonk.com (single interface for both proxy collectors)
+- **AI Dashboard Web Interface**: https://ai-dashboard.<base-domain> (single interface for both proxy collectors)
 - **Entry Stage API**: http://localhost:9081
 - **Privacy Orchestrator API**: http://localhost:9090
 - **Forge API**: http://localhost:8083
@@ -462,7 +462,7 @@ Pi's LLM requests (chat completions, messages) are routed to the pipeline entry 
 - **Server image**: `ghcr.io/omnigent-ai/omnigent-server:latest` (pin `OMNIGENT_IMAGE_TAG` for reproducible deploys)
 - **Server port**: 8000 (container), 8000 (host) — `infra_port_ai_omnigent_host`
 - **Postgres port**: 5432 (container), 5433 (host, avoids clashing with ai-dashboard postgres) — `infra_port_ai_omnigent_postgres_host`
-- **Domain**: `aiif.levonk.com` (public alias "AI InterFace") — `infra_domain_ai_omnigent`
+- **Domain**: `aiif.<base-domain>` (public alias "AI InterFace") — `infra_domain_ai_omnigent`
 - **Auth**: multi-user with built-in accounts by default (`OMNIGENT_AUTH_ENABLED=1`); OIDC supported via `OMNIGENT_OIDC_*` vars
 - **Secrets**: `OMNIGENT_DB_PASSWORD`, `OMNIGENT_ACCOUNTS_COOKIE_SECRET`, `OMNIGENT_ACCOUNTS_INIT_ADMIN_PASSWORD` sourced from the client Ansible vault
 
@@ -481,7 +481,7 @@ The Omnigent + Pi stack is deployed as Docker containers with security hardening
 - **Pi**: Node.js 22 slim container with `@earendil-works/pi-coding-agent` installed, running `rpc-bridge.py` (HTTP-to-stdin bridge for pi RPC mode)
 - **Networks**: `omnigent-network` (172.36.0.0/16) for Omnigent↔Pi↔Postgres; `ai-dashboard-network` (172.35.0.0/16) for Pi→LiteLLM; `traefik-network` (external) for public routing
 - **Volumes**: `omnigent-postgres-data`, `omnigent-artifact-data`, `pi-data`, `pi-sessions`
-- **Traefik**: Public access via `aiif.levonk.com` with GeoBlock → CrowdSec Bouncer → Authelia security middleware chain
+- **Traefik**: Public access via `aiif.<base-domain>` with GeoBlock → CrowdSec Bouncer → Authelia security middleware chain
 - **Profile**: `omnigent` (both Omnigent and Pi start under this profile)
 
 ### Deployment
@@ -512,8 +512,8 @@ devbox run -- rtk ansible-playbook -i levonk/active/02-config/ansible/inventorie
   --check --diff --vault-password-file ~/.ansible/vault_password
 
 # Register a runner (host) so the server can dispatch agent work
-omni login https://aiif.levonk.com
-omni host https://aiif.levonk.com
+omni login https://aiif.<base-domain>
+omni host https://aiif.<base-domain>
 ```
 
 ### Verification
@@ -522,7 +522,7 @@ omni host https://aiif.levonk.com
 docker ps | grep -E "omnigent|pi"
 
 # Omnigent server health
-curl https://aiif.levonk.com/api/health
+curl https://aiif.<base-domain>/api/health
 # or locally:
 curl http://localhost:8000/api/health
 
@@ -627,7 +627,7 @@ The ingestion API (`/api/public/ingestion`) accepts OpenTelemetry-style trace da
 *(Phase 4 future: AI Dashboard Proxy 1 will forward trace events to Langfuse when deployed.)*
 
 ### Stack Components
-- **langfuse-web** — Next.js web UI + ingestion API (port 3000 container, 3001 host). Exposed via Traefik at `langfuse.levonk.com` with GeoBlock → CrowdSec → Authelia security chain.
+- **langfuse-web** — Next.js web UI + ingestion API (port 3000 container, 3001 host). Exposed via Traefik at `langfuse.<base-domain>` with GeoBlock → CrowdSec → Authelia security chain.
 - **langfuse-worker** — Async ingestion processor consuming from Redis queue, writing to ClickHouse + MinIO (port 3030 container).
 - **langfuse-postgres** — Metadata store (orgs, projects, users, prompts, evaluations). PostgreSQL 17 Alpine (port 5432 container, 5434 host).
 - **langfuse-clickhouse** — Columnar store for high-volume trace/event data (HTTP 8123, TCP 9000 container).
@@ -637,7 +637,7 @@ The ingestion API (`/api/public/ingestion`) accepts OpenTelemetry-style trace da
 ### Configuration
 - **Network**: `langfuse-network` (172.37.0.0/16) for internal service communication
 - **Cross-network**: langfuse-web also joins `ai-dashboard-network` (172.35.0.0/16) so LiteLLM can reach the ingestion API at `http://langfuse-web:3000`, and `traefik-network` (172.31.0.0/16) for public routing
-- **Domain**: `langfuse.levonk.com` — `infra_domain_ai_langfuse`
+- **Domain**: `langfuse.<base-domain>` — `infra_domain_ai_langfuse`
 - **Secrets**: All sensitive values (postgres password, salt, encryption key, nextauth secret, redis auth, clickhouse password, minio credentials) sourced from the client Ansible vault (`vault_langfuse_*` variables)
 - **Telemetry**: Disabled (`TELEMETRY_ENABLED=false`) — no data leaves the deployment
 - **Headless init**: Optional — set `vault_langfuse_init_*` vars to bootstrap org/project/user on first start
@@ -656,7 +656,7 @@ Shared stack (topology definition, copied to the server by the playbook):
 
 Ansible playbook (configures Cloudflare DNS, copies files, generates env from vault + infra vars, creates networks, starts containers):
 - `shared/active/02-config/ansible/playbooks/deploy-langfuse.yml`
-  - Play 1: Configures `langfuse.levonk.com` A record in Cloudflare via the `cloudflare-dns` role
+  - Play 1: Configures `langfuse.<base-domain>` A record in Cloudflare via the `cloudflare-dns` role
   - Play 2: Deploys Langfuse containers to the OCI cloud server
 
 Env template (Jinja2, templated by Ansible with vault secrets + infrastructure vars):
@@ -681,7 +681,7 @@ devbox run -- rtk ansible-playbook -i levonk/active/02-config/ansible/inventorie
 docker ps | grep langfuse
 
 # Langfuse web health
-curl https://langfuse.levonk.com/api/public/health
+curl https://langfuse.<base-domain>/api/public/health
 # or locally:
 curl http://localhost:3001/api/public/health
 
@@ -714,30 +714,30 @@ To wire a project: create an organization and project in the Langfuse UI, then c
 
 The AI Dashboard web interface is accessible via Traefik with proper domain names and SSL certificates:
 
-- **AI Dashboard**: https://ai-dashboard.levonk.com *(Phase 4 — deferred)*
+- **AI Dashboard**: https://ai-dashboard.<base-domain> *(Phase 4 — deferred)*
   - Single web interface for both proxy collectors (entry and pre-egress)
   - Displays comparative analytics between pipeline stages
   - Authenticated via Authelia with security middleware chain
   - SSL certificates managed by Let's Encrypt via Traefik
 
-- **OmniRoute Dashboard**: https://ai-gateway.levonk.com *(deprecated — renamed to airoute.levonk.com)*
+- **OmniRoute Dashboard**: https://ai-gateway.<base-domain> *(deprecated — renamed to airoute.<base-domain>)*
   - Provider management and configuration interface
   - Auto-fallback chain configuration
   - Usage analytics and provider performance metrics
   - Authenticated via Authelia with security middleware chain
   - SSL certificates managed by Let's Encrypt via Traefik
 
-- **LiteLLM Admin (aigate)**: https://aigate.levonk.com *(active — Phase 1 MVP)*
+- **LiteLLM Admin (aigate)**: https://aigate.<base-domain> *(active — Phase 1 MVP)*
   - LiteLLM admin dashboard for spend, keys, teams, models
   - Authenticated via Authelia with security middleware chain
   - SSL certificates managed by Let's Encrypt via Traefik
 
-- **OmniRoute (airoute)**: https://airoute.levonk.com *(active — Phase 1 MVP)*
+- **OmniRoute (airoute)**: https://airoute.<base-domain> *(active — Phase 1 MVP)*
   - OmniRoute provider management and configuration interface
   - Authenticated via Authelia with security middleware chain
   - SSL certificates managed by Let's Encrypt via Traefik
 
-- **Langfuse Observability**: https://langfuse.levonk.com *(active — Phase 1 MVP)*
+- **Langfuse Observability**: https://langfuse.<base-domain> *(active — Phase 1 MVP)*
   - LLM tracing, analytics, and prompt management
   - Trace visualization and evaluation
   - Cost and token usage analytics

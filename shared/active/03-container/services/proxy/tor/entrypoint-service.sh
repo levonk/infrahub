@@ -14,7 +14,7 @@ if [ "$PROXY_TOR_EXIT_NODE_ENABLED" = "true" ]; then
 ORPort ${PROXY_TOR_ORPORT:-9001}
 DirPort ${PROXY_TOR_DIRPORT:-9030}
 Nickname ${PROXY_TOR_NICKNAME:-levonk-tor-exit}
-ContactInfo ${PROXY_TOR_CONTACT_INFO:-admin@levonk.com}
+ContactInfo ${PROXY_TOR_CONTACT_INFO:-admin@example.com}
 ExitPolicy ${PROXY_TOR_EXIT_POLICY:-reject *:*}
 RelayBandwidthRate ${PROXY_TOR_BANDWIDTH_RATE:-100 KB}
 RelayBandwidthBurst ${PROXY_TOR_BANDWIDTH_BURST:-200 KB}"
@@ -27,7 +27,7 @@ sed -e "s|{PROXY_TOR_SOCKS5_CONTAINER_PORT}|${PROXY_TOR_SOCKS5_CONTAINER_PORT:-9
     -e "s|{PROXY_TOR_ORPORT}|${PROXY_TOR_ORPORT:-9001}|g" \
     -e "s|{PROXY_TOR_DIRPORT}|${PROXY_TOR_DIRPORT:-9030}|g" \
     -e "s|{PROXY_TOR_NICKNAME}|${PROXY_TOR_NICKNAME:-levonk-tor-exit}|g" \
-    -e "s|{PROXY_TOR_CONTACT_INFO}|${PROXY_TOR_CONTACT_INFO:-admin@levonk.com}|g" \
+    -e "s|{PROXY_TOR_CONTACT_INFO}|${PROXY_TOR_CONTACT_INFO:-admin@example.com}|g" \
     -e "s|{PROXY_TOR_EXIT_POLICY}|${PROXY_TOR_EXIT_POLICY:-reject *:*}|g" \
     -e "s|{PROXY_TOR_BANDWIDTH_RATE}|${PROXY_TOR_BANDWIDTH_RATE:-100 KB}|g" \
     -e "s|{PROXY_TOR_BANDWIDTH_BURST}|${PROXY_TOR_BANDWIDTH_BURST:-200 KB}|g" \

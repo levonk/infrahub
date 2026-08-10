@@ -2,7 +2,7 @@
 # Paperclip AI Orchestration Deployment
 # Deploys the Paperclip AI agent orchestration platform.
 # Stack: Paperclip (Node.js server + React UI) + external PostgreSQL container.
-# Routing: Traefik at paperclip.levonk.com with Authelia middleware.
+# Routing: Traefik at paperclip.<base> with Authelia middleware.
 
 - name: Validate required variables are defined
   ansible.builtin.assert:

@@ -36,7 +36,7 @@ nix_harmonia_network_name_nl: "traefik-windows-network"
 nix_harmonia_network_name_cno: "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"
 
 # Docker host for Windows deployment (ssh-tunneled)
-nix_harmonia_docker_host_windows: "ssh://ansible@{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.tale-grouper.ts.net') }}"
+nix_harmonia_docker_host_windows: "ssh://ansible@{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) }}"
 
 # Local temp directory for rendering config files
 nix_harmonia_windows_temp_dir: "/tmp/nix-harmonia-config-{{ inventory_hostname }}"

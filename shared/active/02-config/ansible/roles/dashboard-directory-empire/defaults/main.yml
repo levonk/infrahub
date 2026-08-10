@@ -21,7 +21,7 @@ directory_empire_host_port: "{{ infra_port_dashboard_directory_empire_host | def
 directory_empire_container_port: "{{ infra_port_dashboard_directory_empire_container | default('3000') }}"
 
 # Domain (for Traefik routing)
-directory_empire_domain: "{{ infra_domain_dashboard_directory_empire_nl | default('de.nl.levonk.com') }}"
+directory_empire_domain: "{{ infra_domain_dashboard_directory_empire_nl | default('de.nl.' ~ (infra_domain_base | default('example.com'))) }}"
 
 # Volume — config volume for runtime env files
 directory_empire_config_volume: "{{ infra_storage_directory_empire_config_volume | default('localnet-directory-empire-config-volume') }}"
@@ -30,7 +30,7 @@ directory_empire_config_volume: "{{ infra_storage_directory_empire_config_volume
 directory_empire_network_name: "traefik-windows-network"
 
 # Docker host for Windows deployment (ssh-tunneled)
-directory_empire_docker_host_windows: "ssh://ansible@{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.tale-grouper.ts.net') }}"
+directory_empire_docker_host_windows: "ssh://ansible@{{ infra_tailscale_fqdn_windows_docker | default(infra_tailscale_tailnet | default('example.ts.net')) }}"
 
 # Local temp directory for rendering config files
 directory_empire_windows_temp_dir: "/tmp/directory-empire-config-{{ inventory_hostname }}"

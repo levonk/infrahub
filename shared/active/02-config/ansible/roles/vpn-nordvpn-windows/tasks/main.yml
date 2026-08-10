@@ -249,6 +249,6 @@
         - Tailscale container: {{ vpn_nordvpn_windows_tailscale_container_name }} ({{ tailscale_nordvpn_windows_status.stdout | default('unknown') }})
         - Tailscale hostname: {{ vpn_tailscale_windows_nordvpn_hostname }}
         - Network: {{ vpn_nordvpn_windows_network_name }}
-        - SOCKS proxy: {{ infra_tailscale_fqdn_windows_docker | default('dtop202311.tale-grouper.ts.net') }}:{{ vpn_nordvpn_windows_socks_host_port }}
-        - HTTP proxy: {{ infra_tailscale_fqdn_windows_docker | default('dtop202311.tale-grouper.ts.net') }}:{{ vpn_nordvpn_windows_http_host_port }}
+        - SOCKS proxy: {{ infra_tailscale_fqdn_windows_docker | default('dtop202311.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) }}:{{ vpn_nordvpn_windows_socks_host_port }}
+        - HTTP proxy: {{ infra_tailscale_fqdn_windows_docker | default('dtop202311.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) }}:{{ vpn_nordvpn_windows_http_host_port }}
   tags: ["always", "info"]

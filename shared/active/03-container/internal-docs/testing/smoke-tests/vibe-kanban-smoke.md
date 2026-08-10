@@ -5,7 +5,7 @@ This document outlines the procedure to verify the correct deployment and integr
 ## Prerequisites
 
 - Localnet stack is running (`docker compose up -d` or equivalent).
-- `kanban.levonk.com` resolves to the Traefik load balancer IP (e.g., via `/etc/hosts` or local DNS).
+- `kanban.<base>` resolves to the Traefik load balancer IP (e.g., via `/etc/hosts` or local DNS).
 - Required environment variables are set in `.env` (check `env.template` for `KANBAN_SESSION_SECRET`, tokens, etc.).
 
 ## 1. Service Health Checks
@@ -23,7 +23,7 @@ docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Health}}" | grep -E 'vibe-
 
 ## 2. Vibe Kanban UI Access
 
-1. Open `https://kanban.levonk.com` in your browser.
+1. Open `https://kanban.<base>` in your browser.
 2. You should be redirected to the Authelia login page (if not already authenticated).
 3. Authenticate with your Authelia credentials.
 4. Verify the Vibe Kanban interface loads.
@@ -80,5 +80,5 @@ curl -X POST http://localhost:8080/sessions/start \
   docker logs -f opencode-runner
   docker logs -f autoclaude-runner
   ```
-- **Traefik Routing:** Check `https://traefik.levonk.com/dashboard/` to verify the `vibe-kanban` router is active and error-free.
+- **Traefik Routing:** Check `https://traefik.<base>/dashboard/` to verify the `vibe-kanban` router is active and error-free.
 - **Permissions:** Ensure the `/p` mount is accessible and writable by the container user (`nodejs` or `app`).

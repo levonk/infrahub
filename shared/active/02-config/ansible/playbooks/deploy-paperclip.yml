@@ -2,7 +2,7 @@
 # Paperclip AI Orchestration Deployment Playbook
 # Deploys the Paperclip AI agent orchestration platform on the OCI cloud server.
 # Stack: Paperclip (Node.js server + React UI) + external PostgreSQL container.
-# Routing: Traefik at paperclip.levonk.com with Authelia middleware.
+# Routing: Traefik at paperclip.{{ infra_domain_base }} with Authelia middleware.
 #
 # Usage:
 #   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
@@ -29,9 +29,9 @@
     cloudflare_dns_validate_ip: true
     cloudflare_dns_allow_private_ip: false
     cloudflare_dns_records:
-      - name: "{{ infra_domain_ai_paperclip | default('paperclip.levonk.com') }}"
+      - name: "{{ infra_domain_ai_paperclip | default('paperclip.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
-        content: "{{ infra_tailscale_fqdn_cloud_server | default('oci.tale-grouper.ts.net') }}"
+        content: "{{ infra_tailscale_fqdn_cloud_server | default('oci.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) }}"
         ttl: "{{ cloudflare_dns_ttl }}"
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
@@ -79,7 +79,7 @@
           OS: {{ ansible_distribution }} {{ ansible_distribution_version }}
           Architecture: {{ ansible_facts['architecture'] }}
           Timestamp: {{ ansible_date_time.iso8601 }}
-          Domain: https://{{ infra_domain_ai_paperclip | default('paperclip.levonk.com') }}
+          Domain: https://{{ infra_domain_ai_paperclip | default('paperclip.' ~ (infra_domain_base | default('example.com'))) }}
           Image: localnet-ai-paperclip (locally-built)
           ========================================
       tags: ["always", "info"]
@@ -160,7 +160,7 @@
           ========================================
           Paperclip AI Orchestration Deployed
           ========================================
-          URL: https://{{ infra_domain_ai_paperclip | default('paperclip.levonk.com') }}
+          URL: https://{{ infra_domain_ai_paperclip | default('paperclip.' ~ (infra_domain_base | default('example.com'))) }}
             Direct: http://{{ ansible_host | default('localhost') }}:{{ infra_port_ai_paperclip_host }}
             Status: {{ paperclip_container_check.stdout | default('unknown') }}
           Postgres: {{ ai_paperclip_postgres_container_name }}
@@ -168,6 +168,6 @@
           Image: localnet-ai-paperclip (locally-built, linux/arm64)
           ========================================
           Behind Traefik with Authelia middleware.
-          Auth via Authelia SSO (https://auth.levonk.com).
+          Auth via Authelia SSO (https://auth.{{ infra_domain_base }}).
           ========================================
       tags: ["verify", "info"]

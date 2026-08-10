@@ -1,7 +1,7 @@
 ---
 # Domain Names and DNS Schema
 # Location: shared/active/02-config/ansible/infrastructure/domains.yml
-# Purpose: Shared domain name schema with sensible defaults
+# Purpose: Shared domain name schema with generic defaults
 # Client-specific values in levonk/active/02-config/ansible/infrastructure/domains.yml
 # ---------------------------------------------------------------------------
 # Variable Naming: infra_domain_{SERVICE}_{CONTEXT}_{ATTRIBUTE}
@@ -9,27 +9,35 @@
 # Context: dashboard, gateway, web, api, etc.
 # Attributes: domain, hostname, subdomain
 # ---------------------------------------------------------------------------
+# Self-referential pattern: all domains derive from infra_domain_base.
+# Clients override infra_domain_base (e.g. "client.com") and any individual
+# domains that use non-obvious subdomain names.
+
+# ---------------------------------------------------------------------------
+# Base Domain (client-specific — MUST be overridden)
+# ---------------------------------------------------------------------------
+infra_domain_base: "example.com"
 
 # ---------------------------------------------------------------------------
 # Traefik Dashboard
 # ---------------------------------------------------------------------------
-infra_domain_traefik_dashboard: "traefik.levonk.com"
+infra_domain_traefik_dashboard: "traefik.{{ infra_domain_base }}"
 
 # ---------------------------------------------------------------------------
 # AI Services
 # ---------------------------------------------------------------------------
-infra_domain_ai_dashboard_web: "ai-dashboard.levonk.com"
-infra_domain_ai_litellm: "aigate.levonk.com"
-infra_domain_ai_litellm_api: "aigate-api.levonk.com"
-infra_domain_ai_omniroute: "airoute.levonk.com"
-infra_domain_ai_omnigent: "aiif.levonk.com"  # Public alias "AI InterFace" for the Omnigent service
-infra_domain_ai_archon: "archon.levonk.com"   # Archon workflow layer (future Traefik routing)
-infra_domain_ai_agentmemory: "agentmemory.levonk.com"
-infra_domain_ai_langfuse: "langfuse.levonk.com"
-infra_domain_ai_buzz: "buzz.levonk.com"
+infra_domain_ai_dashboard_web: "ai-dashboard.{{ infra_domain_base }}"
+infra_domain_ai_litellm: "aigate.{{ infra_domain_base }}"
+infra_domain_ai_litellm_api: "aigate-api.{{ infra_domain_base }}"
+infra_domain_ai_omniroute: "airoute.{{ infra_domain_base }}"
+infra_domain_ai_omnigent: "aiif.{{ infra_domain_base }}"  # Public alias "AI InterFace" for the Omnigent service
+infra_domain_ai_archon: "archon.{{ infra_domain_base }}"   # Archon workflow layer (future Traefik routing)
+infra_domain_ai_agentmemory: "agentmemory.{{ infra_domain_base }}"
+infra_domain_ai_langfuse: "langfuse.{{ infra_domain_base }}"
+infra_domain_ai_buzz: "buzz.{{ infra_domain_base }}"
 
 # QM (Multiplayer agent harness for work — web UI)
-infra_domain_ai_qm: "qm.levonk.com"
+infra_domain_ai_qm: "qm.{{ infra_domain_base }}"
 infra_hostname_qm: "qm-levonk-core"
 infra_hostname_qm_web: "qm-levonk-web-ui"
 infra_hostname_qm_postgres: "qm-levonk-pg"
@@ -37,25 +45,25 @@ infra_hostname_qm_postgres: "qm-levonk-pg"
 # ---------------------------------------------------------------------------
 # Paperclip AI Orchestration
 # ---------------------------------------------------------------------------
-infra_domain_ai_paperclip: "paperclip.levonk.com"
+infra_domain_ai_paperclip: "paperclip.{{ infra_domain_base }}"
 infra_hostname_paperclip: "paperclip"
 infra_hostname_paperclip_postgres: "paperclip-postgres"
 
 # ---------------------------------------------------------------------------
 # Proxy Services
 # ---------------------------------------------------------------------------
-infra_domain_proxy_search: "search.levonk.com"
+infra_domain_proxy_search: "search.{{ infra_domain_base }}"
 
 # ---------------------------------------------------------------------------
 # SSO/Authelia
 # ---------------------------------------------------------------------------
-infra_domain_sso_authelia: "auth.levonk.com"
+infra_domain_sso_authelia: "auth.{{ infra_domain_base }}"
 
 # ---------------------------------------------------------------------------
 # Monitoring Services
 # ---------------------------------------------------------------------------
-infra_domain_monitoring_grafana: "grafana.levonk.com"
-infra_domain_monitoring_prometheus: "prometheus.levonk.com"
+infra_domain_monitoring_grafana: "grafana.{{ infra_domain_base }}"
+infra_domain_monitoring_prometheus: "prometheus.{{ infra_domain_base }}"
 
 # ---------------------------------------------------------------------------
 # VPN Hostnames
@@ -70,7 +78,7 @@ infra_hostname_vpn_tor: "tor"
 # Used for Cloudflare CNAME targets instead of A records pointing at
 # Tailscale IPs. CNAMEs decouple DNS from the ephemeral Tailscale IP —
 # if Tailscale reassigns the IP, only Tailscale DNS updates, not Cloudflare.
-# The tailnet name (e.g. "tale-grouper") is client-specific and MUST be
+# The tailnet name (e.g. "client-tailnet") is client-specific and MUST be
 # overridden in the client's infrastructure/domains.yml.
 # ---------------------------------------------------------------------------
 infra_tailscale_tailnet: "example.ts.net"
@@ -115,48 +123,48 @@ infra_hostname_trala: "trala"
 # Start / Launch Page Dashboards
 # See ADR-20260629001 for the decision rationale.
 # Dual-deployment: each network (cno + nl) runs its own Homepage + TraLa.
-# The bare domains (start.levonk.com, start2.levonk.com) point to cno (OCI).
+# The bare domains (start, start2) point to cno (cloud).
 # ---------------------------------------------------------------------------
-infra_domain_dashboard_homepage: "start.levonk.com"
-infra_domain_dashboard_trala: "start2.levonk.com"
-infra_domain_dashboard_homepage_cno: "start.cno.levonk.com"
-infra_domain_dashboard_trala_cno: "start2.cno.levonk.com"
-infra_domain_dashboard_homepage_nl: "start.nl.levonk.com"
-infra_domain_dashboard_trala_nl: "start2.nl.levonk.com"
+infra_domain_dashboard_homepage: "start.{{ infra_domain_base }}"
+infra_domain_dashboard_trala: "start2.{{ infra_domain_base }}"
+infra_domain_dashboard_homepage_cno: "start.cno.{{ infra_domain_base }}"
+infra_domain_dashboard_trala_cno: "start2.cno.{{ infra_domain_base }}"
+infra_domain_dashboard_homepage_nl: "start.nl.{{ infra_domain_base }}"
+infra_domain_dashboard_trala_nl: "start2.nl.{{ infra_domain_base }}"
 
 # ---------------------------------------------------------------------------
 # Career Services
 # ---------------------------------------------------------------------------
-infra_domain_career_jobops: "jobops.levonk.com"
+infra_domain_career_jobops: "jobops.{{ infra_domain_base }}"
 
 # ---------------------------------------------------------------------------
 # Tools / File Transfer
 # ---------------------------------------------------------------------------
-infra_domain_tools_croc_relay: "croc.levonk.com"
+infra_domain_tools_croc_relay: "croc.{{ infra_domain_base }}"
 
 # ---------------------------------------------------------------------------
 # Object Storage Services
 # ---------------------------------------------------------------------------
-infra_domain_storage_rustfs: "rustfs.levonk.com"
-infra_domain_storage_rustfs_console: "rustfs-console.levonk.com"
+infra_domain_storage_rustfs: "rustfs.{{ infra_domain_base }}"
+infra_domain_storage_rustfs_console: "rustfs-console.{{ infra_domain_base }}"
 infra_hostname_rustfs: "localnet-rustfs"
 
 # ---------------------------------------------------------------------------
 # Security/SIEM Services
 # ---------------------------------------------------------------------------
-infra_domain_security_wazuh: "wazuh.levonk.com"
+infra_domain_security_wazuh: "wazuh.{{ infra_domain_base }}"
 infra_hostname_wazuh_manager: "wazuh-manager"
 infra_hostname_wazuh_indexer: "wazuh-indexer"
 infra_hostname_wazuh_dashboard: "wazuh-dashboard"
 
 # ---------------------------------------------------------------------------
 # Artifact / NPM Registry Services (Verdaccio dual-deployment)
-# nl = network local (dtop202311, X86 Windows Docker Desktop)
-# cno = cloud network oracle (oci, ARM64 Oracle Cloud)
+# nl = network local (X86)
+# cno = cloud network oracle (ARM64)
 # Both are independent registries with synced config (same htpasswd, same config template).
 # ---------------------------------------------------------------------------
-infra_domain_artifact_verdaccio_cno: "npmjs.cno.levonk.com"
-infra_domain_artifact_verdaccio_nl: "npmjs.nl.levonk.com"
+infra_domain_artifact_verdaccio_cno: "npmjs.cno.{{ infra_domain_base }}"
+infra_domain_artifact_verdaccio_nl: "npmjs.nl.{{ infra_domain_base }}"
 infra_hostname_verdaccio_cno: "localnet-artifact-verdaccio"
 infra_hostname_verdaccio_nl: "localnet-artifact-verdaccio-nl"
 
@@ -177,11 +185,11 @@ infra_dns_ttl_short: "60"
 
 # ---------------------------------------------------------------------------
 # n8n (Workflow automation — self-hosted)
-# Used by: deploy-n8n.yml playbook on cloud_servers (OCI)
+# Used by: deploy-n8n.yml playbook on cloud_servers
 # Two public domains: n8n app + Grafana dashboards, both behind Traefik + Authelia.
 # ---------------------------------------------------------------------------
-infra_domain_ai_n8n: "n8n.levonk.com"
-infra_domain_ai_n8n_grafana: "n8n-grafana.levonk.com"
+infra_domain_ai_n8n: "n8n.{{ infra_domain_base }}"
+infra_domain_ai_n8n_grafana: "n8n-grafana.{{ infra_domain_base }}"
 infra_hostname_n8n: "localnet-n8n"
 infra_hostname_n8n_postgres: "localnet-n8n-postgres"
 infra_hostname_n8n_prometheus: "localnet-n8n-prometheus"
@@ -193,33 +201,33 @@ infra_hostname_n8n_grafana: "localnet-n8n-grafana"
 # Harmonia serves local /nix/store (internal, 127.0.0.1 only).
 # ncps is the front-door NAR caching proxy (exposed via Traefik).
 # ncro races upstreams in parallel (internal, behind ncps).
-# nl  = network local (dtop202311, X86 Windows Docker Desktop)
-# cno = cloud network oracle (oci-cloud-server, ARM64 Linux)
+# nl  = network local (X86)
+# cno = cloud network oracle (ARM64)
 # ---------------------------------------------------------------------------
-infra_domain_nix_cache_nl: "nixcache.nl.levonk.com"
-infra_domain_nix_cache_cno: "nixcache.cno.levonk.com"
-# nl hostnames (Windows Docker Desktop — dtop202311)
+infra_domain_nix_cache_nl: "nixcache.nl.{{ infra_domain_base }}"
+infra_domain_nix_cache_cno: "nixcache.cno.{{ infra_domain_base }}"
+# nl hostnames
 infra_hostname_nix_harmonia_nl: "localnet-nix-harmonia"
 infra_hostname_nix_ncps_nl: "localnet-nix-ncps"
 infra_hostname_nix_ncro_nl: "localnet-nix-ncro"
-# cno hostnames (OCI cloud server — ARM64 Linux)
+# cno hostnames
 infra_hostname_nix_harmonia_cno: "localnet-nix-harmonia-cno"
 infra_hostname_nix_ncps_cno: "localnet-nix-ncps-cno"
 infra_hostname_nix_ncro_cno: "localnet-nix-ncro-cno"
 
 # ---------------------------------------------------------------------------
-# Garnix CI Builder (nl region — dtop202311, Windows Docker Desktop)
+# Garnix CI Builder (nl region — X86)
 # Nix-based CI builder with /dev/kvm + shared nix store from nix-sidecar.
-# Web UI exposed via Traefik at ci.nl.levonk.com.
+# Web UI exposed via Traefik.
 # ---------------------------------------------------------------------------
-infra_domain_garnix_ci_nl: "ci.nl.levonk.com"
+infra_domain_garnix_ci_nl: "ci.nl.{{ infra_domain_base }}"
 infra_hostname_garnix_ci: "localnet-garnix-ci"
 
 # ---------------------------------------------------------------------------
-# Directory Empire Dashboard (nl region — dtop202311, Windows Docker Desktop)
+# Directory Empire Dashboard (nl region — X86)
 # Next.js orchestration dashboard for the Directory Empire platform.
 # Multi-stage Docker build from the directory-empire repo (lrepo52/directory-empire).
-# Web UI exposed via Traefik at de.nl.levonk.com.
+# Web UI exposed via Traefik.
 # ---------------------------------------------------------------------------
-infra_domain_dashboard_directory_empire_nl: "de.nl.levonk.com"
+infra_domain_dashboard_directory_empire_nl: "de.nl.{{ infra_domain_base }}"
 infra_hostname_dashboard_directory_empire: "localnet-dashboard-directory-empire"

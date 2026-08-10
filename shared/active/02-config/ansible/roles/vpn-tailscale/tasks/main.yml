@@ -268,7 +268,7 @@
       PROXY_TOR_ORPORT: "{{ proxy_tor_orport_container | default('9001') | string }}"
       PROXY_TOR_DIRPORT: "{{ proxy_tor_dirport_container | default('9030') | string }}"
       PROXY_TOR_NICKNAME: "{{ proxy_tor_nickname | default('levonk-tor-exit') }}"
-      PROXY_TOR_CONTACT_INFO: "{{ proxy_tor_contact_info | default('admin@levonk.com') }}"
+      PROXY_TOR_CONTACT_INFO: "{{ proxy_tor_contact_info | default('admin@example.com') }}"
       PROXY_TOR_EXIT_POLICY: "{{ proxy_tor_exit_policy | default('reject *:*') }}"
       PROXY_TOR_BANDWIDTH_RATE: "{{ proxy_tor_bandwidth_rate | default('100 KB') }}"
       PROXY_TOR_BANDWIDTH_BURST: "{{ proxy_tor_bandwidth_burst | default('200 KB') }}"

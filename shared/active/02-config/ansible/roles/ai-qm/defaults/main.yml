@@ -2,7 +2,7 @@
 # QM (Multiplayer agent harness) default variables
 # QM is a multiplayer agent harness for work by yc-software.
 # TypeScript/Node core + React web UI + Postgres.
-# Domain: qm.levonk.com
+# Domain: qm.{{ infra_domain_base }}
 # Upstream: https://github.com/yc-software/qm
 # Deployed to Windows Docker Desktop hosts via SSH-tunneled Docker CLI.
 
@@ -34,7 +34,7 @@ qm_postgres_host_port: "{{ infra_port_ai_qm_postgres_host | default('5437') }}"
 qm_postgres_container_port: "{{ infra_port_ai_qm_postgres_container | default('5432') }}"
 
 # Domain for Traefik routing
-qm_domain: "{{ infra_domain_ai_qm | default('qm.levonk.com') }}"
+qm_domain: "{{ infra_domain_ai_qm | default('qm.' ~ (infra_domain_base | default('example.com'))) }}"
 
 # Public URLs (used by QM core for generating links)
 qm_public_url: "https://{{ qm_domain }}"
@@ -80,7 +80,7 @@ qm_model_provider: "anthropic"
 # community.docker modules can't run directly on Windows (Ansible core basic.py
 # imports grp, Unix-only). We delegate_to: localhost and connect to the Windows
 # Docker daemon via ssh://. Requires SSH config entry for the Windows host.
-qm_docker_host: "ssh://ansible@{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.tale-grouper.ts.net') }}"
+qm_docker_host: "ssh://ansible@{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) }}"
 
 # Health check configuration
 qm_health_interval: "30s"

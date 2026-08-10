@@ -8,7 +8,11 @@
 # ---------------------------------------------------------------------------
 # Client-Specific Domain Overrides
 # ---------------------------------------------------------------------------
-# Levonk uses the levonk.com domain for all services
+# Levonk uses the levonk.com domain for all services.
+# Setting infra_domain_base makes shared defaults resolve to *.levonk.com
+# automatically; explicit overrides below are kept for clarity and for
+# domains that deviate from the standard subdomain naming.
+infra_domain_base: "levonk.com"
 
 # ---------------------------------------------------------------------------
 # AI Services (client-specific)
@@ -20,7 +24,9 @@ infra_domain_ai_omniroute: "airoute.levonk.com"
 infra_domain_ai_omnigent: "aiif.levonk.com"  # Public alias "AI InterFace" for the Omnigent service
 infra_domain_ai_archon: "archon.levonk.com"   # Archon workflow layer (future Traefik routing)
 infra_domain_ai_agentmemory: "agentmemory.levonk.com"
+infra_domain_ai_aishrink: "aishrink.levonk.com"
 infra_domain_ai_langfuse: "langfuse.levonk.com"
+infra_domain_ai_langfuse_minio: "langfuse-minio.levonk.com"
 
 # QM (Multiplayer agent harness — deployed to Windows Docker Desktop)
 infra_domain_ai_qm: "qm.levonk.com"
@@ -52,6 +58,8 @@ infra_domain_sso_authelia: "auth.levonk.com"
 # DNS Services (client-specific)
 # ---------------------------------------------------------------------------
 infra_domain_dns_adguard: "adguard.levonk.com"
+infra_domain_dns_dnsdist: "dnsdist.levonk.com"
+infra_domain_security_crowdsec: "crowdsec.levonk.com"
 
 # ---------------------------------------------------------------------------
 # VPN Hostnames (client-specific)

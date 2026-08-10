@@ -1,7 +1,7 @@
 http:
   routers:
     vibe-kanban:
-      rule: 'Host(`kanban.levonk.com`)'
+      rule: 'Host(`kanban.example.com`)'
       service: vibe-kanban
       entryPoints:
         - websecure
@@ -46,7 +46,7 @@ http:
       middlewares:
         - strip-claude-code-intercept-ui
     searxng:
-      rule: 'Host(`search.levonk.com`)'
+      rule: 'Host(`search.example.com`)'
       service: searxng
       entryPoints:
         - websecure
@@ -139,7 +139,7 @@ http:
     # Authelia forward authentication middleware
     authelia:
       forwardAuth:
-        address: http://authelia:9091/api/verify?rd=https://auth.levonk.com/
+        address: http://authelia:9091/api/verify?rd=https://auth.example.com/
         trustForwardHeader: true
         authResponseHeaders:
           - Remote-User

@@ -3,7 +3,7 @@
 # This service integrates the ai-dashboard project as external containers
 # Reference: https://github.com/levonk/ai-dashboard
 #
-# Web Interface: https://ai-dashboard.levonk.com (via Traefik with Authelia)
+# Web Interface: https://ai-dashboard.example.com (via Traefik with Authelia)
 # Proxy Services: Entry and pre-egress analytics collectors
 
 x-logging: &default-logging
@@ -91,11 +91,11 @@ services:
       # Traefik labels for automatic routing with security middleware chain
       - "traefik.enable=true"
       # HTTP router (redirects to HTTPS)
-      - "traefik.http.routers.ai-dashboard-web-http.rule=Host(`ai-dashboard.levonk.com`)"
+      - "traefik.http.routers.ai-dashboard-web-http.rule=Host(`ai-dashboard.example.com`)"
       - "traefik.http.routers.ai-dashboard-web-http.entryPoints=web"
       - "traefik.http.routers.ai-dashboard-web-http.middlewares=redirect-to-https"
       # HTTPS router with security middleware chain
-      - "traefik.http.routers.ai-dashboard-web-https.rule=Host(`ai-dashboard.levonk.com`)"
+      - "traefik.http.routers.ai-dashboard-web-https.rule=Host(`ai-dashboard.example.com`)"
       - "traefik.http.routers.ai-dashboard-web-https.entryPoints=websecure"
       - "traefik.http.routers.ai-dashboard-web-https.middlewares=geoblock,crowdsec-bouncer,authelia"
       - "traefik.http.routers.ai-dashboard-web-https.tls=true"

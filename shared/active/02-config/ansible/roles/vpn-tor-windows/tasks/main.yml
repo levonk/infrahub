@@ -244,5 +244,5 @@
         - Tailscale container: {{ vpn_tor_windows_tailscale_container_name }} ({{ tailscale_tor_windows_status.stdout | default('unknown') }})
         - Tailscale hostname: {{ vpn_tailscale_windows_tor_hostname }}
         - Network: {{ vpn_tor_windows_network_name }}
-        - SOCKS proxy: {{ infra_tailscale_fqdn_windows_docker | default('dtop202311.tale-grouper.ts.net') }}:{{ vpn_tor_windows_socks5_host_port }}
+        - SOCKS proxy: {{ infra_tailscale_fqdn_windows_docker | default('dtop202311.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) }}:{{ vpn_tor_windows_socks5_host_port }}
   tags: ["always", "info"]

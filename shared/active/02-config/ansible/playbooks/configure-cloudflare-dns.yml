@@ -11,6 +11,8 @@
   gather_facts: false
   become: false
   vars_files:
+    - "{{ playbook_dir }}/../infrastructure/domains.yml"
+    - "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/domains.yml"
     - "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/inventories/group_vars/cloud_servers.yml"
     - "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/inventories/group_vars/infrahub-levonk-all.vault.yml"
   vars:
@@ -28,18 +30,18 @@
     cloudflare_dns_allow_private_ip: false
 
     # Tailscale FQDN for the cloud server (all services run here)
-    # Defined in levonk/active/02-config/ansible/infrastructure/domains.yml
-    ts_fqdn: "{{ infra_tailscale_fqdn_cloud_server | default('oci.tale-grouper.ts.net') }}"
+    # Defined in client infrastructure/domains.yml
+    ts_fqdn: "{{ infra_tailscale_fqdn_cloud_server | default(infra_tailscale_tailnet | default('example.ts.net')) }}"
 
     # Tailscale FQDN for the Windows Docker host
     # Croc relay is a TCP service that runs directly on this host, not behind Traefik.
-    ts_fqdn_windows_docker: "{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.tale-grouper.ts.net') }}"
+    ts_fqdn_windows_docker: "{{ infra_tailscale_fqdn_windows_docker | default(infra_tailscale_tailnet | default('example.ts.net')) }}"
 
     # Multiple DNS Records for proxy stack domains
     # All services run on the OCI cloud server → CNAME to its Tailscale FQDN
     cloudflare_dns_records:
       # SearXNG search service
-      - name: "{{ infra_domain_proxy_search | default('search.levonk.com') }}"
+      - name: "{{ infra_domain_proxy_search | default('search.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
         content: "{{ ts_fqdn }}"
         ttl: "{{ cloudflare_dns_ttl }}"
@@ -47,7 +49,7 @@
         state: "{{ cloudflare_dns_state }}"
 
       # AI Dashboard analytics service
-      - name: "{{ infra_domain_ai_dashboard_web | default('ai-dashboard.levonk.com') }}"
+      - name: "{{ infra_domain_ai_dashboard_web | default('ai-dashboard.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
         content: "{{ ts_fqdn }}"
         ttl: "{{ cloudflare_dns_ttl }}"
@@ -55,7 +57,7 @@
         state: "{{ cloudflare_dns_state }}"
 
       # LiteLLM AI gateway (aigate) — admin UI, SSO-protected
-      - name: "{{ infra_domain_ai_litellm | default('aigate.levonk.com') }}"
+      - name: "{{ infra_domain_ai_litellm | default('aigate.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
         content: "{{ ts_fqdn }}"
         ttl: "{{ cloudflare_dns_ttl }}"
@@ -63,7 +65,7 @@
         state: "{{ cloudflare_dns_state }}"
 
       # LiteLLM API gateway (aigate-api) — Swagger + /v1 API, master_key auth (no Authelia)
-      - name: "{{ infra_domain_ai_litellm_api | default('aigate-api.levonk.com') }}"
+      - name: "{{ infra_domain_ai_litellm_api | default('aigate-api.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
         content: "{{ ts_fqdn }}"
         ttl: "{{ cloudflare_dns_ttl }}"
@@ -71,7 +73,7 @@
         state: "{{ cloudflare_dns_state }}"
 
       # OmniRoute AI gateway (airoute) — provider fanout with tier-based fallback
-      - name: "{{ infra_domain_ai_omniroute | default('airoute.levonk.com') }}"
+      - name: "{{ infra_domain_ai_omniroute | default('airoute.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
         content: "{{ ts_fqdn }}"
         ttl: "{{ cloudflare_dns_ttl }}"
@@ -79,7 +81,7 @@
         state: "{{ cloudflare_dns_state }}"
 
       # Langfuse LLM observability & tracing service
-      - name: "{{ infra_domain_ai_langfuse | default('langfuse.levonk.com') }}"
+      - name: "{{ infra_domain_ai_langfuse | default('langfuse.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
         content: "{{ ts_fqdn }}"
         ttl: "{{ cloudflare_dns_ttl }}"
@@ -87,7 +89,7 @@
         state: "{{ cloudflare_dns_state }}"
 
       # Traefik dashboard (optional, for management access)
-      - name: "{{ infra_domain_traefik_dashboard | default('traefik.levonk.com') }}"
+      - name: "{{ infra_domain_traefik_dashboard | default('traefik.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
         content: "{{ ts_fqdn }}"
         ttl: "{{ cloudflare_dns_ttl }}"
@@ -96,7 +98,7 @@
 
       # Homepage startpage (rich dashboard with service widgets)
       # Bare domain → cno (OCI), same as the cno-specific variant
-      - name: "{{ infra_domain_dashboard_homepage | default('start.levonk.com') }}"
+      - name: "{{ infra_domain_dashboard_homepage | default('start.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
         content: "{{ ts_fqdn }}"
         ttl: "{{ cloudflare_dns_ttl }}"
@@ -105,7 +107,7 @@
 
       # TraLa startpage (Traefik auto-discovery catalog)
       # Bare domain → cno (OCI), same as the cno-specific variant
-      - name: "{{ infra_domain_dashboard_trala | default('start2.levonk.com') }}"
+      - name: "{{ infra_domain_dashboard_trala | default('start2.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
         content: "{{ ts_fqdn }}"
         ttl: "{{ cloudflare_dns_ttl }}"
@@ -113,7 +115,7 @@
         state: "{{ cloudflare_dns_state }}"
 
       # Homepage startpage — cno (OCI)
-      - name: "{{ infra_domain_dashboard_homepage_cno | default('start.cno.levonk.com') }}"
+      - name: "{{ infra_domain_dashboard_homepage_cno | default('start.cno.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
         content: "{{ ts_fqdn }}"
         ttl: "{{ cloudflare_dns_ttl }}"
@@ -121,7 +123,7 @@
         state: "{{ cloudflare_dns_state }}"
 
       # TraLa startpage — cno (OCI)
-      - name: "{{ infra_domain_dashboard_trala_cno | default('start2.cno.levonk.com') }}"
+      - name: "{{ infra_domain_dashboard_trala_cno | default('start2.cno.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
         content: "{{ ts_fqdn }}"
         ttl: "{{ cloudflare_dns_ttl }}"
@@ -129,7 +131,7 @@
         state: "{{ cloudflare_dns_state }}"
 
       # Homepage startpage — nl (Windows Docker Desktop)
-      - name: "{{ infra_domain_dashboard_homepage_nl | default('start.nl.levonk.com') }}"
+      - name: "{{ infra_domain_dashboard_homepage_nl | default('start.nl.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
         content: "{{ ts_fqdn_windows_docker }}"
         ttl: "{{ cloudflare_dns_ttl }}"
@@ -137,7 +139,7 @@
         state: "{{ cloudflare_dns_state }}"
 
       # TraLa startpage — nl (Windows Docker Desktop)
-      - name: "{{ infra_domain_dashboard_trala_nl | default('start2.nl.levonk.com') }}"
+      - name: "{{ infra_domain_dashboard_trala_nl | default('start2.nl.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
         content: "{{ ts_fqdn_windows_docker }}"
         ttl: "{{ cloudflare_dns_ttl }}"
@@ -145,7 +147,7 @@
         state: "{{ cloudflare_dns_state }}"
 
       # Authelia SSO (authentication provider for all services)
-      - name: "{{ infra_domain_sso_authelia | default('auth.levonk.com') }}"
+      - name: "{{ infra_domain_sso_authelia | default('auth.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
         content: "{{ ts_fqdn }}"
         ttl: "{{ cloudflare_dns_ttl }}"
@@ -153,7 +155,7 @@
         state: "{{ cloudflare_dns_state }}"
 
       # AgentMemory (AI agent persistent memory service)
-      - name: "{{ infra_domain_ai_agentmemory | default('agentmemory.levonk.com') }}"
+      - name: "{{ infra_domain_ai_agentmemory | default('agentmemory.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
         content: "{{ ts_fqdn }}"
         ttl: "{{ cloudflare_dns_ttl }}"
@@ -161,7 +163,7 @@
         state: "{{ cloudflare_dns_state }}"
 
       # Buzz (human + AI agent collaboration workspace / Nostr relay)
-      - name: "{{ infra_domain_ai_buzz | default('buzz.levonk.com') }}"
+      - name: "{{ infra_domain_ai_buzz | default('buzz.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
         content: "{{ ts_fqdn }}"
         ttl: "{{ cloudflare_dns_ttl }}"
@@ -169,7 +171,7 @@
         state: "{{ cloudflare_dns_state }}"
 
       # Paperclip (AI agent orchestration platform)
-      - name: "{{ infra_domain_ai_paperclip | default('paperclip.levonk.com') }}"
+      - name: "{{ infra_domain_ai_paperclip | default('paperclip.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
         content: "{{ ts_fqdn }}"
         ttl: "{{ cloudflare_dns_ttl }}"
@@ -177,7 +179,7 @@
         state: "{{ cloudflare_dns_state }}"
 
       # AI InterFace (aiif — public alias for the Omnigent agent framework)
-      - name: "{{ infra_domain_ai_omnigent | default('aiif.levonk.com') }}"
+      - name: "{{ infra_domain_ai_omnigent | default('aiif.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
         content: "{{ ts_fqdn }}"
         ttl: "{{ cloudflare_dns_ttl }}"
@@ -185,7 +187,7 @@
         state: "{{ cloudflare_dns_state }}"
 
       # Headroom (AI output token reduction proxy — aishrink)
-      - name: "{{ infra_domain_ai_aishrink | default('aishrink.levonk.com') }}"
+      - name: "{{ infra_domain_ai_aishrink | default('aishrink.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
         content: "{{ ts_fqdn }}"
         ttl: "{{ cloudflare_dns_ttl }}"
@@ -193,7 +195,7 @@
         state: "{{ cloudflare_dns_state }}"
 
       # JobOps (career tool — runs on Windows Docker, routed via Traefik on OCI)
-      - name: "{{ infra_domain_career_jobops | default('jobops.levonk.com') }}"
+      - name: "{{ infra_domain_career_jobops | default('jobops.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
         content: "{{ ts_fqdn }}"
         ttl: "{{ cloudflare_dns_ttl }}"
@@ -201,7 +203,7 @@
         state: "{{ cloudflare_dns_state }}"
 
       # Croc file-transfer relay (TCP service on Windows Docker host)
-      - name: "{{ infra_domain_tools_croc_relay | default('croc.levonk.com') }}"
+      - name: "{{ infra_domain_tools_croc_relay | default('croc.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
         content: "{{ ts_fqdn_windows_docker }}"
         ttl: "{{ cloudflare_dns_ttl }}"
@@ -209,7 +211,7 @@
         state: "{{ cloudflare_dns_state }}"
 
       # RustFS S3 API (object storage — runs on Windows Docker, routed via Traefik on OCI)
-      - name: "{{ infra_domain_storage_rustfs | default('rustfs.levonk.com') }}"
+      - name: "{{ infra_domain_storage_rustfs | default('rustfs.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
         content: "{{ ts_fqdn }}"
         ttl: "{{ cloudflare_dns_ttl }}"
@@ -217,23 +219,23 @@
         state: "{{ cloudflare_dns_state }}"
 
       # RustFS Console (Web UI — runs on Windows Docker, routed via Traefik on OCI)
-      - name: "{{ infra_domain_storage_rustfs_console | default('rustfs-console.levonk.com') }}"
+      - name: "{{ infra_domain_storage_rustfs_console | default('rustfs-console.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
         content: "{{ ts_fqdn }}"
         ttl: "{{ cloudflare_dns_ttl }}"
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
 
-      # Inference host (kckinai — separate Tailscale host for AI workloads)
-      - name: "{{ infra_domain_inference_host | default('kckinai.levonk.com') }}"
+      # Inference host (separate Tailscale host for AI workloads)
+      - name: "{{ infra_domain_inference_host | default('inference.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
-        content: "{{ infra_tailscale_fqdn_inference_host | default('kckinai.tale-grouper.ts.net') }}"
+        content: "{{ infra_tailscale_fqdn_inference_host | default(infra_tailscale_tailnet | default('example.ts.net')) }}"
         ttl: "{{ cloudflare_dns_ttl }}"
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
 
       # Wazuh SIEM/XDR dashboard (runs on Windows Docker, routed via Traefik on OCI)
-      - name: "{{ infra_domain_security_wazuh | default('wazuh.levonk.com') }}"
+      - name: "{{ infra_domain_security_wazuh | default('wazuh.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
         content: "{{ ts_fqdn }}"
         ttl: "{{ cloudflare_dns_ttl }}"
@@ -241,7 +243,7 @@
         state: "{{ cloudflare_dns_state }}"
 
       # QM multiplayer agent harness (runs on Windows Docker, routed via Traefik on OCI)
-      - name: "{{ infra_domain_ai_qm | default('qm.levonk.com') }}"
+      - name: "{{ infra_domain_ai_qm | default('qm.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
         content: "{{ ts_fqdn }}"
         ttl: "{{ cloudflare_dns_ttl }}"
@@ -249,7 +251,31 @@
         state: "{{ cloudflare_dns_state }}"
 
       # AdGuard Home DNS web UI (runs on Windows Docker, routed via Traefik on OCI)
-      - name: "{{ infra_domain_dns_adguard | default('adguard.levonk.com') }}"
+      - name: "{{ infra_domain_dns_adguard | default('adguard.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "CNAME"
+        content: "{{ ts_fqdn }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      # DNSDist web console (runs on Windows Docker, routed via Windows Traefik)
+      - name: "{{ infra_domain_dns_dnsdist | default('dnsdist.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "CNAME"
+        content: "{{ ts_fqdn_windows_docker }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      # CrowdSec web UI (runs on OCI, routed via OCI Traefik)
+      - name: "{{ infra_domain_security_crowdsec | default('crowdsec.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "CNAME"
+        content: "{{ ts_fqdn }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      # Langfuse MinIO console (runs on OCI, routed via OCI Traefik)
+      - name: "{{ infra_domain_ai_langfuse_minio | default('langfuse-minio.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
         content: "{{ ts_fqdn }}"
         ttl: "{{ cloudflare_dns_ttl }}"
@@ -260,37 +286,37 @@
       # Each CNAME points to the Tailscale FQDN of the exit node container,
       # not the host FQDN. This decouples the public DNS from the host's
       # Tailscale IP — the exit node container has its own Tailscale identity.
-      # nl = network local (dtop202311, X86 Windows Docker Desktop)
-      # cno = cloud network oracle (oci, ARM64 Oracle Cloud)
+      # nl = network local (X86 Windows Docker Desktop)
+      # cno = cloud network oracle (ARM64 Oracle Cloud)
 
       # NordVPN exit node — cno (OCI)
-      - name: "{{ infra_domain_vpn_exit_cno | default('vpn.cno.levonk.com') }}"
+      - name: "{{ infra_domain_vpn_exit_cno | default('vpn.cno.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
-        content: "{{ infra_tailscale_fqdn_cno_vpn_exit | default('cno-vpn-tailscale-exit.tale-grouper.ts.net') }}"
+        content: "{{ infra_tailscale_fqdn_cno_vpn_exit | default('cno-vpn-tailscale-exit.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) }}"
         ttl: "{{ cloudflare_dns_ttl }}"
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
 
       # Tor exit node — cno (OCI)
-      - name: "{{ infra_domain_tor_exit_cno | default('tor.cno.levonk.com') }}"
+      - name: "{{ infra_domain_tor_exit_cno | default('tor.cno.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
-        content: "{{ infra_tailscale_fqdn_cno_tor_exit | default('cno-tor-tailscale-exit.tale-grouper.ts.net') }}"
+        content: "{{ infra_tailscale_fqdn_cno_tor_exit | default('cno-tor-tailscale-exit.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) }}"
         ttl: "{{ cloudflare_dns_ttl }}"
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
 
       # NordVPN exit node — nl (Windows Docker Desktop)
-      - name: "{{ infra_domain_vpn_exit_nl | default('vpn.nl.levonk.com') }}"
+      - name: "{{ infra_domain_vpn_exit_nl | default('vpn.nl.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
-        content: "{{ infra_tailscale_fqdn_nl_vpn_exit | default('nl-vpn-tailscale-exit.tale-grouper.ts.net') }}"
+        content: "{{ infra_tailscale_fqdn_nl_vpn_exit | default('nl-vpn-tailscale-exit.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) }}"
         ttl: "{{ cloudflare_dns_ttl }}"
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
 
       # Tor exit node — nl (Windows Docker Desktop)
-      - name: "{{ infra_domain_tor_exit_nl | default('tor.nl.levonk.com') }}"
+      - name: "{{ infra_domain_tor_exit_nl | default('tor.nl.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
-        content: "{{ infra_tailscale_fqdn_nl_tor_exit | default('nl-tor-tailscale-exit.tale-grouper.ts.net') }}"
+        content: "{{ infra_tailscale_fqdn_nl_tor_exit | default('nl-tor-tailscale-exit.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) }}"
         ttl: "{{ cloudflare_dns_ttl }}"
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
@@ -298,13 +324,13 @@
       # Verdaccio NPM Registry CNAMEs (dual-deployment: nl + cno)
       # Each CNAME points to the Tailscale FQDN of the host running the
       # verdaccio registry container, not a container-specific Tailscale identity.
-      # nl = network local (dtop202311, X86 Windows Docker Desktop)
-      # cno = cloud network oracle (oci, ARM64 Oracle Cloud)
+      # nl = network local (X86 Windows Docker Desktop)
+      # cno = cloud network oracle (ARM64 Oracle Cloud)
 
       # Verdaccio NPM registry — cno (OCI cloud server)
-      - name: "{{ infra_domain_artifact_verdaccio_cno | default('npmjs.cno.levonk.com') }}"
+      - name: "{{ infra_domain_artifact_verdaccio_cno | default('npmjs.cno.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
-        content: "{{ infra_tailscale_fqdn_cloud_server | default('oci.tale-grouper.ts.net') }}"
+        content: "{{ ts_fqdn }}"
         ttl: "{{ cloudflare_dns_ttl }}"
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
@@ -312,15 +338,15 @@
       # Verdaccio NPM registry — nl (Windows Docker Desktop)
       # CNAME points directly to the Windows machine, which runs its own
       # Traefik container for TLS termination + routing to Verdaccio.
-      - name: "{{ infra_domain_artifact_verdaccio_nl | default('npmjs.nl.levonk.com') }}"
+      - name: "{{ infra_domain_artifact_verdaccio_nl | default('npmjs.nl.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
-        content: "{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.tale-grouper.ts.net') }}"
+        content: "{{ ts_fqdn_windows_docker }}"
         ttl: "{{ cloudflare_dns_ttl }}"
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
 
       # n8n workflow automation — app UI (SSO-protected)
-      - name: "{{ infra_domain_ai_n8n | default('n8n.levonk.com') }}"
+      - name: "{{ infra_domain_ai_n8n | default('n8n.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
         content: "{{ ts_fqdn }}"
         ttl: "{{ cloudflare_dns_ttl }}"
@@ -328,7 +354,7 @@
         state: "{{ cloudflare_dns_state }}"
 
       # n8n Grafana dashboards (SSO-protected)
-      - name: "{{ infra_domain_ai_n8n_grafana | default('n8n-grafana.levonk.com') }}"
+      - name: "{{ infra_domain_ai_n8n_grafana | default('n8n-grafana.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
         content: "{{ ts_fqdn }}"
         ttl: "{{ cloudflare_dns_ttl }}"
@@ -338,7 +364,7 @@
       # Nix Cache Chain — ncps NAR caching proxy (nl region)
       # CNAME points to the Windows Docker host which runs its own Traefik
       # for TLS termination + routing to the ncps container.
-      - name: "{{ infra_domain_nix_cache_nl | default('nixcache.nl.levonk.com') }}"
+      - name: "{{ infra_domain_nix_cache_nl | default('nixcache.nl.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
         content: "{{ ts_fqdn_windows_docker }}"
         ttl: "{{ cloudflare_dns_ttl }}"
@@ -348,7 +374,7 @@
       # Nix Cache Chain — ncps NAR caching proxy (cno region)
       # CNAME points to the OCI cloud server which runs Traefik for TLS
       # termination + routing to the ncps container on traefik-network.
-      - name: "{{ infra_domain_nix_cache_cno | default('nixcache.cno.levonk.com') }}"
+      - name: "{{ infra_domain_nix_cache_cno | default('nixcache.cno.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
         content: "{{ ts_fqdn }}"
         ttl: "{{ cloudflare_dns_ttl }}"
@@ -358,7 +384,7 @@
       # Garnix CI builder — web UI + API (nl region)
       # CNAME points to the Windows Docker host which runs its own Traefik
       # for TLS termination + routing to the garnix-ci container.
-      - name: "{{ infra_domain_garnix_ci_nl | default('ci.nl.levonk.com') }}"
+      - name: "{{ infra_domain_garnix_ci_nl | default('ci.nl.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
         content: "{{ ts_fqdn_windows_docker }}"
         ttl: "{{ cloudflare_dns_ttl }}"
@@ -368,7 +394,7 @@
       # Directory Empire dashboard (nl region)
       # CNAME points to the Windows Docker host which runs its own Traefik
       # for TLS termination + routing to the directory-empire container.
-      - name: "{{ infra_domain_dashboard_directory_empire_nl | default('de.nl.levonk.com') }}"
+      - name: "{{ infra_domain_dashboard_directory_empire_nl | default('de.nl.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
         content: "{{ ts_fqdn_windows_docker }}"
         ttl: "{{ cloudflare_dns_ttl }}"

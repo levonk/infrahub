@@ -7,14 +7,14 @@ Deploys [Homepage](https://github.com/gethomepage/homepage) — a rich startpage
 | Variable | Default | Description |
 |---|---|---|
 | `dashboard_homepage_enabled` | `true` | Enable the role |
-| `dashboard_homepage_domain` | `start.levonk.com` | Traefik domain |
+| `dashboard_homepage_domain` | `start.<base>` | Traefik domain |
 | `dashboard_homepage_host_port` | `8084` | Host port |
 | `dashboard_homepage_container_port` | `3000` | Container port |
 | `dashboard_homepage_network_name` | `traefik-network` | Docker network |
 
 ## Traefik
 
-Routes `start.levonk.com` through the `geoblock,crowdsec-bouncer,authelia` middleware chain (HTTPS via Let's Encrypt).
+Routes `start.<base>` through the `geoblock,crowdsec-bouncer,authelia` middleware chain (HTTPS via Let's Encrypt).
 
 ## Docker Discovery
 
@@ -25,7 +25,7 @@ labels:
   homepage.group: "Media"
   homepage.name: "Jellyfin"
   homepage.icon: "jellyfin.png"
-  homepage.href: "https://jellyfin.levonk.com"
+  homepage.href: "https://jellyfin.<base>"
   homepage.widget.type: "jellyfin"
   homepage.widget.url: "http://jellyfin:8096"
 ```

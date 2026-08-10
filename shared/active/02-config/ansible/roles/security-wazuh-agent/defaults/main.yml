@@ -11,7 +11,7 @@ wazuh_agent_enabled: true
 wazuh_agent_version: "4.14.6"
 
 # Manager connection (reference infrastructure variables)
-wazuh_agent_manager_address: "{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.tale-grouper.ts.net') }}"
+wazuh_agent_manager_address: "{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) }}"
 wazuh_agent_manager_port: "{{ infra_port_security_wazuh_manager_agent_host | default('1514') }}"
 wazuh_agent_enrollment_port: "{{ infra_port_security_wazuh_manager_enrollment_host | default('1515') }}"
 

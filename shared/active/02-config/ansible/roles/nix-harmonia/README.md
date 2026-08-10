@@ -33,7 +33,7 @@ The port is bound to `127.0.0.1` only so the cache is reachable from the host bu
 | `nix_harmonia_nix_config_volume` | `localnet-base-nix-config-volume` | `infra_storage_nix_shared_config_volume` |
 | `nix_harmonia_data_volume` | `localnet-harmonia-data-volume` | `infra_storage_nix_harmonia_data_volume` |
 | `nix_harmonia_network_name` | `traefik-windows-network` | — |
-| `nix_harmonia_docker_host_windows` | `ssh://ansible@dtop202311.tale-grouper.ts.net` | `infra_tailscale_fqdn_windows_docker` |
+| `nix_harmonia_docker_host_windows` | `ssh://ansible@dtop202311.<tailnet>` | `infra_tailscale_fqdn_windows_docker` |
 
 All ports and volume names reference `infra_*` infrastructure variables — no hardcoding.
 

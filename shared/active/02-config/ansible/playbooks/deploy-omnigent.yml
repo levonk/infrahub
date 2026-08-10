@@ -299,10 +299,10 @@
           OMNIGENT_OIDC_LOGOUT_REDIRECT_URI: "{{ omnigent_oidc_logout_redirect_uri | default('') }}"
           OMNIGENT_OIDC_ALLOW_INVITES: "{{ omnigent_oidc_allow_invites | default('') }}"
           # ── Domain ───────────────────────────────────────
-          OMNIGENT_DOMAIN: "{{ infra_domain_ai_omnigent | default('aiif.levonk.com') }}"
+          OMNIGENT_DOMAIN: "{{ infra_domain_ai_omnigent | default('aiif.' ~ (infra_domain_base | default('example.com'))) }}"
           # ── Accounts mode (default when AUTH_ENABLED=1 + no OIDC) ──
           OMNIGENT_ACCOUNTS_COOKIE_SECRET: "{{ omnigent_accounts_cookie_secret }}"
-          OMNIGENT_ACCOUNTS_BASE_URL: "{{ omnigent_accounts_base_url | default('https://' + (infra_domain_ai_omnigent | default('aiif.levonk.com'))) }}"
+          OMNIGENT_ACCOUNTS_BASE_URL: "{{ omnigent_accounts_base_url | default('https://' + (infra_domain_ai_omnigent | default('aiif.' ~ (infra_domain_base | default('example.com'))))) }}"
           OMNIGENT_ACCOUNTS_INIT_ADMIN_PASSWORD: "{{ omnigent_accounts_init_admin_password }}"
           OMNIGENT_ACCOUNTS_SESSION_TTL_HOURS: "{{ omnigent_accounts_session_ttl_hours | default('8') }}"
           OMNIGENT_ACCOUNTS_INVITE_TTL_HOURS: "{{ omnigent_accounts_invite_ttl_hours | default('72') }}"
@@ -463,12 +463,12 @@
           Omnigent → Pi → AI Dashboard Proxy 1 → Privacy Orchestrator → Headroom → OmniRoute → Forge → AI Dashboard Proxy 2 → Iron-Proxy → NordVPN → Internet
           ----------------------------------------
           Public Access:
-          - Web UI: https://{{ infra_domain_ai_omnigent | default('aiif.levonk.com') }}
+          - Web UI: https://{{ infra_domain_ai_omnigent | default('aiif.' ~ (infra_domain_base | default('example.com'))) }}
           ----------------------------------------
           Next Steps:
           1. Verify containers: docker ps | grep -E "omnigent|pi"
           2. Create admin account: open web UI or check docker logs omnigent for auto-generated password
-          3. Register a runner: omni login https://{{ infra_domain_ai_omnigent | default('aiif.levonk.com') }} && omni host https://{{ infra_domain_ai_omnigent | default('aiif.levonk.com') }}
+          3. Register a runner: omni login https://{{ infra_domain_ai_omnigent | default('aiif.' ~ (infra_domain_base | default('example.com'))) }} && omni host https://{{ infra_domain_ai_omnigent | default('aiif.' ~ (infra_domain_base | default('example.com'))) }}
           4. Verify Pi RPC bridge: curl http://localhost:{{ infra_port_ai_pi_host | default('8090') }}/health
           ========================================
       tags: ["always", "summary"]

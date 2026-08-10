@@ -94,8 +94,8 @@
 
 - name: Deploy SearXNG dynamic configuration template
   ansible.builtin.template:
-    src: dynamic/search-levonk-com.yml.j2
-    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/search-levonk-com.yml"
+    src: dynamic/search.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/search.yml"
     owner: root
     group: root
     mode: "0644"
@@ -105,8 +105,8 @@
 
 - name: Deploy Authelia dynamic configuration template
   ansible.builtin.template:
-    src: dynamic/auth-levonk-com.yml.j2
-    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/auth-levonk-com.yml"
+    src: dynamic/auth.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/auth.yml"
     owner: root
     group: root
     mode: "0644"
@@ -116,8 +116,8 @@
 
 - name: Deploy agentmemory dynamic configuration template
   ansible.builtin.template:
-    src: dynamic/agentmemory-levonk-com.yml.j2
-    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/agentmemory-levonk-com.yml"
+    src: dynamic/agentmemory.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/agentmemory.yml"
     owner: root
     group: root
     mode: "0644"
@@ -127,8 +127,8 @@
 
 - name: Deploy aishrink (headroom) dynamic configuration template
   ansible.builtin.template:
-    src: dynamic/aishrink-levonk-com.yml.j2
-    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/aishrink-levonk-com.yml"
+    src: dynamic/aishrink.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/aishrink.yml"
     owner: root
     group: root
     mode: "0644"
@@ -149,8 +149,8 @@
 
 - name: Deploy Homepage (start) dynamic configuration template
   ansible.builtin.template:
-    src: dynamic/start-levonk-com.yml.j2
-    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/start-levonk-com.yml"
+    src: dynamic/start.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/start.yml"
     owner: root
     group: root
     mode: "0644"
@@ -160,8 +160,8 @@
 
 - name: Deploy TraLa (start2) dynamic configuration template
   ansible.builtin.template:
-    src: dynamic/start2-levonk-com.yml.j2
-    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/start2-levonk-com.yml"
+    src: dynamic/start2.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/start2.yml"
     owner: root
     group: root
     mode: "0644"
@@ -171,8 +171,8 @@
 
 - name: Deploy Homepage (start.cno) dynamic configuration template
   ansible.builtin.template:
-    src: dynamic/start-cno-levonk-com.yml.j2
-    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/start-cno-levonk-com.yml"
+    src: dynamic/start-cno.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/start-cno.yml"
     owner: root
     group: root
     mode: "0644"
@@ -182,8 +182,8 @@
 
 - name: Deploy TraLa (start2.cno) dynamic configuration template
   ansible.builtin.template:
-    src: dynamic/start2-cno-levonk-com.yml.j2
-    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/start2-cno-levonk-com.yml"
+    src: dynamic/start2-cno.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/start2-cno.yml"
     owner: root
     group: root
     mode: "0644"
@@ -193,8 +193,8 @@
 
 - name: Deploy OmniRoute (airoute) dynamic configuration template
   ansible.builtin.template:
-    src: dynamic/airoute-levonk-com.yml.j2
-    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/airoute-levonk-com.yml"
+    src: dynamic/airoute.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/airoute.yml"
     owner: root
     group: root
     mode: "0644"
@@ -204,8 +204,8 @@
 
 - name: Deploy LiteLLM (aigate) dynamic configuration template
   ansible.builtin.template:
-    src: dynamic/aigate-levonk-com.yml.j2
-    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/aigate-levonk-com.yml"
+    src: dynamic/aigate.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/aigate.yml"
     owner: root
     group: root
     mode: "0644"
@@ -215,8 +215,8 @@
 
 - name: Deploy Buzz dynamic configuration template
   ansible.builtin.template:
-    src: dynamic/buzz-levonk-com.yml.j2
-    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/buzz-levonk-com.yml"
+    src: dynamic/buzz.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/buzz.yml"
     owner: root
     group: root
     mode: "0644"
@@ -226,8 +226,8 @@
 
 - name: Deploy AI InterFace (aiif / Omnigent) dynamic configuration template
   ansible.builtin.template:
-    src: dynamic/aiif-levonk-com.yml.j2
-    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/aiif-levonk-com.yml"
+    src: dynamic/aiif.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/aiif.yml"
     owner: root
     group: root
     mode: "0644"
@@ -237,8 +237,8 @@
 
 - name: Deploy JobOps dynamic configuration template
   ansible.builtin.template:
-    src: dynamic/jobops-levonk-com.yml.j2
-    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/jobops-levonk-com.yml"
+    src: dynamic/jobops.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/jobops.yml"
     owner: root
     group: root
     mode: "0644"
@@ -248,8 +248,8 @@
 
 - name: Deploy RustFS dynamic configuration template
   ansible.builtin.template:
-    src: dynamic/rustfs-levonk-com.yml.j2
-    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/rustfs-levonk-com.yml"
+    src: dynamic/rustfs.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/rustfs.yml"
     owner: root
     group: root
     mode: "0644"
@@ -259,8 +259,8 @@
 
 - name: Deploy Wazuh dynamic configuration template
   ansible.builtin.template:
-    src: dynamic/wazuh-levonk-com.yml.j2
-    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/wazuh-levonk-com.yml"
+    src: dynamic/wazuh.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/wazuh.yml"
     owner: root
     group: root
     mode: "0644"
@@ -270,8 +270,8 @@
 
 - name: Deploy Verdaccio (cno) dynamic configuration template
   ansible.builtin.template:
-    src: dynamic/npmjs-cno-levonk-com.yml.j2
-    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/npmjs-cno-levonk-com.yml"
+    src: dynamic/npmjs-cno.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/npmjs-cno.yml"
     owner: root
     group: root
     mode: "0644"
@@ -282,8 +282,8 @@
 
 - name: Deploy Nix Cache Chain (cno) dynamic configuration template
   ansible.builtin.template:
-    src: dynamic/nixcache-cno-levonk-com.yml.j2
-    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/nixcache-cno-levonk-com.yml"
+    src: dynamic/nixcache-cno.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/nixcache-cno.yml"
     owner: root
     group: root
     mode: "0644"
@@ -294,8 +294,8 @@
 
 - name: Deploy AdGuard Home dynamic configuration template
   ansible.builtin.template:
-    src: dynamic/adguard-levonk-com.yml.j2
-    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/adguard-levonk-com.yml"
+    src: dynamic/adguard.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/adguard.yml"
     owner: root
     group: root
     mode: "0644"
@@ -303,6 +303,42 @@
   notify: reload traefik
   when: dns_adguard_enabled | default(false) | bool
   tags: ["deploy", "traefik", "adguard"]
+
+- name: Deploy Langfuse dynamic configuration template
+  ansible.builtin.template:
+    src: dynamic/langfuse.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/langfuse.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: reload traefik
+  when: ai_langfuse_enabled | default(false) | bool
+  tags: ["deploy", "traefik", "langfuse"]
+
+- name: Deploy CrowdSec dynamic configuration template
+  ansible.builtin.template:
+    src: dynamic/crowdsec.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/crowdsec.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: reload traefik
+  when: security_crowdsec_enabled | default(false) | bool
+  tags: ["deploy", "traefik", "crowdsec"]
+
+- name: Deploy Langfuse MinIO dynamic configuration template
+  ansible.builtin.template:
+    src: dynamic/langfuse-minio.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/langfuse-minio.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: reload traefik
+  when: ai_langfuse_enabled | default(false) | bool
+  tags: ["deploy", "traefik", "langfuse-minio"]
 
 # ---------------------------------------------------------------------------
 # Traefik Container

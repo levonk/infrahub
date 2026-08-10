@@ -7,7 +7,7 @@ Deploys [TraLa](https://github.com/dannybouwers/trala) — a Traefik-native dash
 | Variable | Default | Description |
 |---|---|---|
 | `dashboard_trala_enabled` | `true` | Enable the role |
-| `dashboard_trala_domain` | `start2.levonk.com` | Traefik domain |
+| `dashboard_trala_domain` | `start2.<base>` | Traefik domain |
 | `dashboard_trala_host_port` | `8085` | Host port |
 | `dashboard_trala_container_port` | `8080` | Container port |
 | `dashboard_trala_traefik_api_host` | `http://traefik:8080` | Traefik API URL (container-internal) |
@@ -15,7 +15,7 @@ Deploys [TraLa](https://github.com/dannybouwers/trala) — a Traefik-native dash
 
 ## Traefik
 
-Routes `start2.levonk.com` through the `geoblock,crowdsec-bouncer,authelia` middleware chain (HTTPS via Let's Encrypt).
+Routes `start2.<base>` through the `geoblock,crowdsec-bouncer,authelia` middleware chain (HTTPS via Let's Encrypt).
 
 ## Auto-Discovery
 

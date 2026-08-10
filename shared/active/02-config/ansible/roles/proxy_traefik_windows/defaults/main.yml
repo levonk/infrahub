@@ -49,13 +49,13 @@ proxy_traefik_windows_cf_dns_api_token: "{{ vault_cloudflare_api_token | default
 # Authelia Integration (optional — Authelia runs on OCI, reachable via Tailscale)
 # ---------------------------------------------------------------------------
 proxy_traefik_windows_authelia_enabled: true
-proxy_traefik_windows_authelia_url: "http://{{ infra_tailscale_fqdn_cloud_server | default('oci.tale-grouper.ts.net') }}:{{ infra_port_sso_authelia_web_host | default('9091') }}/api/verify?rd=https://{{ infra_domain_sso_authelia | default('auth.levonk.com') }}"
+proxy_traefik_windows_authelia_url: "http://{{ infra_tailscale_fqdn_cloud_server | default('oci.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) }}:{{ infra_port_sso_authelia_web_host | default('9091') }}/api/verify?rd=https://{{ infra_domain_sso_authelia }}"
 
 # ---------------------------------------------------------------------------
 # Verdaccio Integration
 # ---------------------------------------------------------------------------
 proxy_traefik_windows_verdaccio_enabled: true
-proxy_traefik_windows_verdaccio_domain: "{{ infra_domain_artifact_verdaccio_nl | default('npmjs.nl.levonk.com') }}"
+proxy_traefik_windows_verdaccio_domain: "{{ infra_domain_artifact_verdaccio_nl  }}"
 proxy_traefik_windows_verdaccio_container_name: "{{ verdaccio_container_name_nl | default('localnet-artifact-verdaccio-nl') }}"
 proxy_traefik_windows_verdaccio_container_port: "{{ verdaccio_container_port | default('4873') }}"
 
@@ -63,7 +63,7 @@ proxy_traefik_windows_verdaccio_container_port: "{{ verdaccio_container_port | d
 # Homepage + TraLa Integration (nl dashboards)
 # ---------------------------------------------------------------------------
 proxy_traefik_windows_homepage_enabled: true
-proxy_traefik_windows_homepage_domain: "{{ infra_domain_dashboard_homepage_nl | default('start.nl.levonk.com') }}"
+proxy_traefik_windows_homepage_domain: "{{ infra_domain_dashboard_homepage_nl  }}"
 proxy_traefik_windows_homepage_container_name: "homepage-nl"
 proxy_traefik_windows_homepage_container_port: "3000"
 proxy_traefik_windows_homepage_image: "ghcr.io/gethomepage/homepage"
@@ -71,7 +71,7 @@ proxy_traefik_windows_homepage_image_tag: "latest"
 proxy_traefik_windows_homepage_host_port: "8084"
 
 proxy_traefik_windows_trala_enabled: true
-proxy_traefik_windows_trala_domain: "{{ infra_domain_dashboard_trala_nl | default('start2.nl.levonk.com') }}"
+proxy_traefik_windows_trala_domain: "{{ infra_domain_dashboard_trala_nl  }}"
 proxy_traefik_windows_trala_container_name: "trala-nl"
 proxy_traefik_windows_trala_container_port: "8080"
 proxy_traefik_windows_trala_image: "ghcr.io/dannybouwers/trala"
@@ -83,7 +83,7 @@ proxy_traefik_windows_trala_host_port: "8085"
 # ncps is the NAR caching proxy. Harmonia + ncro are internal (not routed).
 # ---------------------------------------------------------------------------
 proxy_traefik_windows_nix_ncps_enabled: true
-proxy_traefik_windows_nix_ncps_domain: "{{ infra_domain_nix_cache_nl | default('nixcache.nl.levonk.com') }}"
+proxy_traefik_windows_nix_ncps_domain: "{{ infra_domain_nix_cache_nl  }}"
 proxy_traefik_windows_nix_ncps_container_name: "{{ infra_hostname_nix_ncps | default('localnet-nix-ncps') }}"
 proxy_traefik_windows_nix_ncps_container_port: "{{ infra_port_nix_ncps_container | default('8080') }}"
 
@@ -91,7 +91,7 @@ proxy_traefik_windows_nix_ncps_container_port: "{{ infra_port_nix_ncps_container
 # Garnix CI Integration (nl — CI builder web UI + API)
 # ---------------------------------------------------------------------------
 proxy_traefik_windows_garnix_ci_enabled: true
-proxy_traefik_windows_garnix_ci_domain: "{{ infra_domain_garnix_ci_nl | default('ci.nl.levonk.com') }}"
+proxy_traefik_windows_garnix_ci_domain: "{{ infra_domain_garnix_ci_nl  }}"
 proxy_traefik_windows_garnix_ci_container_name: "{{ infra_hostname_garnix_ci | default('localnet-garnix-ci') }}"
 proxy_traefik_windows_garnix_ci_web_container_port: "{{ infra_port_garnix_ci_web_container | default('3000') }}"
 proxy_traefik_windows_garnix_ci_api_container_port: "{{ infra_port_garnix_ci_api_container | default('8080') }}"
@@ -100,14 +100,14 @@ proxy_traefik_windows_garnix_ci_api_container_port: "{{ infra_port_garnix_ci_api
 # Directory Empire Integration (nl — Next.js orchestration dashboard)
 # ---------------------------------------------------------------------------
 proxy_traefik_windows_directory_empire_enabled: true
-proxy_traefik_windows_directory_empire_domain: "{{ infra_domain_dashboard_directory_empire_nl | default('de.nl.levonk.com') }}"
+proxy_traefik_windows_directory_empire_domain: "{{ infra_domain_dashboard_directory_empire_nl  }}"
 proxy_traefik_windows_directory_empire_container_name: "{{ infra_hostname_dashboard_directory_empire | default('localnet-dashboard-directory-empire') }}"
 proxy_traefik_windows_directory_empire_container_port: "{{ infra_port_dashboard_directory_empire_container | default('3000') }}"
 
 # ---------------------------------------------------------------------------
 # Docker Host (Windows — ssh-tunneled)
 # ---------------------------------------------------------------------------
-proxy_traefik_windows_docker_host: "{{ verdaccio_docker_host_windows | default('ssh://ansible@dtop202311.tale-grouper.ts.net') }}"
+proxy_traefik_windows_docker_host: "{{ verdaccio_docker_host_windows | default('ssh://ansible@dtop202311.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) }}"
 
 # ---------------------------------------------------------------------------
 # Logging

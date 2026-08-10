@@ -49,7 +49,7 @@ docker compose -f docker-compose.freenet.yml up
 Deployed by the `p2p-freenet` Ansible role via
 `playbooks/deploy-freenet.yml`, targeting the `windows_docker_hosts` group
 (host `dtop202311`). Access is Tailscale-only — no public domain, no Traefik
-routing. Reach the WS API at `http://dtop202311.tale-grouper.ts.net:7509`.
+routing. Reach the WS API at `http://dtop202311.<tailnet>:7509`.
 
 ## Files
 

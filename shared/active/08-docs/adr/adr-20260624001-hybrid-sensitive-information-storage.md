@@ -7,7 +7,7 @@ url: "https://github.com/levonk/infrahub/blob/main/shared/active/08-docs/adr/adr
 synopsis: "Centralized per-client vault storage for shared secrets with in-service storage for service-specific transient secrets"
 author: "https://github.com/levonk"
 date-created: "2026-06-24"
-date-updated: "2026-06-24"
+date-updated: "2026-08-10"
 date-review: "2026-12-24"
 date-triggers: ["2026-06-24"]
 version: "1.0.0"
@@ -192,9 +192,26 @@ proxy_authelia_jwt_secret: "{{ vault_authelia_jwt_secret }}"
 3. All secrets must use vault variable references
 4. Client-specific configurations only in client paths (`levonk/`, future clients)
 
+**Scope — what "sensitive" means:**
+This ADR governs *secrets* — private information whose disclosure would compromise a system (passwords, private keys, API tokens, session secrets). It does **not** govern *public* cryptographic material that is, by design, safe to publish:
+
+- **Public SSH keys** are non-secret. They are routinely shared (GitHub, GitLab, `authorized_keys` on any host, printed on business cards). Embedding a public key in `shared/` is not a secret leak.
+- **Public key fingerprints and key identifiers** (e.g., the `comment` field of an OpenSSH public key) are non-secret.
+- **Public Tailscale hostnames / Tailnet names** referenced in public bootstrap tooling are non-secret (they are published in DNS by design).
+
+**Exception — repo-wide admin bootstrap public key:**
+The `shared/scripts/bootstrap-macos-manual.sh`, `bootstrap-linux-manual.sh`, and `bootstrap-windows-manual.ps1` scripts embed a default **public** SSH key (`lzkmbp2016-micro-oracle`) used by the operator to bootstrap the `auser` admin account on a fresh host. This is permitted because:
+
+1. It is a **public** key — disclosure is harmless (only the matching private key, held off-repo by the operator, can authenticate with it).
+2. It is **not client-specific** — it is the operator's personal admin key, used across every client deployment. It is no more "client-specific" than the operator's GitHub username.
+3. It is **operationally required** for the bootstrap scripts to be runnable with zero arguments on a fresh host (the chicken-and-egg problem: you cannot pull a client submodule's key path until the host is bootstrapped enough to clone the repo).
+
+Client-specific keys (e.g., a per-client CI deploy key) still belong in the client submodule. The exception is narrow: the single operator-owned admin bootstrap public key in the shared bootstrap scripts.
+
 **Validation:**
 ```bash
 # Pre-commit hook to check for secrets in shared/
+# (public SSH keys are intentionally excluded — they are not secrets)
 grep -r "password\|secret\|token\|api_key" shared/ --include="*.yml" --include="*.yaml"
 ```
 
