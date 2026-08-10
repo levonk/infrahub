@@ -54,6 +54,11 @@ infra_hostname_paperclip_postgres: "paperclip-postgres"
 # ---------------------------------------------------------------------------
 infra_domain_proxy_search: "search.{{ infra_domain_base }}"
 
+# Web Proxy Chain (see diagrams/proxy/complete-web-proxy-chain.mmd)
+infra_domain_proxy_mitm: "mitm.{{ infra_domain_base }}"
+infra_domain_proxy_mitm_ca: "ca.{{ infra_domain_base }}"
+infra_domain_proxy_varnish: "varnish.{{ infra_domain_base }}"
+
 # ---------------------------------------------------------------------------
 # SSO/Authelia
 # ---------------------------------------------------------------------------

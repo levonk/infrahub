@@ -128,6 +128,31 @@ infra_port_proxy_iron_proxy_dns_host: "53"
 infra_port_proxy_iron_proxy_http_host: "8080"
 infra_port_proxy_iron_proxy_https_host: "8443"
 
+# Web Proxy Chain (see diagrams/proxy/complete-web-proxy-chain.mmd)
+# MITM Proxy (mitmproxy/mitmproxy) — HTTPS decryption + CA management
+infra_port_proxy_mitm_transparent_host: "3127"
+infra_port_proxy_mitm_transparent_container: "3127"
+infra_port_proxy_mitm_adblock_host: "3128"
+infra_port_proxy_mitm_adblock_container: "3128"
+infra_port_proxy_mitm_webui_host: "19081"
+infra_port_proxy_mitm_webui_container: "8081"
+
+# Privoxy — content filtering + header sanitization (internal, not exposed)
+infra_port_proxy_privoxy_host: "8118"
+infra_port_proxy_privoxy_container: "8118"
+
+# Varnish Cache — HTTP cache + stale strategies
+infra_port_proxy_varnish_http_host: "6081"
+infra_port_proxy_varnish_http_container: "6081"
+infra_port_proxy_varnish_admin_host: "6082"
+infra_port_proxy_varnish_admin_container: "6082"
+
+# Gost — egress multiplexer (SOCKS5 bypass + HTTP from Varnish)
+infra_port_proxy_gost_socks5_host: "11080"
+infra_port_proxy_gost_socks5_container: "1080"
+infra_port_proxy_gost_http_host: "19080"
+infra_port_proxy_gost_http_container: "8080"
+
 # ---------------------------------------------------------------------------
 # AI Pipeline Ports
 # ---------------------------------------------------------------------------

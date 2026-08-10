@@ -116,6 +116,14 @@ infra_network_ip_dns_dnscrypt_tor: "172.26.255.66"
 infra_network_ip_dns_dnscrypt_plaintext_tor: "172.26.255.68"
 infra_network_ip_dns_tor_proxy: "172.26.255.70"
 
+# Web Proxy Chain IP allocations (within localnet-network, high range 172.26.255.x)
+# See: diagrams/proxy/complete-web-proxy-chain.mmd and complete-web-proxy-chain.notes.md
+# Shares localnet-network with DNS chain. Reuses DNS chain Tor proxy at .70.
+infra_network_ip_proxy_mitm: "172.26.255.80"
+infra_network_ip_proxy_privoxy: "172.26.255.81"
+infra_network_ip_proxy_varnish: "172.26.255.82"
+infra_network_ip_proxy_gost: "172.26.255.83"
+
 # ---------------------------------------------------------------------------
 # Proxy Networks
 # ---------------------------------------------------------------------------
