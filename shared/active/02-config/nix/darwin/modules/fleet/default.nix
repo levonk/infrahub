@@ -104,11 +104,9 @@ in
         zsh
         tailscale
         netbird
-        cmux
-        firefox-devedition-bin
+        firefox-devedition
         brave
         raycast
-        rustdesk
         espanso-stable
         vscode-insiders
         discord

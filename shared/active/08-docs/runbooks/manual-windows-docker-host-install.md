@@ -18,7 +18,7 @@ Run this **on the target Windows machine** in an admin PowerShell:
 
 ```powershell
 # If the key file is on the Windows machine:
-.\shared\scripts\bootstrap-windows-manual.ps1 -SshKey C:\Users\admin\.ssh\lzkmbp2016-micro-oracle.pub
+.\shared\scripts\bootstrap-windows-manual.ps1 -SshKey C:\Users\admin\.ssh\<your-ssh-key.pub>
 
 # Or pass the key string directly:
 .\shared\scripts\bootstrap-windows-manual.ps1 -SshKeyString "ssh-rsa AAAA... user@host"

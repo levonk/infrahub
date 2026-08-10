@@ -1,0 +1,10 @@
+# Private data — never commit secrets or real host IPs
+*.vault
+*.vault.yml.bak
+*.bak
+*.key
+*.pem
+*.crt
+vault_password
+.env
+.env.*

@@ -51,8 +51,6 @@
     # version. The values below match Determinate's defaults to minimize
     # disruption on the first switch.
     always-allow-substitutes = true;
-    eval-cores = 1;
     max-jobs = "auto";
-    lazy-trees = true;
   };
 }

@@ -18,11 +18,11 @@ Run this **on the target Linux box** (must have sudo access):
 
 ```bash
 # From the infrahub repo on the target machine:
-shared/scripts/bootstrap-linux-manual.sh --ssh-key ~/.ssh/lzkmbp2016-micro-oracle.pub
+shared/scripts/bootstrap-linux-manual.sh --ssh-key <your-ssh-key.pub>
 
 # Or if the key is on the control Mac, copy it over first:
-# (on control Mac) scp ~/.ssh/lzkmbp2016-micro-oracle.pub target-linux:/tmp/
-# (on target)      shared/scripts/bootstrap-linux-manual.sh --ssh-key /tmp/lzkmbp2016-micro-oracle.pub
+# (on control Mac) scp <your-ssh-key.pub> target-linux:/tmp/
+# (on target)      shared/scripts/bootstrap-linux-manual.sh --ssh-key /tmp/<your-ssh-key.pub>
 
 # Interactive mode (prompts for password, uses embedded default key):
 shared/scripts/bootstrap-linux-manual.sh
@@ -103,7 +103,7 @@ sudo chown auser:auser /home/auser/.ssh
 sudo chmod 700 /home/auser/.ssh
 
 # Add the public key
-cat ~/.ssh/lzkmbp2016-micro-oracle.pub | sudo tee /home/auser/.ssh/authorized_keys
+cat <your-ssh-key.pub> | sudo tee /home/auser/.ssh/authorized_keys
 sudo chown auser:auser /home/auser/.ssh/authorized_keys
 sudo chmod 600 /home/auser/.ssh/authorized_keys
 ```

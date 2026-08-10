@@ -486,19 +486,8 @@ services:
   description: "Host-level Tailscale exit node — plain egress via Windows host's internet (no Tor/VPN container)"
   source_repo: "https://github.com/tailscale/tailscale"
 
-- name: "Host Exit Node (lzkmbp2016)"
-  container: "—"
-  machine: "lzkmbp2016"
-  category: "vpn"
-  description: "Host-level Tailscale exit node — plain egress via lzkmbp2016's internet (laptop)"
-  source_repo: "https://github.com/tailscale/tailscale"
-
-- name: "Host Exit Node (lzkmbp2018)"
-  container: "—"
-  machine: "lzkmbp2018"
-  category: "vpn"
-  description: "Host-level Tailscale exit node — plain egress via lzkmbp2018's internet (laptop)"
-  source_repo: "https://github.com/tailscale/tailscale"
+# Client-specific host exit nodes (e.g. laptops) are defined in
+# levonk/active/02-config/ansible/infrastructure/services.yml, not here.
 
 # ===========================================================================
 # DNS

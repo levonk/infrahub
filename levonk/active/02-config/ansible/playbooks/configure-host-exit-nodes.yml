@@ -1,0 +1,293 @@
+---
+# Configure Host-Level Tailscale Exit Nodes
+# Location: levonk/active/02-config/ansible/playbooks/configure-host-exit-nodes.yml
+#
+# Enables the host's own Tailscale daemon as a plain exit node (egress via the
+# host's internet connection, no Tor/VPN container in the path).
+#
+# This is the recommended approach for hosts that already run a Tailscale daemon.
+# Running a *second* Tailscale daemon in a container on the same host causes
+# routing conflicts (both fight over the 100.64.0.0/10 route and table 52
+# policy rules). See Tailscale issues #13367, #3877, #4118, #17538.
+#
+# Architecture:
+#   oci (cno)      — Linux, already configured via vpn-tailscale role
+#                    (vpn_tailscale_run_exit_node: true). This playbook
+#                    verifies it but makes no changes.
+#   dtop202311 (nl) — Windows, Tailscale GUI runs as `micro` user.
+#                    Needs IP forwarding enabled + `tailscale set --advertise-exit-node`.
+#                    The `ansible` user is an admin (can change registry/services)
+#                    but Tailscale CLI requires the `micro` user session.
+#   lzkmbp2016/2018 — macOS, Tailscale GUI app. CLI at /usr/local/bin/tailscale.
+#                    Needs sysctl net.inet.ip.forwarding=1 (runtime + /etc/sysctl.conf)
+#                    + `tailscale set --advertise-exit-node`. Ansible connects as
+#                    `auser` (admin, can sudo). Tailscale CLI works from `auser`.
+#
+# Usage:
+#   just levonk-configure-host-exit-nodes-nl        # Windows only
+#   just levonk-configure-host-exit-nodes-macos     # macOS only
+#   just levonk-configure-host-exit-nodes-all       # Windows + macOS
+#   # or directly:
+#   ansible-playbook -i inventories/windows-docker.yml -i inventories/macos-hosts.yml \
+#     playbooks/configure-host-exit-nodes.yml \
+#     --vault-password-file ~/.ansible/vault_password
+
+# ---------------------------------------------------------------------------
+# Play 1: Windows host — enable IP forwarding (as ansible user, admin)
+# ---------------------------------------------------------------------------
+- name: "Enable IP forwarding on Windows host (dtop202311)"
+  hosts: windows_docker_hosts
+  gather_facts: true
+  become: false
+
+  pre_tasks:
+    - name: "Report target"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Enabling IP forwarding for exit node
+          Host: {{ inventory_hostname }} ({{ ansible_facts['distribution'] }})
+          User: {{ ansible_user }}
+          ========================================
+      tags: ["always", "info"]
+
+  tasks:
+    # --- Registry: IPEnableRouter (persists across reboots) ---
+    - name: "Check current IPEnableRouter registry value"
+      ansible.builtin.shell:
+        cmd: |
+          $val = Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters" `
+            -Name "IPEnableRouter" -ErrorAction SilentlyContinue
+          if ($null -eq $val) { Write-Output "NOT_SET" }
+          else { Write-Output $val.IPEnableRouter }
+      register: ip_enable_router_check
+      changed_when: false
+      tags: ["ip-forwarding", "check"]
+
+    - name: "Enable IPEnableRouter in registry (system-wide IP forwarding)"
+      ansible.builtin.shell:
+        cmd: |
+          Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters" `
+            -Name "IPEnableRouter" -Value 1 -Type DWord
+          Write-Output "IPEnableRouter set to 1"
+      register: ip_enable_router_set
+      changed_when: "'IPEnableRouter set to 1' in ip_enable_router_set.stdout"
+      when: "ip_enable_router_check.stdout != '1'"
+      tags: ["ip-forwarding", "configure"]
+
+    # --- RemoteAccess service (Routing and Remote Access) ---
+    - name: "Check RemoteAccess service status"
+      ansible.builtin.shell:
+        cmd: |
+          $svc = Get-Service -Name "RemoteAccess" -ErrorAction SilentlyContinue
+          if ($null -eq $svc) { Write-Output "NOT_FOUND" }
+          else { Write-Output "$($svc.Status)|$($svc.StartType)" }
+      register: remote_access_check
+      changed_when: false
+      tags: ["ip-forwarding", "check"]
+
+    - name: "Enable and start RemoteAccess service (routing)"
+      ansible.builtin.shell:
+        cmd: |
+          Set-Service -Name "RemoteAccess" -StartupType Automatic
+          Start-Service -Name "RemoteAccess"
+          Write-Output "RemoteAccess enabled and started"
+      register: remote_access_set
+      changed_when: "'RemoteAccess enabled and started' in remote_access_set.stdout"
+      when:
+        - "'NOT_FOUND' not in remote_access_check.stdout"
+        - "'Running|Automatic' not in remote_access_check.stdout"
+      tags: ["ip-forwarding", "configure"]
+
+    # --- Per-interface forwarding (takes effect immediately, no reboot) ---
+    - name: "Enable forwarding on all IP interfaces (immediate, no reboot)"
+      ansible.builtin.shell:
+        cmd: |
+          $interfaces = Get-NetIPInterface -AddressFamily IPv4 -ErrorAction SilentlyContinue
+          $changed = 0
+          foreach ($iface in $interfaces) {
+            if ($iface.Forwarding -ne 'Enabled') {
+              $iface | Set-NetIPInterface -Forwarding Enabled
+              $changed++
+            }
+          }
+          Write-Output "Enabled forwarding on $changed interface(s)"
+      register: iface_forwarding_set
+      changed_when:
+        - "'Enabled forwarding on 0 interface(s)' not in iface_forwarding_set.stdout"
+      tags: ["ip-forwarding", "configure"]
+
+    - name: "Verify IPEnableRouter registry value"
+      ansible.builtin.shell:
+        cmd: |
+          $val = (Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters" `
+            -Name "IPEnableRouter").IPEnableRouter
+          Write-Output $val
+      register: ip_enable_router_verify
+      changed_when: false
+      tags: ["ip-forwarding", "verify"]
+
+    - name: "Report IP forwarding status"
+      ansible.builtin.debug:
+        msg: |
+          IP forwarding configuration:
+            IPEnableRouter registry: {{ ip_enable_router_verify.stdout }}
+            RemoteAccess service: {{ remote_access_check.stdout if 'NOT_FOUND' in remote_access_check.stdout else remote_access_check.stdout }}
+            Interface forwarding: {{ iface_forwarding_set.stdout }}
+          {% if ip_enable_router_verify.stdout != '1' %}
+          WARNING: IPEnableRouter is not 1 — may need a reboot.
+          {% endif %}
+      tags: ["ip-forwarding", "verify"]
+
+# ---------------------------------------------------------------------------
+# Play 2: Windows host — configure Tailscale exit node (as micro user)
+# ---------------------------------------------------------------------------
+# Tailscale on Windows runs in GUI mode as the `micro` user. The CLI's IPC
+# socket is per-user, so `tailscale set` must run as `micro`, not `ansible`.
+# Both users share the same SSH key and are in the Administrators group.
+- name: "Configure Tailscale exit node on Windows host (as micro user)"
+  hosts: windows_docker_hosts
+  gather_facts: false
+  become: false
+  remote_user: micro
+  vars:
+    # Override the SSH key path (same key, just different user)
+    ansible_ssh_private_key_file: "{{ lookup('env', 'HOME') }}/.ssh/lzkmbp2016-micro-oracle"
+
+  tasks:
+    - name: "Check if Tailscale is already advertising as exit node"
+      ansible.builtin.shell:
+        cmd: tailscale status --json 2>$null | python -c "import sys,json; d=json.load(sys.stdin); print(d.get('Self',{}).get('ExitNode',False))" 2>$null || echo "PARSE_FAILED"
+      register: ts_exit_node_check
+      changed_when: false
+      ignore_errors: true
+      tags: ["tailscale", "check"]
+
+    - name: "Enable exit node advertisement"
+      ansible.builtin.shell:
+        cmd: tailscale set --advertise-exit-node
+      register: ts_set_exit_node
+      changed_when: ts_set_exit_node.rc == 0
+      when: "'True' not in ts_exit_node_check.stdout"
+      tags: ["tailscale", "configure"]
+
+    - name: "Verify exit node advertisement"
+      ansible.builtin.shell:
+        cmd: tailscale status
+      register: ts_status_final
+      changed_when: false
+      tags: ["tailscale", "verify"]
+
+    - name: "Report Tailscale exit node status"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Tailscale Exit Node Configuration
+          ========================================
+          Host: {{ inventory_hostname }}
+          Already was exit node: {{ ts_exit_node_check.stdout }}
+          Set command result: {{ ts_set_exit_node.rc | default('skipped — already exit node') }}
+          Status:
+          {{ ts_status_final.stdout }}
+          ========================================
+          NOTE: If the node doesn't appear as an exit node in the Tailscale
+          admin console, approve it at:
+            https://login.tailscale.com/admin/machines
+          Look for {{ inventory_hostname }} and click "Approve exit node".
+          ========================================
+      tags: ["tailscale", "verify", "summary"]
+
+# ---------------------------------------------------------------------------
+# Play 3: macOS hosts — configure Tailscale exit node
+# ---------------------------------------------------------------------------
+# IP forwarding (net.inet.ip.forwarding=1) is managed by nix-darwin via the
+# infra.networking.ipForwarding module (modules/networking/ip-forwarding.nix).
+# This play only handles the Tailscale daemon's --advertise-exit-node flag,
+# which is runtime Tailscale state (not a system config) and must be set via
+# the Tailscale CLI.
+#
+# Prerequisite: run `darwin-rebuild switch --flake .#<hostname>` first to
+# enable IP forwarding, then run this playbook to set the Tailscale flag.
+# Tailscale CLI is at /usr/local/bin/tailscale (not in auser's default PATH).
+# The CLI talks to the Tailscale.app daemon and works from any local user.
+- name: "Configure host exit node on macOS laptops (lzkmbp2016, lzkmbp2018)"
+  hosts: macos_hosts
+  gather_facts: true
+  become: false
+
+  vars:
+    # Tailscale CLI path on macOS (not in auser's default PATH)
+    tailscale_bin: "/usr/local/bin/tailscale"
+
+  pre_tasks:
+    - name: "Report target"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Configuring host exit node on macOS
+          Host: {{ inventory_hostname }} ({{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }})
+          User: {{ ansible_user }}
+          Tailscale CLI: {{ tailscale_bin }}
+          ========================================
+      tags: ["always", "info"]
+
+    - name: "Verify IP forwarding is enabled (nix-darwin managed)"
+      ansible.builtin.command:
+        cmd: sysctl -n net.inet.ip.forwarding
+      register: ip_forwarding_verify
+      changed_when: false
+      tags: ["ip-forwarding", "verify"]
+
+    - name: "Warn if IP forwarding is not enabled"
+      ansible.builtin.debug:
+        msg: |
+          WARNING: net.inet.ip.forwarding is {{ ip_forwarding_verify.stdout }} (expected 1).
+          Run `darwin-rebuild switch --flake .#{{ inventory_hostname }}` first
+          to apply the nix-darwin networking.ipForwarding module.
+      when: "ip_forwarding_verify.stdout != '1'"
+      tags: ["ip-forwarding", "verify"]
+
+  tasks:
+    # --- Tailscale exit node configuration ---
+    - name: "Check if Tailscale is already advertising as exit node"
+      ansible.builtin.shell:
+        cmd: "{{ tailscale_bin }} status --json 2>/dev/null | python3 -c \"import sys,json; d=json.load(sys.stdin); print(d.get('Self',{}).get('ExitNode',False))\" 2>/dev/null || echo 'PARSE_FAILED'"
+      register: ts_exit_node_check
+      changed_when: false
+      ignore_errors: true
+      tags: ["tailscale", "check"]
+
+    - name: "Enable exit node advertisement"
+      ansible.builtin.command:
+        cmd: "{{ tailscale_bin }} set --advertise-exit-node"
+      register: ts_set_exit_node
+      changed_when: ts_set_exit_node.rc == 0
+      when: "'True' not in ts_exit_node_check.stdout"
+      tags: ["tailscale", "configure"]
+
+    - name: "Verify exit node advertisement"
+      ansible.builtin.command:
+        cmd: "{{ tailscale_bin }} status"
+      register: ts_status_final
+      changed_when: false
+      tags: ["tailscale", "verify"]
+
+    - name: "Report Tailscale exit node status"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Tailscale Exit Node Configuration
+          ========================================
+          Host: {{ inventory_hostname }}
+          IP forwarding: {{ ip_forwarding_verify.stdout }}
+          Already was exit node: {{ ts_exit_node_check.stdout }}
+          Set command result: {{ ts_set_exit_node.rc | default('skipped — already exit node') }}
+          Status (first 5 lines):
+          {{ ts_status_final.stdout_lines[:5] | join('\n') }}
+          ========================================
+          NOTE: If the node doesn't appear as an exit node in the Tailscale
+          admin console, approve it at:
+            https://login.tailscale.com/admin/machines
+          Look for {{ inventory_hostname }} and click "Approve exit node".
+          ========================================
+      tags: ["tailscale", "verify", "summary"]

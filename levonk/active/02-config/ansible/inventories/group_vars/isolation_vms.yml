@@ -1,0 +1,20 @@
+---
+# Group Variables for Isolation VMs
+# Location: levonk/active/02-config/ansible/group_vars/isolation_vms.yml
+# Purpose: Common variables for all Isolation VMs
+# ---------------------------------------------------------------------------
+
+# SSH Configuration
+cloud_server_ssh_private_key_file: "~/.ssh/lzkmbp2016-micro-oracle"
+
+# Isolation VM IP Address (defined in host_vars for cloud server)
+isolation_vm_ip_address: "192.168.100.147"
+
+# Container names (should match deployment variables)
+isolation_vm_hermes_container_name: "hermes-agent"
+isolation_vm_nix_sidecar_container_name: "nix-sidecar"
+isolation_vm_base_kalinix_container_name: "base-kalinix"
+
+# Test resource limits
+isolation_vm_test_memory_limit: "512m"
+isolation_vm_test_cpu_limit: "0.5"

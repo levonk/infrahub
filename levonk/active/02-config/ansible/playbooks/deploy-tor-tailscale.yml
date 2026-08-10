@@ -1,0 +1,120 @@
+---
+# Deploy Tailscale Tor Exit Node for Levonk Client
+# This playbook deploys a Tailscale exit node for Tor routing
+# Usage: ansible-playbook -i inventories/oci.yml playbooks/deploy-tor-tailscale.yml --vault-password-file ~/.ansible/vault_password
+
+- name: "Deploy Tailscale Tor Exit Node Configuration"
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: "Gather ansible_facts"
+      ansible.builtin.setup:
+        gather_subset: ["all"]
+      tags: ["always"]
+
+    - name: "Ensure Docker is available"
+      ansible.builtin.command:
+        cmd: "docker --version"
+      become: true
+      register: docker_check
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "docker"]
+
+    - name: "Fail if Docker is not available"
+      ansible.builtin.fail:
+        msg: "Docker is not installed. Run bootstrap playbook first."
+      when: docker_check.rc != 0
+      tags: ["verify", "docker"]
+
+  tasks:
+    - name: "Remove existing Tailscale Tor container if present"
+      community.docker.docker_container:
+        name: "tailscale-tor"
+        state: absent
+        force_kill: true
+      ignore_errors: true
+      tags: ["tailscale", "cleanup"]
+
+    - name: "Remove old Tor state volume"
+      community.docker.docker_volume:
+        name: "tailscale-tor-state"
+        state: absent
+      ignore_errors: true
+      tags: ["tailscale", "cleanup"]
+
+    - name: "Deploy Tailscale Tor exit node container"
+      community.docker.docker_container:
+        name: "tailscale-tor"
+        image: "tailscale/tailscale:latest"
+        state: started
+        restart_policy: unless-stopped
+        networks:
+          - name: "{{ vpn_nordvpn_network_name | default('vpn-network') }}"
+        capabilities:
+          - NET_ADMIN
+        devices:
+          - /dev/net/tun:/dev/net/tun
+        env:
+          TS_HOSTNAME: "{{ vpn_tailscale_tor_hostname | default('oci-vpn-server-tor') }}"
+          TS_STATE_DIR: "/var/lib/tailscale"
+          TS_EXTRA_ARGS: "--advertise-exit-node --accept-routes"
+        volumes:
+          - tailscale-tor-state:/var/lib/tailscale
+      when: vpn_tailscale_tor_enabled | default(false) | bool
+      tags: ["tailscale", "deploy"]
+
+    - name: "Wait for Tailscale container to initialize"
+      ansible.builtin.pause:
+        seconds: 30
+      when: vpn_tailscale_tor_enabled | default(false) | bool
+      tags: ["tailscale", "verify"]
+
+  post_tasks:
+    - name: "Verify Tailscale container is running"
+      community.docker.docker_container_info:
+        name: "tailscale-tor"
+      register: tailscale_container_info
+      when: vpn_tailscale_tor_enabled | default(false) | bool
+      tags: ["verify", "tailscale"]
+
+    - name: "Report Tailscale container status"
+      ansible.builtin.debug:
+        msg: "Tailscale container status: {{ tailscale_container_info.container.State.Status }}"
+      when: 
+        - vpn_tailscale_tor_enabled | default(false) | bool
+        - tailscale_container_info.container is defined
+      tags: ["verify", "tailscale"]
+
+    - name: "Get authentication URL"
+      ansible.builtin.shell:
+        cmd: docker logs tailscale-tor 2>&1 | grep -A 2 "To authenticate"
+      register: auth_url_output
+      changed_when: false
+      ignore_errors: true
+      when: 
+        - vpn_tailscale_tor_enabled | default(false) | bool
+        - tailscale_container_info.container.State.Status == "running"
+      tags: ["tailscale", "verify"]
+
+    - name: "Report authentication URL"
+      ansible.builtin.debug:
+        msg: "Please authenticate at: {{ auth_url_output.stdout | default('Check logs manually') }}"
+      when: 
+        - vpn_tailscale_tor_enabled | default(false) | bool
+        - auth_url_output.stdout is defined
+      tags: ["tailscale", "verify"]
+
+    - name: "Report deployment complete"
+      ansible.builtin.debug:
+        msg: "Tailscale Tor exit node deployed. Please authenticate it to make it available in your Tailscale network."
+      when: vpn_tailscale_tor_enabled | default(false) | bool
+      tags: ["verify", "summary"]
+
+    - name: "Report deployment skipped"
+      ansible.builtin.debug:
+        msg: "Tailscale Tor deployment skipped (vpn_tailscale_tor_enabled is false)"
+      when: not (vpn_tailscale_tor_enabled | default(false) | bool)
+      tags: ["verify", "summary"]

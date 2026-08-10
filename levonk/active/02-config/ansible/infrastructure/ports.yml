@@ -1,0 +1,90 @@
+---
+# Levonk Client Port Allocation Values
+# Location: levonk/active/02-config/ansible/infrastructure/ports.yml
+# Purpose: Client-specific port allocation overrides
+# Overrides shared defaults from shared/active/02-config/ansible/infrastructure/ports.yml
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Client-Specific Port Overrides
+# ---------------------------------------------------------------------------
+# Most shared defaults work for levonk, but we override specific values
+# for our AI pipeline and multi-exit-node architecture
+
+# ---------------------------------------------------------------------------
+# AI Pipeline Ports (client-specific)
+# ---------------------------------------------------------------------------
+# LiteLLM (AI Gateway — entry point for the pipeline)
+infra_port_ai_litellm_host: "4000"
+infra_port_ai_litellm_container: "4000"
+infra_port_ai_litellm_postgres_host: "5435"
+infra_port_ai_litellm_postgres_container: "5432"
+
+# Headroom
+infra_port_ai_headroom_host: "8787"
+infra_port_ai_headroom_container: "8787"
+
+# Forge
+infra_port_ai_forge_host: "8083"
+infra_port_ai_forge_container: "8081"
+
+# OmniRoute
+infra_port_ai_omniroute_host: "20128"
+infra_port_ai_omniroute_container: "20128"
+
+# Omnigent (AI agent framework & meta-harness server)
+# Postgres host port 5433 to avoid clashing with ai-dashboard postgres on 5432
+infra_port_ai_omnigent_host: "8000"
+infra_port_ai_omnigent_container: "8000"
+infra_port_ai_omnigent_postgres_host: "5433"
+infra_port_ai_omnigent_postgres_container: "5432"
+
+# Pi (coding agent harness — driven by Omnigent's runner via RPC)
+infra_port_ai_pi_host: "8090"
+infra_port_ai_pi_container: "8090"
+
+# Archon (workflow layer — YAML DAG workflows, deployed to Windows Docker Desktop)
+# Host port 3090 avoids conflict with WorldMonitor (3000) on the Windows box
+infra_port_ai_archon_host: "3090"
+infra_port_ai_archon_container: "3000"
+infra_port_ai_archon_postgres_host: "5436"
+infra_port_ai_archon_postgres_container: "5432"
+
+# agentmemory (persistent memory for AI coding agents — iii-engine + MCP server)
+infra_port_ai_agentmemory_host: "3111"
+infra_port_ai_agentmemory_container: "3111"
+
+# Langfuse (LLM observability & tracing — parallel analytics sink)
+infra_port_ai_langfuse_web_host: "3001"
+infra_port_ai_langfuse_web_container: "3000"
+infra_port_ai_langfuse_postgres_host: "5434"
+infra_port_ai_langfuse_postgres_container: "5432"
+infra_port_ai_langfuse_minio_api_host: "9190"
+
+# ---------------------------------------------------------------------------
+# SSH Port Override (for OCI bootstrap)
+# ---------------------------------------------------------------------------
+infra_port_ssh_host: "22"  # Standard SSH, but ansible_user varies during bootstrap
+
+# ---------------------------------------------------------------------------
+# iron-proxy Port Overrides (client-specific)
+# ---------------------------------------------------------------------------
+infra_port_proxy_iron_proxy_http_host: "8880"  # Changed from 8080 to avoid conflicts
+infra_port_proxy_iron_proxy_https_host: "9443"  # Changed from 8443 to avoid conflicts
+
+# ---------------------------------------------------------------------------
+# Tor Exit Node Ports (client-specific)
+# ---------------------------------------------------------------------------
+infra_port_tor_orport_host: "9001"
+infra_port_tor_orport_container: "9001"
+infra_port_tor_dirport_host: "9030"
+infra_port_tor_dirport_container: "9030"
+
+# ---------------------------------------------------------------------------
+# Start / Launch Page Dashboard Ports (client-specific)
+# See ADR-20260629001 for the decision rationale.
+# ---------------------------------------------------------------------------
+infra_port_dashboard_homepage_host: "8084"
+infra_port_dashboard_homepage_container: "3000"
+infra_port_dashboard_trala_host: "8085"
+infra_port_dashboard_trala_container: "8080"

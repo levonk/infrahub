@@ -5,7 +5,7 @@
 > container runtime, apps, Tailscale, Netbird).
 >
 > **Target machines**: Mac laptops/desktops managed by infrahub.
->   Example: `lzkmbp2016`, `lzkmbp2018` (levonk client).
+>   Example: `<hostname>` (levonk client).
 >
 > **Location**: `shared/active/08-docs/runbooks/` — generic instructions,
 >   reusable across clients. Client-specific values (hostnames, Tailscale
@@ -17,11 +17,11 @@ Run this **on the target Mac** (must have sudo access):
 
 ```bash
 # From the infrahub repo on the target Mac:
-shared/scripts/bootstrap-macos-manual.sh --ssh-key ~/.ssh/lzkmbp2016-micro-oracle.pub
+shared/scripts/bootstrap-macos-manual.sh --ssh-key <your-ssh-key.pub>
 
 # Or if the key is on the control Mac, copy it over first:
-# (on control Mac) scp ~/.ssh/lzkmbp2016-micro-oracle.pub target-mac:/tmp/
-# (on target Mac)  shared/scripts/bootstrap-macos-manual.sh --ssh-key /tmp/lzkmbp2016-micro-oracle.pub
+# (on control Mac) scp <your-ssh-key.pub> target-mac:/tmp/
+# (on target Mac)  shared/scripts/bootstrap-macos-manual.sh --ssh-key /tmp/<your-ssh-key.pub>
 
 # Interactive mode (prompts for key paste):
 shared/scripts/bootstrap-macos-manual.sh
@@ -92,7 +92,7 @@ sudo chown auser:staff /Users/auser/.ssh
 sudo chmod 700 /Users/auser/.ssh
 
 # Add the public key (from the control Mac)
-cat ~/.ssh/lzkmbp2016-micro-oracle.pub | sudo tee /Users/auser/.ssh/authorized_keys
+cat <your-ssh-key.pub> | sudo tee /Users/auser/.ssh/authorized_keys
 sudo chown auser:staff /Users/auser/.ssh/authorized_keys
 sudo chmod 600 /Users/auser/.ssh/authorized_keys
 ```
@@ -104,7 +104,7 @@ sudo chmod 600 /Users/auser/.ssh/authorized_keys
 ssh auser@<mac-ip>
 
 # If using Tailscale (after the machine is on the Tailnet):
-ssh auser@lzkmbp2016.tale-grouper.ts.net
+ssh auser@<hostname>.tale-grouper.ts.net
 ```
 
 If this works, you're done with manual setup. Ansible takes over from here.
@@ -159,7 +159,7 @@ That's it — the new machine is back to the same state.
 
 ### SSH connection refused
 - Check **System Settings** → **General** → **Sharing** → **Remote Login** is ON
-- Check the machine is reachable: `ping lzkmbp2016.tale-grouper.ts.net`
+- Check the machine is reachable: `ping <hostname>.tale-grouper.ts.net`
 - Check firewall: **System Settings** → **Network** → **Firewall**
 
 ### auser not found

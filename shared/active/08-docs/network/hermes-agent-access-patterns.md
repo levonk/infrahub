@@ -34,7 +34,7 @@ The hermes-agent container has been enhanced to provide direct network access vi
 tailscale status  # Find the hermes-agent Tailscale IP
 
 # Direct SSH via Tailscale
-ssh -i ~/.ssh/lzkmbp2016-micro-oracle cuser@<hermes-agent-tailscale-ip>
+ssh -i <your-ssh-key> cuser@<hermes-agent-tailscale-ip>
 
 # Or use Tailscale SSH if enabled
 tailscale ssh cuser@<hermes-agent-tailscale-ip>
@@ -55,7 +55,7 @@ tailscale ssh cuser@<hermes-agent-tailscale-ip>
 tailscale status  # Find the OCI Cloud Server Tailscale IP
 
 # SSH to VM via Tailscale
-ssh -i ~/.ssh/lzkmbp2016-micro-oracle cuser@<oci-server-tailscale-ip>
+ssh -i <your-ssh-key> cuser@<oci-server-tailscale-ip>
 
 # Then SSH to container from VM
 ssh -p 2222 cuser@192.168.100.147
@@ -76,10 +76,10 @@ docker exec -it isolation-vm-hermes-agent zsh
 
 ```bash
 # From your local machine
-ssh -i ~/.ssh/lzkmbp2016-micro-oracle opc@<oci-public-ip>
+ssh -i <your-ssh-key> opc@<oci-public-ip>
 
 # Then SSH to VM
-ssh -i ~/.ssh/lzkmbp2016-micro-oracle cuser@192.168.100.147
+ssh -i <your-ssh-key> cuser@192.168.100.147
 
 # Then access container
 docker exec -it isolation-vm-hermes-agent zsh

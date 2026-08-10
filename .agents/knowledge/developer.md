@@ -117,7 +117,7 @@ infrahub/
 ```text
 ~/.ansible/vault_password                        # 🔒 Vault decryption key — required for all deployments
 ~/.docker/daemon.json                            # Docker daemon config (insecure-registries for local registry)
-~/.ssh/lzkmbp2016-micro-oracle                   # SSH key for OCI cloud server access
+~/.ssh/<your-ssh-key>                            # SSH key for host access (client-specific, not in shared/)
 ```
 
 ### Configuration Files (Modify with Care)
@@ -147,7 +147,8 @@ infrahub/
 
 ### ❌ DON'T
 - Hardcode IPs, ports, domains, or storage paths in roles/playbooks/templates
-- Put client-specific values in `shared/` roles or defaults
+- Put client-specific values in `shared/` roles or defaults — this includes **hostnames**, **SSH key names/paths**, **public keys**, **Tailscale FQDNs**, and any other client-identifying data (ADR-20260624001)
+- Embed SSH public keys (even public ones) in `shared/` scripts — client keys belong in client submodules
 - Use `source: build` in `docker_image` tasks (violates Invariant #2)
 - Put secrets in plaintext files, group_vars, or host_vars (use the vault)
 - Duplicate infrastructure values across files (single source of truth)
@@ -318,7 +319,8 @@ Chains define request-flow topology for proxy/cache chains (e.g., AI Pipeline, N
 
 ### <never>
 - Commit secrets or credentials in plaintext
-- Put client-specific values in `shared/` directory
+- Put client-specific values in `shared/` directory — this includes hostnames, SSH keys (public or private), Tailscale FQDNs, and machine metadata
+- Embed SSH public keys in `shared/` scripts or playbooks — require them as parameters instead
 - Use `source: build` in `docker_image` tasks on target hosts
 - Use `docker compose` for deployments (use `community.docker` modules only)
 - Hardcode IPs, ports, domains, or storage paths

@@ -36,7 +36,7 @@ This runbook documents the complete process for deploying cloud server infrastru
 # Host-specific
 ansible_host: "161.153.91.163"
 ansible_user: "opc"  # Bootstrap user
-ansible_ssh_private_key_file: "~/.ssh/lzkmbp2016-micro-oracle"
+ansible_ssh_private_key_file: "<your-ssh-key>"
 
 # Group variables
 cloud_server_admin_user: "cuser"

@@ -1,0 +1,326 @@
+---
+# Cloud Server Variable Schema
+# Location: levonk/active/02-config/ansible/group_vars/cloud_server.yml
+# Purpose: Client-specific variables for the cloud-server host group.
+# All IP addresses, ports, and service values are variables per AGENTS.md rules.
+#
+# Naming convention: {CATEGORY}_{SERVICE}_{SUB}_{HOST|CONTAINER}_{PORT|IP}
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Infrastructure Directories
+# ---------------------------------------------------------------------------
+# NOTE: Now using centralized infrastructure variables from infrastructure/storage.yml
+localnet_base_dir: "{{ infra_storage_base_dir }}"
+localnet_container_dir: "{{ infra_storage_container_dir }}"
+localnet_services_dir: "{{ infra_storage_services_dir }}"
+localnet_config_dir: "{{ infra_storage_config_dir }}"
+localnet_network_name: "cloud-server"
+localnet_tz: "UTC"
+cloud_server_services_dir: "{{ infra_storage_services_dir }}"
+cloud_server_docker_network_name: "cloud-server"
+docker_network_gateway: "172.20.0.1"
+
+# ---------------------------------------------------------------------------
+# Connection
+# ---------------------------------------------------------------------------
+cloud_server_ansible_host_ip: "161.153.91.163"
+cloud_server_admin_user: "cuser"
+cloud_server_ssh_private_key_file: "~/.ssh/lzkmbp2016-micro-oracle"
+host_os_bootstrap_admin_user: "cuser"
+host_os_bootstrap_admin_groups: "wheel"
+
+# ---------------------------------------------------------------------------
+# SSH & Security
+# ---------------------------------------------------------------------------
+# NOTE: Now using centralized infrastructure variables from infrastructure/ports.yml
+cloud_server_ssh_host_port: "{{ infra_port_ssh_host }}"
+cloud_server_ssh_container_port: "{{ infra_port_ssh_container }}"
+cloud_server_fail2ban_bantime: 3600
+cloud_server_fail2ban_maxretry: 5
+cloud_server_fail2ban_findtime: 600
+cloud_server_fail2ban_ignoreip:
+  - "127.0.0.1/8"
+  - "::1"
+cloud_server_firewall_type: "nftables"
+
+# ---------------------------------------------------------------------------
+# VPN
+# ---------------------------------------------------------------------------
+# NOTE: Now using centralized infrastructure variables from infrastructure/networks.yml and infrastructure/ports.yml
+cloud_server_tailscale_port: "{{ infra_port_vpn_tailscale }}"
+cloud_server_tailscale_subnet: "{{ infra_network_vpn_tailscale_subnet }}"
+cloud_server_netbird_subnet: "{{ infra_network_vpn_netbird_subnet }}"
+cloud_server_vpn_subnets: "{{ infra_network_vpn_subnets }}"
+
+# NordVPN
+cloud_server_nordvpn_network_name: "{{ infra_network_vpn_nordvpn_network_name }}"
+cloud_server_nordvpn_network_subnet: "{{ infra_network_vpn_nordvpn_subnet }}"
+cloud_server_nordvpn_network_gateway: "{{ infra_network_vpn_nordvpn_gateway }}"
+cloud_server_nordvpn_wireguard_host_port: "{{ infra_port_vpn_nordvpn_wireguard_host }}"
+cloud_server_nordvpn_wireguard_container_port: "{{ infra_port_vpn_nordvpn_wireguard_container }}"
+cloud_server_nordvpn_socks_host_port: "{{ infra_port_vpn_nordvpn_socks_host }}"
+cloud_server_nordvpn_socks_container_port: "{{ infra_port_vpn_nordvpn_socks_container }}"
+cloud_server_nordvpn_http_host_port: "{{ infra_port_vpn_nordvpn_http_host }}"
+cloud_server_nordvpn_http_container_port: "{{ infra_port_vpn_nordvpn_http_container }}"
+cloud_server_nordvpn_https_host_port: "{{ infra_port_vpn_nordvpn_https_host }}"
+cloud_server_nordvpn_https_container_port: "{{ infra_port_vpn_nordvpn_https_container }}"
+cloud_server_nordvpn_shadowsocks_host_port: "{{ infra_port_vpn_nordvpn_shadowsocks_host }}"
+cloud_server_nordvpn_shadowsocks_container_port: "{{ infra_port_vpn_nordvpn_shadowsocks_container }}"
+
+# NordVPN Credentials (from vault)
+vpn_nordvpn_openvpn_user: "{{ vault_nordvpn_openvpn_user }}"
+vpn_nordvpn_openvpn_pass: "{{ vault_nordvpn_openvpn_pass }}"
+
+# NetBird Control Plane
+cloud_server_netbird_mgmt_host_port: 33073
+cloud_server_netbird_mgmt_container_port: 33073
+cloud_server_netbird_signal_host_port: 10000
+cloud_server_netbird_signal_container_port: 10000
+cloud_server_netbird_turn_host_port: 3478
+cloud_server_netbird_turn_container_port: 3478
+
+# ---------------------------------------------------------------------------
+# DNS
+# ---------------------------------------------------------------------------
+# NOTE: Now using centralized infrastructure variables from infrastructure/ports.yml
+cloud_server_dns_host_port: "{{ infra_port_dns_host }}"
+cloud_server_dns_container_port: "{{ infra_port_dns_container }}"
+
+# ---------------------------------------------------------------------------
+# Proxy
+# ---------------------------------------------------------------------------
+# NOTE: Now using centralized infrastructure variables from infrastructure/ports.yml
+cloud_server_proxy_http_host_port: "{{ infra_port_proxy_http_host }}"
+cloud_server_proxy_http_container_port: "{{ infra_port_proxy_http_container }}"
+cloud_server_proxy_https_host_port: "{{ infra_port_proxy_https_host }}"
+cloud_server_proxy_https_container_port: "{{ infra_port_proxy_https_container }}"
+
+# ---------------------------------------------------------------------------
+# iron-proxy Egress Firewall
+# ---------------------------------------------------------------------------
+# NOTE: Now using centralized infrastructure variables from infrastructure/ports.yml
+cloud_server_iron_proxy_dns_host_port: "{{ infra_port_proxy_iron_proxy_dns_host }}"
+cloud_server_iron_proxy_http_host_port: "{{ infra_port_proxy_iron_proxy_http_host }}"
+cloud_server_iron_proxy_https_host_port: "{{ infra_port_proxy_iron_proxy_https_host }}"
+cloud_server_iron_proxy_upstream_dns: "8.8.8.8:53"
+cloud_server_iron_proxy_tls_mode: "mitm"
+# Tunnel listener for CONNECT/SOCKS5 — needed for clients that send CONNECT
+# for HTTPS proxying (Node.js fetch with HTTPS_PROXY, curl --proxy).
+cloud_server_iron_proxy_tunnel_host_port: "8870"
+cloud_server_iron_proxy_cert_cache_size: 1000
+cloud_server_iron_proxy_leaf_cert_expiry_hours: 72
+cloud_server_iron_proxy_max_request_body_bytes: 1048576
+cloud_server_iron_proxy_max_response_body_bytes: 0
+cloud_server_iron_proxy_upstream_timeout: "30s"
+
+# iron-proxy egress: direct to internet (NordVPN bypassed — Go TLS client
+# incompatible with NordVPN's upstream TLS, see session notes 2026-07-04)
+cloud_server_iron_proxy_http_proxy: ""
+cloud_server_iron_proxy_https_proxy: ""
+cloud_server_iron_proxy_no_proxy: "localhost,127.0.0.1,172.16.0.0/12,172.29.0.0/16"
+# Not joining vpn-network — no upstream proxy to reach
+cloud_server_iron_proxy_vpn_network_name: ""
+
+# iron-proxy API Key Configuration (Client-configurable)
+# API keys are stored in vault for security
+cloud_server_iron_proxy_openai_enabled: false
+cloud_server_iron_proxy_openai_api_key: "{{ vault_iron_proxy_openai_api_key | default('') }}"
+cloud_server_iron_proxy_anthropic_enabled: false
+cloud_server_iron_proxy_anthropic_api_key: "{{ vault_iron_proxy_anthropic_api_key | default('') }}"
+cloud_server_iron_proxy_anthropic_proxy_token: "proxy-token-anthropic"
+cloud_server_iron_proxy_google_enabled: false
+cloud_server_iron_proxy_google_api_key: "{{ vault_iron_proxy_google_api_key | default('') }}"
+cloud_server_iron_proxy_github_enabled: false
+cloud_server_iron_proxy_github_token: "{{ vault_iron_proxy_github_token | default('') }}"
+
+# iron-proxy Allowlist Configuration
+cloud_server_iron_proxy_allowlist_warn: false
+cloud_server_iron_proxy_allowed_domains:
+  - "registry.npmjs.org"
+  - "github.com"
+  - "api.github.com"
+  - "docker.io"
+  - "registry-1.docker.io"
+  - "*.googleapis.com"
+  - "gcr.io"
+  - "k8s.gcr.io"
+  # Windsurf/Cognition (pi-windsurf plugin LLM provider)
+  - "server.self-serve.windsurf.com"
+  - "server.codeium.com"
+  - "register.windsurf.com"
+  - "windsurf.com"
+cloud_server_iron_proxy_allowed_cidrs:
+  - "10.0.0.0/8"
+  - "172.16.0.0/12"
+  - "192.168.0.0/16"
+cloud_server_iron_proxy_allowlist_rules:
+  - host: "api.openai.com"
+    methods: ["POST"]
+    paths: ["/v1/*"]
+  - host: "*.anthropic.com"
+    methods: ["POST"]
+    paths: ["/v1/messages", "/v1/complete"]
+
+# ---------------------------------------------------------------------------
+# Tor
+# ---------------------------------------------------------------------------
+# NOTE: Now using centralized infrastructure variables from infrastructure/ports.yml
+cloud_server_tor_socks_host_port: "{{ infra_port_proxy_tor_socks5_host }}"
+cloud_server_tor_socks_container_port: "{{ infra_port_proxy_tor_socks5_container }}"
+
+# ---------------------------------------------------------------------------
+# Dynamic DNS
+# ---------------------------------------------------------------------------
+cloud_server_ddns_update_interval: 300
+
+# ---------------------------------------------------------------------------
+# SSO (Authelia)
+# ---------------------------------------------------------------------------
+# NOTE: Now using centralized infrastructure variables from infrastructure/ports.yml
+cloud_server_authelia_web_host_port: "{{ infra_port_sso_authelia_web_host }}"
+cloud_server_authelia_web_container_port: "{{ infra_port_sso_authelia_web_container }}"
+cloud_server_authelia_redis_host_port: "{{ infra_port_sso_authelia_redis_host }}"
+cloud_server_authelia_redis_container_port: "{{ infra_port_sso_authelia_redis_container }}"
+
+# ---------------------------------------------------------------------------
+# OpenTelemetry / OpenLIT Tracing
+# LiteLLM emits parent spans; vLLM on kckinai emits child spans via
+# --otlp-traces-endpoint. Both send to the same OTLP backend (OpenLIT).
+# Disabled until OpenLIT is deployed — flip to true and set the endpoint.
+# ---------------------------------------------------------------------------
+ai_litellm_otel_enabled: false
+ai_litellm_otel_endpoint: "http://localhost:4318"
+ai_litellm_otel_service_name: "litellm-gateway"
+
+# ---------------------------------------------------------------------------
+# RustDesk Remote Desktop
+# ---------------------------------------------------------------------------
+# NOTE: Now using centralized infrastructure variables from infrastructure/ports.yml
+cloud_server_rustdesk_hbbs_nat_test_host_port: "{{ infra_port_rustdesk_hbbs_nat_test_host }}"
+cloud_server_rustdesk_hbbs_nat_test_container_port: "{{ infra_port_rustdesk_hbbs_nat_test_container }}"
+cloud_server_rustdesk_hbbs_id_reg_host_port: "{{ infra_port_rustdesk_hbbs_id_reg_host }}"
+cloud_server_rustdesk_hbbs_id_reg_container_port: "{{ infra_port_rustdesk_hbbs_id_reg_container }}"
+cloud_server_rustdesk_hbbs_web_host_port: "{{ infra_port_rustdesk_hbbs_web_host }}"
+cloud_server_rustdesk_hbbs_web_container_port: "{{ infra_port_rustdesk_hbbs_web_container }}"
+cloud_server_rustdesk_hbbr_relay_host_port: "{{ infra_port_rustdesk_hbbr_relay_host }}"
+cloud_server_rustdesk_hbbr_relay_container_port: "{{ infra_port_rustdesk_hbbr_relay_container }}"
+cloud_server_rustdesk_hbbr_web_host_port: "{{ infra_port_rustdesk_hbbr_web_host }}"
+cloud_server_rustdesk_hbbr_web_container_port: "{{ infra_port_rustdesk_hbbr_web_container }}"
+cloud_server_rustdesk_always_use_relay: "N"
+cloud_server_rustdesk_enable_web_client: false
+cloud_server_rustdesk_vpn_only: true
+cloud_server_rustdesk_network_mode: "bridge"
+cloud_server_rustdesk_allowed_vpn_subnets:
+  - "100.64.0.0/10"  # Tailscale
+  - "100.100.0.0/10" # NetBird
+
+# ---------------------------------------------------------------------------
+# KVM / Virtualization Networking
+# ---------------------------------------------------------------------------
+# NOTE: Now using centralized infrastructure variables from infrastructure/networks.yml
+cloud_server_kvm_bridge_subnet: "{{ infra_network_kvm_nat_bridge_subnet }}"
+cloud_server_vm_netbird_gateway_ip: "{{ infra_network_kvm_nat_bridge_gateway }}"
+
+# ---------------------------------------------------------------------------
+# CrowdSec Configuration
+# ---------------------------------------------------------------------------
+# CrowdSec security engine and Traefik bouncer
+# SECURITY: Bouncer API key must be stored in vault
+security_crowdsec_enabled: true
+security_crowdsec_bouncer_api_key: "f19e22ab9f94517f0a56258b7f177d267d8504400498f8d7de70de7883a72e35"
+security_crowdsec_traefik_container_name: "traefik"
+security_crowdsec_network_name: "traefik-network"
+security_crowdsec_traefik_log_acquisition_enabled: true
+
+# ---------------------------------------------------------------------------
+# Traefik Configuration
+# ---------------------------------------------------------------------------
+# Traefik reverse proxy with ACME SSL and experimental plugins
+# SECURITY: Traefik is the entry point for all external traffic, requires proper SSL
+# SECURITY: ACME email must be valid for Let's Encrypt certificate notifications
+proxy_traefik_enabled: true
+proxy_traefik_data_dir: "/opt/traefik"
+proxy_traefik_container_name: "traefik"
+proxy_traefik_image: "traefik"
+proxy_traefik_image_tag: "v3.0"
+proxy_traefik_host_ip: "0.0.0.0"
+proxy_traefik_http_port: "80"
+proxy_traefik_host_http_port: "80"
+proxy_traefik_http_container_port: "80"
+proxy_traefik_https_port: "443"
+proxy_traefik_host_https_port: "443"
+proxy_traefik_https_container_port: "443"
+proxy_traefik_dashboard_port: "8882"
+proxy_traefik_dashboard_container_port: "8080"
+proxy_traefik_dashboard_endpoint: "/dashboard"
+proxy_traefik_dashboard_enabled: true
+proxy_traefik_dashboard_insecure: false
+proxy_traefik_network_name: "traefik-network"
+proxy_traefik_network_subnet: "172.31.0.0/16"
+proxy_traefik_network_gateway: "172.31.0.1"
+
+# ACME Configuration for Let's Encrypt SSL
+# SECURITY: Email stored in vault to prevent exposure in git
+# SECURITY: ACME storage must be persisted for certificate renewal
+proxy_traefik_acme_enabled: true
+proxy_traefik_acme_email: "admin@levonk.com"
+proxy_traefik_acme_storage: "/letsencrypt/acme.json"
+proxy_traefik_acme_ca_server: "https://acme-staging-v02.api.letsencrypt.org/directory"
+proxy_traefik_acme_dns_provider: "cloudflare"
+proxy_traefik_acme_staging: true
+proxy_traefik_acme_delay_before_check: 30
+proxy_traefik_acme_resolver_1: "1.1.1.1:53"
+proxy_traefik_acme_resolver_2: "8.8.8.8:53"
+
+# Experimental Plugins
+# SECURITY: Plugins are loaded from external sources, verify integrity
+# SECURITY: CrowdSec bouncer requires secure API token for communication
+proxy_traefik_plugins_enabled: true
+proxy_traefik_crowdsec_plugin_version: "v1.4.4"
+proxy_traefik_geoblock_plugin_version: "v0.3.3"
+proxy_traefik_experimental_plugins_enabled: true
+
+# CrowdSec Bouncer Configuration
+proxy_traefik_crowdsec_enabled: true
+proxy_traefik_crowdsec_mode: "alive"
+proxy_traefik_crowdsec_lapi_scheme: "http"
+proxy_traefik_crowdsec_lapi_host: "crowdsec"
+proxy_traefik_crowdsec_lapi_port: 8080
+proxy_traefik_crowdsec_lapi_insecure_skip_verify: true
+proxy_traefik_crowdsec_forwarded_header: "X-Forwarded-For"
+proxy_traefik_crowdsec_trusted_ips:
+  - "127.0.0.1"
+  - "172.31.0.1"
+proxy_traefik_crowdsec_update_interval: 60
+proxy_traefik_crowdsec_default_decision_seconds: 30
+
+# GeoBlock Configuration
+proxy_traefik_geoblock_enabled: true
+proxy_traefik_geoblock_allow_local: true
+proxy_traefik_geoblock_log_local: false
+proxy_traefik_geoblock_api_url: "http://ip-api.com/json/"
+proxy_traefik_geoblock_strict: true
+proxy_traefik_geoblock_silent_startup: false
+proxy_traefik_geoblock_allowed_countries:
+  - "US"
+
+# Volume Configuration
+proxy_traefik_ssl_volume: "localnet-traefik-ssl-volume"
+proxy_traefik_config_volume: "localnet-traefik-config-volume"
+
+# DNS AdGuard Home (cross-machine routing via Tailscale to Windows Docker host)
+dns_adguard_enabled: true
+
+# Logging Configuration
+proxy_traefik_log_level: "INFO"
+proxy_traefik_log_format: "json"
+proxy_traefik_access_log_format: "json"
+proxy_traefik_log_max_size: "10m"
+proxy_traefik_log_max_file: "5"
+
+# Global Configuration
+proxy_traefik_check_new_version: true
+proxy_traefik_send_anonymous_usage: false
+proxy_traefik_tz: "UTC"
+proxy_traefik_verify_health: false

@@ -91,7 +91,7 @@ A `just sandbox-run <profile> <image> <args>` recipe runs the CLI container via 
 
 The role targets a `sandbox_proxy_hosts` inventory group. Clients choose where to deploy by adding hosts to this group:
 
-- **Mac (lzkmbp2018)** — zero network latency for local CLI runs, no Tailscale dependency. Requires Docker/OrbStack on the Mac.
+- **Mac (the control Mac)** — zero network latency for local CLI runs, no Tailscale dependency. Requires Docker/OrbStack on the Mac.
 - **OCI cloud server** — shared audit log with other infrastructure, central management. CLI containers on the Mac route over Tailscale, adding latency.
 - **Both** — the role supports multiple targets. Each gets its own infra vars (ports, network, IP) and its own allowlist if desired. The `just` recipe selects which proxy to route through via the generated `.sandbox-env` file.
 
@@ -176,7 +176,7 @@ shared/active/02-config/ansible/
 
 levonk/active/02-config/ansible/
   inventories/
-    macos-hosts.yml                       # Add lzkmbp2018 to sandbox_proxy_hosts
+    macos-hosts.yml                       # Add macOS hosts to sandbox_proxy_hosts
   group_vars/
     sandbox_proxy_hosts.yml               # NEW — client allowlist + profile definitions
   infrastructure/

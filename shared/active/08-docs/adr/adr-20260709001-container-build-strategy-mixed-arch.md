@@ -33,7 +33,7 @@ scope:
 ## Context
 
 The fleet spans multiple CPU architectures: x86_64 machines (dtop202311 WSL2,
-isolation-vm) and aarch64 machines (OCI cloud server, lzkmbp2016, lzkmbp2018).
+isolation-vm) and aarch64 machines (OCI cloud server, x86_64 Mac, aarch64 Mac).
 Build hosts are similarly mixed: macOS (darwin, both x86_64 and aarch64),
 Windows WSL2 (x86_64 Linux), OCI cloud (aarch64 Linux). No single machine
 can natively build container images for all target architectures.

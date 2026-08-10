@@ -47,70 +47,23 @@ CLIENT_INFRA = INFRAHUB_ROOT / "levonk" / "active" / "02-config" / "ansible" / "
 OUTPUT_DEFAULT = INFRAHUB_ROOT / "levonk" / "SERVICES.md"
 
 # ---------------------------------------------------------------------------
-# Machine metadata for the Mermaid legend
+# Machine metadata — loaded from client-specific YAML (see machines.yml)
 # ---------------------------------------------------------------------------
-MACHINES = {
-    "oci-cloud-server": {
-        "label": "OCI Cloud Server (cno)",
-        "tailscale": "oci.tale-grouper.ts.net",
-        "arch": "arm64",
-        "docker_platform": "linux/arm64",
-        "color": "#4A90D9",
-        "mermaid_class": "machine_oci",
-        "ssh_key": "lzkmbp2016-micro-oracle",
-        "ansible_user": "opc",
-    },
-    "kckinai": {
-        "label": "kckinai (Inference Host)",
-        "tailscale": "kckinai.tale-grouper.ts.net",
-        "arch": "arm64",
-        "docker_platform": "linux/arm64",
-        "color": "#E8743C",
-        "mermaid_class": "machine_kckinai",
-        "ssh_key": "lzkmbp2016-micro-oracle",
-        "ansible_user": "cuser",
-    },
-    "dtop202311": {
-        "label": "dtop202311 (nl — Windows Docker)",
-        "tailscale": "dtop202311.tale-grouper.ts.net",
-        "arch": "amd64",
-        "docker_platform": "linux/amd64",
-        "color": "#50C878",
-        "mermaid_class": "machine_dtop",
-        "ssh_key": "lzkmbp2016-micro-oracle",
-        "ansible_user": "ansible",
-    },
-    "isolation-vm": {
-        "label": "Isolation VM (QEMU on OCI)",
-        "tailscale": "192.168.100.147 (NAT bridge)",
-        "arch": "amd64",
-        "docker_platform": "linux/amd64",
-        "color": "#9B59B6",
-        "mermaid_class": "machine_vm",
-        "ssh_key": "lzkmbp2016-micro-oracle",
-        "ansible_user": "cuser",
-    },
-    "lzkmbp2016": {
-        "label": "lzkmbp2016 (Laptop — Intel macOS)",
-        "tailscale": "lzkmbp2016.tale-grouper.ts.net",
-        "arch": "x86_64",
-        "docker_platform": "linux/amd64",
-        "color": "#F39C12",
-        "mermaid_class": "machine_laptop1",
-        "ssh_key": "lzkmbp2016-micro-oracle",
-        "ansible_user": "auser",
-    },
-    "lzkmbp2018": {
-        "label": "lzkmbp2018 (Laptop — macOS)",
-        "tailscale": "lzkmbp2018.tale-grouper.ts.net",
-        "arch": "arm64",
-        "docker_platform": "linux/arm64",
-        "color": "#E67E22",
-        "mermaid_class": "machine_laptop2",
-        "ssh_key": "lzkmbp2016-micro-oracle",
-        "ansible_user": "auser",
-    },
-}
+MACHINES_YML = CLIENT_INFRA / "machines.yml"
+
+def _load_machines():
+    """Load machine metadata from levonk/active/02-config/ansible/infrastructure/machines.yml.
+
+    Returns (machines_dict, physical_networks_dict). Falls back to empty
+    dicts if the file doesn't exist (e.g. --shared-only mode).
+    """
+    if not MACHINES_YML.exists():
+        return {}, {}
+    with open(MACHINES_YML) as f:
+        data = yaml.safe_load(f) or {}
+    return data.get("machines", {}), data.get("physical_networks", {})
+
+MACHINES, PHYSICAL_NETWORKS = _load_machines()
 
 CATEGORY_ORDER = [
     "ui",
@@ -586,15 +539,7 @@ def gen_mermaid_diagram(services: list, all_vars: dict, chains: list = None) -> 
 
 def gen_mermaid_legend(services: list, all_vars: dict) -> str:
     """Generate a legend showing machines grouped by physical network (cloud vs local)."""
-    # Physical network mapping
-    # cno = cloud network oracle (OCI ARM64)
-    # nl  = network local (dtop202311 X86 Windows Docker Desktop, kckinai inference host)
-    PHYSICAL_NETWORKS = {
-        "cno (Cloud Network Oracle)": ["oci-cloud-server", "isolation-vm"],
-        "nl (Network Local)": ["kckinai", "dtop202311"],
-        "Laptops (Roaming)": ["lzkmbp2016", "lzkmbp2018"],
-    }
-
+    # Physical networks are loaded from machines.yml (client-specific)
     lines = ["```mermaid", "---", "title: Physical Network Topology", "---", "flowchart LR"]
 
     for net_name, machine_keys in PHYSICAL_NETWORKS.items():

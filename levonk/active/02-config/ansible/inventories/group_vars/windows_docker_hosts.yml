@@ -1,0 +1,207 @@
+---
+# Windows Docker Desktop Hosts Variable Schema
+# Location: levonk/active/02-config/ansible/group_vars/windows_docker_hosts.yml
+# Purpose: Client-specific variables for the windows_docker_hosts host group.
+# Connection variables are in the inventory file (inventories/windows-docker.yml)
+# because Ansible resolves them before loading group_vars.
+#
+# Naming convention: {CATEGORY}_{SERVICE}_{SUB}_{HOST|CONTAINER}_{PORT|IP}
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Local Docker Registry
+# The registry runs on the OCI cloud server (deploy-local-registry.yml).
+# Windows pulls images from here — no building on Windows.
+# HTTP only — Tailscale encrypts the transport.
+# ---------------------------------------------------------------------------
+windows_registry_url: "100.90.22.85:5000"
+
+# ---------------------------------------------------------------------------
+# WorldMonitor Self-Hosted Stack
+# https://github.com/koala73/worldmonitor
+# https://www.worldmonitor.app/docs/getting-started#3-self-hosted-docker-stack
+# ---------------------------------------------------------------------------
+worldmonitor_enabled: true
+worldmonitor_repo_url: "https://github.com/koala73/worldmonitor.git"
+worldmonitor_repo_branch: "main"
+worldmonitor_network_name: "worldmonitor-net"
+
+# Registry URL for pushing/pulling WorldMonitor images
+worldmonitor_registry_url: "{{ windows_registry_url }}"
+
+# Ports — infra_port_* defaults come from shared/infrastructure/ports.yml
+# (loaded by the shared playbook). Override here if this client needs
+# different ports.
+worldmonitor_app_host_port: "{{ infra_port_worldmonitor_app_host }}"
+worldmonitor_app_container_port: "{{ infra_port_worldmonitor_app_container }}"
+worldmonitor_redis_rest_host_port: "{{ infra_port_worldmonitor_redis_rest_host }}"
+worldmonitor_redis_rest_container_port: "{{ infra_port_worldmonitor_redis_rest_container }}"
+worldmonitor_ais_relay_container_port: "{{ infra_port_worldmonitor_ais_relay_container }}"
+
+# Required secrets (from vault — no safe defaults, stack refuses to start without them)
+worldmonitor_redis_password: "{{ vault_worldmonitor_redis_password }}"
+worldmonitor_redis_token: "{{ vault_worldmonitor_redis_token }}"
+worldmonitor_relay_shared_secret: "{{ vault_worldmonitor_relay_shared_secret }}"
+
+# Optional API keys (from vault, empty by default — features degrade gracefully)
+worldmonitor_groq_api_key: "{{ vault_worldmonitor_groq_api_key | default('') }}"
+worldmonitor_openrouter_api_key: "{{ vault_worldmonitor_openrouter_api_key | default('') }}"
+worldmonitor_finnhub_api_key: "{{ vault_worldmonitor_finnhub_api_key | default('') }}"
+worldmonitor_eia_api_key: "{{ vault_worldmonitor_eia_api_key | default('') }}"
+worldmonitor_fred_api_key: "{{ vault_worldmonitor_fred_api_key | default('') }}"
+worldmonitor_acled_email: "{{ vault_worldmonitor_acled_email | default('') }}"
+worldmonitor_acled_password: "{{ vault_worldmonitor_acled_password | default('') }}"
+worldmonitor_acled_access_token: "{{ vault_worldmonitor_acled_access_token | default('') }}"
+worldmonitor_nasa_firms_api_key: "{{ vault_worldmonitor_nasa_firms_api_key | default('') }}"
+worldmonitor_cloudflare_api_token: "{{ vault_worldmonitor_cloudflare_api_token | default('') }}"
+worldmonitor_aisstream_api_key: "{{ vault_worldmonitor_aisstream_api_key | default('') }}"
+worldmonitor_aviationstack_api: "{{ vault_worldmonitor_aviationstack_api | default('') }}"
+worldmonitor_travelpayouts_api_token: "{{ vault_worldmonitor_travelpayouts_api_token | default('') }}"
+
+# Optional self-hosted LLM (any OpenAI-compatible endpoint)
+worldmonitor_llm_api_url: "{{ vault_worldmonitor_llm_api_url | default('') }}"
+worldmonitor_llm_api_key: "{{ vault_worldmonitor_llm_api_key | default('') }}"
+worldmonitor_llm_model: "{{ vault_worldmonitor_llm_model | default('') }}"
+
+# ---------------------------------------------------------------------------
+# Archon Workflow Layer
+# https://github.com/coleam00/Archon
+# https://archon.diy/deployment/docker/
+# Deployed to Windows Docker Desktop (deploy-archon.yml playbook)
+# Pipeline position: Archon (workflow) → Omnigent (aiif.levonk.com) → Pi → LiteLLM → ...
+# ---------------------------------------------------------------------------
+archon_enabled: true
+archon_image: "ghcr.io/coleam00/archon"
+archon_image_tag: "latest"
+archon_network_name: "archon-net"
+
+# Ports — infra_port_* defaults come from shared/infrastructure/ports.yml
+# (loaded by the shared playbook). Override here if needed.
+archon_host_port: "{{ infra_port_ai_archon_host }}"
+archon_container_port: "{{ infra_port_ai_archon_container }}"
+
+# LLM routing — route Claude Code SDK calls through the LiteLLM pipeline
+# on the OCI server via Tailscale. The OCI Tailscale IP is 100.90.22.85
+# (same as windows_registry_url host). LiteLLM listens on port 4000.
+# When set, CLAUDE_API_KEY becomes a LiteLLM virtual key.
+archon_anthropic_base_url: "http://100.90.22.85:4000"
+
+# Required secrets (from vault — stack refuses to start without them)
+archon_claude_api_key: "{{ vault_archon_claude_api_key }}"
+archon_postgres_password: "{{ vault_archon_postgres_password }}"
+archon_better_auth_secret: "{{ vault_archon_better_auth_secret }}"
+
+# Web UI auth (Better Auth — PostgreSQL deploy)
+archon_auth_allowed_emails: "{{ vault_archon_auth_allowed_emails | default('') }}"
+archon_auth_open_signup: "false"
+
+# Platform adapter secrets (from vault, empty by default — features degrade gracefully)
+archon_telegram_bot_token: "{{ vault_archon_telegram_bot_token | default('') }}"
+archon_discord_bot_token: "{{ vault_archon_discord_bot_token | default('') }}"
+archon_github_token: "{{ vault_archon_github_token | default('') }}"
+archon_webhook_secret: "{{ vault_archon_webhook_secret | default('') }}"
+
+# ---------------------------------------------------------------------------
+# Exit Nodes (NordVPN + Tor) on Windows Docker Desktop
+# Deploys two additional Tailscale exit nodes on this Windows host:
+#   1. NordVPN exit node — routes Tailscale traffic through NordVPN (gluetun)
+#   2. Tor exit node — routes Tailscale traffic through Tor (tor-exit)
+# Reuses the same vault credentials as the OCI exit nodes.
+# Playbook: deploy-windows-exit-nodes.yml
+# ---------------------------------------------------------------------------
+
+# Docker connection for Windows Docker Desktop (delegate_to: localhost pattern)
+# community.docker modules can't run on Windows (grp import); we use the docker
+# CLI on the Ansible controller with DOCKER_HOST=ssh:// to reach the Windows daemon.
+windows_exit_nodes_docker_host: "ssh://ansible@{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.tale-grouper.ts.net') }}"
+
+# Enable both exit nodes
+vpn_nordvpn_windows_enabled: true
+vpn_tor_windows_enabled: true
+
+# NordVPN credentials (reuse from vault — same NordVPN account)
+# The vault has vault_nordvpn_token (WireGuard token) which is populated.
+# OpenVPN user/pass are empty in the vault, so we use the token method.
+vpn_nordvpn_windows_token: "{{ vault_nordvpn_token | default('') }}"
+vpn_nordvpn_windows_openvpn_user: "{{ vault_nordvpn_openvpn_user | default('') }}"
+vpn_nordvpn_windows_openvpn_pass: "{{ vault_nordvpn_openvpn_pass | default('') }}"
+vpn_nordvpn_windows_country: "United States"
+
+# Tailscale auth key (reuse from vault — one key can auth multiple nodes)
+# The vault variable is vpn_tailscale_auth_key (no vault_ prefix)
+vpn_tailscale_windows_auth_key: "{{ vpn_tailscale_auth_key | default('') }}"
+
+# Tailscale hostnames for the Windows exit nodes
+# nl = network local (this Windows host). Suffix matches the cno (OCI) convention:
+#   cno-vpn-tailscale-exit / cno-tor-tailscale-exit (OCI)
+#   nl-vpn-tailscale-exit  / nl-tor-tailscale-exit  (Windows)
+vpn_tailscale_windows_nordvpn_hostname: "nl-vpn-tailscale-exit"
+vpn_tailscale_windows_tor_hostname: "nl-tor-tailscale-exit"
+
+# Tor exit node settings (reuse from OCI defaults)
+proxy_tor_windows_nickname: "levonktornl"
+proxy_tor_windows_contact_info: "admin@levonk.com"
+proxy_tor_windows_exit_policy: "reject *:*"
+proxy_tor_windows_bandwidth_rate: "100 KB"
+proxy_tor_windows_bandwidth_burst: "200 KB"
+
+# Timezone
+windows_exit_nodes_tz: "{{ localnet_tz | default('UTC') }}"
+
+# ---------------------------------------------------------------------------
+# QM (Multiplayer agent harness for work — web UI + core + Postgres)
+# https://github.com/yc-software/qm
+# Deployed to Windows Docker Desktop (deploy-qm.yml playbook)
+# Upstream pre-built images from ghcr.io/yc-software/qm
+# SANDBOX_BACKEND=local for self-hosted agent sandboxes (dev-only).
+# ---------------------------------------------------------------------------
+qm_enabled: true
+
+# Docker connection for Windows Docker Desktop (delegate_to: localhost pattern)
+qm_docker_host: "ssh://ansible@{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.tale-grouper.ts.net') }}"
+
+# Secrets (from vault — no safe defaults, stack refuses to start without them)
+qm_postgres_password: "{{ vault_qm_postgres_password }}"
+qm_anthropic_api_key: "{{ vault_qm_anthropic_api_key }}"
+qm_capability_secret: "{{ vault_qm_capability_secret }}"
+qm_connector_secret_key: "{{ vault_qm_connector_secret_key }}"
+qm_core_signing_secret: "{{ vault_qm_core_signing_secret }}"
+qm_portal_identity_secret: "{{ vault_qm_portal_identity_secret }}"
+qm_skill_signing_secret: "{{ vault_qm_skill_signing_secret }}"
+
+# ACME email for Let's Encrypt (used by proxy-traefik-windows on this host)
+cloud_server_acme_email: "admin@levonk.com"
+
+# ---------------------------------------------------------------------------
+# DNS Stack (full 12-tier architecture — see diagrams/dns/complete-dns-chain.mmd)
+# Deployed to Windows Docker Desktop via dns-stack.yml playbook.
+# Uses delegate_to: localhost + DOCKER_HOST: ssh:// pattern (community.docker
+# modules can't run on Windows — Ansible core basic.py imports grp, Unix-only).
+#
+# Port 53 cannot be bound on Windows (Windows DNS Client service reserves it).
+# The stack listens on port 5501 (dnsdist) and 15354 (coredns) instead.
+# Clients are configured to use these ports directly, or a Linux host with
+# nftables TPROXY can redirect port 53 to the dnsdist port.
+# ---------------------------------------------------------------------------
+dns_enabled: true
+
+# Use the localnet-network with 172.26.255.x IP range
+dns_network_name: "{{ infra_network_dns_localnet_network_name | default('localnet-network') }}"
+
+# Registry for pulling DNS images
+local_registry: "{{ windows_registry_url }}"
+
+# Active vs dark tier toggles (see complete-dns-chain.notes.md)
+# Active: odoh (1), anon (2), unbound-tor (3), unbound-root (10), plaintext (12)
+# Dark: std (7), doh (8), encrypted (9), tor (4-6), plaintext-tor (11)
+dns_dnscrypt_odoh_enabled: true
+dns_dnscrypt_anon_enabled: true
+dns_dnscrypt_std_enabled: false
+dns_dnscrypt_doh_enabled: false
+dns_dnscrypt_encrypted_enabled: false
+dns_dnscrypt_plaintext_enabled: true
+dns_dnscrypt_tor_enabled: false
+dns_dnscrypt_plaintext_tor_enabled: false
+dns_unbound_validator_enabled: true
+dns_unbound_tor_enabled: true
+dns_unbound_root_enabled: true

@@ -1,5 +1,7 @@
 # ADR-202607070001: macOS System Configuration via nix-darwin
 
+> **Note**: This ADR references client-specific hostnames (e.g. `lzkmbp2016`, `lzkmbp2018`) for historical context. These hosts are specific to the levonk client. Current host configs live in `levonk/active/02-config/nix/darwin/`.
+
 ## Status
 ACCEPTED
 

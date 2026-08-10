@@ -34,8 +34,8 @@
     isolation_vm_sudo_groups: "sudo"
     isolation_vm_sudo_enabled: true
     isolation_vm_sudo_password_required: false
-    # SSH configuration
-    isolation_vm_ssh_public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEWRbHy2sWZLKET/74zvt0rZa4ET2zjes/SB+Y/3BmKp lzkmbp2016-micro-oracle"
+    # SSH configuration — key must be provided via client inventory/vault, not hardcoded here
+    isolation_vm_ssh_public_key: "{{ vault_isolation_vm_ssh_public_key }}"
     isolation_vm_ssh_password_auth: false
     isolation_vm_ssh_permit_root_login: "no"
     isolation_vm_ssh_port: 22

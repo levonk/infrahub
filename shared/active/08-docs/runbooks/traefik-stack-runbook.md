@@ -14,31 +14,31 @@ This runbook provides operational procedures for managing the Traefik proxy stac
 ### Check Service Status
 ```bash
 cd ~/p/gh/levonk/infrahub
-devbox run -- rtk ssh opc@100.90.22.85 -i ~/.ssh/lzkmbp2016-micro-oracle -o StrictHostKeyChecking=no "sudo docker ps --format 'table {{.Names}}\t{{.Status}}'"
+devbox run -- rtk ssh opc@100.90.22.85 -i <your-ssh-key> -o StrictHostKeyChecking=no "sudo docker ps --format 'table {{.Names}}\t{{.Status}}'"
 ```
 
 ### View Traefik Logs
 ```bash
 cd ~/p/gh/levonk/infrahub
-devbox run -- rtk ssh opc@100.90.22.85 -i ~/.ssh/lzkmbp2016-micro-oracle -o StrictHostKeyChecking=no "sudo docker logs traefik --tail=50"
+devbox run -- rtk ssh opc@100.90.22.85 -i <your-ssh-key> -o StrictHostKeyChecking=no "sudo docker logs traefik --tail=50"
 ```
 
 ### View Authelia Logs
 ```bash
 cd ~/p/gh/levonk/infrahub
-devbox run -- rtk ssh opc@100.90.22.85 -i ~/.ssh/lzkmbp2016-micro-oracle -o StrictHostKeyChecking=no "sudo docker logs proxy-authelia --tail=50"
+devbox run -- rtk ssh opc@100.90.22.85 -i <your-ssh-key> -o StrictHostKeyChecking=no "sudo docker logs proxy-authelia --tail=50"
 ```
 
 ### Restart Traefik
 ```bash
 cd ~/p/gh/levonk/infrahub
-devbox run -- rtk ssh opc@100.90.22.85 -i ~/.ssh/lzkmbp2016-micro-oracle -o StrictHostKeyChecking=no "sudo docker restart traefik"
+devbox run -- rtk ssh opc@100.90.22.85 -i <your-ssh-key> -o StrictHostKeyChecking=no "sudo docker restart traefik"
 ```
 
 ### Reload Traefik Configuration
 ```bash
 cd ~/p/gh/levonk/infrahub
-devbox run -- rtk ssh opc@100.90.22.85 -i ~/.ssh/lzkmbp2016-micro-oracle -o StrictHostKeyChecking=no "sudo docker kill --signal=HUP traefik"
+devbox run -- rtk ssh opc@100.90.22.85 -i <your-ssh-key> -o StrictHostKeyChecking=no "sudo docker kill --signal=HUP traefik"
 ```
 
 ## Troubleshooting
@@ -78,7 +78,7 @@ devbox run -- rtk ssh opc@100.90.22.85 -i ~/.ssh/lzkmbp2016-micro-oracle -o Stri
 ### Full Stack Restart
 ```bash
 cd ~/p/gh/levonk/infrahub
-devbox run -- rtk ssh opc@100.90.22.85 -i ~/.ssh/lzkmbp2016-micro-oracle -o StrictHostKeyChecking=no "sudo docker restart traefik proxy-authelia crowdsec crowdsec-bouncer"
+devbox run -- rtk ssh opc@100.90.22.85 -i <your-ssh-key> -o StrictHostKeyChecking=no "sudo docker restart traefik proxy-authelia crowdsec crowdsec-bouncer"
 ```
 
 ### Configuration Rollback
@@ -98,19 +98,19 @@ devbox run -- rtk ssh opc@100.90.22.85 -i ~/.ssh/lzkmbp2016-micro-oracle -o Stri
 ### Resource Usage
 ```bash
 cd ~/p/gh/levonk/infrahub
-devbox run -- rtk ssh opc@100.90.22.85 -i ~/.ssh/lzkmbp2016-micro-oracle -o StrictHostKeyChecking=no "sudo docker stats --no-stream"
+devbox run -- rtk ssh opc@100.90.22.85 -i <your-ssh-key> -o StrictHostKeyChecking=no "sudo docker stats --no-stream"
 ```
 
 ### Network Connectivity
 ```bash
 cd ~/p/gh/levonk/infrahub
-devbox run -- rtk ssh opc@100.90.22.85 -i ~/.ssh/lzkmbp2016-micro-oracle -o StrictHostKeyChecking=no "sudo docker network inspect traefik-network"
+devbox run -- rtk ssh opc@100.90.22.85 -i <your-ssh-key> -o StrictHostKeyChecking=no "sudo docker network inspect traefik-network"
 ```
 
 ### SSL Certificate Expiry
 ```bash
 cd ~/p/gh/levonk/infrahub
-devbox run -- rtk ssh opc@100.90.22.85 -i ~/.ssh/lzkmbp2016-micro-oracle -o StrictHostKeyChecking=no "sudo docker exec traefik cat /letsencrypt/acme.json | jq '.letsencrypt.Certificates'"
+devbox run -- rtk ssh opc@100.90.22.85 -i <your-ssh-key> -o StrictHostKeyChecking=no "sudo docker exec traefik cat /letsencrypt/acme.json | jq '.letsencrypt.Certificates'"
 ```
 
 ## Maintenance

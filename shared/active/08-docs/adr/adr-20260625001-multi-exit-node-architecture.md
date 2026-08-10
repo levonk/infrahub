@@ -23,7 +23,7 @@ The Levonk infrastructure now supports **three exit node configurations**:
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    Client Devices                            │
-│              (lzkmbp2018, dtop202311, pixel-10)             │
+│              (e.g., laptops, desktops, mobile)               │
 └────────────────────┬────────────────────────────────────────┘
                      │
         ┌────────────┼────────────┐

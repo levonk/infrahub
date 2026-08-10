@@ -1,5 +1,5 @@
 {
-  description = "nix-darwin flake for macOS fleet management (infrahub)";
+  description = "nix-darwin shared module library for macOS fleet management (infrahub)";
 
   inputs = {
     # Default: nixpkgs-unstable + nix-darwin master (aarch64-darwin, linux).
@@ -34,26 +34,44 @@
       mkPkgs = system:
         import (pkgsFor system) {
           inherit system;
-          config.allowUnfree = true;
+          config = {
+            allowUnfree = true;
+            permittedInsecurePackages = [
+              "electron-39.8.10"
+            ];
+          };
         };
     in
     {
-      # nix-darwin configurations for the macOS fleet
-      darwinConfigurations = {
-        # lzkmbp2016 — Intel x86_64 Mac, OrbStack container runtime
-        lzkmbp2016 = (darwinFor "x86_64-darwin").lib.darwinSystem {
-          system = "x86_64-darwin";
-          pkgs = mkPkgs "x86_64-darwin";
-          modules = [ ./hosts/lzkmbp2016.nix ];
-        };
+      # Shared nix-darwin module library — client flakes import these.
+      # Client-specific host configs (darwinConfigurations) live in the
+      # client submodule (e.g. levonk/active/02-config/nix/darwin/flake.nix).
+      modules = {
+        # Generic, non-client-specific modules
+        defaults = ./modules/system/defaults.nix;
+        homebrew = ./modules/system/homebrew.nix;
+        zsh = ./modules/system/zsh.nix;
+        nixSettings = ./modules/nix/settings.nix;
+        nixCache = ./modules/nix/cache.nix;
+        privacy = ./modules/security/privacy-darwin.nix;
+        fleet = ./modules/fleet/default.nix;
+        networking = ./modules/networking/default.nix;
 
-        # lzkmbp2018 — architecture TBD (default orbstack until verified)
-        lzkmbp2018 = (darwinFor "aarch64-darwin").lib.darwinSystem {
-          system = "aarch64-darwin";
-          pkgs = mkPkgs "aarch64-darwin";
-          modules = [ ./hosts/lzkmbp2018.nix ];
-        };
+        # Convenience: all shared modules as a list
+        all = [
+          ./modules/system/defaults.nix
+          ./modules/system/homebrew.nix
+          ./modules/system/zsh.nix
+          ./modules/nix/settings.nix
+          ./modules/nix/cache.nix
+          ./modules/security/privacy-darwin.nix
+          ./modules/fleet/default.nix
+          ./modules/networking/default.nix
+        ];
       };
+
+      # Expose helpers for client flakes to use
+      inherit darwinFor mkPkgs;
 
       # Checks for CI — lets us run 'nix flake check' to verify everything builds
       checks = forAllSystems (system: {

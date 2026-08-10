@@ -2,9 +2,8 @@
 # Deploy Wazuh agents on all physical machines in the levonk fleet
 # Location: shared/active/02-config/ansible/playbooks/deploy-wazuh-agents.yml
 #
-# Installs native Wazuh agents (not Docker) on all 5 physical machines:
-#   - lzkmbp2016 (macOS x86)
-#   - lzkmbp2018 (macOS x86)
+# Installs native Wazuh agents (not Docker) on all physical machines in the fleet:
+#   - macos_hosts inventory group (macOS)
 #   - dtop202311 (Windows 11 — also runs the Wazuh manager stack)
 #   - oci-cloud-server (Oracle Linux 9)
 #   - isolation-vm (Oracle Linux QEMU VM on OCI)

@@ -6,7 +6,7 @@
 #   - SoftwareUpdate.ConfigDataInstall: true -> false (Security Responses OFF)
 #   - SoftwareUpdate.CriticalUpdateInstall: true -> false (Security Responses OFF)
 #
-# Rationale: lzkmbp2016 runs OpenCore; automatic OS updates would break it.
+# Rationale: Some hosts run OpenCore; automatic OS updates would break them.
 # App Store app updates remain ON (com.apple.commerce.AutoUpdate = true).
 #
 # Update policy summary:
@@ -30,7 +30,7 @@
     dock.mru-spaces = false;
     finder.AppleShowAllExtensions = true;
     finder.FXPreferredViewStyle = "clmv";
-    finder.NewWindowTarget = "Home";
+    finder.NewWindowTarget = "Other";
     finder.NewWindowTargetPath = "file://\${HOME}/";
     # ponytail: FinderSpawnTab is not a named nix-darwin finder option (only ~17 are).
     # It's a user-level com.apple.finder preference → managed by chezmoi osx-settings.py,

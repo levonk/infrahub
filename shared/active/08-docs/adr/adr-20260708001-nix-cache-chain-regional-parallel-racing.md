@@ -22,6 +22,8 @@ scope:
   excluded-scope: [kckinai, mac-mini, nix-snapshotter, garnix, cachix-deployment]
 ---
 
+> **Note**: This ADR references client-specific hostnames (e.g. `lzkmbp2016`, `lzkmbp2018`) for historical context. These hosts are specific to the levonk client. Current host configs live in `levonk/active/02-config/nix/darwin/`.
+
 # Decision Record: Nix Cache Chain — Regional Multi-Layer with Parallel Racing
 
 **Filename:** `adr-202607081745-nix-cache-chain-regional-parallel-racing.md`

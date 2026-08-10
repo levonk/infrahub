@@ -21,7 +21,7 @@
 
 .PARAMETER SshKey
     Path to the SSH public key file to install for the service user.
-    If omitted, uses the embedded default key (lzkmbp2016-micro-oracle).
+    Required — no embedded default (client keys belong in client submodules).
 
 .PARAMETER SshKeyString
     The SSH public key string directly (useful for non-interactive runs).
@@ -320,9 +320,8 @@ Write-Host ""
 Write-Host "[5/6] Adding SSH public key for $ServiceUserName..." -ForegroundColor Yellow
 
 # Get the public key
-# Embedded default -- the control Mac's lzkmbp2016-micro-oracle key (also in client inventory).
-# Override with -SshKey <path> or -SshKeyString "<key>" for a different key.
-$defaultPubKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEWRbHy2sWZLKET/74zvt0rZa4ET2zjes/SB+Y/3BmKp lzkmbp2016-micro-oracle"
+# -SshKey <path> or -SshKeyString "<key>" is REQUIRED — no embedded default.
+# Client-specific keys must not be hardcoded in shared/ (ADR-20260624001).
 $pubKey = $null
 if ($SshKeyString) {
     $pubKey = $SshKeyString
@@ -333,8 +332,9 @@ if ($SshKeyString) {
     }
     $pubKey = Get-Content $SshKey -Raw
 } else {
-    $pubKey = $defaultPubKey
-    Write-Host "  Using embedded default key (lzkmbp2016-micro-oracle)" -ForegroundColor Green
+    Write-Host "ERROR: -SshKey <path> or -SshKeyString <key> is required (no embedded default in shared/)" -ForegroundColor Red
+    Write-Host "       Client-specific keys belong in the client submodule (e.g. levonk/)" -ForegroundColor Red
+    exit 1
 }
 
 if (-not $pubKey -or $pubKey.Trim() -eq "") {

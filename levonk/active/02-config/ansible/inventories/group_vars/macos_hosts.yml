@@ -1,0 +1,43 @@
+---
+# macOS Hosts Variable Schema
+# Location: levonk/active/02-config/ansible/group_vars/macos_hosts.yml
+# Purpose: Client-specific variables for the macos_hosts host group.
+# Connection variables are in the inventory file (inventories/macos-hosts.yml)
+# because Ansible resolves them before loading group_vars.
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Container Runtime
+# "auto" lets the playbook detect based on macOS version + architecture:
+#   macOS 26+ ARM  → Apple Container (native)
+#   otherwise      → OrbStack
+# Override at host_vars level to force a specific runtime.
+# ---------------------------------------------------------------------------
+macos_container_runtime: "auto"
+
+# ---------------------------------------------------------------------------
+# Netbird
+# Management URL for the Netbird control plane.
+# Override if using a self-hosted Netbird management server.
+# Netbird is optional — the playbook skips it if no setup key is in the vault.
+# ---------------------------------------------------------------------------
+macos_netbird_management_url: "https://api.netbird.io:443"
+
+# ---------------------------------------------------------------------------
+# Tailscale — auth key comes from vault
+# Hostnames are set per-host in the inventory file.
+# Uses vpn_tailscale_auth_key (defined in infrahub-levonk-all.vault.yml).
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Netbird — setup key comes from vault (optional, not yet tested)
+# vault_netbird_setup_key is defined in infrahub-levonk-all.vault.yml
+# Leave empty to skip Netbird configuration.
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Admin user (auser) — password comes from vault
+# vault_macos_auser_password is defined in infrahub-levonk-all.vault.yml
+# The user is created by the bootstrap playbook if it doesn't exist.
+# Mirrors the cuser pattern used on Linux hosts.
+# ---------------------------------------------------------------------------
