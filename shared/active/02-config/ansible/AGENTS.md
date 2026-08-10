@@ -118,6 +118,78 @@ A lightweight container on each host updates an A record (`{hostname}.mach.{doma
 
 - **levonk**: `oci.mach.<base>` → public IP, `kckinai.mach.<base>` → public IP. See `levonk/AGENTS.md` → "DNS & DDNS Rollout" for the client-specific deployment status.
 
+## Web Proxy Chain Architecture
+
+The shared `proxy-web` role deploys a 4-layer web proxy chain for HTTPS
+interception, content filtering, caching, and egress routing. It mirrors the
+DNS chain's dual-platform deployment pattern (Linux/OCI + Windows).
+
+### Chain Flow
+
+```
+Client
+  ↓ (explicit: port 3127/3128, transparent: nftables 80/443)
+MITM Proxy (mitmproxy) — HTTPS decryption, CA management
+  ↓
+Privoxy — content filtering, header sanitization
+  ↓
+Varnish — HTTP cache, stale-while-revalidate, stale-if-error
+  ↓ (cache miss)
+Gost — egress multiplexer
+  ↓                    ↓
+Direct              Tor (shared with DNS chain)
+  ↓                    ↓
+Internet            Internet
+```
+
+### Role: proxy-web
+### Playbook: `playbooks/deploy-proxy-web-stack.yml`
+### Validation: `playbooks/validate-proxy-web.yml`
+### Targets: `windows_docker_hosts` (dtop202311) + `cloud_servers` (oci-cloud-server)
+
+### Variables (shared defaults, overridden by client)
+
+| Variable | Shared default | Source |
+|----------|---------------|--------|
+| `proxy_web_mitm_ip` | `172.26.255.80` | `infra_network_ip_proxy_mitm` |
+| `proxy_web_privoxy_ip` | `172.26.255.81` | `infra_network_ip_proxy_privoxy` |
+| `proxy_web_varnish_ip` | `172.26.255.82` | `infra_network_ip_proxy_varnish` |
+| `proxy_web_gost_ip` | `172.26.255.83` | `infra_network_ip_proxy_gost` |
+| `proxy_web_tor_socks5_ip` | `172.26.255.70` | `infra_network_ip_dns_tor_proxy` (shared with DNS chain) |
+
+### Just Recipes
+
+```bash
+# Deploy to Windows
+just ansible-deploy-proxy-web
+
+# Deploy to OCI
+just ansible-deploy-proxy-web-oci
+
+# Validate
+just ansible-validate-proxy-web
+just ansible-validate-proxy-web-oci
+```
+
+### Prerequisites
+
+- DNS chain deployed (Tor proxy at `172.26.255.70:9050` is shared)
+- `localnet-network` exists (created by DNS chain role)
+- Gost image built: `just docker-build-push localnet-proxy-gost`
+
+### Cross-Cluster Topology
+
+Both clusters run the full chain independently — no cross-cluster failover
+(web proxy is stateful: MITM sessions, cache state, CA certs). See
+`requirements/proxy/cross-cluster-web-proxy.md` for details.
+
+### See Also
+
+- `diagrams/proxy/complete-web-proxy-chain.mmd` — full architecture diagram
+- `requirements/proxy/mitm-ca-distribution.md` — CA certificate strategy
+- `requirements/proxy/caching-strategy.md` — Varnish vs Squid decision
+- `requirements/proxy/egress-routing.md` — Gost egress multiplexer config
+
 ## Devbox & Just Commands
 
 **ALWAYS use `just` commands instead of `devbox run` for Ansible operations.**
