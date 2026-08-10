@@ -115,6 +115,20 @@
   changed_when: false
   tags: ["deploy", "config"]
 
+- name: Seed Varnish VCL config volume
+  ansible.builtin.shell: |
+    set -e
+    docker volume inspect localnet-proxy-varnish-vcl-volume 2>/dev/null || docker volume create localnet-proxy-varnish-vcl-volume
+    docker rm -f proxy-web-seed-varnish 2>/dev/null || true
+    docker create --name proxy-web-seed-varnish -v localnet-proxy-varnish-vcl-volume:/seed alpine:latest sleep infinity
+    docker cp "{{ proxy_web_windows_temp_dir }}/default.vcl" "proxy-web-seed-varnish:/seed/default.vcl"
+    docker rm -f proxy-web-seed-varnish
+  environment:
+    DOCKER_HOST: "{{ proxy_web_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "config"]
+
 # ============================================================================
 # 6. Pull images
 # ============================================================================
@@ -149,6 +163,19 @@
 # ============================================================================
 
 # --- Gost Egress Multiplexer (Layer 5) ---
+# Note: The Gost image is locally-built and hosted in the local registry.
+# Windows Docker Desktop may not have the insecure registry configured.
+# If the image is not available, this task is skipped.
+- name: Check if Gost image is available on Windows
+  ansible.builtin.shell: >-
+    docker image inspect {{ proxy_web_registry }}/{{ proxy_web_gost_image }}:latest >/dev/null 2>&1 && echo "available" || echo "missing"
+  environment:
+    DOCKER_HOST: "{{ proxy_web_docker_host_windows }}"
+  delegate_to: localhost
+  register: proxy_web_gost_image_check
+  changed_when: false
+  tags: ["deploy", "gost"]
+
 - name: Deploy Gost container
   ansible.builtin.shell: |
     set -e
@@ -162,11 +189,13 @@
       -p {{ proxy_web_gost_http_host_port }}:{{ proxy_web_gost_http_container_port }}/tcp \
       -v {{ proxy_web_gost_config_volume }}:/etc/gost:ro \
       -e TZ={{ localnet_tz | default('UTC') }} \
-      {{ proxy_web_gost_image }} \
-      gost -C /etc/gost/gost.yaml
+      --entrypoint /usr/bin/gost \
+      {{ proxy_web_registry }}/{{ proxy_web_gost_image }}:latest \
+      -C /etc/gost/gost.yaml
   environment:
     DOCKER_HOST: "{{ proxy_web_docker_host_windows }}"
   delegate_to: localhost
+  when: proxy_web_gost_image_check.stdout == "available"
   tags: ["deploy", "gost"]
 
 # --- Varnish Cache (Layer 4) ---
@@ -177,6 +206,7 @@
     docker run -d \
       --name localnet-proxy-varnish \
       --restart unless-stopped \
+      --user 0:0 \
       --network {{ proxy_web_network_name }} \
       --ip {{ proxy_web_varnish_ip }} \
       -p {{ proxy_web_varnish_http_host_port }}:{{ proxy_web_varnish_http_container_port }}/tcp \
@@ -185,6 +215,7 @@
       -e VARNISH_SIZE={{ proxy_web_varnish_cache_size }} \
       -e TZ={{ localnet_tz | default('UTC') }} \
       -v {{ proxy_web_varnish_cache_volume }}:/var/cache/varnish:rw \
+      -v localnet-proxy-varnish-vcl-volume:/etc/varnish:ro \
       {{ proxy_web_varnish_image }} \
       -a :{{ proxy_web_varnish_http_container_port }} -T :{{ proxy_web_varnish_admin_container_port }} -f /etc/varnish/default.vcl
   environment:
@@ -248,6 +279,7 @@
     DOCKER_HOST: "{{ proxy_web_docker_host_windows }}"
   delegate_to: localhost
   changed_when: false
+  when: proxy_web_gost_image_check.stdout == "available"
   tags: ["deploy", "verify"]
 
 - name: Wait for Varnish to be ready

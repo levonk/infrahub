@@ -8,28 +8,9 @@ listen-address  0.0.0.0:{{ proxy_web_privoxy_container_port }}
 # Forward to Varnish cache (Layer 4)
 forward /  {{ proxy_web_varnish_ip }}:{{ proxy_web_varnish_http_container_port }}
 
-# Allow localnet network
-trust-info-url  http://www.privoxy.org/user-manual/
-trust-address   {{ proxy_web_privoxy_ip }}
-
 # Disable toggles via remote — security
 enable-remote-toggle  0
 enable-edit-actions 0
-
-# Header sanitization
-# Remove referrer header
-hide-referer  block
-
-# Sanitize user-agent
-hide-user-agent  Privoxy/1.0
-
-# Block cookies from third parties
-allow-cgi-request-crunching 1
-
-# Filter files
-filterfile default.filter
-actionsfile match-all.action
-actionsfile default.action
 
 # Log level — minimal
 logfile privoxy.log
