@@ -1,0 +1,143 @@
+graph TD
+    subgraph "Client Layer"
+        Client["Client Device<br/>Browser / App / Container"]
+    end
+
+    subgraph "Layer 0: Traffic Interception Host"
+        nftables["nftables TPROXY<br/>Host Port 80/443 → MITM<br/>(Transparent mode only)"]
+    end
+
+    subgraph "Layer 1: Entrypoints — Policy Selection via Port"
+        direction LR
+        EntryTransparent["Transparent Policy<br/>Port 3127<br/>Malware protection only"]
+        EntryAdBlock["Ad-Blocking Policy<br/>Port 3128<br/>Malware + Ads + Trackers"]
+    end
+
+    subgraph "Layer 2: MITM Proxy — HTTPS Decryption + CA Management"
+        direction LR
+        mitm["mitmproxy / mitmweb<br/>172.26.255.80<br/>Decrypts HTTPS → plaintext HTTP<br/>CA cert distributed via Traefik<br/>mitmweb UI on port 8081"]
+        mitm_ca["MITM CA Certificate<br/>Persistent volume<br/>Downloadable from Traefik dashboard"]
+        mitm --> mitm_ca
+    end
+
+    subgraph "Tailscale Trust Boundary"
+        direction TB
+        TSNote["Internal traffic (Tailscale) bypasses the proxy chain.<br/>WireGuard encrypts transport — no need for MITM decryption.<br/>Only EXTERNAL traffic (leaving Tailscale) enters the chain.<br/>Internal services use direct HTTP/TLS with Tailscale certs."]
+    end
+
+    subgraph "Layer 3: Privoxy — Content Filtering + Header Sanitization"
+        direction LR
+        privoxy["Privoxy<br/>172.26.255.81<br/>Applies policy from entrypoint port<br/>Ad/tracker/malware blocking<br/>Header manipulation: referrer, UA, cookies"]
+        privoxy --> AdFilter["Ad Blocking<br/>EasyList rules"]
+        privoxy --> TrackerFilter["Tracker Blocking<br/>Disconnect.me"]
+        privoxy --> HeaderSanitize["Header Sanitization<br/>Remove referrer, sanitize UA"]
+    end
+
+    subgraph "Layer 4: Varnish — HTTP Cache + Stale Strategies"
+        direction LR
+        varnish["Varnish Cache<br/>172.26.255.82<br/>Cache lookup: memory → disk<br/>stale-while-revalidate (built-in)<br/>stale-if-error (VCL grace workaround)"]
+        varnish --> Cache["Cache + serve_stale"]
+        varnish --> SWR["Stale-While-Revalidate<br/>Serve stale + background fetch"]
+        varnish --> SIE["Stale-If-Error<br/>Serve stale when origin returns 5xx"]
+    end
+
+    subgraph "Layer 5: Gost — Egress Multiplexer"
+        direction LR
+        gost["Gost<br/>172.26.255.83<br/>Routes to egress backends<br/>based on rules: .onion → Tor<br/>default → Direct, configurable → WARP"]
+        gost --> GostConfig["gost.yaml<br/>Chain definitions<br/>Protocol matchers"]
+    end
+
+    subgraph "Layer 6: Egress Backends"
+        direction LR
+        subgraph "Tier 1: Direct — ACTIVE"
+            egress_direct["Direct Connection<br/>Virtual node — no proxy<br/>Highest performance"]
+        end
+        subgraph "Tier 2: Tor — ACTIVE"
+            egress_tor["Tor SOCKS5<br/>172.26.255.70:9050<br/>Reuses DNS chain Tor proxy<br/>For .onion + anonymity"]
+        end
+        subgraph "Tier 3: Cloudflare WARP — DARK"
+            egress_warp["Cloudflare WARP<br/>Future — not deployed<br/>Balanced performance + security"]
+        end
+    end
+
+    subgraph "Layer 7: External"
+        Internet["Internet"]
+    end
+
+    subgraph "Management Plane"
+        Traefik["Traefik<br/>TLS termination for dashboards<br/>MITM CA cert download<br/>Varnish admin, mitmweb UI"]
+        DNS["LocalNet DNS Chain<br/>AdGuard → dnsdist → CoreDNS<br/>→ Unbound → dnscrypt tiers<br/>All proxy services use this for DNS"]
+    end
+
+    subgraph "Cross-Cluster Topology see requirements/proxy/cross-cluster-web-proxy.md"
+        direction TB
+        LocalCluster["Local Cluster — nl.<base> LAN<br/>Windows host (dtop202311)<br/>Full web proxy chain<br/>Serves LAN clients"]
+        CloudCluster["Cloud Cluster — cno.<base> OCI<br/>OCI cloud server<br/>Full web proxy chain<br/>Serves Tailscale clients"]
+        Note["Both clusters run independently.<br/>No cross-cluster failover for web proxy<br/>(unlike DNS — web proxy is stateful).<br/>Each cluster resolves DNS via its own DNS chain."]
+        LocalCluster -.-> "Independent" -.-> CloudCluster
+    end
+
+    %% --- Explicit Proxy Path (client configured) ---
+    Client -- "Explicit proxy<br/>port 3127 or 3128" --> EntryTransparent
+    Client -- "Explicit proxy<br/>port 3128" --> EntryAdBlock
+
+    %% --- Transparent Proxy Path (nftables intercept) ---
+    Client -- "Transparent HTTP/HTTPS<br/>port 80/443" --> nftables
+    nftables -- "Redirect to MITM<br/>transparent policy" --> mitm
+
+    %% --- Chain Flow ---
+    EntryTransparent --> mitm
+    EntryAdBlock --> mitm
+    mitm -- "Plaintext HTTP<br/>+ policy tag" --> privoxy
+    privoxy -- "Filtered request" --> varnish
+    varnish -- "Cache hit" --> varnish
+    varnish -- "Cache miss" --> gost
+    gost -- ".onion" --> egress_tor
+    gost -- "default" --> egress_direct
+    gost -- "configured" --> egress_warp
+
+    %% --- Egress to Internet ---
+    egress_direct --> Internet
+    egress_tor --> Internet
+    egress_warp --> Internet
+
+    %% --- Response Path ---
+    Internet -- "Response" --> egress_direct
+    Internet -- "Response" --> egress_tor
+    Internet -- "Response" --> egress_warp
+    egress_direct -- "Response" --> gost
+    egress_tor -- "Response" --> gost
+    egress_warp -- "Response" --> gost
+    gost -- "Response" --> varnish
+    varnish -- "Cached response" --> privoxy
+    privoxy -- "Filtered response" --> mitm
+    mitm -- "Re-encrypted HTTPS" --> Client
+
+    %% --- DNS Resolution ---
+    gost -- "DNS query" --> DNS
+    mitm -- "DNS query" --> DNS
+
+    %% --- Management ---
+    mitm -.-> "Dashboard via Traefik" .-> Traefik
+    varnish -.-> "Admin via Traefik" .-> Traefik
+    Traefik -- "CA cert download" --> Client
+
+    %% --- Bypass Paths (direct access for debugging) ---
+    Client -.-> "Bypass: MITM direct<br/>port 3129" .-> mitm
+    Client -.-> "Bypass: Varnish direct<br/>port 6081" .-> varnish
+    Client -.-> "Bypass: Gost direct<br/>port 1080" .-> gost
+
+    style nftables fill:#D5A6BD,color:#1a1a1a
+    style mitm fill:#F4CCCC,color:#1a1a1a
+    style privoxy fill:#D5C4A6,color:#1a1a1a
+    style varnish fill:#FFF2CC,color:#1a1a1a
+    style gost fill:#D5B3A6,color:#1a1a1a
+    style egress_direct fill:#A6D5B2,color:#1a1a1a
+    style egress_tor fill:#C9DAF8,color:#1a1a1a
+    style egress_warp fill:#E0E0E0,color:#1a1a1a
+    style Traefik fill:#A6C1D5,color:#1a1a1a
+    style DNS fill:#A6D5D5,color:#1a1a1a
+    style LocalCluster fill:#D9EAD3,color:#1a1a1a
+    style CloudCluster fill:#D9EAD3,color:#1a1a1a
+    style EntryTransparent fill:#CDE4FF,color:#1a1a1a
+    style EntryAdBlock fill:#FFCDD2,color:#1a1a1a
