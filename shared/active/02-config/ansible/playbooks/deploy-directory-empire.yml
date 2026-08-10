@@ -1,0 +1,88 @@
+---
+# Deploy Directory Empire dashboard to Windows Docker Desktop (nl region)
+# Location: shared/active/02-config/ansible/playbooks/deploy-directory-empire.yml
+#
+# Deploys the Directory Empire Next.js orchestration dashboard on the Windows
+# Docker host (dtop202311). The container image is built from the
+# directory-empire repo (lrepo52/directory-empire) via a multi-stage Dockerfile
+# and pushed to the local registry before deployment.
+#
+# Architecture:
+#   directory-empire (4530, de.nl.levonk.com) — Next.js dashboard via Traefik
+#
+# Prerequisites:
+#   1. Traefik Windows deployed: just ansible-deploy-traefik-windows
+#   2. DNS CNAME configured: just ansible-deploy-dns
+#   3. Container image built+pushed: just build-directory-empire-image
+#   4. SSH config entry for dtop202311.tale-grouper.ts.net
+#
+# Usage:
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/windows-docker.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-directory-empire.yml \
+#     --vault-password-file ~/.ansible/vault_password
+
+- name: "Deploy Directory Empire dashboard on Windows Docker host"
+  hosts: windows_docker_hosts
+  gather_facts: false
+  become: false
+
+  pre_tasks:
+    - name: "Load shared infrastructure port defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/ports.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure storage defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/storage.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure domain defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/domains.yml"
+      tags: ["always"]
+
+    - name: "Load client infrastructure domain overrides"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/domains.yml"
+      tags: ["always"]
+
+    - name: "Validate required variables"
+      ansible.builtin.assert:
+        that:
+          - infra_port_dashboard_directory_empire_host is defined
+          - infra_domain_dashboard_directory_empire_nl is defined
+          - infra_hostname_dashboard_directory_empire is defined
+          - infra_tailscale_fqdn_windows_docker is defined
+        fail_msg: >-
+          Missing required infrastructure variables. Check ports.yml,
+          domains.yml, storage.yml, and client domain overrides.
+        success_msg: "All required infrastructure variables are defined."
+      tags: ["always", "validate"]
+
+  roles:
+    - role: dashboard-directory-empire
+      tags: ["deploy", "directory-empire"]
+      when: directory_empire_enabled | default(true) | bool
+
+  post_tasks:
+    - name: "Report deployment summary"
+      ansible.builtin.debug:
+        msg: |
+          ================================================
+          Directory Empire Deployed (nl region)
+          ================================================
+          Host: {{ inventory_hostname }}
+
+          Directory Empire:
+            Web UI:    https://{{ infra_domain_dashboard_directory_empire_nl }} (via Traefik, SSO-protected)
+            Container: {{ infra_hostname_dashboard_directory_empire }}
+            Port:      {{ infra_port_dashboard_directory_empire_host }}:{{ infra_port_dashboard_directory_empire_container }}
+
+          Next steps:
+            1. Verify: curl https://{{ infra_domain_dashboard_directory_empire_nl }}/
+            2. Check logs: docker logs {{ infra_hostname_dashboard_directory_empire }}
+            3. Redeploy Traefik Windows to pick up the new dynamic config:
+               just ansible-deploy-traefik-windows
+          ================================================
+      tags: ["always", "summary"]

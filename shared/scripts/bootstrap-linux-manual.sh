@@ -11,8 +11,9 @@ set -euo pipefail
 # What it does:
 #   1. Installs and enables OpenSSH Server (if not already)
 #   2. Creates the auser admin user with sudo access
-#   3. Adds the SSH public key for auser
-#   4. Verifies SSH access and Python3 are working
+#   3. Grants auser passwordless sudo (NOPASSWD) — required for unattended Ansible
+#   4. Adds the SSH public key for auser
+#   5. Verifies SSH access and Python3 are working
 #
 # After this, run from the control Mac:
 #   just ansible-deploy-bootstrap          # cloud server (OCI)
@@ -103,7 +104,7 @@ echo "Admin user: ${AUSER_NAME}"
 echo ""
 
 # --- Step 1: Install and enable SSH server ---
-echo "[1/4] Installing and enabling OpenSSH Server..."
+echo "[1/5] Installing and enabling OpenSSH Server..."
 if systemctl is-active --quiet "${SSH_SVC}" 2>/dev/null; then
   echo "  ✓ SSH server already running (${SSH_SVC})"
 else
@@ -122,7 +123,7 @@ fi
 echo ""
 
 # --- Step 2: Create auser ---
-echo "[2/4] Creating ${AUSER_NAME} admin user..."
+echo "[2/5] Creating ${AUSER_NAME} admin user..."
 if getent passwd "${AUSER_NAME}" &>/dev/null; then
   echo "  ✓ ${AUSER_NAME} already exists"
 else
@@ -149,8 +150,36 @@ fi
 echo "  ✓ ${AUSER_NAME} is in ${ADMIN_GRP} group"
 echo ""
 
-# --- Step 3: Add SSH public key ---
-echo "[3/4] Adding SSH public key for ${AUSER_NAME}..."
+# --- Step 3: Grant auser passwordless sudo (NOPASSWD) ---
+# Required for unattended Ansible runs. Without this, every become: true task
+# would need --ask-become-pass, breaking automated configure/deploy runs.
+# Mirrors the /etc/sudoers.d/<admin_user> entry created by the host-os-bootstrap
+# Ansible role. We do it here (in the manual script) so Ansible has no barriers
+# when it runs.
+echo "[3/5] Granting ${AUSER_NAME} passwordless sudo (NOPASSWD)..."
+SUDOERS_FILE="/etc/sudoers.d/${AUSER_NAME}"
+SUDOERS_ENTRY="${AUSER_NAME} ALL=(ALL) NOPASSWD: ALL"
+if sudo test -f "${SUDOERS_FILE}" && sudo grep -qxF "${SUDOERS_ENTRY}" "${SUDOERS_FILE}" 2>/dev/null; then
+  echo "  ✓ ${SUDOERS_FILE} already has NOPASSWD entry"
+else
+  # Write the entry to a temp file, validate with visudo -cf, then install.
+  # This avoids corrupting sudoers (a broken sudoers file can lock out all sudo).
+  TMP_SUDOERS=$(mktemp)
+  echo "${SUDOERS_ENTRY}" > "${TMP_SUDOERS}"
+  if sudo visudo -cf "${TMP_SUDOERS}" >/dev/null 2>&1; then
+    sudo install -m 0440 -o root -g root "${TMP_SUDOERS}" "${SUDOERS_FILE}"
+    echo "  ✓ Created ${SUDOERS_FILE} with NOPASSWD entry (validated by visudo)"
+  else
+    echo "  ✗ ERROR: visudo validation failed — sudoers file NOT installed" >&2
+    rm -f "${TMP_SUDOERS}"
+    exit 1
+  fi
+  rm -f "${TMP_SUDOERS}"
+fi
+echo ""
+
+# --- Step 4: Add SSH public key ---
+echo "[4/5] Adding SSH public key for ${AUSER_NAME}..."
 
 # Embedded default — the control Mac's lzkmbp2016-micro-oracle key (also in client inventory).
 # Override with --ssh-key <path> for a different key.
@@ -192,10 +221,11 @@ else
 fi
 echo ""
 
-# --- Step 4: Verify ---
-echo "[4/4] Verification..."
+# --- Step 5: Verify ---
+echo "[5/5] Verification..."
 echo "  User: $(getent passwd "${AUSER_NAME}" | cut -d: -f1) (UID: $(id -u "${AUSER_NAME}"))"
 echo "  Admin group: $(id -nG "${AUSER_NAME}" | tr ' ' '\n' | grep -x "${ADMIN_GRP}" || echo "NOT in ${ADMIN_GRP}")"
+echo "  Passwordless sudo: $(sudo -u "${AUSER_NAME}" sudo -n true 2>/dev/null && echo 'working' || echo 'NOT working')"
 echo "  SSH server: $(systemctl is-active "${SSH_SVC}")"
 echo "  SSH key: $(sudo cat "${AUTH_KEYS}" | head -c 40)..."
 

@@ -1,47 +1,41 @@
 ---
-# LocalNet DNS Stack Deployment - Direct Container Management
-# Services: dnsdist, coredns, dnscrypt-plaintext, blocklist-compiler, tor-proxy, adguard
-
-- name: Ensure DNS service directory exists on target
-  ansible.builtin.file:
-    path: "{{ localnet_services_dir }}/dns"
-    state: directory
-    mode: "0755"
-
-# ============================================================================
-# Volume Management
-# ============================================================================
-- name: Ensure DNS volumes exist
-  community.docker.docker_volume:
-    name: "{{ item }}"
-    state: present
-  loop:
-    - localnet-dns-blocklist-archive-volume
-    - localnet-dns-blocklist-cdbs-volume
-    - localnet-dns-coredns-cache-volume
-    - localnet-dns-adguard-conf-volume
-    - localnet-dns-adguard-work-volume
+# LocalNet DNS Stack Deployment
+# Services: adguard, dnsdist, coredns, dnscrypt tiers, unbound, blocklist-compiler, tor-proxy
+#
+# Dual-deployment:
+#   Linux  (localnet_hosts, kckinai) — community.docker modules
+#   Windows (windows_docker_hosts, dtop202311) — delegate_to: localhost + DOCKER_HOST: ssh://
+#
+# See: diagrams/dns/complete-dns-chain.mmd for the full architecture.
 
 # ============================================================================
-# Service Deployment
+# Validate required variables
 # ============================================================================
-- ansible.builtin.include_tasks: blocklist-compiler.yml
-- ansible.builtin.include_tasks: tor-proxy.yml
-- ansible.builtin.include_tasks: dnscrypt-plaintext.yml
-- ansible.builtin.include_tasks: coredns.yml
-- ansible.builtin.include_tasks: dnsdist.yml
-- ansible.builtin.include_tasks: adguard.yml
+- name: Validate required DNS variables are defined
+  ansible.builtin.assert:
+    that:
+      - dns_network_name is defined
+      - dns_coredns_main_ip is defined
+      - dns_unbound_validator_ip is defined
+    fail_msg: >-
+      Missing required DNS variables. Check infrastructure files
+      (ports.yml, networks.yml) and role defaults.
+    success_msg: "All required DNS variables are defined."
+  tags: ["always", "validate"]
 
 # ============================================================================
-# Status Report
+# Dispatch based on target OS
 # ============================================================================
-- name: Report DNS stack status
-  ansible.builtin.debug:
-    msg: |
-      DNS Stack deployed successfully:
-        - DNSDist: localhost:{{ dns_transparent_host_port }} (transparent)
-        - DNSDist: localhost:{{ dns_dnsdist_main_host_port }} (direct)
-        - CoreDNS: localhost:{{ dns_coredns_main_host_port }} (direct)
-        - dnscrypt-plaintext: localhost:{{ dns_dnscrypt_plaintext_host_port }}
-        - AdGuard: http://localhost:{{ dns_adguard_web_host_port }} (web UI)
-        - Tor SOCKS5: socks5://localhost:{{ proxy_tor_socks5_host_port }}
+- name: Dispatch Windows (nl) deployment
+  ansible.builtin.include_tasks: deploy-windows.yml
+  when:
+    - dns_enabled | bool
+    - "'windows_docker_hosts' in group_names"
+  tags: ["deploy"]
+
+- name: Dispatch Linux deployment
+  ansible.builtin.include_tasks: deploy-linux.yml
+  when:
+    - dns_enabled | bool
+    - "'windows_docker_hosts' not in group_names"
+  tags: ["deploy"]

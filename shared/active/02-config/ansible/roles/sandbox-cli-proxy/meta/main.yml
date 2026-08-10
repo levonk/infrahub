@@ -1,0 +1,29 @@
+---
+galaxy_info:
+  role_name: sandbox_cli_proxy
+  author: levonk
+  description: Deploy iron-proxy as a default-deny egress firewall for sandboxed CLI containers
+  company: levonk
+  license: MIT
+  min_ansible_version: "2.9"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - focal
+        - jammy
+    - name: Debian
+      versions:
+        - buster
+        - bullseye
+    - name: MacOSX
+      versions:
+        - all
+  galaxy_tags:
+    - proxy
+    - firewall
+    - security
+    - egress
+    - sandbox
+    - networking
+
+dependencies: []

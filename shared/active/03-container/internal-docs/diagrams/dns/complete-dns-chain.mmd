@@ -3,110 +3,134 @@ graph TD
         Client[Client Device]
     end
 
-    subgraph "Layer 0: Traffic Interception (Host)"
+    subgraph "Layer 0: Traffic Interception Host"
         direction LR
-        nftables[nftables TPROXY<br>Host Port 53 → AdGuard]
+        nftables["nftables TPROXY<br/>Host Port 53 → AdGuard"]
     end
 
-    subgraph "Layer 1: AdGuard Policy & Content Filtering"
+    subgraph "Layer 1: AdGuard — Ad/Tracker Blocking + UI"
         direction LR
-        keepalived_adguard[Virtual IP Resilience] --> adguard["AdGuard<br>Policy / Content Filtering"]
+        keepalived_adguard["keepalived VIP<br/>Local LAN cluster only"] --> adguard["AdGuard Home<br/>Ad/Tracker Blocking, Web UI, DHCP<br/>DNSSEC: sets DO bit, does NOT validate"]
     end
 
-    subgraph "Layer 2: Load Balancing & Filtering"
+    subgraph "Layer 2: dnsdist — Security Blocklists + Rate Limiting"
         direction LR
-        keepalived_dnsdist[Virtual IP Resilience] --> dnsdist["dnsdist<br>172.20.255.49:15353<br>(Entrypoint)"]
-        dnsdist --> Blocklist[CDB Blocklist]
-        dnsdist --> RateLimit[Rate Limiter]
-        dnsdist --> ECSStrip[ECS Stripper]
+        keepalived_dnsdist["keepalived VIP<br/>Local LAN cluster only"] --> dnsdist["dnsdist<br/>172.20.255.49:15353<br/>Security blocklists malware/phishing<br/>ECS stripping, rate limiting"]
+        dnsdist --> Blocklist["CDB Blocklist<br/>Security — separate from AdGuard"]
+        dnsdist --> RateLimit["Rate Limiter"]
+        dnsdist --> ECSStrip["ECS Stripper"]
     end
 
-    subgraph "Layer 3: Caching & Forwarding Orchestration"
-        direction LR
-        keepalived_coredns[Virtual IP Resilience] --> coredns["CoreDNS<br>172.20.255.51:15353<br>Orchestrator"]
-        coredns --> Cache[Cache]
-        coredns --> DNSSEC[DNSSEC Validator]
+    subgraph "Tailscale Trust Boundary"
+        direction TB
+        TSNote["Internal queries Tailscale MagicDNS, local zones<br/>are served directly by CoreDNS local zones.<br/>No encryption needed — WireGuard tunnel encrypts transport.<br/>Only EXTERNAL queries enter the fallback chain below."]
     end
 
-    subgraph "Layer 4: DNS Forwarding Services (Protocol Fallback Chain)"
+    subgraph "Layer 3: CoreDNS — Fallback Orchestrator + Serve-Stale Cache"
         direction LR
-        subgraph "Tier 1: Oblivious DoH"
-            dnscrypt_odoh["dnscrypt-proxy ODoH<br>172.20.255.52:5053"]
-        end
-        subgraph "Tier 2: Anonymized DNSCrypt"
-            keepalived_dnscrypt_anon[Virtual IP Resilience] --> dnscrypt_anon["dnscrypt-proxy Anon<br>172.20.255.53:5053"]
-        end
-        subgraph "Tier 3: Unbound over Tor to Root"
-            keepalived_unbound[Virtual IP Resilience] --> unbound_tor["Unbound over Tor<br>Recursive → Root NS"]
-        end
+        keepalived_coredns["keepalived VIP<br/>Local LAN cluster only"] --> coredns["CoreDNS<br/>172.20.255.51:15353<br/>Ordered fallback via forward plugin<br/>Cache with serve_stale answers when domain is down<br/>Local zones internal/Tailscale names<br/>DNSSEC: does NOT validate signing only"]
+        coredns --> Cache["Cache + serve_stale"]
+        coredns --> LocalZones["Local Zones<br/>Tailscale / internal"]
     end
 
-    subgraph "Layer 4b: DNS Forwarding Services (Crazy Resilient Fallback Chain)"
+    subgraph "Layer 3b: Unbound — Validating Cache DNSSEC Gap Fix"
         direction LR
-        subgraph "Tier 4: DNS-over-Tor"
-            direction TB
-            dnscrypt_dnscrypt_tor["dnscrypt-proxy Tor<br>172.20.255.58:5053"]
+        unbound_validator["Unbound Validating Cache<br/>172.20.255.50:15353<br/>Validates DNSSEC on ALL responses<br/>from the fallback chain before<br/>returning to CoreDNS<br/>Additional cache layer"]
+    end
+
+    subgraph "Layer 4: DNS Forwarding — Protocol Fallback Chain"
+        direction LR
+        subgraph "Tier 1: Oblivious DoH — ACTIVE"
+            dnscrypt_odoh["dnscrypt-proxy ODoH<br/>172.20.255.52:5053<br/>DNSSEC: upstream validates<br/>+ Unbound re-validates"]
         end
-        subgraph "Tier 5: DoH over Tor"
-            dnscrypt_doh_tor["dnscrypt-proxy DoH<br>172.20.255.55:5053"]
+        subgraph "Tier 2: Anonymized DNSCrypt — ACTIVE"
+            keepalived_dnscrypt_anon["keepalived VIP"] --> dnscrypt_anon["dnscrypt-proxy Anon<br/>172.20.255.53:5053<br/>DNSSEC: upstream validates<br/>+ Unbound re-validates"]
         end
-        subgraph "Tier 6: TLS over Tor"
-            dnscrypt_tls_tor["dnscrypt-proxy DoH<br>172.20.255.55:5053"]
-        end
-        subgraph "Tier 7: Standard DNSCrypt"
-            dnscrypt_std["dnscrypt-proxy STD<br>172.20.255.54:5053"]
-        end
-        subgraph "Tier 8: DoH"
-            dnscrypt_doh["dnscrypt-proxy DoH<br>172.20.255.55:5053"]
-        end
-        subgraph "Tier 9: Encrypted (TLS)"
-            dnscrypt_encrypted["dnscrypt-proxy Encrypted<br>172.20.255.56:5053"]
-        end
-        subgraph "Tier 10: Unbound to Root"
-            unbound_root["Unbound<br>Recursive → Root NS"]
-        end
-        subgraph "Tier 11: Plaintext over Tor"
-            dnscrypt_plaintext_tor["dnscrypt-proxy Plaintext<br>172.20.255.57:5053"]
-        end
-        subgraph "Tier 12: Plaintext"
-            dnscrypt_plaintext["dnscrypt-proxy Plaintext<br>172.20.255.59:5053"]
+        subgraph "Tier 3: Unbound over Tor — ACTIVE"
+            keepalived_unbound["keepalived VIP"] --> unbound_tor["Unbound over Tor<br/>172.20.255.54:15353<br/>Recursive → Root NS<br/>DNSSEC: validated natively by Unbound"]
         end
     end
 
+    subgraph "Layer 4b: DNS Forwarding — Dark Tiers documented, not running by default"
+        direction LR
+        subgraph "Tier 4: DNSCrypt over Tor — DARK"
+            dnscrypt_dnscrypt_tor["dnscrypt-proxy DNSCrypt/Tor<br/>172.20.255.55:5053<br/>DNSSEC: upstream validates<br/>+ Unbound re-validates"]
+        end
+        subgraph "Tier 5: DoH over Tor — DARK"
+            dnscrypt_doh_tor["dnscrypt-proxy DoH/Tor<br/>172.20.255.56:5053<br/>DNSSEC: upstream validates<br/>+ Unbound re-validates"]
+        end
+        subgraph "Tier 6: DoT/TLS over Tor — DARK"
+            dnscrypt_tls_tor["dnscrypt-proxy DoT/Tor<br/>172.20.255.57:5053<br/>DNSSEC: upstream validates<br/>+ Unbound re-validates"]
+        end
+        subgraph "Tier 7: Standard DNSCrypt — DARK"
+            dnscrypt_std["dnscrypt-proxy STD<br/>172.20.255.58:5053<br/>DNSSEC: upstream validates<br/>+ Unbound re-validates"]
+        end
+        subgraph "Tier 8: DoH — DARK"
+            dnscrypt_doh["dnscrypt-proxy DoH<br/>172.20.255.59:5053<br/>DNSSEC: upstream validates<br/>+ Unbound re-validates"]
+        end
+        subgraph "Tier 9: DoT/TLS — DARK"
+            dnscrypt_encrypted["dnscrypt-proxy DoT/TLS<br/>172.20.255.60:5053<br/>DNSSEC: upstream validates<br/>+ Unbound re-validates"]
+        end
+        subgraph "Tier 10: Unbound to Root — ACTIVE"
+            unbound_root["Unbound<br/>172.20.255.61:15353<br/>Recursive → Root NS<br/>DNSSEC: validated natively by Unbound"]
+        end
+        subgraph "Tier 11: Plaintext over Tor — DARK"
+            dnscrypt_plaintext_tor["dnscrypt-proxy Plaintext/Tor<br/>172.20.255.62:5053<br/>DNSSEC: NO upstream validation<br/>Unbound validates response only"]
+        end
+        subgraph "Tier 12: Plaintext — DARK last resort"
+            dnscrypt_plaintext["dnscrypt-proxy Plaintext<br/>172.20.255.63:5053<br/>DNSSEC: NO upstream validation<br/>Unbound validates response only"]
+        end
+    end
 
-    subgraph "Layer 5: External Resolvers"
+    subgraph "Layer 5: External Resolvers + Tor Transport"
         direction LR
         unbound_tor -- "Forwards through" --> tor_proxy
         dnscrypt_dnscrypt_tor -- "Forwards through" --> tor_proxy
         dnscrypt_doh_tor -- "Forwards through" --> tor_proxy
         dnscrypt_tls_tor -- "Forwards through" --> tor_proxy
         dnscrypt_plaintext_tor -- "Forwards through" --> tor_proxy
-        tor_proxy["Tor SOCKS Proxy<br>172.20.255.60:9050"]
-        Resolvers(Cloudflare, Google, Quad9, Root NS, etc.)
+        tor_proxy["Tor SOCKS Proxy<br/>172.20.255.70:9050"]
+        Resolvers["Cloudflare, Google, Quad9, Root NS, etc."]
     end
 
-    %% Connections
-    Client -- "DNS Query<br>(port 53)" --> nftables
+    subgraph "Cross-Cluster Failover see cross-cluster-dns-failover.md"
+        direction TB
+        LocalCluster["Local Cluster — nl.levonk.com LAN<br/>Windows host + Raspberry Pi<br/>keepalived VIP floats between them<br/>LAN clients use VIP"]
+        CloudCluster["Cloud Cluster — cno.levonk.com OCI<br/>Single host, no keepalived<br/>Tailscale clients use OCI Tailscale IP"]
+        FailoverNote["If cloud DNS fails:<br/>Oracle nodes fall back to local cluster<br/>via direct Tailscale IPs not hostname<br/>Constraint: cno has no blanket LAN access<br/>Only DNS port exposed via Tailscale"]
+        LocalCluster -.-> "Tailscale node-to-node<br/>DNS port only" -.-> CloudCluster
+        CloudCluster -.-> "Fallback direct Tailscale IPs<br/>100.x.x.10 Windows 100.x.x.11 Pi" -.-> LocalCluster
+    end
+
+    Client -- "Internal query<br/>Tailscale/local zone" --> coredns
+    coredns -- "Local zone hit" --> LocalZones
+    LocalZones -- "Direct response<br/>no encryption needed" --> coredns
+
+    Client -- "External DNS query<br/>port 53" --> nftables
     nftables -- "Redirect to AdGuard" --> keepalived_adguard
     adguard -- "Filtered DNS" --> keepalived_dnsdist
     dnsdist -- "Forward" --> keepalived_coredns
 
-    coredns -- "Fallback 1" --> dnscrypt_odoh
-    coredns -- "Fallback 2" --> keepalived_dnscrypt_anon
-    coredns -- "Fallback 3" --> keepalived_unbound_tor
-    coredns -- "Fallback 4" --> dnscrypt_dnscrypt_tor
-    coredns -- "Fallback 5" --> dnscrypt_std
-    coredns -- "Fallback 6" --> dnscrypt_doh
-    coredns -- "Fallback 7" --> dnscrypt_encrypted
-    coredns -- "Fallback 8" --> unbound_root
+    coredns -- "External query<br/>→ validating cache" --> unbound_validator
+    unbound_validator -- "Forward to fallback chain" --> dnscrypt_odoh
+    unbound_validator -- "Fallback 2" --> keepalived_dnscrypt_anon
+    unbound_validator -- "Fallback 3" --> keepalived_unbound
+    unbound_validator -- "Fallback 4 DARK" --> dnscrypt_dnscrypt_tor
+    unbound_validator -- "Fallback 5 DARK" --> dnscrypt_doh_tor
+    unbound_validator -- "Fallback 6 DARK" --> dnscrypt_tls_tor
+    unbound_validator -- "Fallback 7 DARK" --> dnscrypt_std
+    unbound_validator -- "Fallback 8 DARK" --> dnscrypt_doh
+    unbound_validator -- "Fallback 9 DARK" --> dnscrypt_encrypted
+    unbound_validator -- "Fallback 10" --> unbound_root
 
-    dnscrypt_odoh -- "Encrypted Query" --> Resolvers
-    dnscrypt_anon -- "Encrypted Query" --> Resolvers
+    dnscrypt_odoh -- "Encrypted query" --> Resolvers
+    dnscrypt_anon -- "Encrypted query" --> Resolvers
     tor_proxy -- "via Tor" --> Resolvers
-    dnscrypt_std -- "Encrypted Query" --> Resolvers
-    dnscrypt_doh -- "Encrypted Query" --> Resolvers
-    dnscrypt_encrypted -- "Encrypted Query" --> Resolvers
-    unbound_root -- "Recursive Query" --> Resolvers
+    dnscrypt_std -- "Encrypted query" --> Resolvers
+    dnscrypt_doh -- "Encrypted query" --> Resolvers
+    dnscrypt_encrypted -- "Encrypted query" --> Resolvers
+    unbound_root -- "Recursive query" --> Resolvers
+    dnscrypt_plaintext -- "Plaintext query" --> Resolvers
 
     Resolvers -- "Response" --> dnscrypt_odoh
     Resolvers -- "Response" --> dnscrypt_anon
@@ -116,30 +140,41 @@ graph TD
     Resolvers -- "Response" --> dnscrypt_doh
     Resolvers -- "Response" --> dnscrypt_encrypted
     Resolvers -- "Response" --> unbound_root
+    Resolvers -- "Response" --> dnscrypt_plaintext
 
-    dnscrypt_odoh -- "Response" --> coredns
-    dnscrypt_anon -- "Response" --> coredns
-    unbound_tor -- "Response" --> coredns
-    dnscrypt_dnscrypt_tor -- "Response" --> coredns
-    dnscrypt_std -- "Response" --> coredns
-    dnscrypt_doh -- "Response" --> coredns
-    dnscrypt_encrypted -- "Response" --> coredns
-    unbound_root -- "Response" --> coredns
+    dnscrypt_odoh -- "Response" --> unbound_validator
+    dnscrypt_anon -- "Response" --> unbound_validator
+    unbound_tor -- "Response DNSSEC validated natively" --> unbound_validator
+    dnscrypt_dnscrypt_tor -- "Response" --> unbound_validator
+    dnscrypt_std -- "Response" --> unbound_validator
+    dnscrypt_doh -- "Response" --> unbound_validator
+    dnscrypt_encrypted -- "Response" --> unbound_validator
+    unbound_root -- "Response DNSSEC validated natively" --> unbound_validator
+    dnscrypt_plaintext -- "Response" --> unbound_validator
 
-    coredns -- "Final Response" --> dnsdist
-    dnsdist -- "Final Response" --> adguard
-	adguard -- "Final Response" --> Client
+    unbound_validator -- "DNSSEC-validated response" --> coredns
+    coredns -- "Final response" --> dnsdist
+    dnsdist -- "Final response" --> adguard
+    adguard -- "Final response" --> Client
 
-    %% Styling
-    style nftables fill:#D5A6BD
-    style dnsdist fill:#A6C1D5
-    style coredns fill:#A6D5B2
-    style dnscrypt_odoh fill:#D5C4A6
-    style dnscrypt_anon fill:#D5B3A6
-    style dnscrypt_std fill:#D5A6A6
-    style dnscrypt_doh fill:#C4A6D5
-    style dnscrypt_encrypted fill:#A6A6D5
-    style unbound_root fill:#A6D5D5
-    style tor_proxy fill:#E6B8AF
-    style adguard fill:#F4CCCC
-    style unbound_tor fill:#C9DAF8
+    style nftables fill:#D5A6BD,color:#1a1a1a
+    style dnsdist fill:#A6C1D5,color:#1a1a1a
+    style coredns fill:#A6D5B2,color:#1a1a1a
+    style unbound_validator fill:#B6D7A8,color:#1a1a1a
+    style dnscrypt_odoh fill:#D5C4A6,color:#1a1a1a
+    style dnscrypt_anon fill:#D5B3A6,color:#1a1a1a
+    style unbound_tor fill:#C9DAF8,color:#1a1a1a
+    style dnscrypt_std fill:#D5A6A6,color:#1a1a1a
+    style dnscrypt_doh fill:#C4A6D5,color:#1a1a1a
+    style dnscrypt_encrypted fill:#A6A6D5,color:#1a1a1a
+    style unbound_root fill:#A6D5D5,color:#1a1a1a
+    style tor_proxy fill:#E6B8AF,color:#1a1a1a
+    style adguard fill:#F4CCCC,color:#1a1a1a
+    style dnscrypt_dnscrypt_tor fill:#E0E0E0,color:#1a1a1a
+    style dnscrypt_doh_tor fill:#E0E0E0,color:#1a1a1a
+    style dnscrypt_tls_tor fill:#E0E0E0,color:#1a1a1a
+    style dnscrypt_plaintext_tor fill:#E0E0E0,color:#1a1a1a
+    style dnscrypt_plaintext fill:#E0E0E0,color:#1a1a1a
+    style LocalCluster fill:#D9EAD3,color:#1a1a1a
+    style CloudCluster fill:#D9EAD3,color:#1a1a1a
+    style FailoverNote fill:#FFF2CC,color:#1a1a1a

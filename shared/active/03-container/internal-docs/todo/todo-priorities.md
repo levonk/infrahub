@@ -418,17 +418,12 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - Desktop Control
 	- [ ] **OpenClaudeCowork**: https://github.com/ComposioHQ/open-claude-cowork/
   - [ ] **Pi CodeAssist Agent**: https://pi.dev/
-  - [ ] **LLM Memory**
-    - [ ] https://github.com/plastic-labs/honcho
-    - [ ] **LLM Memory Search**
-      - [ ] https://github.com/tobi/qmd
   - [ ] **OpenCode**:
     - [ ] https://github.com/pedramamini/Maestro/issues/284 agent orchestrator
     - [ ] https://github.com/nrslib/takt Task Agent Koordination Tool – A multi-agent orchestration system supporting Claude Code and Codex.
   - [ ] **Compound Engineering**: https://github.com/EveryInc/compound-engineering-plugin
   - [ ] ClaudCode
     - [ ] Caludit plugin to audit how much garbage is in claude.md
-  - [ ] **SuperMemory**: https://supermemory.ai/docs/deployment/self-hosting#self-hosting https://github.com/supermemoryai/supermemory
   - [ ] **Vibe Kanban / Auto-Claude rollout checklist**
     - [x] Hostname: `kanban.levonk.com`, Traefik router with Authelia + geoblock (LAN-only) — confirmed 2025-12-19.
     - [x] Runtime shape: Vibe Kanban container (Node + pnpm) per `services/ai-codeassist/vibe-kanban/`, Linux uses Sysbox+DIND, WSL uses dockerproxy; `/p` repo mount required.
@@ -675,6 +670,8 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] https://github.com/nateherkai/token-dashboard
   - [ ] https://github.com/router-for-me/Cli-Proxy-API-Management-Center
   - [ ] https://github.com/langfuse/langfuse
+- [ ] **AI Cache**:
+  - [ ] https://github.com/esengine/DeepSeek-Reasonix
 - [ ] **AI Memory**:
   - [ ] https://github.com/rohitg00/agentmemory
   - [ ] https://github.com/plastic-labs/honcho
@@ -682,6 +679,12 @@ _Goal: Privacy, Resilience, Ad-blocking_
     - https://www.youtube.com/watch?v=i2KK85h0bYo
   - [ ] https://github.com/langchain-ai/openwiki
   - [ ] https://github.com/Lumen-Labs/brainapi2
+  - [ ] https://github.com/plastic-labs/honcho
+  - [ ] https://github.com/mnemosyne-oss/mnemosyne
+  - [ ] https://github.com/vectorize-io/hindsight
+  - [ ] **SuperMemory**: https://supermemory.ai/docs/deployment/self-hosting#self-hosting https://github.com/supermemoryai/supermemory
+  - [ ] **LLM Memory Search**
+    - [ ] https://github.com/tobi/qmd
   - [ ] 
 - [ ] **Inference Engines**:
   - [ ] **Ollama**: LLM Runner https://github.com/ollama/ollama
@@ -733,9 +736,12 @@ _Goal: Privacy, Resilience, Ad-blocking_
   - [ ] **Envoy**: Web Routing
 
 ### Code Creation
+- [ ] https://github.com/earendil-works/pi
 - [ ] CodeAssist AI Stats https://github.com/git-ai-project/git-ai
 - [ ] TUI for Git diff changes https://github.com/remorses/critique
-- [ ] OpenCode
+- [ ] https://github.com/anomalyco/opencode
+- [ ] https://github.com/xai-org/grok-build
+- [ ] https://reasonix.io/ https://github.com/esengine/DeepSeek-Reasonix
 - [ ] Claude Code https://github.com/anthropics/claude-code
 - [x] **Update Swift Boilerplate Template**: Updated to comply with Rust template standards
   - [ ] **Test Swift Implementation**: Materialize and test Swift template on Mac system

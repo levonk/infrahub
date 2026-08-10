@@ -1,4 +1,56 @@
-# DO NOT EDIT UNLESS IT'S IN `${REPO_ROOT}/apps/devops/localnet/services/dns/dnscrypt/mounts/templates/etc/dnscrypt-proxy`
+# DO NOT EDIT UNLESS IT'S IN `${REPO_ROOT}/shared/active/03-container/services/dns/dnscrypt/mounts/templates/etc/dnscrypt-proxy`
 # If you're in `/etc/dnscrypt-proxy/` INSIDE the container, you are making changes to the processed ephemeral file!
 
+# dnscrypt-proxy configuration for Oblivious DoH (ODoH)
+# Splits query/answer paths — relay cannot see query content,
+# target cannot see client IP.
+
 listen_addresses = ['0.0.0.0:{DNS_DNSCRYPT_ODOH_CONTAINER_PORT}']
+
+ipv4_servers = true
+ipv6_servers = false
+
+# Use servers implementing the Oblivious DNS-over-HTTPS protocol
+odoh_servers = true
+dnscrypt_servers = false
+doh_servers = false
+
+# Server must support DNS security extensions (DNSSEC)
+require_dnssec = true
+
+# Server must not log user queries
+require_nolog = true
+
+# Server must not enforce its own blacklist
+require_nofilter = true
+
+# ODoH relay servers + target resolvers
+# Leave server_names empty to auto-select from the built-in CSV lists
+# (odoh-relays.csv + odoh-servers.csv)
+# server_names = ['odoh-relay-cloudflare', 'odoh-target-cloudflare']
+
+[sources]
+
+  [sources.'odoh-servers']
+    urls = ['https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/master/v3/odoh-servers.md', 'https://download.dnscrypt.info/resolvers-list/v3/odoh-servers.md']
+    cache_file = 'odoh-servers.md'
+    minisign_key = 'RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3'
+    refresh_delay = 72
+    prefix = ''
+
+  [sources.'odoh-relays']
+    urls = ['https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/master/v3/odoh-relays.md', 'https://download.dnscrypt.info/resolvers-list/v3/odoh-relays.md']
+    cache_file = 'odoh-relays.md'
+    minisign_key = 'RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3'
+    refresh_delay = 72
+    prefix = ''
+
+[anonymized_dns]
+
+# Route all ODoH queries through relays
+# This is required for ODoH — the relay hides the client IP from the target
+routes = [
+  { server_name = '*', via = ['odohrelay-crypto-sx', 'odohrelay-numa'] }
+]
+
+# vim: set ft=toml

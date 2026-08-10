@@ -927,6 +927,26 @@ services:
   network: "traefik-network"
 
 # ===========================================================================
+# Directory Empire Dashboard
+# ===========================================================================
+- name: "Directory Empire"
+  container: "{{ infra_hostname_dashboard_directory_empire }}"
+  machine: "dtop202311"
+  category: "ui"
+  description: "Next.js orchestration dashboard for the Directory Empire platform — stamps out directory businesses from niche + geography input."
+  source_repo: "https://github.com/lrepo52/directory-empire"
+  domains:
+    - "infra_domain_dashboard_directory_empire_nl"
+  ports:
+    - host: "infra_port_dashboard_directory_empire_host"
+      container: "infra_port_dashboard_directory_empire_container"
+      label: "Web"
+  traefik: true
+  network: "traefik-windows-network"
+  storage:
+    - "localnet-directory-empire-config-volume (runtime env config)"
+
+# ===========================================================================
 # Service Chains
 # Data-driven request-flow topology for proxy/cache chains.
 # The generate_service_catalog.py script renders each chain as a Mermaid

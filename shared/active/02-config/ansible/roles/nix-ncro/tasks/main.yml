@@ -43,7 +43,7 @@
     nix_ncro_upstreams: "{{ nix_ncro_upstreams_cno }}"
   when:
     - nix_ncro_enabled | bool
-    - "'cloud_servers' in group_names or ansible_os_family == 'RedHat'"
+    - "'cloud_servers' in group_names"
   tags: ["deploy"]
 
 # 3. Dispatch Windows (nl) deployment for windows_docker_hosts

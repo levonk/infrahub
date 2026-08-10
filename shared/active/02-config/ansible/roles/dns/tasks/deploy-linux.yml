@@ -1,0 +1,56 @@
+---
+# Linux deployment — uses community.docker modules
+# Target: localnet_hosts (kckinai)
+
+- name: Ensure DNS service directory exists on target
+  ansible.builtin.file:
+    path: "{{ localnet_services_dir }}/dns"
+    state: directory
+    mode: "0755"
+
+# ============================================================================
+# Volume Management
+# ============================================================================
+- name: Ensure DNS volumes exist
+  community.docker.docker_volume:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - localnet-dns-blocklist-archive-volume
+    - localnet-dns-blocklist-cdbs-volume
+    - localnet-dns-coredns-cache-volume
+    - localnet-dns-adguard-conf-volume
+    - localnet-dns-adguard-work-volume
+    - localnet-dns-unbound-root-key-volume
+    - localnet-dns-unbound-tor-root-key-volume
+    - localnet-dns-unbound-root-root-key-volume
+
+# ============================================================================
+# Service Deployment (order matters — dependencies flow upward)
+# ============================================================================
+- ansible.builtin.include_tasks: blocklist-compiler.yml
+- ansible.builtin.include_tasks: tor-proxy.yml
+- ansible.builtin.include_tasks: dnscrypt-plaintext.yml
+- ansible.builtin.include_tasks: dnscrypt-tiers.yml
+- ansible.builtin.include_tasks: unbound.yml
+- ansible.builtin.include_tasks: coredns.yml
+- ansible.builtin.include_tasks: dnsdist.yml
+- ansible.builtin.include_tasks: adguard.yml
+
+# ============================================================================
+# Status Report
+# ============================================================================
+- name: Report DNS stack status
+  ansible.builtin.debug:
+    msg: |
+      DNS Stack deployed successfully:
+        - AdGuard: http://localhost:{{ dns_adguard_web_host_port }} (web UI)
+        - DNSDist: localhost:{{ dns_dnsdist_main_host_port }} (direct)
+        - CoreDNS: localhost:{{ dns_coredns_main_host_port }} (direct)
+        - Unbound Validator: localhost:{{ dns_unbound_validator_host_port }}
+        - Unbound Tor (Tier 3): internal only
+        - Unbound Root (Tier 10): internal only
+        - dnscrypt-odoh (Tier 1): localhost:{{ dns_dnscrypt_odoh_host_port }}
+        - dnscrypt-anon (Tier 2): localhost:{{ dns_dnscrypt_anon_host_port }}
+        - dnscrypt-plaintext (Tier 12): localhost:{{ dns_dnscrypt_plaintext_host_port }}
+        - Tor SOCKS5: socks5://localhost:{{ proxy_tor_socks5_host_port }}

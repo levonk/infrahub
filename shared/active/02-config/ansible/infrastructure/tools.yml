@@ -1,0 +1,87 @@
+---
+# Tool Catalog Metadata
+# Location: shared/active/02-config/ansible/infrastructure/tools.yml
+# Purpose: Human-authored metadata for each sandboxed CLI tool (image, profile,
+#          description, egress policy, recipe name).
+#          The generate_tool_catalog.py script reads this + ports.yml +
+#          networks.yml to produce TOOLS.md.
+# ---------------------------------------------------------------------------
+# This is the ONLY manual file. When you add a new CLI tool:
+#   1. Ensure the egress profile exists (or create one — see
+#      infrahub-add-sandboxed-cli-tool.md Phases 1-3)
+#   2. Add the `just` recipe (Phase 4)
+#   3. Add an entry here with its image, profile, description, source_repo,
+#      egress policy, and recipe name
+#   4. Run: just generate-tool-catalog
+# ---------------------------------------------------------------------------
+# source_repo (REQUIRED):
+#   The primary source repository URL (GitHub/GitLab) for the tool.
+#   If no source repo exists (commercial tool), use the product page or
+#   official website instead.
+#   The generate_tool_catalog.py script validates that every entry has
+#   source_repo and renders it as a clickable link in TOOLS.md.
+# ---------------------------------------------------------------------------
+# Profiles:
+#   Each tool is associated with an egress profile (defined in
+#   levonk/active/02-config/ansible/group_vars/sandbox_proxy_hosts.yml).
+#   A profile deploys a dedicated iron-proxy instance with its own allowlist.
+#   Tools sharing a profile share the same egress boundary.
+#   Common profiles:
+#     osint  — search engines + social networks (GET + HEAD)
+#     recon  — subdomain discovery, DNS enumeration (GET + HEAD)
+#     scrape — web scraping (GET + HEAD + scoped POSTs)
+# ---------------------------------------------------------------------------
+# Egress field:
+#   Documents the egress policy the tool operates under (for human reference).
+#   The actual enforcement is in the iron-proxy allowlist, not this field.
+#     hosts:   list of domain patterns the tool can reach
+#     methods: list of allowed HTTP methods
+# ---------------------------------------------------------------------------
+# Recipe field:
+#   The `just` recipe name (without `just` prefix) that runs the tool.
+#   Users run: `just sandbox-{tool} {args}`
+# ---------------------------------------------------------------------------
+
+# ===========================================================================
+# OSINT Tools (search engines + social networks)
+# ===========================================================================
+
+- name: "Sherlock"
+  image: "sherlock/sherlock"
+  profile: "osint"
+  description: "Username enumeration across social networks"
+  source_repo: "https://github.com/sherlock-project/sherlock"
+  egress:
+    hosts:
+      - "*.google.com"
+      - "*.bing.com"
+      - "duckduckgo.com"
+      - "*.twitter.com"
+      - "*.x.com"
+      - "*.instagram.com"
+      - "*.linkedin.com"
+      - "*.facebook.com"
+      - "*.github.com"
+      - "*.gitlab.com"
+      - "*.reddit.com"
+      - "*.pinterest.com"
+      - "*.tumblr.com"
+      - "*.tiktok.com"
+      - "*.youtube.com"
+      - "*.medium.com"
+      - "*.steamcommunity.com"
+      - "*.twitch.tv"
+    methods: ["GET", "HEAD"]
+  recipe: "sandbox-sherlock"
+  notes: "Python-based — REQUESTS_CA_BUNDLE fallback works if update-ca-certificates is unavailable"
+
+# - name: "Subfinder"
+#   image: "projectdiscovery/subfinder"
+#   profile: "recon"
+#   description: "Subdomain discovery via passive sources"
+#   source_repo: "https://github.com/projectdiscovery/subfinder"
+#   egress:
+#     hosts: ["*.crt.sh", "crt.sh", "*.virustotal.com", "virustotal.com"]
+#     methods: ["GET", "HEAD"]
+#   recipe: "sandbox-subfinder"
+#   notes: "Go binary — requires system trust store CA (update-ca-certificates)"

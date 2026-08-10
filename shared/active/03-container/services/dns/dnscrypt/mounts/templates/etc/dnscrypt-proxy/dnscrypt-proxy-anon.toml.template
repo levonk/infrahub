@@ -7,9 +7,8 @@ listen_addresses = ['0.0.0.0:{DNS_DNSCRYPT_ANON_CONTAINER_PORT}']
 
 # Enable Anonymized DNS relays
 # This sends queries through a relay to hide the client's IP from the resolver.
-# Is this a config variable in your version?  It'
-s not for the one that is currently running
-#anonymize = true
+# anonymize is not a config variable in the current version of dnscrypt-proxy
+# anonymize = true
 
 # Use servers reachable over IPv4
 ipv4_servers = true
@@ -35,10 +34,24 @@ require_nolog = true
 # Server must not enforce its own blacklist (for parental control, ads blocking...)
 require_nofilter = true
 
-# Skip resolvers incompatible with anonymization instead of using them directly
-skip_incompatible = false
-
 # Use servers that support the Anonymized DNS protocol
-server_names = ['scaleway-fr', 'quad9-dnscrypt-ip4-filter-pri']
+# Leave server_names empty to auto-select from built-in CSV lists
+# server_names = ['scaleway-fr', 'quad9-dnscrypt-ip4-filter-pri']
+
+[sources]
+
+  [sources.'resolvers']
+    urls = ['https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/master/v3/public-resolvers.md', 'https://download.dnscrypt.info/resolvers-list/v3/public-resolvers.md']
+    cache_file = 'public-resolvers.md'
+    minisign_key = 'RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3'
+    refresh_delay = 72
+    prefix = ''
+
+  [sources.'relays']
+    urls = ['https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/master/v3/relays.md', 'https://download.dnscrypt.info/resolvers-list/v3/relays.md']
+    cache_file = 'relays.md'
+    minisign_key = 'RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3'
+    refresh_delay = 72
+    prefix = ''
 
 # vim: set ft=toml

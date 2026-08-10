@@ -1,0 +1,11 @@
+---
+# handlers file for sandbox-cli-proxy
+# Single handler that restarts all profile containers.
+
+- name: restart sandbox-cli-proxy
+  community.docker.docker_container:
+    name: "sandbox-iron-proxy-{{ item.name }}"
+    state: started
+    restart: true
+  become: true
+  loop: "{{ sandbox_cli_proxy_profiles }}"

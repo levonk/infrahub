@@ -1,0 +1,51 @@
+# Unbound over Tor — Tier 3 (ACTIVE)
+# Recursive resolution to root NS.
+# DNSSEC validated natively by Unbound.
+#
+# NOTE: Tor SOCKS proxying requires unbound built with --with-libhiredis
+# and the socks-proxy patch. The Alpine package does not include this.
+# Currently runs as a regular recursive resolver (same as Tier 10 but
+# on a separate port/IP for redundancy). Tor proxying will be added
+# via a custom Dockerfile build in a future iteration.
+# See: diagrams/dns/complete-dns-chain.mmd
+
+server:
+    interface: 0.0.0.0
+    port: {DNS_UNBOUND_TOR_CONTAINER_PORT}
+    do-ip4: yes
+    do-ip6: no
+    do-udp: yes
+    do-tcp: yes
+
+    # DNSSEC validation
+    module-config: "validator iterator"
+    val-permissive-mode: no
+    val-clean-additional: yes
+    auto-trust-anchor-file: "/var/lib/unbound/root.key"
+
+    # Caching
+    cache-min-ttl: 60
+    cache-max-ttl: 86400
+    serve-expired: yes
+    serve-expired-ttl: 86400
+    prefetch: yes
+    num-threads: 1
+
+    # Privacy
+    qname-minimisation: yes
+    edns-buffer-size: 1232
+    harden-glue: yes
+    harden-dnssec-stripped: yes
+
+    # Logging
+    verbosity: 1
+    use-syslog: no
+    logfile: ""
+
+    # Access control
+    access-control: 0.0.0.0/0 refuse
+    access-control: 172.26.0.0/16 allow
+    access-control: 127.0.0.0/8 allow
+
+# Recursive mode — Unbound walks root → TLD → authoritative
+# No forward-zone needed, Unbound resolves directly via root hints

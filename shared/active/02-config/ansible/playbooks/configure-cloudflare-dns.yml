@@ -248,6 +248,14 @@
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
 
+      # AdGuard Home DNS web UI (runs on Windows Docker, routed via Traefik on OCI)
+      - name: "{{ infra_domain_dns_adguard | default('adguard.levonk.com') }}"
+        type: "CNAME"
+        content: "{{ ts_fqdn }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
       # Exit node CNAMEs (dual-deployment: nl + cno)
       # Each CNAME points to the Tailscale FQDN of the exit node container,
       # not the host FQDN. This decouples the public DNS from the host's
@@ -330,7 +338,7 @@
       # Nix Cache Chain — ncps NAR caching proxy (nl region)
       # CNAME points to the Windows Docker host which runs its own Traefik
       # for TLS termination + routing to the ncps container.
-      - name: "{{ infra_domain_nix_cache_nl | default('cache.nl.levonk.com') }}"
+      - name: "{{ infra_domain_nix_cache_nl | default('nixcache.nl.levonk.com') }}"
         type: "CNAME"
         content: "{{ ts_fqdn_windows_docker }}"
         ttl: "{{ cloudflare_dns_ttl }}"
@@ -340,7 +348,7 @@
       # Nix Cache Chain — ncps NAR caching proxy (cno region)
       # CNAME points to the OCI cloud server which runs Traefik for TLS
       # termination + routing to the ncps container on traefik-network.
-      - name: "{{ infra_domain_nix_cache_cno | default('cache.cno.levonk.com') }}"
+      - name: "{{ infra_domain_nix_cache_cno | default('nixcache.cno.levonk.com') }}"
         type: "CNAME"
         content: "{{ ts_fqdn }}"
         ttl: "{{ cloudflare_dns_ttl }}"
@@ -351,6 +359,16 @@
       # CNAME points to the Windows Docker host which runs its own Traefik
       # for TLS termination + routing to the garnix-ci container.
       - name: "{{ infra_domain_garnix_ci_nl | default('ci.nl.levonk.com') }}"
+        type: "CNAME"
+        content: "{{ ts_fqdn_windows_docker }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      # Directory Empire dashboard (nl region)
+      # CNAME points to the Windows Docker host which runs its own Traefik
+      # for TLS termination + routing to the directory-empire container.
+      - name: "{{ infra_domain_dashboard_directory_empire_nl | default('de.nl.levonk.com') }}"
         type: "CNAME"
         content: "{{ ts_fqdn_windows_docker }}"
         ttl: "{{ cloudflare_dns_ttl }}"

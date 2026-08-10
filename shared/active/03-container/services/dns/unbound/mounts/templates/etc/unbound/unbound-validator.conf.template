@@ -1,0 +1,52 @@
+# Unbound Validating Cache — Layer 3b
+# Sits between CoreDNS and the fallback tiers.
+# Validates DNSSEC on ALL responses from the fallback chain.
+# See: requirements/dns/dnssec-gap-and-unbound-fix.md
+
+server:
+    interface: 0.0.0.0
+    port: {DNS_UNBOUND_VALIDATOR_CONTAINER_PORT}
+    do-ip4: yes
+    do-ip6: no
+    do-udp: yes
+    do-tcp: yes
+
+    # DNSSEC validation
+    module-config: "validator iterator"
+    val-permissive-mode: no
+    val-clean-additional: yes
+    auto-trust-anchor-file: "/var/lib/unbound/root.key"
+
+    # Caching
+    cache-min-ttl: 60
+    cache-max-ttl: 86400
+    serve-expired: yes
+    serve-expired-ttl: 86400
+    prefetch: yes
+    num-threads: 2
+
+    # Privacy
+    qname-minimisation: yes
+    edns-buffer-size: 1232
+    harden-glue: yes
+    harden-dnssec-stripped: yes
+    harden-referral-path: yes
+    use-caps-for-id: yes
+
+    # Logging
+    verbosity: 1
+    use-syslog: no
+    logfile: ""
+
+    # Access control — allow from localnet network
+    access-control: 0.0.0.0/0 refuse
+    access-control: 172.26.0.0/16 allow
+    access-control: 127.0.0.0/8 allow
+
+# Forward zones — the fallback tiers
+# CoreDNS's forward plugin does the ordered fallback, so Unbound
+# forwards to CoreDNS's internal port which runs the forward chain.
+# In this config, Unbound validates DNSSEC on responses from CoreDNS.
+forward-zone:
+    name: "."
+    forward-addr: {DNS_COREDNS_MAIN_IP}@{DNS_COREDNS_INTERNAL_CONTAINER_PORT}

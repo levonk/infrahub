@@ -227,3 +227,10 @@ infra_storage_nix_ncro_config_volume_cno: "localnet-ncro-cno-config-volume"
 # ---------------------------------------------------------------------------
 infra_storage_garnix_ci_work_volume: "localnet-garnix-ci-work-volume"
 infra_storage_garnix_ci_config_volume: "localnet-garnix-ci-config-volume"
+
+# ---------------------------------------------------------------------------
+# Directory Empire Dashboard Storage (nl region — dtop202311)
+# Next.js orchestration dashboard. Config volume holds environment files
+# rendered by Ansible (e.g., .env for runtime configuration).
+# ---------------------------------------------------------------------------
+infra_storage_directory_empire_config_volume: "localnet-directory-empire-config-volume"

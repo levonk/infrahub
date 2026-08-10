@@ -1,27 +1,37 @@
 graph LR
-    subgraph "Transparent Mode"
-        T1[Client] -->|Port 53| T2[nftables]
-        T2 -->|TPROXY| T3[AdGuard]
+    subgraph "Transparent Mode external queries"
+        T1["Client"] -->|Port 53| T2["nftables"]
+        T2 -->|TPROXY| T3["AdGuard"]
         T3 --> A2
     end
 
-    subgraph "Direct Mode"
-        D1[Client] -->|Port 5353| D2[AdGuard]
+    subgraph "Direct Mode external queries"
+        D1["Client"] -->|Port 5353/5501| D2["dnsdist direct"]
         D2 --> A2
     end
 
-    subgraph "VPN Mode"
-        V1[VPN Client] -->|WireGuard Tunnel| V2[Host DNS]
-        V2 -->|Port 5353| V3[AdGuard]
-		V3 --> A2
+    subgraph "VPN Mode external queries via Tailscale"
+        V1["VPN Client"] -->|WireGuard Tunnel| V2["Host DNS"]
+        V2 -->|Port 5353| V3["AdGuard"]
+        V3 --> A2
     end
 
-    subgraph "Remaining Stack"
-        A2[dnsdist:5353] -->|Upstream DNS| A3[coredns:5353]
-        A3 -->|Upstream DNS| A4[tiers:5353]
+    subgraph "Tailscale Internal Mode trusted no encryption stack"
+        TS1["Tailscale Client"] -->|MagicDNS / local zone| TS2["CoreDNS local zones"]
+        TS2 -->|Direct response<br/>WireGuard encrypts transport| TS1
+        TS_NOTE["No AdGuard, dnsdist, Unbound, or fallback chain needed.<br/>Tailscale WireGuard tunnel provides transport encryption.<br/>Only applies to internal/Tailscale names."]
     end
 
-    style T2 fill:#ff9999
-    style D2 fill:#99ff99
-    style V2 fill:#99ccff
-    style T3 fill:#F4CCCC
+    subgraph "Remaining Stack external queries only"
+        A2["dnsdist:5353"] -->|Security blocklists| A3["CoreDNS:5353"]
+        A3 -->|Validating cache| A3b["Unbound:5353"]
+        A3b -->|Fallback chain| A4["Encrypted tiers:5353"]
+    end
+
+    style T2 fill:#ff9999,color:#1a1a1a
+    style D2 fill:#99ff99,color:#1a1a1a
+    style V2 fill:#99ccff,color:#1a1a1a
+    style T3 fill:#F4CCCC,color:#1a1a1a
+    style TS2 fill:#D9EAD3,color:#1a1a1a
+    style TS_NOTE fill:#D9EAD3,color:#1a1a1a
+    style A3b fill:#B6D7A8,color:#1a1a1a

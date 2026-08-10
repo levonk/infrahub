@@ -48,7 +48,7 @@
     nix_ncps_upstream_urls: "{{ nix_ncps_upstream_urls_cno }}"
   when:
     - nix_ncps_enabled | bool
-    - "'cloud_servers' in group_names or ansible_os_family == 'RedHat'"
+    - "'cloud_servers' in group_names"
   tags: ["deploy"]
 
 # 3. Dispatch Windows (nl) deployment for windows_docker_hosts

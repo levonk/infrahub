@@ -1,0 +1,67 @@
+---
+# defaults file for sandbox-cli-proxy
+# Deploys iron-proxy as a default-deny egress firewall for sandboxed CLI containers.
+# See ADR-202608051501 for the architecture decision.
+# Neutral, overridable defaults. No client-specific values.
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# iron-proxy Container
+# ---------------------------------------------------------------------------
+sandbox_cli_proxy_enabled: true
+sandbox_cli_proxy_version: "0.7.0"
+sandbox_cli_proxy_image: "ironsh/iron-proxy:{{ sandbox_cli_proxy_version }}"
+
+# ---------------------------------------------------------------------------
+# TLS Configuration — MITM required for method/path enforcement on HTTPS
+# ---------------------------------------------------------------------------
+sandbox_cli_proxy_tls_mode: "mitm"
+sandbox_cli_proxy_cert_cache_size: 1000
+sandbox_cli_proxy_leaf_cert_expiry_hours: 72
+
+# ---------------------------------------------------------------------------
+# Proxy Limits
+# ---------------------------------------------------------------------------
+sandbox_cli_proxy_max_request_body_bytes: 1048576
+sandbox_cli_proxy_max_response_body_bytes: 0
+sandbox_cli_proxy_upstream_timeout: "30s"
+
+# ---------------------------------------------------------------------------
+# Allowlist — default-deny enforcement
+# ---------------------------------------------------------------------------
+# Warn mode: allow all traffic through, log what would be blocked.
+# Set to false for default-deny (block non-allowlisted traffic).
+sandbox_cli_proxy_allowlist_warn: false
+
+# ---------------------------------------------------------------------------
+# DNS Configuration
+# ---------------------------------------------------------------------------
+sandbox_cli_proxy_dns_enabled: true
+sandbox_cli_proxy_dns_proxy_ip: "1.1.1.1"
+sandbox_cli_proxy_upstream_dns: "8.8.8.8:53"
+
+# ---------------------------------------------------------------------------
+# Storage — CA certificate directory (shared across all profiles)
+# ---------------------------------------------------------------------------
+sandbox_cli_proxy_ca_dir: "{{ infra_storage_sandbox_ca_dir | default('/opt/sandbox-cli') }}"
+sandbox_cli_proxy_config_dir: "{{ infra_storage_sandbox_config_dir | default('/opt/localnet/services/sandbox-cli/config') }}"
+
+# ---------------------------------------------------------------------------
+# Profiles — list of egress profiles to deploy
+# Each profile deploys a separate iron-proxy instance on a dedicated network.
+# Populated by client group_vars (sandbox_proxy_hosts).
+# ---------------------------------------------------------------------------
+sandbox_cli_proxy_profiles: []
+
+# ---------------------------------------------------------------------------
+# Feature Flags
+# ---------------------------------------------------------------------------
+sandbox_cli_proxy_verify_health: true
+sandbox_cli_proxy_verify_timeout_seconds: 30
+
+# ---------------------------------------------------------------------------
+# .sandbox-env file — generated on localhost for `just` recipes to source
+# Written to the infrahub repo root (5 levels up from playbooks/), matching the
+# path the justfile expects: {{ INFRAHUB_ROOT }}/.sandbox-env
+# ---------------------------------------------------------------------------
+sandbox_cli_proxy_env_file: "{{ playbook_dir | default('.') }}/../../../../../.sandbox-env"

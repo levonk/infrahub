@@ -69,7 +69,19 @@ dscl . -read /Users/auser UniqueID
 dseditgroup -o checkmember -m auser admin
 ```
 
-## Step 3: Add your SSH public key to the auser user
+## Step 3: Grant auser passwordless sudo (NOPASSWD)
+
+Required for unattended Ansible runs. Without this, every `become: true` task
+would need `--ask-become-pass`, breaking automated configure/os-update runs.
+
+```bash
+echo 'auser ALL=(ALL) NOPASSWD: ALL' | sudo tee /etc/sudoers.d/auser
+sudo chown root:wheel /etc/sudoers.d/auser
+sudo chmod 0440 /etc/sudoers.d/auser
+sudo visudo -cf /etc/sudoers.d/auser   # validate — must say "parsed OK"
+```
+
+## Step 4: Add your SSH public key to the auser user
 
 From your Ansible control machine, copy the public key (same key used for OCI):
 
@@ -85,7 +97,7 @@ sudo chown auser:staff /Users/auser/.ssh/authorized_keys
 sudo chmod 600 /Users/auser/.ssh/authorized_keys
 ```
 
-## Step 4: Verify SSH access from your control Mac
+## Step 5: Verify SSH access from your control Mac
 
 ```bash
 # Should connect without a password prompt
@@ -113,6 +125,7 @@ The bootstrap playbook (`bootstrap-macos-host.yml`) will:
 - Ensure the `auser` admin user exists (creates if missing)
 - Add the SSH public key to the auser user
 - Ensure the auser user is in the admin group
+- Grant auser passwordless sudo (NOPASSWD) — idempotent, safe to re-run
 - Enable Remote Login (SSH server) if not already on
 - Install Nix in multi-user daemon mode with flakes enabled
 - Install Homebrew
@@ -134,7 +147,7 @@ Tailscale and only joins if not already connected.
 ## Replacing the machine
 
 When you replace this Mac with a new one:
-1. Run through Steps 1–4 above on the new machine
+1. Run through Steps 1–5 above on the new machine
 2. Update `ansible_host` in `inventories/macos-hosts.yml` if the
    Tailscale name changed
 3. Run `just ansible-bootstrap-macos`

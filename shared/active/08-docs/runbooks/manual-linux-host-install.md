@@ -79,7 +79,19 @@ sudo usermod -aG sudo auser
 sudo usermod -aG wheel auser
 ```
 
-## Step 3: Add your SSH public key
+## Step 3: Grant auser passwordless sudo (NOPASSWD)
+
+Required for unattended Ansible runs. Without this, every `become: true` task
+would need `--ask-become-pass`, breaking automated configure/deploy runs.
+
+```bash
+echo 'auser ALL=(ALL) NOPASSWD: ALL' | sudo tee /etc/sudoers.d/auser
+sudo chown root:root /etc/sudoers.d/auser
+sudo chmod 0440 /etc/sudoers.d/auser
+sudo visudo -cf /etc/sudoers.d/auser   # validate — must say "parsed OK"
+```
+
+## Step 4: Add your SSH public key
 
 From your Ansible control machine, copy the public key (same key used for
 other hosts):
@@ -96,7 +108,7 @@ sudo chown auser:auser /home/auser/.ssh/authorized_keys
 sudo chmod 600 /home/auser/.ssh/authorized_keys
 ```
 
-## Step 4: Verify SSH access from your control Mac
+## Step 5: Verify SSH access from your control Mac
 
 ```bash
 # Should connect without a password prompt
@@ -136,13 +148,14 @@ The bootstrap playbooks will:
 - Join Tailscale with the auth key from vault
 - Configure SSH hardening
 - Deploy container services
+- Re-assert passwordless sudo for the admin user (idempotent — safe to re-run)
 
 ---
 
 ## Replacing the machine
 
 When you replace a Linux box with a new one:
-1. Run through Steps 1–4 above on the new machine
+1. Run through Steps 1–5 above on the new machine
 2. Update `ansible_host` in the relevant inventory file if the
    hostname/IP changed
 3. Run the appropriate bootstrap playbook
@@ -165,8 +178,10 @@ That's it — the new machine is back to the same state.
 ### sudo: auser is not in the sudoers file
 - Debian: `sudo usermod -aG sudo auser`
 - RHEL: `sudo usermod -aG wheel auser`
-- If NOPASSWD is needed for Ansible (not recommended for production):
-  `echo 'auser ALL=(ALL) NOPASSWD:ALL' | sudo tee /etc/sudoers.d/auser`
+- NOPASSWD is required for unattended Ansible (the host-os-bootstrap role
+  sets it up automatically, but the manual script should do it first to
+  avoid the chicken-and-egg of needing `--ask-become-pass` on the first run):
+  `echo 'auser ALL=(ALL) NOPASSWD: ALL' | sudo tee /etc/sudoers.d/auser && sudo chmod 0440 /etc/sudoers.d/auser`
 
 ### Python3 not found
 - Ansible needs Python3 on the target. Most distros ship it, but minimal

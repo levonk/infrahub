@@ -1,16 +1,42 @@
 ---
 # LocalNet DNS Stack Playbook
-# Deploys: dnsdist, CoreDNS, dnscrypt-plaintext, blocklist-compiler
-# Usage: ansible-playbook -i inventories/localnet.yml playbooks/dns-stack.yml
+# Deploys the full DNS stack: adguard, dnsdist, coredns, dnscrypt tiers, unbound,
+# blocklist-compiler, tor-proxy.
+#
+# Architecture: see diagrams/dns/complete-dns-chain.mmd
+# DNSSEC gap fix: see requirements/dns/dnssec-gap-and-unbound-fix.md
+#
+# Usage:
+#   # Deploy to Windows (dtop202311):
+#   just ansible-deploy-dns-stack
+#   # or directly:
+#   devbox run -- ansible-playbook -i inventories/windows-docker.yml playbooks/dns-stack.yml \
+#     --vault-password-file ~/.ansible/vault_password
+#
+#   # Deploy to Linux (kckinai):
+#   devbox run -- ansible-playbook -i inventories/localnet.yml playbooks/dns-stack.yml \
+#     --vault-password-file ~/.ansible/vault_password
 
-- name: "Deploy LocalNet DNS Stack"
+- name: "Deploy DNS Stack to Windows Docker Desktop"
+  hosts: windows_docker_hosts
+  gather_facts: true
+  become: false
+  vars_files:
+    - ../../shared/active/02-config/ansible/infrastructure/ports.yml
+    - ../../shared/active/02-config/ansible/infrastructure/networks.yml
+
+  roles:
+    - role: dns
+      tags: ["dns"]
+
+- name: "Deploy DNS Stack to LocalNet hosts"
   hosts: localnet_hosts
   become: true
   gather_facts: true
+  vars_files:
+    - ../../shared/active/02-config/ansible/infrastructure/ports.yml
+    - ../../shared/active/02-config/ansible/infrastructure/networks.yml
 
   roles:
-    - role: common
-      tags: ["always", "common"]
-
     - role: dns
       tags: ["dns"]

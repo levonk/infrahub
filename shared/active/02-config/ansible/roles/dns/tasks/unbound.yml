@@ -1,0 +1,103 @@
+---
+# Unbound — validating cache (Layer 3b) + Tier 3 (Tor) + Tier 10 (Root)
+# See: requirements/dns/dnssec-gap-and-unbound-fix.md
+
+# ============================================================================
+# Validating Cache (Layer 3b) — ACTIVE
+# ============================================================================
+- name: Pull unbound image
+  community.docker.docker_image:
+    name: "{{ dns_registry }}/localnet-dns-unbound:latest"
+    source: pull
+    state: present
+  when: dns_unbound_validator_enabled | bool
+
+- name: Deploy unbound validator container
+  community.docker.docker_container:
+    name: localnet-dns-unbound-validator
+    image: localnet-dns-unbound
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ dns_network_name }}"
+        ipv4_address: "{{ dns_unbound_validator_ip }}"
+        aliases:
+          - unbound-validator
+    ports:
+      - "{{ dns_unbound_validator_host_port }}:{{ dns_unbound_validator_container_port }}/udp"
+      - "{{ dns_unbound_validator_host_port }}:{{ dns_unbound_validator_container_port }}/tcp"
+    volumes:
+      - "{{ localnet_services_dir }}/dns/unbound/mounts/templates:/templates:ro"
+      - localnet-dns-unbound-root-key-volume:/var/lib/unbound:rw
+    env:
+      UNBOUND_MODE: "validator"
+      DNS_UNBOUND_VALIDATOR_CONTAINER_PORT: "{{ dns_unbound_validator_container_port }}"
+      DNS_COREDNS_MAIN_IP: "{{ dns_coredns_main_ip }}"
+      DNS_COREDNS_INTERNAL_CONTAINER_PORT: "{{ dns_coredns_internal_container_port }}"
+    log_driver: json-file
+    log_options:
+      max-size: 10m
+      max-file: 5
+  when: dns_unbound_validator_enabled | bool
+
+- name: Wait for unbound validator to be ready
+  ansible.builtin.wait_for:
+    host: "{{ dns_unbound_validator_ip }}"
+    port: "{{ dns_unbound_validator_container_port }}"
+    delay: 5
+    timeout: 30
+  when: dns_unbound_validator_enabled | bool
+
+# ============================================================================
+# Tier 3: Unbound over Tor — ACTIVE
+# ============================================================================
+- name: Deploy unbound-tor container
+  community.docker.docker_container:
+    name: localnet-dns-unbound-tor
+    image: localnet-dns-unbound
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ dns_network_name }}"
+        ipv4_address: "{{ dns_unbound_tor_ip }}"
+        aliases:
+          - unbound-tor
+    volumes:
+      - "{{ localnet_services_dir }}/dns/unbound/mounts/templates:/templates:ro"
+      - localnet-dns-unbound-tor-root-key-volume:/var/lib/unbound:rw
+    env:
+      UNBOUND_MODE: "tor"
+      DNS_UNBOUND_TOR_CONTAINER_PORT: "{{ dns_unbound_tor_container_port }}"
+      PROXY_TOR_SOCKS5_IP: "{{ proxy_tor_socks5_ip }}"
+      PROXY_TOR_SOCKS5_CONTAINER_PORT: "{{ proxy_tor_socks5_container_port }}"
+    log_driver: json-file
+    log_options:
+      max-size: 10m
+      max-file: 5
+  when: dns_unbound_tor_enabled | bool
+
+# ============================================================================
+# Tier 10: Unbound to Root — ACTIVE
+# ============================================================================
+- name: Deploy unbound-root container
+  community.docker.docker_container:
+    name: localnet-dns-unbound-root
+    image: localnet-dns-unbound
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ dns_network_name }}"
+        ipv4_address: "{{ dns_unbound_root_ip }}"
+        aliases:
+          - unbound-root
+    volumes:
+      - "{{ localnet_services_dir }}/dns/unbound/mounts/templates:/templates:ro"
+      - localnet-dns-unbound-root-root-key-volume:/var/lib/unbound:rw
+    env:
+      UNBOUND_MODE: "root"
+      DNS_UNBOUND_ROOT_CONTAINER_PORT: "{{ dns_unbound_root_container_port }}"
+    log_driver: json-file
+    log_options:
+      max-size: 10m
+      max-file: 5
+  when: dns_unbound_root_enabled | bool

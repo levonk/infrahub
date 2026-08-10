@@ -33,6 +33,7 @@ PB_FINAL_AUDIT := ANSIBLE_ROOT + "/playbooks/final-audit.yml"
 PB_NESTED_VIRT := ANSIBLE_ROOT + "/playbooks/test-nested-virtualization.yml"
 PB_ENABLE_WSL2_KVM := ANSIBLE_ROOT + "/playbooks/enable-wsl2-kvm.yml"
 PB_NIX_CACHE_GARNIX := ANSIBLE_ROOT + "/playbooks/deploy-nix-cache-and-garnix.yml"
+PB_DIRECTORY_EMPIRE := ANSIBLE_ROOT + "/playbooks/deploy-directory-empire.yml"
 WINDOWS_INVENTORY := INFRAHUB_ROOT + "/levonk/active/02-config/ansible/inventories/windows-docker.yml"
 
 # Docker commands for Ansible test containers
@@ -141,6 +142,15 @@ docker-build-list:
 
 docker-build-list-internal:
     {{INFRAHUB_ROOT}}/scripts/build-and-push-images.sh --list
+
+# Build and push the Directory Empire dashboard image (external repo build)
+# Clones lrepo52/directory-empire, builds multi-stage Dockerfile, pushes to registry.
+build-directory-empire-image:
+    devbox run build-directory-empire-image-internal
+
+build-directory-empire-image-internal:
+    @echo "Building and pushing directory-empire image to local registry..."
+    {{INFRAHUB_ROOT}}/scripts/build-directory-empire-image.sh
 
 test:
     devbox run test-internal
@@ -383,6 +393,16 @@ ansible-deploy-garnix-ci:
 ansible-deploy-garnix-ci-internal:
     @echo "Deploying Garnix CI on Windows Docker host..."
     ansible-playbook -i {{WINDOWS_INVENTORY}} {{PB_NIX_CACHE_GARNIX}} --vault-password-file ~/.ansible/vault_password --skip-tags harmonia,ncro,ncps
+
+# Deploy Directory Empire dashboard on Windows Docker host
+# Prerequisites: Traefik Windows deployed, DNS CNAME configured, image built+pushed.
+ansible-deploy-directory-empire:
+    @echo "Deploying Directory Empire dashboard on Windows Docker host..."
+    devbox run -- ansible-playbook -i {{WINDOWS_INVENTORY}} {{PB_DIRECTORY_EMPIRE}} --vault-password-file ~/.ansible/vault_password
+
+ansible-deploy-directory-empire-internal:
+    @echo "Deploying Directory Empire dashboard on Windows Docker host..."
+    ansible-playbook -i {{WINDOWS_INVENTORY}} {{PB_DIRECTORY_EMPIRE}} --vault-password-file ~/.ansible/vault_password
 
 # -- Deploy Playbooks --
 # Client-specific deploy/validate recipes have been moved to levonk/justfile.

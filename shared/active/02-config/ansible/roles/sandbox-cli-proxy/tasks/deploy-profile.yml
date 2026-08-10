@@ -1,0 +1,152 @@
+---
+# deploy-profile.yml — deploys a single iron-proxy instance for one egress profile
+# Called via include_tasks with loop_var=profile
+
+# ---------------------------------------------------------------------------
+# Docker Network
+# ---------------------------------------------------------------------------
+- name: "Ensure {{ profile.name }} sandbox Docker network exists"
+  community.docker.docker_network:
+    name: "{{ profile.network }}"
+    state: present
+    driver: bridge
+    ipam_config:
+      - subnet: "{{ profile.subnet }}"
+        gateway: "{{ profile.gateway }}"
+  become: true
+
+# ---------------------------------------------------------------------------
+# Configuration Template
+# ---------------------------------------------------------------------------
+- name: "Deploy {{ profile.name }} iron-proxy configuration"
+  ansible.builtin.template:
+    src: iron-proxy-profile.yml.j2
+    dest: "{{ sandbox_cli_proxy_config_dir }}/{{ profile.name }}/iron-proxy.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: restart sandbox-cli-proxy
+
+# ---------------------------------------------------------------------------
+# CA Certificate Generation (shared across profiles, generated once)
+# ---------------------------------------------------------------------------
+- name: Check if sandbox CA certificate exists
+  ansible.builtin.stat:
+    path: "{{ sandbox_cli_proxy_ca_dir }}/ca.crt"
+  register: sandbox_ca_cert
+  become: true
+
+- name: Generate CA certificate for sandbox MITM mode
+  ansible.builtin.command:
+    cmd: >
+      openssl req -x509 -newkey rsa:4096 -keyout {{ sandbox_cli_proxy_ca_dir }}/ca.key
+      -out {{ sandbox_cli_proxy_ca_dir }}/ca.crt -days 3650 -nodes
+      -subj "/CN=sandbox-cli-proxy CA/O=sandbox-cli/C=US"
+      -addext "basicConstraints=critical,CA:true"
+      -addext "keyUsage=critical,keyCertSign"
+  become: true
+  when:
+    - sandbox_cli_proxy_tls_mode == "mitm"
+    - not sandbox_ca_cert.stat.exists
+  notify: restart sandbox-cli-proxy
+
+- name: Set CA key permissions readable by container
+  ansible.builtin.file:
+    path: "{{ sandbox_cli_proxy_ca_dir }}/ca.key"
+    mode: "0644"
+  become: true
+  when:
+    - sandbox_cli_proxy_tls_mode == "mitm"
+    - not sandbox_ca_cert.stat.exists
+
+# ---------------------------------------------------------------------------
+# Docker Volume for CA cert
+# ---------------------------------------------------------------------------
+- name: "Ensure {{ profile.name }} CA volume exists"
+  community.docker.docker_volume:
+    name: "sandbox-cli-ca-{{ profile.name }}"
+    state: present
+  become: true
+
+# ---------------------------------------------------------------------------
+# iron-proxy Container
+# ---------------------------------------------------------------------------
+- name: "Deploy {{ profile.name }} iron-proxy container"
+  community.docker.docker_container:
+    name: "sandbox-iron-proxy-{{ profile.name }}"
+    image: "{{ sandbox_cli_proxy_image }}"
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ profile.network }}"
+        ipv4_address: "{{ profile.proxy_ip }}"
+    ports:
+      - "{{ profile.http_port }}:{{ sandbox_cli_proxy_http_container_port | default('80') }}/tcp"
+      - "{{ profile.https_port }}:{{ sandbox_cli_proxy_https_container_port | default('443') }}/tcp"
+    volumes:
+      - "{{ sandbox_cli_proxy_config_dir }}/{{ profile.name }}/iron-proxy.yml:/etc/iron-proxy/iron-proxy.yml:ro"
+      - "{{ sandbox_cli_proxy_ca_dir }}/ca.crt:/etc/iron-proxy/ca.crt:ro"
+      - "{{ sandbox_cli_proxy_ca_dir }}/ca.key:/etc/iron-proxy/ca.key:ro"
+      - "sandbox-cli-ca-{{ profile.name }}:/etc/iron-proxy-ca"
+    env:
+      IRON_DNS_ENABLED: "{{ sandbox_cli_proxy_dns_enabled | ternary('true', 'false') }}"
+      IRON_DNS_LISTEN: ":{{ profile.dns_port | default('53') }}"
+      IRON_DNS_PROXY_IP: "{{ sandbox_cli_proxy_dns_proxy_ip }}"
+      IRON_PROXY_HTTP_LISTEN: ":{{ sandbox_cli_proxy_http_container_port | default('80') }}"
+      IRON_PROXY_HTTPS_LISTEN: ":{{ sandbox_cli_proxy_https_container_port | default('443') }}"
+      IRON_TLS_MODE: "{{ sandbox_cli_proxy_tls_mode }}"
+      IRON_TLS_CA_CERT: "/etc/iron-proxy/ca.crt"
+      IRON_TLS_CA_KEY: "/etc/iron-proxy/ca.key"
+      IRON_TLS_CERT_CACHE_SIZE: "{{ sandbox_cli_proxy_cert_cache_size | string }}"
+      IRON_TLS_LEAF_CERT_EXPIRY_HOURS: "{{ sandbox_cli_proxy_leaf_cert_expiry_hours | string }}"
+    cap_drop:
+      - ALL
+    capabilities:
+      - NET_BIND_SERVICE
+      - CHOWN
+      - DAC_OVERRIDE
+    security_opts:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=100m
+    log_driver: json-file
+    log_options:
+      max-size: "10m"
+      max-file: "5"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:{{ sandbox_cli_proxy_http_container_port | default('80') }}/ 2>/dev/null; rc=$?; [ $rc -le 1 ] || exit 1"]
+      interval: "30s"
+      timeout: "5s"
+      retries: 3
+      start_period: "10s"
+  become: true
+
+# ---------------------------------------------------------------------------
+# Health Verification
+# ---------------------------------------------------------------------------
+- name: "Wait for {{ profile.name }} iron-proxy to be healthy"
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ profile.http_port }}/health"
+    status_code: [200, 502]
+  register: profile_health
+  until: profile_health.status in [200, 502]
+  retries: 10
+  delay: 5
+  when:
+    - sandbox_cli_proxy_enabled | bool
+    - sandbox_cli_proxy_verify_health | bool
+
+# ---------------------------------------------------------------------------
+# Extract CA cert to host for just recipe mounting
+# ---------------------------------------------------------------------------
+- name: "Ensure CA cert is accessible on host for {{ profile.name }}"
+  ansible.builtin.copy:
+    src: "{{ sandbox_cli_proxy_ca_dir }}/ca.crt"
+    dest: "{{ sandbox_cli_proxy_ca_dir }}/ca/ca.crt"
+    remote_src: true
+    owner: root
+    group: root
+    mode: "0644"
+  become: true

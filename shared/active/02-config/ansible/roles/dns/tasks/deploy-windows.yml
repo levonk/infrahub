@@ -1,0 +1,604 @@
+---
+# Windows (nl) deployment — ssh-tunneled Docker CLI pattern
+# Target: Windows Docker Desktop (dtop202311, X86)
+#
+# community.docker modules can't run on Windows (Ansible core basic.py imports
+# grp, Unix-only). We use ansible.builtin.shell with DOCKER_HOST: ssh:// and
+# delegate_to: localhost, matching the nix-ncro/verdaccio pattern.
+#
+# Config templates are seeded into Docker volumes via temp alpine containers
+# because Windows path mounting is unreliable via SSH-tunneled Docker.
+
+# ============================================================================
+# 1. Prepare local temp directory for config staging
+# ============================================================================
+- name: Ensure local temp directory for DNS config exists
+  ansible.builtin.file:
+    path: "{{ dns_windows_temp_dir }}"
+    state: directory
+    mode: "0755"
+  delegate_to: localhost
+  run_once: true
+  changed_when: false
+  tags: ["deploy", "config"]
+
+# ============================================================================
+# 2. Copy config templates to local temp dir
+# ============================================================================
+- name: Copy DNS config templates to local temp
+  ansible.builtin.copy:
+    src: "{{ role_path }}/../../../../03-container/services/dns/"
+    dest: "{{ dns_windows_temp_dir }}/"
+    mode: "0644"
+  delegate_to: localhost
+  run_once: true
+  changed_when: false
+  tags: ["deploy", "config"]
+
+# ============================================================================
+# 3. Ensure Docker network exists
+# ============================================================================
+- name: Ensure DNS network exists
+  ansible.builtin.shell: >-
+    docker network inspect {{ dns_network_name }} 2>/dev/null ||
+    docker network create --subnet={{ dns_network_subnet }} {{ dns_network_name }}
+  environment:
+    DOCKER_HOST: "{{ dns_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "network"]
+
+# ============================================================================
+# 4. Ensure Docker volumes exist
+# ============================================================================
+- name: Ensure DNS volumes exist
+  ansible.builtin.shell: >-
+    docker volume inspect {{ item }} 2>/dev/null ||
+    docker volume create {{ item }}
+  environment:
+    DOCKER_HOST: "{{ dns_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: false
+  loop:
+    - localnet-dns-blocklist-archive-volume
+    - localnet-dns-blocklist-cdbs-volume
+    - localnet-dns-coredns-cache-volume
+    - localnet-dns-adguard-conf-volume
+    - localnet-dns-adguard-work-volume
+    - localnet-dns-unbound-validator-root-key-volume
+    - localnet-dns-unbound-tor-root-key-volume
+    - localnet-dns-unbound-root-root-key-volume
+    - localnet-dns-templates-coredns-volume
+    - localnet-dns-templates-dnscrypt-volume
+    - localnet-dns-templates-unbound-volume
+    - localnet-dns-templates-dnsdist-volume
+    - localnet-dns-templates-adguard-volume
+  tags: ["deploy", "volume"]
+
+# ============================================================================
+# 5. Seed template volumes via temp alpine containers
+# ============================================================================
+- name: Seed template volumes with config files
+  ansible.builtin.shell: |
+    set -e
+    # Remove any existing seed container
+    docker rm -f {{ item.seed_name }} 2>/dev/null || true
+    # Create temp container with volume mounted
+    docker create --name {{ item.seed_name }} -v {{ item.volume }}:/seed alpine:latest sleep infinity
+    # Copy template files into volume
+    docker cp "{{ dns_windows_temp_dir }}/{{ item.src_path }}/." "{{ item.seed_name }}:/seed/"
+    # Clean up seed container
+    docker rm -f {{ item.seed_name }}
+  environment:
+    DOCKER_HOST: "{{ dns_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: false
+  loop:
+    - { seed_name: "dns-seed-coredns", volume: "localnet-dns-templates-coredns-volume", src_path: "coredns/mounts/templates" }
+    - { seed_name: "dns-seed-dnscrypt", volume: "localnet-dns-templates-dnscrypt-volume", src_path: "dnscrypt/mounts/templates" }
+    - { seed_name: "dns-seed-unbound", volume: "localnet-dns-templates-unbound-volume", src_path: "unbound/mounts/templates" }
+    - { seed_name: "dns-seed-dnsdist", volume: "localnet-dns-templates-dnsdist-volume", src_path: "dnsdist/mounts/templates" }
+  tags: ["deploy", "config"]
+
+# ============================================================================
+# 6. Pull images
+# ============================================================================
+- name: Pull DNS images (skip if already loaded locally)
+  ansible.builtin.shell: >-
+    docker image inspect {{ item }}:latest >/dev/null 2>&1 ||
+    docker pull {{ dns_registry }}/{{ item }}:latest
+  environment:
+    DOCKER_HOST: "{{ dns_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: false
+  failed_when: false
+  loop:
+    - "localnet-dns-coredns"
+    - "localnet-dns-dnsdist"
+    - "localnet-dns-dnscrypt"
+    - "localnet-dns-unbound"
+    - "localnet-dns-adguard"
+    - "localnet-dns-blocklist-compiler"
+    - "localnet-proxy-tor"
+  tags: ["deploy", "images"]
+
+# ============================================================================
+# 7. Deploy containers — stop/remove old, create new
+# ============================================================================
+# Helper: each container is stopped, removed, and recreated with new config.
+# This ensures config changes are picked up on redeploy.
+
+# --- Tor SOCKS Proxy ---
+- name: Deploy tor-proxy container
+  ansible.builtin.shell: |
+    set -e
+    docker rm -f localnet-proxy-tor 2>/dev/null || true
+    docker run -d \
+      --name localnet-proxy-tor \
+      --restart unless-stopped \
+      --network {{ dns_network_name }} \
+      --ip {{ dns_tor_proxy_ip }} \
+      -e PROXY_TOR_SOCKS5_CONTAINER_PORT={{ proxy_tor_socks5_container_port }} \
+      localnet-proxy-tor:latest
+  environment:
+    DOCKER_HOST: "{{ dns_docker_host_windows }}"
+  delegate_to: localhost
+  tags: ["deploy", "tor-proxy"]
+
+# --- Blocklist Compiler ---
+- name: Deploy blocklist-compiler container
+  ansible.builtin.shell: |
+    set -e
+    docker rm -f localnet-dns-blocklist-compiler 2>/dev/null || true
+    docker run -d \
+      --name localnet-dns-blocklist-compiler \
+      --restart on-failure \
+      --network {{ dns_network_name }} \
+      -v localnet-dns-blocklist-archive-volume:/blocklists/sources:rw \
+      -v localnet-dns-blocklist-cdbs-volume:/blocklists/compiled:rw \
+      -e DNS_BLOCKLIST_UPDATE_INTERVAL=3600 \
+      localnet-dns-blocklist-compiler:latest
+  environment:
+    DOCKER_HOST: "{{ dns_docker_host_windows }}"
+  delegate_to: localhost
+  tags: ["deploy", "blocklist"]
+
+# --- dnscrypt ODoH (Tier 1 — ACTIVE) ---
+- name: Deploy dnscrypt-odoh container
+  ansible.builtin.shell: |
+    set -e
+    docker rm -f localnet-dns-dnscrypt-odoh 2>/dev/null || true
+    docker run -d \
+      --name localnet-dns-dnscrypt-odoh \
+      --restart unless-stopped \
+      --network {{ dns_network_name }} \
+      --ip {{ dns_dnscrypt_odoh_ip }} \
+      -p {{ dns_dnscrypt_odoh_host_port }}:{{ dns_dnscrypt_odoh_container_port }}/udp \
+      -p {{ dns_dnscrypt_odoh_host_port }}:{{ dns_dnscrypt_odoh_container_port }}/tcp \
+      -v localnet-dns-templates-dnscrypt-volume:/templates:ro \
+      -e DNS_DNSCRYPT_ODOH_CONTAINER_PORT={{ dns_dnscrypt_odoh_container_port }} \
+      localnet-dns-dnscrypt:latest \
+      /usr/local/bin/entrypoint-dnscrypt.sh dnscrypt-proxy-odoh
+  environment:
+    DOCKER_HOST: "{{ dns_docker_host_windows }}"
+  delegate_to: localhost
+  when: dns_dnscrypt_odoh_enabled | bool
+  tags: ["deploy", "dnscrypt-odoh"]
+
+# --- dnscrypt Anon (Tier 2 — ACTIVE) ---
+- name: Deploy dnscrypt-anon container
+  ansible.builtin.shell: |
+    set -e
+    docker rm -f localnet-dns-dnscrypt-anon 2>/dev/null || true
+    docker run -d \
+      --name localnet-dns-dnscrypt-anon \
+      --restart unless-stopped \
+      --network {{ dns_network_name }} \
+      --ip {{ dns_dnscrypt_anon_ip }} \
+      -p {{ dns_dnscrypt_anon_host_port }}:{{ dns_dnscrypt_anon_container_port }}/udp \
+      -p {{ dns_dnscrypt_anon_host_port }}:{{ dns_dnscrypt_anon_container_port }}/tcp \
+      -v localnet-dns-templates-dnscrypt-volume:/templates:ro \
+      -e DNS_DNSCRYPT_ANON_CONTAINER_PORT={{ dns_dnscrypt_anon_container_port }} \
+      localnet-dns-dnscrypt:latest \
+      /usr/local/bin/entrypoint-dnscrypt.sh dnscrypt-proxy-anon
+  environment:
+    DOCKER_HOST: "{{ dns_docker_host_windows }}"
+  delegate_to: localhost
+  when: dns_dnscrypt_anon_enabled | bool
+  tags: ["deploy", "dnscrypt-anon"]
+
+# --- dnscrypt Plaintext (Tier 12 — ACTIVE, last resort) ---
+- name: Deploy dnscrypt-plaintext container
+  ansible.builtin.shell: |
+    set -e
+    docker rm -f localnet-dns-dnscrypt-plaintext 2>/dev/null || true
+    docker run -d \
+      --name localnet-dns-dnscrypt-plaintext \
+      --restart unless-stopped \
+      --network {{ dns_network_name }} \
+      --ip {{ dns_dnscrypt_plaintext_ip }} \
+      -p {{ dns_dnscrypt_plaintext_host_port }}:{{ dns_dnscrypt_plaintext_container_port }}/udp \
+      -p {{ dns_dnscrypt_plaintext_host_port }}:{{ dns_dnscrypt_plaintext_container_port }}/tcp \
+      -v localnet-dns-templates-dnscrypt-volume:/templates:ro \
+      -e DNS_DNSCRYPT_PLAINTEXT_CONTAINER_PORT={{ dns_dnscrypt_plaintext_container_port }} \
+      localnet-dns-dnscrypt:latest \
+      /usr/local/bin/entrypoint-dnscrypt.sh dnscrypt-proxy-plaintext
+  environment:
+    DOCKER_HOST: "{{ dns_docker_host_windows }}"
+  delegate_to: localhost
+  when: dns_dnscrypt_plaintext_enabled | bool
+  tags: ["deploy", "dnscrypt-plaintext"]
+
+# --- Unbound Validator (Layer 3b — ACTIVE) ---
+- name: Deploy unbound-validator container
+  ansible.builtin.shell: |
+    set -e
+    docker rm -f localnet-dns-unbound-validator 2>/dev/null || true
+    docker run -d \
+      --name localnet-dns-unbound-validator \
+      --restart unless-stopped \
+      --network {{ dns_network_name }} \
+      --ip {{ dns_unbound_validator_ip }} \
+      -p {{ dns_unbound_validator_host_port }}:{{ dns_unbound_validator_container_port }}/udp \
+      -p {{ dns_unbound_validator_host_port }}:{{ dns_unbound_validator_container_port }}/tcp \
+      -v localnet-dns-templates-unbound-volume:/templates:ro \
+      -v localnet-dns-unbound-validator-root-key-volume:/var/lib/unbound:rw \
+      -e UNBOUND_MODE=validator \
+      -e DNS_UNBOUND_VALIDATOR_CONTAINER_PORT={{ dns_unbound_validator_container_port }} \
+      -e DNS_COREDNS_MAIN_IP={{ dns_coredns_main_ip }} \
+      -e DNS_COREDNS_INTERNAL_CONTAINER_PORT={{ dns_coredns_internal_container_port }} \
+      localnet-dns-unbound:latest
+  environment:
+    DOCKER_HOST: "{{ dns_docker_host_windows }}"
+  delegate_to: localhost
+  when: dns_unbound_validator_enabled | bool
+  tags: ["deploy", "unbound-validator"]
+
+# --- Unbound Tor (Tier 3 — ACTIVE) ---
+- name: Deploy unbound-tor container
+  ansible.builtin.shell: |
+    set -e
+    docker rm -f localnet-dns-unbound-tor 2>/dev/null || true
+    docker run -d \
+      --name localnet-dns-unbound-tor \
+      --restart unless-stopped \
+      --network {{ dns_network_name }} \
+      --ip {{ dns_unbound_tor_ip }} \
+      -v localnet-dns-templates-unbound-volume:/templates:ro \
+      -v localnet-dns-unbound-tor-root-key-volume:/var/lib/unbound:rw \
+      -e UNBOUND_MODE=tor \
+      -e DNS_UNBOUND_TOR_CONTAINER_PORT={{ dns_unbound_tor_container_port }} \
+      -e PROXY_TOR_SOCKS5_IP={{ proxy_tor_socks5_ip }} \
+      -e PROXY_TOR_SOCKS5_CONTAINER_PORT={{ proxy_tor_socks5_container_port }} \
+      localnet-dns-unbound:latest
+  environment:
+    DOCKER_HOST: "{{ dns_docker_host_windows }}"
+  delegate_to: localhost
+  when: dns_unbound_tor_enabled | bool
+  tags: ["deploy", "unbound-tor"]
+
+# --- Unbound Root (Tier 10 — ACTIVE) ---
+- name: Deploy unbound-root container
+  ansible.builtin.shell: |
+    set -e
+    docker rm -f localnet-dns-unbound-root 2>/dev/null || true
+    docker run -d \
+      --name localnet-dns-unbound-root \
+      --restart unless-stopped \
+      --network {{ dns_network_name }} \
+      --ip {{ dns_unbound_root_ip }} \
+      -v localnet-dns-templates-unbound-volume:/templates:ro \
+      -v localnet-dns-unbound-root-root-key-volume:/var/lib/unbound:rw \
+      -e UNBOUND_MODE=root \
+      -e DNS_UNBOUND_ROOT_CONTAINER_PORT={{ dns_unbound_root_container_port }} \
+      localnet-dns-unbound:latest
+  environment:
+    DOCKER_HOST: "{{ dns_docker_host_windows }}"
+  delegate_to: localhost
+  when: dns_unbound_root_enabled | bool
+  tags: ["deploy", "unbound-root"]
+
+# --- CoreDNS ---
+- name: Deploy coredns container
+  ansible.builtin.shell: |
+    set -e
+    docker rm -f localnet-dns-coredns 2>/dev/null || true
+    docker run -d \
+      --name localnet-dns-coredns \
+      --restart unless-stopped \
+      --network {{ dns_network_name }} \
+      --ip {{ dns_coredns_main_ip }} \
+      -p {{ dns_coredns_main_host_port }}:{{ dns_coredns_main_container_port }}/udp \
+      -p {{ dns_coredns_main_host_port }}:{{ dns_coredns_main_container_port }}/tcp \
+      -p {{ dns_coredns_main_health_host_port }}:{{ dns_coredns_main_health_container_port }}/tcp \
+      -v localnet-dns-templates-coredns-volume:/templates:ro \
+      -v localnet-dns-coredns-cache-volume:/var/lib/coredns:rw \
+      -e DNS_COREDNS_MAIN_IP={{ dns_coredns_main_ip }} \
+      -e DNS_COREDNS_MAIN_CONTAINER_PORT={{ dns_coredns_main_container_port }} \
+      -e DNS_COREDNS_MAIN_HEALTH_CONTAINER_PORT={{ dns_coredns_main_health_container_port }} \
+      -e DNS_COREDNS_INTERNAL_CONTAINER_PORT={{ dns_coredns_internal_container_port }} \
+      -e DNS_UNBOUND_VALIDATOR_IP={{ dns_unbound_validator_ip }} \
+      -e DNS_UNBOUND_VALIDATOR_CONTAINER_PORT={{ dns_unbound_validator_container_port }} \
+      -e DNS_UNBOUND_TOR_IP={{ dns_unbound_tor_ip }} \
+      -e DNS_UNBOUND_TOR_CONTAINER_PORT={{ dns_unbound_tor_container_port }} \
+      -e DNS_UNBOUND_ROOT_IP={{ dns_unbound_root_ip }} \
+      -e DNS_UNBOUND_ROOT_CONTAINER_PORT={{ dns_unbound_root_container_port }} \
+      -e DNS_DNSCRYPT_ODOH_IP={{ dns_dnscrypt_odoh_ip }} \
+      -e DNS_DNSCRYPT_ODOH_CONTAINER_PORT={{ dns_dnscrypt_odoh_container_port }} \
+      -e DNS_DNSCRYPT_ANON_IP={{ dns_dnscrypt_anon_ip }} \
+      -e DNS_DNSCRYPT_ANON_CONTAINER_PORT={{ dns_dnscrypt_anon_container_port }} \
+      -e DNS_DNSCRYPT_STD_IP={{ dns_dnscrypt_std_ip }} \
+      -e DNS_DNSCRYPT_STD_CONTAINER_PORT={{ dns_dnscrypt_std_container_port }} \
+      -e DNS_DNSCRYPT_DOH_IP={{ dns_dnscrypt_doh_ip }} \
+      -e DNS_DNSCRYPT_DOH_CONTAINER_PORT={{ dns_dnscrypt_doh_container_port }} \
+      -e DNS_DNSCRYPT_ENCRYPTED_IP={{ dns_dnscrypt_encrypted_ip }} \
+      -e DNS_DNSCRYPT_ENCRYPTED_CONTAINER_PORT={{ dns_dnscrypt_encrypted_container_port }} \
+      -e DNS_DNSCRYPT_PLAINTEXT_IP={{ dns_dnscrypt_plaintext_ip }} \
+      -e DNS_DNSCRYPT_PLAINTEXT_CONTAINER_PORT={{ dns_dnscrypt_plaintext_container_port }} \
+      -e DNS_DNSCRYPT_TOR_IP={{ dns_dnscrypt_tor_ip }} \
+      -e DNS_DNSCRYPT_TOR_CONTAINER_PORT={{ dns_dnscrypt_tor_container_port }} \
+      -e PROXY_TOR_SOCKS5_IP={{ proxy_tor_socks5_ip }} \
+      -e PROXY_TOR_SOCKS5_CONTAINER_PORT={{ proxy_tor_socks5_container_port }} \
+      localnet-dns-coredns:latest
+  environment:
+    DOCKER_HOST: "{{ dns_docker_host_windows }}"
+  delegate_to: localhost
+  tags: ["deploy", "coredns"]
+
+# --- DNSDist ---
+- name: Deploy dnsdist container
+  ansible.builtin.shell: |
+    set -e
+    docker rm -f localnet-dns-dnsdist 2>/dev/null || true
+    docker run -d \
+      --name localnet-dns-dnsdist \
+      --restart unless-stopped \
+      --network {{ dns_network_name }} \
+      --ip {{ dns_dnsdist_ip }} \
+      -p {{ dns_dnsdist_main_host_port }}:{{ dns_dnsdist_main_container_port }}/udp \
+      -p {{ dns_dnsdist_main_host_port }}:{{ dns_dnsdist_main_container_port }}/tcp \
+      -p {{ dns_dnsdist_metrics_host_port }}:{{ dns_dnsdist_metrics_container_port }}/tcp \
+      -v localnet-dns-templates-dnsdist-volume:/templates:ro \
+      -v localnet-dns-blocklist-cdbs-volume:/etc/dnsdist/blocklists:ro \
+      -e DNS_DNSDIST_MAIN_CONTAINER_PORT={{ dns_dnsdist_main_container_port }} \
+      -e DNS_COREDNS_MAIN_IP={{ dns_coredns_main_ip }} \
+      -e DNS_COREDNS_MAIN_CONTAINER_PORT={{ dns_coredns_main_container_port }} \
+      localnet-dns-dnsdist:latest
+  environment:
+    DOCKER_HOST: "{{ dns_docker_host_windows }}"
+  delegate_to: localhost
+  tags: ["deploy", "dnsdist"]
+
+# --- AdGuard Home ---
+# Pre-seed AdGuardHome.yaml config into the conf volume so the first-launch
+# wizard is skipped. The template is rendered locally then copied into the
+# volume via a temp alpine container.
+- name: Render AdGuardHome.yaml to local temp
+  ansible.builtin.copy:
+    dest: "{{ dns_windows_temp_dir }}/AdGuardHome.yaml"
+    mode: "0644"
+    content: |
+      http:
+        address: 0.0.0.0:{{ dns_adguard_web_container_port }}
+        session_ttl: 720h
+      users:
+        - name: {{ dns_adguard_admin_user }}
+          password: "{{ dns_adguard_admin_password_hash }}"
+      auth_attempts: 5
+      block_auth_min: 15
+      http_proxy: ""
+      language: ""
+      theme: auto
+      dns:
+        bind_hosts:
+          - 0.0.0.0
+        port: {{ dns_adguard_container_port }}
+        anonymize_client_ip: false
+        protection_enabled: true
+        blocking_mode: default
+        blocking_ipv4: ""
+        blocking_ipv6: ""
+        blocked_response_ttl: 10
+        protection_disabled_sec: 0
+        edns_cs_enabled: false
+        edns_cs_use_custom: false
+        edns_cs_custom_ip: ""
+        disable_ipv6: false
+        upstream_dns:
+          - "{{ dns_dnsdist_ip }}:{{ dns_dnsdist_main_container_port }}"
+        upstream_dns_file: ""
+        bootstrap_dns:
+          - 1.1.1.1
+          - 9.9.9.9
+        fallback_dns:
+          - "{{ dns_dnscrypt_plaintext_ip }}:{{ dns_dnscrypt_plaintext_container_port }}"
+        fallback_dns_file: ""
+        all_servers: false
+        fastest_addr: false
+        fastest_timeout: 1s
+        allowed_clients: []
+        disallowed_clients: []
+        blocked_hosts:
+          - version.bind
+          - id.server
+          - hostname.bind
+        trusted_proxies: []
+        cache_size: 4194304
+        cache_ttl_min: 60
+        cache_ttl_max: 86400
+        cache_optimistic: true
+        bogus_nxdomain: []
+        aaaa_blocked: false
+        remove_private_addresses: false
+        dnssec_enabled: false
+        upstream_mode: load_balance
+        max_goroutines: 50
+        ipset: []
+        use_private_ptr_resolvers: true
+        local_ptr_upstreams: []
+        use_dns64: false
+        dns64_cidrs: []
+        default_local_ptr_upstream: ""
+      tls:
+        enabled: false
+        server_name: ""
+        force_https: false
+        port_https: 443
+        port_dns_over_tls: 853
+        port_dns_over_quic: 853
+        port_dnscrypt: 5443
+        dnscrypt_config_file: ""
+        allow_unencrypted_do_h: false
+        strict_sni_check: false
+        certificate_chain: ""
+        private_key: ""
+        certificate_path: ""
+        private_key_path: ""
+      filters:
+        - enabled: true
+          url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt
+          name: AdGuard DNS filter
+          id: 1
+        - enabled: true
+          url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_2.txt
+          name: AdAway Default Blocklist
+          id: 2
+      whitelist_filters: []
+      user_rules: []
+      dhcp:
+        enabled: false
+        interface_name: ""
+        local_domain_name: lan
+        dhcpv4:
+          gateway_ip: ""
+          subnet_cidr: ""
+          range_start: ""
+          range_end: ""
+          lease_duration: 86400
+          icmp_timeout_msec: 1000
+          options: []
+        dhcpv6:
+          range_start: ""
+          lease_duration: 86400
+          ra_slaac_only: false
+          ra_allow_slaac: false
+      clients:
+        runtime_sources:
+          whois: true
+          arp: true
+          rdns: true
+          hosts: true
+          persistent: true
+      log_file: ""
+      log_maxbackups: 0
+      log_maxsize: 100
+      log_maxage: 3
+      log_compress: false
+      log_localtime: false
+      verbose: false
+      os:
+        group: ""
+        user: ""
+        rlimit_nofile: 0
+      schema_version: 28
+  delegate_to: localhost
+  run_once: true
+  changed_when: false
+  tags: ["deploy", "adguard", "config"]
+
+- name: Seed AdGuardHome.yaml into conf volume
+  ansible.builtin.shell: |
+    set -e
+    docker rm -f dns-seed-adguard 2>/dev/null || true
+    docker create --name dns-seed-adguard -v localnet-dns-adguard-conf-volume:/conf alpine:latest sleep infinity
+    docker cp "{{ dns_windows_temp_dir }}/AdGuardHome.yaml" dns-seed-adguard:/conf/AdGuardHome.yaml
+    docker rm -f dns-seed-adguard
+  environment:
+    DOCKER_HOST: "{{ dns_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "adguard", "config"]
+
+- name: Deploy adguard container
+  ansible.builtin.shell: |
+    set -e
+    docker rm -f localnet-dns-adguard 2>/dev/null || true
+    docker run -d \
+      --name localnet-dns-adguard \
+      --restart unless-stopped \
+      --user 0:0 \
+      --network {{ dns_network_name }} \
+      --ip {{ dns_adguard_ip }} \
+      -p {{ dns_adguard_host_port }}:{{ dns_adguard_container_port }}/udp \
+      -p {{ dns_adguard_host_port }}:{{ dns_adguard_container_port }}/tcp \
+      -p {{ dns_adguard_web_host_port }}:{{ dns_adguard_web_container_port }}/tcp \
+      -v localnet-dns-adguard-conf-volume:/opt/adguardhome/conf:rw \
+      -v localnet-dns-adguard-work-volume:/opt/adguardhome/work:rw \
+      -e TZ={{ localnet_tz | default('UTC') }} \
+      --entrypoint /opt/adguardhome/AdGuardHome \
+      localnet-dns-adguard:latest \
+      -c /opt/adguardhome/conf/AdGuardHome.yaml
+  environment:
+    DOCKER_HOST: "{{ dns_docker_host_windows }}"
+  delegate_to: localhost
+  tags: ["deploy", "adguard"]
+
+# ============================================================================
+# 8. Wait for containers to be ready
+# ============================================================================
+- name: Wait for CoreDNS to be ready
+  ansible.builtin.shell: >-
+    docker exec localnet-dns-coredns curl -sf
+    http://127.0.0.1:{{ dns_coredns_main_health_container_port }}/health
+  environment:
+    DOCKER_HOST: "{{ dns_docker_host_windows }}"
+  delegate_to: localhost
+  register: coredns_health
+  until: coredns_health.rc == 0
+  retries: 10
+  delay: 5
+  changed_when: false
+  tags: ["deploy", "verify"]
+
+- name: Wait for Unbound validator to be ready
+  ansible.builtin.shell: >-
+    docker exec localnet-dns-unbound-validator dig +short example.com
+    @127.0.0.1 -p {{ dns_unbound_validator_container_port }}
+  environment:
+    DOCKER_HOST: "{{ dns_docker_host_windows }}"
+  delegate_to: localhost
+  register: unbound_health
+  until: unbound_health.rc == 0
+  retries: 10
+  delay: 5
+  changed_when: false
+  tags: ["deploy", "verify"]
+
+# ============================================================================
+# 9. Status Report
+# ============================================================================
+- name: Get container status
+  ansible.builtin.shell: >-
+    docker ps --filter "name=localnet-dns-" --format "table {{ '{{.Names}}' }}\t{{ '{{.Status}}' }}"
+  environment:
+    DOCKER_HOST: "{{ dns_docker_host_windows }}"
+  delegate_to: localhost
+  register: dns_container_status
+  changed_when: false
+  tags: ["deploy", "status"]
+
+- name: Report DNS stack status
+  ansible.builtin.debug:
+    msg: |
+      DNS Stack deployed on {{ inventory_hostname }}:
+      {{ dns_container_status.stdout }}
+      
+      Ports:
+        - AdGuard Web UI: http://localhost:{{ dns_adguard_web_host_port }}
+        - DNSDist direct: localhost:{{ dns_dnsdist_main_host_port }}
+        - CoreDNS direct: localhost:{{ dns_coredns_main_host_port }}
+        - Unbound validator: localhost:{{ dns_unbound_validator_host_port }}
+        - dnscrypt-odoh (Tier 1): localhost:{{ dns_dnscrypt_odoh_host_port }}
+        - dnscrypt-anon (Tier 2): localhost:{{ dns_dnscrypt_anon_host_port }}
+        - dnscrypt-plaintext (Tier 12): localhost:{{ dns_dnscrypt_plaintext_host_port }}
+  tags: ["deploy", "status"]

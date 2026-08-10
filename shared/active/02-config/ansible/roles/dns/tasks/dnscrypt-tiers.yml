@@ -1,0 +1,79 @@
+---
+# dnscrypt-proxy tiers — ODoH (Tier 1) and Anon (Tier 2)
+# Dark tiers (std, doh, encrypted, tor, plaintext-tor) are created but not started.
+# See: diagrams/dns/complete-dns-chain.mmd
+
+# ============================================================================
+# Tier 1: Oblivious DoH — ACTIVE
+# ============================================================================
+- name: Pull dnscrypt-odoh image
+  community.docker.docker_image:
+    name: "{{ dns_registry }}/localnet-dns-dnscrypt:latest"
+    source: pull
+    state: present
+  when: dns_dnscrypt_odoh_enabled | bool
+
+- name: Deploy dnscrypt-odoh container
+  community.docker.docker_container:
+    name: localnet-dns-dnscrypt-odoh
+    image: localnet-dns-dnscrypt
+    state: started
+    restart_policy: unless-stopped
+    command: ["/usr/local/bin/entrypoint-dnscrypt.sh", "dnscrypt-proxy-odoh"]
+    networks:
+      - name: "{{ dns_network_name }}"
+        ipv4_address: "{{ dns_dnscrypt_odoh_ip }}"
+    ports:
+      - "{{ dns_dnscrypt_odoh_host_port }}:{{ dns_dnscrypt_odoh_container_port }}/udp"
+      - "{{ dns_dnscrypt_odoh_host_port }}:{{ dns_dnscrypt_odoh_container_port }}/tcp"
+    volumes:
+      - "{{ localnet_services_dir }}/dns/dnscrypt/mounts/templates:/templates:ro"
+    env:
+      DNS_DNSCRYPT_ODOH_CONTAINER_PORT: "{{ dns_dnscrypt_odoh_container_port }}"
+    log_driver: json-file
+    log_options:
+      max-size: 10m
+      max-file: 5
+  when: dns_dnscrypt_odoh_enabled | bool
+
+- name: Wait for dnscrypt-odoh to be ready
+  ansible.builtin.wait_for:
+    host: "{{ dns_dnscrypt_odoh_ip }}"
+    port: "{{ dns_dnscrypt_odoh_container_port }}"
+    delay: 10
+    timeout: 60
+  when: dns_dnscrypt_odoh_enabled | bool
+
+# ============================================================================
+# Tier 2: Anonymized DNSCrypt — ACTIVE
+# ============================================================================
+- name: Deploy dnscrypt-anon container
+  community.docker.docker_container:
+    name: localnet-dns-dnscrypt-anon
+    image: localnet-dns-dnscrypt
+    state: started
+    restart_policy: unless-stopped
+    command: ["/usr/local/bin/entrypoint-dnscrypt.sh", "dnscrypt-proxy-anon"]
+    networks:
+      - name: "{{ dns_network_name }}"
+        ipv4_address: "{{ dns_dnscrypt_anon_ip }}"
+    ports:
+      - "{{ dns_dnscrypt_anon_host_port }}:{{ dns_dnscrypt_anon_container_port }}/udp"
+      - "{{ dns_dnscrypt_anon_host_port }}:{{ dns_dnscrypt_anon_container_port }}/tcp"
+    volumes:
+      - "{{ localnet_services_dir }}/dns/dnscrypt/mounts/templates:/templates:ro"
+    env:
+      DNS_DNSCRYPT_ANON_CONTAINER_PORT: "{{ dns_dnscrypt_anon_container_port }}"
+    log_driver: json-file
+    log_options:
+      max-size: 10m
+      max-file: 5
+  when: dns_dnscrypt_anon_enabled | bool
+
+- name: Wait for dnscrypt-anon to be ready
+  ansible.builtin.wait_for:
+    host: "{{ dns_dnscrypt_anon_ip }}"
+    port: "{{ dns_dnscrypt_anon_container_port }}"
+    delay: 10
+    timeout: 60
+  when: dns_dnscrypt_anon_enabled | bool

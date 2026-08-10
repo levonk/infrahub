@@ -1,0 +1,20 @@
+{
+  "name": "localnet-dns-unbound",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "services/dns/unbound",
+  "tags": ["service", "dns", "docker"],
+  "implicitDependencies": ["localnet-base-alpine"],
+  "targets": {
+    "docker:build": {
+      "executor": "@nx-tools/nx-container:build",
+      "options": {
+        "context": "services/dns/unbound",
+        "file": "services/dns/unbound/docker/Dockerfile.unbound",
+        "tags": ["localnet-dns-unbound:latest"],
+        "push": false,
+        "load": true
+      }
+    }
+  }
+}

@@ -2,8 +2,10 @@
 # nix-ncps Windows (nl) deployment — ssh-tunneled Docker CLI pattern
 # Target: Windows Docker Desktop (dtop202311, X86). Joins traefik-windows-network.
 #
-# Uses upstream ncps image: ghcr.io/kalbasit/ncps:v0.9.4
-# ncps uses CLI flags (not a config file), needs database initialization,
+# Uses upstream ncps image: ghcr.io/kalbasit/ncps:main
+# ncps v0.9.4 lacks the `migrate up` command (goose-based migration).
+# The :main tag includes the migrate command.
+# ncps uses CLI flags (not a config file), needs database migration,
 # and uses /storage as its data directory.
 #
 # community.docker modules can't run on Windows (Ansible core basic.py imports
@@ -15,22 +17,6 @@
 # ============================================================================
 - name: Ensure nix-ncps data volume exists
   ansible.builtin.shell: "docker volume inspect {{ nix_ncps_data_volume }} 2>/dev/null || docker volume create {{ nix_ncps_data_volume }}"
-  environment:
-    DOCKER_HOST: "{{ nix_ncps_docker_host_windows }}"
-  delegate_to: localhost
-  changed_when: false
-  tags: ["deploy", "volume"]
-
-# ============================================================================
-# Initialize storage directory structure
-# ncps expects /storage/var/ncps/db/ to exist for the SQLite database
-# ============================================================================
-- name: Initialize ncps storage directory structure
-  ansible.builtin.shell: >-
-    docker run --rm
-    -v {{ nix_ncps_data_volume }}:/storage
-    alpine:latest /bin/sh -c
-    "mkdir -m 0755 -p /storage/var && mkdir -m 0700 -p /storage/var/ncps && mkdir -m 0700 -p /storage/var/ncps/db"
   environment:
     DOCKER_HOST: "{{ nix_ncps_docker_host_windows }}"
   delegate_to: localhost
@@ -50,16 +36,16 @@
 
 # ============================================================================
 # Database Migration
-# ncps v0.9.4 does NOT auto-migrate on serve. The ncps image includes dbmate
-# which is used to apply schema migrations before starting the server.
+# ncps :main tag includes `ncps migrate up` (goose-based migration).
+# v0.9.4 lacked this command — that's why we use :main.
 # ============================================================================
-- name: Run ncps database migration via dbmate
+- name: Run ncps database migration
   ansible.builtin.shell: >-
     docker run --rm
     -v {{ nix_ncps_data_volume }}:/storage
-    -e DATABASE_URL={{ nix_ncps_db_url }}
+    --entrypoint /bin/ncps
     {{ nix_ncps_image_name }}:{{ nix_ncps_image_tag }}
-    /bin/dbmate up
+    migrate up --cache-database-url={{ nix_ncps_db_url }}
   environment:
     DOCKER_HOST: "{{ nix_ncps_docker_host_windows }}"
   delegate_to: localhost
@@ -90,14 +76,18 @@
     --log-opt max-size={{ nix_ncps_log_max_size }}
     --log-opt max-file={{ nix_ncps_log_max_file }}
     --security-opt no-new-privileges:true
+    --entrypoint /bin/ncps
     {{ nix_ncps_image_name }}:{{ nix_ncps_image_tag }}
-    /bin/ncps serve
+    serve
     --cache-hostname={{ nix_ncps_cache_hostname }}
     --cache-storage-local={{ nix_ncps_storage_path }}
     --cache-database-url={{ nix_ncps_db_url }}
     --server-addr=:{{ nix_ncps_container_port }}
     {% for url in nix_ncps_upstream_urls %}
     --cache-upstream-url={{ url }}
+    {% endfor %}
+    {% for key in nix_ncps_upstream_public_keys %}
+    --cache-upstream-public-key={{ key }}
     {% endfor %}
   environment:
     DOCKER_HOST: "{{ nix_ncps_docker_host_windows }}"

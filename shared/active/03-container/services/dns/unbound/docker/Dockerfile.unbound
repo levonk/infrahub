@@ -1,0 +1,29 @@
+FROM localnet-base-alpine:latest
+
+USER root
+
+RUN apk add --no-cache \
+    unbound \
+    bind-tools \
+    bash \
+    curl \
+    gettext
+
+RUN mkdir -p /templates/etc/unbound /etc/unbound /var/lib/unbound && \
+    chown -R unbound:unbound /etc/unbound /var/lib/unbound && \
+    chmod 755 /templates /etc/unbound /var/lib/unbound
+
+COPY assets/entrypoint-unbound.sh /entrypoint-unbound.sh
+COPY assets/root.key /usr/share/dnssec-keys/root.key
+RUN chmod +x /entrypoint-unbound.sh && \
+    chown unbound:unbound /usr/share/dnssec-keys/root.key && \
+    chmod 644 /usr/share/dnssec-keys/root.key
+
+VOLUME ["/templates"]
+
+EXPOSE 15353/udp 15353/tcp
+
+HEALTHCHECK --interval=10s --timeout=5s --start-period=15s --retries=3 \
+    CMD dig +dnssec +short example.com @127.0.0.1 -p ${DNS_UNBOUND_VALIDATOR_CONTAINER_PORT:-15353} || exit 1
+
+ENTRYPOINT ["/entrypoint-unbound.sh"]

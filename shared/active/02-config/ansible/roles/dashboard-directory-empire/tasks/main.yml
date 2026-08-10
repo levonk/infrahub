@@ -1,0 +1,145 @@
+---
+# dashboard-directory-empire — Directory Empire Next.js orchestration dashboard
+# Target: Windows Docker Desktop (dtop202311, X86). Joins traefik-windows-network.
+#
+# community.docker modules can't run on Windows (Ansible core basic.py imports
+# grp, Unix-only). We use ansible.builtin.shell with DOCKER_HOST: ssh:// and
+# delegate_to: localhost, matching the garnix-ci (nl) pattern.
+
+# ============================================================================
+# 1. Validate required variables
+# ============================================================================
+- name: Validate required variables are defined
+  ansible.builtin.assert:
+    that:
+      - directory_empire_container_name is defined
+      - directory_empire_image_name is defined
+      - directory_empire_image_tag is defined
+      - directory_empire_host_port is defined
+      - directory_empire_container_port is defined
+      - directory_empire_config_volume is defined
+      - directory_empire_network_name is defined
+      - directory_empire_docker_host_windows is defined
+    fail_msg: >-
+      Missing required directory-empire variables. Check infrastructure files
+      (ports.yml, domains.yml, storage.yml) and windows_docker_hosts group_vars.
+    success_msg: "All required directory-empire variables are defined."
+  tags: ["always", "validate"]
+
+# ============================================================================
+# 2. Ensure local temp directory exists (delegate_to: localhost)
+# ============================================================================
+- name: Ensure local temp directory for directory-empire config exists
+  ansible.builtin.file:
+    path: "{{ directory_empire_windows_temp_dir }}"
+    state: directory
+    mode: "0755"
+  delegate_to: localhost
+  run_once: true
+  changed_when: false
+  tags: ["deploy", "config"]
+
+# ============================================================================
+# 3. Ensure Docker config volume exists
+# ============================================================================
+- name: Ensure directory-empire config volume exists
+  ansible.builtin.shell: "docker volume inspect {{ directory_empire_config_volume }} 2>/dev/null || docker volume create {{ directory_empire_config_volume }}"
+  environment:
+    DOCKER_HOST: "{{ directory_empire_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "volume"]
+
+# ============================================================================
+# 4. Pull image from local registry
+# ============================================================================
+- name: Pull directory-empire image
+  ansible.builtin.command: "docker pull {{ directory_empire_image_name }}:{{ directory_empire_image_tag }}"
+  environment:
+    DOCKER_HOST: "{{ directory_empire_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "pull"]
+
+# ============================================================================
+# 5. Stop existing container
+# ============================================================================
+- name: Stop existing directory-empire container
+  ansible.builtin.shell: "docker rm -f {{ directory_empire_container_name }} 2>/dev/null || true"
+  environment:
+    DOCKER_HOST: "{{ directory_empire_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "container"]
+
+# ============================================================================
+# 6. Deploy container
+# ============================================================================
+- name: Deploy directory-empire container
+  ansible.builtin.shell: >-
+    docker run -d
+    --name {{ directory_empire_container_name }}
+    --restart unless-stopped
+    -p {{ directory_empire_host_port }}:{{ directory_empire_container_port }}/tcp
+    -v {{ directory_empire_config_volume }}:/app/config:ro
+    --network {{ directory_empire_network_name }}
+    -e TZ={{ directory_empire_tz }}
+    -e NODE_ENV=production
+    --log-driver json-file
+    --log-opt max-size={{ directory_empire_log_max_size }}
+    --log-opt max-file={{ directory_empire_log_max_file }}
+    --health-cmd "wget -qO- http://127.0.0.1:{{ directory_empire_container_port }}/ || exit 1"
+    --health-interval {{ directory_empire_healthcheck_interval }}
+    --health-timeout {{ directory_empire_healthcheck_timeout }}
+    --health-retries {{ directory_empire_healthcheck_retries }}
+    --health-start-period {{ directory_empire_healthcheck_start_period }}
+    --security-opt no-new-privileges:true
+    {{ directory_empire_image_name }}:{{ directory_empire_image_tag }}
+  environment:
+    DOCKER_HOST: "{{ directory_empire_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "container"]
+
+# ============================================================================
+# 7. Wait for health
+# ============================================================================
+- name: Wait for directory-empire to be healthy
+  ansible.builtin.command: >-
+    docker inspect --format '{% raw %}{{.State.Health.Status}}{% endraw %}' {{ directory_empire_container_name }}
+  environment:
+    DOCKER_HOST: "{{ directory_empire_docker_host_windows }}"
+  delegate_to: localhost
+  register: directory_empire_health
+  until: directory_empire_health.stdout == "healthy"
+  retries: 30
+  delay: 3
+  changed_when: false
+  ignore_errors: true
+  tags: ["deploy", "container"]
+
+# ============================================================================
+# 8. Report status
+# ============================================================================
+- name: Get directory-empire container status
+  ansible.builtin.command: >-
+    docker inspect --format '{% raw %}{{.Name}}={{.State.Status}} health={{.State.Health.Status}}{% endraw %}'
+    {{ directory_empire_container_name }}
+  environment:
+    DOCKER_HOST: "{{ directory_empire_docker_host_windows }}"
+  delegate_to: localhost
+  register: directory_empire_status
+  changed_when: false
+  ignore_errors: true
+  tags: ["always", "info"]
+
+- name: Report directory-empire status
+  ansible.builtin.debug:
+    msg: |
+      directory-empire deployed:
+        - URL: https://{{ directory_empire_domain }} (via Traefik on traefik-windows-network)
+        - Container: {{ directory_empire_container_name }}
+        - Image: {{ directory_empire_image_name }}:{{ directory_empire_image_tag }}
+        - Web port: {{ directory_empire_host_port }}:{{ directory_empire_container_port }}/tcp
+        - Status: {{ directory_empire_status.stdout | default('unknown') }}
+  tags: ["always", "info"]

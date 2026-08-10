@@ -1,0 +1,75 @@
+---
+# tasks file for sandbox-cli-proxy
+# Deploys iron-proxy as a default-deny egress firewall for sandboxed CLI containers.
+# Each profile in sandbox_cli_proxy_profiles gets its own iron-proxy instance
+# on a dedicated Docker network with its own allowlist.
+# See ADR-202608051501 for the architecture decision.
+
+# ---------------------------------------------------------------------------
+# Prerequisites
+# ---------------------------------------------------------------------------
+- name: Ensure sandbox-cli config directory exists
+  ansible.builtin.file:
+    path: "{{ sandbox_cli_proxy_config_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+
+- name: Ensure sandbox-cli CA directory exists
+  ansible.builtin.file:
+    path: "{{ sandbox_cli_proxy_ca_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+
+- name: Ensure sandbox-cli per-profile config directories exist
+  ansible.builtin.file:
+    path: "{{ sandbox_cli_proxy_config_dir }}/{{ item.name }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+  loop: "{{ sandbox_cli_proxy_profiles }}"
+  when: sandbox_cli_proxy_enabled | bool
+
+# ---------------------------------------------------------------------------
+# Deploy each profile
+# ---------------------------------------------------------------------------
+- name: Deploy sandbox CLI proxy profiles
+  ansible.builtin.include_tasks: deploy-profile.yml
+  loop: "{{ sandbox_cli_proxy_profiles }}"
+  loop_control:
+    loop_var: profile
+  when: sandbox_cli_proxy_enabled | bool
+
+# ---------------------------------------------------------------------------
+# Generate .sandbox-env file for just recipes
+# ---------------------------------------------------------------------------
+- name: Generate .sandbox-env file
+  ansible.builtin.template:
+    src: sandbox-env.j2
+    dest: "{{ sandbox_cli_proxy_env_file }}"
+    owner: root
+    group: root
+    mode: "0644"
+  become: false
+  when: sandbox_cli_proxy_enabled | bool
+  delegate_to: localhost
+  run_once: true
+
+# ---------------------------------------------------------------------------
+# Status Report
+# ---------------------------------------------------------------------------
+- name: Report sandbox-cli-proxy status
+  ansible.builtin.debug:
+    msg: |
+      sandbox-cli-proxy deployed successfully:
+      Profiles: {{ sandbox_cli_proxy_profiles | map(attribute='name') | list }}
+      CA directory: {{ sandbox_cli_proxy_ca_dir }}
+      .sandbox-env: {{ sandbox_cli_proxy_env_file }}
+  when: sandbox_cli_proxy_enabled | bool

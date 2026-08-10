@@ -1,0 +1,58 @@
+---
+# Sandboxed CLI Proxy Deployment Playbook
+# Deploys iron-proxy as a default-deny egress firewall for sandboxed CLI containers.
+# Each profile in sandbox_cli_proxy_profiles gets its own iron-proxy instance.
+#
+# See ADR-202608051501 for the architecture decision.
+#
+# Usage:
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/macos-hosts.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-sandbox-proxy.yml \
+#     --vault-password-file ~/.ansible/vault_password
+#
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-sandbox-proxy.yml \
+#     --vault-password-file ~/.ansible/vault_password
+
+- name: "Deploy Sandboxed CLI Proxy"
+  hosts: sandbox_proxy_hosts
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: "Load shared infrastructure defaults (ports, networks, domains, storage)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+      tags: ["always"]
+
+    - name: "Load client infrastructure overrides (levonk)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+      tags: ["always"]
+
+    - name: "Display deployment start information"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Sandboxed CLI Proxy Deployment Started
+          ========================================
+          Target: {{ inventory_hostname }}
+          OS: {{ ansible_distribution | default('macOS') }} {{ ansible_distribution_version | default('') }}
+          Architecture: {{ ansible_facts['architecture'] | default('unknown') }}
+          Profiles: {{ sandbox_cli_proxy_profiles | map(attribute='name') | list }}
+          ========================================
+      tags: ["always", "info"]
+
+  roles:
+    - role: sandbox-cli-proxy
+      tags: ["deploy", "sandbox-cli-proxy"]

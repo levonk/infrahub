@@ -71,6 +71,36 @@ infra_port_dns_coredns_main_health_container: "18080"
 infra_port_dns_dnscrypt_plaintext_host: "5365"
 infra_port_dns_dnscrypt_plaintext_container: "5058"
 
+# dnscrypt-proxy tiers (see diagrams/dns/complete-dns-chain.mmd)
+# Active tiers: odoh (1), anon (2), tor (4-6 shared config)
+# Dark tiers: std (7), doh (8), encrypted (9), plaintext_tor (11), plaintext (12)
+infra_port_dns_dnscrypt_odoh_host: "5360"
+infra_port_dns_dnscrypt_odoh_container: "5053"
+infra_port_dns_dnscrypt_anon_host: "5361"
+infra_port_dns_dnscrypt_anon_container: "5053"
+infra_port_dns_dnscrypt_tor_host: "5362"
+infra_port_dns_dnscrypt_tor_container: "5053"
+infra_port_dns_dnscrypt_std_host: "5363"
+infra_port_dns_dnscrypt_std_container: "5053"
+infra_port_dns_dnscrypt_doh_host: "5364"
+infra_port_dns_dnscrypt_doh_container: "5053"
+infra_port_dns_dnscrypt_encrypted_host: "5366"
+infra_port_dns_dnscrypt_encrypted_container: "5053"
+infra_port_dns_dnscrypt_plaintext_tor_host: "5367"
+infra_port_dns_dnscrypt_plaintext_tor_container: "5053"
+
+# Unbound — validating cache (Layer 3b) + Tier 3 (Tor) + Tier 10 (Root)
+infra_port_dns_unbound_validator_host: "15355"
+infra_port_dns_unbound_validator_container: "15353"
+infra_port_dns_unbound_tor_host: "15356"
+infra_port_dns_unbound_tor_container: "15353"
+infra_port_dns_unbound_root_host: "15357"
+infra_port_dns_unbound_root_container: "15353"
+
+# CoreDNS internal port (for Unbound → CoreDNS fallback chain, Option C)
+infra_port_dns_coredns_internal_host: "15358"
+infra_port_dns_coredns_internal_container: "15359"
+
 infra_port_dns_adguard_host: "5354"
 infra_port_dns_adguard_container: "5354"
 infra_port_dns_adguard_web_host: "3000"
@@ -426,3 +456,12 @@ infra_port_garnix_ci_web_host: "4526"
 infra_port_garnix_ci_web_container: "3000"
 infra_port_garnix_ci_api_host: "4527"
 infra_port_garnix_ci_api_container: "8080"
+
+# ---------------------------------------------------------------------------
+# Directory Empire Dashboard Ports
+# Used by: deploy-directory-empire.yml playbook on windows_docker_hosts (nl region)
+# Next.js orchestration dashboard — multi-stage Docker build from the
+# directory-empire repo. Web UI exposed via Traefik at de.nl.levonk.com.
+# ---------------------------------------------------------------------------
+infra_port_dashboard_directory_empire_host: "4530"
+infra_port_dashboard_directory_empire_container: "3000"

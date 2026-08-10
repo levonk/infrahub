@@ -1,0 +1,108 @@
+---
+# DNS Role Defaults
+# Maps dns_* role variables to infra_* infrastructure variables.
+# See: shared/active/02-config/ansible/infrastructure/ports.yml and networks.yml
+
+# Service toggle
+dns_enabled: true
+
+# Network
+dns_network_name: "{{ infra_network_dns_localnet_network_name | default('localnet-network') }}"
+dns_network_subnet: "{{ infra_network_dns_localnet_subnet | default('172.26.0.0/16') }}"
+
+# Registry
+dns_registry: "{{ local_registry | default('100.90.22.85:5000') }}"
+
+# Docker host for Windows deployment (ssh-tunneled)
+dns_docker_host_windows: "ssh://ansible@{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.tale-grouper.ts.net') }}"
+
+# IP allocations (from networks.yml)
+dns_adguard_ip: "{{ infra_network_ip_dns_adguard | default('172.26.255.67') }}"
+dns_dnsdist_ip: "{{ infra_network_ip_dns_dnsdist | default('172.26.255.49') }}"
+dns_coredns_main_ip: "{{ infra_network_ip_dns_coredns | default('172.26.255.51') }}"
+dns_unbound_validator_ip: "{{ infra_network_ip_dns_unbound_validator | default('172.26.255.50') }}"
+dns_unbound_tor_ip: "{{ infra_network_ip_dns_unbound_tor | default('172.26.255.52') }}"
+dns_unbound_root_ip: "{{ infra_network_ip_dns_unbound_root | default('172.26.255.53') }}"
+dns_dnscrypt_odoh_ip: "{{ infra_network_ip_dns_dnscrypt_odoh | default('172.26.255.60') }}"
+dns_dnscrypt_anon_ip: "{{ infra_network_ip_dns_dnscrypt_anon | default('172.26.255.61') }}"
+dns_dnscrypt_std_ip: "{{ infra_network_ip_dns_dnscrypt_std | default('172.26.255.62') }}"
+dns_dnscrypt_doh_ip: "{{ infra_network_ip_dns_dnscrypt_doh | default('172.26.255.63') }}"
+dns_dnscrypt_encrypted_ip: "{{ infra_network_ip_dns_dnscrypt_encrypted | default('172.26.255.64') }}"
+dns_dnscrypt_plaintext_ip: "{{ infra_network_ip_dns_dnscrypt_plaintext | default('172.26.255.65') }}"
+dns_dnscrypt_tor_ip: "{{ infra_network_ip_dns_dnscrypt_tor | default('172.26.255.66') }}"
+dns_dnscrypt_plaintext_tor_ip: "{{ infra_network_ip_dns_dnscrypt_plaintext_tor | default('172.26.255.68') }}"
+dns_tor_proxy_ip: "{{ infra_network_ip_dns_tor_proxy | default('172.26.255.70') }}"
+
+# Port allocations (from ports.yml)
+dns_transparent_host_port: "{{ infra_port_dns_transparent_host | default('5500') }}"
+dns_transparent_container_port: "{{ infra_port_dns_transparent_container | default('5500') }}"
+
+dns_dnsdist_main_host_port: "{{ infra_port_dns_dnsdist_main_host | default('5501') }}"
+dns_dnsdist_main_container_port: "{{ infra_port_dns_dnsdist_main_container | default('5501') }}"
+dns_dnsdist_metrics_host_port: "{{ infra_port_dns_dnsdist_metrics_host | default('8083') }}"
+dns_dnsdist_metrics_container_port: "{{ infra_port_dns_dnsdist_metrics_container | default('8083') }}"
+
+dns_coredns_main_host_port: "{{ infra_port_dns_coredns_main_host | default('15354') }}"
+dns_coredns_main_container_port: "{{ infra_port_dns_coredns_main_container | default('15353') }}"
+dns_coredns_main_metrics_host_port: "{{ infra_port_dns_coredns_main_metrics_host | default('9153') }}"
+dns_coredns_main_health_host_port: "{{ infra_port_dns_coredns_main_health_host | default('27493') }}"
+dns_coredns_main_health_container_port: "{{ infra_port_dns_coredns_main_health_container | default('18080') }}"
+dns_coredns_internal_host_port: "{{ infra_port_dns_coredns_internal_host | default('15358') }}"
+dns_coredns_internal_container_port: "{{ infra_port_dns_coredns_internal_container | default('15359') }}"
+
+dns_dnscrypt_odoh_host_port: "{{ infra_port_dns_dnscrypt_odoh_host | default('5360') }}"
+dns_dnscrypt_odoh_container_port: "{{ infra_port_dns_dnscrypt_odoh_container | default('5053') }}"
+dns_dnscrypt_anon_host_port: "{{ infra_port_dns_dnscrypt_anon_host | default('5361') }}"
+dns_dnscrypt_anon_container_port: "{{ infra_port_dns_dnscrypt_anon_container | default('5053') }}"
+dns_dnscrypt_std_host_port: "{{ infra_port_dns_dnscrypt_std_host | default('5363') }}"
+dns_dnscrypt_std_container_port: "{{ infra_port_dns_dnscrypt_std_container | default('5053') }}"
+dns_dnscrypt_doh_host_port: "{{ infra_port_dns_dnscrypt_doh_host | default('5364') }}"
+dns_dnscrypt_doh_container_port: "{{ infra_port_dns_dnscrypt_doh_container | default('5053') }}"
+dns_dnscrypt_encrypted_host_port: "{{ infra_port_dns_dnscrypt_encrypted_host | default('5366') }}"
+dns_dnscrypt_encrypted_container_port: "{{ infra_port_dns_dnscrypt_encrypted_container | default('5053') }}"
+dns_dnscrypt_plaintext_host_port: "{{ infra_port_dns_dnscrypt_plaintext_host | default('5365') }}"
+dns_dnscrypt_plaintext_container_port: "{{ infra_port_dns_dnscrypt_plaintext_container | default('5058') }}"
+dns_dnscrypt_tor_host_port: "{{ infra_port_dns_dnscrypt_tor_host | default('5362') }}"
+dns_dnscrypt_tor_container_port: "{{ infra_port_dns_dnscrypt_tor_container | default('5053') }}"
+dns_dnscrypt_plaintext_tor_host_port: "{{ infra_port_dns_dnscrypt_plaintext_tor_host | default('5367') }}"
+dns_dnscrypt_plaintext_tor_container_port: "{{ infra_port_dns_dnscrypt_plaintext_tor_container | default('5053') }}"
+
+dns_unbound_validator_host_port: "{{ infra_port_dns_unbound_validator_host | default('15355') }}"
+dns_unbound_validator_container_port: "{{ infra_port_dns_unbound_validator_container | default('15353') }}"
+dns_unbound_tor_host_port: "{{ infra_port_dns_unbound_tor_host | default('15356') }}"
+dns_unbound_tor_container_port: "{{ infra_port_dns_unbound_tor_container | default('15353') }}"
+dns_unbound_root_host_port: "{{ infra_port_dns_unbound_root_host | default('15357') }}"
+dns_unbound_root_container_port: "{{ infra_port_dns_unbound_root_container | default('15353') }}"
+
+dns_adguard_host_port: "{{ infra_port_dns_adguard_host | default('5354') }}"
+dns_adguard_container_port: "{{ infra_port_dns_adguard_container | default('5354') }}"
+dns_adguard_web_host_port: "{{ infra_port_dns_adguard_web_host | default('3000') }}"
+dns_adguard_web_container_port: "{{ infra_port_dns_adguard_web_container | default('3000') }}"
+
+# AdGuard admin credentials (password is bcrypt hash — generate with:
+#   htpasswd -nbB admin 'yourpassword' | cut -d: -f2
+# or use the ansible-vault encrypted value)
+dns_adguard_admin_user: "admin"
+dns_adguard_admin_password_hash: "{{ vault_dns_adguard_admin_password_hash | default('$2y$10$placeholder') }}"
+
+# Tor proxy
+proxy_tor_ip: "{{ dns_tor_proxy_ip }}"
+proxy_tor_socks5_ip: "{{ dns_tor_proxy_ip }}"
+proxy_tor_socks5_container_port: "9050"
+proxy_tor_socks5_host_port: "9050"
+
+# Active vs dark tiers — dark tiers are created but not started
+dns_dnscrypt_odoh_enabled: true
+dns_dnscrypt_anon_enabled: true
+dns_dnscrypt_std_enabled: false
+dns_dnscrypt_doh_enabled: false
+dns_dnscrypt_encrypted_enabled: false
+dns_dnscrypt_plaintext_enabled: true
+dns_dnscrypt_tor_enabled: false
+dns_dnscrypt_plaintext_tor_enabled: false
+dns_unbound_validator_enabled: true
+dns_unbound_tor_enabled: true
+dns_unbound_root_enabled: true
+
+# Local temp directory for Windows config seeding
+dns_windows_temp_dir: "/tmp/dns-config-{{ inventory_hostname }}"

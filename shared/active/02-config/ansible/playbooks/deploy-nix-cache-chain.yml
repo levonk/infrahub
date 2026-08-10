@@ -103,6 +103,12 @@
       tags: ["deploy", "ncps"]
       when: nix_ncps_enabled | default(true) | bool
 
+    # Re-deploy Traefik Windows dynamic config to pick up the nixcache-nl
+    # routing rule (proxy_traefik_windows_nix_ncps_enabled defaults to true).
+    - role: proxy_traefik_windows
+      tags: ["deploy", "traefik-windows"]
+      when: nix_ncps_enabled | default(true) | bool
+
 
 # ============================================================================
 # Phase 1b — Deploy Nix Cache Chain on OCI cloud server (cno)

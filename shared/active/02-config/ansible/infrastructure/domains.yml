@@ -196,8 +196,8 @@ infra_hostname_n8n_grafana: "localnet-n8n-grafana"
 # nl  = network local (dtop202311, X86 Windows Docker Desktop)
 # cno = cloud network oracle (oci-cloud-server, ARM64 Linux)
 # ---------------------------------------------------------------------------
-infra_domain_nix_cache_nl: "cache.nl.levonk.com"
-infra_domain_nix_cache_cno: "cache.cno.levonk.com"
+infra_domain_nix_cache_nl: "nixcache.nl.levonk.com"
+infra_domain_nix_cache_cno: "nixcache.cno.levonk.com"
 # nl hostnames (Windows Docker Desktop — dtop202311)
 infra_hostname_nix_harmonia_nl: "localnet-nix-harmonia"
 infra_hostname_nix_ncps_nl: "localnet-nix-ncps"
@@ -214,3 +214,12 @@ infra_hostname_nix_ncro_cno: "localnet-nix-ncro-cno"
 # ---------------------------------------------------------------------------
 infra_domain_garnix_ci_nl: "ci.nl.levonk.com"
 infra_hostname_garnix_ci: "localnet-garnix-ci"
+
+# ---------------------------------------------------------------------------
+# Directory Empire Dashboard (nl region — dtop202311, Windows Docker Desktop)
+# Next.js orchestration dashboard for the Directory Empire platform.
+# Multi-stage Docker build from the directory-empire repo (lrepo52/directory-empire).
+# Web UI exposed via Traefik at de.nl.levonk.com.
+# ---------------------------------------------------------------------------
+infra_domain_dashboard_directory_empire_nl: "de.nl.levonk.com"
+infra_hostname_dashboard_directory_empire: "localnet-dashboard-directory-empire"

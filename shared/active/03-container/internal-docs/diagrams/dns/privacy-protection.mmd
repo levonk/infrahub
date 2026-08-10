@@ -1,23 +1,53 @@
 graph TB
-    Query[DNS Query]
-    
-    subgraph "Privacy Layers"
-        ECS[ECS Stripping<br/>Remove Client Subnet]
-        ODoH[Oblivious DoH<br/>Separate Query/Answer Paths]
-        Tor[Tor Routing<br/>Optional Anonymization]
+    Query["DNS Query — external only<br/>Internal/Tailscale queries bypass this stack"]
+
+    subgraph "Privacy Layer 1: ECS Stripping dnsdist"
+        ECS["ECS Stripping<br/>dnsdist removes EDNS Client Subnet<br/>Prevents upstream from seeing<br/>client subnet/location"]
     end
-    
+
+    subgraph "Privacy Layer 2: Protocol Encryption fallback chain"
+        direction TB
+        ODoH["ODoH — Tier 1 ACTIVE<br/>Splits query/answer paths<br/>Relay cannot see query content<br/>Target cannot see client IP"]
+        AnonDNSCrypt["Anonymized DNSCrypt — Tier 2 ACTIVE<br/>Relay hides client IP from resolver<br/>DNSCrypt encrypts query"]
+        UnboundTor["Unbound over Tor — Tier 3 ACTIVE<br/>Tor hides client IP<br/>Unbound validates DNSSEC natively<br/>Recursive to root — no middleman"]
+        UnboundRoot["Unbound to Root — Tier 10 ACTIVE<br/>Recursive to root — no middleman<br/>Unbound validates DNSSEC natively<br/>No protocol encryption but<br/>no upstream to trust"]
+        DarkTiers["Dark Tiers 4-9, 11-12<br/>Documented, not running by default<br/>Progressively less private/secure<br/>Activated only if active tiers fail"]
+    end
+
+    subgraph "Privacy Layer 3: DNSSEC Validation Unbound"
+        DNSSEC["Unbound Validating Cache<br/>Validates DNSSEC on ALL responses<br/>from the fallback chain<br/>before returning to client<br/>Defense in depth: even if upstream<br/>claims validation, Unbound re-validates"]
+    end
+
+    subgraph "Privacy Layer 4: Tor Transport last resort only"
+        Tor["Tor SOCKS Proxy<br/>172.20.255.70:9050<br/>Used by Tier 3 Unbound over Tor<br/>and dark Tor-based tiers<br/>3-20 second latency — not for daily use<br/>Only activated when encrypted tiers fail"]
+    end
+
     subgraph "Result"
-        Private[Private Query<br/>No Client Info Leaked]
+        Private["Private Query<br/>No client info leaked to upstream<br/>DNSSEC validated locally<br/>Protocol encryption prevents eavesdropping"]
     end
-    
+
     Query --> ECS
     ECS --> ODoH
-    ODoH -.->|Optional| Tor
-    ODoH --> Private
-    Tor --> Private
-    
-    style ECS fill:#99ccff
-    style ODoH fill:#99ccff
-    style Tor fill:#cc99ff
-    style Private fill:#99ff99
+    ODoH -.->|Fallback| AnonDNSCrypt
+    AnonDNSCrypt -.->|Fallback| UnboundTor
+    UnboundTor -.->|Fallback| UnboundRoot
+    UnboundRoot -.->|Fallback| DarkTiers
+    DarkTiers -.->|Last resort| Tor
+
+    ODoH --> DNSSEC
+    AnonDNSCrypt --> DNSSEC
+    UnboundTor --> DNSSEC
+    UnboundRoot --> DNSSEC
+    DarkTiers --> DNSSEC
+
+    DNSSEC --> Private
+
+    style ECS fill:#99ccff,color:#1a1a1a
+    style ODoH fill:#99ccff,color:#1a1a1a
+    style AnonDNSCrypt fill:#99ccff,color:#1a1a1a
+    style UnboundTor fill:#C9DAF8,color:#1a1a1a
+    style UnboundRoot fill:#A6D5D5,color:#1a1a1a
+    style DNSSEC fill:#B6D7A8,color:#1a1a1a
+    style Tor fill:#cc99ff,color:#1a1a1a
+    style DarkTiers fill:#E0E0E0,color:#1a1a1a
+    style Private fill:#99ff99,color:#1a1a1a

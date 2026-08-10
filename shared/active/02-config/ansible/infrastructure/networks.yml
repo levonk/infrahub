@@ -95,6 +95,27 @@ infra_network_dns_localnet_network_name: "localnet-network"
 infra_network_dns_localnet_subnet: "172.26.0.0/16"
 infra_network_dns_localnet_gateway: "172.26.0.1"
 
+# DNS service IP allocations (within localnet-network, high range 172.26.255.x)
+# See: diagrams/dns/complete-dns-chain.mmd and complete-dns-chain.notes.md
+# Active tiers: odoh (1), anon (2), unbound-tor (3), unbound-root (10)
+# Dark tiers: dnscrypt-tor (4-6 shared), std (7), doh (8), encrypted (9),
+#             plaintext-tor (11), plaintext (12)
+infra_network_ip_dns_adguard: "172.26.255.67"
+infra_network_ip_dns_dnsdist: "172.26.255.49"
+infra_network_ip_dns_coredns: "172.26.255.51"
+infra_network_ip_dns_unbound_validator: "172.26.255.50"
+infra_network_ip_dns_unbound_tor: "172.26.255.52"
+infra_network_ip_dns_unbound_root: "172.26.255.53"
+infra_network_ip_dns_dnscrypt_odoh: "172.26.255.60"
+infra_network_ip_dns_dnscrypt_anon: "172.26.255.61"
+infra_network_ip_dns_dnscrypt_std: "172.26.255.62"
+infra_network_ip_dns_dnscrypt_doh: "172.26.255.63"
+infra_network_ip_dns_dnscrypt_encrypted: "172.26.255.64"
+infra_network_ip_dns_dnscrypt_plaintext: "172.26.255.65"
+infra_network_ip_dns_dnscrypt_tor: "172.26.255.66"
+infra_network_ip_dns_dnscrypt_plaintext_tor: "172.26.255.68"
+infra_network_ip_dns_tor_proxy: "172.26.255.70"
+
 # ---------------------------------------------------------------------------
 # Proxy Networks
 # ---------------------------------------------------------------------------

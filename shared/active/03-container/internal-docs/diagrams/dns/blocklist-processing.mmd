@@ -1,42 +1,65 @@
 graph TB
-    subgraph "Blocklist Sources"
-        SB[StevenBlack Hosts]
-        AA[AdAway]
-        PT[PhishTank]
-        EL[EasyList]
-        DM[Disconnect.me]
+    subgraph "Tier 1: AdGuard — Ad/Tracker Blocking"
+        direction TB
+        AG_Sources["Ad/Tracker Blocklist Sources<br/>AdGuard built-in + user-added lists<br/>Adblock syntax, hosts format, domain lists"]
+        AG_Update["AdGuard Home<br/>Auto-updates blocklists<br/>Web UI for management"]
+        AG_Block["Ad Blocking<br/>Tracker blocking<br/>Can break some websites<br/>→ user can bypass via dnsdist direct"]
     end
-    
-    subgraph "Processing Pipeline"
-        Download[Download Lists]
-        Combine[Combine & Deduplicate]
-        Format[Format Conversion]
-        CDB[CDB Compilation<br/>O1 Lookup]
+
+    subgraph "Tier 2: dnsdist — Security Blocklists always-on"
+        direction TB
+        subgraph "Security Blocklist Sources"
+            SB["StevenBlack Hosts"]
+            PT["PhishTank"]
+            DM["Disconnect.me"]
+            MW["MalwareDomainList"]
+        end
+
+        subgraph "Processing Pipeline"
+            Download["Download Lists"]
+            Combine["Combine and Deduplicate"]
+            Format["Format Conversion"]
+            CDB["CDB Compilation<br/>O1 Lookup"]
+        end
+
+        subgraph "Deployment"
+            Volume["Docker Volume"]
+            dnsdist["dnsdist Runtime"]
+            Lookup["Real-time Lookup"]
+        end
     end
-    
-    subgraph "Deployment"
-        Volume[Docker Volume]
-        dnsdist[dnsdist Runtime]
-        Lookup[Real-time Lookup]
+
+    subgraph "Bypass Paths"
+        direction LR
+        Normal["Normal path:<br/>Client → AdGuard → dnsdist<br/>Both tiers apply"]
+        Bypass["AdGuard bypass path:<br/>Client → dnsdist direct port 5353/5501<br/>Skips ad blocking, KEEPS security blocking"]
     end
-    
+
+    AG_Sources --> AG_Update
+    AG_Update --> AG_Block
+
     SB --> Download
-    AA --> Download
     PT --> Download
-    EL --> Download
     DM --> Download
-    
+    MW --> Download
+
     Download --> Combine
     Combine --> Format
     Format --> CDB
-    
+
     CDB --> Volume
     Volume --> dnsdist
     dnsdist --> Lookup
-    
-    Lookup -->|Match| Block[Return NXDOMAIN]
-    Lookup -->|No Match| Allow[Forward to CoreDNS]
-    
-    style CDB fill:#ffcc99
-    style Block fill:#ff9999
-    style Allow fill:#99ff99
+
+    Lookup -->|Match| Block["Return NXDOMAIN"]
+    Lookup -->|No Match| Allow["Forward to CoreDNS"]
+
+    Normal --> AG_Block
+    AG_Block --> dnsdist
+    Bypass --> dnsdist
+
+    style CDB fill:#ffcc99,color:#1a1a1a
+    style Block fill:#ff9999,color:#1a1a1a
+    style Allow fill:#99ff99,color:#1a1a1a
+    style AG_Block fill:#F4CCCC,color:#1a1a1a
+    style Bypass fill:#FFF2CC,color:#1a1a1a

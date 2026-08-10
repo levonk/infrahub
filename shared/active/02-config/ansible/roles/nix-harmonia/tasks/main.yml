@@ -40,7 +40,7 @@
     nix_harmonia_network_name: "{{ nix_harmonia_network_name_cno }}"
   when:
     - nix_harmonia_enabled | bool
-    - "'cloud_servers' in group_names or ansible_os_family == 'RedHat'"
+    - "'cloud_servers' in group_names"
   tags: ["deploy"]
 
 # 3. Dispatch Windows (nl) deployment for windows_docker_hosts

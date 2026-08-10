@@ -236,7 +236,9 @@
     "llvm": "",
     "cppcheck": "",
     "valgrind": "",
-    "clang-tools": ""
+    "clang-tools": "",
+    "git-secrets": "",
+    "git-imerge": ""
   },
   "hooks": {
     "on_create": [
@@ -245,7 +247,7 @@
   },
   "shell": {
     "init_hook": [
-      "echo '\ud83e\udd16 Dev Base: Development environment ready'",
+      "echo '🤖 Dev Base: Development environment ready'",
       "cd /home/cuser/project",
       "# Install omnigent CLI via uv (idempotent — skips if already installed)",
       "command -v omni >/dev/null 2>&1 || uv tool install omnigent",
