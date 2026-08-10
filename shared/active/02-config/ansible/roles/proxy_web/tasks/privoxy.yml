@@ -28,7 +28,7 @@
     log_driver: json-file
     log_options:
       max-size: 10m
-      max-file: 5
+      max-file: "5"
     healthcheck:
       test: ["CMD", "nc", "-zv", "127.0.0.1", "{{ proxy_web_privoxy_container_port }}"]
       interval: "30s"
@@ -38,7 +38,7 @@
 
 - name: Wait for Privoxy to be ready
   ansible.builtin.wait_for:
-    host: "127.0.0.1"
+    host: "{{ proxy_web_privoxy_ip }}"
     port: "{{ proxy_web_privoxy_container_port }}"
     timeout: 30
   retries: 5

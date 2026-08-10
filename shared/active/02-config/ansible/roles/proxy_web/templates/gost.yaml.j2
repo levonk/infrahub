@@ -8,47 +8,12 @@ services:
   addr: ":{{ proxy_web_gost_http_container_port }}"
   handler:
     type: http
-    chain: egress-chain
+  listener:
+    type: tcp
 
 - name: socks5-egress
   addr: ":{{ proxy_web_gost_socks5_container_port }}"
   handler:
     type: socks5
-    chain: egress-chain
-
-chains:
-- name: egress-chain
-  hops:
-  - name: egress-hop
-    selector:
-      strategy: round
-    nodes:
-    # Tier 1: Direct (default — highest performance)
-    - name: direct
-      connector:
-        type: http
-      dialer:
-        type: virtual
-      matcher:
-        rule: "Host(`*`)"
-
-    # Tier 2: Tor (for .onion domains + anonymity)
-    - name: tor
-      addr: "{{ proxy_web_tor_socks5_ip }}:{{ proxy_web_tor_socks5_port }}"
-      connector:
-        type: socks5
-      dialer:
-        type: tcp
-      matcher:
-        rule: "Host(`*.onion`)"
-
-    # Tier 3: Cloudflare WARP (DARK — not deployed by default)
-    # Uncomment when WARP is deployed:
-    # - name: warp
-    #   addr: "warp:40000"
-    #   connector:
-    #     type: socks5
-    #   dialer:
-    #     type: tcp
-    #   matcher:
-    #     rule: "Host(`warp-enabled.example.com`)"
+  listener:
+    type: tcp

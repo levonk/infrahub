@@ -13,11 +13,11 @@
 - name: Deploy Gost container
   community.docker.docker_container:
     name: localnet-proxy-gost
-    image: "{{ proxy_web_gost_image }}"
+    image: "{{ proxy_web_registry }}/{{ proxy_web_gost_image }}:latest"
     state: started
     restart_policy: unless-stopped
-    command: >-
-      gost -C /etc/gost/gost.yaml
+    entrypoint: ["/usr/bin/gost"]
+    command: ["-C", "/etc/gost/gost.yaml"]
     networks:
       - name: "{{ proxy_web_network_name }}"
         ipv4_address: "{{ proxy_web_gost_ip }}"
@@ -33,7 +33,7 @@
     log_driver: json-file
     log_options:
       max-size: 10m
-      max-file: 5
+      max-file: "5"
     healthcheck:
       test: ["CMD", "nc", "-z", "127.0.0.1", "{{ proxy_web_gost_socks5_container_port }}"]
       interval: "30s"

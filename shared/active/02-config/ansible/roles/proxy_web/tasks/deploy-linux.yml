@@ -9,6 +9,18 @@
     mode: "0755"
 
 # ============================================================================
+# Network Management
+# ============================================================================
+- name: Ensure localnet-network exists (shared with DNS chain)
+  community.docker.docker_network:
+    name: "{{ proxy_web_network_name }}"
+    state: present
+    driver: bridge
+    ipam_config:
+      - subnet: "{{ proxy_web_network_subnet }}"
+  when: proxy_web_network_name is defined
+
+# ============================================================================
 # Volume Management
 # ============================================================================
 - name: Ensure proxy-web volumes exist
@@ -29,21 +41,18 @@
     src: gost.yaml.j2
     dest: "{{ localnet_services_dir }}/proxy-web/gost.yaml"
     mode: "0644"
-  notify: Restart gost
 
 - name: Render Varnish VCL config
   ansible.builtin.template:
     src: varnish-default.vcl.j2
     dest: "{{ localnet_services_dir }}/proxy-web/default.vcl"
     mode: "0644"
-  notify: Restart varnish
 
 - name: Render Privoxy config
   ansible.builtin.template:
     src: privoxy-config.j2
     dest: "{{ localnet_services_dir }}/proxy-web/privoxy-config"
     mode: "0644"
-  notify: Restart privoxy
 
 # ============================================================================
 # Service Deployment (order matters — dependencies flow upward)

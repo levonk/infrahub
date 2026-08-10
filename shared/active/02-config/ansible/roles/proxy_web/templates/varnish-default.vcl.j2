@@ -73,12 +73,8 @@ sub vcl_hit {
         return (deliver);
     }
 
-    return (miss);
+    return (pass);
 }
 
-# Stale-if-error: serve stale when backend returns error
-sub vcl_backend_error {
-    if (stale.exists) {
-        return (deliver);
-    }
-}
+# Note: stale-if-error via vcl_backend_error + stale.exists requires Varnish 6.0+.
+# The grace period above (beresp.grace) provides stale-while-revalidate for all versions.

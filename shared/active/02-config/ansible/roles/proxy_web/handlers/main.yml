@@ -1,24 +1,5 @@
 ---
-# Handler: Restart Gost container on config change
-- name: Restart gost
-  community.docker.docker_container:
-    name: localnet-proxy-gost
-    state: started
-    restart: true
-  when: "'windows_docker_hosts' not in group_names"
-
-# Handler: Restart Varnish container on config change
-- name: Restart varnish
-  community.docker.docker_container:
-    name: localnet-proxy-varnish
-    state: started
-    restart: true
-  when: "'windows_docker_hosts' not in group_names"
-
-# Handler: Restart Privoxy container on config change
-- name: Restart privoxy
-  community.docker.docker_container:
-    name: localnet-proxy-privoxy
-    state: started
-    restart: true
-  when: "'windows_docker_hosts' not in group_names"
+# Handlers for proxy_web role
+# Note: Container recreation is handled by `recreate: true` on the
+# docker_container tasks, not by handlers. This avoids the issue where
+# `restart: true` loses published port mappings.
