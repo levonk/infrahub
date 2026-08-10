@@ -1,0 +1,50 @@
+---
+# Varnish Cache (varnish:latest)
+# Layer 4: HTTP cache + stale-while-revalidate + stale-if-error
+# Receives filtered requests from Privoxy, caches responses
+
+- name: Pull Varnish image
+  community.docker.docker_image:
+    name: "{{ proxy_web_varnish_image }}"
+    source: pull
+    state: present
+
+- name: Deploy Varnish container
+  community.docker.docker_container:
+    name: localnet-proxy-varnish
+    image: "{{ proxy_web_varnish_image }}"
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ proxy_web_network_name }}"
+        ipv4_address: "{{ proxy_web_varnish_ip }}"
+        aliases:
+          - varnish
+    published_ports:
+      - "{{ proxy_web_varnish_http_host_port }}:{{ proxy_web_varnish_http_container_port }}/tcp"
+      - "{{ proxy_web_varnish_admin_host_port }}:{{ proxy_web_varnish_admin_container_port }}/tcp"
+    volumes:
+      - "{{ localnet_services_dir }}/proxy-web/default.vcl:/etc/varnish/default.vcl:ro"
+    tmpfs:
+      - /var/lib/varnish:exec
+    env:
+      VARNISH_SIZE: "{{ proxy_web_varnish_cache_size }}"
+      TZ: "{{ localnet_tz | default('UTC') }}"
+    log_driver: json-file
+    log_options:
+      max-size: 10m
+      max-file: 5
+    healthcheck:
+      test: ["CMD", "varnishadm", "ping"]
+      interval: "30s"
+      timeout: "10s"
+      retries: 3
+      start_period: "15s"
+
+- name: Wait for Varnish to be ready
+  ansible.builtin.wait_for:
+    host: "127.0.0.1"
+    port: "{{ proxy_web_varnish_http_host_port }}"
+    timeout: 30
+  retries: 5
+  delay: 5

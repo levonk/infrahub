@@ -1,0 +1,43 @@
+---
+# Web Proxy Chain Deployment
+# Services: mitm, privoxy, varnish, gost
+#
+# Dual-deployment:
+#   Linux  (cloud_servers, oci-cloud-server) — community.docker modules
+#   Windows (windows_docker_hosts, dtop202311) — delegate_to: localhost + DOCKER_HOST: ssh://
+#
+# See: diagrams/proxy/complete-web-proxy-chain.mmd for the full architecture.
+
+# ============================================================================
+# Validate required variables
+# ============================================================================
+- name: Validate required proxy-web variables are defined
+  ansible.builtin.assert:
+    that:
+      - proxy_web_network_name is defined
+      - proxy_web_mitm_ip is defined
+      - proxy_web_privoxy_ip is defined
+      - proxy_web_varnish_ip is defined
+      - proxy_web_gost_ip is defined
+    fail_msg: >-
+      Missing required proxy-web variables. Check infrastructure files
+      (ports.yml, networks.yml, storage.yml) and role defaults.
+    success_msg: "All required proxy-web variables are defined."
+  tags: ["always", "validate"]
+
+# ============================================================================
+# Dispatch based on target OS
+# ============================================================================
+- name: Dispatch Windows deployment
+  ansible.builtin.include_tasks: deploy-windows.yml
+  when:
+    - proxy_web_enabled | bool
+    - "'windows_docker_hosts' in group_names"
+  tags: ["deploy"]
+
+- name: Dispatch Linux deployment
+  ansible.builtin.include_tasks: deploy-linux.yml
+  when:
+    - proxy_web_enabled | bool
+    - "'windows_docker_hosts' not in group_names"
+  tags: ["deploy"]

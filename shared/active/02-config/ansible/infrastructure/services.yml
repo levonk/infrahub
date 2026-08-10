@@ -143,6 +143,55 @@ services:
       label: "API"
   network: "proxy-chain-network"
 
+# Web Proxy Chain Services (see diagrams/proxy/complete-web-proxy-chain.mmd)
+- name: "MITM Proxy"
+  container: "mitmproxy"
+  machine: "oci-cloud-server"
+  category: "proxy"
+  description: "HTTPS interception and decryption proxy (mitmproxy)"
+  source_repo: "https://github.com/mitmproxy/mitmproxy"
+  ports:
+    - host: "infra_port_proxy_mitm_adblock_host"
+      container: "infra_port_proxy_mitm_adblock_container"
+      label: "HTTP Proxy"
+  network: "localnet-network"
+
+- name: "Privoxy"
+  container: "privoxy"
+  machine: "oci-cloud-server"
+  category: "proxy"
+  description: "Content filtering and header sanitization proxy"
+  source_repo: "https://www.privoxy.org/"
+  ports:
+    - host: "infra_port_proxy_privoxy_host"
+      container: "infra_port_proxy_privoxy_container"
+      label: "HTTP Proxy"
+  network: "localnet-network"
+
+- name: "Varnish Cache"
+  container: "varnish"
+  machine: "oci-cloud-server"
+  category: "proxy"
+  description: "HTTP cache with stale-while-revalidate and stale-if-error"
+  source_repo: "https://github.com/varnishcache/varnish-cache"
+  ports:
+    - host: "infra_port_proxy_varnish_http_host"
+      container: "infra_port_proxy_varnish_http_container"
+      label: "HTTP"
+  network: "localnet-network"
+
+- name: "Gost Egress"
+  container: "localnet-proxy-gost"
+  machine: "oci-cloud-server"
+  category: "proxy"
+  description: "Egress multiplexer routing to Direct/Tor/WARP backends"
+  source_repo: "https://github.com/go-gost/gost"
+  ports:
+    - host: "infra_port_proxy_gost_socks5_host"
+      container: "infra_port_proxy_gost_socks5_container"
+      label: "SOCKS5"
+  network: "localnet-network"
+
 - name: "AI Dashboard"
   container: "{{ infra_hostname_ai_dashboard }}"
   machine: "oci-cloud-server"

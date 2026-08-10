@@ -1,0 +1,50 @@
+---
+# Gost Egress Multiplexer (locally-built: localnet-proxy-gost)
+# Layer 5: Routes traffic to egress backends (Direct, Tor)
+# Receives cache misses from Varnish
+
+- name: Pull Gost image
+  community.docker.docker_image:
+    name: "{{ proxy_web_registry }}/localnet-proxy-gost:latest"
+    source: pull
+    state: present
+  when: proxy_web_registry is defined
+
+- name: Deploy Gost container
+  community.docker.docker_container:
+    name: localnet-proxy-gost
+    image: "{{ proxy_web_gost_image }}"
+    state: started
+    restart_policy: unless-stopped
+    command: >-
+      gost -C /etc/gost/gost.yaml
+    networks:
+      - name: "{{ proxy_web_network_name }}"
+        ipv4_address: "{{ proxy_web_gost_ip }}"
+        aliases:
+          - gost
+    published_ports:
+      - "{{ proxy_web_gost_socks5_host_port }}:{{ proxy_web_gost_socks5_container_port }}/tcp"
+      - "{{ proxy_web_gost_http_host_port }}:{{ proxy_web_gost_http_container_port }}/tcp"
+    volumes:
+      - "{{ localnet_services_dir }}/proxy-web/gost.yaml:/etc/gost/gost.yaml:ro"
+    env:
+      TZ: "{{ localnet_tz | default('UTC') }}"
+    log_driver: json-file
+    log_options:
+      max-size: 10m
+      max-file: 5
+    healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "{{ proxy_web_gost_socks5_container_port }}"]
+      interval: "30s"
+      timeout: "10s"
+      retries: 3
+      start_period: "15s"
+
+- name: Wait for Gost SOCKS5 to be ready
+  ansible.builtin.wait_for:
+    host: "127.0.0.1"
+    port: "{{ proxy_web_gost_socks5_host_port }}"
+    timeout: 30
+  retries: 5
+  delay: 5

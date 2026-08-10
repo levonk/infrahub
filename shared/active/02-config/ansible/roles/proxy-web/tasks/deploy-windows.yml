@@ -1,0 +1,298 @@
+---
+# Windows (nl) deployment — ssh-tunneled Docker CLI pattern
+# Target: Windows Docker Desktop (dtop202311, X86)
+#
+# community.docker modules can't run on Windows (Ansible core basic.py imports
+# grp, Unix-only). We use ansible.builtin.shell with DOCKER_HOST: ssh:// and
+# delegate_to: localhost, matching the DNS chain deploy-windows.yml pattern.
+#
+# Config templates are seeded into Docker volumes via temp alpine containers
+# because Windows path mounting is unreliable via SSH-tunneled Docker.
+
+# ============================================================================
+# 1. Prepare local temp directory for config staging
+# ============================================================================
+- name: Ensure local temp directory for proxy-web config exists
+  ansible.builtin.file:
+    path: "{{ proxy_web_windows_temp_dir }}"
+    state: directory
+    mode: "0755"
+  delegate_to: localhost
+  run_once: true
+  changed_when: false
+  tags: ["deploy", "config"]
+
+# ============================================================================
+# 2. Render config templates to local temp dir
+# ============================================================================
+- name: Render Gost config to local temp
+  ansible.builtin.template:
+    src: gost.yaml.j2
+    dest: "{{ proxy_web_windows_temp_dir }}/gost.yaml"
+    mode: "0644"
+  delegate_to: localhost
+  run_once: true
+  changed_when: false
+  tags: ["deploy", "config"]
+
+- name: Render Varnish VCL to local temp
+  ansible.builtin.template:
+    src: varnish-default.vcl.j2
+    dest: "{{ proxy_web_windows_temp_dir }}/default.vcl"
+    mode: "0644"
+  delegate_to: localhost
+  run_once: true
+  changed_when: false
+  tags: ["deploy", "config"]
+
+- name: Render Privoxy config to local temp
+  ansible.builtin.template:
+    src: privoxy-config.j2
+    dest: "{{ proxy_web_windows_temp_dir }}/privoxy-config"
+    mode: "0644"
+  delegate_to: localhost
+  run_once: true
+  changed_when: false
+  tags: ["deploy", "config"]
+
+# ============================================================================
+# 3. Ensure Docker network exists
+# ============================================================================
+- name: Ensure proxy-web network exists
+  ansible.builtin.shell: >-
+    docker network inspect {{ proxy_web_network_name }} 2>/dev/null ||
+    docker network create --subnet={{ proxy_web_network_subnet }} {{ proxy_web_network_name }}
+  environment:
+    DOCKER_HOST: "{{ proxy_web_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "network"]
+
+# ============================================================================
+# 4. Ensure Docker volumes exist
+# ============================================================================
+- name: Ensure proxy-web volumes exist
+  ansible.builtin.shell: >-
+    docker volume inspect {{ item }} 2>/dev/null ||
+    docker volume create {{ item }}
+  environment:
+    DOCKER_HOST: "{{ proxy_web_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: false
+  loop:
+    - "{{ proxy_web_mitm_ca_volume }}"
+    - "{{ proxy_web_varnish_cache_volume }}"
+    - "{{ proxy_web_gost_config_volume }}"
+    - "{{ proxy_web_privoxy_config_volume }}"
+  tags: ["deploy", "volume"]
+
+# ============================================================================
+# 5. Seed config volumes via temp alpine containers
+# ============================================================================
+- name: Seed Gost config volume
+  ansible.builtin.shell: |
+    set -e
+    docker rm -f proxy-web-seed-gost 2>/dev/null || true
+    docker create --name proxy-web-seed-gost -v {{ proxy_web_gost_config_volume }}:/seed alpine:latest sleep infinity
+    docker cp "{{ proxy_web_windows_temp_dir }}/gost.yaml" "proxy-web-seed-gost:/seed/gost.yaml"
+    docker rm -f proxy-web-seed-gost
+  environment:
+    DOCKER_HOST: "{{ proxy_web_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "config"]
+
+- name: Seed Privoxy config volume
+  ansible.builtin.shell: |
+    set -e
+    docker rm -f proxy-web-seed-privoxy 2>/dev/null || true
+    docker create --name proxy-web-seed-privoxy -v {{ proxy_web_privoxy_config_volume }}:/seed alpine:latest sleep infinity
+    docker cp "{{ proxy_web_windows_temp_dir }}/privoxy-config" "proxy-web-seed-privoxy:/seed/config"
+    docker rm -f proxy-web-seed-privoxy
+  environment:
+    DOCKER_HOST: "{{ proxy_web_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "config"]
+
+# ============================================================================
+# 6. Pull images
+# ============================================================================
+- name: Pull proxy-web images
+  ansible.builtin.shell: >-
+    docker image inspect {{ item }} >/dev/null 2>&1 ||
+    docker pull {{ item }}
+  environment:
+    DOCKER_HOST: "{{ proxy_web_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: false
+  failed_when: false
+  loop:
+    - "{{ proxy_web_mitm_image }}"
+    - "{{ proxy_web_privoxy_image }}"
+    - "{{ proxy_web_varnish_image }}"
+  tags: ["deploy", "images"]
+
+- name: Pull Gost image from registry
+  ansible.builtin.shell: >-
+    docker image inspect {{ proxy_web_gost_image }}:latest >/dev/null 2>&1 ||
+    docker pull {{ proxy_web_registry }}/{{ proxy_web_gost_image }}:latest
+  environment:
+    DOCKER_HOST: "{{ proxy_web_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: false
+  failed_when: false
+  tags: ["deploy", "images"]
+
+# ============================================================================
+# 7. Deploy containers — stop/remove old, create new
+# ============================================================================
+
+# --- Gost Egress Multiplexer (Layer 5) ---
+- name: Deploy Gost container
+  ansible.builtin.shell: |
+    set -e
+    docker rm -f localnet-proxy-gost 2>/dev/null || true
+    docker run -d \
+      --name localnet-proxy-gost \
+      --restart unless-stopped \
+      --network {{ proxy_web_network_name }} \
+      --ip {{ proxy_web_gost_ip }} \
+      -p {{ proxy_web_gost_socks5_host_port }}:{{ proxy_web_gost_socks5_container_port }}/tcp \
+      -p {{ proxy_web_gost_http_host_port }}:{{ proxy_web_gost_http_container_port }}/tcp \
+      -v {{ proxy_web_gost_config_volume }}:/etc/gost:ro \
+      -e TZ={{ localnet_tz | default('UTC') }} \
+      {{ proxy_web_gost_image }} \
+      gost -C /etc/gost/gost.yaml
+  environment:
+    DOCKER_HOST: "{{ proxy_web_docker_host_windows }}"
+  delegate_to: localhost
+  tags: ["deploy", "gost"]
+
+# --- Varnish Cache (Layer 4) ---
+- name: Deploy Varnish container
+  ansible.builtin.shell: |
+    set -e
+    docker rm -f localnet-proxy-varnish 2>/dev/null || true
+    docker run -d \
+      --name localnet-proxy-varnish \
+      --restart unless-stopped \
+      --network {{ proxy_web_network_name }} \
+      --ip {{ proxy_web_varnish_ip }} \
+      -p {{ proxy_web_varnish_http_host_port }}:{{ proxy_web_varnish_http_container_port }}/tcp \
+      -p {{ proxy_web_varnish_admin_host_port }}:{{ proxy_web_varnish_admin_container_port }}/tcp \
+      --tmpfs /var/lib/varnish:exec \
+      -e VARNISH_SIZE={{ proxy_web_varnish_cache_size }} \
+      -e TZ={{ localnet_tz | default('UTC') }} \
+      -v {{ proxy_web_varnish_cache_volume }}:/var/cache/varnish:rw \
+      {{ proxy_web_varnish_image }} \
+      -a :{{ proxy_web_varnish_http_container_port }} -T :{{ proxy_web_varnish_admin_container_port }} -f /etc/varnish/default.vcl
+  environment:
+    DOCKER_HOST: "{{ proxy_web_docker_host_windows }}"
+  delegate_to: localhost
+  tags: ["deploy", "varnish"]
+
+# --- Privoxy (Layer 3) ---
+- name: Deploy Privoxy container
+  ansible.builtin.shell: |
+    set -e
+    docker rm -f localnet-proxy-privoxy 2>/dev/null || true
+    docker run -d \
+      --name localnet-proxy-privoxy \
+      --restart unless-stopped \
+      --network {{ proxy_web_network_name }} \
+      --ip {{ proxy_web_privoxy_ip }} \
+      -v {{ proxy_web_privoxy_config_volume }}:/etc/privoxy:rw \
+      -e TZ={{ localnet_tz | default('UTC') }} \
+      {{ proxy_web_privoxy_image }}
+  environment:
+    DOCKER_HOST: "{{ proxy_web_docker_host_windows }}"
+  delegate_to: localhost
+  tags: ["deploy", "privoxy"]
+
+# --- MITM Proxy (Layer 2) ---
+- name: Deploy MITM proxy container
+  ansible.builtin.shell: |
+    set -e
+    docker rm -f localnet-proxy-mitm 2>/dev/null || true
+    docker run -d \
+      --name localnet-proxy-mitm \
+      --restart unless-stopped \
+      --network {{ proxy_web_network_name }} \
+      --ip {{ proxy_web_mitm_ip }} \
+      -p {{ proxy_web_mitm_adblock_host_port }}:{{ proxy_web_mitm_adblock_container_port }}/tcp \
+      -p {{ proxy_web_mitm_transparent_host_port }}:{{ proxy_web_mitm_transparent_container_port }}/tcp \
+      -p {{ proxy_web_mitm_webui_host_port }}:{{ proxy_web_mitm_webui_container_port }}/tcp \
+      -v {{ proxy_web_mitm_ca_volume }}:/home/mitmproxy/.mitmproxy:rw \
+      -e TZ={{ localnet_tz | default('UTC') }} \
+      {{ proxy_web_mitm_image }} \
+      mitmweb --web-host 0.0.0.0 --web-port {{ proxy_web_mitm_webui_container_port }} --mode regular@{{ proxy_web_mitm_adblock_container_port }}
+  environment:
+    DOCKER_HOST: "{{ proxy_web_docker_host_windows }}"
+  delegate_to: localhost
+  tags: ["deploy", "mitm"]
+
+# ============================================================================
+# 8. Wait for containers to be ready
+# ============================================================================
+- name: Wait for Gost SOCKS5 to be ready
+  ansible.builtin.shell: |
+    for i in $(seq 1 10); do
+      if docker exec localnet-proxy-gost nc -z 127.0.0.1 {{ proxy_web_gost_socks5_container_port }} 2>/dev/null; then
+        echo "ready"
+        break
+      fi
+      sleep 3
+    done
+  environment:
+    DOCKER_HOST: "{{ proxy_web_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "verify"]
+
+- name: Wait for Varnish to be ready
+  ansible.builtin.shell: |
+    for i in $(seq 1 10); do
+      if docker exec localnet-proxy-varnish varnishadm ping 2>/dev/null; then
+        echo "ready"
+        break
+      fi
+      sleep 3
+    done
+  environment:
+    DOCKER_HOST: "{{ proxy_web_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "verify"]
+
+- name: Wait for MITM proxy web UI to be ready
+  ansible.builtin.shell: |
+    for i in $(seq 1 10); do
+      if docker exec localnet-proxy-mitm curl -sf http://127.0.0.1:{{ proxy_web_mitm_webui_container_port }}/ 2>/dev/null; then
+        echo "ready"
+        break
+      fi
+      sleep 3
+    done
+  environment:
+    DOCKER_HOST: "{{ proxy_web_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "verify"]
+
+# ============================================================================
+# 9. Status Report
+# ============================================================================
+- name: Report proxy-web Windows stack status
+  ansible.builtin.shell: docker ps --filter "name=localnet-proxy-" --format "table {{ '{{.Names}}\t{{.Status}}\t{{.Ports}}' }}"
+  environment:
+    DOCKER_HOST: "{{ proxy_web_docker_host_windows }}"
+  delegate_to: localhost
+  register: proxy_web_windows_status
+  changed_when: false
+  tags: ["deploy", "status"]
+
+- name: Show proxy-web Windows stack status
+  ansible.builtin.debug:
+    var: proxy_web_windows_status.stdout_lines
+  tags: ["deploy", "status"]

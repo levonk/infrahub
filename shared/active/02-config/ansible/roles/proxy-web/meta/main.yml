@@ -1,0 +1,18 @@
+---
+galaxy_info:
+  author: levonk
+  description: Web Proxy Chain — MITM, Privoxy, Varnish, Gost egress multiplexer
+  license: proprietary
+  min_ansible_version: "2.14"
+  platforms:
+    - name: EL
+      versions: ["8", "9"]
+    - name: Windows
+      versions: ["all"]
+  galaxy_tags:
+    - proxy
+    - mitm
+    - caching
+    - filtering
+    - egress
+dependencies: []

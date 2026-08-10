@@ -1,0 +1,68 @@
+---
+# Linux deployment — uses community.docker modules
+# Target: cloud_servers (oci-cloud-server)
+
+- name: Ensure proxy-web service directory exists on target
+  ansible.builtin.file:
+    path: "{{ localnet_services_dir }}/proxy-web"
+    state: directory
+    mode: "0755"
+
+# ============================================================================
+# Volume Management
+# ============================================================================
+- name: Ensure proxy-web volumes exist
+  community.docker.docker_volume:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - "{{ proxy_web_mitm_ca_volume }}"
+    - "{{ proxy_web_varnish_cache_volume }}"
+    - "{{ proxy_web_gost_config_volume }}"
+    - "{{ proxy_web_privoxy_config_volume }}"
+
+# ============================================================================
+# Config Templates (render to service dir for volume mounting)
+# ============================================================================
+- name: Render Gost egress config
+  ansible.builtin.template:
+    src: gost.yaml.j2
+    dest: "{{ localnet_services_dir }}/proxy-web/gost.yaml"
+    mode: "0644"
+  notify: Restart gost
+
+- name: Render Varnish VCL config
+  ansible.builtin.template:
+    src: varnish-default.vcl.j2
+    dest: "{{ localnet_services_dir }}/proxy-web/default.vcl"
+    mode: "0644"
+  notify: Restart varnish
+
+- name: Render Privoxy config
+  ansible.builtin.template:
+    src: privoxy-config.j2
+    dest: "{{ localnet_services_dir }}/proxy-web/privoxy-config"
+    mode: "0644"
+  notify: Restart privoxy
+
+# ============================================================================
+# Service Deployment (order matters — dependencies flow upward)
+# ============================================================================
+- ansible.builtin.include_tasks: gost.yml
+- ansible.builtin.include_tasks: varnish.yml
+- ansible.builtin.include_tasks: privoxy.yml
+- ansible.builtin.include_tasks: mitm.yml
+
+# ============================================================================
+# Status Report
+# ============================================================================
+- name: Report proxy-web stack status
+  ansible.builtin.debug:
+    msg: |
+      Web Proxy Chain deployed successfully:
+        - MITM Proxy: http://localhost:{{ proxy_web_mitm_webui_host_port }} (web UI)
+        - MITM Proxy: localhost:{{ proxy_web_mitm_adblock_host_port }} (adblock entrypoint)
+        - MITM Proxy: localhost:{{ proxy_web_mitm_transparent_host_port }} (transparent entrypoint)
+        - Privoxy: {{ proxy_web_privoxy_ip }}:{{ proxy_web_privoxy_container_port }} (internal)
+        - Varnish: localhost:{{ proxy_web_varnish_http_host_port }} (cache)
+        - Gost: localhost:{{ proxy_web_gost_socks5_host_port }} (SOCKS5 bypass)

@@ -47,6 +47,7 @@ IMAGES=(
   "localnet-dns-dnscrypt-plaintext|docker/Dockerfile.dnscrypt-proxy|dns/dnscrypt|"
   "localnet-dns-dnsdist|docker/Dockerfile.dnsdist|dns/dnsdist|"
   "localnet-proxy-tor|docker/Dockerfile.tor|proxy/tor|"
+  "localnet-proxy-gost|docker/Dockerfile.gost|proxy/gost|"
   "localnet-proxy-9router|Dockerfile|proxy/9router|"
   "localnet-base-alpine|Dockerfile.base-alpine|base/base-alpine|"
   "isolation-vm-base-kali|Dockerfile.base-kali|base/base-kali|"
