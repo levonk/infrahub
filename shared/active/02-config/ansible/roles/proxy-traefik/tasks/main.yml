@@ -340,6 +340,43 @@
   when: ai_langfuse_enabled | default(false) | bool
   tags: ["deploy", "traefik", "langfuse-minio"]
 
+# Web Proxy Chain dynamic configs (see diagrams/proxy/complete-web-proxy-chain.mmd)
+- name: Deploy MITM proxy web UI dynamic configuration template
+  ansible.builtin.template:
+    src: dynamic/mitm.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/mitm.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: reload traefik
+  when: proxy_web_mitm_enabled | default(false) | bool
+  tags: ["deploy", "traefik", "proxy-web", "mitm"]
+
+- name: Deploy Varnish admin dynamic configuration template
+  ansible.builtin.template:
+    src: dynamic/varnish.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/varnish.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: reload traefik
+  when: proxy_web_varnish_enabled | default(false) | bool
+  tags: ["deploy", "traefik", "proxy-web", "varnish"]
+
+- name: Deploy MITM CA cert download dynamic configuration template
+  ansible.builtin.template:
+    src: dynamic/mitm-ca.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/mitm-ca.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: reload traefik
+  when: proxy_web_mitm_enabled | default(false) | bool
+  tags: ["deploy", "traefik", "proxy-web", "mitm-ca"]
+
 # ---------------------------------------------------------------------------
 # Traefik Container
 # ---------------------------------------------------------------------------

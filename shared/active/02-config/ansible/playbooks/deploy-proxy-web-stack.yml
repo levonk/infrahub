@@ -1,0 +1,65 @@
+---
+# Web Proxy Chain Playbook
+# Deploys the full web proxy chain: MITM, Privoxy, Varnish, Gost egress.
+#
+# Architecture: see diagrams/proxy/complete-web-proxy-chain.mmd
+# Requirements: DNS chain (Tor proxy at 172.26.255.70:9050) must be running.
+#
+# Usage:
+#   # Deploy to Windows (dtop202311):
+#   just ansible-deploy-proxy-web
+#   # or directly:
+#   devbox run -- ansible-playbook -i inventories/windows-docker.yml playbooks/deploy-proxy-web-stack.yml \
+#     --vault-password-file ~/.ansible/vault_password
+#
+#   # Deploy to OCI (oci-cloud-server):
+#   devbox run -- ansible-playbook -i inventories/oci.yml playbooks/deploy-proxy-web-stack.yml \
+#     --vault-password-file ~/.ansible/vault_password
+
+- name: "Deploy Web Proxy Chain to Windows Docker Desktop"
+  hosts: windows_docker_hosts
+  gather_facts: true
+  become: false
+  vars_files:
+    - ../../shared/active/02-config/ansible/infrastructure/ports.yml
+    - ../../shared/active/02-config/ansible/infrastructure/networks.yml
+    - ../../shared/active/02-config/ansible/infrastructure/storage.yml
+
+  pre_tasks:
+    - name: "Load shared infrastructure domains"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/domains.yml"
+      tags: ["always"]
+
+    - name: "Load client infrastructure domain overrides"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/domains.yml"
+      tags: ["always"]
+
+  roles:
+    - role: proxy-web
+      tags: ["proxy-web"]
+
+- name: "Deploy Web Proxy Chain to OCI Cloud Server"
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+  vars_files:
+    - ../../shared/active/02-config/ansible/infrastructure/ports.yml
+    - ../../shared/active/02-config/ansible/infrastructure/networks.yml
+    - ../../shared/active/02-config/ansible/infrastructure/storage.yml
+
+  pre_tasks:
+    - name: "Load shared infrastructure domains"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/domains.yml"
+      tags: ["always"]
+
+    - name: "Load client infrastructure domain overrides"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/domains.yml"
+      tags: ["always"]
+
+  roles:
+    - role: proxy-web
+      tags: ["proxy-web"]

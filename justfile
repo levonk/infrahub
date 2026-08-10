@@ -34,6 +34,8 @@ PB_NESTED_VIRT := ANSIBLE_ROOT + "/playbooks/test-nested-virtualization.yml"
 PB_ENABLE_WSL2_KVM := ANSIBLE_ROOT + "/playbooks/enable-wsl2-kvm.yml"
 PB_NIX_CACHE_GARNIX := ANSIBLE_ROOT + "/playbooks/deploy-nix-cache-and-garnix.yml"
 PB_DIRECTORY_EMPIRE := ANSIBLE_ROOT + "/playbooks/deploy-directory-empire.yml"
+PB_PROXY_WEB := ANSIBLE_ROOT + "/playbooks/deploy-proxy-web-stack.yml"
+PB_VAL_PROXY_WEB := ANSIBLE_ROOT + "/playbooks/validate-proxy-web.yml"
 WINDOWS_INVENTORY := INFRAHUB_ROOT + "/levonk/active/02-config/ansible/inventories/windows-docker.yml"
 
 # Docker commands for Ansible test containers
@@ -403,6 +405,34 @@ ansible-deploy-directory-empire:
 ansible-deploy-directory-empire-internal:
     @echo "Deploying Directory Empire dashboard on Windows Docker host..."
     ansible-playbook -i {{WINDOWS_INVENTORY}} {{PB_DIRECTORY_EMPIRE}} --vault-password-file ~/.ansible/vault_password
+
+# Deploy Web Proxy Chain (MITM → Privoxy → Varnish → Gost) on Windows Docker host
+# Prerequisites: DNS chain deployed (Tor proxy at 172.26.255.70:9050), Gost image built.
+ansible-deploy-proxy-web:
+    @echo "Deploying Web Proxy Chain on Windows Docker host..."
+    devbox run -- ansible-playbook -i {{WINDOWS_INVENTORY}} {{PB_PROXY_WEB}} --vault-password-file ~/.ansible/vault_password --limit windows_docker_hosts
+
+ansible-deploy-proxy-web-internal:
+    @echo "Deploying Web Proxy Chain on Windows Docker host..."
+    ansible-playbook -i {{WINDOWS_INVENTORY}} {{PB_PROXY_WEB}} --vault-password-file ~/.ansible/vault_password --limit windows_docker_hosts
+
+# Deploy Web Proxy Chain on OCI cloud server
+ansible-deploy-proxy-web-oci:
+    @echo "Deploying Web Proxy Chain on OCI cloud server..."
+    devbox run -- ansible-playbook -i {{INVENTORY}} {{PB_PROXY_WEB}} --vault-password-file ~/.ansible/vault_password --limit cloud_servers
+
+ansible-deploy-proxy-web-oci-internal:
+    @echo "Deploying Web Proxy Chain on OCI cloud server..."
+    ansible-playbook -i {{INVENTORY}} {{PB_PROXY_WEB}} --vault-password-file ~/.ansible/vault_password --limit cloud_servers
+
+# Validate Web Proxy Chain deployment
+ansible-validate-proxy-web:
+    @echo "Validating Web Proxy Chain on Windows Docker host..."
+    devbox run -- ansible-playbook -i {{WINDOWS_INVENTORY}} {{PB_VAL_PROXY_WEB}} --vault-password-file ~/.ansible/vault_password --limit windows_docker_hosts
+
+ansible-validate-proxy-web-oci:
+    @echo "Validating Web Proxy Chain on OCI cloud server..."
+    devbox run -- ansible-playbook -i {{INVENTORY}} {{PB_VAL_PROXY_WEB}} --vault-password-file ~/.ansible/vault_password --limit cloud_servers
 
 # -- Deploy Playbooks --
 # Client-specific deploy/validate recipes have been moved to levonk/justfile.
