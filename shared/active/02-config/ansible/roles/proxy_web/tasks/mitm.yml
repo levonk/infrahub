@@ -48,7 +48,7 @@
   ansible.builtin.uri:
     url: "http://127.0.0.1:{{ proxy_web_mitm_webui_host_port }}/"
     status_code: 200
-  register: mitm_health
-  until: mitm_health.status == 200
+  register: proxy_web_mitm_health
+  until: proxy_web_mitm_health.status == 200
   retries: 10
   delay: 5

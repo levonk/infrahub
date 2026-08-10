@@ -37,7 +37,7 @@
       tags: ["always"]
 
   roles:
-    - role: proxy-web
+    - role: proxy_web
       tags: ["proxy-web"]
 
 - name: "Deploy Web Proxy Chain to OCI Cloud Server"
@@ -61,5 +61,5 @@
       tags: ["always"]
 
   roles:
-    - role: proxy-web
+    - role: proxy_web
       tags: ["proxy-web"]

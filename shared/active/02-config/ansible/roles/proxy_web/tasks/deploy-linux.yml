@@ -48,10 +48,17 @@
 # ============================================================================
 # Service Deployment (order matters — dependencies flow upward)
 # ============================================================================
-- ansible.builtin.include_tasks: gost.yml
-- ansible.builtin.include_tasks: varnish.yml
-- ansible.builtin.include_tasks: privoxy.yml
-- ansible.builtin.include_tasks: mitm.yml
+- name: Deploy Gost egress multiplexer
+  ansible.builtin.include_tasks: gost.yml
+
+- name: Deploy Varnish cache
+  ansible.builtin.include_tasks: varnish.yml
+
+- name: Deploy Privoxy content filter
+  ansible.builtin.include_tasks: privoxy.yml
+
+- name: Deploy MITM proxy
+  ansible.builtin.include_tasks: mitm.yml
 
 # ============================================================================
 # Status Report
