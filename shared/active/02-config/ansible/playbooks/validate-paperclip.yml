@@ -1,0 +1,207 @@
+---
+# Validate Paperclip AI Orchestration deployment
+# Location: shared/active/02-config/ansible/playbooks/validate-paperclip.yml
+#
+# Read-only post-deployment checks:
+#   1. Paperclip container is running and healthy
+#   2. Paperclip Postgres container is running and healthy
+#   3. Paperclip /health endpoint responds on localhost
+#   4. Traefik routing works for https://paperclip.<base> (Authelia-protected,
+#      so we expect a 302 redirect to auth.<base>, not a 200)
+#   5. DNS resolves for paperclip.<base>
+#
+# Target: cloud_servers (OCI Linux only — Paperclip is not deployed on Windows).
+#
+# Usage:
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
+#     shared/active/02-config/ansible/playbooks/validate-paperclip.yml \
+#     --vault-password-file ~/.ansible/vault_password
+
+- name: "Validate Paperclip AI Orchestration"
+  hosts: cloud_servers
+  gather_facts: true
+  become: false
+  vars:
+    validation_results: {}
+
+  pre_tasks:
+    - name: "Load shared infrastructure defaults (ports, networks, domains, storage)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+      tags: ["always"]
+
+    - name: "Load client infrastructure overrides (levonk)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+      tags: ["always"]
+
+    - name: "Load ai-paperclip role defaults (for container name + port vars)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../roles/ai-paperclip/defaults/main.yml"
+      tags: ["always"]
+
+    - name: "Initialize validation results"
+      ansible.builtin.set_fact:
+        validation_results:
+          paperclip_container_running: false
+          paperclip_container_healthy: false
+          paperclip_postgres_running: false
+          paperclip_postgres_healthy: false
+          paperclip_health_ok: false
+          traefik_route_ok: false
+          dns_resolves: false
+      tags: ["always"]
+
+  tasks:
+    # =========================================================================
+    # Container checks — community.docker on Linux/OCI
+    # =========================================================================
+    - name: "Check Paperclip container status"
+      community.docker.docker_container_info:
+        name: "{{ ai_paperclip_container_name }}"
+      register: paperclip_info
+      failed_when: false
+      tags: ["validate", "paperclip"]
+
+    - name: "Record Paperclip container running status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'paperclip_container_running': paperclip_info.container.State.Status == 'running' if (paperclip_info.exists | default(false)) else false}) }}"
+      tags: ["validate", "paperclip"]
+
+    - name: "Record Paperclip container health status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'paperclip_container_healthy': (paperclip_info.container.State.Health.Status | default('none')) == 'healthy' if (paperclip_info.exists | default(false)) else false}) }}"
+      tags: ["validate", "paperclip"]
+
+    - name: "Check Paperclip Postgres container status"
+      community.docker.docker_container_info:
+        name: "{{ ai_paperclip_postgres_container_name }}"
+      register: paperclip_pg_info
+      failed_when: false
+      tags: ["validate", "paperclip"]
+
+    - name: "Record Paperclip Postgres running status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'paperclip_postgres_running': paperclip_pg_info.container.State.Status == 'running' if (paperclip_pg_info.exists | default(false)) else false}) }}"
+      tags: ["validate", "paperclip"]
+
+    - name: "Record Paperclip Postgres health status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'paperclip_postgres_healthy': (paperclip_pg_info.container.State.Health.Status | default('none')) == 'healthy' if (paperclip_pg_info.exists | default(false)) else false}) }}"
+      tags: ["validate", "paperclip"]
+
+    # =========================================================================
+    # Endpoint check — /health on localhost (bypasses Traefik/Authelia)
+    # =========================================================================
+    - name: "Check Paperclip /health endpoint on localhost"
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ ai_paperclip_host_port }}{{ ai_paperclip_health_endpoint }}"
+        method: GET
+        return_content: false
+        status_code: [200]
+      register: paperclip_health
+      failed_when: false
+      tags: ["validate", "paperclip"]
+
+    - name: "Record Paperclip /health status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'paperclip_health_ok': paperclip_health.status | default(0) == 200}) }}"
+      tags: ["validate", "paperclip"]
+
+    # =========================================================================
+    # Traefik routing — Authelia-protected, so we expect a 302 redirect to
+    # auth.<base> (HEAD) or 401 Unauthorized (GET), not a 200.
+    # Both 302 and 401 confirm Traefik routing + Authelia middleware are wired
+    # up correctly — the user is just not authenticated.
+    #
+    # We check via localhost with a Host header because the Tailscale MagicDNS
+    # resolver on the OCI host may not follow CNAME chains for getaddrinfo()
+    # (dig works, but Python's urllib/curl may fail to resolve the CNAME target).
+    # Checking 127.0.0.1:443 with the correct Host header bypasses DNS resolution
+    # and tests the Traefik router + middleware chain directly.
+    # =========================================================================
+    - name: "Check Traefik routing for https://{{ ai_paperclip_domain }}"
+      ansible.builtin.uri:
+        url: "https://127.0.0.1:443/"
+        method: GET
+        return_content: false
+        status_code: [200, 302, 301, 401]
+        follow_redirects: false
+        validate_certs: false
+        headers:
+          Host: "{{ ai_paperclip_domain }}"
+      register: traefik_route
+      failed_when: false
+      tags: ["validate", "paperclip", "traefik"]
+
+    - name: "Record Traefik route status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'traefik_route_ok': traefik_route.status | default(0) in [200, 302, 301, 401]}) }}"
+      tags: ["validate", "paperclip", "traefik"]
+
+    # =========================================================================
+    # DNS check — paperclip.<base> must resolve (CNAME to Tailscale FQDN)
+    # =========================================================================
+    - name: "Check DNS resolution for {{ ai_paperclip_domain }}"
+      ansible.builtin.command:
+        cmd: "dig +short {{ ai_paperclip_domain }} CNAME"
+      changed_when: false
+      failed_when: false
+      register: dns_cname
+      tags: ["validate", "paperclip", "dns"]
+
+    - name: "Check DNS A record for {{ ai_paperclip_domain }}"
+      ansible.builtin.command:
+        cmd: "dig +short {{ ai_paperclip_domain }} A"
+      changed_when: false
+      failed_when: false
+      register: dns_a
+      tags: ["validate", "paperclip", "dns"]
+
+    - name: "Record DNS resolution status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'dns_resolves': (dns_cname.stdout | default('') | length > 0) or (dns_a.stdout | default('') | length > 0)}) }}"
+      tags: ["validate", "paperclip", "dns"]
+
+  post_tasks:
+    - name: "Display validation results (JSON)"
+      ansible.builtin.debug:
+        msg: "{{ validation_results | to_nice_json }}"
+      tags: ["always"]
+
+    - name: "Display validation summary"
+      ansible.builtin.debug:
+        msg:
+          "Paperclip Validation Summary:\n
+          - Container Running: {{ validation_results.paperclip_container_running }}\n
+          - Container Healthy: {{ validation_results.paperclip_container_healthy }}\n
+          - Postgres Running: {{ validation_results.paperclip_postgres_running }}\n
+          - Postgres Healthy: {{ validation_results.paperclip_postgres_healthy }}\n
+          - /health Endpoint OK: {{ validation_results.paperclip_health_ok }}\n
+          - Traefik Route OK: {{ validation_results.traefik_route_ok }}\n
+          - DNS Resolves: {{ validation_results.dns_resolves }}"
+      tags: ["always"]
+
+    - name: "Fail if critical checks failed"
+      ansible.builtin.assert:
+        that:
+          - validation_results.paperclip_container_running
+          - validation_results.paperclip_postgres_running
+          - validation_results.dns_resolves
+        fail_msg: >-
+          Critical Paperclip validation checks failed. See JSON output above
+          for details. Check container logs with:
+          docker logs {{ ai_paperclip_container_name }}
+          docker logs {{ ai_paperclip_postgres_container_name }}
+        success_msg: "All critical Paperclip validation checks passed."
+      tags: ["always"]

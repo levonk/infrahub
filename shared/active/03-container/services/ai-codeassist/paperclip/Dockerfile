@@ -31,7 +31,33 @@ RUN git clone --depth 1 --branch "${PAPERCLIP_REF}" https://github.com/paperclip
 RUN pnpm install --frozen-lockfile
 
 # Build the application
+# Increase Node.js heap size — the UI build (Vite/Rollup) transforms 6000+ modules
+# and the default 2GB heap is not enough, especially under multi-arch buildx.
+ENV NODE_OPTIONS="--max-old-space-size=4096"
 RUN pnpm build
+
+# Fix package.json exports for production use.
+# In a pnpm monorepo, workspace-linked packages use the "exports" field as-is,
+# which points to "./src/*.ts" (TypeScript source). But "publishConfig.exports"
+# points to "./dist/*.js" (compiled JavaScript). When running in production,
+# we need the dist/ paths. This step copies publishConfig.exports → exports
+# in all workspace package.json files so Node.js resolves to compiled JS.
+RUN printf '%s' 'const fs=require("fs"),path=require("path");' \
+      'function fixPkg(p){' \
+      'const j=JSON.parse(fs.readFileSync(p,"utf8"));' \
+      'if(j.publishConfig&&j.publishConfig.exports){' \
+      'j.exports=j.publishConfig.exports;' \
+      'fs.writeFileSync(p,JSON.stringify(j,null,2)+"\n");' \
+      'console.log("Fixed:",j.name)}}' \
+      'function walk(d){' \
+      'for(const e of fs.readdirSync(d,{withFileTypes:true})){' \
+      'if(e.name==="node_modules"||e.name===".git")continue;' \
+      'const fp=path.join(d,e.name);' \
+      'if(e.isDirectory())walk(fp);' \
+      'else if(e.name==="package.json")fixPkg(fp)}}' \
+      'walk("/usr/src/paperclip");' > /tmp/fix-exports.js && \
+    node /tmp/fix-exports.js && \
+    rm /tmp/fix-exports.js
 
 # ---------------------------------------------------------------------------
 # Runtime stage
@@ -49,17 +75,16 @@ RUN apk add --no-cache \
 # Set working directory
 WORKDIR /app
 
-# Copy package files from builder
-COPY --from=builder --chown=node:node /usr/src/paperclip/package.json ./
-COPY --from=builder --chown=node:node /usr/src/paperclip/pnpm-lock.yaml ./
+# Copy the entire built workspace from the builder.
+# Paperclip is a pnpm monorepo — each package builds to its own dist/ directory
+# (server/dist, ui/dist, packages/*/dist, cli/dist). There is no top-level dist/.
+# We copy the whole workspace (including node_modules with symlinks) to preserve
+# the pnpm workspace structure needed at runtime.
+COPY --from=builder --chown=node:node /usr/src/paperclip ./
 
-# Install production dependencies only
-RUN pnpm install --prod --frozen-lockfile && \
-    pnpm cache clean --force
-
-# Copy built application from builder
-COPY --from=builder --chown=node:node /usr/src/paperclip/dist ./dist
-COPY --from=builder --chown=node:node /usr/src/paperclip/node_modules ./node_modules
+# Prune development dependencies to reduce image size
+RUN pnpm prune --prod || true && \
+    pnpm store prune || true
 
 # Use the existing node user (UID 1000, GID 1000)
 USER node
@@ -75,5 +100,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
 ENV NODE_ENV=production \
     PORT=3100
 
-# Start Paperclip
-CMD ["pnpm", "start"]
+# Start Paperclip server
+# The root package.json has no "start" script — the server package does.
+# Use pnpm --filter to run the server's start script (node dist/index.js).
+CMD ["pnpm", "--filter", "@paperclipai/server", "start"]

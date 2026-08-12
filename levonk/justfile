@@ -38,6 +38,7 @@ PB_CROC_RELAY := ANSIBLE_ROOT + "/playbooks/deploy-croc-relay.yml"
 PB_WAZUH := ANSIBLE_ROOT + "/playbooks/deploy-wazuh.yml"
 PB_QM := ANSIBLE_ROOT + "/playbooks/deploy-qm.yml"
 PB_VERDACCIO := ANSIBLE_ROOT + "/playbooks/deploy-verdaccio.yml"
+PB_PAPERCLIP := ANSIBLE_ROOT + "/playbooks/deploy-paperclip.yml"
 PB_LOCAL_REGISTRY := ANSIBLE_ROOT + "/playbooks/deploy-local-registry.yml"
 PB_MACOS_BOOTSTRAP := ANSIBLE_ROOT + "/playbooks/bootstrap-macos-host.yml"
 PB_VAL_BOOTSTRAP := ANSIBLE_ROOT + "/playbooks/validate-bootstrap.yml"
@@ -45,6 +46,7 @@ PB_VAL_VPN := ANSIBLE_ROOT + "/playbooks/validate-vpn.yml"
 PB_VAL_INFRA := ANSIBLE_ROOT + "/playbooks/validate-infra.yml"
 PB_VAL_VMS := ANSIBLE_ROOT + "/playbooks/validate-vms.yml"
 PB_VAL_VERDACCIO := ANSIBLE_ROOT + "/playbooks/validate-verdaccio.yml"
+PB_VAL_PAPERCLIP := ANSIBLE_ROOT + "/playbooks/validate-paperclip.yml"
 PB_FINAL_AUDIT := ANSIBLE_ROOT + "/playbooks/final-audit.yml"
 
 # === Exit Node Images ===
@@ -233,6 +235,31 @@ levonk-deploy-verdaccio-check:
     @echo "Dry-run Verdaccio deployment (check mode)..."
     devbox run -- ansible-playbook -i {{NL_INVENTORY}} -i {{CNO_INVENTORY}} {{PB_VERDACCIO}} --check --diff --vault-password-file {{VAULT_PASSWORD}}
 
+# Deploy Paperclip AI Orchestration on cno (OCI).
+# Prerequisites: localnet-ai-paperclip image built+pushed, vault secret present,
+# Traefik + Authelia deployed on cno, DNS CNAME paperclip.levonk.com configured.
+levonk-build-paperclip:
+    @echo "Building localnet-ai-paperclip image (multi-arch) → push to registry..."
+    bash {{BUILD_SCRIPT}} localnet-ai-paperclip
+
+levonk-build-paperclip-force:
+    @echo "Force rebuilding localnet-ai-paperclip image..."
+    FORCE_REBUILD=1 bash {{BUILD_SCRIPT}} localnet-ai-paperclip
+
+levonk-check-paperclip:
+    @echo "Checking localnet-ai-paperclip image staleness..."
+    @bash {{BUILD_SCRIPT}} --check localnet-ai-paperclip && \
+     echo "localnet-ai-paperclip is up-to-date." || \
+     echo "localnet-ai-paperclip is stale — run 'just levonk-build-paperclip'."
+
+levonk-deploy-paperclip: levonk-build-paperclip
+    @echo "Deploying Paperclip AI Orchestration on cno (OCI)..."
+    devbox run -- ansible-playbook -i {{CNO_INVENTORY}} {{PB_PAPERCLIP}} --vault-password-file {{VAULT_PASSWORD}}
+
+levonk-deploy-paperclip-check:
+    @echo "Dry-run Paperclip deployment (check mode)..."
+    devbox run -- ansible-playbook -i {{CNO_INVENTORY}} {{PB_PAPERCLIP}} --check --diff --vault-password-file {{VAULT_PASSWORD}}
+
 # === Localnet / macOS ===
 
 levonk-deploy-localnet-tailscale:
@@ -297,6 +324,8 @@ levonk-syntax:
     devbox run -- ansible-playbook --syntax-check -i {{NL_INVENTORY}} -i {{CNO_INVENTORY}} {{PB_WAZUH}} || true
     devbox run -- ansible-playbook --syntax-check -i {{NL_INVENTORY}} -i {{CNO_INVENTORY}} {{PB_QM}} || true
     devbox run -- ansible-playbook --syntax-check -i {{NL_INVENTORY}} {{PB_CROC_RELAY}} || true
+    devbox run -- ansible-playbook --syntax-check -i {{CNO_INVENTORY}} {{PB_PAPERCLIP}} || true
+    devbox run -- ansible-playbook --syntax-check -i {{CNO_INVENTORY}} {{PB_VAL_PAPERCLIP}} || true
     devbox run -- ansible-playbook --syntax-check -i {{CNO_INVENTORY}} {{PB_LOCAL_REGISTRY}} || true
     devbox run -- ansible-playbook --syntax-check -i {{MACOS_INVENTORY}} {{PB_MACOS_BOOTSTRAP}} || true
     devbox run -- ansible-playbook --syntax-check -i {{NL_INVENTORY}} {{PB_WINDOWS_HARDEN}} || true
@@ -323,6 +352,10 @@ levonk-validate-vms:
 levonk-validate-verdaccio:
     @echo "Validating Verdaccio NPM Registry deployment..."
     devbox run -- ansible-playbook -i {{NL_INVENTORY}} -i {{CNO_INVENTORY}} {{PB_VAL_VERDACCIO}} --vault-password-file {{VAULT_PASSWORD}}
+
+levonk-validate-paperclip:
+    @echo "Validating Paperclip AI Orchestration deployment..."
+    devbox run -- ansible-playbook -i {{CNO_INVENTORY}} {{PB_VAL_PAPERCLIP}} --vault-password-file {{VAULT_PASSWORD}}
 
 levonk-validate-all: levonk-validate-bootstrap levonk-validate-vpn levonk-validate-infra levonk-validate-vms
     @echo "All validation playbooks complete."

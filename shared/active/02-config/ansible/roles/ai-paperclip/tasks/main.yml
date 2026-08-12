@@ -119,7 +119,9 @@
       NODE_ENV: "production"
       PORT: "{{ ai_paperclip_container_port }}"
       DATABASE_URL: "postgresql://{{ ai_paperclip_postgres_user }}:{{ ai_paperclip_postgres_password }}@{{ ai_paperclip_postgres_container_name }}:{{ ai_paperclip_postgres_container_port }}/{{ ai_paperclip_postgres_db }}"
-      PAPERCLIP_BIND: "0.0.0.0"
+      PAPERCLIP_DEPLOYMENT_MODE: "authenticated"
+      PAPERCLIP_BIND: "lan"
+      BETTER_AUTH_SECRET: "{{ vault_paperclip_better_auth_secret | default('changeme') }}"
       TZ: "{{ ai_paperclip_tz }}"
     log_driver: json-file
     log_options:
@@ -133,25 +135,6 @@
       start_period: "{{ ai_paperclip_health_start_period }}"
     security_opts:
       - no-new-privileges:true
-    labels:
-      traefik.enable: "true"
-      # HTTP router (redirects to HTTPS)
-      traefik.http.routers.paperclip-http.rule: "Host(`{{ ai_paperclip_domain }}`)"
-      traefik.http.routers.paperclip-http.entryPoints: "web"
-      traefik.http.routers.paperclip-http.middlewares: "redirect-to-https-paperclip"
-      # HTTPS router with Authelia + secure headers middleware chain
-      traefik.http.routers.paperclip.rule: "Host(`{{ ai_paperclip_domain }}`)"
-      traefik.http.routers.paperclip.entryPoints: "websecure"
-      traefik.http.routers.paperclip.middlewares: "authelia@docker,secure-headers@file"
-      traefik.http.routers.paperclip.tls: "true"
-      traefik.http.routers.paperclip.tls.certresolver: "letsencrypt"
-      # Service configuration
-      traefik.http.services.paperclip.loadbalancer.server.port: "{{ ai_paperclip_container_port }}"
-      # HTTPS redirect middleware
-      traefik.http.middlewares.redirect-to-https-paperclip.redirectscheme.scheme: "https"
-      traefik.http.middlewares.redirect-to-https-paperclip.redirectscheme.permanent: "true"
-      # Traefik network
-      traefik.docker.network: "{{ ai_paperclip_traefik_network_name }}"
   notify: restart paperclip
 
 - name: Wait for Paperclip to be healthy
