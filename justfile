@@ -78,6 +78,7 @@ doctor-internal:
     docker --version || echo "docker: NOT FOUND"
     just --version || echo "just: NOT FOUND"
     devbox version || echo "devbox: NOT FOUND"
+    @git config core.hooksPath >/dev/null 2>&1 && echo "git hooks: $(git config core.hooksPath)" || echo "git hooks: NOT CONFIGURED (run 'just setup')"
     @echo "Environment check complete."
 
 setup:
@@ -92,6 +93,8 @@ setup-internal:
     @mkdir -p {{INFRAHUB_ROOT}}/levonk/active/02-config/ansible/group_vars
     @mkdir -p {{PACKER_DIR}}
     @mkdir -p {{INFRAHUB_ROOT}}/logs
+    @echo "Setting up git hooks (core.hooksPath=scripts/hooks)..."
+    @git config core.hooksPath scripts/hooks
     @echo "Directory structure ready."
 
 # === Skill Bootstrap ===
