@@ -1,0 +1,24 @@
+---
+galaxy_info:
+  role_name: macos_xcode
+  author: levonk
+  description: >
+    Install Xcode on macOS hosts via the Mac App Store CLI (mas).
+    Auto-selects the target Xcode version based on macOS version and
+    architecture (Xcode 26.3 for Sequoia 15.6+ on Intel x86_64 — the
+    terminal version for Intel Macs). Accepts the Xcode license and
+    switches xcode-select to the installed Xcode.
+  company: levonk
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: MacOSX
+      versions:
+        - all
+  galaxy_tags:
+    - macos
+    - xcode
+    - development
+    - mas
+
+dependencies: []

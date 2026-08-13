@@ -1,0 +1,95 @@
+---
+# macos-xcode default variables
+#
+# Xcode installation via `mas` (Mac App Store CLI).
+# The target version is auto-selected based on macOS version and architecture,
+# but can be overridden via `macos_xcode_target_version`.
+#
+# Version compatibility matrix (as of 2026-08):
+#   Xcode 26.3   — macOS Sequoia 15.6+ — Intel x86_64 + ARM (last version for Intel)
+#   Xcode 26.4+  — macOS Tahoe 26.2+   — ARM only (Tahoe does not support Intel)
+#
+# Intel Macs cannot run macOS Tahoe (26.x), so Xcode 26.3 is the terminal
+# version for x86_64-darwin. ARM Macs on Sequoia can also use 26.3; ARM Macs
+# on Tahoe can use newer versions.
+
+# ---------------------------------------------------------------------------
+# Target Xcode version — auto-detected if empty, override to pin
+# ---------------------------------------------------------------------------
+# Leave empty to auto-detect based on OS version + architecture.
+# Set to a specific version (e.g., "26.3") to force it.
+macos_xcode_target_version: ""
+
+# ---------------------------------------------------------------------------
+# Auto-detected defaults (used when macos_xcode_target_version is empty)
+# ---------------------------------------------------------------------------
+# x86_64 on Sequoia (15.x): Xcode 26.3 (terminal version — no Tahoe on Intel)
+# arm64 on Sequoia (15.x):  Xcode 26.3 (latest Sequoia-compatible)
+# arm64 on Tahoe (26.x):    dynamic lookup via iTunes API (see below)
+macos_xcode_version_sequoia: "{{ infra_app_xcode_version_sequoia | default('26.3') }}"
+# Fallback for Tahoe if the dynamic lookup is disabled or fails
+macos_xcode_version_tahoe_fallback: "{{ infra_app_xcode_version_tahoe | default('26.3') }}"
+
+# ---------------------------------------------------------------------------
+# Dynamic latest-version lookup (Tahoe+ hosts only)
+# ---------------------------------------------------------------------------
+# When true and the host is on macOS 26+ (Tahoe), the role queries the iTunes
+# Search API (https://itunes.apple.com/lookup?id=<app_id>) to get the latest
+# Xcode version and its minimumOsVersion. If the host's macOS >= minimumOsVersion,
+# the API version is used. Otherwise (or on API failure), it falls back to
+# macos_xcode_version_tahoe_fallback.
+#
+# Sequoia hosts always use the hardcoded macos_xcode_version_sequoia — the
+# latest Xcode in the App Store requires Tahoe, so a dynamic lookup would
+# always reject Sequoia. The hardcoded 26.3 is the terminal Sequoia version.
+macos_xcode_lookup_latest: true
+
+# iTunes Search API endpoint (no auth required, stable, same API mas uses)
+macos_xcode_itunes_lookup_url: "https://itunes.apple.com/lookup?id={{ macos_xcode_mas_app_id }}"
+
+# Timeout for the API request (seconds)
+macos_xcode_lookup_timeout: 15
+
+# ---------------------------------------------------------------------------
+# Mac App Store configuration
+# ---------------------------------------------------------------------------
+# Xcode's Mac App Store app ID (constant — never changes)
+macos_xcode_mas_app_id: "{{ infra_app_xcode_mas_app_id | default('497799835') }}"
+
+# Which macOS user to run mas as.
+#
+# App Store sign-in is PER-MACOS-USER. Ansible connects as `auser` (a headless
+# service account with no GUI session), but `mas` requires a user signed in to
+# the App Store. `mas signin` is disabled on macOS 10.13+ and 2FA requires GUI
+# interaction, so the sign-in must be done manually via the GUI.
+#
+# The GUI user signs in to the App Store during the bootstrap script
+# (shared/scripts/bootstrap-macos-manual.sh, step 6). Ansible then runs mas as
+# that user via `become_user`. Xcode installs to /Applications/ and is
+# available to all users on the Mac.
+#
+# Auto-detection: if `macos_gui_user` is not set in the inventory, the role
+# auto-detects the GUI user via `stat -f%Su /dev/console` (the owner of
+# /dev/console is the user logged in to the macOS GUI session). This matches
+# what the bootstrap script detects, so no inventory configuration is needed.
+#
+# To override auto-detection, set `macos_gui_user` in the inventory:
+#   macos_gui_user: "micro"
+macos_xcode_mas_user: "{{ macos_gui_user | default('') }}"  # empty = auto-detect
+
+# ---------------------------------------------------------------------------
+# Installation behavior
+# ---------------------------------------------------------------------------
+# Whether to accept the Xcode license automatically after install
+macos_xcode_accept_license: true
+
+# Whether to switch xcode-select to the installed Xcode (away from CLT)
+macos_xcode_select_xcode: true
+
+# Whether to install Command Line Tools if Xcode is not installed
+# (Xcode includes CLT, so this only matters if Xcode install is skipped)
+macos_xcode_install_clt_fallback: true
+
+# mas binary path — usually in PATH after nix-darwin apply, but
+# provide a fallback for shells where the nix profile isn't loaded
+macos_xcode_mas_path: "mas"

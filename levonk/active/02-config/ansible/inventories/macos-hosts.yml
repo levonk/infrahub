@@ -59,6 +59,11 @@ all:
             macos_auser: "auser"
             # SSH public key for auser (read from the control machine's key)
             macos_auser_ssh_public_key: "{{ lookup('file', lookup('env', 'HOME') + '/.ssh/lzkmbp2016-micro-oracle.pub') }}"
+            # GUI / daily-use user — OPTIONAL. The macos-xcode role auto-detects
+            # the GUI user via `stat -f%Su /dev/console` if this is not set.
+            # Uncomment to override auto-detection (e.g., if the GUI user differs
+            # from what /dev/console reports):
+            # macos_gui_user: "micro"
         # Sandbox CLI proxy hosts — parent of macos_hosts so all Macs run the proxy.
         # Add or remove child groups to control which hosts deploy the sandbox proxy.
         # See ADR-202608051501 for the sandboxed CLI egress architecture.

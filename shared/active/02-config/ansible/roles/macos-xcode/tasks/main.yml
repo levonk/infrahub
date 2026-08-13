@@ -1,0 +1,436 @@
+---
+# macos-xcode — Install Xcode on macOS via Mac App Store CLI (mas)
+#
+# Prerequisites:
+#   - `mas` must be in PATH (installed via nix-darwin fleet module)
+#   - At least one macOS user must be signed in to the App Store
+#     (sign in via System Settings → Apple ID — mas cannot automate this:
+#     `mas signin` is disabled on macOS 10.13+, and 2FA requires GUI)
+#   - The target macOS version must support the target Xcode version
+#
+# User detection: checks ALL human users (UID >= 501) in priority order:
+#   1. macos_gui_user if set in inventory (override)
+#   2. auser (Ansible service account)
+#   3. GUI user (stat -f%Su /dev/console)
+#   4. All other human users
+# First signed-in user wins. Xcode installs to /Applications/ (shared).
+#
+# Error handling: if mas is not available or no user is signed in, the role
+# does NOT hard-fail. It prints 🚨, skips mas install, continues with CLT
+# fallback, and lists all errors in the summary at the end.
+
+# ---------------------------------------------------------------------------
+# 1. Validate prerequisites
+# ---------------------------------------------------------------------------
+- name: Validate target is macOS
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['distribution'] == "MacOSX"
+    fail_msg: "macos-xcode role only supports macOS hosts."
+    success_msg: "Target is macOS."
+  tags: ["always", "validate"]
+
+# ---------------------------------------------------------------------------
+# 1a. Resolve target Xcode version
+#
+# Logic:
+#   - If macos_xcode_target_version is set → use it (explicit override)
+#   - If host is on Sequoia (15.x) → use hardcoded macos_xcode_version_sequoia
+#     (the latest Xcode in the App Store requires Tahoe, so dynamic lookup
+#     would always reject Sequoia; 26.3 is the terminal Sequoia version)
+#   - If host is on Tahoe+ (26.x) and macos_xcode_lookup_latest is true →
+#     query the iTunes Search API for the latest version, check minimumOsVersion
+#     compatibility, fall back to macos_xcode_version_tahoe_fallback on failure
+#   - If host is on Tahoe+ and lookup is disabled → use fallback
+# ---------------------------------------------------------------------------
+- name: Use explicit override if macos_xcode_target_version is set
+  ansible.builtin.set_fact:
+    macos_xcode_resolved_version: "{{ macos_xcode_target_version }}"
+    macos_xcode_version_source: "override"
+  when: macos_xcode_target_version | length > 0
+  tags: ["always", "validate"]
+
+- name: Use hardcoded Sequoia version for macOS 15.x hosts
+  ansible.builtin.set_fact:
+    macos_xcode_resolved_version: "{{ macos_xcode_version_sequoia }}"
+    macos_xcode_version_source: "sequoia-hardcoded"
+  when:
+    - macos_xcode_target_version | length == 0
+    - ansible_facts['distribution_version'] is version('26', '<')
+  tags: ["always", "validate"]
+
+# Dynamic lookup for Tahoe+ hosts
+- name: Query iTunes Search API for latest Xcode version (Tahoe+ hosts)
+  ansible.builtin.uri:
+    url: "{{ macos_xcode_itunes_lookup_url }}"
+    method: GET
+    return_content: true
+    timeout: "{{ macos_xcode_lookup_timeout }}"
+  register: macos_xcode_itunes_response
+  when:
+    - macos_xcode_target_version | length == 0
+    - ansible_facts['distribution_version'] is version('26', '>=')
+    - macos_xcode_lookup_latest | bool
+  tags: ["always", "validate"]
+
+- name: Parse latest Xcode version from API response
+  ansible.builtin.set_fact:
+    macos_xcode_api_latest_version: "{{ (macos_xcode_itunes_response.json.results[0].version | default('')) }}"
+    macos_xcode_api_min_os: "{{ (macos_xcode_itunes_response.json.results[0].minimumOsVersion | default('')) }}"
+  when:
+    - macos_xcode_itunes_response is defined
+    - macos_xcode_itunes_response.json is defined
+    - (macos_xcode_itunes_response.json.results | default([])) | length > 0
+  tags: ["always", "validate"]
+
+- name: Use API version if compatible with host macOS
+  ansible.builtin.set_fact:
+    macos_xcode_resolved_version: "{{ macos_xcode_api_latest_version }}"
+    macos_xcode_version_source: "itunes-api-latest"
+  when:
+    - macos_xcode_api_latest_version is defined
+    - macos_xcode_api_latest_version | length > 0
+    - macos_xcode_api_min_os is defined
+    - ansible_facts['distribution_version'] is version(macos_xcode_api_min_os, '>=')
+  tags: ["always", "validate"]
+
+- name: Fall back to hardcoded Tahoe version (API unavailable or incompatible)
+  ansible.builtin.set_fact:
+    macos_xcode_resolved_version: "{{ macos_xcode_version_tahoe_fallback }}"
+    macos_xcode_version_source: "tahoe-fallback"
+  when:
+    - macos_xcode_target_version | length == 0
+    - ansible_facts['distribution_version'] is version('26', '>=')
+    - macos_xcode_resolved_version is not defined
+  tags: ["always", "validate"]
+
+- name: Report Xcode version selection
+  ansible.builtin.debug:
+    msg: >-
+      Target Xcode version: {{ macos_xcode_resolved_version }}
+      (macOS {{ ansible_facts['distribution_version'] }},
+       {{ ansible_facts['architecture'] }},
+       source: {{ macos_xcode_version_source | default('unknown') }}
+       {%- if macos_xcode_api_latest_version is defined and macos_xcode_api_latest_version | length > 0 -%}
+       , API latest: {{ macos_xcode_api_latest_version }} (minOS {{ macos_xcode_api_min_os }})
+       {%- endif -%})
+  tags: ["always", "info"]
+
+# ---------------------------------------------------------------------------
+# 2. Check current Xcode installation
+# ---------------------------------------------------------------------------
+- name: Check if Xcode is installed
+  ansible.builtin.command: xcodebuild -version
+  register: macos_xcode_installed_check
+  changed_when: false
+  failed_when: false
+  tags: ["xcode", "check"]
+
+- name: Parse installed Xcode version
+  ansible.builtin.set_fact:
+    macos_xcode_installed_version: >-
+      {{ (macos_xcode_installed_check.stdout_lines[0] | default('')).split(' ')[1] | default('') }}
+  when: macos_xcode_installed_check.rc == 0
+  tags: ["xcode", "check"]
+
+- name: Report installed Xcode status
+  ansible.builtin.debug:
+    msg: >-
+      Installed Xcode: {{ macos_xcode_installed_version | default('not installed') }}
+      (target: {{ macos_xcode_resolved_version }})
+  tags: ["xcode", "info"]
+
+# Skip the rest if Xcode is already at the target version
+- name: Skip — Xcode already at target version
+  ansible.builtin.debug:
+    msg: "Xcode {{ macos_xcode_resolved_version }} is already installed. Nothing to do."
+  when:
+    - macos_xcode_installed_version is defined
+    - macos_xcode_installed_version == macos_xcode_resolved_version
+  tags: ["xcode", "skip"]
+
+# ---------------------------------------------------------------------------
+# 3. Find a signed-in App Store user and check mas availability
+# (only when Xcode needs to be installed)
+#
+# mas commands run as the signed-in user via become_user — NOT as auser (the
+# SSH service account). App Store sign-in is per-macOS-user, and auser is a
+# headless account with no App Store session.
+#
+# User search order (first signed-in user wins):
+#   1. macos_gui_user if set in inventory (explicit override)
+#   2. auser (the Ansible service account — unlikely but check)
+#   3. GUI user (stat -f%Su /dev/console — whoever is logged in to the GUI)
+#   4. All other human users (UID >= 501)
+#
+# If no user is signed in, the role does NOT hard-fail. It prints 🚨, skips the
+# mas install, continues with CLT fallback, and lists errors at the end.
+# ---------------------------------------------------------------------------
+
+# Initialize state — errors list and sign-in flag
+- name: Initialize xcode role state
+  ansible.builtin.set_fact:
+    macos_xcode_errors: []
+    macos_xcode_mas_signed_in: false
+    macos_xcode_mas_available: false
+  when:
+    - macos_xcode_installed_version is not defined
+      or macos_xcode_installed_version != macos_xcode_resolved_version
+  tags: ["mas", "check"]
+
+# Check if mas is installed (nix-darwin fleet module provides it)
+- name: Check if mas is available
+  ansible.builtin.command: which {{ macos_xcode_mas_path }}
+  register: macos_xcode_mas_check
+  changed_when: false
+  failed_when: false
+  when:
+    - macos_xcode_installed_version is not defined
+      or macos_xcode_installed_version != macos_xcode_resolved_version
+  tags: ["mas", "check"]
+
+- name: Record mas availability
+  ansible.builtin.set_fact:
+    macos_xcode_mas_available: true
+  when:
+    - macos_xcode_mas_check is defined
+    - macos_xcode_mas_check.rc == 0
+  tags: ["mas", "check"]
+
+- name: Record error — mas not installed
+  ansible.builtin.set_fact:
+    macos_xcode_errors: "{{ macos_xcode_errors + ['mas (Mac App Store CLI) is not in PATH. Ensure nix-darwin has been applied (just ansible-configure-macos or darwin-rebuild switch) — mas is in the fleet module environment.systemPackages.'] }}"
+  when:
+    - macos_xcode_mas_check is defined
+    - macos_xcode_mas_check.rc != 0
+    - macos_xcode_installed_version is not defined
+      or macos_xcode_installed_version != macos_xcode_resolved_version
+  tags: ["mas", "check"]
+
+# --- Find a signed-in App Store user ---
+# If macos_gui_user is set in inventory, use it (override). Otherwise, auto-detect
+# by checking all human users in priority order.
+- name: Find signed-in App Store user (auto-detect across all users)
+  ansible.builtin.shell: |
+    set -euo pipefail
+    AUSER="{{ ansible_user | default('auser') }}"
+    GUI_USER=$(stat -f%Su /dev/console 2>/dev/null || echo "")
+    ALL_USERS=$(dscl . -list /Users UniqueID 2>/dev/null | awk '$2 >= 501 {print $1}')
+
+    # Build check list: auser first, GUI user second, then all others
+    CHECK_LIST=""
+    for U in $ALL_USERS; do [[ "$U" == "$AUSER" ]] && CHECK_LIST="$U"; done
+    for U in $ALL_USERS; do [[ "$U" != "$AUSER" && "$U" == "$GUI_USER" ]] && CHECK_LIST="$CHECK_LIST $U"; done
+    for U in $ALL_USERS; do [[ "$U" != "$AUSER" && "$U" != "$GUI_USER" ]] && CHECK_LIST="$CHECK_LIST $U"; done
+
+    # Find first signed-in user (MobileMeAccounts defaults has AccountDSID)
+    for U in $CHECK_LIST; do
+      if sudo -u "$U" defaults read MobileMeAccounts 2>/dev/null | grep -q "AccountDSID"; then
+        APPLE_ID=$(sudo -u "$U" defaults read MobileMeAccounts 2>/dev/null | grep 'AccountDescription' | head -1 | sed 's/.*= "\(.*\)";/\1/')
+        echo "${U}:${APPLE_ID}"
+        exit 0
+      fi
+    done
+    # None found
+    exit 1
+  args:
+    executable: /bin/bash
+  register: macos_xcode_user_detect
+  changed_when: false
+  failed_when: false
+  when:
+    - macos_xcode_mas_available
+    - macos_xcode_mas_user | length == 0
+  tags: ["mas", "check"]
+
+- name: Set mas user from auto-detection
+  ansible.builtin.set_fact:
+    macos_xcode_mas_user: "{{ macos_xcode_user_detect.stdout.split(':')[0] | trim }}"
+    macos_xcode_mas_apple_id: "{{ macos_xcode_user_detect.stdout.split(':')[1] | default('') | trim }}"
+    macos_xcode_mas_signed_in: true
+  when:
+    - macos_xcode_user_detect is defined
+    - macos_xcode_user_detect.rc == 0
+    - macos_xcode_mas_user | length == 0
+  tags: ["mas", "check"]
+
+# If macos_gui_user is set in inventory (override), verify sign-in via mas account
+- name: Verify sign-in for inventory-specified user (macos_gui_user override)
+  ansible.builtin.command: "{{ macos_xcode_mas_path }} account"
+  register: macos_xcode_mas_account_override
+  become: true
+  become_user: "{{ macos_xcode_mas_user }}"
+  changed_when: false
+  failed_when: false
+  when:
+    - macos_xcode_mas_available
+    - macos_xcode_mas_user | length > 0
+    - not macos_xcode_mas_signed_in
+  tags: ["mas", "check"]
+
+- name: Set signed-in from override verification
+  ansible.builtin.set_fact:
+    macos_xcode_mas_signed_in: true
+    macos_xcode_mas_apple_id: "{{ macos_xcode_mas_account_override.stdout | default('') | trim }}"
+  when:
+    - macos_xcode_mas_account_override is defined
+    - macos_xcode_mas_account_override.rc == 0
+  tags: ["mas", "check"]
+
+# Report results
+- name: Report — signed-in user found
+  ansible.builtin.debug:
+    msg: "mas will run as: {{ macos_xcode_mas_user }} (Apple ID: {{ macos_xcode_mas_apple_id | default('unknown') }})"
+  when:
+    - macos_xcode_mas_signed_in
+    - macos_xcode_installed_version is not defined
+      or macos_xcode_installed_version != macos_xcode_resolved_version
+  tags: ["mas", "info"]
+
+- name: Report — no signed-in user found
+  ansible.builtin.debug:
+    msg: |-
+      🚨 No users on this Mac are signed in to the App Store.
+      mas install will be skipped. Command Line Tools will be installed as fallback.
+      To install full Xcode, sign in to the App Store (System Settings → Apple ID)
+      as any user, then re-run: just ansible-install-xcode
+  when:
+    - macos_xcode_mas_available
+    - not macos_xcode_mas_signed_in
+    - macos_xcode_installed_version is not defined
+      or macos_xcode_installed_version != macos_xcode_resolved_version
+  tags: ["mas", "info"]
+
+- name: Record error — no signed-in user
+  ansible.builtin.set_fact:
+    macos_xcode_errors: "{{ macos_xcode_errors + ['No users signed in to the App Store. mas cannot install Xcode. Sign in via System Settings → Apple ID as any user, then re-run: just ansible-install-xcode'] }}"
+  when:
+    - macos_xcode_mas_available
+    - not macos_xcode_mas_signed_in
+    - macos_xcode_installed_version is not defined
+      or macos_xcode_installed_version != macos_xcode_resolved_version
+  tags: ["mas", "check"]
+
+# ---------------------------------------------------------------------------
+# 4. Install Xcode via mas (only if signed in)
+# ---------------------------------------------------------------------------
+- name: Check if Xcode is already purchased/installed via mas
+  ansible.builtin.command: "{{ macos_xcode_mas_path }} list"
+  register: macos_xcode_mas_list
+  become: true
+  become_user: "{{ macos_xcode_mas_user }}"
+  changed_when: false
+  failed_when: false
+  when:
+    - macos_xcode_mas_signed_in
+  tags: ["mas", "install"]
+
+- name: Install Xcode via mas
+  ansible.builtin.command: "{{ macos_xcode_mas_path }} install {{ macos_xcode_mas_app_id }}"
+  register: macos_xcode_mas_install
+  become: true
+  become_user: "{{ macos_xcode_mas_user }}"
+  when:
+    - macos_xcode_mas_signed_in
+    - macos_xcode_mas_app_id not in (macos_xcode_mas_list.stdout | default(''))
+  changed_when: true
+  tags: ["mas", "install"]
+
+- name: Report mas install result
+  ansible.builtin.debug:
+    msg: "{{ macos_xcode_mas_install.stdout_lines | default(['Xcode install completed']) }}"
+  when: macos_xcode_mas_install is defined and macos_xcode_mas_install.changed
+  tags: ["mas", "install"]
+
+# ---------------------------------------------------------------------------
+# 5. Post-install — accept license and select Xcode
+# ---------------------------------------------------------------------------
+- name: Re-check Xcode version after install
+  ansible.builtin.command: xcodebuild -version
+  register: macos_xcode_post_install_check
+  changed_when: false
+  failed_when: false
+  when:
+    - macos_xcode_installed_version is not defined
+      or macos_xcode_installed_version != macos_xcode_resolved_version
+  tags: ["xcode", "post-install"]
+
+- name: Accept Xcode license
+  ansible.builtin.command: xcodebuild -license accept
+  become: true
+  when:
+    - macos_xcode_accept_license | bool
+    - macos_xcode_post_install_check is defined
+    - macos_xcode_post_install_check.rc == 0
+  changed_when: true
+  tags: ["xcode", "license"]
+
+- name: Select Xcode as active developer directory
+  ansible.builtin.command: xcode-select -s /Applications/Xcode.app/Contents/Developer
+  become: true
+  when:
+    - macos_xcode_select_xcode | bool
+    - macos_xcode_post_install_check is defined
+    - macos_xcode_post_install_check.rc == 0
+  changed_when: true
+  tags: ["xcode", "select"]
+
+# ---------------------------------------------------------------------------
+# 6. Command Line Tools fallback (only if Xcode is not installed and CLT missing)
+# ---------------------------------------------------------------------------
+- name: Check if Command Line Tools are installed
+  ansible.builtin.command: xcode-select -p
+  register: macos_xcode_clt_check
+  changed_when: false
+  failed_when: false
+  when:
+    - macos_xcode_install_clt_fallback | bool
+    - macos_xcode_installed_version is not defined
+    - macos_xcode_post_install_check is defined
+    - macos_xcode_post_install_check.rc != 0
+  tags: ["clt", "check"]
+
+- name: Install Command Line Tools (Xcode not available)
+  ansible.builtin.command: xcode-select --install
+  when:
+    - macos_xcode_install_clt_fallback | bool
+    - macos_xcode_clt_check is defined
+    - "'CommandLineTools' not in (macos_xcode_clt_check.stdout | default(''))"
+  changed_when: true
+  failed_when: false
+  tags: ["clt", "install"]
+
+- name: CLT fallback notice
+  ansible.builtin.debug:
+    msg: >-
+      Xcode was not installed. Command Line Tools were installed as a fallback.
+      To install full Xcode, sign in to the App Store and re-run this role.
+  when:
+    - macos_xcode_install_clt_fallback | bool
+    - macos_xcode_installed_version is not defined
+    - macos_xcode_post_install_check is defined
+    - macos_xcode_post_install_check.rc != 0
+  tags: ["clt", "info"]
+
+# ---------------------------------------------------------------------------
+# 7. Summary — includes errors if any (non-fatal, role continues without Xcode)
+# ---------------------------------------------------------------------------
+- name: Xcode role — summary
+  ansible.builtin.debug:
+    msg: |
+      ========================================
+      Xcode status: {{ inventory_hostname }}
+      ========================================
+      Target version: {{ macos_xcode_resolved_version }}
+      Installed: {{ macos_xcode_installed_version | default('not installed') }}
+      mas available: {{ macos_xcode_mas_available | default(false) }}
+      mas user: {{ macos_xcode_mas_user | default('N/A') }}
+      mas signed in: {{ macos_xcode_mas_signed_in | default(false) }}
+      Apple ID: {{ macos_xcode_mas_apple_id | default('N/A') }}
+      Developer dir: {{ macos_xcode_clt_check.stdout | default('unknown') }}
+      Errors: {{ macos_xcode_errors | default([]) | length }}
+      {% for err in (macos_xcode_errors | default([])) %}
+      🚨 {{ err }}
+      {% endfor %}
+      ========================================
+  tags: ["always", "summary"]
