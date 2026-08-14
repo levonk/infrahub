@@ -431,6 +431,7 @@
     -p {{ proxy_traefik_windows_homepage_host_port }}:{{ proxy_traefik_windows_homepage_container_port }}/tcp
     -v {{ proxy_traefik_windows_homepage_container_name }}-config:/config:rw
     -e TZ=UTC
+    -e HOMEPAGE_ALLOWED_HOSTS={{ proxy_traefik_windows_homepage_domain }}
     --log-driver json-file
     --log-opt max-size={{ proxy_traefik_windows_log_max_size }}
     --log-opt max-file={{ proxy_traefik_windows_log_max_file }}
