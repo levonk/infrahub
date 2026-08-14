@@ -37,6 +37,9 @@ PB_DIRECTORY_EMPIRE := ANSIBLE_ROOT + "/playbooks/deploy-directory-empire.yml"
 PB_PROXY_WEB := ANSIBLE_ROOT + "/playbooks/deploy-proxy-web-stack.yml"
 PB_VAL_PROXY_WEB := ANSIBLE_ROOT + "/playbooks/validate-proxy-web.yml"
 WINDOWS_INVENTORY := INFRAHUB_ROOT + "/levonk/active/02-config/ansible/inventories/windows-docker.yml"
+MACOS_INVENTORY := INFRAHUB_ROOT + "/levonk/active/02-config/ansible/inventories/macos-hosts.yml"
+PB_CONFIGURE_MACOS := ANSIBLE_ROOT + "/playbooks/configure-macos-host.yml"
+PB_BOOTSTRAP_MACOS := ANSIBLE_ROOT + "/playbooks/bootstrap-macos-host.yml"
 
 # Docker commands for Ansible test containers
 ANSIBLE_TEST_IMAGE := "ansible-test-runner:latest"
@@ -527,6 +530,28 @@ generate-tool-catalog-all-internal:
     python3 {{ANSIBLE_ROOT}}/scripts/generate_tool_catalog.py --shared-only --output TOOLS.md
 
 # === Sandboxed CLI Proxy Deployment ===
+
+# === macOS Host Management ===
+
+# Bootstrap a fresh macOS host (creates auser, SSH, Nix, Tailscale, Netbird)
+ansible-bootstrap-macos-internal:
+    @echo "Bootstrapping macOS host..."
+    ansible-playbook -i {{MACOS_INVENTORY}} {{PB_BOOTSTRAP_MACOS}} \
+      --vault-password-file ~/.ansible/vault_password --ask-become-pass
+
+# Configure macOS host (nix-darwin + apps + pmset + Xcode)
+ansible-configure-macos-internal:
+    @echo "Configuring macOS host..."
+    ansible-playbook -i {{MACOS_INVENTORY}} {{PB_CONFIGURE_MACOS}} \
+      --vault-password-file ~/.ansible/vault_password
+
+# Install Xcode on macOS hosts via mas (Mac App Store CLI)
+# Requires: Apple ID signed in to App Store (System Settings → App Store)
+ansible-install-xcode-internal:
+    @echo "Installing Xcode on macOS hosts..."
+    ansible-playbook -i {{MACOS_INVENTORY}} {{PB_CONFIGURE_MACOS}} \
+      --vault-password-file ~/.ansible/vault_password \
+      --tags xcode
 
 # Deploy the sandbox CLI proxy (iron-proxy) to Mac hosts
 deploy-sandbox-proxy-macos:

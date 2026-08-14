@@ -385,6 +385,18 @@
       tags: ["hardening", "hosts-blocklist"]
 
     # ---------------------------------------------------------------------------
+    # Xcode — install via mas (Mac App Store CLI)
+    # Requires: mas in PATH (nix-darwin fleet module), Apple ID signed in to
+    # App Store. Skipped if Xcode already at target version. Run selectively:
+    #   --tags xcode          install/upgrade Xcode only
+    #   --skip-tags xcode     skip Xcode (useful for non-dev hosts)
+    # ---------------------------------------------------------------------------
+    - name: "Install Xcode via mas"
+      ansible.builtin.include_role:
+        name: macos-xcode
+      tags: ["xcode", "dev-tools"]
+
+    # ---------------------------------------------------------------------------
     # Summary
     # ---------------------------------------------------------------------------
     - name: "Configure complete — summary"
@@ -399,5 +411,6 @@
           Brew casks: {{ macos_brew_casks | join(', ') }}
           Container runtime: {{ infra_app_container_runtime }}
           Docker CLI: {{ docker_check.stdout if docker_check.rc == 0 else 'NOT available' }}
+          Xcode: run `just ansible-install-xcode` or `--tags xcode` to install
           ========================================
       tags: ["always", "summary"]

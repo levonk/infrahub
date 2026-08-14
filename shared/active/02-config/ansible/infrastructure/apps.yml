@@ -51,3 +51,17 @@ infra_app_builtin_features:
 # Override per-client or per-host if you want to force a specific runtime.
 # ---------------------------------------------------------------------------
 infra_app_container_runtime: "auto"  # "auto" | "orbstack" | "apple-container"
+
+# ---------------------------------------------------------------------------
+# Xcode (installed via mas — Mac App Store CLI)
+# Not in nixpkgs (license-restricted, ~12GB) and not a Homebrew cask.
+# Installed by the macos-xcode Ansible role via `mas install`.
+# Version is auto-selected by the role based on macOS version + architecture:
+#   x86_64 on Sequoia 15.6+ → Xcode 26.3 (terminal version for Intel)
+#   arm64 on Sequoia        → Xcode 26.3 (latest Sequoia-compatible)
+#   arm64 on Tahoe 26.x     → dynamic lookup via iTunes API (latest in App Store)
+#                             with fallback to infra_app_xcode_version_tahoe_fallback
+# ---------------------------------------------------------------------------
+infra_app_xcode_mas_app_id: "497799835"  # Mac App Store app ID for Xcode (constant)
+infra_app_xcode_version_sequoia: "26.3"  # Latest Xcode for macOS Sequoia 15.6+ (terminal for Intel)
+infra_app_xcode_version_tahoe_fallback: "26.3"  # Fallback for Tahoe if API lookup fails
