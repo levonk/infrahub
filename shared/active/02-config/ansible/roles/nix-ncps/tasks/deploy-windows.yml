@@ -40,7 +40,7 @@
 # v0.9.4 lacked this command — that's why we use :main.
 # ============================================================================
 - name: Run ncps database migration
-  ansible.builtin.shell: >-
+  ansible.builtin.command: >-
     docker run --rm
     -v {{ nix_ncps_data_volume }}:/storage
     --entrypoint /bin/ncps
@@ -64,7 +64,7 @@
   tags: ["deploy", "container"]
 
 - name: Deploy nix-ncps container
-  ansible.builtin.shell: >-
+  ansible.builtin.command: >-
     docker run -d
     --name {{ nix_ncps_container_name }}
     --restart unless-stopped
