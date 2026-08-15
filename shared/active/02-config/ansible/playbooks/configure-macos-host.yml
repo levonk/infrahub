@@ -1,6 +1,8 @@
 ---
 # Configure macOS Host
 # Location: shared/active/02-config/ansible/playbooks/configure-macos-host.yml
+# Runbook for local validation: shared/active/08-docs/runbooks/nix-darwin-local-validation.md
+# PRD: internal-docs/feature/2026/07/nix-darwin-use/feat-202607060157-nix-darwin-migration.md
 #
 # Applies the nix-darwin system configuration, installs apps (Homebrew +
 # nix flake), configures the container runtime, and applies macOS

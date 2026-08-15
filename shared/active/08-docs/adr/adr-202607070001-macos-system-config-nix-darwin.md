@@ -28,6 +28,24 @@ The full migration requirements are in the PRD at
 
 ## Decision
 
+### Three-layer split: nix-darwin / Ansible / chezmoi
+
+macOS configuration is split across three layers, each with a single
+owner and a single tool:
+
+| Layer | Tool | What it manages | Where it lives |
+|-------|------|-----------------|----------------|
+| System-level (shared) | nix-darwin | `system.defaults`, privacy, homebrew, nix settings, fleet apps | `shared/active/02-config/nix/darwin/modules/` |
+| System-level (client) | nix-darwin | host-specific configs, `darwinConfigurations` | `levonk/active/02-config/nix/darwin/` |
+| Sudo non-defaults | Ansible | `pmset`, `chflags`, windowserver HiDPI (things nix-darwin cannot do) | `shared/active/02-config/ansible/playbooks/configure-macos-host.yml` |
+| User-level | chezmoi | ~163 user `defaults write` (dock size, keyboard, etc.) | `levonk/dotfiles` (`executable_osx-settings.py`) |
+
+The split is intentional: each layer has a different trust boundary and
+update cadence. nix-darwin is the fleet-mandated system source of truth;
+Ansible handles the small set of sudo-requiring operations that
+nix-darwin cannot express; chezmoi owns the user's home directory and
+per-user preferences. No layer writes into another layer's files.
+
 ### nix-darwin flake owns system-wide macOS configuration
 
 A nix-darwin flake at `shared/active/02-config/nix/darwin/flake.nix` is the
