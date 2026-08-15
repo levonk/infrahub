@@ -4,7 +4,7 @@ slug: nix-cache-chain-cno-dual-deployment
 date:
   created: 2026-08-09
   last-updated: 2026-08-09
-status: in-progress
+status: done
 tech-context: |
   ## Tech Context (Binding Constraint)
   This project uses the following tools. Use them, not alternatives.
