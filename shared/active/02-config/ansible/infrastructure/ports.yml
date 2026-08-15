@@ -490,3 +490,13 @@ infra_port_garnix_ci_api_container: "8080"
 # ---------------------------------------------------------------------------
 infra_port_dashboard_directory_empire_host: "4530"
 infra_port_dashboard_directory_empire_container: "3000"
+
+# ---------------------------------------------------------------------------
+# fwknop SPA (Single Packet Authorization) Ports
+# Used by: deploy-fwknop.yml playbook on cloud_servers (OCI)
+# Host-level security service — hides SSH port 22 from port scanners.
+# UDP port receives the encrypted SPA packet from authorized clients.
+# See internal-docs/research/service/fwknop/research.md for details.
+# ---------------------------------------------------------------------------
+infra_port_security_fwknop_spa_host: "62271"
+infra_port_security_fwknop_spa_container: "62271"

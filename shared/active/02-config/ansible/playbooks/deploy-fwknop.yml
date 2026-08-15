@@ -1,0 +1,48 @@
+---
+# Deploy fwknop-server (Single Packet Authorization) Playbook
+# Hides SSH port 22 from port scanners by requiring an encrypted, HMAC-signed
+# UDP packet before temporarily opening the firewall.
+#
+# Usage:
+#   # Deploy fwknop-server (port 22 stays OPEN — test SPA first)
+#   ansible-playbook -i inventories/oci.yml playbooks/deploy-fwknop.yml \
+#     --vault-password-file ~/.ansible/vault_password
+#
+#   # After testing SPA, close port 22 to the public internet
+#   ansible-playbook -i inventories/oci.yml playbooks/deploy-fwknop.yml \
+#     --vault-password-file ~/.ansible/vault_password \
+#     -e fwknop_close_public_ssh=true
+#
+#   # Syntax check
+#   ansible-playbook --syntax-check -i inventories/oci.yml playbooks/deploy-fwknop.yml
+#
+#   # Dry run
+#   ansible-playbook -i inventories/oci.yml playbooks/deploy-fwknop.yml --check --diff
+
+- name: "Deploy fwknop-server SPA"
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+  vars_files:
+    - "{{ playbook_dir }}/../infrastructure/ports.yml"
+    - "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/ports.yml"
+    - "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/inventories/group_vars/infrahub-levonk-all.vault.yml"
+
+  pre_tasks:
+    - name: "Gather ansible_facts"
+      ansible.builtin.setup:
+        gather_subset: ["all"]
+      tags: ["always"]
+
+    - name: "Validate fwknop prerequisites"
+      ansible.builtin.assert:
+        that:
+          - fwknop_spa_port is defined
+          - fwknop_ssh_port is defined
+        fail_msg: "Missing required fwknop port variables. Check infrastructure/ports.yml."
+        success_msg: "All required fwknop port variables are defined."
+      tags: ["always", "validate"]
+
+  roles:
+    - role: common-fwknop-server
+      tags: ["security", "fwknop", "spa"]

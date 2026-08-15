@@ -1,0 +1,10 @@
+---
+# handlers file for common-fwknop-server
+
+- name: Restart fwknop-server
+  ansible.builtin.systemd:
+    name: "{{ fwknop_service_name }}"
+    state: restarted
+    enabled: true
+  listen: restart fwknop
+  become: true

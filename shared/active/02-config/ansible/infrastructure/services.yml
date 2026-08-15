@@ -985,6 +985,20 @@ services:
     - "localnet-directory-empire-config-volume (runtime env config)"
 
 # ===========================================================================
+# Host-Level Security Services (not containers)
+# ===========================================================================
+- name: "fwknop SPA"
+  container: "N/A (host-level apt service)"
+  machine: "oci-cloud-server"
+  category: "security"
+  description: "Single Packet Authorization — hides SSH port 22 from port scanners. Encrypted UDP packet required before port opens. Tailscale stays as parallel no-knock path."
+  source_repo: "https://github.com/mrash/fwknop"
+  ports:
+    - host: "infra_port_security_fwknop_spa_host"
+      container: "infra_port_security_fwknop_spa_container"
+      label: "SPA (UDP)"
+
+# ===========================================================================
 # Service Chains
 # Data-driven request-flow topology for proxy/cache chains.
 # The generate_service_catalog.py script renders each chain as a Mermaid

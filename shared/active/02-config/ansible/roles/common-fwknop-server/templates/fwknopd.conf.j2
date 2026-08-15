@@ -1,0 +1,29 @@
+# ---------------------------------------------------------------------------
+# fwknopd.conf — managed by Ansible (common-fwknop-server role)
+# Do NOT edit manually — changes will be overwritten.
+# See internal-docs/research/service/fwknop/research.md for architecture.
+# Parameter names validated against fwknop 2.6.10 (EL/EPEL) man page.
+# ---------------------------------------------------------------------------
+
+# Configuration file for fwknopd (FireWall KNock OPerator daemon).
+
+# The PCAP_INTF setting tells fwknopd which interface to sniff for SPA
+# packets. Defaults to the default route interface.
+PCAP_INTF           {{ fwknop_pcap_intf | default('any') }}
+
+# PCAP filter — explicitly set the SPA UDP port.
+PCAP_FILTER         udp port {{ fwknop_spa_port }}
+
+# Keep digest cache across restarts (replay protection).
+ENABLE_DIGEST_PERSISTENCE  Y
+
+# Prepend rules to the beginning of the chain (so SPA ACCEPT rules
+# appear before any DROP rules we add when closing public SSH).
+ENABLE_RULE_PREPEND        Y
+
+# Syslog facility and priority for fwknopd messages.
+SYSLOG_IDENTITY     fwknopd
+SYSLOG_FACILITY     LOG_DAEMON
+
+# PCAP dispatch settings.
+PCAP_DISPATCH_COUNT 10

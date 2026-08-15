@@ -1,0 +1,228 @@
+---
+# tasks file for common-fwknop-server
+# fwknop SPA (Single Packet Authorization) — hides SSH from port scanners.
+# Host-level security service: package install + config templates + firewall + systemd.
+# Supports both Debian/Ubuntu (UFW) and EL/Oracle Linux (iptables).
+# See internal-docs/research/service/fwknop/research.md for architecture.
+
+# ---------------------------------------------------------------------------
+# Pre-Condition: Verify keys are available
+# ---------------------------------------------------------------------------
+- name: "FWKNOP | Verify SPA and HMAC keys are defined"
+  ansible.builtin.assert:
+    that:
+      - fwknop_spa_key | length > 0
+      - fwknop_hmac_key | length > 0
+    fail_msg: >-
+      CRITICAL: fwknop SPA/HMAC keys are not defined.
+      Add vault_fwknop_spa_key and vault_fwknop_hmac_key to the vault.
+      See AGENTS.md "Vault Edits (Agent → User Handoff)" for the procedure.
+    success_msg: "fwknop SPA and HMAC keys are defined."
+  tags: ["always", "validate"]
+
+# ---------------------------------------------------------------------------
+# Install fwknop
+# ---------------------------------------------------------------------------
+- name: "FWKNOP | Install fwknop (Debian/Ubuntu)"
+  ansible.builtin.package:
+    name: "{{ fwknop_package_name }}"
+    state: present
+  become: true
+  when: ansible_os_family == 'Debian'
+
+- name: "FWKNOP | Install fwknop from EPEL (EL)"
+  ansible.builtin.dnf:
+    name: "{{ fwknop_package_name }}"
+    state: present
+    enablerepo: epel
+  become: true
+  when: ansible_os_family == 'RedHat'
+
+# ---------------------------------------------------------------------------
+# Deploy configuration files
+# ---------------------------------------------------------------------------
+- name: "FWKNOP | Deploy fwknopd.conf"
+  ansible.builtin.template:
+    src: fwknopd.conf.j2
+    dest: /etc/fwknop/fwknopd.conf
+    owner: root
+    group: root
+    mode: "0600"
+  become: true
+  notify: restart fwknop
+
+- name: "FWKNOP | Deploy access.conf"
+  ansible.builtin.template:
+    src: access.conf.j2
+    dest: /etc/fwknop/access.conf
+    owner: root
+    group: root
+    mode: "0600"
+  become: true
+  no_log: true
+  notify: restart fwknop
+
+# ---------------------------------------------------------------------------
+# Firewall rules — UFW (Debian/Ubuntu)
+# ---------------------------------------------------------------------------
+- name: "FWKNOP | Allow SPA UDP port through UFW (Debian/Ubuntu)"
+  community.general.ufw:
+    rule: allow
+    port: "{{ fwknop_spa_port }}"
+    proto: udp
+  become: true
+  when:
+    - fwknop_firewall_type == 'ufw'
+    - fwknop_enabled | bool
+
+- name: "FWKNOP | Allow SSH on Tailscale interface via UFW (Debian/Ubuntu)"
+  community.general.ufw:
+    rule: allow
+    interface: "{{ fwknop_tailscale_interface }}"
+    direction: in
+    port: "{{ fwknop_ssh_port }}"
+    proto: tcp
+  become: true
+  when:
+    - fwknop_firewall_type == 'ufw'
+    - fwknop_allow_tailscale_ssh | bool
+    - fwknop_enabled | bool
+
+- name: "FWKNOP | Remove public SSH UFW rule (Debian/Ubuntu)"
+  community.general.ufw:
+    rule: allow
+    port: "{{ fwknop_ssh_port }}"
+    proto: tcp
+    delete: true
+  become: true
+  when:
+    - fwknop_firewall_type == 'ufw'
+    - fwknop_close_public_ssh | bool
+    - fwknop_enabled | bool
+  notify: restart fwknop
+
+# ---------------------------------------------------------------------------
+# Firewall rules — iptables (EL / Oracle Linux)
+# The OCI server uses raw iptables with default ACCEPT policy.
+# To close port 22 publicly, we add a DROP rule for non-Tailscale traffic.
+# fwknopd inserts temporary ACCEPT rules above this DROP when SPA validates.
+# ---------------------------------------------------------------------------
+- name: "FWKNOP | Allow SPA UDP port in iptables (EL)"
+  ansible.builtin.iptables:
+    chain: INPUT
+    protocol: udp
+    destination_port: "{{ fwknop_spa_port }}"
+    jump: ACCEPT
+    comment: "fwknop SPA UDP port"
+  become: true
+  when:
+    - fwknop_firewall_type == 'iptables'
+    - fwknop_enabled | bool
+
+- name: "FWKNOP | Allow SSH from Tailscale subnet in iptables (EL)"
+  ansible.builtin.iptables:
+    chain: INPUT
+    source: "{{ fwknop_tailscale_subnet }}"
+    protocol: tcp
+    destination_port: "{{ fwknop_ssh_port }}"
+    jump: ACCEPT
+    comment: "fwknop Tailscale SSH (no knock needed)"
+  become: true
+  when:
+    - fwknop_firewall_type == 'iptables'
+    - fwknop_allow_tailscale_ssh | bool
+    - fwknop_enabled | bool
+
+- name: "FWKNOP | Allow SSH from libvirt subnets in iptables (EL)"
+  ansible.builtin.iptables:
+    chain: INPUT
+    source: "{{ item }}"
+    protocol: tcp
+    destination_port: "{{ fwknop_ssh_port }}"
+    jump: ACCEPT
+    comment: "fwknop libvirt SSH (isolation VMs)"
+  become: true
+  loop: "{{ fwknop_libvirt_subnets }}"
+  when:
+    - fwknop_firewall_type == 'iptables'
+    - fwknop_enabled | bool
+
+- name: "FWKNOP | Drop public SSH in iptables — close port 22 (EL)"
+  ansible.builtin.iptables:
+    chain: INPUT
+    protocol: tcp
+    destination_port: "{{ fwknop_ssh_port }}"
+    jump: DROP
+    comment: "fwknop public SSH closed (SPA required)"
+  become: true
+  when:
+    - fwknop_firewall_type == 'iptables'
+    - fwknop_close_public_ssh | bool
+    - fwknop_enabled | bool
+  notify: restart fwknop
+
+# ---------------------------------------------------------------------------
+# Ensure fwknop service is running and enabled
+# ---------------------------------------------------------------------------
+- name: "FWKNOP | Ensure fwknop service is started and enabled"
+  ansible.builtin.systemd:
+    name: "{{ fwknop_service_name }}"
+    state: started
+    enabled: true
+  become: true
+
+- name: "FWKNOP | Restart fwknop service to apply configuration changes"
+  ansible.builtin.systemd:
+    name: "{{ fwknop_service_name }}"
+    state: restarted
+  become: true
+  when: not ansible_check_mode
+  changed_when: false
+
+# ---------------------------------------------------------------------------
+# Verify fwknop service status
+# ---------------------------------------------------------------------------
+- name: "FWKNOP | Check fwknop service status"
+  ansible.builtin.systemd:
+    name: "{{ fwknop_service_name }}"
+  register: fwknop_service_status
+  become: true
+  changed_when: false
+
+- name: "FWKNOP | Assert fwknop service is active"
+  ansible.builtin.assert:
+    that:
+      - fwknop_service_status.status.ActiveState == "active"
+    fail_msg: "fwknop service ({{ fwknop_service_name }}) is not active"
+    success_msg: "fwknop service ({{ fwknop_service_name }}) is active"
+
+# ---------------------------------------------------------------------------
+# Verify SPA port is listening
+# ---------------------------------------------------------------------------
+- name: "FWKNOP | Check SPA UDP port is listening"
+  ansible.builtin.command:
+    cmd: "ss -ulnp | grep :{{ fwknop_spa_port }}"
+  register: fwknop_spa_port_check
+  changed_when: false
+  failed_when: false
+  become: true
+
+- name: "FWKNOP | Report SPA port status"
+  ansible.builtin.debug:
+    msg: >-
+      SPA UDP port {{ fwknop_spa_port }} is
+      {{ 'listening' if fwknop_spa_port_check.rc == 0 else 'NOT listening — check fwknopd logs' }}
+  when: not ansible_check_mode
+
+# ---------------------------------------------------------------------------
+# Summary
+# ---------------------------------------------------------------------------
+- name: "FWKNOP | Deployment summary"
+  ansible.builtin.debug:
+    msg: >-
+      fwknop deployed ({{ fwknop_service_name }} on {{ ansible_os_family }}).
+      SPA port: {{ fwknop_spa_port }}/udp. Firewall: {{ fwknop_firewall_type }}.
+      SSH port {{ fwknop_ssh_port }} is
+      {{ 'CLOSED to public (SPA required)' if fwknop_close_public_ssh | bool else 'STILL OPEN to public (test SPA before closing)' }}.
+      Tailscale SSH path: {{ 'enabled' if fwknop_allow_tailscale_ssh | bool else 'disabled' }}.
+  when: not ansible_check_mode

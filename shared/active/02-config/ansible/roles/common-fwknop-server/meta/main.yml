@@ -1,0 +1,34 @@
+---
+galaxy_info:
+  role_name: common_fwknop_server
+  author: levonk
+  description: >-
+    Install and configure fwknop-server for Single Packet Authorization (SPA).
+    Hides SSH port 22 from port scanners by requiring an encrypted, HMAC-signed
+    UDP packet before temporarily opening the firewall. Tailscale stays as a
+    parallel no-knock access path. All ports, keys, and timeouts are
+    variable-driven.
+  company: levonk
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+    - name: Ubuntu
+      versions:
+        - all
+    - name: EL
+      versions:
+        - "8"
+        - "9"
+  galaxy_tags:
+    - fwknop
+    - security
+    - hardening
+    - spa
+    - ssh
+    - portknocking
+    - ufw
+
+dependencies: []

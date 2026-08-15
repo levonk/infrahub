@@ -1,0 +1,21 @@
+# ---------------------------------------------------------------------------
+# access.conf — managed by Ansible (common-fwknop-server role)
+# Do NOT edit manually — changes will be overwritten.
+# Contains the SPA key material — file mode 0600, deployed with no_log: true.
+# Parameter names validated against fwknop 2.6.10 (EL/EPEL) man page.
+# ---------------------------------------------------------------------------
+
+# Single source stanza — one shared key pair for all clients.
+# The SPA packet must be encrypted with KEY_BASE64 and signed with
+# HMAC_KEY_BASE64. Both are stored in Ansible vault.
+
+SOURCE              ANY
+KEY_BASE64          {{ fwknop_spa_key }}
+HMAC_KEY_BASE64     {{ fwknop_hmac_key }}
+HMAC_DIGEST_TYPE    SHA512
+
+# Open SSH port for the requesting IP after a valid SPA packet.
+OPEN_PORTS          tcp/{{ fwknop_ssh_port }}
+
+# How long the firewall rule stays open (seconds).
+FW_ACCESS_TIMEOUT   {{ fwknop_access_timeout }}

@@ -36,6 +36,7 @@ PB_NIX_CACHE_GARNIX := ANSIBLE_ROOT + "/playbooks/deploy-nix-cache-and-garnix.ym
 PB_DIRECTORY_EMPIRE := ANSIBLE_ROOT + "/playbooks/deploy-directory-empire.yml"
 PB_PROXY_WEB := ANSIBLE_ROOT + "/playbooks/deploy-proxy-web-stack.yml"
 PB_VAL_PROXY_WEB := ANSIBLE_ROOT + "/playbooks/validate-proxy-web.yml"
+PB_FWKNOP := ANSIBLE_ROOT + "/playbooks/deploy-fwknop.yml"
 WINDOWS_INVENTORY := INFRAHUB_ROOT + "/levonk/active/02-config/ansible/inventories/windows-docker.yml"
 MACOS_INVENTORY := INFRAHUB_ROOT + "/levonk/active/02-config/ansible/inventories/macos-hosts.yml"
 PB_CONFIGURE_MACOS := ANSIBLE_ROOT + "/playbooks/configure-macos-host.yml"
@@ -442,6 +443,26 @@ ansible-validate-proxy-web-oci:
 
 # -- Deploy Playbooks --
 # Client-specific deploy/validate recipes have been moved to levonk/justfile.
+
+# Deploy fwknop-server SPA (Single Packet Authorization) on OCI cloud server
+# Port 22 stays OPEN by default — test SPA before closing it.
+# To close port 22 after testing: add -e fwknop_close_public_ssh=true
+ansible-deploy-fwknop:
+    @echo "Deploying fwknop-server SPA on OCI cloud server (port 22 stays open)..."
+    devbox run -- ansible-playbook -i {{INVENTORY}} {{PB_FWKNOP}} --vault-password-file ~/.ansible/vault_password --limit cloud_servers
+
+ansible-deploy-fwknop-internal:
+    @echo "Deploying fwknop-server SPA on OCI cloud server (port 22 stays open)..."
+    ansible-playbook -i {{INVENTORY}} {{PB_FWKNOP}} --vault-password-file ~/.ansible/vault_password --limit cloud_servers
+
+# Close public SSH port 22 after confirming SPA works
+ansible-deploy-fwknop-close-ssh:
+    @echo "Closing public SSH port 22 (SPA now required for public access)..."
+    devbox run -- ansible-playbook -i {{INVENTORY}} {{PB_FWKNOP}} --vault-password-file ~/.ansible/vault_password --limit cloud_servers -e fwknop_close_public_ssh=true
+
+ansible-deploy-fwknop-close-ssh-internal:
+    @echo "Closing public SSH port 22 (SPA now required for public access)..."
+    ansible-playbook -i {{INVENTORY}} {{PB_FWKNOP}} --vault-password-file ~/.ansible/vault_password --limit cloud_servers -e fwknop_close_public_ssh=true
 # Run them from the levonk/ subdirectory:  cd levonk && just --list
 # Or:  just --justfile levonk/justfile levonk-deploy-exit-nodes-cno
 

@@ -1,0 +1,68 @@
+---
+# defaults file for common-fwknop-server
+# fwknop SPA (Single Packet Authorization) — hides SSH from port scanners.
+# Host-level security service (apt/dnf + systemd), NOT a container.
+# See internal-docs/research/service/fwknop/research.md for architecture.
+
+# ---------------------------------------------------------------------------
+# Enable / Disable
+# ---------------------------------------------------------------------------
+# When false, the role installs fwknop but does NOT close the public SSH port.
+# Port 22 stays open until the operator explicitly sets
+# fwknop_close_public_ssh: true after testing SPA access.
+fwknop_enabled: true
+fwknop_close_public_ssh: false
+
+# ---------------------------------------------------------------------------
+# SPA Configuration
+# ---------------------------------------------------------------------------
+fwknop_spa_port: "{{ infra_port_security_fwknop_spa_host | default('62201') }}"
+fwknop_ssh_port: "{{ infra_port_ssh_host | default('22') }}"
+fwknop_access_timeout: 120  # seconds — how long port 22 stays open after a valid SPA packet
+
+# ---------------------------------------------------------------------------
+# Keys (from vault — NEVER hardcode)
+# ---------------------------------------------------------------------------
+fwknop_spa_key: "{{ vault_fwknop_spa_key | default('') }}"
+fwknop_hmac_key: "{{ vault_fwknop_hmac_key | default('') }}"
+
+# ---------------------------------------------------------------------------
+# Package & Service names (OS-specific — auto-detected via ansible_os_family)
+# ---------------------------------------------------------------------------
+# Debian/Ubuntu: package=fwknop-server, service=fwknop-server
+# EL (Oracle/RHEL/CentOS): package=fwknop (from EPEL), service=fwknopd
+fwknop_package_name: >-
+  {{
+    'fwknop-server' if ansible_os_family == 'Debian'
+    else 'fwknop'
+  }}
+fwknop_service_name: >-
+  {{
+    'fwknop-server' if ansible_os_family == 'Debian'
+    else 'fwknopd'
+  }}
+
+# ---------------------------------------------------------------------------
+# Tailscale parallel path — always allow SSH on tailscale0 interface
+# ---------------------------------------------------------------------------
+fwknop_tailscale_interface: "tailscale0"
+fwknop_allow_tailscale_ssh: true
+
+# Tailscale CGNAT range — traffic from this range is always allowed
+fwknop_tailscale_subnet: "100.64.0.0/10"
+
+# Libvirt NAT bridge subnet (for isolation VMs on the OCI server)
+fwknop_libvirt_subnets:
+  - "192.168.100.0/24"
+  - "192.168.101.0/24"
+
+# ---------------------------------------------------------------------------
+# Firewall configuration
+# ---------------------------------------------------------------------------
+# Auto-detect: ufw on Debian/Ubuntu, iptables on EL
+# The OCI server runs Oracle Linux 9 with raw iptables (no UFW, no firewalld)
+fwknop_firewall_type: >-
+  {{
+    'ufw' if ansible_os_family == 'Debian'
+    else 'iptables'
+  }}

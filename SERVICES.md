@@ -1,11 +1,11 @@
 # Infrahub Service Catalog (Shared Defaults)
 
-> **Auto-generated** from `infrastructure/*.yml` (shared defaults only) — last updated: 2026-08-10 02:03
+> **Auto-generated** from `infrastructure/*.yml` (shared defaults only) — last updated: 2026-08-15 00:01
 > Regenerate with: `just generate-service-catalog-shared`
 > Source: `shared/active/02-config/ansible/infrastructure/services.yml`
 > Note: This catalog shows **default ports and suggested hostnames** only. Client-specific deployment details (custom domains, deployed machines, client port overrides) are not included. See `levonk/SERVICES.md` for the deployed client catalog.
 
-**66 services** (shared defaults — no deployment info)
+**67 services** (shared defaults — no deployment info)
 
 ## Table of Contents
 
@@ -118,6 +118,7 @@ flowchart TD
 | Directory Empire | `localnet-dashboard-directory-empire` | `infra_domain_dashboard_directory_empire_nl` (suggested) | `4530`→`3000` (Web) | traefik-windows-network | `localnet-directory-empire-config-volume` (volume) | UI (Web Apps) | [lrepo52/directory-empire](https://github.com/lrepo52/directory-empire) |
 | dnsdist | `dnsdist` | — | `5501`→`5501` (DNS)<br>`8083`→`8083` (Metrics) | localnet-network | — | DNS | [PowerDNS/dnsdist](https://github.com/PowerDNS/dnsdist) |
 | Forge | `forge` | — | `8083`→`8081` (API) | forge-network | — | Proxy Chain (Internal) | [antoinezambelli/forge](https://github.com/antoinezambelli/forge) |
+| fwknop SPA | `N/A (host-level apt service)` | — | `62201`→`62201` (SPA (UDP)) | — | — | Security / SSO | [mrash/fwknop](https://github.com/mrash/fwknop) |
 | Gost Egress | `localnet-proxy-gost` | — | `11080`→`1080` (SOCKS5) | localnet-network | — | Proxy Chain (Internal) | [go-gost/gost](https://github.com/go-gost/gost) |
 | Headroom | `headroom` | `infra_domain_ai_aishrink` (suggested) | `8787`→`8787` (API) | — | — | Proxy Chain (Internal) | [chopratejas/headroom](https://github.com/chopratejas/headroom) |
 | Homepage | `homepage` | `infra_domain_dashboard_homepage` (suggested) | `8084`→`3000` (Web) | — | — | Infrastructure | [gethomepage/homepage](https://github.com/gethomepage/homepage) |
@@ -273,6 +274,7 @@ flowchart TD
 |---------|-----------|--------------------|-------------------|---------|---------|--------|
 | Authelia | `authelia` | `infra_domain_sso_authelia` (suggested) | `9091`→`9091` (Web) | — | — | [authelia/authelia](https://github.com/authelia/authelia) |
 | CrowdSec | `crowdsec` | — | `8080`→`8080` (LAPI) | crowdsec-network | — | [crowdsecurity/crowdsec](https://github.com/crowdsecurity/crowdsec) |
+| fwknop SPA | `N/A (host-level apt service)` | — | `62201`→`62201` (SPA (UDP)) | — | — | [mrash/fwknop](https://github.com/mrash/fwknop) |
 
 ### ⚙️ Infrastructure
 
