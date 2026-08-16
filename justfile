@@ -465,8 +465,8 @@ ansible-deploy-fwknop-close-ssh-internal:
     @echo "Closing public SSH port 22 (SPA now required for public access)..."
     ansible-playbook -i {{INVENTORY}} {{PB_FWKNOP}} --vault-password-file ~/.ansible/vault_password --limit cloud_servers -e fwknop_close_public_ssh=true
 
-# Deploy fwknop SPA client to all Linux hosts (installs fwknop, ~/.fwknoprc, ~/.ssh/config.d/infrahub)
-# macOS hosts get fwknop via nix-darwin; this playbook handles the config files on macOS too.
+# Deploy fwknop SPA client to all hosts (installs fwknop, ~/.fwknoprc, ~/.ssh/config.d/infrahub)
+# Linux: apt/dnf install. macOS: brew install + deploy to GUI user's home.
 # Windows hosts are excluded (fwknop not available natively).
 ansible-deploy-fwknop-client:
     @echo "Deploying fwknop SPA client to all hosts..."

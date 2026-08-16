@@ -16,8 +16,8 @@
 #   just ansible-deploy-fwknop-client
 #   just ansible-deploy-fwknop-client-internal
 
-- name: "Deploy fwknop SPA client to Linux hosts"
-  hosts: all:!windows_docker_hosts:!macos_hosts
+- name: "Deploy fwknop SPA client to all hosts"
+  hosts: all:!windows_docker_hosts
   gather_facts: true
   become: false
 

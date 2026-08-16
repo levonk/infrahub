@@ -2,6 +2,35 @@
 # Task: Install and configure fwknop SPA client on all machines
 # Installs the fwknop client package, deploys ~/.fwknoprc with vault keys,
 # and deploys ~/.ssh/config.d/infrahub with SPA-aware SSH config.
+#
+# Platform handling:
+#   - Linux: installs via apt/dnf, deploys to ansible_user's home
+#   - macOS: installs via brew (nix-darwin flake has it too, but brew is the
+#     fallback when darwin-rebuild hasn't been run), deploys to the GUI user's
+#     home (auto-detected or macos_gui_user override)
+
+# ---------------------------------------------------------------------------
+# Resolve target user and home directory
+# ---------------------------------------------------------------------------
+- name: "FWKNOP-CLIENT | Set target user (Linux = ansible_user)"
+  ansible.builtin.set_fact:
+    fwknop_client_target_user: "{{ ansible_user }}"
+    fwknop_client_target_home: "{{ ansible_env.HOME }}"
+  when: ansible_facts['os_family'] != 'Darwin'
+
+- name: "FWKNOP-CLIENT | Detect GUI user (macOS auto-detect)"
+  ansible.builtin.shell: "stat -f%Su /dev/console 2>/dev/null || echo '{{ ansible_user }}'"
+  register: _macos_gui_user_detect
+  changed_when: false
+  when:
+    - ansible_facts['os_family'] == 'Darwin'
+    - macos_gui_user is not defined or macos_gui_user | length == 0
+
+- name: "FWKNOP-CLIENT | Set target user (macOS = GUI user)"
+  ansible.builtin.set_fact:
+    fwknop_client_target_user: "{{ macos_gui_user | default(_macos_gui_user_detect.stdout) }}"
+    fwknop_client_target_home: "/Users/{{ macos_gui_user | default(_macos_gui_user_detect.stdout) }}"
+  when: ansible_facts['os_family'] == 'Darwin'
 
 # ---------------------------------------------------------------------------
 # Validate prerequisites
@@ -12,13 +41,14 @@
       - fwknop_client_spa_key | length > 0
       - fwknop_client_hmac_key | length > 0
     fail_msg: >-
-      CRITICAL: fwknop SPA/HMAC keys are not defined.
-      Ensure vault_fwknop_spa_key and vault_fwknop_hmac_key are in the vault.
-    success_msg: "fwknop SPA and HMAC keys are defined."
+      CRITICAL: fwknop SPA/HMAC keys are not defined for host '{{ inventory_hostname }}'.
+      Ensure vault_fwknop_spa_key_{{ inventory_hostname }} and
+      vault_fwknop_hmac_key_{{ inventory_hostname }} are in the vault.
+    success_msg: "fwknop SPA and HMAC keys are defined for '{{ inventory_hostname }}'."
   no_log: true
 
 # ---------------------------------------------------------------------------
-# Install fwknop client package (Linux only — macOS uses nix-darwin/brew)
+# Install fwknop client package
 # ---------------------------------------------------------------------------
 - name: "FWKNOP-CLIENT | Install fwknop client (Debian/Ubuntu)"
   ansible.builtin.apt:
@@ -40,53 +70,206 @@
     - ansible_facts['os_family'] == 'RedHat'
     - fwknop_client_enabled
 
+- name: "FWKNOP-CLIENT | Check if fwknop binary exists (macOS)"
+  ansible.builtin.stat:
+    path: "{{ fwknop_client_target_home }}/.local/bin/fwknop"
+  register: _macos_fwknop_local_check
+  when:
+    - ansible_facts['os_family'] == 'Darwin'
+    - fwknop_client_enabled
+
+- name: "FWKNOP-CLIENT | Check if fwknop is in brew cellar (macOS)"
+  ansible.builtin.shell: "ls /usr/local/Cellar/fwknop/*/bin/fwknop 2>/dev/null || ls /opt/homebrew/Cellar/fwknop/*/bin/fwknop 2>/dev/null || echo 'not_found'"
+  register: _macos_fwknop_cellar_check
+  changed_when: false
+  when:
+    - ansible_facts['os_family'] == 'Darwin'
+    - fwknop_client_enabled
+
+- name: "FWKNOP-CLIENT | Install fwknop client via Homebrew (macOS)"
+  ansible.builtin.shell: |
+    set -euo pipefail
+    export HOME="{{ fwknop_client_target_home }}"
+    for brew_path in /opt/homebrew/bin/brew /usr/local/bin/brew; do
+      if [ -x "$brew_path" ]; then
+        eval "$($brew_path shellenv)"
+        break
+      fi
+    done
+    brew install fwknop
+  become: true
+  become_user: "{{ fwknop_client_target_user }}"
+  register: _macos_brew_install
+  changed_when: true
+  when:
+    - ansible_facts['os_family'] == 'Darwin'
+    - fwknop_client_enabled
+    - _macos_fwknop_cellar_check.stdout == "not_found"
+
 # ---------------------------------------------------------------------------
 # Deploy ~/.fwknoprc (client config with vault keys)
 # ---------------------------------------------------------------------------
-- name: "FWKNOP-CLIENT | Ensure ~/.ssh/config.d directory exists"
+- name: "FWKNOP-CLIENT | Ensure ~/.ssh/config.d directory exists (Linux)"
   ansible.builtin.file:
-    path: "{{ ansible_env.HOME }}/.ssh/config.d"
+    path: "{{ fwknop_client_target_home }}/.ssh/config.d"
     state: directory
     mode: "0700"
-  when: fwknop_client_deploy_ssh_config
+  when:
+    - fwknop_client_deploy_ssh_config
+    - ansible_facts['os_family'] != 'Darwin'
 
-- name: "FWKNOP-CLIENT | Deploy ~/.fwknoprc"
+- name: "FWKNOP-CLIENT | Ensure ~/.ssh/config.d directory exists (macOS)"
+  ansible.builtin.shell: |
+    sudo -u {{ fwknop_client_target_user }} mkdir -p {{ fwknop_client_target_home }}/.ssh/config.d
+    sudo -u {{ fwknop_client_target_user }} chmod 700 {{ fwknop_client_target_home }}/.ssh/config.d
+  args:
+    creates: "{{ fwknop_client_target_home }}/.ssh/config.d"
+  when:
+    - fwknop_client_deploy_ssh_config
+    - ansible_facts['os_family'] == 'Darwin'
+
+- name: "FWKNOP-CLIENT | Deploy ~/.fwknoprc (Linux)"
   ansible.builtin.template:
     src: fwknoprc.j2
-    dest: "{{ ansible_env.HOME }}/.fwknoprc"
+    dest: "{{ fwknop_client_target_home }}/.fwknoprc"
     mode: "0600"
   no_log: true
-  when: fwknop_client_enabled
+  when:
+    - fwknop_client_enabled
+    - ansible_facts['os_family'] != 'Darwin'
+
+- name: "FWKNOP-CLIENT | Render fwknoprc to remote temp (macOS)"
+  ansible.builtin.template:
+    src: fwknoprc.j2
+    dest: "/tmp/.fwknoprc.{{ inventory_hostname }}"
+    mode: "0644"
+  no_log: true
+  changed_when: false
+  when:
+    - fwknop_client_enabled
+    - ansible_facts['os_family'] == 'Darwin'
+
+- name: "FWKNOP-CLIENT | Install ~/.fwknoprc (macOS)"
+  ansible.builtin.shell: |
+    sudo -u {{ fwknop_client_target_user }} cp /tmp/.fwknoprc.{{ inventory_hostname }} {{ fwknop_client_target_home }}/.fwknoprc
+    sudo -u {{ fwknop_client_target_user }} chmod 600 {{ fwknop_client_target_home }}/.fwknoprc
+    rm -f /tmp/.fwknoprc.{{ inventory_hostname }}
+  no_log: true
+  changed_when: true
+  when:
+    - fwknop_client_enabled
+    - ansible_facts['os_family'] == 'Darwin'
+
+# ---------------------------------------------------------------------------
+# Deploy ~/.secrets/secrets-env/fwknop.env (for chezmoi template on macOS)
+# ---------------------------------------------------------------------------
+- name: "FWKNOP-CLIENT | Ensure ~/.secrets/secrets-env directory exists (macOS)"
+  ansible.builtin.shell: |
+    sudo -u {{ fwknop_client_target_user }} mkdir -p {{ fwknop_client_target_home }}/.secrets/secrets-env
+    sudo -u {{ fwknop_client_target_user }} chmod 700 {{ fwknop_client_target_home }}/.secrets/secrets-env
+  args:
+    creates: "{{ fwknop_client_target_home }}/.secrets/secrets-env"
+  when:
+    - ansible_facts['os_family'] == 'Darwin'
+    - fwknop_client_enabled
+
+- name: "FWKNOP-CLIENT | Render fwknop.env to remote temp (macOS)"
+  ansible.builtin.template:
+    src: fwknop-env.j2
+    dest: "/tmp/.fwknop-env.{{ inventory_hostname }}"
+    mode: "0644"
+  no_log: true
+  changed_when: false
+  when:
+    - ansible_facts['os_family'] == 'Darwin'
+    - fwknop_client_enabled
+
+- name: "FWKNOP-CLIENT | Install ~/.secrets/secrets-env/fwknop.env (macOS)"
+  ansible.builtin.shell: |
+    sudo -u {{ fwknop_client_target_user }} cp /tmp/.fwknop-env.{{ inventory_hostname }} {{ fwknop_client_target_home }}/.secrets/secrets-env/fwknop.env
+    sudo -u {{ fwknop_client_target_user }} chmod 600 {{ fwknop_client_target_home }}/.secrets/secrets-env/fwknop.env
+    rm -f /tmp/.fwknop-env.{{ inventory_hostname }}
+  no_log: true
+  changed_when: true
+  when:
+    - ansible_facts['os_family'] == 'Darwin'
+    - fwknop_client_enabled
 
 # ---------------------------------------------------------------------------
 # Deploy ~/.ssh/config.d/infrahub (SPA-aware SSH config)
 # ---------------------------------------------------------------------------
-- name: "FWKNOP-CLIENT | Deploy ~/.ssh/config.d/infrahub"
+- name: "FWKNOP-CLIENT | Deploy ~/.ssh/config.d/infrahub (Linux)"
   ansible.builtin.template:
     src: ssh-config-infrahub.j2
-    dest: "{{ ansible_env.HOME }}/.ssh/config.d/infrahub"
+    dest: "{{ fwknop_client_target_home }}/.ssh/config.d/infrahub"
     mode: "0644"
-  when: fwknop_client_deploy_ssh_config
+  when:
+    - fwknop_client_deploy_ssh_config
+    - ansible_facts['os_family'] != 'Darwin'
+
+- name: "FWKNOP-CLIENT | Render ssh config.d/infrahub to remote temp (macOS)"
+  ansible.builtin.template:
+    src: ssh-config-infrahub.j2
+    dest: "/tmp/.ssh-infrahub.{{ inventory_hostname }}"
+    mode: "0644"
+  changed_when: false
+  when:
+    - fwknop_client_deploy_ssh_config
+    - ansible_facts['os_family'] == 'Darwin'
+
+- name: "FWKNOP-CLIENT | Install ~/.ssh/config.d/infrahub (macOS)"
+  ansible.builtin.shell: |
+    sudo -u {{ fwknop_client_target_user }} cp /tmp/.ssh-infrahub.{{ inventory_hostname }} {{ fwknop_client_target_home }}/.ssh/config.d/infrahub
+    sudo -u {{ fwknop_client_target_user }} chmod 644 {{ fwknop_client_target_home }}/.ssh/config.d/infrahub
+    rm -f /tmp/.ssh-infrahub.{{ inventory_hostname }}
+  changed_when: true
+  when:
+    - fwknop_client_deploy_ssh_config
+    - ansible_facts['os_family'] == 'Darwin'
 
 # ---------------------------------------------------------------------------
 # Ensure ~/.ssh/config includes config.d
 # ---------------------------------------------------------------------------
 - name: "FWKNOP-CLIENT | Check if ~/.ssh/config has Include directive"
   ansible.builtin.shell: |
-    grep -q 'Include ~/.ssh/config.d/\*' "{{ ansible_env.HOME }}/.ssh/config" 2>/dev/null && echo "present" || echo "absent"
+    if [ "{{ ansible_facts['os_family'] }}" == "Darwin" ]; then
+      sudo -u {{ fwknop_client_target_user }} grep -q 'Include ~/.ssh/config.d/\*' {{ fwknop_client_target_home }}/.ssh/config 2>/dev/null && echo "present" || echo "absent"
+    else
+      grep -q 'Include ~/.ssh/config.d/\*' {{ fwknop_client_target_home }}/.ssh/config 2>/dev/null && echo "present" || echo "absent"
+    fi
   register: _ssh_include_check
   changed_when: false
   when: fwknop_client_deploy_ssh_config
 
-- name: "FWKNOP-CLIENT | Add Include directive to ~/.ssh/config"
+- name: "FWKNOP-CLIENT | Add Include directive to ~/.ssh/config (Linux)"
   ansible.builtin.lineinfile:
-    path: "{{ ansible_env.HOME }}/.ssh/config"
+    path: "{{ fwknop_client_target_home }}/.ssh/config"
     line: "Include ~/.ssh/config.d/*"
     insertbefore: BOF
     create: true
     mode: "0644"
   when:
     - fwknop_client_deploy_ssh_config
+    - ansible_facts['os_family'] != 'Darwin'
+    - _ssh_include_check.stdout == "absent"
+
+- name: "FWKNOP-CLIENT | Add Include directive to ~/.ssh/config (macOS)"
+  ansible.builtin.shell: |
+    sudo -u {{ fwknop_client_target_user }} touch {{ fwknop_client_target_home }}/.ssh/config
+    sudo -u {{ fwknop_client_target_user }} chmod 644 {{ fwknop_client_target_home }}/.ssh/config
+    # Prepend the Include line if not already present
+    if ! sudo -u {{ fwknop_client_target_user }} grep -q 'Include ~/.ssh/config.d/\*' {{ fwknop_client_target_home }}/.ssh/config 2>/dev/null; then
+      tmpfile=$(mktemp)
+      echo 'Include ~/.ssh/config.d/*' > "$tmpfile"
+      sudo -u {{ fwknop_client_target_user }} cat {{ fwknop_client_target_home }}/.ssh/config >> "$tmpfile" 2>/dev/null || true
+      sudo -u {{ fwknop_client_target_user }} cp "$tmpfile" {{ fwknop_client_target_home }}/.ssh/config
+      sudo -u {{ fwknop_client_target_user }} chmod 644 {{ fwknop_client_target_home }}/.ssh/config
+      rm -f "$tmpfile"
+    fi
+  changed_when: true
+  when:
+    - fwknop_client_deploy_ssh_config
+    - ansible_facts['os_family'] == 'Darwin'
     - _ssh_include_check.stdout == "absent"
 
 # ---------------------------------------------------------------------------
@@ -103,9 +286,9 @@
   ansible.builtin.debug:
     msg: >-
       fwknop client {{ 'installed at ' + _fwknop_binary.stdout if _fwknop_binary.rc == 0 else 'NOT found' }}.
+      Target user: {{ fwknop_client_target_user }} (home: {{ fwknop_client_target_home }}).
       SPA server: {{ fwknop_client_spa_server }}:{{ fwknop_client_spa_port }}/udp.
-      SSH config: {{ ansible_env.HOME }}/.ssh/config.d/infrahub
+      SSH config: {{ fwknop_client_target_home }}/.ssh/config.d/infrahub
       ({{ 'deployed' if fwknop_client_deploy_ssh_config else 'skipped' }}).
-      Use 'ssh oci' for Tailscale (port {{ fwknop_client_ssh_port }}, no knock),
-      'ssh ocispa' for SPA + public IP (port {{ fwknop_client_public_ssh_port }}).
+      Use 'ssh oci' for Tailscale (no knock), 'ssh ocispa' for SPA + public IP.
   when: fwknop_client_enabled
