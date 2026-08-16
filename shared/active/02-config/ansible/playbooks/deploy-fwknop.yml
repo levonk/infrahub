@@ -39,6 +39,7 @@
         that:
           - fwknop_spa_port is defined
           - fwknop_ssh_port is defined
+          - fwknop_internal_ssh_port is defined
         fail_msg: "Missing required fwknop port variables. Check infrastructure/ports.yml."
         success_msg: "All required fwknop port variables are defined."
       tags: ["always", "validate"]

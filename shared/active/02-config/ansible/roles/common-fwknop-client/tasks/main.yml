@@ -106,5 +106,6 @@
       SPA server: {{ fwknop_client_spa_server }}:{{ fwknop_client_spa_port }}/udp.
       SSH config: {{ ansible_env.HOME }}/.ssh/config.d/infrahub
       ({{ 'deployed' if fwknop_client_deploy_ssh_config else 'skipped' }}).
-      Use 'ssh oci' for Tailscale (no knock), 'ssh ocispa' for SPA + public IP.
+      Use 'ssh oci' for Tailscale (port {{ fwknop_client_ssh_port }}, no knock),
+      'ssh ocispa' for SPA + public IP (port {{ fwknop_client_public_ssh_port }}).
   when: fwknop_client_enabled

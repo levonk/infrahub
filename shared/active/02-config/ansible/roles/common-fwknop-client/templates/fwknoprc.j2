@@ -4,14 +4,16 @@
 #
 # WHAT IS SPA (Single Packet Authorization)?
 #
-#   SPA hides SSH port 22 from port scanners. The server keeps port 22
-#   closed. To gain access, the client sends a single encrypted UDP packet
-#   (the "knock") to port {{ fwknop_client_spa_port }}. The server validates
-#   the packet's encryption and HMAC signature, then temporarily opens port
-#   22 for the client's source IP for 120 seconds.
+#   SPA hides the public SSH port ({{ fwknop_client_public_ssh_port }}) from
+#   port scanners. The server keeps it closed. To gain access, the client
+#   sends a single encrypted UDP packet (the "knock") to port
+#   {{ fwknop_client_spa_port }}. The server validates the packet's
+#   encryption and HMAC signature, then temporarily opens port
+#   {{ fwknop_client_public_ssh_port }} for the client's source IP for 120
+#   seconds.
 #
 #   This means:
-#     - Port scanners see port 22 as closed/filtered
+#     - Port scanners see the public SSH port as closed/filtered
 #     - Brute-force SSH attacks can't even reach sshd
 #     - Only holders of the SPA key can open the port
 #     - Tailscale remains a parallel no-knock access path
@@ -21,11 +23,11 @@
 #   Test mode (build packet but don't send):
 #     fwknop -n oci-cloud-server -T
 #
-#   Send a knock (opens port 22 for your IP for 120 seconds):
+#   Send a knock (opens port {{ fwknop_client_public_ssh_port }} for your IP for 120 seconds):
 #     fwknop -n oci-cloud-server
 #
 #   Then SSH via public IP (within the 120-second window):
-#     ssh -i {{ fwknop_client_ssh_key }} opc@{{ fwknop_client_spa_server }}
+#     ssh -i {{ fwknop_client_ssh_key }} -p {{ fwknop_client_public_ssh_port }} opc@{{ fwknop_client_spa_server }}
 #
 #   Or do both in one step (auto-knock + SSH):
 #     ssh ocispa
@@ -52,7 +54,7 @@ SPA_SERVER_PROTO     udp
 HMAC_DIGEST_TYPE     SHA512
 USE_HMAC             Y
 ALLOW_IP             resolve
-ACCESS               tcp/{{ fwknop_client_ssh_port }}
+ACCESS               tcp/{{ fwknop_client_public_ssh_port }}
 KEY_BASE64           {{ fwknop_client_spa_key }}
 HMAC_KEY_BASE64      {{ fwknop_client_hmac_key }}
 

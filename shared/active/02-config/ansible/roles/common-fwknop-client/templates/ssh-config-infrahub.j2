@@ -5,25 +5,29 @@
 #
 # The OCI cloud server is reachable via two paths:
 #
-#   1. Tailscale (Host oci)        — always open, no knock needed
-#   2. Public IP  (Host ocispa)    — requires fwknop SPA knock first
+#   1. Tailscale (Host oci)        — port {{ fwknop_client_ssh_port }}, always open, no knock needed
+#   2. Public IP  (Host ocispa)    — port {{ fwknop_client_public_ssh_port }}, requires fwknop SPA knock first
 #
 ###############################################################################
 #
 # WHAT IS SPA (Single Packet Authorization)?
 #
-#   SPA is a security mechanism that hides SSH (port 22) from port scanners.
-#   Instead of leaving port 22 open to the internet, the server keeps it
-#   closed. To gain access, the client sends a single encrypted UDP packet
-#   (the "knock") to a specific UDP port ({{ fwknop_client_spa_port }}). The
-#   server validates the packet's encryption and HMAC signature, then
-#   temporarily opens port 22 for the client's source IP for 120 seconds.
-#   After the timeout, the rule is automatically removed.
+#   SPA is a security mechanism that hides the public SSH port
+#   ({{ fwknop_client_public_ssh_port }}) from port scanners. Instead of
+#   leaving it open to the internet, the server keeps it closed. To gain
+#   access, the client sends a single encrypted UDP packet (the "knock") to
+#   a specific UDP port ({{ fwknop_client_spa_port }}). The server validates
+#   the packet's encryption and HMAC signature, then temporarily opens port
+#   {{ fwknop_client_public_ssh_port }} for the client's source IP for 120
+#   seconds. After the timeout, the rule is automatically removed.
+#
+#   The internal SSH port ({{ fwknop_client_ssh_port }}) is restricted to
+#   the Tailscale subnet — public scanners cannot reach it at all.
 #
 #   This means:
-#     - Port scanners see port 22 as closed/filtered
+#     - Port scanners see both SSH ports as closed/filtered
 #     - Brute-force SSH attacks can't even reach sshd
-#     - Only holders of the SPA key can open the port
+#     - Only holders of the SPA key can open the public port
 #     - Tailscale remains a parallel no-knock access path
 #
 #   The SPA keys are stored in:
@@ -37,11 +41,11 @@
 #   Test mode (build the SPA packet but don't send it):
 #     fwknop -n oci-cloud-server -T
 #
-#   Send a knock (opens port 22 for your IP for 120 seconds):
+#   Send a knock (opens port {{ fwknop_client_public_ssh_port }} for your IP for 120 seconds):
 #     fwknop -n oci-cloud-server
 #
 #   Then SSH via public IP (within the 120-second window):
-#     ssh -i {{ fwknop_client_ssh_key }} opc@{{ fwknop_client_spa_server }}
+#     ssh -i {{ fwknop_client_ssh_key }} -p {{ fwknop_client_public_ssh_port }} opc@{{ fwknop_client_spa_server }}
 #
 #   Or do both in one step (auto-knock + SSH):
 #     ssh ocispa
@@ -57,12 +61,12 @@
 #
 ###############################################################################
 #
-# HOW TO CLOSE/OPEN PUBLIC SSH PORT 22
+# HOW TO CLOSE/OPEN PUBLIC SSH PORT {{ fwknop_client_public_ssh_port }}
 #
-#   Close port 22 to the public (require SPA for public access):
+#   Close the public port (require SPA for public access):
 #     just ansible-deploy-fwknop-close-ssh
 #
-#   Reopen port 22 to the public (disable SPA requirement):
+#   Reopen the public port (disable SPA requirement):
 #     just ansible-deploy-fwknop
 #     # (this runs with fwknop_close_public_ssh=false by default)
 #
@@ -71,8 +75,10 @@
 # --- Tailscale path (always open, no knock needed) ---
 # This is the primary access path and the Ansible connection method.
 # Uses the Tailscale IP which bypasses fwknop entirely.
+# Port {{ fwknop_client_ssh_port }} is restricted to Tailscale subnet by firewall.
 Host oci
     HostName {{ fwknop_client_tailscale_ip }}
+    Port {{ fwknop_client_ssh_port }}
     User opc
     IdentityFile {{ fwknop_client_ssh_key }}
     StrictHostKeyChecking no
@@ -80,14 +86,15 @@ Host oci
 
 # --- Public IP path with fwknop SPA auto-knock ---
 # Sends an SPA packet before connecting, then SSHes through the
-# temporarily-opened port 22. The ProxyCommand handles the knock
-# automatically — just run: ssh ocispa
+# temporarily-opened port {{ fwknop_client_public_ssh_port }}. The
+# ProxyCommand handles the knock automatically — just run: ssh ocispa
 #
 # Requires: ~/.fwknoprc with [oci-cloud-server] stanza
 # Requires: fwknop client installed (apt install fwknop-client / dnf install fwknop)
 # Requires: nc installed (netcat-openbsd on Debian/Ubuntu, nmap-ncat on EL)
 Host ocispa
     HostName {{ fwknop_client_spa_server }}
+    Port {{ fwknop_client_public_ssh_port }}
     User opc
     IdentityFile {{ fwknop_client_ssh_key }}
     StrictHostKeyChecking no
@@ -95,12 +102,13 @@ Host ocispa
     # ProxyCommand: knock -> wait -> connect
     #   fwknop sends the encrypted SPA UDP packet to port {{ fwknop_client_spa_port }}
     #   sleep 2 gives fwknopd time to process and insert the iptables rule
-    #   exec nc connects to port 22 and pipes stdin/stdout to SSH
+    #   exec nc connects to port {{ fwknop_client_public_ssh_port }} and pipes stdin/stdout to SSH
     ProxyCommand bash -c 'fwknop -n oci-cloud-server 2>/dev/null; sleep 2; exec nc -w 10 %h %p'
 
 # --- Tailscale IP alias (same as Host oci, matches IP literal) ---
 Host {{ fwknop_client_tailscale_ip }}
     HostName {{ fwknop_client_tailscale_ip }}
+    Port {{ fwknop_client_ssh_port }}
     User opc
     IdentityFile {{ fwknop_client_ssh_key }}
     StrictHostKeyChecking no

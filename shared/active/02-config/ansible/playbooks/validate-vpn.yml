@@ -132,7 +132,7 @@
     - name: "Check SSH accessibility from management IP"
       ansible.builtin.wait_for:
         host: "{{ ansible_facts['default_ipv4']['address'] }}"
-        port: 22
+        port: "{{ cloud_server_ssh_host_port }}"
         timeout: 5
       delegate_to: localhost
       become: false

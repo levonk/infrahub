@@ -12,7 +12,7 @@ proxy_firewall_type: "{{ cloud_server_firewall_type | default('nftables') }}"
 # ---------------------------------------------------------------------------
 # Allowed Ports
 # ---------------------------------------------------------------------------
-proxy_firewall_ssh_port: "{{ cloud_server_ssh_port | default('22') }}"
+proxy_firewall_ssh_port: "{{ cloud_server_ssh_host_port | default('22') }}"
 proxy_firewall_mosh_port: "{{ cloud_server_mosh_port | default('60000:61000') }}"
 # Mosh uses a UDP port range; define as a string range or single port.
 

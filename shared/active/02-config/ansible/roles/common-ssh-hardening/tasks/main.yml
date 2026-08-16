@@ -47,6 +47,18 @@
   become: true
   notify: restart ssh
 
+- name: "SSH-HARDENING | Add additional SSH listener ports"
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    line: "Port {{ item }}"
+    insertafter: "^Port {{ ssh_hardening_port }}"
+    state: present
+    validate: "sshd -t -f %s"
+  become: true
+  notify: restart ssh
+  loop: "{{ ssh_hardening_additional_ports }}"
+  when: ssh_hardening_additional_ports | length > 0
+
 - name: "SSH-HARDENING | Disable root login"
   ansible.builtin.lineinfile:
     path: /etc/ssh/sshd_config

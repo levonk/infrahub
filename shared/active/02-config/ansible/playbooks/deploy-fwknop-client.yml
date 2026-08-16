@@ -32,6 +32,7 @@
         that:
           - infra_port_security_fwknop_spa_host is defined
           - infra_port_ssh_host is defined
+          - infra_port_ssh_public_host is defined
         fail_msg: "Missing required fwknop port variables. Check infrastructure/ports.yml."
         success_msg: "All required fwknop port variables are defined."
 

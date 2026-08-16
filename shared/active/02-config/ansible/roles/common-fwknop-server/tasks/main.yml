@@ -92,7 +92,7 @@
     rule: allow
     interface: "{{ fwknop_tailscale_interface }}"
     direction: in
-    port: "{{ fwknop_ssh_port }}"
+    port: "{{ fwknop_internal_ssh_port }}"
     proto: tcp
   become: true
   when:
@@ -100,7 +100,19 @@
     - fwknop_allow_tailscale_ssh | bool
     - fwknop_enabled | bool
 
-- name: "FWKNOP | Remove public SSH UFW rule (Debian/Ubuntu)"
+- name: "FWKNOP | Remove public SSH UFW rule for internal port (Debian/Ubuntu)"
+  community.general.ufw:
+    rule: allow
+    port: "{{ fwknop_internal_ssh_port }}"
+    proto: tcp
+    delete: true
+  become: true
+  when:
+    - fwknop_firewall_type == 'ufw'
+    - fwknop_enabled | bool
+  notify: restart fwknop
+
+- name: "FWKNOP | Remove public SSH UFW rule for public port (Debian/Ubuntu)"
   community.general.ufw:
     rule: allow
     port: "{{ fwknop_ssh_port }}"
@@ -119,7 +131,135 @@
 # To close port 22 publicly, we add a DROP rule for non-Tailscale traffic.
 # fwknopd inserts temporary ACCEPT rules above this DROP when SPA validates.
 # ---------------------------------------------------------------------------
-- name: "FWKNOP | Allow SPA UDP port in iptables (EL)"
+
+# ---------------------------------------------------------------------------
+# Firewall rules — firewalld (EL / Oracle Linux)
+# On EL9, firewalld manages the nftables filter table. Any iptables-nft
+# rules get wiped on firewalld reload. When firewalld is active, we use
+# firewalld rich rules and ports instead of raw iptables so rules persist.
+# When firewalld is not active, we fall back to raw iptables.
+# ---------------------------------------------------------------------------
+- name: "FWKNOP | Check if firewalld is active (EL)"
+  ansible.builtin.command: firewall-cmd --state
+  register: fwknop_firewalld_state
+  changed_when: false
+  failed_when: false
+  become: true
+  when:
+    - fwknop_firewall_type == 'iptables'
+    - fwknop_enabled | bool
+
+# --- firewalld path (when firewalld is active) ---
+
+- name: "FWKNOP | Allow SPA UDP port in firewalld (EL)"
+  ansible.builtin.command: firewall-cmd --permanent --add-port={{ fwknop_spa_port }}/udp
+  become: true
+  register: fwknop_firewalld_spa_port
+  changed_when: "'success' in fwknop_firewalld_spa_port.stdout | lower"
+  failed_when: false
+  when:
+    - fwknop_firewall_type == 'iptables'
+    - fwknop_enabled | bool
+    - fwknop_firewalld_state.rc == 0
+
+- name: "FWKNOP | Allow public SSH port in firewalld (EL)"
+  ansible.builtin.command: firewall-cmd --permanent --add-port={{ fwknop_ssh_port }}/tcp
+  become: true
+  register: fwknop_firewalld_ssh_port
+  changed_when: "'success' in fwknop_firewalld_ssh_port.stdout | lower"
+  failed_when: false
+  when:
+    - fwknop_firewall_type == 'iptables'
+    - fwknop_enabled | bool
+    - fwknop_firewalld_state.rc == 0
+
+- name: "FWKNOP | Allow internal SSH from Tailscale subnet via firewalld rich rule (EL)"
+  ansible.builtin.command: >
+    firewall-cmd --permanent
+    --add-rich-rule='rule family="ipv4" source address="{{ fwknop_tailscale_subnet }}" port port="{{ fwknop_internal_ssh_port }}" protocol="tcp" accept'
+  become: true
+  register: fwknop_firewalld_tailscale_rich
+  changed_when: "'success' in fwknop_firewalld_tailscale_rich.stdout | lower"
+  failed_when: false
+  when:
+    - fwknop_firewall_type == 'iptables'
+    - fwknop_allow_tailscale_ssh | bool
+    - fwknop_enabled | bool
+    - fwknop_firewalld_state.rc == 0
+
+- name: "FWKNOP | Allow internal SSH from libvirt subnets via firewalld rich rules (EL)"
+  ansible.builtin.command: >
+    firewall-cmd --permanent
+    --add-rich-rule='rule family="ipv4" source address="{{ item }}" port port="{{ fwknop_internal_ssh_port }}" protocol="tcp" accept'
+  become: true
+  register: fwknop_firewalld_libvirt_rich
+  changed_when: "'success' in fwknop_firewalld_libvirt_rich.stdout | lower"
+  failed_when: false
+  loop: "{{ fwknop_libvirt_subnets }}"
+  when:
+    - fwknop_firewall_type == 'iptables'
+    - fwknop_enabled | bool
+    - fwknop_firewalld_state.rc == 0
+
+- name: "FWKNOP | Drop public access to internal SSH port via firewalld rich rule (EL)"
+  ansible.builtin.command: >
+    firewall-cmd --permanent
+    --add-rich-rule='rule family="ipv4" port port="{{ fwknop_internal_ssh_port }}" protocol="tcp" drop'
+  become: true
+  register: fwknop_firewalld_drop_internal_rich
+  changed_when: "'success' in fwknop_firewalld_drop_internal_rich.stdout | lower"
+  failed_when: false
+  when:
+    - fwknop_firewall_type == 'iptables'
+    - fwknop_enabled | bool
+    - fwknop_firewalld_state.rc == 0
+
+- name: "FWKNOP | Drop public SSH via firewalld direct rule — close public port (EL)"
+  ansible.builtin.command: >
+    firewall-cmd --permanent --direct --add-rule ipv4 filter INPUT 2 -p tcp --dport {{ fwknop_ssh_port }} -j DROP
+  become: true
+  register: fwknop_firewalld_drop_public_direct
+  changed_when: "'success' in fwknop_firewalld_drop_public_direct.stdout | lower"
+  failed_when: false
+  when:
+    - fwknop_firewall_type == 'iptables'
+    - fwknop_close_public_ssh | bool
+    - fwknop_enabled | bool
+    - fwknop_firewalld_state.rc == 0
+
+- name: "FWKNOP | Remove firewalld direct DROP for public SSH when SPA not closing (EL)"
+  ansible.builtin.command: >
+    firewall-cmd --permanent --direct --remove-rule ipv4 filter INPUT 2 -p tcp --dport {{ fwknop_ssh_port }} -j DROP
+  become: true
+  register: fwknop_firewalld_remove_drop_public_direct
+  changed_when: "'success' in fwknop_firewalld_remove_drop_public_direct.stdout | lower"
+  failed_when: false
+  when:
+    - fwknop_firewall_type == 'iptables'
+    - not (fwknop_close_public_ssh | bool)
+    - fwknop_enabled | bool
+    - fwknop_firewalld_state.rc == 0
+
+- name: "FWKNOP | Reload firewalld to apply all changes (EL)"
+  ansible.builtin.command: firewall-cmd --reload
+  become: true
+  changed_when: true
+  when:
+    - fwknop_firewall_type == 'iptables'
+    - fwknop_enabled | bool
+    - fwknop_firewalld_state.rc == 0
+    - >
+      (fwknop_firewalld_spa_port.changed | default(false))
+      or (fwknop_firewalld_ssh_port.changed | default(false))
+      or (fwknop_firewalld_tailscale_rich.changed | default(false))
+      or (fwknop_firewalld_libvirt_rich.changed | default(false))
+      or (fwknop_firewalld_drop_internal_rich.changed | default(false))
+      or (fwknop_firewalld_drop_public_direct.changed | default(false))
+      or (fwknop_firewalld_remove_drop_public_direct.changed | default(false))
+
+# --- iptables fallback path (when firewalld is NOT active) ---
+
+- name: "FWKNOP | Allow SPA UDP port in iptables (EL, no firewalld)"
   ansible.builtin.iptables:
     chain: INPUT
     protocol: udp
@@ -130,13 +270,14 @@
   when:
     - fwknop_firewall_type == 'iptables'
     - fwknop_enabled | bool
+    - fwknop_firewalld_state.rc != 0
 
-- name: "FWKNOP | Allow SSH from Tailscale subnet in iptables (EL)"
+- name: "FWKNOP | Allow SSH from Tailscale subnet in iptables (EL, no firewalld)"
   ansible.builtin.iptables:
     chain: INPUT
     source: "{{ fwknop_tailscale_subnet }}"
     protocol: tcp
-    destination_port: "{{ fwknop_ssh_port }}"
+    destination_port: "{{ fwknop_internal_ssh_port }}"
     jump: ACCEPT
     comment: "fwknop Tailscale SSH (no knock needed)"
   become: true
@@ -144,13 +285,14 @@
     - fwknop_firewall_type == 'iptables'
     - fwknop_allow_tailscale_ssh | bool
     - fwknop_enabled | bool
+    - fwknop_firewalld_state.rc != 0
 
-- name: "FWKNOP | Allow SSH from libvirt subnets in iptables (EL)"
+- name: "FWKNOP | Allow SSH from libvirt subnets in iptables (EL, no firewalld)"
   ansible.builtin.iptables:
     chain: INPUT
     source: "{{ item }}"
     protocol: tcp
-    destination_port: "{{ fwknop_ssh_port }}"
+    destination_port: "{{ fwknop_internal_ssh_port }}"
     jump: ACCEPT
     comment: "fwknop libvirt SSH (isolation VMs)"
   become: true
@@ -158,8 +300,22 @@
   when:
     - fwknop_firewall_type == 'iptables'
     - fwknop_enabled | bool
+    - fwknop_firewalld_state.rc != 0
 
-- name: "FWKNOP | Drop public SSH in iptables — close port 22 (EL)"
+- name: "FWKNOP | Drop public access to internal SSH port in iptables (EL, no firewalld)"
+  ansible.builtin.iptables:
+    chain: INPUT
+    protocol: tcp
+    destination_port: "{{ fwknop_internal_ssh_port }}"
+    jump: DROP
+    comment: "fwknop internal SSH port (Tailscale/libvirt only)"
+  become: true
+  when:
+    - fwknop_firewall_type == 'iptables'
+    - fwknop_enabled | bool
+    - fwknop_firewalld_state.rc != 0
+
+- name: "FWKNOP | Drop public SSH in iptables — close public port (EL, no firewalld)"
   ansible.builtin.iptables:
     chain: INPUT
     protocol: tcp
@@ -171,7 +327,7 @@
     - fwknop_firewall_type == 'iptables'
     - fwknop_close_public_ssh | bool
     - fwknop_enabled | bool
-  notify: restart fwknop
+    - fwknop_firewalld_state.rc != 0
 
 # ---------------------------------------------------------------------------
 # Ensure fwknop service is running and enabled
@@ -234,7 +390,8 @@
     msg: >-
       fwknop deployed ({{ fwknop_service_name }} on {{ ansible_os_family }}).
       SPA port: {{ fwknop_spa_port }}/udp. Firewall: {{ fwknop_firewall_type }}.
-      SSH port {{ fwknop_ssh_port }} is
+      Internal SSH port {{ fwknop_internal_ssh_port }}: Tailscale/libvirt only.
+      Public SSH port {{ fwknop_ssh_port }} is
       {{ 'CLOSED to public (SPA required)' if fwknop_close_public_ssh | bool else 'STILL OPEN to public (test SPA before closing)' }}.
       Tailscale SSH path: {{ 'enabled' if fwknop_allow_tailscale_ssh | bool else 'disabled' }}.
   when: not ansible_check_mode

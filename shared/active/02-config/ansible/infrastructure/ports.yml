@@ -15,8 +15,12 @@
 # ---------------------------------------------------------------------------
 # SSH Ports
 # ---------------------------------------------------------------------------
+# infra_port_ssh_host: Tailscale/internal path (firewall restricts to Tailscale subnet)
+# infra_port_ssh_public_host: Public path (SPA-protected via fwknop, non-standard port
+#   to reduce drive-by scanner noise and fail2ban triggers from CGNAT-shared IPs)
 infra_port_ssh_host: "22"
 infra_port_ssh_container: "22"
+infra_port_ssh_public_host: "7722"
 
 # ---------------------------------------------------------------------------
 # VPN Ports
