@@ -1,0 +1,63 @@
+# ---------------------------------------------------------------------------
+# fwknop client config — managed by Ansible (common-fwknop-client role)
+# Do NOT edit manually — changes will be overwritten.
+#
+# WHAT IS SPA (Single Packet Authorization)?
+#
+#   SPA hides SSH port 22 from port scanners. The server keeps port 22
+#   closed. To gain access, the client sends a single encrypted UDP packet
+#   (the "knock") to port {{ fwknop_client_spa_port }}. The server validates
+#   the packet's encryption and HMAC signature, then temporarily opens port
+#   22 for the client's source IP for 120 seconds.
+#
+#   This means:
+#     - Port scanners see port 22 as closed/filtered
+#     - Brute-force SSH attacks can't even reach sshd
+#     - Only holders of the SPA key can open the port
+#     - Tailscale remains a parallel no-knock access path
+#
+# HOW TO USE:
+#
+#   Test mode (build packet but don't send):
+#     fwknop -n oci-cloud-server -T
+#
+#   Send a knock (opens port 22 for your IP for 120 seconds):
+#     fwknop -n oci-cloud-server
+#
+#   Then SSH via public IP (within the 120-second window):
+#     ssh -i {{ fwknop_client_ssh_key }} opc@{{ fwknop_client_spa_server }}
+#
+#   Or do both in one step (auto-knock + SSH):
+#     ssh ocispa
+#
+#   If the knock doesn't work:
+#     - Resend: fwknop -n oci-cloud-server  (UDP can drop, resending is safe)
+#     - Check server logs: ssh oci 'sudo journalctl -u fwknopd -n 20'
+#
+#   If locked out of public SSH entirely:
+#     - Use Tailscale: ssh oci  (always works, no knock needed)
+#     - Redeploy fwknop: just ansible-deploy-fwknop
+#
+# HOW TO CLOSE/OPEN PUBLIC SSH PORT 22:
+#
+#   Close port 22 (require SPA for public access):
+#     just ansible-deploy-fwknop-close-ssh
+#
+#   Reopen port 22 (disable SPA requirement):
+#     just ansible-deploy-fwknop
+# ---------------------------------------------------------------------------
+
+[default]
+SPA_SERVER_PROTO     udp
+HMAC_DIGEST_TYPE     SHA512
+USE_HMAC             Y
+ALLOW_IP             resolve
+ACCESS               tcp/{{ fwknop_client_ssh_port }}
+KEY_BASE64           {{ fwknop_client_spa_key }}
+HMAC_KEY_BASE64      {{ fwknop_client_hmac_key }}
+
+# OCI Cloud Server — public IP via DDNS ({{ fwknop_client_spa_server }})
+# Tailscale path (oci.tale-grouper.ts.net) does NOT need SPA — always open.
+[oci-cloud-server]
+SPA_SERVER           {{ fwknop_client_spa_server }}
+SPA_SERVER_PORT      {{ fwknop_client_spa_port }}

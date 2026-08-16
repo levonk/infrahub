@@ -1,0 +1,110 @@
+---
+# Task: Install and configure fwknop SPA client on all machines
+# Installs the fwknop client package, deploys ~/.fwknoprc with vault keys,
+# and deploys ~/.ssh/config.d/infrahub with SPA-aware SSH config.
+
+# ---------------------------------------------------------------------------
+# Validate prerequisites
+# ---------------------------------------------------------------------------
+- name: "FWKNOP-CLIENT | Verify SPA and HMAC keys are defined"
+  ansible.builtin.assert:
+    that:
+      - fwknop_client_spa_key | length > 0
+      - fwknop_client_hmac_key | length > 0
+    fail_msg: >-
+      CRITICAL: fwknop SPA/HMAC keys are not defined.
+      Ensure vault_fwknop_spa_key and vault_fwknop_hmac_key are in the vault.
+    success_msg: "fwknop SPA and HMAC keys are defined."
+  no_log: true
+
+# ---------------------------------------------------------------------------
+# Install fwknop client package (Linux only — macOS uses nix-darwin/brew)
+# ---------------------------------------------------------------------------
+- name: "FWKNOP-CLIENT | Install fwknop client (Debian/Ubuntu)"
+  ansible.builtin.apt:
+    name: "{{ fwknop_client_package_name }}"
+    state: present
+    update_cache: true
+  become: true
+  when:
+    - ansible_facts['os_family'] == 'Debian'
+    - fwknop_client_enabled
+
+- name: "FWKNOP-CLIENT | Install fwknop client from EPEL (EL)"
+  ansible.builtin.dnf:
+    name: "{{ fwknop_client_package_name }}"
+    state: present
+    enablerepo: epel
+  become: true
+  when:
+    - ansible_facts['os_family'] == 'RedHat'
+    - fwknop_client_enabled
+
+# ---------------------------------------------------------------------------
+# Deploy ~/.fwknoprc (client config with vault keys)
+# ---------------------------------------------------------------------------
+- name: "FWKNOP-CLIENT | Ensure ~/.ssh/config.d directory exists"
+  ansible.builtin.file:
+    path: "{{ ansible_env.HOME }}/.ssh/config.d"
+    state: directory
+    mode: "0700"
+  when: fwknop_client_deploy_ssh_config
+
+- name: "FWKNOP-CLIENT | Deploy ~/.fwknoprc"
+  ansible.builtin.template:
+    src: fwknoprc.j2
+    dest: "{{ ansible_env.HOME }}/.fwknoprc"
+    mode: "0600"
+  no_log: true
+  when: fwknop_client_enabled
+
+# ---------------------------------------------------------------------------
+# Deploy ~/.ssh/config.d/infrahub (SPA-aware SSH config)
+# ---------------------------------------------------------------------------
+- name: "FWKNOP-CLIENT | Deploy ~/.ssh/config.d/infrahub"
+  ansible.builtin.template:
+    src: ssh-config-infrahub.j2
+    dest: "{{ ansible_env.HOME }}/.ssh/config.d/infrahub"
+    mode: "0644"
+  when: fwknop_client_deploy_ssh_config
+
+# ---------------------------------------------------------------------------
+# Ensure ~/.ssh/config includes config.d
+# ---------------------------------------------------------------------------
+- name: "FWKNOP-CLIENT | Check if ~/.ssh/config has Include directive"
+  ansible.builtin.shell: |
+    grep -q 'Include ~/.ssh/config.d/\*' "{{ ansible_env.HOME }}/.ssh/config" 2>/dev/null && echo "present" || echo "absent"
+  register: _ssh_include_check
+  changed_when: false
+  when: fwknop_client_deploy_ssh_config
+
+- name: "FWKNOP-CLIENT | Add Include directive to ~/.ssh/config"
+  ansible.builtin.lineinfile:
+    path: "{{ ansible_env.HOME }}/.ssh/config"
+    line: "Include ~/.ssh/config.d/*"
+    insertbefore: BOF
+    create: true
+    mode: "0644"
+  when:
+    - fwknop_client_deploy_ssh_config
+    - _ssh_include_check.stdout == "absent"
+
+# ---------------------------------------------------------------------------
+# Report status
+# ---------------------------------------------------------------------------
+- name: "FWKNOP-CLIENT | Verify fwknop client is installed"
+  ansible.builtin.command: which fwknop
+  register: _fwknop_binary
+  changed_when: false
+  failed_when: false
+  when: fwknop_client_enabled
+
+- name: "FWKNOP-CLIENT | Report fwknop client status"
+  ansible.builtin.debug:
+    msg: >-
+      fwknop client {{ 'installed at ' + _fwknop_binary.stdout if _fwknop_binary.rc == 0 else 'NOT found' }}.
+      SPA server: {{ fwknop_client_spa_server }}:{{ fwknop_client_spa_port }}/udp.
+      SSH config: {{ ansible_env.HOME }}/.ssh/config.d/infrahub
+      ({{ 'deployed' if fwknop_client_deploy_ssh_config else 'skipped' }}).
+      Use 'ssh oci' for Tailscale (no knock), 'ssh ocispa' for SPA + public IP.
+  when: fwknop_client_enabled

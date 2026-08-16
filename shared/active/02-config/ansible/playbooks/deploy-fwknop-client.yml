@@ -1,0 +1,40 @@
+---
+# Deploy fwknop SPA client to all machines (except the server itself, which
+# already has the fwknop package from common-fwknop-server, and except
+# Windows hosts where fwknop is not available natively).
+#
+# This playbook:
+#   1. Installs the fwknop client package
+#   2. Deploys ~/.fwknoprc with vault-backed SPA/HMAC keys
+#   3. Deploys ~/.ssh/config.d/infrahub with SPA-aware SSH config
+#
+# After deployment, users on each machine can:
+#   ssh oci      — Tailscale path (no knock needed)
+#   ssh ocispa   — Public IP with auto-knock via ProxyCommand
+#
+# Usage:
+#   just ansible-deploy-fwknop-client
+#   just ansible-deploy-fwknop-client-internal
+
+- name: "Deploy fwknop SPA client to Linux hosts"
+  hosts: all:!windows_docker_hosts:!macos_hosts
+  gather_facts: true
+  become: false
+
+  vars_files:
+    - "{{ playbook_dir }}/../infrastructure/ports.yml"
+    - "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/ports.yml"
+    - "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/inventories/group_vars/infrahub-levonk-all.vault.yml"
+
+  pre_tasks:
+    - name: "Validate fwknop client prerequisites"
+      ansible.builtin.assert:
+        that:
+          - infra_port_security_fwknop_spa_host is defined
+          - infra_port_ssh_host is defined
+        fail_msg: "Missing required fwknop port variables. Check infrastructure/ports.yml."
+        success_msg: "All required fwknop port variables are defined."
+
+  roles:
+    - role: common-fwknop-client
+      when: fwknop_client_enabled | default(true)

@@ -1,0 +1,34 @@
+---
+# Default variables for common-fwknop-client role
+# Installs the fwknop SPA client and deploys ~/.fwknoprc + ~/.ssh/config.d/infrahub
+
+# Whether to install and configure the fwknop client
+fwknop_client_enabled: true
+
+# SPA server connection details (sourced from infrastructure variables)
+fwknop_client_spa_server: "oci.mach.levonk.com"
+fwknop_client_spa_port: "{{ infra_port_security_fwknop_spa_host | default('62271') }}"
+fwknop_client_ssh_port: "{{ infra_port_ssh_host | default('22') }}"
+
+# SPA keys (from Ansible vault)
+fwknop_client_spa_key: "{{ vault_fwknop_spa_key | default('') }}"
+fwknop_client_hmac_key: "{{ vault_fwknop_hmac_key | default('') }}"
+
+# SSH key path for OCI cloud server
+fwknop_client_ssh_key: "~/.ssh/lzkmbp2016-micro-oracle"
+
+# Tailscale IP for the OCI cloud server (for the no-knock SSH path)
+fwknop_client_tailscale_ip: "100.90.22.85"
+
+# Package names by OS family
+# Debian/Ubuntu: fwknop-client
+# EL (Oracle/RHEL/CentOS): fwknop (from EPEL, includes client)
+fwknop_client_package_name: >-
+  {{
+    'fwknop-client'
+    if ansible_facts['os_family'] == 'Debian'
+    else 'fwknop'
+  }}
+
+# Whether to deploy the SSH config.d/infrahub file
+fwknop_client_deploy_ssh_config: true

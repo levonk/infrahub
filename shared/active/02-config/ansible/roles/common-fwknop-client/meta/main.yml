@@ -1,0 +1,18 @@
+---
+galaxy_info:
+  author: levonk
+  description: Install and configure fwknop SPA client on all machines
+  license: MIT
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Ubuntu
+      versions: ["noble", "jammy"]
+    - name: EL
+      versions: ["9"]
+  galaxy_tags:
+    - security
+    - spa
+    - fwknop
+    - portknocking
+    - ssh
+dependencies: []

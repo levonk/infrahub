@@ -37,6 +37,7 @@ PB_DIRECTORY_EMPIRE := ANSIBLE_ROOT + "/playbooks/deploy-directory-empire.yml"
 PB_PROXY_WEB := ANSIBLE_ROOT + "/playbooks/deploy-proxy-web-stack.yml"
 PB_VAL_PROXY_WEB := ANSIBLE_ROOT + "/playbooks/validate-proxy-web.yml"
 PB_FWKNOP := ANSIBLE_ROOT + "/playbooks/deploy-fwknop.yml"
+PB_FWKNOP_CLIENT := ANSIBLE_ROOT + "/playbooks/deploy-fwknop-client.yml"
 WINDOWS_INVENTORY := INFRAHUB_ROOT + "/levonk/active/02-config/ansible/inventories/windows-docker.yml"
 MACOS_INVENTORY := INFRAHUB_ROOT + "/levonk/active/02-config/ansible/inventories/macos-hosts.yml"
 PB_CONFIGURE_MACOS := ANSIBLE_ROOT + "/playbooks/configure-macos-host.yml"
@@ -463,6 +464,18 @@ ansible-deploy-fwknop-close-ssh:
 ansible-deploy-fwknop-close-ssh-internal:
     @echo "Closing public SSH port 22 (SPA now required for public access)..."
     ansible-playbook -i {{INVENTORY}} {{PB_FWKNOP}} --vault-password-file ~/.ansible/vault_password --limit cloud_servers -e fwknop_close_public_ssh=true
+
+# Deploy fwknop SPA client to all Linux hosts (installs fwknop, ~/.fwknoprc, ~/.ssh/config.d/infrahub)
+# macOS hosts get fwknop via nix-darwin; this playbook handles the config files on macOS too.
+# Windows hosts are excluded (fwknop not available natively).
+ansible-deploy-fwknop-client:
+    @echo "Deploying fwknop SPA client to all hosts..."
+    devbox run -- ansible-playbook -i {{INVENTORY}} {{PB_FWKNOP_CLIENT}} --vault-password-file ~/.ansible/vault_password
+
+ansible-deploy-fwknop-client-internal:
+    @echo "Deploying fwknop SPA client to all hosts..."
+    ansible-playbook -i {{INVENTORY}} {{PB_FWKNOP_CLIENT}} --vault-password-file ~/.ansible/vault_password
+
 # Run them from the levonk/ subdirectory:  cd levonk && just --list
 # Or:  just --justfile levonk/justfile levonk-deploy-exit-nodes-cno
 

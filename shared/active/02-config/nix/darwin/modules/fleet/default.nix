@@ -124,6 +124,9 @@ in
         mas
         nodejs
         pnpm
+
+        # --- Security tools ---
+        fwknop # SPA (Single Packet Authorization) client for OCI SSH access
       ]
       ++ lib.optional (cfg.containerRuntime == "orbstack") orbstack
       ++ lib.optional (cfg.containerRuntime == "apple-container") container;
