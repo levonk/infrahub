@@ -8,16 +8,28 @@
 # ---------------------------------------------------------------------------
 # Pre-Condition: Verify keys are available
 # ---------------------------------------------------------------------------
-- name: "FWKNOP | Verify SPA and HMAC keys are defined"
+- name: "FWKNOP | Verify per-client SPA and HMAC keys are defined"
   ansible.builtin.assert:
     that:
-      - fwknop_spa_key | length > 0
-      - fwknop_hmac_key | length > 0
+      - fwknop_clients | length > 0
     fail_msg: >-
-      CRITICAL: fwknop SPA/HMAC keys are not defined.
-      Add vault_fwknop_spa_key and vault_fwknop_hmac_key to the vault.
-      See AGENTS.md "Vault Edits (Agent → User Handoff)" for the procedure.
-    success_msg: "fwknop SPA and HMAC keys are defined."
+      CRITICAL: fwknop_clients list is empty.
+      Define at least one client with spa_key and hmac_key in fwknop_clients.
+    success_msg: "fwknop_clients defined ({{ fwknop_clients | length }} clients)."
+  no_log: true
+  tags: ["always", "validate"]
+
+- name: "FWKNOP | Verify each client has non-empty keys"
+  ansible.builtin.assert:
+    that:
+      - item.spa_key | default('') | length > 0
+      - item.hmac_key | default('') | length > 0
+    fail_msg: >-
+      CRITICAL: Client '{{ item.name }}' has empty or missing spa_key/hmac_key.
+      Ensure vault_fwknop_spa_key_{{ item.name }} and vault_fwknop_hmac_key_{{ item.name }} are in the vault.
+    success_msg: "Client '{{ item.name }}' keys are defined."
+  no_log: true
+  loop: "{{ fwknop_clients }}"
   tags: ["always", "validate"]
 
 # ---------------------------------------------------------------------------

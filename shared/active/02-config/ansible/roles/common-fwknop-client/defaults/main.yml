@@ -10,9 +10,28 @@ fwknop_client_spa_server: "oci.mach.levonk.com"
 fwknop_client_spa_port: "{{ infra_port_security_fwknop_spa_host | default('62271') }}"
 fwknop_client_ssh_port: "{{ infra_port_ssh_host | default('22') }}"
 
-# SPA keys (from Ansible vault)
-fwknop_client_spa_key: "{{ vault_fwknop_spa_key | default('') }}"
-fwknop_client_hmac_key: "{{ vault_fwknop_hmac_key | default('') }}"
+# ---------------------------------------------------------------------------
+# Per-client key selection (from Ansible vault)
+# ---------------------------------------------------------------------------
+# Each client uses ONLY its own key. The key is selected by inventory_hostname.
+# To add a client: add its keys to the vault + add a mapping here.
+fwknop_client_key_map:
+  kckinai:
+    spa_key: "{{ vault_fwknop_spa_key_kckinai | default('') }}"
+    hmac_key: "{{ vault_fwknop_hmac_key_kckinai | default('') }}"
+  lzkmbp2016:
+    spa_key: "{{ vault_fwknop_spa_key_lzkmbp2016 | default('') }}"
+    hmac_key: "{{ vault_fwknop_hmac_key_lzkmbp2016 | default('') }}"
+  lzkmbp2018:
+    spa_key: "{{ vault_fwknop_spa_key_lzkmbp2018 | default('') }}"
+    hmac_key: "{{ vault_fwknop_hmac_key_lzkmbp2018 | default('') }}"
+  oci-cloud-server:
+    spa_key: "{{ vault_fwknop_spa_key_oci_cloud_server | default('') }}"
+    hmac_key: "{{ vault_fwknop_hmac_key_oci_cloud_server | default('') }}"
+
+# Resolved key for this host (looked up by inventory_hostname)
+fwknop_client_spa_key: "{{ (fwknop_client_key_map[inventory_hostname] | default({})).spa_key | default('') }}"
+fwknop_client_hmac_key: "{{ (fwknop_client_key_map[inventory_hostname] | default({})).hmac_key | default('') }}"
 
 # SSH key path for OCI cloud server
 fwknop_client_ssh_key: "~/.ssh/lzkmbp2016-micro-oracle"

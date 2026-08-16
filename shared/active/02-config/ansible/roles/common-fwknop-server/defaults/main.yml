@@ -23,6 +23,29 @@ fwknop_access_timeout: 120  # seconds — how long port 22 stays open after a va
 # ---------------------------------------------------------------------------
 # Keys (from vault — NEVER hardcode)
 # ---------------------------------------------------------------------------
+# Per-client keys: each client has its own key pair for compartmentalization.
+# The server's access.conf has one stanza per client.
+# To add a client: add its keys to the vault + add an entry here.
+# To revoke a client: remove its entry here and redeploy.
+fwknop_clients:
+  - name: "kckinai"
+    username: "lk"
+    spa_key: "{{ vault_fwknop_spa_key_kckinai | default('') }}"
+    hmac_key: "{{ vault_fwknop_hmac_key_kckinai | default('') }}"
+  - name: "lzkmbp2016"
+    username: "micro"
+    spa_key: "{{ vault_fwknop_spa_key_lzkmbp2016 | default('') }}"
+    hmac_key: "{{ vault_fwknop_hmac_key_lzkmbp2016 | default('') }}"
+  - name: "lzkmbp2018"
+    username: "micro"
+    spa_key: "{{ vault_fwknop_spa_key_lzkmbp2018 | default('') }}"
+    hmac_key: "{{ vault_fwknop_hmac_key_lzkmbp2018 | default('') }}"
+  - name: "oci-cloud-server"
+    username: "opc"
+    spa_key: "{{ vault_fwknop_spa_key_oci_cloud_server | default('') }}"
+    hmac_key: "{{ vault_fwknop_hmac_key_oci_cloud_server | default('') }}"
+
+# Legacy shared key (kept for backward compatibility — not used in per-client mode)
 fwknop_spa_key: "{{ vault_fwknop_spa_key | default('') }}"
 fwknop_hmac_key: "{{ vault_fwknop_hmac_key | default('') }}"
 
