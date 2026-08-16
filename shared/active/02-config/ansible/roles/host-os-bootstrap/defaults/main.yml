@@ -29,8 +29,13 @@ host_os_bootstrap_timezone: "UTC"
 # ---------------------------------------------------------------------------
 # Security Updates
 # ---------------------------------------------------------------------------
+# Configure automatic security updates (dnf-automatic / unattended-upgrades)
 host_os_bootstrap_unattended_upgrades_enabled: true
 host_os_bootstrap_auto_reboot: false
+
+# Apply pending security updates immediately during the Ansible run.
+# Only security-marked packages are updated — not all available updates.
+host_os_bootstrap_apply_security_updates: true
 
 # ---------------------------------------------------------------------------
 # Packages

@@ -234,3 +234,29 @@
     - host_os_bootstrap_unattended_upgrades_enabled | bool
   ignore_errors: true
   become: true
+
+# ---------------------------------------------------------------------------
+# Apply Pending Security Updates Immediately
+# Only security-marked packages are updated — not all available updates.
+# This complements the automatic timers above by ensuring the host is
+# patched during the Ansible run rather than waiting for the next timer fire.
+# ---------------------------------------------------------------------------
+- name: Apply security updates immediately (Red Hat family) # noqa: package-latest
+  ansible.builtin.dnf:
+    name: "*"
+    state: latest
+    security: true
+  when:
+    - ansible_facts['os_family'] == "RedHat"
+    - host_os_bootstrap_apply_security_updates | bool
+  become: true
+
+- name: Apply security updates immediately (Debian/Ubuntu)
+  ansible.builtin.command:
+    cmd: unattended-upgrade -v
+  when:
+    - ansible_facts['os_family'] == "Debian"
+    - host_os_bootstrap_apply_security_updates | bool
+  register: debian_security_updates
+  changed_when: "'No packages need to be updated' not in debian_security_updates.stdout"
+  become: true
