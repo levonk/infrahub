@@ -1,8 +1,51 @@
 # Justfile for Base Images
-# Follows ADR-20260131001: Standard Developer UX Flow (devbox → just (*-internal))
+# Follows ADR-20260131001: Standard Developer UX Flow (devbox → just (*_impl))
 
 # Environment variables
 set export
+
+_log := '
+_jv_has() {
+  local cat="$1"
+  local v="${JUST_LOG:-0}"
+  case "$v" in
+    1|all) return 0 ;;
+    0|"") return 1 ;;
+  esac
+  v="${v//startend/start,end}"
+  echo ",$v," | grep -q ",$cat,"
+}
+log_info()   { _jv_has info   && echo "$*" || true; }
+log_start()  { _jv_has start  && echo "▶ $*" || true; }
+log_end()    { _jv_has end    && echo "✔ $*" || true; }
+log_status() { _jv_has status && echo "$*" || true; }
+log_warn()   { echo "⚠️  $*" >&2; }
+log_error()  { echo "❌ $*" >&2; }
+log_startend() {
+  local msg="$1"; shift
+  local rc
+  _jv_has start && echo "▶ $msg" || true
+  rc=0; "$@" || rc=$?
+  _jv_has end && echo "✔ $msg complete" || true
+  return $rc
+}
+'
+
+# Devbox auto-detection: run impl target directly if in devbox,
+# re-exec via devbox run if not, or fail with doctor diagnostic.
+_devbox target *args:
+    #!/usr/bin/env bash
+    {{_log}}
+    if [ "${DEVBOX_SHELL_ENABLED:-0}" = "1" ]; then
+        exec just "{{target}}" {{args}}
+    elif command -v devbox >/dev/null 2>&1; then
+        exec devbox run -- just "{{target}}" {{args}}
+    else
+        log_error "devbox not found in PATH."
+        log_warn "Running doctor to diagnose environment issues..."
+        just doctor 2>/dev/null || true
+        exit 1
+    fi
 
 # Configuration
 PROJECT_DIR := "../.."
@@ -63,83 +106,115 @@ log-exec task *args:
 
 # Build base-alpine
 build-base-alpine:
-    devbox run build-base-alpine-internal
+    @just _devbox build-base-alpine_impl
 
-build-base-alpine-internal:
-    @just log-start "build-base-alpine"
-    @../../scripts/echo-colors.sh blue "Building base-alpine..."
-    @({{DC_BASE}} --progress=plain build base-alpine 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (../../scripts/echo-colors.sh green "✓ base-alpine built"; just log-end "build-base-alpine" "SUCCESS") || (../../scripts/echo-colors.sh red "✗ base-alpine build failed"; just log-end "build-base-alpine" "FAILED"; exit 1)
+[private]
+build-base-alpine_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    just log-start "build-base-alpine"
+    log_start "Building base-alpine"
+    ({{DC_BASE}} --progress=plain build base-alpine 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (log_end "base-alpine built"; just log-end "build-base-alpine" "SUCCESS") || (log_error "base-alpine build failed"; just log-end "build-base-alpine" "FAILED"; exit 1)
 
 # Build base-debian
 build-base-debian:
-    devbox run build-base-debian-internal
+    @just _devbox build-base-debian_impl
 
-build-base-debian-internal:
-    @just log-start "build-base-debian"
-    @../../scripts/echo-colors.sh blue "Building base-debian..."
-    @({{DC_BASE}} --progress=plain build base-debian 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (../../scripts/echo-colors.sh green "✓ base-debian built"; just log-end "build-base-debian" "SUCCESS") || (../../scripts/echo-colors.sh red "✗ base-debian build failed"; just log-end "build-base-debian" "FAILED"; exit 1)
+[private]
+build-base-debian_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    just log-start "build-base-debian"
+    log_start "Building base-debian"
+    ({{DC_BASE}} --progress=plain build base-debian 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (log_end "base-debian built"; just log-end "build-base-debian" "SUCCESS") || (log_error "base-debian build failed"; just log-end "build-base-debian" "FAILED"; exit 1)
 
 # Build base-nix
 build-base-nix:
-    devbox run build-base-nix-internal
+    @just _devbox build-base-nix_impl
 
-build-base-nix-internal:
-    @just log-start "build-base-nix"
-    @../../scripts/echo-colors.sh blue "Building base-nix..."
-    @({{DC_BASE}} --progress=plain build base-nix 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (../../scripts/echo-colors.sh green "✓ base-nix built"; just log-end "build-base-nix" "SUCCESS") || (../../scripts/echo-colors.sh red "✗ base-nix build failed"; just log-end "build-base-nix" "FAILED"; exit 1)
+[private]
+build-base-nix_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    just log-start "build-base-nix"
+    log_start "Building base-nix"
+    ({{DC_BASE}} --progress=plain build base-nix 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (log_end "base-nix built"; just log-end "build-base-nix" "SUCCESS") || (log_error "base-nix build failed"; just log-end "build-base-nix" "FAILED"; exit 1)
 
 # Build nix-sidecar
 build-nix-sidecar:
-    devbox run build-nix-sidecar-internal
+    @just _devbox build-nix-sidecar_impl
 
-build-nix-sidecar-internal:
-    @just log-start "build-nix-sidecar"
-    @../../scripts/echo-colors.sh blue "Building nix-sidecar..."
-    @({{DC_BASE}} --progress=plain build nix-sidecar 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (../../scripts/echo-colors.sh green "✓ nix-sidecar built"; just log-end "build-nix-sidecar" "SUCCESS") || (../../scripts/echo-colors.sh red "✗ nix-sidecar build failed"; just log-end "build-nix-sidecar" "FAILED"; exit 1)
+[private]
+build-nix-sidecar_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    just log-start "build-nix-sidecar"
+    log_start "Building nix-sidecar"
+    ({{DC_BASE}} --progress=plain build nix-sidecar 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (log_end "nix-sidecar built"; just log-end "build-nix-sidecar" "SUCCESS") || (log_error "nix-sidecar build failed"; just log-end "build-nix-sidecar" "FAILED"; exit 1)
 
 # Build base-sidecar
 build-base-sidecar:
-    devbox run build-base-sidecar-internal
+    @just _devbox build-base-sidecar_impl
 
-build-base-sidecar-internal:
-    @just log-start "build-base-sidecar"
-    @../../scripts/echo-colors.sh blue "Building base-sidecar..."
-    @({{DC_BASE}} --progress=plain build base-sidecar 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (../../scripts/echo-colors.sh green "✓ base-sidecar built"; just log-end "build-base-sidecar" "SUCCESS") || (../../scripts/echo-colors.sh red "✗ base-sidecar build failed"; just log-end "build-base-sidecar" "FAILED"; exit 1)
+[private]
+build-base-sidecar_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    just log-start "build-base-sidecar"
+    log_start "Building base-sidecar"
+    ({{DC_BASE}} --progress=plain build base-sidecar 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (log_end "base-sidecar built"; just log-end "build-base-sidecar" "SUCCESS") || (log_error "base-sidecar build failed"; just log-end "build-base-sidecar" "FAILED"; exit 1)
 
 # Build base-debnix
 build-base-debnix:
-    devbox run build-base-debnix-internal
+    @just _devbox build-base-debnix_impl
 
-build-base-debnix-internal:
-    @just log-start "build-base-debnix"
-    @../../scripts/echo-colors.sh blue "Building base-debnix..."
-    @({{DC_BASE}} --progress=plain build base-debnix 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (../../scripts/echo-colors.sh green "✓ base-debnix built"; just log-end "build-base-debnix" "SUCCESS") || (../../scripts/echo-colors.sh red "✗ base-debnix build failed"; just log-end "build-base-debnix" "FAILED"; exit 1)
+[private]
+build-base-debnix_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    just log-start "build-base-debnix"
+    log_start "Building base-debnix"
+    ({{DC_BASE}} --progress=plain build base-debnix 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (log_end "base-debnix built"; just log-end "build-base-debnix" "SUCCESS") || (log_error "base-debnix build failed"; just log-end "build-base-debnix" "FAILED"; exit 1)
 
 # Build base-dev
 build-base-dev:
-    devbox run build-base-dev-internal
+    @just _devbox build-base-dev_impl
 
-build-base-dev-internal:
-    @just log-start "build-base-dev"
-    @../../scripts/echo-colors.sh blue "Building base-dev..."
-    @({{DC_BASE}} --progress=plain build base-dev 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (../../scripts/echo-colors.sh green "✓ base-dev built"; just log-end "build-base-dev" "SUCCESS") || (../../scripts/echo-colors.sh red "✗ base-dev build failed"; just log-end "build-base-dev" "FAILED"; exit 1)
+[private]
+build-base-dev_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    just log-start "build-base-dev"
+    log_start "Building base-dev"
+    ({{DC_BASE}} --progress=plain build base-dev 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (log_end "base-dev built"; just log-end "build-base-dev" "SUCCESS") || (log_error "base-dev build failed"; just log-end "build-base-dev" "FAILED"; exit 1)
 
 # Build all base images (profile-based)
 build:
-    devbox run build-internal
+    @just _devbox build_impl
 
-build-internal:
-    @just log-start "build"
-    @../../scripts/echo-colors.sh blue "Building all base images..."
+[private]
+build_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    just log-start "build"
+    log_start "Building all base images"
     # Build base01 (debian/alpine/sidecar)
-    @../../scripts/echo-colors.sh blue "Building base01 (debian/alpine/sidecar)..."
-    @({{DC_BASE}} --profile base01 build 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]})
+    log_start "Building base01 (debian/alpine/sidecar)"
+    ({{DC_BASE}} --profile base01 build 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]})
     # Build base02 (debnix)
-    @../../scripts/echo-colors.sh blue "Building base02 (debnix)..."
-    @({{DC_BASE}} --profile base02 build 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]})
+    log_start "Building base02 (debnix)"
+    ({{DC_BASE}} --profile base02 build 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]})
     # Build base03 (dev)
-    @../../scripts/echo-colors.sh blue "Building base03 (dev)..."
-    @({{DC_BASE}} --profile base03 build 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (../../scripts/echo-colors.sh green "✓ All base images built"; just log-end "build" "SUCCESS") || (../../scripts/echo-colors.sh red "✗ Build failed"; just log-end "build" "FAILED"; exit 1)
+    log_start "Building base03 (dev)"
+    ({{DC_BASE}} --profile base03 build 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (log_end "All base images built"; just log-end "build" "SUCCESS") || (log_error "Build failed"; just log-end "build" "FAILED"; exit 1)
 
 # ============================================================================
 # Run Targets (Individual Services)
@@ -147,66 +222,94 @@ build-internal:
 
 # Run base-alpine
 run-base-alpine:
-    devbox run run-base-alpine-internal
+    @just _devbox run-base-alpine_impl
 
-run-base-alpine-internal:
-    @just log-start "run-base-alpine"
-    @../../scripts/echo-colors.sh blue "Starting base-alpine..."
-    @({{DC_BASE}} up -d base-alpine 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (../../scripts/echo-colors.sh green "✓ base-alpine started"; just log-end "run-base-alpine" "SUCCESS") || (../../scripts/echo-colors.sh red "✗ base-alpine failed to start"; just log-end "run-base-alpine" "FAILED"; exit 1)
+[private]
+run-base-alpine_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    just log-start "run-base-alpine"
+    log_start "Starting base-alpine"
+    ({{DC_BASE}} up -d base-alpine 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (log_end "base-alpine started"; just log-end "run-base-alpine" "SUCCESS") || (log_error "base-alpine failed to start"; just log-end "run-base-alpine" "FAILED"; exit 1)
 
 # Run base-debian
 run-base-debian:
-    devbox run run-base-debian-internal
+    @just _devbox run-base-debian_impl
 
-run-base-debian-internal:
-    @just log-start "run-base-debian"
-    @../../scripts/echo-colors.sh blue "Starting base-debian..."
-    @({{DC_BASE}} up -d base-debian 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (../../scripts/echo-colors.sh green "✓ base-debian started"; just log-end "run-base-debian" "SUCCESS") || (../../scripts/echo-colors.sh red "✗ base-debian failed to start"; just log-end "run-base-debian" "FAILED"; exit 1)
+[private]
+run-base-debian_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    just log-start "run-base-debian"
+    log_start "Starting base-debian"
+    ({{DC_BASE}} up -d base-debian 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (log_end "base-debian started"; just log-end "run-base-debian" "SUCCESS") || (log_error "base-debian failed to start"; just log-end "run-base-debian" "FAILED"; exit 1)
 
 # Run base-nix
 run-base-nix:
-    devbox run run-base-nix-internal
+    @just _devbox run-base-nix_impl
 
-run-base-nix-internal:
-    @just log-start "run-base-nix"
-    @../../scripts/echo-colors.sh blue "Starting base-nix..."
-    @({{DC_BASE}} up -d base-nix 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (../../scripts/echo-colors.sh green "✓ base-nix started"; just log-end "run-base-nix" "SUCCESS") || (../../scripts/echo-colors.sh red "✗ base-nix failed to start"; just log-end "run-base-nix" "FAILED"; exit 1)
+[private]
+run-base-nix_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    just log-start "run-base-nix"
+    log_start "Starting base-nix"
+    ({{DC_BASE}} up -d base-nix 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (log_end "base-nix started"; just log-end "run-base-nix" "SUCCESS") || (log_error "base-nix failed to start"; just log-end "run-base-nix" "FAILED"; exit 1)
 
 # Run nix-sidecar
 run-nix-sidecar:
-    devbox run run-nix-sidecar-internal
+    @just _devbox run-nix-sidecar_impl
 
-run-nix-sidecar-internal:
-    @just log-start "run-nix-sidecar"
-    @../../scripts/echo-colors.sh blue "Starting nix-sidecar..."
-    @({{DC_BASE}} up -d nix-sidecar 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (../../scripts/echo-colors.sh green "✓ nix-sidecar started"; just log-end "run-nix-sidecar" "SUCCESS") || (../../scripts/echo-colors.sh red "✗ nix-sidecar failed to start"; just log-end "run-nix-sidecar" "FAILED"; exit 1)
+[private]
+run-nix-sidecar_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    just log-start "run-nix-sidecar"
+    log_start "Starting nix-sidecar"
+    ({{DC_BASE}} up -d nix-sidecar 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (log_end "nix-sidecar started"; just log-end "run-nix-sidecar" "SUCCESS") || (log_error "nix-sidecar failed to start"; just log-end "run-nix-sidecar" "FAILED"; exit 1)
 
 # Run base-sidecar
 run-base-sidecar:
-    devbox run run-base-sidecar-internal
+    @just _devbox run-base-sidecar_impl
 
-run-base-sidecar-internal:
-    @just log-start "run-base-sidecar"
-    @../../scripts/echo-colors.sh blue "Starting base-sidecar..."
-    @({{DC_BASE}} up -d base-sidecar 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (../../scripts/echo-colors.sh green "✓ base-sidecar started"; just log-end "run-base-sidecar" "SUCCESS") || (../../scripts/echo-colors.sh red "✗ base-sidecar failed to start"; just log-end "run-base-sidecar" "FAILED"; exit 1)
+[private]
+run-base-sidecar_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    just log-start "run-base-sidecar"
+    log_start "Starting base-sidecar"
+    ({{DC_BASE}} up -d base-sidecar 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (log_end "base-sidecar started"; just log-end "run-base-sidecar" "SUCCESS") || (log_error "base-sidecar failed to start"; just log-end "run-base-sidecar" "FAILED"; exit 1)
 
 # Run base-debnix
 run-base-debnix:
-    devbox run run-base-debnix-internal
+    @just _devbox run-base-debnix_impl
 
-run-base-debnix-internal:
-    @just log-start "run-base-debnix"
-    @../../scripts/echo-colors.sh blue "Starting base-debnix..."
-    @({{DC_BASE}} up -d base-debnix 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (../../scripts/echo-colors.sh green "✓ base-debnix started"; just log-end "run-base-debnix" "SUCCESS") || (../../scripts/echo-colors.sh red "✗ base-debnix failed to start"; just log-end "run-base-debnix" "FAILED"; exit 1)
+[private]
+run-base-debnix_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    just log-start "run-base-debnix"
+    log_start "Starting base-debnix"
+    ({{DC_BASE}} up -d base-debnix 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (log_end "base-debnix started"; just log-end "run-base-debnix" "SUCCESS") || (log_error "base-debnix failed to start"; just log-end "run-base-debnix" "FAILED"; exit 1)
 
 # Run base-dev
 run-base-dev:
-    devbox run run-base-dev-internal
+    @just _devbox run-base-dev_impl
 
-run-base-dev-internal:
-    @just log-start "run-base-dev"
-    @../../scripts/echo-colors.sh blue "Starting base-dev..."
-    @({{DC_BASE}} up -d base-dev 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (../../scripts/echo-colors.sh green "✓ base-dev started"; just log-end "run-base-dev" "SUCCESS") || (../../scripts/echo-colors.sh red "✗ base-dev failed to start"; just log-end "run-base-dev" "FAILED"; exit 1)
+[private]
+run-base-dev_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    just log-start "run-base-dev"
+    log_start "Starting base-dev"
+    ({{DC_BASE}} up -d base-dev 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (log_end "base-dev started"; just log-end "run-base-dev" "SUCCESS") || (log_error "base-dev failed to start"; just log-end "run-base-dev" "FAILED"; exit 1)
 
 # ============================================================================
 # Combined Build + Run Targets
@@ -214,59 +317,66 @@ run-base-dev-internal:
 
 # Build and run base-alpine
 build-up-base-alpine:
-    devbox run build-up-base-alpine-internal
+    @just _devbox build-up-base-alpine_impl
 
-build-up-base-alpine-internal:
-    @just build-base-alpine-internal
-    @just run-base-alpine-internal
+[private]
+build-up-base-alpine_impl:
+    @just build-base-alpine_impl
+    @just run-base-alpine_impl
 
 # Build and run base-debian
 build-up-base-debian:
-    devbox run build-up-base-debian-internal
+    @just _devbox build-up-base-debian_impl
 
-build-up-base-debian-internal:
-    @just build-base-debian-internal
-    @just run-base-debian-internal
+[private]
+build-up-base-debian_impl:
+    @just build-base-debian_impl
+    @just run-base-debian_impl
 
 # Build and run base-nix
 build-up-base-nix:
-    devbox run build-up-base-nix-internal
+    @just _devbox build-up-base-nix_impl
 
-build-up-base-nix-internal:
-    @just build-base-nix-internal
-    @just run-base-nix-internal
+[private]
+build-up-base-nix_impl:
+    @just build-base-nix_impl
+    @just run-base-nix_impl
 
 # Build and run nix-sidecar
 build-up-nix-sidecar:
-    devbox run build-up-nix-sidecar-internal
+    @just _devbox build-up-nix-sidecar_impl
 
-build-up-nix-sidecar-internal:
-    @just build-nix-sidecar-internal
-    @just run-nix-sidecar-internal
+[private]
+build-up-nix-sidecar_impl:
+    @just build-nix-sidecar_impl
+    @just run-nix-sidecar_impl
 
 # Build and run base-sidecar
 build-up-base-sidecar:
-    devbox run build-up-base-sidecar-internal
+    @just _devbox build-up-base-sidecar_impl
 
-build-up-base-sidecar-internal:
-    @just build-base-sidecar-internal
-    @just run-base-sidecar-internal
+[private]
+build-up-base-sidecar_impl:
+    @just build-base-sidecar_impl
+    @just run-base-sidecar_impl
 
 # Build and run base-debnix
 build-up-base-debnix:
-    devbox run build-up-base-debnix-internal
+    @just _devbox build-up-base-debnix_impl
 
-build-up-base-debnix-internal:
-    @just build-base-debnix-internal
-    @just run-base-debnix-internal
+[private]
+build-up-base-debnix_impl:
+    @just build-base-debnix_impl
+    @just run-base-debnix_impl
 
 # Build and run base-dev
 build-up-base-dev:
-    devbox run build-up-base-dev-internal
+    @just _devbox build-up-base-dev_impl
 
-build-up-base-dev-internal:
-    @just build-base-dev-internal
-    @just run-base-dev-internal
+[private]
+build-up-base-dev_impl:
+    @just build-base-dev_impl
+    @just run-base-dev_impl
 
 # ============================================================================
 # Profile-Based Run Targets
@@ -274,39 +384,55 @@ build-up-base-dev-internal:
 
 # Run base01 profile (debian/alpine/sidecar)
 up-base01:
-    devbox run up-base01-internal
+    @just _devbox up-base01_impl
 
-up-base01-internal:
-    @just log-start "up-base01"
-    @../../scripts/echo-colors.sh blue "Starting base01 (debian/alpine/sidecar)..."
-    @({{DC_BASE}} --profile base01 up -d 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (../../scripts/echo-colors.sh green "✓ base01 started"; just log-end "up-base01" "SUCCESS") || (../../scripts/echo-colors.sh red "✗ base01 failed to start"; just log-end "up-base01" "FAILED"; exit 1)
+[private]
+up-base01_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    just log-start "up-base01"
+    log_start "Starting base01 (debian/alpine/sidecar)"
+    ({{DC_BASE}} --profile base01 up -d 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (log_end "base01 started"; just log-end "up-base01" "SUCCESS") || (log_error "base01 failed to start"; just log-end "up-base01" "FAILED"; exit 1)
 
 # Run base02 profile (debnix)
 up-base02:
-    devbox run up-base02-internal
+    @just _devbox up-base02_impl
 
-up-base02-internal:
-    @just log-start "up-base02"
-    @../../scripts/echo-colors.sh blue "Starting base02 (debnix)..."
-    @({{DC_BASE}} --profile base02 up -d 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (../../scripts/echo-colors.sh green "✓ base02 started"; just log-end "up-base02" "SUCCESS") || (../../scripts/echo-colors.sh red "✗ base02 failed to start"; just log-end "up-base02" "FAILED"; exit 1)
+[private]
+up-base02_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    just log-start "up-base02"
+    log_start "Starting base02 (debnix)"
+    ({{DC_BASE}} --profile base02 up -d 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (log_end "base02 started"; just log-end "up-base02" "SUCCESS") || (log_error "base02 failed to start"; just log-end "up-base02" "FAILED"; exit 1)
 
 # Run base03 profile (dev)
 up-base03:
-    devbox run up-base03-internal
+    @just _devbox up-base03_impl
 
-up-base03-internal:
-    @just log-start "up-base03"
-    @../../scripts/echo-colors.sh blue "Starting base03 (dev)..."
-    @({{DC_BASE}} --profile base03 up -d 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (../../scripts/echo-colors.sh green "✓ base03 started"; just log-end "up-base03" "SUCCESS") || (../../scripts/echo-colors.sh red "✗ base03 failed to start"; just log-end "up-base03" "FAILED"; exit 1)
+[private]
+up-base03_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    just log-start "up-base03"
+    log_start "Starting base03 (dev)"
+    ({{DC_BASE}} --profile base03 up -d 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (log_end "base03 started"; just log-end "up-base03" "SUCCESS") || (log_error "base03 failed to start"; just log-end "up-base03" "FAILED"; exit 1)
 
 # Run all base services
 up:
-    devbox run up-internal
+    @just _devbox up_impl
 
-up-internal:
-    @just log-start "up"
-    @../../scripts/echo-colors.sh blue "Starting all base services..."
-    @({{DC_BASE}} --profile all up -d 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (../../scripts/echo-colors.sh green "✓ All base services started"; just log-end "up" "SUCCESS") || (../../scripts/echo-colors.sh red "✗ Base services failed to start"; just log-end "up" "FAILED"; exit 1)
+[private]
+up_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    just log-start "up"
+    log_start "Starting all base services"
+    ({{DC_BASE}} --profile all up -d 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (log_end "All base services started"; just log-end "up" "SUCCESS") || (log_error "Base services failed to start"; just log-end "up" "FAILED"; exit 1)
 
 # ============================================================================
 # Management Targets
@@ -314,69 +440,92 @@ up-internal:
 
 # Stop all base services
 down:
-    devbox run down-internal
+    @just _devbox down_impl
 
-down-internal:
-    @just log-start "down"
-    @../../scripts/echo-colors.sh yellow "Stopping all base services..."
-    @({{DC_BASE}} down 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (../../scripts/echo-colors.sh green "✓ Base services stopped"; just log-end "down" "SUCCESS") || (../../scripts/echo-colors.sh red "✗ Base services failed to stop"; just log-end "down" "FAILED"; exit 1)
+[private]
+down_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    just log-start "down"
+    log_start "Stopping all base services"
+    ({{DC_BASE}} down 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (log_end "Base services stopped"; just log-end "down" "SUCCESS") || (log_error "Base services failed to stop"; just log-end "down" "FAILED"; exit 1)
 
 # Restart all base services
 restart:
-    devbox run restart-internal
+    @just _devbox restart_impl
 
-restart-internal:
-    @just log-start "restart"
-    @../../scripts/echo-colors.sh yellow "Restarting all base services..."
-    @({{DC_BASE}} restart 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (../../scripts/echo-colors.sh green "✓ Base services restarted"; just log-end "restart" "SUCCESS") || (../../scripts/echo-colors.sh red "✗ Base services failed to restart"; just log-end "restart" "FAILED"; exit 1)
+[private]
+restart_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    just log-start "restart"
+    log_start "Restarting all base services"
+    ({{DC_BASE}} restart 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (log_end "Base services restarted"; just log-end "restart" "SUCCESS") || (log_error "Base services failed to restart"; just log-end "restart" "FAILED"; exit 1)
 
 # View logs from all base services
 logs:
-    devbox run logs-internal
+    @just _devbox logs_impl
 
-logs-internal:
+[private]
+logs_impl:
     @{{DC_BASE}} logs --tail=100
 
 # Follow logs from all base services
 logs-follow:
-    devbox run logs-follow-internal
+    @just _devbox logs-follow_impl
 
-logs-follow-internal:
+[private]
+logs-follow_impl:
     @{{DC_BASE}} logs -f
 
 # Show running containers
 ps:
-    devbox run ps-internal
+    @just _devbox ps_impl
 
-ps-internal:
+[private]
+ps_impl:
     @{{DC_BASE}} ps
 
 # Health check for base services
 health-check:
-    devbox run health-check-internal
+    @just _devbox health-check_impl
 
-health-check-internal:
-    @../../scripts/echo-colors.sh blue "Checking base service health..."
-    @{{DC_BASE}} ps
-    @../../scripts/echo-colors.sh green "✓ Health check complete"
+[private]
+health-check_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Checking base service health"
+    {{DC_BASE}} ps
+    log_end "Health check complete"
 
 # Clean up containers and networks
 clean:
-    devbox run clean-internal
+    @just _devbox clean_impl
 
-clean-internal:
-    @just log-start "clean"
-    @../../scripts/echo-colors.sh yellow "Cleaning up base containers and networks..."
-    @({{DC_BASE}} down --remove-orphans 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (../../scripts/echo-colors.sh green "✓ Cleanup complete"; just log-end "clean" "SUCCESS") || (../../scripts/echo-colors.sh red "✗ Cleanup failed"; just log-end "clean" "FAILED"; exit 1)
+[private]
+clean_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    just log-start "clean"
+    log_start "Cleaning up base containers and networks"
+    ({{DC_BASE}} down --remove-orphans 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (log_end "Cleanup complete"; just log-end "clean" "SUCCESS") || (log_error "Cleanup failed"; just log-end "clean" "FAILED"; exit 1)
 
 # Clean up containers, networks, and volumes
 clean-all:
-    devbox run clean-all-internal
+    @just _devbox clean-all_impl
 
-clean-all-internal:
-    @just log-start "clean-all"
-    @../../scripts/echo-colors.sh yellow "Cleaning up base containers, networks, and volumes..."
-    @({{DC_BASE}} down -v --remove-orphans 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (../../scripts/echo-colors.sh green "✓ Full cleanup complete"; just log-end "clean-all" "SUCCESS") || (../../scripts/echo-colors.sh red "✗ Full cleanup failed"; just log-end "clean-all" "FAILED"; exit 1)
+[private]
+clean-all_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    just log-start "clean-all"
+    log_start "Cleaning up base containers, networks, and volumes"
+    ({{DC_BASE}} down -v --remove-orphans 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (log_end "Full cleanup complete"; just log-end "clean-all" "SUCCESS") || (log_error "Full cleanup failed"; just log-end "clean-all" "FAILED"; exit 1)
 
 # ============================================================================
 # Shell Access Targets
@@ -384,51 +533,58 @@ clean-all-internal:
 
 # Open shell in base-alpine
 shell-base-alpine:
-    devbox run shell-base-alpine-internal
+    @just _devbox shell-base-alpine_impl
 
-shell-base-alpine-internal:
+[private]
+shell-base-alpine_impl:
     @{{DC_BASE}} exec base-alpine /bin/sh
 
 # Open shell in base-debian
 shell-base-debian:
-    devbox run shell-base-debian-internal
+    @just _devbox shell-base-debian_impl
 
-shell-base-debian-internal:
+[private]
+shell-base-debian_impl:
     @{{DC_BASE}} exec base-debian /bin/bash
 
 # Open shell in base-nix
 shell-base-nix:
-    devbox run shell-base-nix-internal
+    @just _devbox shell-base-nix_impl
 
-shell-base-nix-internal:
+[private]
+shell-base-nix_impl:
     @{{DC_BASE}} exec base-nix /bin/sh
 
 # Open shell in nix-sidecar
 shell-nix-sidecar:
-    devbox run shell-nix-sidecar-internal
+    @just _devbox shell-nix-sidecar_impl
 
-shell-nix-sidecar-internal:
+[private]
+shell-nix-sidecar_impl:
     @{{DC_BASE}} exec nix-sidecar /bin/sh
 
 # Open shell in base-sidecar
 shell-base-sidecar:
-    devbox run shell-base-sidecar-internal
+    @just _devbox shell-base-sidecar_impl
 
-shell-base-sidecar-internal:
+[private]
+shell-base-sidecar_impl:
     @{{DC_BASE}} exec base-sidecar /bin/sh
 
 # Open shell in base-debnix
 shell-base-debnix:
-    devbox run shell-base-debnix-internal
+    @just _devbox shell-base-debnix_impl
 
-shell-base-debnix-internal:
+[private]
+shell-base-debnix_impl:
     @{{DC_BASE}} exec base-debnix /bin/sh
 
 # Open shell in base-dev
 shell-base-dev:
-    devbox run shell-base-dev-internal
+    @just _devbox shell-base-dev_impl
 
-shell-base-dev-internal:
+[private]
+shell-base-dev_impl:
     @{{DC_BASE}} exec base-dev /bin/bash
 
 # ============================================================================

@@ -1,8 +1,51 @@
 # Justfile for NordVPN Service
-# Follows ADR-20260131001: Standard Developer UX Flow (devbox → just (*-internal))
+# Follows ADR-20260131001: Standard Developer UX Flow (devbox → just (*_impl))
 
 # Environment variables
 set export
+
+_log := '
+_jv_has() {
+  local cat="$1"
+  local v="${JUST_LOG:-0}"
+  case "$v" in
+    1|all) return 0 ;;
+    0|"") return 1 ;;
+  esac
+  v="${v//startend/start,end}"
+  echo ",$v," | grep -q ",$cat,"
+}
+log_info()   { _jv_has info   && echo "$*" || true; }
+log_start()  { _jv_has start  && echo "▶ $*" || true; }
+log_end()    { _jv_has end    && echo "✔ $*" || true; }
+log_status() { _jv_has status && echo "$*" || true; }
+log_warn()   { echo "⚠️  $*" >&2; }
+log_error()  { echo "❌ $*" >&2; }
+log_startend() {
+  local msg="$1"; shift
+  local rc
+  _jv_has start && echo "▶ $msg" || true
+  rc=0; "$@" || rc=$?
+  _jv_has end && echo "✔ $msg complete" || true
+  return $rc
+}
+'
+
+# Devbox auto-detection: run impl target directly if in devbox,
+# re-exec via devbox run if not, or fail with doctor diagnostic.
+_devbox target *args:
+    #!/usr/bin/env bash
+    {{_log}}
+    if [ "${DEVBOX_SHELL_ENABLED:-0}" = "1" ]; then
+        exec just "{{target}}" {{args}}
+    elif command -v devbox >/dev/null 2>&1; then
+        exec devbox run -- just "{{target}}" {{args}}
+    else
+        log_error "devbox not found in PATH."
+        log_warn "Running doctor to diagnose environment issues..."
+        just doctor 2>/dev/null || true
+        exit 1
+    fi
 
 # Configuration
 PROJECT_DIR := "../../../.."
@@ -33,11 +76,15 @@ help:
 
 # Build NordVPN service
 build:
-    devbox run build-internal
+    @just _devbox build_impl
 
-build-internal:
-    @echo "Building NordVPN service..."
-    @({{DC_BASE}} build {{SERVICE_NAME}} 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (echo "✓ NordVPN built"; exit 0) || (echo "✗ NordVPN build failed"; exit 1)
+[private]
+build_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Building NordVPN service"
+    @({{DC_BASE}} build {{SERVICE_NAME}} 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (log_end "NordVPN built"; exit 0) || (log_error "NordVPN build failed"; exit 1)
 
 # ============================================================================
 # Run Targets
@@ -45,27 +92,39 @@ build-internal:
 
 # Start NordVPN service
 up:
-    devbox run up-internal
+    @just _devbox up_impl
 
-up-internal:
-    @echo "Starting NordVPN service..."
-    @({{DC_BASE}} up -d {{SERVICE_NAME}} 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (echo "✓ NordVPN started"; exit 0) || (echo "✗ NordVPN failed to start"; exit 1)
+[private]
+up_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Starting NordVPN service"
+    @({{DC_BASE}} up -d {{SERVICE_NAME}} 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (log_end "NordVPN started"; exit 0) || (log_error "NordVPN failed to start"; exit 1)
 
 # Stop NordVPN service
 down:
-    devbox run down-internal
+    @just _devbox down_impl
 
-down-internal:
-    @echo "Stopping NordVPN service..."
-    @({{DC_BASE}} down {{SERVICE_NAME}} 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (echo "✓ NordVPN stopped"; exit 0) || (echo "✗ NordVPN failed to stop"; exit 1)
+[private]
+down_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Stopping NordVPN service"
+    @({{DC_BASE}} down {{SERVICE_NAME}} 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (log_end "NordVPN stopped"; exit 0) || (log_error "NordVPN failed to stop"; exit 1)
 
 # Restart NordVPN service
 restart:
-    devbox run restart-internal
+    @just _devbox restart_impl
 
-restart-internal:
-    @echo "Restarting NordVPN service..."
-    @({{DC_BASE}} restart {{SERVICE_NAME}} 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (echo "✓ NordVPN restarted"; exit 0) || (echo "✗ NordVPN failed to restart"; exit 1)
+[private]
+restart_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Restarting NordVPN service"
+    @({{DC_BASE}} restart {{SERVICE_NAME}} 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (log_end "NordVPN restarted"; exit 0) || (log_error "NordVPN failed to restart"; exit 1)
 
 # ============================================================================
 # Logs Targets
@@ -73,16 +132,18 @@ restart-internal:
 
 # View NordVPN logs
 logs:
-    devbox run logs-internal
+    @just _devbox logs_impl
 
-logs-internal:
+[private]
+logs_impl:
     @{{DC_BASE}} logs -f {{SERVICE_NAME}}
 
 # View last 50 lines of logs
 logs-tail:
-    devbox run logs-tail-internal
+    @just _devbox logs-tail_impl
 
-logs-tail-internal:
+[private]
+logs-tail_impl:
     @{{DC_BASE}} logs --tail=50 {{SERVICE_NAME}}
 
 # ============================================================================
@@ -91,10 +152,14 @@ logs-tail-internal:
 
 # Run health check
 health-check:
-    devbox run health-check-internal
+    @just _devbox health-check_impl
 
-health-check-internal:
-    @echo "Running health check..."
+[private]
+health-check_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Running health check"
     @docker exec {{SERVICE_NAME}} /nordvpn/bin/healthcheck-nordvpn.sh
 
 # ============================================================================
@@ -103,10 +168,14 @@ health-check-internal:
 
 # Run integration tests
 test:
-    devbox run test-internal
+    @just _devbox test_impl
 
-test-internal:
-    @echo "Running integration tests..."
+[private]
+test_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Running integration tests"
     @chmod +x tests/test-nordvpn.sh
     @./tests/test-nordvpn.sh
 
@@ -116,16 +185,24 @@ test-internal:
 
 # Remove NordVPN service
 clean:
-    devbox run clean-internal
+    @just _devbox clean_impl
 
-clean-internal:
-    @echo "Cleaning NordVPN service..."
-    @({{DC_BASE}} rm -f {{SERVICE_NAME}} 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (echo "✓ NordVPN cleaned"; exit 0) || (echo "✗ NordVPN clean failed"; exit 1)
+[private]
+clean_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Cleaning NordVPN service"
+    @({{DC_BASE}} rm -f {{SERVICE_NAME}} 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (log_end "NordVPN cleaned"; exit 0) || (log_error "NordVPN clean failed"; exit 1)
 
 # Remove NordVPN service and volumes
 clean-volumes:
-    devbox run clean-volumes-internal
+    @just _devbox clean-volumes_impl
 
-clean-volumes-internal:
-    @echo "Cleaning NordVPN service and volumes..."
-    @({{DC_BASE}} down -v {{SERVICE_NAME}} 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (echo "✓ NordVPN cleaned with volumes"; exit 0) || (echo "✗ NordVPN clean failed"; exit 1)
+[private]
+clean-volumes_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Cleaning NordVPN service and volumes"
+    @({{DC_BASE}} down -v {{SERVICE_NAME}} 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (log_end "NordVPN cleaned with volumes"; exit 0) || (log_error "NordVPN clean failed"; exit 1)
