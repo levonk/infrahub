@@ -1,12 +1,32 @@
 # Iron-Proxy - Build System
 # Justfile for Docker service management and development
 
-# Colors for output
-BLUE := "\033[0;34m"
-GREEN := "\033[0;32m"
-YELLOW := "\033[0;33m"
-RED := "\033[0;31m"
-NC := "\033[0m" # No Color
+_log := '
+_jv_has() {
+  local cat="$1"
+  local v="${JUST_LOG:-0}"
+  case "$v" in
+    1|all) return 0 ;;
+    0|"") return 1 ;;
+  esac
+  v="${v//startend/start,end}"
+  echo ",$v," | grep -q ",$cat,"
+}
+log_info()   { _jv_has info   && echo "$*" || true; }
+log_start()  { _jv_has start  && echo "▶ $*" || true; }
+log_end()    { _jv_has end    && echo "✔ $*" || true; }
+log_status() { _jv_has status && echo "$*" || true; }
+log_warn()   { echo "⚠️  $*" >&2; }
+log_error()  { echo "❌ $*" >&2; }
+log_startend() {
+  local msg="$1"; shift
+  local rc
+  _jv_has start && echo "▶ $msg" || true
+  rc=0; "$@" || rc=$?
+  _jv_has end && echo "✔ $msg complete" || true
+  return $rc
+}
+'
 
 # Project configuration
 SERVICE_NAME := "iron-proxy"
@@ -46,42 +66,63 @@ default:
     @just --list
 
 help: ## Show justfile usage and available commands
-    @echo BLUE + "Iron-Proxy - Build System" + NC
+    @echo "Iron-Proxy - Build System"
     @echo ""
     @just --list
     @echo ""
 
 bootstrap: ## Install dependencies and setup environment (Nix + direnv)
-    @echo BLUE + "Bootstrapping environment..." + NC
-    @if ! command -v nix >/dev/null; then \
-        echo YELLOW + "Installing Nix..." + NC; \
-        curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install; \
+    @just bootstrap_impl
+
+[private]
+bootstrap_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Bootstrapping environment"
+    @if ! command -v nix >/dev/null; then
+        log_info "Installing Nix..."
+        curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install;
     fi
-    @if ! command -v direnv >/dev/null; then \
-        echo YELLOW + "Installing direnv..." + NC; \
-        nix profile install nixpkgs#direnv; \
+    @if ! command -v direnv >/dev/null; then
+        log_info "Installing direnv..."
+        nix profile install nixpkgs#direnv;
     fi
     @direnv allow
-    @echo GREEN + "✓ Environment bootstrapped. Run 'direnv allow' if prompted again." + NC
+    log_end "Environment bootstrapped. Run 'direnv allow' if prompted again."
 
 doctor: ## Check health of the dev environment
-    @echo BLUE + "Checking environment health..." + NC
-    @command -v nix >/dev/null && echo GREEN + "✓ Nix installed" + NC || echo RED + "✗ Nix missing" + NC
-    @command -v direnv >/dev/null && echo GREEN + "✓ direnv installed" + NC || echo RED + "✗ direnv missing" + NC
-    @command -v docker >/dev/null && echo GREEN + "✓ Docker installed" + NC || echo RED + "✗ Docker missing" + NC
-    @(docker compose version >/dev/null 2>&1 || docker-compose version >/dev/null 2>&1) && echo GREEN + "✓ Docker Compose installed" + NC || echo RED + "✗ Docker Compose missing" + NC
+    @echo "Checking environment health..."
+    @command -v nix >/dev/null && echo "✓ Nix installed" || echo "✗ Nix missing"
+    @command -v direnv >/dev/null && echo "✓ direnv installed" || echo "✗ direnv missing"
+    @command -v docker >/dev/null && echo "✓ Docker installed" || echo "✗ Docker missing"
+    @(docker compose version >/dev/null 2>&1 || docker-compose version >/dev/null 2>&1) && echo "✓ Docker Compose installed" || echo "✗ Docker Compose missing"
 
 build: ## Build Iron-Proxy Docker images (runtime + debug)
-    @echo BLUE + "Building Iron-Proxy Docker images..." + NC
+    @just build_impl
+
+[private]
+build_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Building Iron-Proxy Docker images"
     @docker compose -f {{ COMPOSE_FILE }} --env-file {{ ENV_FILE }} build
     @docker compose -f {{ COMPOSE_FILE }} --env-file {{ ENV_FILE }} --profile debug build
-    @echo GREEN + "✓ Images built" + NC
+    log_end "Images built"
 
 up: ## Start Iron-Proxy services
-    @echo BLUE + "Starting Iron-Proxy services..." + NC
+    @just up_impl
+
+[private]
+up_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Starting Iron-Proxy services"
     @docker compose -f {{ COMPOSE_FILE }} --env-file {{ ENV_FILE }} up -d
-    @echo GREEN + "✓ Services started" + NC
-    @echo "Run 'just health-check' to verify service health"
+    log_end "Services started"
+    log_info "Run 'just health-check' to verify service health"
 
 run: up ## Alias for up (ADR compliance)
 
@@ -89,19 +130,40 @@ deploy: ## Deploy Iron-Proxy services (alias for up)
     @just up
 
 debug: ## Start Iron-Proxy debug container (opt-in)
-    @echo BLUE + "Starting Iron-Proxy debug container..." + NC
+    @just debug_impl
+
+[private]
+debug_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Starting Iron-Proxy debug container"
     @docker compose -f {{ COMPOSE_FILE }} --env-file {{ ENV_FILE }} --profile debug up -d
-    @echo GREEN + "✓ Debug container started" + NC
+    log_end "Debug container started"
 
 down: ## Stop Iron-Proxy services
-    @echo YELLOW + "Stopping Iron-Proxy services..." + NC
+    @just down_impl
+
+[private]
+down_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Stopping Iron-Proxy services"
     @docker compose -f {{ COMPOSE_FILE }} --env-file {{ ENV_FILE }} down
-    @echo GREEN + "✓ Services stopped" + NC
+    log_end "Services stopped"
 
 restart: ## Restart Iron-Proxy services
-    @echo YELLOW + "Restarting Iron-Proxy services..." + NC
+    @just restart_impl
+
+[private]
+restart_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Restarting Iron-Proxy services"
     @docker compose -f {{ COMPOSE_FILE }} --env-file {{ ENV_FILE }} restart
-    @echo GREEN + "✓ Services restarted" + NC
+    log_end "Services restarted"
 
 logs: ## View logs from all services (last 100 lines)
     @docker compose -f {{ COMPOSE_FILE }} --env-file {{ ENV_FILE }} logs --tail=100
@@ -113,78 +175,121 @@ shell: ## Access an interactive shell inside the service container
     @docker compose -f {{ COMPOSE_FILE }} --env-file {{ ENV_FILE }} exec -it {{ SERVICE_NAME }} /bin/sh
 
 health-check: ## Check health status of services
-    @echo BLUE + "Checking Iron-Proxy service health..." + NC
+    @just health-check_impl
+
+[private]
+health-check_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Checking Iron-Proxy service health"
     @docker compose -f {{ COMPOSE_FILE }} --env-file {{ ENV_FILE }} ps
     @echo ""
-    @echo BLUE + "Running health checks..." + NC
+    log_info "Running health checks..."
     @docker compose -f {{ COMPOSE_FILE }} --env-file {{ ENV_FILE }} exec -T {{ SERVICE_NAME }} curl -f http://localhost:{{ SERVICE_PORT }}{{ SERVICE_HEALTH_ENDPOINT }} >/dev/null 2>&1 \
-        && echo GREEN + "✓ Iron-Proxy healthy" + NC \
-        || (echo RED + "✗ Iron-Proxy unhealthy" + NC; exit 1)
+        && log_end "Iron-Proxy healthy" \
+        || (log_error "Iron-Proxy unhealthy"; exit 1)
 
 test: ## Smoke test that services are running and responsive
-    @echo BLUE + "Running Iron-Proxy smoke tests..." + NC
-    @docker compose -f {{ COMPOSE_FILE }} --env-file {{ ENV_FILE }} ps | grep -q "{{ SERVICE_NAME }}" || (echo RED + "✗ services not running" + NC; exit 1)
+    @just test_impl
+
+[private]
+test_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Running Iron-Proxy smoke tests"
+    @docker compose -f {{ COMPOSE_FILE }} --env-file {{ ENV_FILE }} ps | grep -q "{{ SERVICE_NAME }}" || (log_error "services not running"; exit 1)
     @just health-check
-    @echo GREEN + "✓ Smoke tests complete" + NC
+    log_end "Smoke tests complete"
 
 status: ## Show docker compose service status
-    @echo BLUE + "Iron-Proxy Service Status" + NC
     @docker compose -f {{ COMPOSE_FILE }} --env-file {{ ENV_FILE }} ps
 
 backup: ## Create secure backup of service data and configuration
-    @echo BLUE + "Creating backup of Iron-Proxy service..." + NC
+    @just backup_impl
+
+[private]
+backup_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Creating backup of Iron-Proxy service"
     @./scripts/backup.sh
-    @echo GREEN + "✓ Backup completed" + NC
+    log_end "Backup completed"
 
 lint: lint-yaml lint-md lint-docker lint-iac ## Run all linters (YAML, Markdown, Dockerfile, IaC)
 
 lint-yaml:
-    @echo BLUE + "Running yamllint..." + NC
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Running yamllint"
     @docker run --rm -v {{ WORKDIR }}:/workspace -w /workspace --security-opt=no-new-privileges {{ YAMLLINT_IMAGE }} {{ COMPOSE_FILE }}
 
 lint-md:
-    @echo BLUE + "Running markdownlint..." + NC
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Running markdownlint"
     @docker run --rm -v {{ WORKDIR }}:/workspace -w /workspace --security-opt=no-new-privileges {{ MARKDOWNLINT_IMAGE }} {{ MARKDOWN_LINT_TARGETS }} --ignore node_modules --ignore .git
 
 lint-iac:
-    @echo BLUE + "Running Checkov IaC scan..." + NC
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Running Checkov IaC scan"
     @mkdir -p {{ CHECKOV_CACHE_DIR }}
     @docker run --rm -v {{ WORKDIR }}:/project -v {{ CHECKOV_CACHE_DIR }}:/home/checkov/.cache -w /project --security-opt=no-new-privileges {{ CHECKOV_IMAGE }} -d /project
 
 lint-docker:
     #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
     if [ -f "{{ DOCKERFILE_PATH }}" ]; then
-        echo BLUE + "Running hadolint on {{ DOCKERFILE_PATH }}..." + NC
+        log_start "Running hadolint on {{ DOCKERFILE_PATH }}"
         docker run --rm -v {{ WORKDIR }}:/workspace -w /workspace --security-opt=no-new-privileges {{ HADOLINT_IMAGE }} {{ DOCKERFILE_PATH }}
     else
-        echo YELLOW + "⚠ No Dockerfile found at {{ DOCKERFILE_PATH }}; skipping hadolint" + NC
+        log_warn "No Dockerfile found at {{ DOCKERFILE_PATH }}; skipping hadolint"
     fi
 
 docker-scout: ## Run Docker Scout CVE report against the local image tag
-    @echo BLUE + "Running Docker Scout (requires docker CLI plugin)..." + NC
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Running Docker Scout (requires docker CLI plugin)"
     @if command -v docker >/dev/null 2>&1 && docker scout version >/dev/null 2>&1; then
         {{ SCOUT_BIN }} cves {{ SERVICE_NAME }}:latest
     else
-        echo RED + "✗ docker scout CLI not installed. Run 'docker scout install' first." + NC
+        log_error "docker scout CLI not installed. Run 'docker scout install' first."
         exit 1
     fi
 
 trivy: ## Run Trivy config/image scan (set TRIVY_IMAGE_TARGET=<image> to scan images)
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
     @mkdir -p {{ TRIVY_CACHE_DIR }}
     @if [ -z "{{ TRIVY_IMAGE_TARGET }}" ]; then
-        echo BLUE + "Running Trivy config scan (severity {{ TRIVY_SEVERITY }})..." + NC
+        log_start "Running Trivy config scan (severity {{ TRIVY_SEVERITY }})"
         docker run --rm -v {{ WORKDIR }}:/workspace -v {{ TRIVY_CACHE_DIR }}:/root/.cache/trivy -w /workspace --security-opt=no-new-privileges {{ TRIVY_IMAGE }} config --severity {{ TRIVY_SEVERITY }} --quiet .
     else
-        echo BLUE + "Running Trivy image scan for {{ TRIVY_IMAGE_TARGET }} (severity {{ TRIVY_SEVERITY }})..." + NC
+        log_start "Running Trivy image scan for {{ TRIVY_IMAGE_TARGET }} (severity {{ TRIVY_SEVERITY }})"
         docker run --rm -v {{ TRIVY_CACHE_DIR }}:/root/.cache/trivy --security-opt=no-new-privileges {{ TRIVY_IMAGE }} image --severity {{ TRIVY_SEVERITY }} {{ TRIVY_IMAGE_TARGET }}
     fi
 
 dockle: ## Run Dockle image linting (CIS benchmarks)
-    @echo BLUE + "Running Dockle image scan for {{ DOCKLE_IMAGE_TARGET }}..." + NC
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Running Dockle image scan for {{ DOCKLE_IMAGE_TARGET }}"
     docker run --rm -v /var/run/docker.sock:/var/run/docker.sock --security-opt=no-new-privileges {{ DOCKLE_IMAGE }} --exit-code 1 {{ DOCKLE_IMAGE_TARGET }}
 
 runtime-scan: ## Run Falco runtime security detector (requires kernel-level access)
-    @echo BLUE + "Starting Falco runtime scan (requires root + BPF permissions)..." + NC
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Starting Falco runtime scan (requires root + BPF permissions)"
     docker run --rm \
         --cap-drop ALL \
         --cap-add BPF --cap-add PERFMON --cap-add NET_ADMIN --cap-add SYS_PTRACE --cap-add SYS_RESOURCE --cap-add SYS_ADMIN \
@@ -196,7 +301,10 @@ runtime-scan: ## Run Falco runtime security detector (requires kernel-level acce
         falco --modern-bpf --pidfile /tmp/falco.pid --cri /run/containerd/containerd.sock
 
 audit: ## Run Docker Bench for Security against the local daemon
-    @echo BLUE + "Running docker-bench-security (read-only host mounts)..." + NC
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Running docker-bench-security (read-only host mounts)"
     docker run --rm \
         --net host --pid host --userns host \
         --cap-drop ALL --cap-add AUDIT_CONTROL --cap-add AUDIT_READ --cap-add SYS_ADMIN \
@@ -208,22 +316,35 @@ audit: ## Run Docker Bench for Security against the local daemon
         {{ DOCKER_BENCH_IMAGE }}
 
 security-scan: lint trivy dockle docker-scout ## Generate comprehensive security report bundle
-    @echo BLUE + "Collecting additional scan artifacts..." + NC
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Collecting additional scan artifacts"
     @./scripts/security-scan.sh
-    @echo GREEN + "✓ Security scan completed" + NC
+    log_end "Security scan completed"
 
 clean: ## Remove containers and networks (keeps volumes)
-    @echo RED + "⚠ Removing containers and networks..." + NC
+    @just clean_impl
+
+[private]
+clean_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_warn "Removing containers and networks..."
     @docker compose -f {{ COMPOSE_FILE }} --env-file {{ ENV_FILE }} down --remove-orphans
-    @echo GREEN + "✓ Containers and networks removed" + NC
+    log_end "Containers and networks removed"
 
 clean-all: ## Remove containers, networks, and volumes (DESTRUCTIVE)
-    @echo RED + "⚠ WARNING: This will remove all data volumes!" + NC
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_warn "WARNING: This will remove all data volumes!"
     @read -p "Are you sure? [y/N] " -n 1 -r; \
     echo; \
     if [[ $REPLY =~ ^[Yy]$ ]]; then \
         docker compose -f {{ COMPOSE_FILE }} --env-file {{ ENV_FILE }} down -v --remove-orphans; \
-        echo GREEN + "✓ All data removed" + NC; \
+        log_end "All data removed"; \
     else \
-        echo YELLOW + "Cancelled" + NC; \
+        log_warn "Cancelled"; \
     fi

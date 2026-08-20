@@ -1,6 +1,33 @@
 # Nuxt Tweet Organizer Service - Standard Developer UX Flow
 # Following ADR-20260131001 Standard Developer UX Flow
 
+_log := '
+_jv_has() {
+  local cat="$1"
+  local v="${JUST_LOG:-0}"
+  case "$v" in
+    1|all) return 0 ;;
+    0|"") return 1 ;;
+  esac
+  v="${v//startend/start,end}"
+  echo ",$v," | grep -q ",$cat,"
+}
+log_info()   { _jv_has info   && echo "$*" || true; }
+log_start()  { _jv_has start  && echo "▶ $*" || true; }
+log_end()    { _jv_has end    && echo "✔ $*" || true; }
+log_status() { _jv_has status && echo "$*" || true; }
+log_warn()   { echo "⚠️  $*" >&2; }
+log_error()  { echo "❌ $*" >&2; }
+log_startend() {
+  local msg="$1"; shift
+  local rc
+  _jv_has start && echo "▶ $msg" || true
+  rc=0; "$@" || rc=$?
+  _jv_has end && echo "✔ $msg complete" || true
+  return $rc
+}
+'
+
 # Default target
 default:
     @echo "Available targets:"
@@ -17,61 +44,108 @@ default:
 
 # Normal targets - Developer interface (REQUIRED)
 up:
-    @echo "🚀 Starting Nuxt Tweet Organizer service..."
+    @just up_impl
+
+[private]
+up_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Starting Nuxt Tweet Organizer service"
     @docker compose -f docker-compose.yml --env-file ../../.env.local.localnet up -d
-    @echo "✅ Service started at http://localhost:${APPS_NUXT_TWEET_ORG_HOST_PORT:-3000}"
+    log_end "Service started at http://localhost:${APPS_NUXT_TWEET_ORG_HOST_PORT:-3000}"
 
 down:
-    @echo "🛑 Stopping Nuxt Tweet Organizer service..."
+    @just down_impl
+
+[private]
+down_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Stopping Nuxt Tweet Organizer service"
     @docker compose -f docker-compose.yml --env-file ../../.env.local.localnet down
-    @echo "✅ Service stopped"
+    log_end "Service stopped"
 
 build:
-    @echo "🔨 Building Nuxt Tweet Organizer image..."
+    @just build_impl
+
+[private]
+build_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Building Nuxt Tweet Organizer image"
     @docker compose -f docker-compose.yml --env-file ../../.env.local.localnet build
-    @echo "✅ Build complete"
+    log_end "Build complete"
 
 rebuild:
-    @echo "🔨 Rebuilding Nuxt Tweet Organizer image..."
+    @just rebuild_impl
+
+[private]
+rebuild_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Rebuilding Nuxt Tweet Organizer image"
     @docker compose -f docker-compose.yml --env-file ../../.env.local.localnet build --no-cache
-    @echo "✅ Rebuild complete"
+    log_end "Rebuild complete"
 
 logs:
-    @echo "📋 Showing Nuxt Tweet Organizer logs..."
     @docker compose -f docker-compose.yml --env-file ../../.env.local.localnet logs -f
 
 health:
-    @echo "🏥 Checking Nuxt Tweet Organizer health..."
+    @just health_impl
+
+[private]
+health_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Checking Nuxt Tweet Organizer health"
     @docker compose -f docker-compose.yml --env-file ../../.env.local.localnet ps
     @echo ""
-    @docker exec localnet-apps-nuxt-tweet-org curl -f http://localhost:${APPS_NUXT_TWEET_ORG_CONTAINER_PORT:-3000} || echo "❌ Service not responding"
+    @docker exec localnet-apps-nuxt-tweet-org curl -f http://localhost:${APPS_NUXT_TWEET_ORG_CONTAINER_PORT:-3000} || log_error "Service not responding"
 
 shell:
-    @echo "🐚 Opening shell in Nuxt Tweet Organizer container..."
     @docker exec -it localnet-apps-nuxt-tweet-org /bin/sh
 
 test:
-    @echo "🧪 Running Nuxt Tweet Organizer tests..."
+    @just test_impl
+
+[private]
+test_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Running Nuxt Tweet Organizer tests"
     @./tests/test-nuxt-tweet-org.sh
 
 clean:
-    @echo "🧹 Cleaning up Nuxt Tweet Organizer..."
+    @just clean_impl
+
+[private]
+clean_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Cleaning up Nuxt Tweet Organizer"
     @docker compose -f docker-compose.yml --env-file ../../.env.local.localnet down -v
     @docker image prune -f
-    @echo "✅ Cleanup complete"
+    log_end "Cleanup complete"
 
 # Bootstrap recipes (REQUIRED)
 bootstrap:
-    @echo "🚀 Bootstrapping Nuxt Tweet Organizer service..."
-    @just setup
-    @echo "✅ Bootstrap complete!"
+    @just bootstrap_impl
 
-bootstrap-internal:
-    @echo "🔧 Internal bootstrap logic..."
-    @echo "Checking environment..."
-    @test -f ../../.env.local.localnet || (echo "❌ Environment file not found: ../../.env.local.localnet" && exit 1)
-    @echo "✅ Environment file found"
-    @echo "✅ Bootstrap complete!"
+[private]
+bootstrap_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Bootstrapping Nuxt Tweet Organizer service"
+    just setup_impl
+    log_end "Bootstrap complete"
 
 # Health and diagnostics (REQUIRED)
 doctor:
@@ -89,37 +163,57 @@ doctor:
 
 # Quality checks (OPTIONAL but RECOMMENDED)
 quality:
-    @echo "🔍 Running quality checks..."
-    @just lint
-    @just test
-    @just health
+    @just quality_impl
+
+[private]
+quality_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    just lint_impl
+    just test_impl
+    just health_impl
 
 # Language-specific commands (OPTIONAL)
 lint:
-    @echo "🔍 Linting Docker configuration..."
+    @just lint_impl
+
+[private]
+lint_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Linting Docker configuration"
     @docker compose -f docker-compose.yml --env-file ../../.env.local.localnet config --quiet
 
 # Development setup (OPTIONAL)
 setup:
-    @echo "🛠️ Setting up development environment..."
-    @echo "Checking pnpm-sidecar dependency..."
-    @docker network inspect localnet > /dev/null 2>&1 || (echo "❌ localnet network not found - run from localnet root" && exit 1)
-    @docker volume inspect localnet-pnpm-cache > /dev/null 2>&1 || (echo "❌ pnpm-cache volume not found - run from localnet root" && exit 1)
-    @echo "✅ Development environment ready!"
+    @just setup_impl
 
-# Clean up (OPTIONAL)
-clean-internal:
-    @echo "🧹 Internal cleanup..."
-    @docker compose -f docker-compose.yml --env-file ../../.env.local.localnet down
-    @docker volume rm nuxt-tweet-org-data 2>/dev/null || true
-    @echo "✅ Internal cleanup complete"
+[private]
+setup_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Setting up development environment"
+    log_info "Checking pnpm-sidecar dependency..."
+    @docker network inspect localnet > /dev/null 2>&1 || (log_error "localnet network not found - run from localnet root"; exit 1)
+    @docker volume inspect localnet-pnpm-cache > /dev/null 2>&1 || (log_error "pnpm-cache volume not found - run from localnet root"; exit 1)
+    log_end "Development environment ready"
 
 # Deep clean (OPTIONAL)
-clean-all-internal:
-    @echo "🧹 Deep cleanup..."
+clean-all:
+    @just clean-all_impl
+
+[private]
+clean-all_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Deep cleanup"
     @docker compose -f docker-compose.yml --env-file ../../.env.local.localnet down -v
     @docker image rm localnet-apps-nuxt-tweet-org:latest 2>/dev/null || true
-    @echo "✅ Deep cleanup complete"
+    log_end "Deep cleanup complete"
 
 # Development shortcuts
 dev: up
@@ -130,11 +224,25 @@ ps:
 
 # Production shortcuts
 prod-up:
-    @echo "🚀 Starting Nuxt Tweet Organizer in production mode..."
+    @just prod-up_impl
+
+[private]
+prod-up_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Starting Nuxt Tweet Organizer in production mode"
     @NODE_ENV=production docker compose -f docker-compose.yml --env-file ../../.env.local.localnet up -d
 
 prod-rebuild:
-    @echo "🔨 Rebuilding for production..."
+    @just prod-rebuild_impl
+
+[private]
+prod-rebuild_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Rebuilding for production"
     @NODE_ENV=production docker compose -f docker-compose.yml --env-file ../../.env.local.localnet build --no-cache
     @just prod-up
 

@@ -4,6 +4,49 @@
 # Environment variables
 set export
 
+_log := '
+_jv_has() {
+  local cat="$1"
+  local v="${JUST_LOG:-0}"
+  case "$v" in
+    1|all) return 0 ;;
+    0|"") return 1 ;;
+  esac
+  v="${v//startend/start,end}"
+  echo ",$v," | grep -q ",$cat,"
+}
+log_info()   { _jv_has info   && echo "$*" || true; }
+log_start()  { _jv_has start  && echo "▶ $*" || true; }
+log_end()    { _jv_has end    && echo "✔ $*" || true; }
+log_status() { _jv_has status && echo "$*" || true; }
+log_warn()   { echo "⚠️  $*" >&2; }
+log_error()  { echo "❌ $*" >&2; }
+log_startend() {
+  local msg="$1"; shift
+  local rc
+  _jv_has start && echo "▶ $msg" || true
+  rc=0; "$@" || rc=$?
+  _jv_has end && echo "✔ $msg complete" || true
+  return $rc
+}
+'
+
+# Devbox auto-detection: run impl target directly if in devbox,
+# re-exec via devbox run if not, or fail with doctor diagnostic.
+_devbox target *args:
+    #!/usr/bin/env bash
+    {{_log}}
+    if [ "${DEVBOX_SHELL_ENABLED:-0}" = "1" ]; then
+        exec just "{{target}}" {{args}}
+    elif command -v devbox >/dev/null 2>&1; then
+        exec devbox run -- just "{{target}}" {{args}}
+    else
+        log_error "devbox not found in PATH."
+        log_warn "Running doctor to diagnose environment issues..."
+        just doctor 2>/dev/null || true
+        exit 1
+    fi
+
 # Configuration
 ENSURE_NETWORK := "./scripts/ensure-network.py"
 NETWORK_NAME := "localnet_default"
@@ -36,10 +79,14 @@ help:
 
 # Bootstrap recipes (ADR-20260131001 compliance)
 bootstrap:
-    devbox run bootstrap-internal
+    @just _devbox bootstrap_impl
 
-bootstrap-internal:
-    @./scripts/echo-colors.sh blue "Setting up pnpm and nx..."
+[private]
+bootstrap_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Setting up pnpm and nx"
     @# Run all pnpm commands in single shell so PATH persists
     @export PNPM_HOME="${PNPM_HOME:-$HOME/.local/share/pnpm}" && \
         export PATH="$PNPM_HOME:$PATH" && \
@@ -50,7 +97,7 @@ bootstrap-internal:
         pnpm config set store-dir "$PNPM_HOME/store" && \
         pnpm add -g nx && \
         pnpm install && \
-        ./scripts/echo-colors.sh green "✓ bootstrap-internal completed"
+        log_end "bootstrap_impl completed"
 
 # Logging helpers (DRY - all tasks log with start/end demarcation)
 [private]
@@ -80,189 +127,242 @@ log-exec task *args:
     @({{args}} 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && just log-end "{{task}}" "SUCCESS" || (just log-end "{{task}}" "FAILED"; exit 1)
 
 # Helper: Profile-based docker compose operations (DRY)
+[private]
 compose-up-profile profile message:
-    @just log-start "up-{{profile}}"
-    @./scripts/echo-colors.sh blue "{{message}}..."
-    @({{DC_LOCAL}} --profile {{profile}} up -d 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (./scripts/echo-colors.sh green "✓ {{message}} started"; just log-end "up-{{profile}}" "SUCCESS") || (./scripts/echo-colors.sh red "✗ {{message}} failed"; just log-end "up-{{profile}}" "FAILED"; exit 1)
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    just log-start "up-{{profile}}"
+    log_start "{{message}}"
+    ({{DC_LOCAL}} --profile {{profile}} up -d 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (log_end "{{message}} started"; just log-end "up-{{profile}}" "SUCCESS") || (log_error "{{message}} failed"; just log-end "up-{{profile}}" "FAILED"; exit 1)
 
+[private]
 compose-down-profile profile message:
-    @just log-start "down-{{profile}}"
-    @./scripts/echo-colors.sh yellow "{{message}}..."
-    @({{DC_LOCAL}} --profile {{profile}} down 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (./scripts/echo-colors.sh green "✓ {{message}} stopped"; just log-end "down-{{profile}}" "SUCCESS") || (./scripts/echo-colors.sh red "✗ {{message}} failed"; just log-end "down-{{profile}}" "FAILED"; exit 1)
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    just log-start "down-{{profile}}"
+    log_start "{{message}}"
+    ({{DC_LOCAL}} --profile {{profile}} down 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (log_end "{{message}} stopped"; just log-end "down-{{profile}}" "SUCCESS") || (log_error "{{message}} failed"; just log-end "down-{{profile}}" "FAILED"; exit 1)
 
+[private]
 compose-build-profile profile:
     @{{DC_LOCAL}} --profile {{profile}} --progress=plain build
 
 # Build and run base-dev and dependencies
 # Builds services sequentially to avoid parallel build conflicts with slow Kali images
 base-up:
-    devbox run base-up-internal
+    @just _devbox base-up_impl
 
-base-up-internal:
-    @just log-start "base-up"
-    @./scripts/echo-colors.sh blue "Creating base containers..."
+[private]
+base-up_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    just log-start "base-up"
+    log_start "Creating base containers"
     # TODO: Migrate to Docker Compose additional_contexts for native build dependency
     # when supported by OrbStack, Podman, Colima, and Lima. Current profile-based
     # sequencing ensures build order without requiring BuildKit. See AGENTS.md
     # "Build Order vs Runtime Dependencies" section for details.
-    @(COMPOSE_PARALLEL_LIMIT={{COMPOSE_PARALLEL_LIMIT}} DOCKER_BUILDKIT=1 docker compose -f docker-compose.shared.yml --env-file {{ENV_FILE}} --progress=plain up -d 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]})
+    (COMPOSE_PARALLEL_LIMIT={{COMPOSE_PARALLEL_LIMIT}} DOCKER_BUILDKIT=1 docker compose -f docker-compose.shared.yml --env-file {{ENV_FILE}} --progress=plain up -d 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]})
 
     ## Build remaining base01 services
-    @./scripts/echo-colors.sh blue "Building base01 services..."
-    @({{DC_LOCAL}} --profile base01 up -d --build 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]})
+    log_start "Building base01 services"
+    ({{DC_LOCAL}} --profile base01 up -d --build 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]})
     ## Build remaining base02 services
-    @./scripts/echo-colors.sh blue "Building remaining base02 services..."
-    @({{DC_LOCAL}} --profile base02 up -d --build 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]})
+    log_start "Building remaining base02 services"
+    ({{DC_LOCAL}} --profile base02 up -d --build 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]})
     ## Build base03 services (base-dev depends on base-kalinix)
-    @./scripts/echo-colors.sh blue "Building base03 services..."
-    @({{DC_LOCAL}} --profile base03 up -d --build 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]})
-    @./scripts/echo-colors.sh green "✓ base containers created"
-    @just log-end "base-up" "SUCCESS"
+    log_start "Building base03 services"
+    ({{DC_LOCAL}} --profile base03 up -d --build 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]})
+    log_end "base containers created"
+    just log-end "base-up" "SUCCESS"
 
 # Build all Docker images
 build:
-    devbox run build-internal
+    @just _devbox build_impl
 
-build-internal:
-    @just log-start "build"
-    just base-up-internal
-    @./scripts/echo-colors.sh blue "Building all Docker images..."
-    @({{DC_LOCAL}} --profile all --progress=plain build 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (./scripts/echo-colors.sh green "✓ Build complete"; just log-end "build" "SUCCESS") || (./scripts/echo-colors.sh red "✗ Build failed"; just log-end "build" "FAILED"; exit 1)
+[private]
+build_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    just log-start "build"
+    just base-up_impl
+    log_start "Building all Docker images"
+    ({{DC_LOCAL}} --profile all --progress=plain build 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (log_end "Build complete"; just log-end "build" "SUCCESS") || (log_error "Build failed"; just log-end "build" "FAILED"; exit 1)
 
 # Build specific service with no cache
 build-service service:
-    devbox run build-service-internal {{service}}
+    @just _devbox build-service_impl {{service}}
 
-build-service-internal service:
-    @just log-start "build-{{service}}"
-    @./scripts/echo-colors.sh blue "Building service {{service}}..."
-    @({{DC_LOCAL}} --progress=plain build {{service}} 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (./scripts/echo-colors.sh green "✓ Service {{service}} built"; just log-end "build-{{service}}" "SUCCESS") || (./scripts/echo-colors.sh red "✗ Service {{service}} build failed"; just log-end "build-{{service}}" "FAILED"; exit 1)
+[private]
+build-service_impl service:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    just log-start "build-{{service}}"
+    log_start "Building service {{service}}"
+    ({{DC_LOCAL}} --progress=plain build {{service}} 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (log_end "Service {{service}} built"; just log-end "build-{{service}}" "SUCCESS") || (log_error "Service {{service}} build failed"; just log-end "build-{{service}}" "FAILED"; exit 1)
 
 # Build base-dev specifically for iteration
 build-base-dev:
-    devbox run build-base-dev-internal
+    @just _devbox build-base-dev_impl
 
-build-base-dev-internal:
-    @just log-start "build-base-dev"
-    @./scripts/echo-colors.sh blue "Building base-dev service..."
-    @({{DC_LOCAL}} --progress=plain build base-dev 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (./scripts/echo-colors.sh green "✓ base-dev built"; just log-end "build-base-dev" "SUCCESS") || (./scripts/echo-colors.sh red "✗ base-dev build failed"; just log-end "build-base-dev" "FAILED"; exit 1)
+[private]
+build-base-dev_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    just log-start "build-base-dev"
+    log_start "Building base-dev service"
+    ({{DC_LOCAL}} --progress=plain build base-dev 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (log_end "base-dev built"; just log-end "build-base-dev" "SUCCESS") || (log_error "base-dev build failed"; just log-end "build-base-dev" "FAILED"; exit 1)
 
 # Build openfang specifically for iteration
 build-openfang:
-    devbox run build-openfang-internal
+    @just _devbox build-openfang_impl
 
-build-openfang-internal:
-    @just log-start "build-openfang"
-    @./scripts/echo-colors.sh blue "Building openfang service..."
-    @(COMPOSE_PARALLEL_LIMIT={{COMPOSE_PARALLEL_LIMIT}} DOCKER_BUILDKIT=1 docker compose -f services/ai-codeassist/openfang/openfang/docker-compose.openfang.yml --env-file {{ENV_FILE}} --progress=plain build openfang 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (./scripts/echo-colors.sh green "✓ openfang built"; just log-end "build-openfang" "SUCCESS") || (./scripts/echo-colors.sh red "✗ openfang build failed"; just log-end "build-openfang" "FAILED"; exit 1)
+[private]
+build-openfang_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    just log-start "build-openfang"
+    log_start "Building openfang service"
+    (COMPOSE_PARALLEL_LIMIT={{COMPOSE_PARALLEL_LIMIT}} DOCKER_BUILDKIT=1 docker compose -f services/ai-codeassist/openfang/openfang/docker-compose.openfang.yml --env-file {{ENV_FILE}} --progress=plain build openfang 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (log_end "openfang built"; just log-end "build-openfang" "SUCCESS") || (log_error "openfang build failed"; just log-end "build-openfang" "FAILED"; exit 1)
 
 # Build and start base-dev for iteration
 build-up-dev:
-    devbox run build-up-dev-internal
+    @just _devbox build-up-dev_impl
 
-build-up-dev-internal:
-    @just log-start "build-up-dev"
-    @./scripts/echo-colors.sh blue "Building and starting base-dev..."
-    @({{DC_LOCAL}} --progress=plain build base-dev 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (./scripts/echo-colors.sh green "✓ base-dev built"; {{DC_LOCAL}} up -d base-dev 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (./scripts/echo-colors.sh green "✓ base-dev started"; just log-end "build-up-dev" "SUCCESS") || (./scripts/echo-colors.sh red "✗ base-dev build-up failed"; just log-end "build-up-dev" "FAILED"; exit 1)
+[private]
+build-up-dev_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    just log-start "build-up-dev"
+    log_start "Building and starting base-dev"
+    ({{DC_LOCAL}} --progress=plain build base-dev 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (log_end "base-dev built"; {{DC_LOCAL}} up -d base-dev 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (log_end "base-dev started"; just log-end "build-up-dev" "SUCCESS") || (log_error "base-dev build-up failed"; just log-end "build-up-dev" "FAILED"; exit 1)
 
 # Build and start openfang for iteration
 build-up-openfang:
-    devbox run build-up-openfang-internal
+    @just _devbox build-up-openfang_impl
 
-build-up-openfang-internal:
-    @just log-start "build-up-openfang"
-    @./scripts/echo-colors.sh blue "Building and starting openfang..."
-    @(COMPOSE_PARALLEL_LIMIT={{COMPOSE_PARALLEL_LIMIT}} DOCKER_BUILDKIT=1 docker compose -f services/ai-codeassist/openfang/openfang/docker-compose.openfang.yml --env-file {{ENV_FILE}} --progress=plain build openfang 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (./scripts/echo-colors.sh green "✓ openfang built"; COMPOSE_PARALLEL_LIMIT={{COMPOSE_PARALLEL_LIMIT}} DOCKER_BUILDKIT=1 docker compose -f services/ai-codeassist/openfang/openfang/docker-compose.openfang.yml --env-file {{ENV_FILE}} up -d openfang 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (./scripts/echo-colors.sh green "✓ openfang started"; just log-end "build-up-openfang" "SUCCESS") || (./scripts/echo-colors.sh red "✗ openfang build-up failed"; just log-end "build-up-openfang" "FAILED"; exit 1)
+[private]
+build-up-openfang_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    just log-start "build-up-openfang"
+    log_start "Building and starting openfang"
+    (COMPOSE_PARALLEL_LIMIT={{COMPOSE_PARALLEL_LIMIT}} DOCKER_BUILDKIT=1 docker compose -f services/ai-codeassist/openfang/openfang/docker-compose.openfang.yml --env-file {{ENV_FILE}} --progress=plain build openfang 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (log_end "openfang built"; COMPOSE_PARALLEL_LIMIT={{COMPOSE_PARALLEL_LIMIT}} DOCKER_BUILDKIT=1 docker compose -f services/ai-codeassist/openfang/openfang/docker-compose.openfang.yml --env-file {{ENV_FILE}} up -d openfang 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (log_end "openfang started"; just log-end "build-up-openfang" "SUCCESS") || (log_error "openfang build-up failed"; just log-end "build-up-openfang" "FAILED"; exit 1)
 
 # Profile-based service management (NEW - ADR-20260322002)
 up-agents:
-    devbox run up-agents-internal
+    @just _devbox up-agents_impl
 
-up-agents-internal:
+[private]
+up-agents_impl:
     @just compose-up-profile agents "Starting AI/agent services"
 
 up-base01:
-    devbox run up-base01-internal
+    @just _devbox up-base01_impl
 
-up-base01-internal:
+[private]
+up-base01_impl:
     @just compose-up-profile base01 "Starting production base services"
 
 up-base02:
-    devbox run up-base02-internal
+    @just _devbox up-base02_impl
 
-up-base02-internal:
+[private]
+up-base02_impl:
     @just compose-up-profile base02 "Starting development base services"
 
 up-core:
-    devbox run up-core-internal
+    @just _devbox up-core_impl
 
-up-core-internal:
+[private]
+up-core_impl:
     @just compose-up-profile core "Starting core infrastructure"
 
 up-nix:
-    devbox run up-nix-internal
+    @just _devbox up-nix_impl
 
-up-nix-internal:
+[private]
+up-nix_impl:
     @just compose-up-profile nix "Starting Nix package management"
 
 up-dns:
-    devbox run up-dns-internal
+    @just _devbox up-dns_impl
 
-up-dns-internal:
+[private]
+up-dns_impl:
     @just compose-up-profile dns "Starting DNS resolution services"
 
 up-security:
-    devbox run up-security-internal
+    @just _devbox up-security_impl
 
-up-security-internal:
+[private]
+up-security_impl:
     @just compose-up-profile security "Starting security services"
 
 # Multi-profile combinations
 up-core-nix:
-    devbox run up-core-nix-internal
+    @just _devbox up-core-nix_impl
 
-up-core-nix-internal:
-    @./scripts/echo-colors.sh blue "Starting core infrastructure + Nix..."
+[private]
+up-core-nix_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Starting core infrastructure + Nix"
     @{{DC_LOCAL}} --profile core --profile nix up -d
-    @./scripts/echo-colors.sh green "✓ Core + Nix services started"
+    log_end "Core + Nix services started"
 
 up-localnet:
-    devbox run up-localnet-internal
+    @just _devbox up-localnet_impl
 
-up-localnet-internal:
+[private]
+up-localnet_impl:
     @just compose-up-profile localnet "Starting full localnet environment"
 
 # Environment-specific deployments
 up-prod:
-    devbox run up-prod-internal
+    @just _devbox up-prod_impl
 
-up-prod-internal:
-    @./scripts/echo-colors.sh blue "Starting production environment..."
+[private]
+up-prod_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Starting production environment"
     @COMPOSE_ENV=production {{DC_LOCAL}} --profile base01 up -d
-    @./scripts/echo-colors.sh green "✓ Production environment started"
+    log_end "Production environment started"
 
 up-test:
-    devbox run up-test-internal
+    @just _devbox up-test_impl
 
-up-test-internal:
-    @./scripts/echo-colors.sh blue "Starting testing environment..."
+[private]
+up-test_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Starting testing environment"
     @COMPOSE_ENV=testing {{DC_LOCAL}} --profile agents up -d
-    @./scripts/echo-colors.sh green "✓ Testing environment started"
+    log_end "Testing environment started"
 
 # Memory management & task tracking (NEW - ADR-20260322003)
 doc-search query=".":
-    @./scripts/echo-colors.sh blue "Searching documentation and memory..."
-    @if command -v qmd >/dev/null 2>&1; then \
-        qmd search "{{query}}" | head -20; \
-    else \
-        echo "qmd not found - install with: cargo install qmd"; \
-        echo "Falling back to ripgrep..."; \
-        rg --type md "{{query}}" docs/ internal-docs/ memory/ || true; \
-    fi
+    @just _devbox doc-search_impl {{query}}
 
-doc-search-internal query=".":
-    @./scripts/echo-colors.sh blue "Searching documentation and memory..."
-    @if command -v qmd >/dev/null 2>&1; then \
+[private]
+doc-search_impl query=".":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # Search memory and documentation with qmd
+    if command -v qmd >/dev/null 2>&1; then \
         qmd search "{{query}}" | head -20; \
     else \
         echo "qmd not found - install with: cargo install qmd"; \
@@ -271,11 +371,14 @@ doc-search-internal query=".":
     fi
 
 tasks:
-    devbox shell tasks
+    @just _devbox tasks_impl
 
-tasks-internal:
-    @./scripts/echo-colors.sh blue "Listing open tasks..."
-    @if [ -f ".devbox/nix/profile/default/bin/tkr" ]; then \
+[private]
+tasks_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # List current tasks
+    if [ -f ".devbox/nix/profile/default/bin/tkr" ]; then \
         .devbox/nix/profile/default/bin/tkr list --status=open; \
     elif command -v tkr >/dev/null 2>&1; then \
         tkr list --status=open; \
@@ -284,10 +387,14 @@ tasks-internal:
     fi
 
 task-ready:
-    devbox shell task-ready-internal
+    @just _devbox task-ready_impl
 
-task-ready-internal:
-    @./scripts/echo-colors.sh blue "Getting next available task..."
+[private]
+task-ready_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Getting next available task"
     @if [ -f ".devbox/nix/profile/default/bin/tkr" ]; then \
         .devbox/nix/profile/default/bin/tkr ready; \
     elif command -v tkr >/dev/null 2>&1; then \
@@ -297,17 +404,21 @@ task-ready-internal:
     fi
 
 task-start:
-    devbox shell task-start-internal
+    @just _devbox task-start_impl
 
-task-start-internal:
-    @./scripts/echo-colors.sh blue "Starting available task..."
+[private]
+task-start_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Starting available task"
     @if command -v tkr >/dev/null 2>&1; then \
         task_id=$$(tkr ready | head -1 | cut -d' ' -f1); \
         if [ -n "$$task_id" ]; then \
             tkr start "$$task_id"; \
-            echo "Started task: $$task_id"; \
+            log_info "Started task: $$task_id"; \
         else \
-            echo "No available tasks"; \
+            log_info "No available tasks"; \
         fi; \
     else \
         echo "tkr not found - install from: https://github.com/levonk/tkr"; \
@@ -315,118 +426,156 @@ task-start-internal:
 
 # Start all services
 up:
-    devbox run up-internal
+    @just _devbox up_impl
 
-up-internal:
-    @just log-start "up"
+[private]
+up_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    just log-start "up"
     just build
-    @./scripts/echo-colors.sh blue "Starting all services..."
+    log_start "Starting all services"
     @sleep 1
-    @({{DC_LOCAL}} --profile all --progress=plain up -d 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (./scripts/echo-colors.sh green "✓ Services started"; just log-end "up" "SUCCESS") || (./scripts/echo-colors.sh red "✗ Services failed to start"; just log-end "up" "FAILED"; exit 1)
-    @echo "Run 'just health-check' to verify service health"
+    ({{DC_LOCAL}} --profile all --progress=plain up -d 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (log_end "Services started"; just log-end "up" "SUCCESS") || (log_error "Services failed to start"; just log-end "up" "FAILED"; exit 1)
+    log_info "Run 'just health-check' to verify service health"
 
 # Stop all services
 down:
-    devbox run down-internal
+    @just _devbox down_impl
 
-down-internal:
-    @just log-start "down"
+[private]
+down_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    just log-start "down"
     just cloud-down
-    @./scripts/echo-colors.sh yellow "Stopping all services..."
-    @({{DC_CLOUD}} down 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (./scripts/echo-colors.sh green "✓ Services stopped"; just log-end "down" "SUCCESS") || (./scripts/echo-colors.sh red "✗ Services failed to stop"; just log-end "down" "FAILED"; exit 1)
+    log_start "Stopping all services"
+    ({{DC_CLOUD}} down 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (log_end "Services stopped"; just log-end "down" "SUCCESS") || (log_error "Services failed to stop"; just log-end "down" "FAILED"; exit 1)
 
 # Restart all services
 restart:
-    devbox run restart-internal
+    @just _devbox restart_impl
 
-restart-internal:
-    @just log-start "restart"
-    @./scripts/echo-colors.sh yellow "Restarting all services..."
-    @({{DC_LOCAL}} --profile all --progress=plain restart 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (./scripts/echo-colors.sh green "✓ Services restarted"; just log-end "restart" "SUCCESS") || (./scripts/echo-colors.sh red "✗ Services failed to restart"; just log-end "restart" "FAILED"; exit 1)
+[private]
+restart_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    just log-start "restart"
+    log_start "Restarting all services"
+    ({{DC_LOCAL}} --profile all --progress=plain restart 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (log_end "Services restarted"; just log-end "restart" "SUCCESS") || (log_error "Services failed to restart"; just log-end "restart" "FAILED"; exit 1)
 
 # Remove all containers, volumes, and networks, then restart services
 clean:
-    devbox run clean-internal
+    @just _devbox clean_impl
 
-clean-internal:
-    @just log-start "clean"
-    @./scripts/echo-colors.sh yellow "Cleaning up Docker resources and restarting..."
-    @./scripts/echo-colors.sh blue "Stopping and removing all containers..."
-    @({{DC_LOCAL}} --profile all down -v --remove-orphans 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) || true
-    @./scripts/echo-colors.sh blue "Force-removing any stuck containers..."
+[private]
+clean_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    just log-start "clean"
+    log_start "Cleaning up Docker resources and restarting"
+    log_info "Stopping and removing all containers..."
+    ({{DC_LOCAL}} --profile all down -v --remove-orphans 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) || true
+    log_info "Force-removing any stuck containers..."
     ./scripts/cleanup-containers.sh 2>&1 | tee -a {{LOG_FILE}} || true
-    @./scripts/echo-colors.sh blue "Removing networks..."
+    log_info "Removing networks..."
     @docker network rm {{NETWORK_NAME}} 2>&1 | tee -a {{LOG_FILE}} || true
     @docker network rm localnet_default 2>&1 | tee -a {{LOG_FILE}} || true
-    @./scripts/echo-colors.sh blue "NOT Pruning volumes..."
-    @./scripts/echo-colors.sh blue "Pruning builder..."
+    log_info "NOT Pruning volumes..."
+    log_info "Pruning builder..."
     @docker builder prune -af 2>&1 | tee -a {{LOG_FILE}} || true
-    @./scripts/echo-colors.sh blue "Pruning system..."
+    log_info "Pruning system..."
     @docker system prune -af 2>&1 | tee -a {{LOG_FILE}} || true
     @sleep 2
-    @./scripts/echo-colors.sh green "✓ Cleanup complete, starting services..."
+    log_end "Cleanup complete, starting services..."
     just up 2>&1 | tee -a {{LOG_FILE}}
     @just log-end "clean" "SUCCESS"
 
 # View logs from all services (last 100 lines)
 logs:
-    devbox run logs-internal
+    @just _devbox logs_impl
 
-logs-internal:
+[private]
+logs_impl:
     @{{DC_LOCAL}} --profile all logs --tail=100
 
 # Follow logs from all services
 logs-follow:
-    devbox run logs-follow-internal
+    @just _devbox logs-follow_impl
 
-logs-follow-internal:
+[private]
+logs-follow_impl:
     @{{DC_LOCAL}} --profile all logs -f
 
 # Check health status of all services
 health-check:
-    devbox run health-check-internal
+    @just _devbox health-check_impl
 
-health-check-internal:
-    @./scripts/echo-colors.sh blue "Checking service health..."
+[private]
+health-check_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Checking service health"
     @{{DC_LOCAL}} --profile all ps
     @echo ""
-    @./scripts/echo-colors.sh blue "Running health checks..."
-    ./scripts/health-checks/nftables-check.sh || @./scripts/echo-colors.sh yellow "⚠ nftables check failed"
-    @./scripts/echo-colors.sh green "✓ Health check complete"
+    log_info "Running health checks..."
+    ./scripts/health-checks/nftables-check.sh || log_warn "nftables check failed"
+    log_end "Health check complete"
 
 # Run E2E tests (quick subset)
 test:
-    devbox run test-internal
+    @just _devbox test_impl
 
-test-internal:
-    @./scripts/echo-colors.sh blue "Running E2E tests..."
+[private]
+test_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Running E2E tests"
     ./scripts/tests/test-dns-services.sh
     ./scripts/tests/test-monitoring.sh
-    @./scripts/echo-colors.sh green "✓ Tests complete"
+    log_end "Tests complete"
 
 # Run all E2E tests (comprehensive)
 test-all:
-    devbox run test-all-internal
-    
-test-all-internal:
-    @./scripts/echo-colors.sh blue "Running all E2E tests..."
+    @just _devbox test-all_impl
+
+[private]
+test-all_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Running all E2E tests"
     ./scripts/tests/run-all-tests.sh
 
 # Update DNS/web blocklists
 update-blocklists:
-    devbox run update-blocklists-internal
+    @just _devbox update-blocklists_impl
 
-update-blocklists-internal:
-    @./scripts/echo-colors.sh blue "Updating blocklists..."
+[private]
+update-blocklists_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Updating blocklists"
     @{{DC_LOCAL}} exec dnsdist /blocklists/update-blocklists.sh
-    @./scripts/echo-colors.sh green "✓ Blocklists updated"
+    log_end "Blocklists updated"
 
 # Remove Docker-created config directories (safe, no data loss)
 clean-configs:
-    devbox run clean-configs-internal
+    @just _devbox clean-configs_impl
 
-clean-configs-internal:
-    @./scripts/echo-colors.sh blue "Cleaning up Docker-created config directories..."
+[private]
+clean-configs_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Cleaning up Docker-created config directories"
     @docker run --rm -v "{{justfile_directory()}}/configs:/configs" alpine sh -c '\
         find /configs -type d \( \
             -name "*.conf" -o \
@@ -435,196 +584,260 @@ clean-configs-internal:
             -name "config" -o \
             -name "config.yaml" \
         \) -exec rm -rf {} + 2>/dev/null || true'
-    @./scripts/echo-colors.sh green "✓ Config directories removed"
-    @echo "Run .just fix-configs. to recreate config files"
+    log_end "Config directories removed"
+    log_info "Run .just fix-configs. to recreate config files"
 
 # Recreate all config files from templates
 fix-configs:
-    devbox run fix-configs-internal
+    @just _devbox fix-configs_impl
 
-fix-configs-internal:
-    devbox run clean-configs-internal
-    @./scripts/echo-colors.sh blue "Recreating config files..."
+[private]
+fix-configs_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    devbox run clean-configs_impl
+    log_start "Recreating config files"
     @./scripts/create-configs.sh
-    @./scripts/echo-colors.sh green "✓ Config files created"
+    log_end "Config files created"
 
 # Remove all containers, volumes, and networks, then restart services
 clean-full:
-    devbox run clean-full-internal
+    @just _devbox clean-full_impl
 
-clean-full-internal:
-    @just log-start "clean-full"
-    @./scripts/echo-colors.sh yellow "Cleaning up Docker resources and restarting..."
-    @./scripts/echo-colors.sh blue "Stopping and removing all containers..."
-    @({{DC_LOCAL}} --profile all down -v --remove-orphans 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) || true
-    @./scripts/echo-colors.sh blue "Force-removing any stuck containers..."
+[private]
+clean-full_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    just log-start "clean-full"
+    log_start "Cleaning up Docker resources and restarting"
+    log_info "Stopping and removing all containers..."
+    ({{DC_LOCAL}} --profile all down -v --remove-orphans 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) || true
+    log_info "Force-removing any stuck containers..."
     ./scripts/cleanup-containers.sh 2>&1 | tee -a {{LOG_FILE}} || true
-    @./scripts/echo-colors.sh blue "Removing networks..."
+    log_info "Removing networks..."
     @docker network rm {{NETWORK_NAME}} 2>&1 | tee -a {{LOG_FILE}} || true
     @docker network rm localnet_default 2>&1 | tee -a {{LOG_FILE}} || true
-    @./scripts/echo-colors.sh blue "Pruning system..."
+    log_info "Pruning system..."
     @docker system prune -f --volumes 2>&1 | tee -a {{LOG_FILE}} || true
     @sleep 2
-    @./scripts/echo-colors.sh green "✓ Cleanup complete, starting services..."
+    log_end "Cleanup complete, starting services..."
     just up 2>&1 | tee -a {{LOG_FILE}}
     @just log-end "clean-full" "SUCCESS"
 
 # Show running containers
 ps:
-    devbox run ps-internal
+    @just _devbox ps_impl
 
-ps-internal:
+[private]
+ps_impl:
     @{{DC_LOCAL}} --profile all ps
 
 # Show container resource usage
 stats:
-    devbox run stats-internal
+    @just _devbox stats_impl
 
-stats-internal:
+[private]
+stats_impl:
     @docker stats --no-stream
 
 # Pull latest container images
 pull:
-    devbox run pull-internal
+    @just _devbox pull_impl
 
-pull-internal:
-    @./scripts/echo-colors.sh blue "Pulling latest images..."
+[private]
+pull_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Pulling latest images"
     @{{DC_LOCAL}} --profile all pull
-    @./scripts/echo-colors.sh green "✓ Images updated"
+    log_end "Images updated"
 
 # Validate docker-compose.yml configuration
 config:
-    devbox run config-internal
+    @just _devbox config_impl
 
-config-internal:
-    @./scripts/echo-colors.sh blue "Validating configuration..."
+[private]
+config_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Validating configuration"
     @{{DC_LOCAL}} --profile all config > /dev/null
-    @./scripts/echo-colors.sh green "✓ Configuration valid"
+    log_end "Configuration valid"
 
 # Lint docker-compose.yml and YAML files
 lint:
-    devbox run lint-internal
+    @just _devbox lint_impl
 
-lint-internal:
-    @./scripts/echo-colors.sh blue "Linting configuration files..."
-    @{{DC_LOCAL}} --profile all config > /dev/null && @./scripts/echo-colors.sh green "✓ docker-compose.yml syntax valid" || (@./scripts/echo-colors.sh red "✗ docker-compose.yml syntax invalid"; exit 1)
+[private]
+lint_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Linting configuration files"
+    @{{DC_LOCAL}} --profile all config > /dev/null && log_end "docker-compose.yml syntax valid" || (log_error "docker-compose.yml syntax invalid"; exit 1)
     if command -v yamllint >/dev/null 2>&1; then \
-        find . -name "*.yml" -o -name "*.yaml" | xargs yamllint --no-warnings || @./scripts/echo-colors.sh yellow "⚠ yamllint not configured"; \
+        find . -name "*.yml" -o -name "*.yaml" | xargs yamllint --no-warnings || log_warn "yamllint not configured"; \
     else \
-        @./scripts/echo-colors.sh yellow "⚠ yamllint not installed"; \
+        log_warn "yamllint not installed"; \
     fi
-    @./scripts/echo-colors.sh green "✓ Lint complete"
+    log_end "Lint complete"
 
 # Run tests for Claude Code services
 test-claude:
-    devbox run test-claude-internal
+    @just _devbox test-claude_impl
 
-test-claude-internal:
-    @./scripts/echo-colors.sh blue "Running Claude Code service tests..."
-    @{{DC_LOCAL}} --profile claude-code ps | grep -q "claude-code" && @./scripts/echo-colors.sh green "✓ Claude Code services are running" || (@./scripts/echo-colors.sh red "✗ Claude Code services not running"; exit 1)
-    @./scripts/echo-colors.sh blue "Testing Claude Code API health..."
-    @{{DC_LOCAL}} exec -T claude-code curl -f http://localhost:8081/health >/dev/null 2>&1 && @./scripts/echo-colors.sh green "✓ Claude Code API healthy" || @./scripts/echo-colors.sh yellow "⚠ Claude Code API not responding"
-    @{{DC_LOCAL}} exec -T claude-code-ui curl -f http://localhost:3000/health >/dev/null 2>&1 && @./scripts/echo-colors.sh green "✓ Claude Code UI healthy" || @./scripts/echo-colors.sh yellow "⚠ Claude Code UI not responding"
-    @{{DC_LOCAL}} exec -T claude-code-auth curl -f http://localhost:8080/health >/dev/null 2>&1 && @./scripts/echo-colors.sh green "✓ Claude Code Auth healthy" || @./scripts/echo-colors.sh yellow "⚠ Claude Code Auth not responding"
-    @./scripts/echo-colors.sh green "✓ Claude Code tests complete"
+[private]
+test-claude_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Running Claude Code service tests"
+    @{{DC_LOCAL}} --profile claude-code ps | grep -q "claude-code" && log_end "Claude Code services are running" || (log_error "Claude Code services not running"; exit 1)
+    log_info "Testing Claude Code API health..."
+    @{{DC_LOCAL}} exec -T claude-code curl -f http://localhost:8081/health >/dev/null 2>&1 && log_end "Claude Code API healthy" || log_warn "Claude Code API not responding"
+    @{{DC_LOCAL}} exec -T claude-code-ui curl -f http://localhost:3000/health >/dev/null 2>&1 && log_end "Claude Code UI healthy" || log_warn "Claude Code UI not responding"
+    @{{DC_LOCAL}} exec -T claude-code-auth curl -f http://localhost:8080/health >/dev/null 2>&1 && log_end "Claude Code Auth healthy" || log_warn "Claude Code Auth not responding"
+    log_end "Claude Code tests complete"
 
 # Lint Claude Code docker-compose configuration
 lint-claude:
-    devbox run lint-claude-internal
+    @just _devbox lint-claude_impl
 
-lint-claude-internal:
-    @./scripts/echo-colors.sh blue "Linting Claude Code configuration..."
-    @COMPOSE_PARALLEL_LIMIT={{COMPOSE_PARALLEL_LIMIT}} DOCKER_BUILDKIT=1 docker compose -f services/ai-codeassist/claude-code/claude-code/docker-compose.claude-code.yml config > /dev/null && @./scripts/echo-colors.sh green "✓ Claude Code docker-compose.yml syntax valid" || (@./scripts/echo-colors.sh red "✗ Claude Code docker-compose.yml syntax invalid"; exit 1)
+[private]
+lint-claude_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Linting Claude Code configuration"
+    @COMPOSE_PARALLEL_LIMIT={{COMPOSE_PARALLEL_LIMIT}} DOCKER_BUILDKIT=1 docker compose -f services/ai-codeassist/claude-code/claude-code/docker-compose.claude-code.yml config > /dev/null && log_end "Claude Code docker-compose.yml syntax valid" || (log_error "Claude Code docker-compose.yml syntax invalid"; exit 1)
     if command -v yamllint >/dev/null 2>&1; then \
-        yamllint services/ai-codeassist/claude-code/claude-code/docker-compose.claude-code.yml || @./scripts/echo-colors.sh yellow "⚠ yamllint issues found"; \
+        yamllint services/ai-codeassist/claude-code/claude-code/docker-compose.claude-code.yml || log_warn "yamllint issues found"; \
     else \
-        @./scripts/echo-colors.sh yellow "⚠ yamllint not installed"; \
+        log_warn "yamllint not installed"; \
     fi
-    @./scripts/echo-colors.sh green "✓ Claude Code lint complete"
+    log_end "Claude Code lint complete"
 
 # Start LocalStack cloud services (auto-detects platform)
 cloud-up:
-    devbox run cloud-up-internal
+    @just _devbox cloud-up_impl
 
-cloud-up-internal:
-    @./scripts/echo-colors.sh blue "Starting cloud services..."
+[private]
+cloud-up_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Starting cloud services"
     @cd services/cloud && ./up.sh
-    @./scripts/echo-colors.sh green "✓ Cloud services started"
+    log_end "Cloud services started"
 
 # Stop LocalStack cloud services
 cloud-down:
-    devbox run cloud-down-internal
+    @just _devbox cloud-down_impl
 
-cloud-down-internal:
-    @./scripts/echo-colors.sh yellow "Stopping cloud services..."
+[private]
+cloud-down_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Stopping cloud services"
     @cd services/cloud && COMPOSE_PARALLEL_LIMIT={{COMPOSE_PARALLEL_LIMIT}} docker compose -f docker-compose.cloud.base.yml down
 
 # Build/Pull LocalStack cloud services
 cloud-build:
-    devbox run cloud-build-internal
+    @just _devbox cloud-build_impl
 
-cloud-build-internal:
-    @./scripts/echo-colors.sh blue "Building/Pulling cloud services..."
+[private]
+cloud-build_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Building/Pulling cloud services"
     @cd services/cloud && COMPOSE_PARALLEL_LIMIT={{COMPOSE_PARALLEL_LIMIT}} docker compose -f docker-compose.cloud.base.yml pull
-    @./scripts/echo-colors.sh green "✓ Cloud services built/pulled"
+    log_end "Cloud services built/pulled"
 
 # Start RustFS service only
 up-cloud-rustfs:
-    devbox run up-cloud-rustfs-internal
+    @just _devbox up-cloud-rustfs_impl
 
-up-cloud-rustfs-internal:
-    @./scripts/echo-colors.sh blue "Starting RustFS service..."
+[private]
+up-cloud-rustfs_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Starting RustFS service"
     @cd services/cloud/rustfs && COMPOSE_PARALLEL_LIMIT={{COMPOSE_PARALLEL_LIMIT}} docker compose -f docker-compose.rustfs.yml --env-file ../../../{{ENV_FILE}} up -d
-    @./scripts/echo-colors.sh green "✓ RustFS service started"
-    @echo "Console: http://localhost:9001 (RustFS2026!SecureKey/RustFS2026!SecretPhrase)"
+    log_end "RustFS service started"
+    log_info "Console: http://localhost:9001 (RustFS2026!SecureKey/RustFS2026!SecretPhrase)"
 
 # Stop RustFS service only
 down-cloud-rustfs:
-    devbox run down-cloud-rustfs-internal
+    @just _devbox down-cloud-rustfs_impl
 
-down-cloud-rustfs-internal:
-    @./scripts/echo-colors.sh yellow "Stopping RustFS service..."
+[private]
+down-cloud-rustfs_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Stopping RustFS service"
     @cd services/cloud/rustfs && COMPOSE_PARALLEL_LIMIT={{COMPOSE_PARALLEL_LIMIT}} docker compose -f docker-compose.rustfs.yml down
-    @./scripts/echo-colors.sh green "✓ RustFS service stopped"
+    log_end "RustFS service stopped"
 
 # Show RustFS logs
 logs-cloud-rustfs:
-    devbox run logs-cloud-rustfs-internal
-    
-logs-cloud-rustfs-internal:
-    @./scripts/echo-colors.sh blue "RustFS service logs:"
+    @just _devbox logs-cloud-rustfs_impl
+
+[private]
+logs-cloud-rustfs_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_info "RustFS service logs:"
     @docker logs -f localnet-rustfs
 
 # Check RustFS health
 health-cloud-rustfs:
-    devbox run health-cloud-rustfs-internal
-    
-health-cloud-rustfs-internal:
-    @./scripts/echo-colors.sh blue "Checking RustFS health..."
+    @just _devbox health-cloud-rustfs_impl
+
+[private]
+health-cloud-rustfs_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Checking RustFS health"
     @docker exec localnet-rustfs curl -f http://127.0.0.1:9000/health && \
     docker exec localnet-rustfs curl -f http://127.0.0.1:9001/rustfs/console/health
-    @./scripts/echo-colors.sh green "✓ RustFS is healthy"
+    log_end "RustFS is healthy"
 
 # Open shell in RustFS container
 shell-cloud-rustfs:
-    devbox run shell-cloud-rustfs-internal
+    @just _devbox shell-cloud-rustfs_impl
 
-shell-cloud-rustfs-internal:
-    @./scripts/echo-colors.sh blue "Opening shell in RustFS container..."
+[private]
+shell-cloud-rustfs_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Opening shell in RustFS container"
     @docker exec -it localnet-rustfs /bin/sh
 
 # Start all app services
 up-apps:
-    devbox run up-apps-internal
+    @just _devbox up-apps_impl
 
-up-apps-internal:
+[private]
+up-apps_impl:
     @just compose-up-profile apps "Starting app services"
 
 # Stop app services
 down-apps:
-    devbox run down-apps-internal
+    @just _devbox down-apps_impl
 
-down-apps-internal:
+[private]
+down-apps_impl:
     @just compose-down-profile apps "Stopping app services"
 
 # View just execution log
@@ -647,9 +860,12 @@ tail-log:
 
 # Clear just execution log
 clear-log:
-    @./scripts/echo-colors.sh yellow "Clearing log file..."
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_warn "Clearing log file..."
     @rm -f {{LOG_FILE}}
-    @./scripts/echo-colors.sh green "✓ Log cleared"
+    log_end "Log cleared"
 
 # ============================================================================
 # NX Build Orchestration (NEW - Phase 8.6)
@@ -657,89 +873,117 @@ clear-log:
 
 # NX: Build base images (foundation layer)
 nx-build-base:
-    devbox run nx-build-base-internal
+    @just _devbox nx-build-base_impl
 
-nx-build-base-internal:
-    @./scripts/echo-colors.sh blue "NX: Building base images with dependency graph..."
+[private]
+nx-build-base_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "NX: Building base images with dependency graph"
     @if [ "{{NX_AVAILABLE}}" = "true" ]; then \
         {{NX_BIN}} run-many --verbose -t docker:build --projects=tag:base --parallel=1; \
     else \
-        echo "NX not installed, falling back to legacy build..."; \
+        log_info "NX not installed, falling back to legacy build..."; \
         just base-up; \
     fi
 
 # NX: Build sidecars (depends on base images)
 nx-build-sidecars:
-    devbox run nx-build-sidecars-internal
+    @just _devbox nx-build-sidecars_impl
 
-nx-build-sidecars-internal:
-    @./scripts/echo-colors.sh blue "NX: Building sidecar containers..."
+[private]
+nx-build-sidecars_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "NX: Building sidecar containers"
     @if [ "{{NX_AVAILABLE}}" = "true" ]; then \
         {{NX_BIN}} run-many --verbose -t docker:build --projects=tag:sidecar --parallel=2; \
     else \
-        echo "NX not installed, using docker compose..."; \
-        just up-core-nix-internal; \
+        log_info "NX not installed, using docker compose..."; \
+        just up-core-nix_impl; \
     fi
 
 # NX: Build all services (uses dependency graph for optimal ordering)
 nx-build:
-    devbox run nx-build-internal
+    @just _devbox nx-build_impl
 
-nx-build-internal:
-    @./scripts/echo-colors.sh blue "NX: Building all services with smart caching..."
+[private]
+nx-build_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "NX: Building all services with smart caching"
     @if [ "{{NX_AVAILABLE}}" = "true" ]; then \
         {{NX_BIN}} run-many --verbose -t docker:build --all --parallel=2; \
     else \
-        echo "NX not installed, falling back to just build..."; \
-        just build-internal; \
+        log_info "NX not installed, falling back to just build..."; \
+        just build_impl; \
     fi
 
 # NX: Build only affected services (changed since last commit)
 nx-affected:
-    devbox run nx-affected-internal
+    @just _devbox nx-affected_impl
 
-nx-affected-internal:
-    @./scripts/echo-colors.sh blue "NX: Building only affected services..."
+[private]
+nx-affected_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "NX: Building only affected services"
     @if [ "{{NX_AVAILABLE}}" = "true" ]; then \
         {{NX_BIN}} affected --verbose -t docker:build --base=main --head=HEAD; \
     else \
-        echo "NX not installed"; \
+        log_info "NX not installed"; \
         exit 1; \
     fi
 
 # NX: Visualize dependency graph
 nx-graph:
-    devbox run nx-graph-internal
+    @just _devbox nx-graph_impl
 
-nx-graph-internal:
-    @./scripts/echo-colors.sh blue "NX: Opening dependency graph..."
+[private]
+nx-graph_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "NX: Opening dependency graph"
     @if [ "{{NX_AVAILABLE}}" = "true" ]; then \
         {{NX_BIN}} --verbose graph; \
     else \
-        echo "NX not installed. Run: pnpm install"; \
+        log_info "NX not installed. Run: pnpm install"; \
         exit 1; \
     fi
 
 # NX: Install dependencies
 nx-install:
-    devbox run nx-internal-internal
+    @just _devbox nx-install_impl
 
-nx-install-internal:
-    @./scripts/echo-colors.sh blue "Installing NX dependencies..."
+[private]
+nx-install_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Installing NX dependencies"
     @export PNPM_HOME="${PNPM_HOME:-$HOME/.local/share/pnpm}" && \
         export PATH="$PNPM_HOME:$PATH" && \
         pnpm install && \
-        ./scripts/echo-colors.sh green "✓ NX dependencies installed"
+        log_end "NX dependencies installed"
 
 # NX: Clear build cache
 nx-clear-cache:
-    devbox run nx-clear-cache-internal
+    @just _devbox nx-clear-cache_impl
 
-nx-clear-cache-internal:
-    @./scripts/echo-colors.sh yellow "Clearing NX build cache..."
+[private]
+nx-clear-cache_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_warn "Clearing NX build cache..."
     @rm -rf .nx/cache
     @docker builder prune -f
-    @./scripts/echo-colors.sh green "✓ NX cache cleared"
+    log_end "NX cache cleared"
 
 # ============================================================================
 # NX + Docker Compose Hybrid Commands
@@ -747,19 +991,27 @@ nx-clear-cache-internal:
 
 # Build with NX, deploy with Docker Compose (recommended workflow)
 nx-up-base:
-    devbox run nx-up-base-internal
+    @just _devbox nx-up-base_impl
 
-nx-up-base-internal:
-    @just nx-build-base-internal
-    @./scripts/echo-colors.sh blue "Starting base infrastructure..."
+[private]
+nx-up-base_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    @just nx-build-base_impl
+    log_start "Starting base infrastructure"
     @{{DC_LOCAL}} --profile base01 --profile base02 --profile base03 up -d
 
 nx-up-artifacts:
-    devbox run nx-up-artifacts-internal
+    @just _devbox nx-up-artifacts_impl
 
-nx-up-artifacts-internal:
-    @just nx-build-sidecars-internal
-    @./scripts/echo-colors.sh blue "Starting artifact services..."
+[private]
+nx-up-artifacts_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    @just nx-build-sidecars_impl
+    log_start "Starting artifact services"
     @{{DC_LOCAL}} --profile artifact up -d
 
 # ============================================================================
