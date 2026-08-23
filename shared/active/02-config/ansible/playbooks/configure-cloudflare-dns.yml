@@ -146,6 +146,14 @@
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
 
+      # Hister Search Engine — nl (Windows Docker Desktop)
+      - name: "{{ infra_domain_search_hister | default('hister.nl.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "CNAME"
+        content: "{{ ts_fqdn_windows_docker }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
       # Authelia SSO (authentication provider for all services)
       - name: "{{ infra_domain_sso_authelia | default('auth.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"

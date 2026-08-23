@@ -334,6 +334,29 @@ Molecule scenarios are in `.molecule/default/` within each role directory:
 - **Filebeat config is generated at runtime**: The manager's `1-config-filebeat` s6 script builds `/etc/filebeat/filebeat.yml` from env vars (`INDEXER_USERNAME`, `INDEXER_PASSWORD`, `SSL_CERTIFICATE`, `SSL_KEY`, `SSL_CERTIFICATE_AUTHORITIES`, `FILEBEAT_SSL_VERIFICATION_MODE`). The `wazuh-certs` volume mounts `/etc/ssl/filebeat`.
 - **Dashboard health check**: The Ansible role waits for TCP `5601` to open. The `/login` endpoint returns `401` for unauthenticated requests; use `https://wazuh.<base>` (via Traefik/Authelia) to verify the UI is reachable.
 
+## Windows Docker Volume Ownership (UID-mismatch pattern)
+
+**Pattern**: When a container runs as a non-root user (e.g., `--user 1000:1000`) and mounts a Docker volume, the volume is created root-owned by default. The container cannot write to it, causing crash loops with errors like `permission denied` on `.secret_key`, `db.sqlite3`, etc.
+
+**Root cause**: Docker volumes on Docker Desktop for Windows are created with the `local` driver and root ownership. There is no `userns-remap` on Docker Desktop, so UID `1000` inside the container maps to UID `1000` on the host — but the volume directory is owned by root.
+
+**Fix**: Add a `docker run --rm -v <volume>:/data alpine sh -c 'chown -R <uid>:<gid> /data'` task **before** the container deployment task. This is the same pattern used by `security-wazuh` (dashboard volumes) and `search-hister` (data volume).
+
+**Example** (from `roles/search-hister/tasks/deploy-windows.yml`):
+```yaml
+- name: Fix Hister data volume ownership (UID 1000)
+  ansible.builtin.command: >-
+    docker run --rm
+    -v {{ search_hister_data_volume }}:/data
+    alpine sh -c 'chown -R 1000:1000 /data && chmod 755 /data'
+  environment:
+    DOCKER_HOST: "{{ search_hister_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+```
+
+**When to apply**: Any Windows Docker role that deploys a container with `--user <non-root-uid>` and a writable volume mount. The chown must run **before** `docker run` for the service container, and should be idempotent (`changed_when: false`).
+
 ## JIT Index
 
 - Ansible Lint Troubleshooting: [`internal-docs/troubleshooting/ansible-lint.md`](../../../internal-docs/troubleshooting/ansible-lint.md) — role naming convention, yamllint config crashes, pre-existing violations

@@ -1,0 +1,131 @@
+---
+# Hister Windows (nl) deployment — ssh-tunneled Docker CLI pattern
+# Target: Windows Docker Desktop (dtop202311, X86).
+#
+# community.docker modules can't run on Windows (Ansible core basic.py imports
+# grp, Unix-only). We use ansible.builtin.shell with DOCKER_HOST: ssh:// and
+# delegate_to: localhost, matching the artifact-verdaccio pattern.
+#
+# Hister is configured entirely via environment variables — no config files
+# to render or copy into volumes. Only a data volume is needed.
+
+# ============================================================================
+# Volume Management
+# ============================================================================
+- name: Ensure Hister data volume exists
+  ansible.builtin.shell: >-
+    docker volume inspect {{ search_hister_data_volume }} 2>/dev/null
+    || docker volume create {{ search_hister_data_volume }}
+  environment:
+    DOCKER_HOST: "{{ search_hister_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "volume"]
+
+# Hister runs as UID/GID 1000:1000; Docker volumes are root-owned by default.
+# Fix ownership so the container can write its .secret_key and index files.
+- name: Fix Hister data volume ownership (UID 1000)
+  ansible.builtin.command: >-
+    docker run --rm
+    -v {{ search_hister_data_volume }}:/data
+    alpine sh -c 'chown -R 1000:1000 /data && chmod 755 /data'
+  environment:
+    DOCKER_HOST: "{{ search_hister_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "volume"]
+
+# ============================================================================
+# Pull Image
+# ============================================================================
+- name: Pull Hister image
+  ansible.builtin.command: "docker pull {{ search_hister_image_name }}:{{ search_hister_image_tag }}"
+  environment:
+    DOCKER_HOST: "{{ search_hister_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "pull"]
+
+# ============================================================================
+# Container Deployment
+# ============================================================================
+- name: Stop existing Hister container
+  ansible.builtin.shell: "docker rm -f {{ search_hister_container_name }} 2>/dev/null || true"
+  environment:
+    DOCKER_HOST: "{{ search_hister_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "container"]
+
+- name: Deploy Hister container
+  ansible.builtin.shell: >-
+    docker run -d
+    --name {{ search_hister_container_name }}
+    --restart unless-stopped
+    --network {{ search_hister_network_name }}
+    -p {{ search_hister_host_port }}:{{ search_hister_container_port }}/tcp
+    -v {{ search_hister_data_volume }}:/hister/data:rw
+    -e HISTER__SERVER__ADDRESS={{ search_hister_server_address }}
+    -e HISTER__SERVER__BASE_URL={{ search_hister_base_url }}
+    -e HISTER__APP__TITLE={{ search_hister_app_title }}
+    -e HISTER__APP__LOG_LEVEL={{ search_hister_log_level }}
+    -e TZ={{ search_hister_tz }}
+    --user {{ search_hister_user }}
+    --log-driver json-file
+    --log-opt max-size={{ search_hister_log_max_size }}
+    --log-opt max-file={{ search_hister_log_max_file }}
+    --health-cmd "wget -qO- http://127.0.0.1:{{ search_hister_container_port }}/ || exit 1"
+    --health-interval {{ search_hister_healthcheck_interval }}
+    --health-timeout {{ search_hister_healthcheck_timeout }}
+    --health-retries {{ search_hister_healthcheck_retries }}
+    --health-start-period {{ search_hister_healthcheck_start_period }}
+    --security-opt no-new-privileges:true
+    {{ search_hister_image_name }}:{{ search_hister_image_tag }}
+  environment:
+    DOCKER_HOST: "{{ search_hister_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "container"]
+
+# ============================================================================
+# Wait for health
+# ============================================================================
+- name: Wait for Hister to be healthy
+  ansible.builtin.command: >-
+    docker inspect --format '{% raw %}{{.State.Health.Status}}{% endraw %}' {{ search_hister_container_name }}
+  environment:
+    DOCKER_HOST: "{{ search_hister_docker_host }}"
+  delegate_to: localhost
+  register: search_hister_health
+  until: search_hister_health.stdout == "healthy"
+  retries: 30
+  delay: 5
+  changed_when: false
+  ignore_errors: true
+  tags: ["deploy", "container"]
+
+# ============================================================================
+# Status Report
+# ============================================================================
+- name: Get Hister container status
+  ansible.builtin.command: >-
+    docker inspect --format '{% raw %}{{.Name}}={{.State.Status}} health={{.State.Health.Status}}{% endraw %}'
+    {{ search_hister_container_name }}
+  environment:
+    DOCKER_HOST: "{{ search_hister_docker_host }}"
+  delegate_to: localhost
+  register: search_hister_status
+  changed_when: false
+  ignore_errors: true
+  tags: ["always", "info"]
+
+- name: Report Hister status
+  ansible.builtin.debug:
+    msg: |
+      Hister deployed:
+        - URL: https://{{ search_hister_domain }}
+        - Container: {{ search_hister_container_name }}
+        - Image: {{ search_hister_image_name }}:{{ search_hister_image_tag }}
+        - Port: {{ search_hister_host_port }}:{{ search_hister_container_port }}/tcp
+        - Status: {{ search_hister_status.stdout | default('unknown') }}
+  tags: ["always", "info"]

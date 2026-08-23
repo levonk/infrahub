@@ -1,0 +1,49 @@
+---
+# Hister Search Engine — Default Variables
+# Self-hosted search engine for browsing history and documents
+# Upstream: https://github.com/asciimoo/hister
+# Docs: https://hister.org/docs/docker
+
+# Service Configuration
+search_hister_enabled: true
+search_hister_container_name: "localnet-hister"
+search_hister_image_name: "ghcr.io/asciimoo/hister"
+search_hister_image_tag: "latest"
+
+# Ports (reference infrastructure variables)
+search_hister_host_port: "{{ infra_port_search_hister_host | default('4433') }}"
+search_hister_container_port: "{{ infra_port_search_hister_container | default('4433') }}"
+
+# Domain (reference infrastructure variables)
+search_hister_domain: "{{ infra_domain_search_hister | default('hister.nl.levonk.com') }}"
+
+# Volume (reference infrastructure variables)
+search_hister_data_volume: "{{ infra_storage_hister_data_volume | default('localnet-hister-data-volume') }}"
+
+# Network — joins traefik-windows-network for Traefik routing
+search_hister_network_name: "{{ proxy_traefik_windows_network_name | default('traefik-windows-network') }}"
+
+# Docker host for SSH-tunneled CLI (Windows Docker Desktop)
+search_hister_docker_host: "{{ proxy_traefik_windows_docker_host | default('ssh://ansible@dtop202311.tale-grouper.ts.net') }}"
+
+# Hister Application Configuration (via environment variables)
+search_hister_server_address: "0.0.0.0:{{ search_hister_container_port }}"
+search_hister_base_url: "https://{{ search_hister_domain }}"
+search_hister_app_title: "Hister"
+search_hister_log_level: "info"
+
+# User/Group — upstream image runs as UID/GID 1000 by default
+search_hister_user: "1000:1000"
+
+# Timezone
+search_hister_tz: "{{ localnet_tz | default('UTC') }}"
+
+# Logging
+search_hister_log_max_size: "10m"
+search_hister_log_max_file: "5"
+
+# Healthcheck
+search_hister_healthcheck_interval: "30s"
+search_hister_healthcheck_timeout: "5s"
+search_hister_healthcheck_retries: 3
+search_hister_healthcheck_start_period: "30s"

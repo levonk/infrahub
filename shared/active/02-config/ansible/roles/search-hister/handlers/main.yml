@@ -1,0 +1,10 @@
+---
+# Hister handlers
+
+- name: restart hister
+  ansible.builtin.command: "docker restart {{ search_hister_container_name }}"
+  environment:
+    DOCKER_HOST: "{{ search_hister_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["restart"]

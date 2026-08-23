@@ -91,6 +91,11 @@ infra_storage_buzz_data: "{{ infra_storage_data_dir }}/buzz"
 infra_storage_buzz_postgres_volume: "localnet-buzz-postgres-data-volume"
 infra_storage_buzz_minio_volume: "localnet-buzz-minio-data-volume"
 
+# Buzz Agent Runtime Containers (buzz-acp + devin-cli per agent)
+# Each agent gets a config volume for devin credentials and buzz-acp state.
+infra_storage_buzz_agent_config: "{{ infra_storage_services_dir }}/buzz-agent"
+infra_storage_buzz_agent_data: "{{ infra_storage_data_dir }}/buzz-agent"
+
 # Paperclip (AI agent orchestration platform)
 infra_storage_paperclip_volume: "localnet-paperclip-data-volume"
 infra_storage_paperclip_postgres_volume: "localnet-paperclip-postgres-data-volume"
@@ -240,3 +245,10 @@ infra_storage_garnix_ci_config_volume: "localnet-garnix-ci-config-volume"
 # rendered by Ansible (e.g., .env for runtime configuration).
 # ---------------------------------------------------------------------------
 infra_storage_directory_empire_config_volume: "localnet-directory-empire-config-volume"
+
+# ---------------------------------------------------------------------------
+# Hister Search Engine Storage (nl region — dtop202311)
+# Self-hosted search engine. Data volume holds the SQLite index, rules,
+# and auto-generated secret key.
+# ---------------------------------------------------------------------------
+infra_storage_hister_data_volume: "localnet-hister-data-volume"

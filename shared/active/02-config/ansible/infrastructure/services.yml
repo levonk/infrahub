@@ -590,6 +590,21 @@ services:
       label: "Web"
   traefik: true
 
+- name: "Hister"
+  container: "localnet-hister"
+  machine: "dtop202311"
+  category: "search"
+  description: "Self-hosted search engine for browsing history and documents"
+  source_repo: "https://github.com/asciimoo/hister"
+  domains:
+    - "infra_domain_search_hister"
+  ports:
+    - host: "infra_port_search_hister_host"
+      container: "infra_port_search_hister_container"
+      label: "Web"
+  traefik: true
+  network: "traefik-windows-network"
+
 # ===========================================================================
 # Dashboards / Start Pages
 # ===========================================================================
@@ -997,6 +1012,19 @@ services:
     - host: "infra_port_security_fwknop_spa_host"
       container: "infra_port_security_fwknop_spa_container"
       label: "SPA (UDP)"
+
+# ===========================================================================
+# Buzz Agent Runtime Containers
+# One container per agent, each running buzz-acp + devin-cli on buzz-network.
+# Internal only — no host ports, no Traefik routing, no public domain.
+# ===========================================================================
+- name: "Buzz Agent Runtime"
+  container: "buzz-agent-*"
+  machine: "oci-cloud-server"
+  category: "ai"
+  description: "Buzz agent runtime containers (buzz-acp + devin-cli) — one per agent, internal buzz-network only"
+  source_repo: "https://github.com/block/buzz"
+  network: "buzz-network"
 
 # ===========================================================================
 # Service Chains

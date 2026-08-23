@@ -223,6 +223,11 @@ infra_port_ai_buzz_redis_container: "6379"
 infra_port_ai_buzz_minio_api_container: "9000"
 infra_port_ai_buzz_minio_console_container: "9001"
 
+# Buzz Agent Runtime Containers (buzz-acp + devin-cli per agent)
+# No host ports — agents communicate internally via buzz-network WebSocket to the relay.
+# Health check is via process liveness (docker_container_info), not a port.
+infra_port_ai_buzz_agent_internal: "0"
+
 # Paperclip AI Orchestration Ports
 # Used by: OCI cloud server (deploy-paperclip.yml playbook)
 # Locally-built image: localnet-ai-paperclip
@@ -504,3 +509,12 @@ infra_port_dashboard_directory_empire_container: "3000"
 # ---------------------------------------------------------------------------
 infra_port_security_fwknop_spa_host: "62271"
 infra_port_security_fwknop_spa_container: "62271"
+
+# ---------------------------------------------------------------------------
+# Hister Search Engine Ports
+# Used by: search-hister role on windows_docker_hosts (nl region)
+# Self-hosted search engine for browsing history and documents.
+# Web UI exposed via Traefik at hister.nl.{{ infra_domain_base }}.
+# ---------------------------------------------------------------------------
+infra_port_search_hister_host: "4433"
+infra_port_search_hister_container: "4433"

@@ -105,6 +105,14 @@ proxy_traefik_windows_directory_empire_container_name: "{{ infra_hostname_dashbo
 proxy_traefik_windows_directory_empire_container_port: "{{ infra_port_dashboard_directory_empire_container | default('3000') }}"
 
 # ---------------------------------------------------------------------------
+# Hister Search Engine Integration (nl — self-hosted search engine)
+# ---------------------------------------------------------------------------
+proxy_traefik_windows_hister_enabled: true
+proxy_traefik_windows_hister_domain: "{{ search_hister_domain | default('hister.nl.levonk.com') }}"
+proxy_traefik_windows_hister_container_name: "{{ search_hister_container_name | default('localnet-hister') }}"
+proxy_traefik_windows_hister_container_port: "{{ search_hister_container_port | default('4433') }}"
+
+# ---------------------------------------------------------------------------
 # Docker Host (Windows — ssh-tunneled)
 # ---------------------------------------------------------------------------
 proxy_traefik_windows_docker_host: "{{ verdaccio_docker_host_windows | default('ssh://ansible@dtop202311.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) }}"
