@@ -113,22 +113,32 @@ The same class of bug has been encountered and individually worked around in:
 
 ## Decision
 
-### Standard pattern: two-phase volume init with verification
+### Standard pattern: three-phase volume init with layered verification
 
 Every Ansible role that deploys a container with `--user <non-root-uid>` and a
-writable Docker volume MUST include a **two-phase volume initialization** before
-the service container starts:
+writable Docker volume MUST include a **three-phase volume initialization**
+before the service container starts:
 
-1. **Phase 1 — Fix ownership**: Run a throwaway `alpine` container that mounts
-   the volume, `chown`s it to the target UID:GID, and exits.
+1. **Phase 1 — Fix ownership + in-container verify**: Run a throwaway `alpine`
+   container that mounts the volume, `chown`s it to the target UID:GID, and
+   **immediately verifies** the ownership from within the same container's mount
+   namespace. If the in-container verify fails, the chown itself didn't take
+   effect even within the container's own view of the filesystem — this is a
+   fundamentally different failure mode from a persistence failure (see
+   diagnostic matrix below).
 
-2. **Phase 2 — Verify ownership**: Run a **second** throwaway `alpine` container
-   that mounts the same volume, checks that the ownership actually matches the
-   expected UID:GID, and exits non-zero if it doesn't. This catches cases where
-   the chown silently failed (e.g., Docker Desktop volume driver quirks, race
-   conditions, overlay filesystem issues).
+2. **Phase 2 — Fresh-container verify**: Run a **second** throwaway `alpine`
+   container that mounts the same volume in a fresh mount namespace and checks
+   that the ownership actually persisted. This catches cases where the chown
+   appeared to succeed inside the first container but didn't propagate to the
+   volume's backing store (Docker Desktop WSL2 volume driver quirks, overlay
+   filesystem issues, virtiofs/9p bridge problems).
 
-### Why two phases (chown + verify)?
+3. **Phase 3 — Service container starts**: Only if both verifications pass does
+   the service container start. If either verification fails, the playbook stops
+   with a diagnostic message indicating which phase failed and what that means.
+
+### Why three phases (chown + in-container verify + fresh-container verify)?
 
 During the Hister deployment, the chown task ran successfully (`rc=0`) but the
 volume ownership did not change. The Ansible task reported success because the
@@ -139,10 +149,49 @@ but the volume's metadata may be managed by a different layer (virtiofs, 9p, or
 the WSL2 filesystem bridge) that doesn't propagate ownership changes
 deterministically.
 
-A verification step that re-mounts the volume in a fresh container and checks
-the actual ownership catches this class of silent failure. Without it, the
-playbook reports success, the service container starts, and the crash loop
-begins — exactly what happened with Hister.
+Splitting verification into two layers — one inside the chown container and one
+in a fresh container — produces a **diagnostic matrix** that pinpoints exactly
+where the failure occurred:
+
+### Diagnostic matrix
+
+| Phase 1 (chown) | Phase 1 (in-container verify) | Phase 2 (fresh-container verify) | Diagnosis | Action |
+|------------------|-------------------------------|-----------------------------------|-----------|--------|
+| `rc=0` | PASS | PASS | Everything worked | Proceed to service container |
+| `rc=0` | PASS | **FAIL** | **Volume driver persistence failure** — chown took effect inside the container's mount namespace but didn't persist to the volume's backing store. This is the Docker Desktop WSL2 quirk. | See "Recovery: persistence failure" below — stop any crash-looping containers, re-run chown, or recreate the volume |
+| `rc=0` | **FAIL** | (not reached) | **Chown ineffective within same namespace** — the chown command ran and exited 0, but `stat` inside the same container shows the old ownership. This suggests an overlay filesystem issue or a read-only mount that silently ignores ownership changes. | Check if the volume is mounted read-only, check Docker storage driver, check for overlay2 upper-layer corruption |
+| `rc!=0` | (not reached) | (not reached) | **Chown command itself failed** — permission denied on the volume, volume doesn't exist, or filesystem error. | Check volume exists, check Docker daemon health, check disk space |
+
+Without the in-container verify (Phase 1), the persistence failure
+(Phase 1 PASS, Phase 2 FAIL) is indistinguishable from "chown ran but we don't
+know if it worked" — which is exactly the blind spot that caused the Hister
+crash loop. The in-container verify narrows the diagnosis: if it passes, we know
+the chown worked *at the VFS level inside the container*; if the fresh-container
+verify then fails, we know the problem is specifically in the volume driver's
+persistence layer, not in the chown command itself.
+
+### Why this matters for Docker image authors
+
+The in-container verify also serves as a **signal to upstream Docker image
+authors**: if an image starts as root, `chown`s its data directory, then drops
+to a non-root user via `gosu`/`su-exec`, the chown and the subsequent write
+happen in the same mount namespace — so a chown that works in-container will
+work for the service. This is the **upstream-correct pattern** used by Postgres,
+MySQL, Redis, and other mature images.
+
+Images that skip this pattern and start directly as a non-root user (like
+Hister, which runs as UID 1000 from `ENTRYPOINT`) cannot self-fix: they're
+already non-root when they try to write, so they can't `chown` the volume. The
+three-phase init pattern in this ADR is the **infrastructure-side workaround**
+for images that don't implement the start-as-root-then-drop pattern.
+
+**The diagnostic signal**: if Phase 1's in-container verify passes but Phase 2's
+fresh-container verify fails, and the service container then crash-loops, this
+is strong evidence that the image should be fixed upstream to start as root,
+`chown` the data directory in its entrypoint, and then drop to the non-root user
+— rather than relying on the infrastructure to pre-fix the volume. The ADR's
+recovery documentation should advise filing an upstream issue with this
+recommendation.
 
 ### Why alpine?
 
@@ -180,23 +229,32 @@ this task pair (adapt variable names to the role's convention):
 ```yaml
 # ============================================================================
 # Volume Ownership Init (ADR-20260822001)
-# Two-phase: chown + verify. Runs before the service container starts.
+# Three-phase: chown+in-container-verify, then fresh-container verify.
+# Runs before the service container starts.
 # ============================================================================
 
-# Phase 1: Fix ownership
+# Phase 1: Fix ownership AND verify within the same container's mount namespace.
+# If the in-container verify fails, the chown itself didn't take effect even
+# within the container's own VFS view — overlay/fs issue, not a persistence issue.
 - name: "Fix {{ service_name }} volume ownership (UID {{ service_uid }})"
   ansible.builtin.command: >-
     docker run --rm
     -v {{ service_data_volume }}:/data
-    alpine sh -c 'chown -R {{ service_uid }}:{{ service_gid }} /data && chmod {{ service_mode | default("755") }} /data'
+    alpine sh -c 'chown -R {{ service_uid }}:{{ service_gid }} /data
+    && chmod {{ service_mode | default("755") }} /data
+    && test "$(stat -c %u /data)" = "{{ service_uid }}"
+    && test "$(stat -c %g /data)" = "{{ service_gid }}"'
   environment:
     DOCKER_HOST: "{{ service_docker_host }}"
   delegate_to: localhost
   changed_when: false
   tags: ["deploy", "volume"]
 
-# Phase 2: Verify ownership actually stuck
-- name: "Verify {{ service_name }} volume ownership (UID {{ service_uid }})"
+# Phase 2: Fresh-container verify — mount the volume in a NEW container and
+# check that the ownership persisted to the volume's backing store.
+# If Phase 1 passed but Phase 2 fails, it's a volume driver persistence failure
+# (Docker Desktop WSL2 quirk) — see the diagnostic matrix in the ADR.
+- name: "Verify {{ service_name }} volume ownership persisted (UID {{ service_uid }})"
   ansible.builtin.command: >-
     docker run --rm
     -v {{ service_data_volume }}:/data
@@ -212,15 +270,17 @@ this task pair (adapt variable names to the role's convention):
 
 ### What each part does
 
-#### Phase 1 — `docker run --rm -v <volume>:/data alpine sh -c 'chown ...'`
+#### Phase 1 — `docker run --rm -v <volume>:/data alpine sh -c 'chown ... && test ...'`
 
 | Component | Purpose |
 |-----------|---------|
 | `docker run --rm` | Create a temporary container, auto-remove it when the command exits. No container name, no restart policy, no network — it's a one-shot tool. |
 | `-v <volume>:/data` | Mount the Docker volume at `/data` inside the throwaway container. This is the same volume that the service container will mount later. Changes to `/data` persist in the volume after the throwaway container exits. |
 | `alpine` | Use the Alpine Linux image (~7MB). It's already cached on every host, starts in under 1 second, and has `chown`/`chmod` built in. |
-| `sh -c 'chown -R 1000:1000 /data'` | Recursively change ownership of everything in the volume to UID 1000, GID 1000. The `-R` flag means "recursive" — all files and subdirectories. This is needed because the volume may already contain files from a previous run (e.g., a failed first start that wrote some files as root before crashing). |
+| `chown -R 1000:1000 /data` | Recursively change ownership of everything in the volume to UID 1000, GID 1000. The `-R` flag means "recursive" — all files and subdirectories. This is needed because the volume may already contain files from a previous run (e.g., a failed first start that wrote some files as root before crashing). |
 | `chmod 755 /data` | Set the directory permissions to `rwxr-xr-x` (owner can read/write/execute, group and others can read/execute). This is the standard directory permission for service data. Some services may need `700` (e.g., databases with sensitive data) — override via `service_mode` variable. |
+| `test "$(stat -c %u /data)" = "1000"` | **In-container verify**: immediately after chown, check that the UID of `/data` is actually 1000 *within this container's mount namespace*. If this fails, the chown command itself didn't take effect at the VFS level — this is an overlay/filesystem issue, not a persistence issue. The `&&` chaining means if `chown` fails, `test` doesn't run; if `chown` succeeds but `test` fails, the overall command exits non-zero. |
+| `test "$(stat -c %g /data)" = "1000"` | Also verify the GID within the same container. |
 | `DOCKER_HOST: "{{ service_docker_host }}"` | For Windows Docker hosts, this is `ssh://ansible@dtop202311.tale-grouper.ts.net`. The Docker CLI runs on the Ansible control machine (localhost) but connects to the remote Docker daemon via SSH. This is the standard pattern for Windows Docker hosts in this repo (see `AGENTS.md` → "Windows Docker modules are broken"). |
 | `delegate_to: localhost` | Run this task on the Ansible control machine, not on the target host. Combined with `DOCKER_HOST`, the Docker CLI runs locally but operates on the remote Docker daemon. |
 | `changed_when: false` | This task is idempotent — running it on an already-correct volume changes nothing. Marking it as "not changed" keeps `ansible-playbook` output clean and prevents handlers from triggering unnecessarily. |
@@ -229,38 +289,33 @@ this task pair (adapt variable names to the role's convention):
 
 | Component | Purpose |
 |-----------|---------|
+| `docker run --rm` | A **fresh** container — new mount namespace, new process. This is critical: the volume is re-mounted from the Docker volume store, so `stat` sees whatever actually persisted to the backing store, not what the Phase 1 container's VFS cache showed. |
 | `stat -c %u /data` | Print the numeric UID of the `/data` directory (the volume root). `%u` = UID, `%g` = GID. We use numeric IDs because container usernames don't map between images (alpine's `root` is UID 0, same as the service image's user, but the names may differ). |
 | `test "$(stat -c %u /data)" = "1000"` | Compare the actual UID to the expected UID. `test` exits 0 (success) if they match, exits 1 (failure) if they don't. |
 | `&& test "$(stat -c %g /data)" = "1000"` | Also check the GID. The `&&` means "only run this if the previous test passed". If either check fails, the overall command exits non-zero. |
 | `register: volume_ownership_check` | Save the command result (including exit code) to a variable for the `failed_when` check. |
 | `failed_when: volume_ownership_check.rc != 0` | Fail the Ansible task if the verification command exited non-zero. This stops the playbook before the service container starts, preventing a crash loop. |
 
-### Why the verify step is critical
+### Why both verification steps are critical
 
-Without verification, the following failure modes are invisible:
+The two verification steps catch **different classes of failure**:
 
-1. **Docker Desktop volume driver quirk**: The `chown` command runs inside the
-   container's Linux namespace, but Docker Desktop on Windows uses a filesystem
-   bridge (virtiofs or 9p) between the WSL2 VM and the Windows host. In some
-   cases, ownership changes inside the container don't persist to the volume's
-   backing store. The `chown` exits 0, but a subsequent `stat` shows the old
-   ownership. This is what happened during the Hister deployment.
+**Phase 1 in-container verify** catches:
+- Overlay filesystem issues where `chown` exits 0 but the VFS layer doesn't
+  reflect the change even within the same container
+- Read-only mounts that silently ignore ownership changes
+- Filesystem corruption at the overlay upper layer
 
-2. **Race condition with crash-looping container**: If a previous container is
-   still running and holding a write lock on the volume, the `chown` may appear
-   to succeed but not take effect. The verify step runs in a fresh container
-   after the old container has been stopped.
-
-3. **Overlay filesystem issues**: Some Docker storage drivers (overlay2,
-   devicemapper) have edge cases where ownership changes on the upper layer
-   don't reflect in the volume's merged view. A fresh container mount gives a
-   clean view.
-
-4. **Wrong volume name**: If the volume name in the chown task doesn't match the
-   volume name in the service container's `-v` flag (e.g., due to a variable
-   typo), the chown runs on a different volume and the service container still
-   sees root ownership. The verify step catches this because it uses the same
-   variable.
+**Phase 2 fresh-container verify** catches:
+- **Docker Desktop volume driver persistence failure** — the `chown` took effect
+  inside the Phase 1 container's mount namespace (Phase 1 verify passed), but
+  didn't persist to the volume's backing store. When Phase 2's fresh container
+  mounts the volume, it sees the old ownership. This is the Docker Desktop WSL2
+  quirk that caused the Hister crash loop.
+- Race conditions where a crash-looping container's writes interfere with the
+  chown between Phase 1 and Phase 2
+- Wrong volume name (if Phase 1 and Phase 2 use different variables due to a
+  typo, Phase 2 will see the unfixed volume)
 
 ### Task ordering within the role
 
@@ -268,16 +323,16 @@ The volume init pair MUST run in this order:
 
 ```
 1. Ensure volume exists       (docker volume inspect || docker volume create)
-2. Fix volume ownership       (docker run --rm alpine chown)     ← Phase 1
-3. Verify volume ownership    (docker run --rm alpine stat/test) ← Phase 2
+2. Fix + in-container verify  (docker run --rm alpine chown && test)  ← Phase 1
+3. Fresh-container verify     (docker run --rm alpine stat/test)      ← Phase 2
 4. Pull service image         (docker pull)
 5. Stop existing container    (docker rm -f || true)
 6. Deploy service container   (docker run -d ...)
 7. Wait for health            (docker inspect --format ...Health.Status)
 ```
 
-The chown MUST run after the volume exists but before the service container
-starts. The verify MUST run immediately after the chown. If the verify fails,
+Phase 1 MUST run after the volume exists but before the service container
+starts. Phase 2 MUST run immediately after Phase 1. If either phase fails,
 the playbook stops before step 4, and the service container is never started —
 no crash loop.
 
@@ -314,12 +369,29 @@ should be updated to comply with this ADR:
 The playbook will stop with a message like:
 
 ```
-TASK [search-hister : Verify Hister volume ownership (UID 1000)] ***************
+TASK [search-hister : Verify Hister volume ownership persisted (UID 1000)] ******
 fatal: [dtop202311 -> localhost]: FAILED! => {"cmd": "...", "rc": 1, "stdout": ""}
 ```
 
-This means the `chown` ran but the ownership didn't stick. Do NOT proceed with
-the service container deployment. Follow these steps:
+This means Phase 1 (chown + in-container verify) passed but Phase 2 (fresh-container
+verify) failed. Per the diagnostic matrix, this is a **volume driver persistence
+failure** — the chown took effect inside the Phase 1 container's mount namespace
+but didn't persist to the volume's backing store. Do NOT proceed with the service
+container deployment. Follow these steps:
+
+#### If Phase 1 failed (in-container verify failed)
+
+This is a different failure mode — the chown didn't take effect even within the
+same container. This is NOT a persistence issue. Check:
+
+1. Is the volume mounted read-only? (`docker run --rm -v <vol>:/data alpine mount | grep /data`)
+2. Is the Docker storage driver corrupted? (`docker info | grep "Storage Driver"`)
+3. Is the volume a remote/NFS volume with different ownership semantics?
+
+#### If Phase 2 failed (fresh-container verify failed) — persistence failure
+
+This is the Docker Desktop WSL2 volume driver quirk. The chown worked inside the
+Phase 1 container but didn't persist to the volume's backing store.
 
 #### Step 1: Check what the volume actually looks like
 
@@ -461,7 +533,8 @@ ENTRYPOINT ["/usr/local/bin/init-volume"]
 #!/bin/sh
 # init-volume.sh — fix Docker volume ownership with validation and logging
 # Usage: docker run --rm -v <volume>:/data localnet-volume-init <uid> <gid> [mode]
-# Exit codes: 0 = success, 1 = parameter error, 2 = chown failed, 3 = verify failed
+# Exit codes: 0 = success, 1 = parameter error, 2 = chown failed,
+#             3 = persistence verify failed, 4 = in-container verify failed
 
 set -eu
 
@@ -516,21 +589,53 @@ chmod "$MODE" "$DATA_DIR" || {
     exit 2
 }
 
-# --- Phase 2: verify (built into the same script) ---
-VERIFY_UID=$(stat -c %u "$DATA_DIR")
-VERIFY_GID=$(stat -c %g "$DATA_DIR")
+# --- Phase 1.5: in-container verify (within this container's mount namespace) ---
+# This catches overlay/fs issues where chown exits 0 but the VFS layer
+# doesn't reflect the change even within the same container.
+IN_CONTAINER_UID=$(stat -c %u "$DATA_DIR")
+IN_CONTAINER_GID=$(stat -c %g "$DATA_DIR")
 
-if [ "$VERIFY_UID" = "$UID_TARGET" ] && [ "$VERIFY_GID" = "$GID_TARGET" ]; then
-    echo "OK: Volume ownership verified: ${VERIFY_UID}:${VERIFY_GID}"
+if [ "$IN_CONTAINER_UID" = "$UID_TARGET" ] && [ "$IN_CONTAINER_GID" = "$GID_TARGET" ]; then
+    echo "INFO: In-container verify passed: ${IN_CONTAINER_UID}:${IN_CONTAINER_GID}"
+else
+    echo "ERROR: In-container verification failed!" >&2
+    echo "  Expected: ${UID_TARGET}:${GID_TARGET}" >&2
+    echo "  Actual:   ${IN_CONTAINER_UID}:${IN_CONTAINER_GID}" >&2
+    echo "" >&2
+    echo "The chown command exited 0 but stat inside the same container shows" >&2
+    echo "the old ownership. This is NOT a persistence failure — it's an overlay" >&2
+    echo "filesystem issue or a read-only mount. Check:" >&2
+    echo "  1. Is the volume mounted read-only? (mount | grep /data)" >&2
+    echo "  2. Is the Docker storage driver corrupted? (docker info)" >&2
+    echo "  3. Is this a remote/NFS volume with different ownership semantics?" >&2
+    exit 4
+fi
+
+# --- Phase 2: persistence verify (re-read from the volume's backing store) ---
+# This catches Docker Desktop WSL2 volume driver quirks where the chown
+# took effect inside the container's mount namespace but didn't persist
+# to the volume's backing store. We re-stat the same path — in a fresh
+# container this would be a fresh mount, but since this script runs in
+# a single container, the caller should ALSO run verify-volume.sh in a
+# separate container to get a true fresh-mount check.
+PERSIST_UID=$(stat -c %u "$DATA_DIR")
+PERSIST_GID=$(stat -c %g "$DATA_DIR")
+
+if [ "$PERSIST_UID" = "$UID_TARGET" ] && [ "$PERSIST_GID" = "$GID_TARGET" ]; then
+    echo "OK: Volume ownership verified: ${PERSIST_UID}:${PERSIST_GID}"
+    echo "NOTE: For a true persistence check, also run verify-volume.sh in a" >&2
+    echo "      separate container (fresh mount namespace). See ADR-20260822001." >&2
     exit 0
 else
-    echo "ERROR: Verification failed!" >&2
+    echo "ERROR: Persistence verification failed!" >&2
     echo "  Expected: ${UID_TARGET}:${GID_TARGET}" >&2
-    echo "  Actual:   ${VERIFY_UID}:${VERIFY_GID}" >&2
+    echo "  Actual:   ${PERSIST_UID}:${PERSIST_GID}" >&2
     echo "" >&2
-    echo "This indicates the Docker volume driver did not persist the ownership" >&2
-    echo "change. This is a known issue with Docker Desktop on Windows (WSL2" >&2
-    echo "volume driver). See ADR-20260822001 for recovery procedures." >&2
+    echo "In-container verify passed but re-stat shows different ownership." >&2
+    echo "This may indicate a VFS cache issue. Run verify-volume.sh in a fresh" >&2
+    echo "container to confirm. If the fresh container also fails, this is a" >&2
+    echo "volume driver persistence failure (Docker Desktop WSL2 quirk)." >&2
+    echo "See ADR-20260822001 for recovery procedures." >&2
     exit 3
 fi
 ```
@@ -575,10 +680,14 @@ fi
 
 #### Ansible usage with the utility container
 
-Once built and pushed, the Ansible task pair simplifies to:
+Once built and pushed, the Ansible tasks simplify to:
 
 ```yaml
-# Phase 1+2 combined (init-volume.sh does chown + verify internally)
+# Phase 1: chown + in-container verify (init-volume.sh does both internally)
+# Exit code 4 = in-container verify failed (overlay/fs issue)
+# Exit code 3 = persistence verify failed (volume driver quirk)
+# Exit code 2 = chown itself failed
+# Exit code 1 = parameter error
 - name: "Fix {{ service_name }} volume ownership (UID {{ service_uid }})"
   ansible.builtin.command: >-
     docker run --rm
@@ -590,27 +699,11 @@ Once built and pushed, the Ansible task pair simplifies to:
   delegate_to: localhost
   changed_when: false
   tags: ["deploy", "volume"]
-```
 
-Or, if you prefer the two-task pattern (chown and verify as separate tasks for
-clearer Ansible output):
-
-```yaml
-# Phase 1: chown
-- name: "Fix {{ service_name }} volume ownership (UID {{ service_uid }})"
-  ansible.builtin.command: >-
-    docker run --rm --entrypoint /usr/local/bin/init-volume
-    -v {{ service_data_volume }}:/data
-    {{ local_registry | default('') }}localnet-volume-init:latest
-    {{ service_uid }} {{ service_gid }} {{ service_mode | default('755') }}
-  environment:
-    DOCKER_HOST: "{{ service_docker_host }}"
-  delegate_to: localhost
-  changed_when: false
-  tags: ["deploy", "volume"]
-
-# Phase 2: verify (separate container, fresh mount)
-- name: "Verify {{ service_name }} volume ownership (UID {{ service_uid }})"
+# Phase 2: fresh-container verify (separate container, fresh mount namespace)
+# This is the true persistence check — a fresh mount from the volume store.
+# If Phase 1 passed but Phase 2 fails, it's a volume driver persistence failure.
+- name: "Verify {{ service_name }} volume ownership persisted (UID {{ service_uid }})"
   ansible.builtin.command: >-
     docker run --rm --entrypoint /usr/local/bin/verify-volume
     -v {{ service_data_volume }}:/data
@@ -630,7 +723,7 @@ clearer Ansible output):
 | Factor | Plain `alpine` (current) | `localnet-volume-init` (proposed) |
 |--------|--------------------------|-----------------------------------|
 | Parameter validation | None — bad UID silently does wrong thing | Validates numeric UID/GID, prints usage on error |
-| Error handling | `chown` failure may be masked by `&&` chaining | Explicit exit codes (1=param, 2=chown, 3=verify) |
+| Error handling | `chown` failure may be masked by `&&` chaining | Explicit exit codes (1=param, 2=chown, 3=persistence, 4=in-container) |
 | Logging | Silent | Prints current state, target, and result |
 | Verification | Separate manual task | Built into the init script, or standalone |
 | Reusability | Each role copies inline `sh -c` scripts | One image, one entrypoint, arguments determine behavior |
