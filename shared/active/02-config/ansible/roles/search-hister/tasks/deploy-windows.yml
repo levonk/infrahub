@@ -24,6 +24,7 @@
 
 # Hister runs as UID/GID 1000:1000; Docker volumes are root-owned by default.
 # Fix ownership so the container can write its .secret_key and index files.
+# Two-phase pattern per ADR-20260822001: chown + verify.
 - name: Fix Hister data volume ownership (UID 1000)
   ansible.builtin.command: >-
     docker run --rm
@@ -33,6 +34,19 @@
     DOCKER_HOST: "{{ search_hister_docker_host }}"
   delegate_to: localhost
   changed_when: false
+  tags: ["deploy", "volume"]
+
+- name: Verify Hister data volume ownership (UID 1000)
+  ansible.builtin.command: >-
+    docker run --rm
+    -v {{ search_hister_data_volume }}:/data
+    alpine sh -c 'test "$(stat -c %u /data)" = "1000" && test "$(stat -c %g /data)" = "1000"'
+  environment:
+    DOCKER_HOST: "{{ search_hister_docker_host }}"
+  delegate_to: localhost
+  register: hister_volume_ownership_check
+  changed_when: false
+  failed_when: hister_volume_ownership_check.rc != 0
   tags: ["deploy", "volume"]
 
 # ============================================================================
