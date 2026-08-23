@@ -480,6 +480,356 @@ DOCKER_HOST="ssh://ansible@dtop202311.tale-grouper.ts.net" \
 
 ---
 
+## Alternative Pattern: Entrypoint Wrapper Image
+
+### The gap between infrastructure-side fix and upstream fix
+
+The three-phase init pattern (chown + verify before container start) is an
+**infrastructure-side workaround**: it fixes the volume before the service
+container sees it. This works, but it has a structural limitation — the fix
+happens *outside* the service container's lifecycle. If the volume is ever
+recreated manually (e.g., `docker volume rm && docker volume create`), the
+service container will crash-loop on next start unless the init pattern is run
+again.
+
+The **upstream-correct fix** is for the image itself to start as root,
+`chown` the data directory, then drop to the non-root user — the Postgres /
+MySQL / Redis pattern. But we don't control upstream images like Hister.
+
+The **entrypoint wrapper image** bridges this gap: build a thin wrapper image
+that `FROM`s the upstream image, injects an entrypoint script that does the
+chown-then-drop-to-non-root dance, and `exec`s the original entrypoint. This
+makes the service container self-healing — it fixes its own volume on every
+start, not just when Ansible runs.
+
+### When to use the wrapper pattern vs the init pattern
+
+| Factor | Three-phase init (alpine chown) | Entrypoint wrapper image |
+|--------|---------------------------------|--------------------------|
+| Who fixes the volume? | Ansible, before container starts | Container itself, on every start |
+| Volume recreated manually? | Crash loop until Ansible re-runs | Self-heals on next container start |
+| Container starts as root? | No — container starts as non-root | Yes — briefly, then drops to non-root |
+| Upstream image modified? | No | No — wrapper is a separate image |
+| Build required? | No (uses public alpine) | Yes (wrapper Dockerfile + build) |
+| Complexity | Low (2 Ansible tasks) | Medium (Dockerfile + entrypoint script + build pipeline) |
+| Verification | Two separate containers | Built into entrypoint, can verify before dropping |
+| Best for | First-time deploy, simple services | Services that may be restarted without Ansible, services with complex volume layouts |
+
+**Recommendation**: Use the three-phase init pattern as the **baseline** for
+all non-root containers with volumes (it's mandatory per this ADR). Add the
+entrypoint wrapper pattern **in addition** for services that:
+- May be restarted without Ansible (e.g., `docker restart` by an operator)
+- Have multiple volumes that all need ownership fixes
+- Are deployed to hosts where Ansible doesn't run frequently
+- Have upstream images that are unlikely to add the chown-then-drop pattern
+
+### Wrapper image design
+
+#### Dockerfile
+
+```dockerfile
+# shared/active/03-container/services/search/hister/Dockerfile.hister-wrapper
+#
+# Wrapper image for Hister that fixes volume ownership on startup.
+# Hister's upstream image runs as UID 1000 from ENTRYPOINT and cannot
+# chown its own data directory. This wrapper starts as root, chowns
+# the volume, verifies the chown, then drops to UID 1000 and execs
+# the original entrypoint.
+#
+# Per ADR-20260822001: Entrypoint Wrapper Image pattern.
+
+FROM ghcr.io/asciimoo/hister:latest
+
+# Install su-exec (Alpine's gosu equivalent) for privilege dropping.
+# Hister's image is Alpine-based, so apk is available.
+RUN apk add --no-cache su-exec
+
+# Copy the wrapper entrypoint script
+COPY assets/static/hister-wrapper/entrypoint-wrapper.sh /usr/local/bin/entrypoint-wrapper.sh
+RUN chmod +x /usr/local/bin/entrypoint-wrapper.sh
+
+# Reset the entrypoint — the wrapper script will exec the original
+ENTRYPOINT ["/usr/local/bin/entrypoint-wrapper.sh"]
+# CMD is inherited from the upstream image — this is critical for auto-start.
+# See "Why override ENTRYPOINT, not CMD" below.
+```
+
+### Why override ENTRYPOINT in the Dockerfile, not CMD or runtime
+
+There are three ways to inject the wrapper script, and only one preserves
+auto-start:
+
+| Approach | How it works | Auto-start? | Problem |
+|----------|-------------|-------------|---------|
+| **Override ENTRYPOINT in Dockerfile** (this ADR) | `ENTRYPOINT ["/usr/local/bin/entrypoint-wrapper.sh"]` in the wrapper Dockerfile. CMD is inherited from upstream. | **Yes** — `docker run -d hister-wrapper:latest` just works. The wrapper receives the original CMD as `"$@"` and execs it. | Requires building a wrapper image. |
+| Override CMD in Dockerfile | `CMD ["/usr/local/bin/entrypoint-wrapper.sh", "--", <original-cmd>]` | **No** — the original ENTRYPOINT (if set) runs first and may not pass args correctly. Also hardcodes the original command in the Dockerfile, breaking on upstream CMD changes. | Fragile, breaks on upstream updates. |
+| Override at runtime | `docker run --entrypoint /usr/local/bin/entrypoint-wrapper.sh <upstream-image> <original-cmd>` | **No** — every `docker run` invocation must know and pass the original command. Breaks `docker restart`, `docker-compose up`, and any tool that starts containers with default args. | Every start must be special-cased. |
+
+**The key insight**: Docker's ENTRYPOINT+CMD split is designed for exactly this
+use case. ENTRYPOINT is the fixed part (the wrapper logic), CMD is the variable
+part (the service's default command). By overriding only ENTRYPOINT in the
+wrapper Dockerfile and inheriting CMD from the upstream image:
+
+1. **Auto-start works**: `docker run -d hister-wrapper:latest` starts the
+   container with no extra args. The wrapper runs, fixes the volume, drops
+   privileges, and execs the original CMD.
+
+2. **`docker restart` works**: Docker restarts the container with the same
+   config (ENTRYPOINT + CMD from the image). No special invocation needed.
+
+3. **Upstream CMD changes are picked up**: When the upstream image updates its
+   CMD (e.g., adds new default flags), rebuilding the wrapper inherits the new
+   CMD automatically. No wrapper Dockerfile change needed.
+
+4. **Operators can still override CMD**: `docker run hister-wrapper:latest
+   <custom-cmd>` passes `<custom-cmd>` as `"$@"` to the wrapper, which execs it
+   as the non-root user. Same flexibility as the upstream image.
+
+The alternative — overriding at runtime with `docker run --entrypoint` — would
+mean every container start (including `docker restart`, Docker Desktop's
+auto-restart, and any future orchestration) needs to know the wrapper path and
+the original command. That's fragile and breaks the "just start the container"
+expectation. The wrapper image bakes the fix into the image itself, so the
+container behaves like any other: start it, it works.
+
+#### Entrypoint wrapper script
+
+```bash
+#!/bin/sh
+# entrypoint-wrapper.sh — fix volume ownership, then drop to non-root and exec
+# the original entrypoint.
+#
+# This script runs as root (the container starts without --user). It:
+#   1. Chowns the data directory to the service UID:GID
+#   2. Verifies the chown took effect (in-container verify)
+#   3. Drops to the non-root user via su-exec
+#   4. Execs the original entrypoint (passed as args to this script)
+#
+# Per ADR-20260822001: Entrypoint Wrapper Image pattern.
+#
+# Usage: docker run -d -v <volume>:/hister/data hister-wrapper:latest <original-cmd>
+# The container MUST NOT be started with --user (it needs root for chown).
+# The wrapper drops privileges itself.
+
+set -eu
+
+# --- Configuration ---
+# These must match the upstream image's non-root user.
+SERVICE_UID="${SERVICE_UID:-1000}"
+SERVICE_GID="${SERVICE_GID:-1000}"
+DATA_DIR="${DATA_DIR:-/hister/data}"
+
+# --- Phase 1: Fix ownership ---
+echo "[entrypoint-wrapper] Fixing ownership of ${DATA_DIR} -> ${SERVICE_UID}:${SERVICE_GID}"
+
+if [ ! -d "$DATA_DIR" ]; then
+    echo "[entrypoint-wrapper] ERROR: Data directory ${DATA_DIR} does not exist" >&2
+    exit 1
+fi
+
+# Chown recursively (handles volumes with pre-existing root-owned files
+# from a failed previous start)
+chown -R "${SERVICE_UID}:${SERVICE_GID}" "$DATA_DIR" || {
+    echo "[entrypoint-wrapper] ERROR: chown failed" >&2
+    exit 1
+}
+
+chmod 755 "$DATA_DIR" || {
+    echo "[entrypoint-wrapper] ERROR: chmod failed" >&2
+    exit 1
+}
+
+# --- Phase 1.5: In-container verify ---
+# Verify the chown took effect within this container's mount namespace.
+# If this fails, it's an overlay/fs issue, not a persistence issue.
+ACTUAL_UID=$(stat -c %u "$DATA_DIR")
+ACTUAL_GID=$(stat -c %g "$DATA_DIR")
+
+if [ "$ACTUAL_UID" != "$SERVICE_UID" ] || [ "$ACTUAL_GID" != "$SERVICE_GID" ]; then
+    echo "[entrypoint-wrapper] ERROR: In-container verify failed!" >&2
+    echo "  Expected: ${SERVICE_UID}:${SERVICE_GID}" >&2
+    echo "  Actual:   ${ACTUAL_UID}:${ACTUAL_GID}" >&2
+    echo "" >&2
+    echo "The chown exited 0 but stat shows the old ownership. This is an overlay" >&2
+    echo "filesystem issue, not a persistence failure. Check:" >&2
+    echo "  1. Is the volume mounted read-only?" >&2
+    echo "  2. Is the Docker storage driver healthy?" >&2
+    echo "See ADR-20260822001 for diagnostics." >&2
+    exit 1
+fi
+
+echo "[entrypoint-wrapper] Ownership verified: ${ACTUAL_UID}:${ACTUAL_GID}"
+
+# --- Phase 2: Drop privileges and exec original entrypoint ---
+# su-exec runs the remaining args as the specified user.
+# "$@" contains the original CMD from the upstream image (passed through
+# by Docker because we reset ENTRYPOINT and kept CMD).
+echo "[entrypoint-wrapper] Dropping to UID ${SERVICE_UID} and execing original entrypoint"
+exec su-exec "${SERVICE_UID}:${SERVICE_GID}" "$@"
+```
+
+### What each part of the wrapper does
+
+#### `FROM ghcr.io/asciimoo/hister:latest`
+
+The wrapper inherits everything from the upstream image — the binary, the
+config, the original `CMD`, the filesystem. It only overrides the `ENTRYPOINT`
+to inject the ownership-fix logic. This means:
+- When the upstream image updates, rebuilding the wrapper picks up the new
+  version automatically (just `docker build` again).
+- The wrapper adds only `su-exec` (~100KB) and the entrypoint script (~2KB).
+- No upstream code is forked or patched.
+
+#### `RUN apk add --no-cache su-exec`
+
+`su-exec` is Alpine's equivalent of `gosu` — it drops privileges and `exec`s
+a command as the target user. Unlike `su` or `sudo`, `su-exec` does not create
+a new process or session; it uses `execve()` to replace the current process,
+so signals (SIGTERM, SIGINT) propagate correctly to the service. This is
+critical for clean container shutdown — Docker sends SIGTERM to PID 1, and
+if PID 1 is `su` or `sudo` instead of the service, the signal may be ignored
+and Docker falls back to SIGKILL after the grace period, causing unclean
+shutdowns.
+
+#### `ENTRYPOINT ["/usr/local/bin/entrypoint-wrapper.sh"]`
+
+This replaces the upstream image's entrypoint. The wrapper script runs as
+root (the container is started without `--user`), fixes ownership, then
+`exec su-exec <uid>:<gid> "$@"` — where `"$@"` is the original `CMD` from
+the upstream image. The `exec` replaces the wrapper script process with
+`su-exec`, which in turn `exec`s the service binary. The result: PID 1
+inside the container is the service binary running as UID 1000, exactly
+as if the container had been started with `--user 1000:1000`.
+
+#### `chown -R "${SERVICE_UID}:${SERVICE_GID}" "$DATA_DIR"`
+
+Same as the alpine init pattern, but running inside the service container
+itself. The `-R` handles volumes that already contain root-owned files from
+a previous crash-loop attempt. This is the key advantage over the
+infrastructure-side fix: it runs on **every** container start, not just when
+Ansible runs.
+
+#### In-container verify (`stat` after `chown`)
+
+Same logic as Phase 1.5 in the three-phase init pattern. If the chown
+doesn't take effect even within the container's own mount namespace, the
+wrapper exits with an error before dropping privileges — no crash loop,
+just a clean failure with a diagnostic message.
+
+#### `exec su-exec "${SERVICE_UID}:${SERVICE_GID}" "$@"`
+
+The privilege drop. `su-exec` replaces the current process (PID 1) with the
+service binary running as UID 1000. After this point, the service is running
+as non-root — same security posture as if the container had been started
+with `--user 1000:1000`. The `exec` ensures there's no wrapper process
+hanging around as PID 1 that would intercept signals.
+
+### Security analysis
+
+The wrapper container starts as root, which appears to violate the repo's
+security policy (non-root execution). However, the root context is **transient
+and scoped**:
+
+1. **Duration**: The container runs as root only for the duration of the
+   `chown` + `verify` (~0.1 seconds on a typical volume). After `exec su-exec`,
+   PID 1 is the service running as UID 1000.
+
+2. **Scope**: Root is needed only for `chown` on the data directory. The
+   wrapper script does not perform any other root operations — no package
+   installs, no network operations, no writes outside the data directory.
+
+3. **Capabilities**: The container should still be started with
+   `--security-opt no-new-privileges:true` and dropped capabilities
+   (`--cap-drop ALL`). The `chown` syscall does not require any extra
+   capabilities beyond what root UID provides — it's a standard filesystem
+   operation.
+
+4. **Comparison to upstream-correct images**: Postgres, MySQL, and Redis
+   all use this exact pattern (start as root, chown, drop to non-root).
+   This is the industry-standard approach for images that need to fix
+   volume ownership on startup. The wrapper applies the same pattern to
+   images whose upstream authors didn't implement it.
+
+5. **Verification before drop**: The in-container verify runs **before**
+   `su-exec`. If the chown fails, the wrapper exits as root with an error
+   — it does not drop to non-root and then crash-loop. This is safer than
+   starting as non-root and crashing on first write.
+
+### Ansible deployment with the wrapper image
+
+When using the wrapper image, the Ansible role changes:
+
+```yaml
+# Instead of deploying the upstream image with --user 1000:1000,
+# deploy the wrapper image WITHOUT --user (the wrapper drops privileges).
+# The three-phase init is still run as a safety net, but the wrapper
+# makes the container self-healing if the volume is recreated manually.
+
+- name: Deploy Hister container (wrapper image)
+  ansible.builtin.shell: >-
+    docker run -d
+    --name {{ search_hister_container_name }}
+    --restart unless-stopped
+    --security-opt no-new-privileges:true
+    --cap-drop ALL
+    -p {{ search_hister_host_port }}:{{ search_hister_container_port }}/tcp
+    -v {{ search_hister_data_volume }}:/hister/data
+    -e HISTER__SERVER__ADDRESS=0.0.0.0:4433
+    -e HISTER__SERVER__BASE_URL=https://hister.nl.levonk.com
+    -e HISTER__APP__TITLE=Hister
+    -e HISTER__APP__LOG_LEVEL=info
+    -e TZ=UTC
+    {{ local_registry | default('') }}localnet-hister-wrapper:latest
+  environment:
+    DOCKER_HOST: "{{ search_hister_docker_host }}"
+  delegate_to: localhost
+  tags: ["deploy", "container"]
+```
+
+Key differences from the non-wrapper deployment:
+- **No `--user 1000:1000`**: The wrapper handles privilege dropping. If you
+  pass `--user`, the wrapper can't `chown` because it's already non-root.
+- **No `--entrypoint` or command args needed**: The wrapper image bakes the
+  entrypoint override into the Dockerfile and inherits CMD from upstream. The
+  container auto-starts with `docker run -d hister-wrapper:latest` — no special
+  invocation. `docker restart` also works without any special handling.
+- **Image is `localnet-hister-wrapper:latest`** instead of the upstream image.
+- **`--security-opt no-new-privileges:true` and `--cap-drop ALL`** are still
+  set — the transient root context doesn't need extra capabilities.
+- **The three-phase init is still run before the container starts** as a
+  defense-in-depth measure. If the wrapper's chown fails for any reason,
+  the volume is already correct from the init phase.
+
+### When NOT to use the wrapper pattern
+
+- **The upstream image already does chown-then-drop** (Postgres, MySQL, Redis,
+  etc.) — the wrapper would be redundant.
+- **The service doesn't use volumes** — no ownership to fix.
+- **The service runs as root by design** (e.g., some monitoring agents that
+  need root for system access) — no privilege drop needed.
+- **The upstream image is not Alpine-based** — `su-exec` is Alpine-specific.
+  For Debian-based images, use `gosu` instead (`RUN apt-get install -y gosu`).
+  For images without a package manager (distroless), the wrapper pattern
+  requires a multi-stage build to inject `gosu`/`su-exec`.
+
+### Building the wrapper image
+
+The wrapper image follows the repo's existing build pattern (ADR-20260709001):
+multi-arch builds via `docker buildx`, pushed to the local registry. The
+Dockerfile lives in `shared/active/03-container/services/<category>/<service>/`
+alongside other locally-built images.
+
+```bash
+# Build and push the wrapper image (multi-arch)
+just docker-build-push localnet-hister-wrapper
+```
+
+The justfile recipe and `scripts/build-and-push-images.sh` entry would be
+added following the same pattern as other locally-built images
+(`localnet-base-alpine`, `localnet-proxy-tor`, etc.).
+
+---
+
 ## Future Enhancement: Parameterized Utility Container
 
 ### The problem with the current approach
