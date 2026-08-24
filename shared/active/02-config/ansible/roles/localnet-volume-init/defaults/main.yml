@@ -1,0 +1,56 @@
+---
+# localnet-volume-init — reusable three-phase volume ownership init role.
+# Per ADR-20260822001: Docker Volume Ownership Init Pattern for Non-Root Containers.
+#
+# Service roles include this role with a list of volume specs. The role handles:
+#   Phase 0: Ensure the Docker volume exists (create if missing)
+#   Phase 1: chown + in-container verify (via localnet-volume-init container)
+#   Phase 2: Fresh-container verify (via verify-volume, separate mount namespace)
+#
+# Usage in a service role:
+#
+#   - include_role:
+#       name: localnet-volume-init
+#     vars:
+#       volume_init_docker_host: "{{ search_hister_docker_host }}"
+#       volume_init_volumes:
+#         - name: "{{ search_hister_data_volume }}"
+#           # mount: /data    (default)
+#           # uid: 1000       (default)
+#           # gid: 1000       (default)
+#           # mode: "755"     (default)
+#
+# Multi-volume example (different uid/gid/mode per volume):
+#
+#       volume_init_volumes:
+#         - name: "{{ svc_data_volume }}"                    # all defaults
+#         - name: "{{ svc_config_volume }}"
+#           mount: /config
+#           mode: "750"
+#         - name: "{{ svc_logs_volume }}"
+#           mount: /logs
+#           uid: 1001
+#           gid: 1001
+#           mode: "640"
+
+# The utility container image (with optional registry prefix).
+# Matches the pattern used by other locally-built images in the fleet.
+volume_init_image: "{{ local_registry | default('') }}localnet-volume-init:latest"
+
+# Docker host — defaults to the local Unix socket.
+# Override for Windows Docker Desktop hosts:
+#   volume_init_docker_host: "ssh://ansible@dtop202311.tale-grouper.ts.net"
+volume_init_docker_host: "unix:///var/run/docker.sock"
+
+# List of volume specs to initialize. Each spec is a dict with:
+#   name:  (required) Docker volume name
+#   mount: (default: /data) mount point inside the utility container
+#   uid:   (default: 1000) target UID (numeric string or int)
+#   gid:   (default: 1000) target GID (numeric string or int)
+#   mode:  (default: "755") directory mode (octal string)
+volume_init_volumes: []
+
+# Whether to create the volume if it doesn't exist (Phase 0).
+# Set to false if the volume is created elsewhere and this role should
+# only fix/verify ownership.
+volume_init_create_volumes: true

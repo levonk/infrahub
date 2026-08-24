@@ -1,0 +1,51 @@
+# localnet-volume-init — ephemeral utility container for Docker volume ownership init.
+#
+# Per ADR-20260822001: Parameterized Utility Container pattern.
+# This is a one-shot, `--rm` container that fixes volume ownership with
+# validation, logging, and explicit exit codes — replacing the inline
+# `docker run --rm alpine sh -c '...'` scripts scattered across roles.
+#
+# Usage:
+#   docker run --rm -v <volume>:/data localnet-volume-init:latest <uid> <gid> [mode]
+#   docker run --rm --entrypoint /usr/local/bin/verify-volume \
+#     -v <volume>:/data localnet-volume-init:latest verify <uid> <gid>
+#
+# Exit codes (init-volume):
+#   0 = success (volume already correct, or chown + verify passed)
+#   1 = parameter error
+#   2 = chown/chmod failed
+#   3 = persistence verify failed (volume driver quirk — see ADR recovery)
+#   4 = in-container verify failed (overlay/fs issue — see ADR recovery)
+#
+# Exit codes (verify-volume):
+#   0 = ownership matches
+#   1 = parameter error
+#   2 = ownership mismatch
+#
+# This container MUST run as root (no USER directive) to perform chown.
+# The --rm flag ensures it is removed after each invocation.
+
+FROM alpine:3.20
+
+LABEL org.opencontainers.image.title="LocalNet Volume Init" \
+      org.opencontainers.image.description="Ephemeral utility container for Docker volume ownership initialization with verification" \
+      org.opencontainers.image.version="0.1.0" \
+      org.opencontainers.image.vendor="LocalNet" \
+      org.opencontainers.image.documentation="https://github.com/levonk/infrahub/blob/main/shared/active/08-docs/adr/adr-20260822001-volume-ownership-init-pattern.md" \
+      maintainer="devops@localnet"
+
+# Install only what's needed beyond alpine's baseline:
+#   - findutils: provides `find` used for verbose chown diagnostics
+#   - tar:       used by the ADR's backup/restore recovery procedure
+RUN apk add --no-cache findutils tar
+
+# Copy the init + verify scripts from the build context.
+COPY assets/static/volume-init/init-volume.sh   /usr/local/bin/init-volume
+COPY assets/static/volume-init/verify-volume.sh /usr/local/bin/verify-volume
+RUN chmod +x /usr/local/bin/init-volume /usr/local/bin/verify-volume
+
+# No USER directive — this container must run as root to chown.
+# No HEALTHCHECK — this is a one-shot utility container, not a service.
+# No CMD — ENTRYPOINT receives uid/gid/mode as args via `docker run`.
+
+ENTRYPOINT ["/usr/local/bin/init-volume"]

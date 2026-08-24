@@ -1,0 +1,19 @@
+---
+galaxy_info:
+  role_name: localnet_volume_init
+  author: localnet
+  description: Reusable three-phase Docker volume ownership init per ADR-20260822001
+  license: MIT
+  min_ansible_version: "2.9"
+  platforms:
+    - name: EL
+      versions:
+        - "8"
+        - "9"
+    - name: Windows
+      versions:
+        - "all"
+    - name: MacOS
+      versions:
+        - "all"
+dependencies: []

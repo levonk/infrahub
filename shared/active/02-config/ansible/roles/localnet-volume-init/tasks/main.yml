@@ -1,0 +1,17 @@
+---
+# localnet-volume-init — entry point.
+# Loops over volume_init_volumes and runs the three-phase init for each.
+#
+# Per-volume defaults (intelligent defaults) are applied in volume-init-one.yml
+# so callers can omit any of mount/uid/gid/mode and get sensible values.
+#
+# See defaults/main.yml for the full variable contract.
+
+- name: Initialize volume ownership (three-phase per ADR-20260822001)
+  ansible.builtin.include_tasks:
+    file: volume-init-one.yml
+  loop: "{{ volume_init_volumes }}"
+  loop_control:
+    loop_var: volume_spec
+    label: "{{ volume_spec.name }}"
+  tags: ["deploy", "volume"]

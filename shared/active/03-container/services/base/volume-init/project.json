@@ -1,0 +1,25 @@
+{
+  "name": "localnet-volume-init",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "services/base/volume-init",
+  "tags": ["base", "utility", "docker", "volume-init"],
+  "targets": {
+    "docker:build": {
+      "executor": "@nx-tools/nx-container:build",
+      "options": {
+        "context": "services/base/volume-init",
+        "file": "services/base/volume-init/Dockerfile.volume-init",
+        "tags": ["localnet-volume-init:latest"],
+        "push": false,
+        "load": true
+      }
+    },
+    "docker:push": {
+      "executor": "@nx-tools/nx-container:push",
+      "options": {
+        "images": ["localnet-volume-init:latest"]
+      }
+    }
+  }
+}
