@@ -154,6 +154,14 @@
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
 
+      # no-mistakes Shared Git Gate — default domain (CNAME → nl subdomain)
+      - name: "{{ infra_domain_devops_no_mistakes_default | default('no-mistakes.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "CNAME"
+        content: "{{ infra_domain_devops_no_mistakes | default('no-mistakes.nl.' ~ (infra_domain_base | default('example.com'))) }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
       # no-mistakes Shared Git Gate — nl (Windows Docker Desktop)
       - name: "{{ infra_domain_devops_no_mistakes | default('no-mistakes.nl.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
