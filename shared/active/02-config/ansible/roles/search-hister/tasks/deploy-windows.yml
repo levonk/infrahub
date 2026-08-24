@@ -10,48 +10,20 @@
 # to render or copy into volumes. Only a data volume is needed.
 
 # ============================================================================
-# Volume Management
+# Volume Management — three-phase ownership init per ADR-20260822001.
+# Delegated to the reusable localnet-volume-init role so this service role
+# only declares its volume; the role handles volume-create + chown + verify.
 # ============================================================================
-- name: Ensure Hister data volume exists
-  ansible.builtin.shell: >-
-    docker volume inspect {{ search_hister_data_volume }} 2>/dev/null
-    || docker volume create {{ search_hister_data_volume }}
-  environment:
-    DOCKER_HOST: "{{ search_hister_docker_host }}"
-  delegate_to: localhost
-  changed_when: false
-  tags: ["deploy", "volume"]
-
-# Hister runs as UID/GID 1000:1000; Docker volumes are root-owned by default.
-# Fix ownership so the container can write its .secret_key and index files.
-# Three-phase pattern per ADR-20260822001:
-#   Phase 1: chown + in-container verify (same mount namespace)
-#   Phase 2: fresh-container verify (new mount, checks persistence)
-- name: Fix Hister data volume ownership (UID 1000)
-  ansible.builtin.command: >-
-    docker run --rm
-    -v {{ search_hister_data_volume }}:/data
-    alpine sh -c 'chown -R 1000:1000 /data
-    && chmod 755 /data
-    && test "$(stat -c %u /data)" = "1000"
-    && test "$(stat -c %g /data)" = "1000"'
-  environment:
-    DOCKER_HOST: "{{ search_hister_docker_host }}"
-  delegate_to: localhost
-  changed_when: false
-  tags: ["deploy", "volume"]
-
-- name: Verify Hister data volume ownership persisted (UID 1000)
-  ansible.builtin.command: >-
-    docker run --rm
-    -v {{ search_hister_data_volume }}:/data
-    alpine sh -c 'test "$(stat -c %u /data)" = "1000" && test "$(stat -c %g /data)" = "1000"'
-  environment:
-    DOCKER_HOST: "{{ search_hister_docker_host }}"
-  delegate_to: localhost
-  register: hister_volume_ownership_check
-  changed_when: false
-  failed_when: hister_volume_ownership_check.rc != 0
+- name: Initialize Hister data volume ownership
+  ansible.builtin.include_role:
+    name: localnet-volume-init
+  vars:
+    volume_init_docker_host: "{{ search_hister_docker_host }}"
+    volume_init_volumes:
+      - name: "{{ search_hister_data_volume }}"
+        uid: 1000
+        gid: 1000
+        mode: "755"
   tags: ["deploy", "volume"]
 
 # ============================================================================
