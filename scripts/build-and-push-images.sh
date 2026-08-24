@@ -50,6 +50,7 @@ IMAGES=(
   "localnet-proxy-gost|docker/Dockerfile.gost|proxy/gost|"
   "localnet-proxy-9router|Dockerfile|proxy/9router|"
   "localnet-base-alpine|Dockerfile.base-alpine|base/base-alpine|"
+  "localnet-volume-init|Dockerfile.volume-init|base/volume-init|"
   "isolation-vm-base-kali|Dockerfile.base-kali|base/base-kali|"
   "isolation-vm-base-kalinix|Dockerfile.base-kalinix|base/base-kalinix|"
   "isolation-vm-hermes-agent|Dockerfile.hermes-agent|base/hermes-agent|"
@@ -57,8 +58,11 @@ IMAGES=(
   "localnet-ai-omniroute|docker/Dockerfile.omniroute|ai-services/omniroute|"
   "headroom|Dockerfile.headroom|ai-codeassist/headroom|"
   "localnet-ai-paperclip|Dockerfile|ai-codeassist/paperclip|"
+  "localnet-ai-buzz-agent|docker/Dockerfile.buzz-agent|ai-codeassist/buzz-agent|"
   # Freenet peer node — linux/amd64 ONLY (target: Windows Docker Desktop, nl).
   "localnet-p2p-freenet|docker/Dockerfile.freenet|p2p/freenet|linux/amd64"
+  # no-mistakes shared git gate — linux/amd64 ONLY (target: Windows Docker Desktop, nl).
+  "localnet-devops-no-mistakes|docker/Dockerfile.no-mistakes|devops/no-mistakes|linux/amd64"
 )
 
 # NOTE: envoy, privoxy, squid use upstream Docker Hub images directly (no custom Dockerfile).

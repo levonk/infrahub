@@ -1,0 +1,163 @@
+# syntax=docker/dockerfile:1
+# no-mistakes shared git gate service
+# Upstream: https://github.com/kunchenguid/no-mistakes
+#
+# Multi-stage build per AGENTS.md Invariant #2:
+#   - builder: golang:1.25-bookworm — build no-mistakes from source via go install
+#   - runtime: debian:bookworm-slim — sshd, git, git-shell, gh CLI, devin-cli, acpx
+#
+# Debian (not Alpine) because:
+#   - no-mistakes v1.58+ requires Go >= 1.25 (Alpine 3.20 ships Go 1.23)
+#   - acpx requires Node >= 22.13 (Alpine 3.20 ships Node 20.15)
+#   - git-shell is part of the git package on both, but Debian's apt
+#     ecosystem has newer Node via NodeSource and fewer package gaps
+#
+# The container exposes an SSH server on port 2222. Developers push to a
+# git-shell wrapper that auto-provisions a no-mistakes gate on first push,
+# then forwards git-receive-pack to the gate repo. The no-mistakes daemon
+# runs the AI-driven validation pipeline and pushes to GitHub on success.
+#
+# Build platform: linux/amd64 (target is Windows Docker Desktop, X86).
+
+# ---------------------------------------------------------------------------
+# Stage 1 — build no-mistakes from source
+# ---------------------------------------------------------------------------
+FROM golang:1.25-bookworm AS builder
+
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+
+# Build no-mistakes; binary lands in /go/bin/no-mistakes
+# Pin to latest upstream tag. Update the @version when bumping.
+RUN go install github.com/kunchenguid/no-mistakes/cmd/no-mistakes@latest
+
+# ---------------------------------------------------------------------------
+# Stage 2 — runtime image
+# ---------------------------------------------------------------------------
+FROM debian:bookworm-slim AS runtime
+
+# Runtime dependencies:
+#   openssh-server  — sshd for git transport
+#   git             — git operations + git-shell (included in git pkg)
+#   ca-certificates — TLS for git/gh/devin
+#   curl            — downloading release binaries
+#   bash            — entrypoint + git-shell wrapper scripts
+#   gnupg           — verifying NodeSource apt repo signature
+#   procps          — `pkill` for daemon management
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      openssh-server \
+      git \
+      ca-certificates \
+      curl \
+      bash \
+      gnupg \
+      procps \
+ && rm -rf /var/lib/apt/lists/*
+
+# ---------------------------------------------------------------------------
+# Install Node.js 22.x via NodeSource (acpx requires >= 22.13)
+# ---------------------------------------------------------------------------
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+ && apt-get install -y --no-install-recommends nodejs \
+ && rm -rf /var/lib/apt/lists/*
+
+# ---------------------------------------------------------------------------
+# Create the gate user (login shell = no-mistakes-gate wrapper)
+# The wrapper intercepts git-receive-pack/git-upload-pack, auto-provisions
+# a no-mistakes gate on first push, then forwards to git-shell.
+# ---------------------------------------------------------------------------
+RUN addgroup --system gate \
+ && adduser --system --ingroup gate --home /home/gate --shell /usr/local/bin/no-mistakes-gate gate \
+ && mkdir -p /home/gate/.no-mistakes/repos \
+             /home/gate/.no-mistakes/worktrees \
+             /home/gate/.no-mistakes/logs \
+             /home/gate/.ssh \
+             /home/gate/git-shell-commands \
+ && chown -R gate:gate /home/gate
+
+# ---------------------------------------------------------------------------
+# Copy no-mistakes binary from builder
+# ---------------------------------------------------------------------------
+COPY --from=builder /go/bin/no-mistakes /usr/local/bin/no-mistakes
+
+# ---------------------------------------------------------------------------
+# Install gh CLI (GitHub CLI) from official releases
+# Pinned to a specific version for reproducibility.
+# ---------------------------------------------------------------------------
+ARG GH_CLI_VERSION=2.63.2
+RUN curl -fsSL "https://github.com/cli/cli/releases/download/v${GH_CLI_VERSION}/gh_${GH_CLI_VERSION}_linux_amd64.tar.gz" \
+      -o /tmp/gh.tar.gz \
+ && tar -xzf /tmp/gh.tar.gz -C /tmp \
+ && mv "/tmp/gh_${GH_CLI_VERSION}_linux_amd64/bin/gh" /usr/local/bin/gh \
+ && chmod +x /usr/local/bin/gh \
+ && rm -rf /tmp/gh*
+
+# ---------------------------------------------------------------------------
+# Install devin-cli from static.devin.ai
+# Pinned to a specific version for reproducibility.
+# ---------------------------------------------------------------------------
+ARG DEVIN_CLI_VERSION=2026.5.6-10
+RUN curl -fsSL "https://static.devin.ai/cli/${DEVIN_CLI_VERSION}/devin-${DEVIN_CLI_VERSION}-x86_64-unknown-linux.tar.gz" \
+      -o /tmp/devin.tar.gz \
+ && tar -xzf /tmp/devin.tar.gz -C /tmp \
+ && mv /tmp/bin/devin /usr/local/bin/devin \
+ && chmod +x /usr/local/bin/devin \
+ && rm -rf /tmp/devin* /tmp/bin
+
+# ---------------------------------------------------------------------------
+# Install acpx (Agent Client Protocol executor) via npm
+# acpx is the bridge that lets no-mistakes talk to `devin acp` over ACP.
+# Requires Node.js >= 22.13 (installed above via NodeSource).
+# Pinned to a specific version for reproducibility.
+# ---------------------------------------------------------------------------
+ARG ACPX_VERSION=latest
+RUN npm install -g "acpx@${ACPX_VERSION}" \
+ && ln -sf "$(npm root -g)/acpx/bin/acpx.js" /usr/local/bin/acpx 2>/dev/null || true
+
+# ---------------------------------------------------------------------------
+# Copy entrypoint, git-shell wrapper, and config template
+# ---------------------------------------------------------------------------
+COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# The gate shell wrapper — intercepts git-receive-pack/git-upload-pack,
+# auto-provisions a no-mistakes gate on first push, then forwards to git-shell.
+COPY docker/git-shell-wrapper /usr/local/bin/no-mistakes-gate
+RUN chmod +x /usr/local/bin/no-mistakes-gate
+
+# Custom interactive commands (available via ssh gate@host <command>)
+COPY docker/git-shell-commands/no-mistakes-gate /home/gate/git-shell-commands/no-mistakes-gate
+RUN chmod +x /home/gate/git-shell-commands/no-mistakes-gate \
+ && chown gate:gate /home/gate/git-shell-commands/no-mistakes-gate
+
+COPY docker/config.yaml.j2 /home/gate/config.yaml.j2
+RUN chown gate:gate /home/gate/config.yaml.j2
+
+# ---------------------------------------------------------------------------
+# Configure sshd
+#   - Port 2222 (container-internal; host port mapped by Ansible)
+#   - Password authentication disabled (key-only)
+#   - Pubkey authentication enabled
+#   - ed25519 host keys generated on first start by entrypoint.sh
+# ---------------------------------------------------------------------------
+RUN mkdir -p /run/sshd \
+ && sed -i \
+      -e 's/^#\?Port .*/Port 2222/' \
+      -e 's/^#\?PasswordAuthentication .*/PasswordAuthentication no/' \
+      -e 's/^#\?PubkeyAuthentication .*/PubkeyAuthentication yes/' \
+      -e 's/^#\?PermitRootLogin .*/PermitRootLogin no/' \
+      /etc/ssh/sshd_config \
+ && ssh-keygen -A 2>/dev/null || true
+
+# ---------------------------------------------------------------------------
+# Environment
+# ---------------------------------------------------------------------------
+ENV NM_HOME=/home/gate/.no-mistakes \
+    NO_MISTAKES_TELEMETRY=0 \
+    PATH=/usr/local/bin:$PATH
+
+WORKDIR /home/gate
+
+EXPOSE 2222
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

@@ -1,0 +1,14 @@
+---
+# no-mistakes global config
+# Rendered to /home/gate/config.yaml, copied to NM_HOME on container start.
+agent: acp:devin
+acpx_path: /usr/local/bin/acpx
+acp_registry_overrides:
+  devin: devin acp
+auto_fix:
+  rebase: 3
+  review: 3
+  test: 3
+  document: 3
+  lint: 3
+  ci: 3

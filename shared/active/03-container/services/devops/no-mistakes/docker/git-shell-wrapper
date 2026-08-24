@@ -1,0 +1,125 @@
+#!/bin/bash
+# ---------------------------------------------------------------------------
+# no-mistakes-gate — git-shell auto-provision wrapper
+#
+# This script IS the gate user's login shell. It intercepts git protocol
+# commands (git-receive-pack, git-upload-pack, git-upload-archive),
+# auto-provisions a no-mistakes gate on first access, then forwards to
+# git-shell pointing at the gate repo.
+#
+# IMPORTANT: All diagnostic output MUST go to stderr (>&2). The git wire
+# protocol reads stdout — any stray bytes there break it.
+#
+# Environment:
+#   NM_HOME      — no-mistakes home (default /home/gate/.no-mistakes)
+#   GITHUB_TOKEN — token for cloning private repos and pushing to GitHub
+# ---------------------------------------------------------------------------
+set +e  # We handle errors manually — set -e breaks git protocol error handling
+
+NM_HOME="${NM_HOME:-/home/gate/.no-mistakes}"
+GATE_USER_HOME="/home/gate"
+GIT_SHELL_BIN="/usr/bin/git-shell"
+
+CMD="${SSH_ORIGINAL_COMMAND:-}"
+
+# sshd may pass the command via -c argument instead of SSH_ORIGINAL_COMMAND
+if [ -z "$CMD" ] && [ "$1" = "-c" ]; then
+  CMD="$2"
+fi
+
+# ---------------------------------------------------------------------------
+# Interactive mode — no command. Show available git-shell-commands.
+# ---------------------------------------------------------------------------
+if [ -z "$CMD" ]; then
+  echo "no-mistakes shared git gate" >&2
+  echo "" >&2
+  echo "This account provides Git access only. Push to:" >&2
+  echo "  ssh://gate@<host>:2222/<org>/<repo>.git" >&2
+  echo "" >&2
+  echo "Available commands:" >&2
+  if [ -d "$GATE_USER_HOME/git-shell-commands" ]; then
+    for script in "$GATE_USER_HOME/git-shell-commands"/*; do
+      [ -x "$script" ] && echo "  $(basename "$script")" >&2
+    done
+  fi
+  exit 0
+fi
+
+# ---------------------------------------------------------------------------
+# Parse the SSH command.
+# SSH sends e.g.: git-receive-pack 'levonk/infrahub.git'
+# ---------------------------------------------------------------------------
+case "$CMD" in
+  git-receive-pack\ *|git-upload-pack\ *|git-upload-archive\ *)
+    GIT_SUBCMD=$(echo "$CMD" | awk '{print $1}')
+    REPO_ARG=$(echo "$CMD" | sed "s/^[^ ]* '\(.*\)'/\1/")
+
+    # Strip leading/trailing slashes and trailing .git
+    REPO_PATH="${REPO_ARG#/}"
+    REPO_PATH="${REPO_PATH%.git}"
+
+    if [ -z "$REPO_PATH" ]; then
+      echo "no-mistakes-gate: could not parse repo path from: $CMD" >&2
+      exit 1
+    fi
+
+    # Gate ID — first 12 hex chars of sha256 of the absolute worktree path.
+    GATE_ID=$(echo -n "/home/gate/worktrees/$REPO_PATH" | sha256sum | cut -c1-12)
+    GATE_REPO="$NM_HOME/repos/$GATE_ID.git"
+
+    # -------------------------------------------------------------------------
+    # Auto-provision: if the gate repo doesn't exist, clone upstream + init
+    # -------------------------------------------------------------------------
+    if [ ! -d "$GATE_REPO" ]; then
+      echo "no-mistakes-gate: provisioning gate for $REPO_PATH..." >&2
+
+      TMP_CLONE=$(mktemp -d)
+      trap 'rm -rf "$TMP_CLONE"' EXIT
+
+      if [ -n "${GITHUB_TOKEN:-}" ]; then
+        git clone --quiet "https://x-access-token:${GITHUB_TOKEN}@github.com/${REPO_PATH}.git" "$TMP_CLONE/repo"
+      else
+        git clone --quiet "https://github.com/${REPO_PATH}.git" "$TMP_CLONE/repo"
+      fi
+
+      cd "$TMP_CLONE/repo"
+      # Capture no-mistakes init output to find the actual gate repo path.
+      # The output contains a line like:
+      #   gate  no-mistakes → /home/gate/.no-mistakes/repos/<gate-id>.git
+      INIT_OUTPUT=$(no-mistakes init 2>&1)
+      echo "$INIT_OUTPUT" >&2
+      cd /
+
+      # Extract the actual gate repo path from init output
+      ACTUAL_GATE=$(echo "$INIT_OUTPUT" | grep -oE "$NM_HOME/repos/[a-zA-Z0-9]+\.git" | head -1)
+
+      rm -rf "$TMP_CLONE"
+      trap - EXIT
+
+      if [ -n "$ACTUAL_GATE" ] && [ -d "$ACTUAL_GATE" ]; then
+        # Create a symlink from our computed path to the actual gate repo
+        # so subsequent pushes find it at $GATE_REPO
+        ln -sf "$ACTUAL_GATE" "$GATE_REPO"
+        echo "no-mistakes-gate: gate provisioned (symlink $GATE_REPO → $ACTUAL_GATE)" >&2
+      else
+        echo "no-mistakes-gate: WARNING - could not find gate repo in init output" >&2
+        echo "no-mistakes-gate: init output was: $INIT_OUTPUT" >&2
+      fi
+    fi
+
+    # -------------------------------------------------------------------------
+    # Forward the git command to the gate repo
+    # -------------------------------------------------------------------------
+    exec $GIT_SHELL_BIN -c "$GIT_SUBCMD '$GATE_REPO'"
+    ;;
+
+  *)
+    CMD_NAME=$(echo "$CMD" | awk '{print $1}')
+    if [ -x "$GATE_USER_HOME/git-shell-commands/$CMD_NAME" ]; then
+      exec "$GATE_USER_HOME/git-shell-commands/$CMD_NAME" $CMD
+    else
+      echo "no-mistakes-gate: unrecognized command: $CMD" >&2
+      exit 128
+    fi
+    ;;
+esac

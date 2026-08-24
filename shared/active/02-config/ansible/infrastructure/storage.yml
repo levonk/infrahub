@@ -252,3 +252,9 @@ infra_storage_directory_empire_config_volume: "localnet-directory-empire-config-
 # and auto-generated secret key.
 # ---------------------------------------------------------------------------
 infra_storage_hister_data_volume: "localnet-hister-data-volume"
+
+# ---------------------------------------------------------------------------
+# no-mistakes Shared Git Gate
+# ---------------------------------------------------------------------------
+infra_storage_no_mistakes_volume: "localnet-no-mistakes-data"
+infra_storage_no_mistakes_config_dir: "{{ infra_storage_services_dir }}/no-mistakes"

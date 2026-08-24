@@ -1,0 +1,40 @@
+# no-mistakes shared git gate — reference compose
+#
+# WARNING: This file is REFERENCE ONLY. It is NOT used for deployment.
+# Ansible deploys the container via community.docker modules.
+# See levonk/active/02-config/ansible/roles/devops-no-mistakes/ for the
+# actual deployment tasks.
+#
+# Purpose: documents the intended topology for human reading.
+version: "3.8"
+
+services:
+  no-mistakes:
+    image: 100.90.22.85:5000/localnet-devops-no-mistakes:latest
+    container_name: no-mistakes
+    restart: unless-stopped
+    ports:
+      - "2222:2222"
+    volumes:
+      # Persistent state: gates, worktrees, SQLite, daemon socket
+      - no-mistakes-data:/home/gate/.no-mistakes
+      # SSH host keys (persist across restarts so clients don't get TOFU warnings)
+      - no-mistakes-ssh:/etc/ssh
+      # Config rendered by Ansible (config.yaml.j2 → config.yaml)
+      - ./config.yaml:/home/gate/config.yaml:ro
+      # Authorized keys for the gate user
+      - ./authorized_keys:/home/gate/authorized_keys:ro
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - WINDSURF_API_KEY=${WINDSURF_API_KEY}
+      - NO_MISTAKES_TELEMETRY=0
+    networks:
+      - traefik-network
+
+volumes:
+  no-mistakes-data:
+  no-mistakes-ssh:
+
+networks:
+  traefik-network:
+    external: true

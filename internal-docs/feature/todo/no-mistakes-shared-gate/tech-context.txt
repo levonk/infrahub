@@ -1,0 +1,18 @@
+## Tech Context (Binding Constraint)
+
+This project uses the following tools. Use them, not alternatives.
+
+- Package manager: Nix (via devbox)
+- Ad-hoc runner: devbox run -- <command>
+- Build system: just (justfile) + Ansible
+- Test runner: ansible-playbook --syntax-check / --check, ansible-lint
+- Linter: ansible-lint (via `devbox run -- just ansible-lint-internal`)
+- Container runtime: Docker (via SSH-tunneled DOCKER_HOST for Windows targets)
+- CI/CD: GitHub Actions
+- Infrastructure: Ansible roles + playbooks (community.docker modules)
+- Image builds: scripts/build-and-push-images.sh (multi-stage Dockerfiles, buildx)
+
+System tools run via: devbox run -- <command>
+Never use: npm, npx, yarn, pip install --user, brew (use devbox add instead)
+All Ansible commands: devbox run -- rtk ansible-playbook ...
+Vault: --vault-password-file ~/.ansible/vault_password

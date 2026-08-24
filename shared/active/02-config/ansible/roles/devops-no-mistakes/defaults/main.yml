@@ -1,0 +1,51 @@
+---
+# no-mistakes default variables
+# Shared git gate service — deploys the no-mistakes container to Windows Docker
+# Desktop via SSH-tunneled Docker CLI.
+
+# Container configuration
+no_mistakes_container_name: "localnet-no-mistakes"
+no_mistakes_image_name: "{{ local_registry | default('100.90.22.85:5000') }}/localnet-devops-no-mistakes"
+no_mistakes_image_tag: "latest"
+
+# Ports (reference infrastructure variables)
+no_mistakes_ssh_host_port: "{{ infra_port_devops_no_mistakes_ssh_host | default('2222') }}"
+no_mistakes_ssh_container_port: "{{ infra_port_devops_no_mistakes_ssh_container | default('2222') }}"
+
+# Domain (reference infrastructure variables)
+no_mistakes_domain: "{{ infra_domain_devops_no_mistakes | default('no-mistakes.' ~ (infra_domain_base | default('example.com'))) }}"
+
+# Volumes
+no_mistakes_data_volume: "{{ infra_storage_no_mistakes_volume | default('localnet-no-mistakes-data') }}"
+
+# Network (joined for cross-machine visibility; SSH does not route via Traefik)
+no_mistakes_network_name: "traefik-windows-network"
+
+# Healthcheck — MUST use string with unit suffix, NOT bare integers
+no_mistakes_healthcheck_interval: "30s"
+no_mistakes_healthcheck_timeout: "5s"
+no_mistakes_healthcheck_retries: 3
+no_mistakes_healthcheck_start_period: "30s"
+
+# Enable flag
+no_mistakes_enabled: true
+
+# Devin model — must be a free model on the Pro plan to avoid overage charges.
+# swe-1-7-medium is Cognition's SWE model, free on Pro, 262K context.
+# When quota is exhausted, agent calls fail gracefully until the next reset.
+# See: devin models list
+no_mistakes_devin_model: "swe-1-7-medium"
+
+# Secrets — reference vault variables with default('') fallbacks
+no_mistakes_github_token: "{{ vault_no_mistakes_github_token | default('') }}"
+no_mistakes_gate_ssh_public_key: "{{ vault_no_mistakes_gate_ssh_public_key | default('') }}"
+no_mistakes_devin_api_key: "{{ vault_no_mistakes_devin_api_key | default('') }}"
+
+# Docker connection string for the Windows host (SSH-tunneled)
+# community.docker modules can't run directly on Windows (Ansible core basic.py
+# imports grp, Unix-only). We delegate_to: localhost and connect to the Windows
+# Docker daemon via ssh://. Requires SSH config entry for the Windows host.
+no_mistakes_docker_host: "ssh://ansible@{{ windows_tailscale_hostname | default('dtop202311') }}.{{ infra_tailscale_tailnet | default('example.ts.net') }}"
+
+# Temp dir for rendered config files (on localhost, then docker cp into container)
+no_mistakes_temp_dir: "/tmp/no-mistakes-config"

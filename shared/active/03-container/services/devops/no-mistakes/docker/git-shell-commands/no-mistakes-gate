@@ -1,0 +1,73 @@
+#!/bin/bash
+# ---------------------------------------------------------------------------
+# no-mistakes-gate — git-shell auto-provision wrapper
+#
+# This script is invoked by sshd when the gate user's git-shell receives a
+# git command. It:
+#   1. Parses the git command (git-receive-pack 'ORG/REPO.git')
+#   2. Extracts the repo path (e.g. "levonk/infrahub")
+#   3. Computes the gate ID (first 12 hex chars of sha256 of the absolute path)
+#   4. If the gate repo doesn't exist, clones upstream + runs no-mistakes init
+#   5. Forwards git-receive-pack to the gate repo
+#
+# Environment:
+#   NM_HOME      — no-mistakes home (default /home/gate/.no-mistakes)
+#   GITHUB_TOKEN — token for cloning private repos and pushing to GitHub
+# ---------------------------------------------------------------------------
+set -e
+
+NM_HOME="${NM_HOME:-/home/gate/.no-mistakes}"
+
+# Parse the git command.
+# SSH sends: git-receive-pack 'levonk/infrahub.git'
+GIT_CMD="$1"
+
+# Extract the repo path without the trailing .git
+# Handles both 'foo.git' and 'org/repo.git' forms.
+REPO_PATH=$(echo "$GIT_CMD" | sed "s/.*'\(.*\)\.git'/\1/")
+
+if [ -z "$REPO_PATH" ]; then
+  echo "no-mistakes-gate: could not parse repo path from: $GIT_CMD" >&2
+  exit 1
+fi
+
+# Compute gate ID — first 12 hex chars of sha256 of the absolute worktree path.
+# This matches no-mistakes' own gate ID derivation so the gate repo path is stable.
+GATE_ID=$(echo -n "/home/gate/worktrees/$REPO_PATH" | sha256sum | cut -c1-12)
+GATE_REPO="$NM_HOME/repos/$GATE_ID.git"
+
+echo "no-mistakes-gate: repo=$REPO_PATH gate_id=$GATE_ID gate_repo=$GATE_REPO"
+
+# ---------------------------------------------------------------------------
+# Auto-provision: if the gate repo doesn't exist, clone upstream + init
+# ---------------------------------------------------------------------------
+if [ ! -d "$GATE_REPO" ]; then
+  echo "no-mistakes-gate: provisioning gate for $REPO_PATH..."
+
+  TMP_CLONE=$(mktemp -d)
+  trap 'rm -rf "$TMP_CLONE"' EXIT
+
+  # Clone upstream using GITHUB_TOKEN for auth (works for private repos)
+  if [ -n "${GITHUB_TOKEN:-}" ]; then
+    git clone "https://x-access-token:${GITHUB_TOKEN}@github.com/${REPO_PATH}.git" "$TMP_CLONE/repo"
+  else
+    # Fall back to unauthenticated clone (public repos only)
+    git clone "https://github.com/${REPO_PATH}.git" "$TMP_CLONE/repo"
+  fi
+
+  # Initialize no-mistakes gate in the clone.
+  # This creates the gate repo in $NM_HOME and registers it with the daemon.
+  cd "$TMP_CLONE/repo"
+  no-mistakes init
+  cd /
+
+  # Clean up the temporary clone — the gate persists in $NM_HOME
+  rm -rf "$TMP_CLONE"
+
+  echo "no-mistakes-gate: gate provisioned at $GATE_REPO"
+fi
+
+# ---------------------------------------------------------------------------
+# Forward git-receive-pack to the gate repo
+# ---------------------------------------------------------------------------
+exec git-shell -c "git-receive-pack '$GATE_REPO'"

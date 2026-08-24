@@ -1,0 +1,9 @@
+---
+# no-mistakes handlers
+
+- name: restart no-mistakes
+  ansible.builtin.command: "docker restart {{ no_mistakes_container_name }}"
+  environment:
+    DOCKER_HOST: "{{ no_mistakes_docker_host }}"
+  delegate_to: localhost
+  changed_when: true

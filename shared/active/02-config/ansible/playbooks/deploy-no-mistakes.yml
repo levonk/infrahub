@@ -1,0 +1,76 @@
+---
+# Deploy no-mistakes Shared Git Gate to Windows Docker Desktop (nl region)
+# Location: shared/active/02-config/ansible/playbooks/deploy-no-mistakes.yml
+#
+# Deploys the no-mistakes container on the Windows Docker host via SSH-tunneled
+# Docker CLI. The role (devops-no-mistakes) uses delegate_to: localhost with
+# DOCKER_HOST=ssh:// so the system SSH client handles auth to the Windows host
+# (community.docker modules can't run on Windows — Ansible core basic.py
+# imports grp, Unix-only).
+#
+# Prerequisites:
+#   1. Local registry deployed and no-mistakes image pushed:
+#        just levonk-build-no-mistakes
+#   2. Bootstrap playbook run on Windows: just ansible-bootstrap-windows-docker
+#   3. SSH config entry for dtop202311.<tailnet> (IdentityFile + IdentitiesOnly)
+#   4. Vault secrets added:
+#        vault_no_mistakes_github_token
+#        vault_no_mistakes_gate_ssh_public_key
+#        vault_no_mistakes_devin_api_key
+#
+# Usage:
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/windows-docker.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-no-mistakes.yml \
+#     --vault-password-file ~/.ansible/vault_password
+
+- name: "Deploy no-mistakes Shared Git Gate on Windows Docker host (nl)"
+  hosts: windows_docker_hosts
+  gather_facts: true
+  become: false
+  vars:
+    no_mistakes_enabled: true
+
+  pre_tasks:
+    - name: "Load shared infrastructure port defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/ports.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure storage defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/storage.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure domain defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/domains.yml"
+      tags: ["always"]
+
+    - name: "Load client infrastructure domain overrides"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/domains.yml"
+      tags: ["always"]
+
+    - name: "Load vault secrets"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/inventories/group_vars/infrahub-levonk-all.vault.yml"
+      tags: ["always"]
+      no_log: true
+
+    - name: "Validate required variables"
+      ansible.builtin.assert:
+        that:
+          - no_mistakes_enabled is defined
+          - infra_port_devops_no_mistakes_ssh_host is defined
+          - infra_port_devops_no_mistakes_ssh_container is defined
+          - infra_domain_devops_no_mistakes is defined
+          - infra_storage_no_mistakes_volume is defined
+        fail_msg: >-
+          Missing required variables. Check infrastructure files
+          (ports.yml, domains.yml, storage.yml) and client overrides.
+        success_msg: "All required no-mistakes variables are defined."
+      tags: ["always", "validate"]
+
+  roles:
+    - role: devops-no-mistakes
+      tags: ["deploy", "no-mistakes"]

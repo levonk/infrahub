@@ -770,6 +770,21 @@ services:
       label: "PostgreSQL"
   network: "qm-levonk"
 
+- name: "no-mistakes Gate"
+  container: "localnet-no-mistakes"
+  machine: "dtop202311"
+  category: "infra"
+  description: "Shared AI-driven git gate proxy — validates pushes before GitHub PR"
+  source_repo: "https://github.com/kunchenguid/no-mistakes"
+  domains:
+    - "infra_domain_devops_no_mistakes"
+  ports:
+    - host: "infra_port_devops_no_mistakes_ssh_host"
+      container: "infra_port_devops_no_mistakes_ssh_container"
+      label: "SSH Git"
+  network: "traefik-windows-network"
+  notes: "SSH git transport (port 2222) — does not route through Traefik; DNS resolves to dtop202311 Tailscale FQDN"
+
 # ===========================================================================
 # Inference Host Services (kckinai)
 # ===========================================================================
