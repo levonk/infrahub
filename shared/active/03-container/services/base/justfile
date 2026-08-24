@@ -117,6 +117,19 @@ build-base-alpine_impl:
     log_start "Building base-alpine"
     ({{DC_BASE}} --progress=plain build base-alpine 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (log_end "base-alpine built"; just log-end "build-base-alpine" "SUCCESS") || (log_error "base-alpine build failed"; just log-end "build-base-alpine" "FAILED"; exit 1)
 
+# Build volume-init (ephemeral utility container, ADR-20260822001)
+build-volume-init:
+    @just _devbox build-volume-init_impl
+
+[private]
+build-volume-init_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    just log-start "build-volume-init"
+    log_start "Building volume-init"
+    ({{DC_BASE}} --progress=plain build volume-init 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) && (log_end "volume-init built"; just log-end "build-volume-init" "SUCCESS") || (log_error "volume-init build failed"; just log-end "build-volume-init" "FAILED"; exit 1)
+
 # Build base-debian
 build-base-debian:
     @just _devbox build-base-debian_impl
