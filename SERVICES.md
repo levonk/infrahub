@@ -1,11 +1,11 @@
 # Infrahub Service Catalog (Shared Defaults)
 
-> **Auto-generated** from `infrastructure/*.yml` (shared defaults only) — last updated: 2026-08-22 21:20
+> **Auto-generated** from `infrastructure/*.yml` (shared defaults only) — last updated: 2026-08-23 13:30
 > Regenerate with: `just generate-service-catalog-shared`
 > Source: `shared/active/02-config/ansible/infrastructure/services.yml`
 > Note: This catalog shows **default ports and suggested hostnames** only. Client-specific deployment details (custom domains, deployed machines, client port overrides) are not included. See `levonk/SERVICES.md` for the deployed client catalog.
 
-**68 services** (shared defaults — no deployment info)
+**70 services** (shared defaults — no deployment info)
 
 ## Table of Contents
 
@@ -50,7 +50,7 @@ flowchart TD
 
     %% Machine color coding
     classDef machine_oci_AI_Pipeline fill:#4A90D9,color:#fff,stroke:#333,stroke-width:1px
-    class iron_proxy,Forge,OmniRoute,LiteLLM,Headroom,Privacy_Orchestrator machine_oci_AI_Pipeline
+    class Privacy_Orchestrator,iron_proxy,Forge,LiteLLM,Headroom,OmniRoute machine_oci_AI_Pipeline
 ```
 
 ### Nix Cache Chain (nl)
@@ -76,7 +76,7 @@ flowchart TD
 
     %% Machine color coding
     classDef machine_dtop_Nix_Cache_Chain__nl_ fill:#50C878,color:#fff,stroke:#333,stroke-width:1px
-    class Nix_ncro__nl_,Nix_Harmonia__nl_,Nix_ncps__nl_ machine_dtop_Nix_Cache_Chain__nl_
+    class Nix_Harmonia__nl_,Nix_ncro__nl_,Nix_ncps__nl_ machine_dtop_Nix_Cache_Chain__nl_
 ```
 
 ### Nix Cache Chain (cno)
@@ -102,7 +102,7 @@ flowchart TD
 
     %% Machine color coding
     classDef machine_oci_Nix_Cache_Chain__cno_ fill:#4A90D9,color:#fff,stroke:#333,stroke-width:1px
-    class Nix_ncro__cno_,Nix_ncps__cno_,Nix_Harmonia__cno_ machine_oci_Nix_Cache_Chain__cno_
+    class Nix_Harmonia__cno_,Nix_ncro__cno_,Nix_ncps__cno_ machine_oci_Nix_Cache_Chain__cno_
 ```
 
 ## All Services (Alphabetical)
@@ -113,6 +113,7 @@ flowchart TD
 | AI Dashboard | `ai-dashboard` | `infra_domain_ai_dashboard_web` (suggested) | `3000`→`3000` (Web) | — | — | UI (Web Apps) | [levonk/ai-dashboard](https://github.com/levonk/ai-dashboard) |
 | Authelia | `authelia` | `infra_domain_sso_authelia` (suggested) | `9091`→`9091` (Web) | — | — | Security / SSO | [authelia/authelia](https://github.com/authelia/authelia) |
 | Authelia Postgres | `authelia-postgres` | — | `5432`→`5432` (PostgreSQL) | authelia-network | — | Passive (Databases / Caches / Queues) | [docker-library/postgres](https://github.com/docker-library/postgres) |
+| Buzz Agent Runtime | `buzz-agent-*` | — | — | buzz-network | — | ai | [block/buzz](https://github.com/block/buzz) |
 | CoreDNS | `coredns` | — | `15354`→`15353` (DNS)<br>`9153`→`9153` (Metrics) | localnet-network | — | DNS | [coredns/coredns](https://github.com/coredns/coredns) |
 | CrowdSec | `crowdsec` | — | `8080`→`8080` (LAPI) | crowdsec-network | — | Security / SSO | [crowdsecurity/crowdsec](https://github.com/crowdsecurity/crowdsec) |
 | Directory Empire | `localnet-dashboard-directory-empire` | `infra_domain_dashboard_directory_empire_nl` (suggested) | `4530`→`3000` (Web) | traefik-windows-network | `localnet-directory-empire-config-volume` (volume) | UI (Web Apps) | [lrepo52/directory-empire](https://github.com/lrepo52/directory-empire) |
@@ -150,6 +151,7 @@ flowchart TD
 | Nix ncps (nl) | `localnet-nix-ncps` | `infra_domain_nix_cache_nl` (suggested) | `4524`→`8080` (HTTP (via Traefik)) | traefik-windows-network | — | Infrastructure | [kalbasit/ncps](https://github.com/kalbasit/ncps) |
 | Nix ncro (cno) | `localnet-nix-ncro-cno` | — | `4525`→`8081` (HTTP (internal, behind ncps)) | traefik-network | — | Proxy Chain (Internal) | [manic-systems/ncro](https://github.com/manic-systems/ncro) |
 | Nix ncro (nl) | `localnet-nix-ncro` | — | `4525`→`8081` (HTTP (internal, behind ncps)) | traefik-windows-network | — | Proxy Chain (Internal) | [manic-systems/ncro](https://github.com/manic-systems/ncro) |
+| no-mistakes Gate | `localnet-no-mistakes` | `infra_domain_devops_no_mistakes` (suggested) | `2222`→`2222` (SSH Git) | traefik-windows-network | — | Infrastructure | [kunchenguid/no-mistakes](https://github.com/kunchenguid/no-mistakes) |
 | NordVPN | `nordvpn` | — | `51820`→`51820` (WireGuard)<br>`1080`→`1080` (SOCKS)<br>`8888`→`8888` (HTTP Proxy) | vpn-network | — | VPN / Mesh Networking | [qdm12/gluetun](https://github.com/qdm12/gluetun) |
 | NordVPN Exit Node (nl) | `nordvpn` | — | `1081`→`1080` (SOCKS)<br>`8889`→`8888` (HTTP Proxy)<br>`8444`→`8443` (HTTPS Proxy) | vpn-network | — | VPN / Mesh Networking | [qdm12/gluetun](https://github.com/qdm12/gluetun) |
 | Omnigent | `omnigent` | `infra_domain_ai_omnigent` (suggested) | `8000`→`8000` (Web/API) | — | — | UI (Web Apps), API (HTTP Services) | [omnigent-ai/omnigent](https://github.com/omnigent-ai/omnigent) |
@@ -289,6 +291,7 @@ flowchart TD
 | Nix Harmonia (nl) | `localnet-nix-harmonia` | — | `4523`→`5000` (HTTP (local only)) | traefik-windows-network | — | [nix-community/harmonia](https://github.com/nix-community/harmonia) |
 | Nix ncps (cno) | `localnet-nix-ncps-cno` | `infra_domain_nix_cache_cno` (suggested) | `4524`→`8080` (HTTP (via Traefik)) | traefik-network | — | [kalbasit/ncps](https://github.com/kalbasit/ncps) |
 | Nix ncps (nl) | `localnet-nix-ncps` | `infra_domain_nix_cache_nl` (suggested) | `4524`→`8080` (HTTP (via Traefik)) | traefik-windows-network | — | [kalbasit/ncps](https://github.com/kalbasit/ncps) |
+| no-mistakes Gate | `localnet-no-mistakes` | `infra_domain_devops_no_mistakes` (suggested) | `2222`→`2222` (SSH Git) | traefik-windows-network | — | [kunchenguid/no-mistakes](https://github.com/kunchenguid/no-mistakes) |
 | TraLa | `trala` | `infra_domain_dashboard_trala` (suggested) | `8085`→`8080` (Web) | — | — | [dannybouwers/trala](https://github.com/dannybouwers/trala) |
 | Verdaccio NPM Registry (cno) | `localnet-artifact-verdaccio` | `infra_domain_artifact_verdaccio_cno` (suggested) | `4873`→`4873` (Web/API) | traefik-network | — | [verdaccio/verdaccio](https://github.com/verdaccio/verdaccio) |
 | Verdaccio NPM Registry (nl) | `localnet-artifact-verdaccio-nl` | `infra_domain_artifact_verdaccio_nl` (suggested) | `4873`→`4873` (Web/API) | — | — | [verdaccio/verdaccio](https://github.com/verdaccio/verdaccio) |

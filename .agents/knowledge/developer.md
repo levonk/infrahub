@@ -9,6 +9,7 @@ This guide is for developers/agents working on the infrahub codebase. For user-f
 - Ansible Lint Troubleshooting: [`../../internal-docs/troubleshooting/ansible-lint.md`](../../internal-docs/troubleshooting/ansible-lint.md) — role naming convention, yamllint config crashes, pre-existing violations
 - Windows Development: [`../../internal-docs/windows-development.md`](../../internal-docs/windows-development.md) — Windows module gaps, cross-platform role patterns, win_shell for blockinfile
 - Ansible Subdirectory Guide: [`../../shared/active/02-config/ansible/AGENTS.md`](../../shared/active/02-config/ansible/AGENTS.md) — playbook-to-inventory mapping, container module parameters, DNS architecture
+- Volume Ownership Init (non-root containers with volumes): [`../../shared/active/08-docs/adr/adr-20260822001-volume-ownership-init-pattern.md`](../../shared/active/08-docs/adr/adr-20260822001-volume-ownership-init-pattern.md) — ADR-20260822001: three-phase chown+verify pattern for Docker volumes attached to non-root containers. MANDATORY for every `--user <non-root>` container with a writable volume. Reusable implementation: `include_role: name: localnet-volume-init` with a `volume_init_volumes` list of `{name, mount, uid, gid, mode}` specs (intelligent defaults: `/data`, `1000`, `1000`, `755`). Do NOT hand-stitch `docker run --rm alpine sh -c 'chown ...'` calls in service roles — use the role.
 
 ## <commands>
 **Devbox Commands (Environment)**
@@ -144,6 +145,7 @@ infrahub/
 - Put client-specific values in `levonk/active/02-config/ansible/infrastructure/*.yml`
 - Put secrets in the vault file only
 - Use functional-group prefixes for role names (`dns-`, `proxy-`, `vpn-`, `ai-`)
+- Use `include_role: name: localnet-volume-init` for every non-root container with a writable volume (ADR-20260822001). Pass a `volume_init_volumes` list of `{name, mount, uid, gid, mode}` specs — intelligent defaults are `/data`, `1000`, `1000`, `755` so single-volume services only need to declare the volume name.
 
 ### ❌ DON'T
 - Hardcode IPs, ports, domains, or storage paths in roles/playbooks/templates
@@ -154,6 +156,7 @@ infrahub/
 - Duplicate infrastructure values across files (single source of truth)
 - Create new infrastructure variable files — use the existing 4 (`domains`, `networks`, `ports`, `storage`)
 - **Refuse to consider containerizing a service because upstream doesn't ship a Dockerfile** — this repo's entire purpose is to build and deploy containers for services that don't provide one. The absence of an upstream Dockerfile is irrelevant. The correct response is to assess whether the service *can* be containerized (Nix `dockerTools.buildImage`, hand-written Dockerfile, etc.) and deployed to a target host, not to dismiss the request because the upstream repo doesn't provide a container image. See `<agent-response-rules>` below.
+- Hand-stitch `docker run --rm alpine sh -c 'chown ...'` calls in service roles for volume ownership — use the `localnet-volume-init` role instead (ADR-20260822001). The role handles the three-phase chown+verify pattern, `DOCKER_HOST` tunneling, and multi-volume specs with per-volume uid/gid/mode.
 
 </patterns>
 
