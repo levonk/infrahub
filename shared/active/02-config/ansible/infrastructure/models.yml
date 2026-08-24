@@ -1,0 +1,25 @@
+---
+# Shared AI Model Defaults
+# Location: shared/active/02-config/ansible/infrastructure/models.yml
+# Purpose: Centralized model selection for all AI-backed services.
+#
+# Indirection chain (highest override → lowest default):
+#   per-agent/service model override
+#     → service-specific default (e.g. ai_buzz_agent_model)
+#       → free_model (global default for all free-tier services)
+#         → free_model_devin (the current free Devin model)
+#
+# When a free model promo ends, change free_model_devin in ONE place
+# and every service that defaults to free_model inherits the change.
+# ---------------------------------------------------------------------------
+
+# The current free Devin model.
+# GLM 5.2 High is free on promo right now. When the promo ends, switch this
+# to the next free model (e.g. "swe-1.7-medium" or whatever Devin offers).
+free_model_devin: "glm-5-2"
+# free_model_devin: "swe-1.7-medium"
+
+# Global default for all free-tier AI services.
+# Services reference this instead of hardcoding a model name.
+# Override per-service if a specific service needs a different model.
+free_model: "{{ free_model_devin }}"
