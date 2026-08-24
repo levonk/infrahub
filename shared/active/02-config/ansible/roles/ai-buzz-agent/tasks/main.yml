@@ -1,0 +1,138 @@
+---
+# Buzz Agent Runtime deployment
+# Deploys one Docker container per agent, each running buzz-acp + devin-cli.
+# Agents join buzz-network and connect to the relay internally (no host ports).
+
+- name: Validate required variables are defined
+  ansible.builtin.assert:
+    that:
+      - ai_buzz_agent_image_name is defined
+      - ai_buzz_agent_network_name is defined
+      - ai_buzz_agent_relay_url is defined
+      - ai_buzz_agent_agents is defined
+    fail_msg: >-
+      Missing required ai_buzz_agent variables. Check defaults/main.yml and
+      inventory vars.
+    success_msg: "All required ai_buzz_agent variables are defined."
+  tags: ["always", "validate"]
+
+- name: Validate each agent has required fields
+  ansible.builtin.assert:
+    that:
+      - item.id is defined
+      - item.name is defined
+      - item.nsec is defined
+      - item.nsec | length > 0
+      - item.nsec != ""
+    fail_msg: >-
+      Agent '{{ item.id | default('unnamed') }}' is missing required fields
+      (id, name, nsec). Check vault for vault_buzz_agent_*_nsec vars.
+    success_msg: "Agent {{ item.id }} has all required fields."
+  loop: "{{ ai_buzz_agent_agents }}"
+  loop_control:
+    label: "{{ item.id | default('unnamed') }}"
+  tags: ["always", "validate"]
+
+# ============================================================================
+# Ensure buzz-network exists (may already be created by ai-buzz role)
+# ============================================================================
+- name: Ensure buzz Docker network exists
+  community.docker.docker_network:
+    name: "{{ ai_buzz_agent_network_name }}"
+    state: present
+    driver: bridge
+  tags: ["network", "setup"]
+
+# ============================================================================
+# Pull the agent image
+# ============================================================================
+- name: Pull buzz-agent image
+  community.docker.docker_image:
+    name: "{{ ai_buzz_agent_image_name }}:{{ ai_buzz_agent_image_tag }}"
+    source: pull
+    state: present
+  tags: ["deploy", "image"]
+
+# ============================================================================
+# Ensure config directory exists on host for devin credentials + per-agent config
+# ============================================================================
+- name: Ensure buzz-agent config directory exists
+  ansible.builtin.file:
+    path: "{{ ai_buzz_agent_credentials_host_path | dirname }}"
+    state: directory
+    owner: "{{ ai_buzz_agent_puid }}"
+    group: "{{ ai_buzz_agent_pgid }}"
+    mode: '0750'
+  tags: ["deploy", "config"]
+
+# ============================================================================
+# Deploy one container per agent
+# ============================================================================
+- name: Set relay host mapping for etc_hosts
+  ansible.builtin.set_fact:
+    ai_buzz_agent_etc_hosts: >-
+      {{
+        { ai_buzz_agent_relay_domain: ai_buzz_agent_traefik_ip }
+      }}
+
+- name: Deploy buzz-agent containers
+  community.docker.docker_container:
+    name: "buzz-agent-{{ item.id }}"
+    image: "{{ ai_buzz_agent_image_name }}:{{ ai_buzz_agent_image_tag }}"
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ ai_buzz_agent_network_name }}"
+      - name: "{{ ai_buzz_agent_traefik_network_name }}"
+    # Map the relay domain to Traefik's IP so agents can resolve
+    # buzz.levonk.com without external DNS. Traefik's WebSocket bypass
+    # router skips Authelia for WS upgrade requests.
+    etc_hosts: "{{ ai_buzz_agent_etc_hosts }}"
+    env:
+      BUZZ_PRIVATE_KEY: "{{ item.nsec }}"
+      BUZZ_RELAY_URL: "{{ ai_buzz_agent_relay_url }}"
+      BUZZ_ACP_AGENT_COMMAND: "devin"
+      BUZZ_ACP_AGENT_ARGS: "acp"
+      DEVIN_MODEL: "{{ item.model | default(ai_buzz_agent_model) }}"
+      DEVIN_AUTO_UPDATE: "false"
+      BUZZ_ACP_IDLE_TIMEOUT: "{{ ai_buzz_agent_idle_timeout | string }}"
+      BUZZ_ACP_MAX_TURN_DURATION: "{{ ai_buzz_agent_max_turn_duration | string }}"
+      TZ: "{{ ai_buzz_agent_tz }}"
+    volumes:
+      # Devin credentials — mounted read-only from vault-managed host path
+      - "{{ ai_buzz_agent_credentials_host_path }}:{{ ai_buzz_agent_credentials_mount_path }}:ro"
+    log_driver: json-file
+    log_options:
+      max-size: "10m"
+      max-file: "5"
+    security_opts:
+      - no-new-privileges:true
+  loop: "{{ ai_buzz_agent_agents }}"
+  loop_control:
+    label: "buzz-agent-{{ item.id }}"
+  no_log: true
+  tags: ["deploy", "agents"]
+
+# ============================================================================
+# Verify containers are running
+# ============================================================================
+- name: Check buzz-agent container status
+  community.docker.docker_container_info:
+    name: "buzz-agent-{{ item.id }}"
+  loop: "{{ ai_buzz_agent_agents }}"
+  loop_control:
+    label: "buzz-agent-{{ item.id }}"
+  register: agent_container_status
+  ignore_errors: true
+  tags: ["deploy", "verify"]
+
+- name: Report buzz-agent deployment status
+  ansible.builtin.debug:
+    msg: |
+      Buzz Agent deployment status:
+      {% for result in agent_container_status.results %}
+        - {{ result.item | default('unknown') }}: {{ result.container.State.Status | default('not found') }}
+      {% endfor %}
+      Relay: {{ ai_buzz_agent_relay_url }}
+      Agents deployed: {{ ai_buzz_agent_agents | length }}
+  tags: ["always", "info"]

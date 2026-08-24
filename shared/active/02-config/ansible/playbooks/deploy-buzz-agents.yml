@@ -1,0 +1,68 @@
+---
+# Buzz Agent Runtime Deployment Playbook
+# Deploys one Docker container per Buzz agent, each running buzz-acp + devin-cli.
+# Agents connect to the already-deployed Buzz relay on buzz-network.
+#
+# Prerequisites:
+#   - Buzz relay deployed (deploy-buzz.yml)
+#   - localnet-ai-buzz-agent image built and pushed to registry
+#   - Devin credentials.toml placed on host at ai_buzz_agent_credentials_host_path
+#   - Agent nsec keys in vault (vault_buzz_agent_<id>_nsec)
+#
+# Usage:
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-buzz-agents.yml \
+#     --vault-password-file ~/.ansible/vault_password
+
+- name: "Deploy Buzz Agent Runtime Containers"
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: "Load shared infrastructure defaults (ports, networks, domains, storage, models)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+        - models.yml
+      tags: ["always"]
+
+    - name: "Load client infrastructure overrides (levonk)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+      tags: ["always"]
+
+    - name: "Display deployment start information"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Buzz Agent Deployment Started
+          ========================================
+          Target: {{ inventory_hostname }}
+          Agents: {{ ai_buzz_agent_agents | length }}
+          Relay: {{ ai_buzz_agent_relay_url | default('ws://buzz:3000') }}
+          ========================================
+      tags: ["always", "info"]
+
+  roles:
+    - ai-buzz-agent
+
+  post_tasks:
+    - name: "Report Buzz Agent deployment summary"
+      ansible.builtin.debug:
+        msg: |
+          Buzz Agent deployment complete on {{ inventory_hostname }}:
+            - Agents deployed: {{ ai_buzz_agent_agents | length }}
+            - Relay: {{ ai_buzz_agent_relay_url | default('ws://buzz:3000') }}
+            - Model: {{ ai_buzz_agent_model | default('glm-5-2') }}
+            - Telemetry: disabled (account-level + client-side config)
+      tags: ["always", "info"]

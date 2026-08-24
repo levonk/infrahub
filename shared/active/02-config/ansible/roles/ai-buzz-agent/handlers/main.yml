@@ -1,0 +1,12 @@
+---
+# Buzz Agent handlers
+
+- name: restart buzz-agent
+  community.docker.docker_container:
+    name: "buzz-agent-{{ item.id }}"
+    state: started
+    restart: true
+  loop: "{{ ai_buzz_agent_agents }}"
+  loop_control:
+    label: "buzz-agent-{{ item.id }}"
+  no_log: true

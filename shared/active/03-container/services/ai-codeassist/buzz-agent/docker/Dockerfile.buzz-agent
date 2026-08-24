@@ -1,0 +1,120 @@
+# Buzz Agent Runtime Container
+# Combines buzz-acp (ACP harness) + devin-cli (AI agent runtime) in one image.
+# Each agent container runs buzz-acp, which spawns `devin acp` as its ACP runtime.
+#
+# Multi-stage build per AGENTS.md Invariant #2:
+#   - builder: compiles buzz-acp and buzz-cli from block/buzz source (Rust)
+#   - runtime: debian with buzz-acp, buzz-cli, and devin-cli installed
+#
+# Build platform: linux/amd64,linux/arm64 (multi-arch — target is OCI ARM64)
+# Source: https://github.com/block/buzz (Apache-2.0)
+#          https://docs.devin.ai/cli (Devin CLI install script)
+
+# ---------------------------------------------------------------------------
+# Builder stage — compile buzz-acp and buzz-cli from block/buzz
+# ---------------------------------------------------------------------------
+FROM rust:1.88-bookworm AS builder
+
+ARG BUZZ_REF=main
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git pkg-config libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /usr/src/buzz
+RUN git clone --depth 1 --branch "${BUZZ_REF}" https://github.com/block/buzz.git /usr/src/buzz
+
+# Build only the crates we need: buzz-acp (harness) and buzz-admin (key/member management)
+RUN cargo build --release -p buzz-acp -p buzz-admin
+
+# ---------------------------------------------------------------------------
+# Runtime stage
+# ---------------------------------------------------------------------------
+FROM debian:bookworm-slim AS runtime
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates curl git jq \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy compiled Rust binaries from builder
+COPY --from=builder /usr/src/buzz/target/release/buzz-acp /usr/local/bin/buzz-acp
+COPY --from=builder /usr/src/buzz/target/release/buzz-admin /usr/local/bin/buzz-admin
+
+# Install devin-cli using the official install script
+# The script detects arch (aarch64-unknown-linux for ARM64) and downloads the binary.
+# We download the script to a file first, then run it with stdin from /dev/null to
+# skip the interactive login prompt (credentials are mounted at runtime, not baked in).
+RUN curl -fsSL https://cli.devin.ai/install.sh -o /tmp/devin-install.sh && \
+    bash /tmp/devin-install.sh < /dev/null || true
+# The installer creates a symlink at /root/.local/bin/devin pointing to
+# /root/.local/share/devin/cli/_versions/current/bin/devin. We must copy the
+# REAL binary (not the symlink) to /usr/local/bin/ so the non-root agent user
+# can execute it. Using cp -L dereferences the symlink chain.
+RUN REAL_BIN=$(readlink -f /root/.local/bin/devin 2>/dev/null || true) && \
+    if [ -n "$REAL_BIN" ] && [ -f "$REAL_BIN" ]; then \
+        cp -L "$REAL_BIN" /usr/local/bin/devin && \
+        chmod 755 /usr/local/bin/devin && \
+        rm -f /root/.local/bin/devin; \
+    elif [ -f /usr/local/bin/devin ]; then \
+        echo "devin already in /usr/local/bin"; \
+    else \
+        echo "devin binary not found"; \
+        find / -name devin -type f 2>/dev/null || true; \
+        exit 1; \
+    fi
+
+# Create a non-root user for the agent runtime
+# UID 1000 matches the standard cuser convention
+RUN useradd -m -u 1000 -s /bin/bash agent
+
+# Create devin config directory and bake in a locked-down default config.
+# Telemetry is disabled at the account/team level (server-side, cannot be
+# overridden), but we also disable every client-side telemetry-adjacent
+# setting: attribution (no Devin branding in commits), auto_update (pinned
+# container), show_hints, notify, and subagents (one agent per container).
+RUN mkdir -p /home/agent/.config/devin && \
+    printf '%s\n' \
+      '{' \
+      '  "agent": {' \
+      '    "model": "glm-5-2",' \
+      '    "show_history_on_continue": false' \
+      '  },' \
+      '  "attribution": false,' \
+      '  "auto_update": false,' \
+      '  "show_hints": false,' \
+      '  "show_path": false,' \
+      '  "notify": "never",' \
+      '  "subagents_enabled": false,' \
+      '  "theme_mode": "nocolor"' \
+      '}' > /home/agent/.config/devin/config.json && \
+    chown -R agent:agent /home/agent/.config
+
+# Create devin data/log directories writable by the agent user.
+# devin-cli writes logs and runtime state to ~/.local/share/devin/cli/.
+# The credentials.toml is mounted at runtime to ~/.local/share/devin/credentials.toml.
+RUN mkdir -p /home/agent/.local/share/devin/cli && \
+    chown -R agent:agent /home/agent/.local
+
+USER agent
+WORKDIR /home/agent
+
+# Default environment — overridden per-agent by Ansible.
+# DEVIN_MODEL is set by Ansible from the indirection chain:
+#   ai_buzz_agent_model → free_model → free_model_devin (see infrastructure/models.yml)
+# The fallback here is only used if the container runs without Ansible.
+# DEVIN_TELEMETRY is not a documented env var, but we set it defensively.
+# The account-level setting (Telemetry: disabled, zero-data-retention) is
+# the authoritative control and is enforced server-side regardless.
+ENV BUZZ_RELAY_URL="ws://buzz:3000" \
+    BUZZ_ACP_AGENT_COMMAND="devin" \
+    BUZZ_ACP_AGENT_ARGS="acp" \
+    DEVIN_MODEL="glm-5-2" \
+    DEVIN_AUTO_UPDATE="false" \
+    BUZZ_ACP_IDLE_TIMEOUT="620" \
+    BUZZ_ACP_MAX_TURN_DURATION="7200"
+
+# No HEALTHCHECK — buzz-acp is a long-running process, not an HTTP server.
+# Liveness is checked via docker_container_info (process state) in the Ansible role.
+
+# Start buzz-acp — it spawns `devin acp` and connects to the relay
+CMD ["buzz-acp"]

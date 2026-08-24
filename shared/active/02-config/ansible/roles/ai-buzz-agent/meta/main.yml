@@ -1,0 +1,16 @@
+---
+galaxy_info:
+  role_name: ai_buzz_agent
+  author: localnet
+  description: Deploy Buzz agent runtime containers (buzz-acp + devin-cli)
+  license: MIT
+  min_ansible_version: "2.9"
+  platforms:
+    - name: EL
+      versions:
+        - "8"
+        - "9"
+    - name: Ubuntu
+      versions:
+        - jammy
+dependencies: []
