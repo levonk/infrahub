@@ -71,6 +71,11 @@ infra_network_ip_buzz_minio: "172.38.0.40"
 # Traefik-network IP for buzz (public routing)
 infra_network_ip_buzz_traefik: "172.31.0.50"
 
+# Buzz Agent Runtime Containers (buzz-acp + devin-cli per agent)
+# Agents join buzz-network to reach the relay internally.
+# IP range 172.38.0.100+ reserved for agent containers (one per agent).
+infra_network_ip_buzz_agent_base: "172.38.0.100"
+
 # Paperclip (AI agent orchestration platform)
 # Joins traefik-network for public routing via Traefik + Authelia
 infra_network_ip_paperclip: "172.31.0.20"
@@ -134,6 +139,10 @@ infra_network_proxy_tor_gateway: "172.30.0.1"
 infra_network_proxy_traefik_network_name: "traefik-network"
 infra_network_proxy_traefik_subnet: "172.31.0.0/16"
 infra_network_proxy_traefik_gateway: "172.31.0.1"
+# Traefik container's static IP on traefik-network.
+# Used by internal containers that need to resolve public domain names
+# (e.g. buzz.levonk.com) to Traefik for WebSocket/TLS termination.
+infra_network_ip_traefik: "172.31.0.2"
 
 # ---------------------------------------------------------------------------
 # Security Networks
