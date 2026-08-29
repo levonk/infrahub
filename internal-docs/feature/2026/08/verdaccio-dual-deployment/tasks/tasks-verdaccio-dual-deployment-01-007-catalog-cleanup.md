@@ -65,7 +65,7 @@ Add verdaccio entries to the service catalog and clean up the old custom Dockerf
 ## Acceptance Criteria
 
 - [ ] services.yml has both cno and nl verdaccio entries with source_repo
-- [ ] Both catalogs regenerated (levonk/SERVICES.md + infrahub/SERVICES.md)
+- [ ] Both catalogs regenerated (levonk/SERVICES.md + SERVICES.md)
 - [ ] Generator reports all services have source_repo links
 - [ ] Old custom Dockerfile + entrypoint removed
 - [ ] docker-compose.artifact.yml verdaccio entry removed

@@ -44,7 +44,7 @@ Add the no-mistakes service entry to `services.yml` and regenerate both service 
     network: "traefik-windows-network"
   ```
 - [ ] Run `devbox run -- just generate-service-catalog` (regenerates levonk/SERVICES.md)
-- [ ] Run `devbox run -- just generate-service-catalog-shared` (regenerates infrahub/SERVICES.md)
+- [ ] Run `devbox run -- just generate-service-catalog-shared` (regenerates SERVICES.md)
 - [ ] Verify the generator reports "✓ All services have source_repo links"
 
 ## Relevant Files
