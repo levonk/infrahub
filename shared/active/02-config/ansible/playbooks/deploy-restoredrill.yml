@@ -1,0 +1,13 @@
+---
+# Deploy restoredrill — PostgreSQL backup restore verification
+# Deploys scheduled pg_dump + restore drill jobs for each configured Postgres instance.
+# See: shared/active/02-config/ansible/roles/devops-restoredrill/README.md
+
+- name: "Deploy restoredrill backup verification"
+  hosts: cloud_servers
+  become: true
+  vars_files:
+    - "{{ inventory_dir }}/group_vars/all.yml"
+  roles:
+    - role: devops-restoredrill
+      tags: ["deploy", "restoredrill"]

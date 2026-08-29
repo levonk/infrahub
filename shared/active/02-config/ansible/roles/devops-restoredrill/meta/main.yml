@@ -1,0 +1,21 @@
+---
+galaxy_info:
+  role_name: devops_restoredrill
+  author: localnet
+  description: Deploy restoredrill — PostgreSQL backup restore verification with scheduled pg_dump + drill jobs
+  license: MIT
+  min_ansible_version: "2.9"
+  platforms:
+    - name: EL
+      versions:
+        - "8"
+        - "9"
+    - name: Ubuntu
+      versions:
+        - jammy
+  galaxy_tags:
+    - backup
+    - postgresql
+    - disasterrecovery
+    - compliance
+    - monitoring

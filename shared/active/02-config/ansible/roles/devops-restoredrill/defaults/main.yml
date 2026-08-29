@@ -1,0 +1,102 @@
+---
+# restoredrill Default Variables
+# PostgreSQL backup restore verification — proves backups actually restore.
+# Deploys a scheduled job (systemd timer) that:
+#   1. Runs pg_dump -Fc against each configured Postgres instance (the backup)
+#   2. Runs restoredrill against that backup (the verification)
+#   3. Writes a JSON evidence report + Prometheus textfile metrics
+#
+# This is NOT a long-running service. It is a cron/timer one-shot job.
+# See: internal-docs/research/service/restoredrill/README.md
+
+# ---------------------------------------------------------------------------
+# Binary Installation
+# ---------------------------------------------------------------------------
+restoredrill_version: "v0.1.0"
+restoredrill_binary_dir: "{{ infra_storage_restoredrill_binary_dir | default('/opt/localnet/services/restoredrill/bin') }}"
+restoredrill_binary_path: "{{ restoredrill_binary_dir }}/restoredrill"
+# Install method: "go_install" (requires Go on host) or "download" (GitHub releases)
+restoredrill_install_method: "download"
+restoredrill_go_install_path: "github.com/ahmadpiran/restoredrill/cmd/restoredrill@{{ restoredrill_version }}"
+
+# ---------------------------------------------------------------------------
+# Directories (reference infrastructure storage variables)
+# ---------------------------------------------------------------------------
+restoredrill_config_dir: "{{ infra_storage_restoredrill_config_dir | default('/opt/localnet/services/restoredrill') }}"
+restoredrill_backup_dir: "{{ infra_storage_restoredrill_backup_dir | default('/opt/localnet/backup/restoredrill') }}"
+restoredrill_report_dir: "{{ infra_storage_restoredrill_report_dir | default('/opt/localnet/data/restoredrill/reports') }}"
+restoredrill_prometheus_textfile: "{{ infra_storage_restoredrill_prometheus_textfile | default('/var/lib/node_exporter/textfile/restoredrill.prom') }}"
+
+# ---------------------------------------------------------------------------
+# Scheduling (systemd timer)
+# ---------------------------------------------------------------------------
+restoredrill_schedule_enabled: true
+# Run daily at 03:00 (off-peak). Adjust per recovery policy.
+restoredrill_timer_calendar: "*-*-* 03:00:00"
+restoredrill_timer_persistent: true
+restoredrill_timer_random_delay_sec: 300
+
+# ---------------------------------------------------------------------------
+# Backup Configuration (pg_dump)
+# ---------------------------------------------------------------------------
+# Retention: keep this many most recent backups per database.
+# 7 days of daily backups is a cheap default — pg_dump -Fc is compressed.
+restoredrill_backup_retention_count: 7
+# pg_dump format: "custom" (-Fc, compressed, preferred) or "plain" (-f, SQL text)
+restoredrill_backup_format: "custom"
+# Docker network to run pg_dump from (must reach the Postgres container)
+restoredrill_docker_network: "{{ infra_storage_docker_network_name | default('cloud-server') }}"
+
+# ---------------------------------------------------------------------------
+# Postgres sandbox image for restore verification
+# Match the production major version. Default: postgres:16-alpine (small image).
+# ---------------------------------------------------------------------------
+restoredrill_postgres_image: "postgres:16-alpine"
+
+# ---------------------------------------------------------------------------
+# Databases to verify — list of dicts, one per Postgres instance.
+# Each entry produces a separate config file, backup, and drill run.
+#
+# Required fields per database:
+#   name: unique identifier (used for config filename, backup filename, report)
+#   container: name of the running Postgres container to dump from
+#   db_name: database name inside Postgres
+#   db_user: Postgres user for pg_dump
+# Optional fields:
+#   db_password: password (if not set, uses vault_{name}_pg_password)
+#   postgres_image: override restoredrill_postgres_image per database
+#   min_tables: minimum user tables after restore (default: 1)
+#   rpo_target: max acceptable backup age (e.g. "48h", default: "25h")
+#   rto_target: max acceptable restore duration (e.g. "30m", optional)
+#   row_counts: list of {table, min} for read-path checks
+#   queries: list of {name, sql} for SQL assertions
+#   verify_as_role: role to run checks as (requires globals_source)
+#
+# Example:
+#   restoredrill_databases:
+#     - name: paperclip
+#       container: paperclip-postgres
+#       db_name: paperclip
+#       db_user: paperclip
+#       min_tables: 5
+#       rpo_target: "25h"
+# ---------------------------------------------------------------------------
+restoredrill_databases: []
+
+# ---------------------------------------------------------------------------
+# Alerting (optional — reference vault secrets)
+# ---------------------------------------------------------------------------
+restoredrill_slack_webhook_url: "{{ vault_restoredrill_slack_webhook_url | default('') }}"
+restoredrill_webhook_url: "{{ vault_restoredrill_webhook_url | default('') }}"
+
+# ---------------------------------------------------------------------------
+# Trigger metadata (recorded on evidence reports)
+# ---------------------------------------------------------------------------
+restoredrill_trigger: "scheduled"
+restoredrill_triggered_by: "systemd-timer"
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+restoredrill_log_max_size: "10m"
+restoredrill_log_max_file: 5

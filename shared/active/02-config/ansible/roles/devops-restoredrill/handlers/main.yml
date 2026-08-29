@@ -1,0 +1,12 @@
+---
+# restoredrill handlers
+
+- name: restart restoredrill timer
+  ansible.builtin.systemd:
+    name: "restoredrill-{{ item.name }}.timer"
+    state: restarted
+    daemon_reload: true
+  loop: "{{ restoredrill_databases }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: restoredrill_schedule_enabled | bool

@@ -1,0 +1,189 @@
+---
+# restoredrill Deployment Tasks
+# Deploys a scheduled backup + restore verification job for PostgreSQL.
+#
+# For each database in restoredrill_databases:
+#   1. Creates config/report/backup directories
+#   2. Templates a restoredrill.yml config pointing at the local pg_dump backup
+#   3. Templates a wrapper script that: pg_dump → restoredrill → cleanup old backups
+#   4. Installs a systemd service + timer for scheduled execution
+#   5. Configures Prometheus textfile metrics for alerting on drill staleness
+
+# ---------------------------------------------------------------------------
+# Validation
+# ---------------------------------------------------------------------------
+- name: Validate required variables
+  ansible.builtin.assert:
+    that:
+      - restoredrill_databases is defined
+      - restoredrill_databases | length > 0
+      - restoredrill_version is defined
+    fail_msg: >-
+      Missing required restoredrill variables. Ensure restoredrill_databases
+      is a non-empty list of database dicts (name, container, db_name, db_user).
+    success_msg: "All required restoredrill variables are defined."
+  tags: ["always", "validate"]
+
+- name: Validate each database entry has required fields
+  ansible.builtin.assert:
+    that:
+      - item.name is defined
+      - item.container is defined
+      - item.db_name is defined
+      - item.db_user is defined
+    fail_msg: >-
+      Database entry missing required field (name, container, db_name, or db_user).
+      Entry: {{ item }}
+    success_msg: "Database entry '{{ item.name }}' is valid."
+  loop: "{{ restoredrill_databases }}"
+  loop_control:
+    label: "{{ item.name }}"
+  tags: ["always", "validate"]
+
+# ---------------------------------------------------------------------------
+# Directories
+# ---------------------------------------------------------------------------
+- name: Ensure restoredrill directories exist
+  ansible.builtin.file:
+    path: "{{ path_item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - "{{ restoredrill_config_dir }}"
+    - "{{ restoredrill_backup_dir }}"
+    - "{{ restoredrill_report_dir }}"
+    - "{{ restoredrill_binary_dir }}"
+    - "{{ restoredrill_prometheus_textfile | dirname }}"
+  loop_control:
+    loop_var: path_item
+  tags: ["deploy"]
+
+# ---------------------------------------------------------------------------
+# Install restoredrill binary
+# ---------------------------------------------------------------------------
+- name: Install restoredrill via go install
+  ansible.builtin.command:
+    cmd: "go install {{ restoredrill_go_install_path }}"
+    creates: "{{ restoredrill_binary_path }}"
+  environment:
+    GOBIN: "{{ restoredrill_binary_dir }}"
+    GOPATH: "{{ restoredrill_binary_dir }}/gopath"
+  when: restoredrill_install_method == "go_install"
+  tags: ["deploy", "install"]
+
+- name: Download restoredrill release binary
+  ansible.builtin.get_url:
+    url: "https://github.com/ahmadpiran/restoredrill/releases/download/{{ restoredrill_version }}/restoredrill-linux-{{ ansible_architecture }}"
+    dest: "{{ restoredrill_binary_path }}"
+    mode: "0755"
+    owner: root
+    group: root
+  when: restoredrill_install_method == "download"
+  tags: ["deploy", "install"]
+
+- name: Verify restoredrill binary is executable
+  ansible.builtin.command:
+    cmd: "{{ restoredrill_binary_path }} --help"
+  changed_when: false
+  register: restoredrill_help_check
+  failed_when: restoredrill_help_check.rc != 0 and restoredrill_help_check.rc != 2
+  tags: ["deploy", "install"]
+
+# ---------------------------------------------------------------------------
+# Per-database config, wrapper script, and systemd timer
+# ---------------------------------------------------------------------------
+- name: Template restoredrill config for each database
+  ansible.builtin.template:
+    src: restoredrill-database.yml.j2
+    dest: "{{ restoredrill_config_dir }}/restoredrill-{{ db_item.name }}.yml"
+    owner: root
+    group: root
+    mode: "0640"
+  loop: "{{ restoredrill_databases }}"
+  loop_control:
+    loop_var: db_item
+  notify: "restart restoredrill timer"
+  tags: ["deploy", "config"]
+
+- name: Template drill wrapper script for each database
+  ansible.builtin.template:
+    src: restoredrill-drill.sh.j2
+    dest: "{{ restoredrill_config_dir }}/restoredrill-drill-{{ db_item.name }}.sh"
+    owner: root
+    group: root
+    mode: "0755"
+  loop: "{{ restoredrill_databases }}"
+  loop_control:
+    loop_var: db_item
+  notify: "restart restoredrill timer"
+  tags: ["deploy", "config"]
+
+- name: Template systemd service for each database
+  ansible.builtin.template:
+    src: restoredrill-service.service.j2
+    dest: "/etc/systemd/system/restoredrill-{{ db_item.name }}.service"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ restoredrill_databases }}"
+  loop_control:
+    loop_var: db_item
+  notify: "restart restoredrill timer"
+  tags: ["deploy", "config"]
+
+- name: Template systemd timer for each database
+  ansible.builtin.template:
+    src: restoredrill-timer.timer.j2
+    dest: "/etc/systemd/system/restoredrill-{{ db_item.name }}.timer"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ restoredrill_databases }}"
+  loop_control:
+    loop_var: db_item
+  notify: "restart restoredrill timer"
+  tags: ["deploy", "config"]
+
+- name: Reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: true
+  tags: ["deploy", "config"]
+
+- name: Enable and start restoredrill timers
+  ansible.builtin.systemd:
+    name: "restoredrill-{{ db_item.name }}.timer"
+    state: started
+    enabled: true
+  loop: "{{ restoredrill_databases }}"
+  loop_control:
+    loop_var: db_item
+  when: restoredrill_schedule_enabled | bool
+  tags: ["deploy", "config"]
+
+- name: Disable restoredrill timers (if scheduling disabled)
+  ansible.builtin.systemd:
+    name: "restoredrill-{{ db_item.name }}.timer"
+    state: stopped
+    enabled: false
+  loop: "{{ restoredrill_databases }}"
+  loop_control:
+    loop_var: db_item
+  when: not (restoredrill_schedule_enabled | bool)
+  tags: ["deploy", "config"]
+
+# ---------------------------------------------------------------------------
+# Status Report
+# ---------------------------------------------------------------------------
+- name: Report restoredrill deployment status
+  ansible.builtin.debug:
+    msg: |
+      restoredrill deployed:
+        - Binary: {{ restoredrill_binary_path }} ({{ restoredrill_version }})
+        - Databases: {{ restoredrill_databases | map(attribute='name') | list | join(', ') }}
+        - Schedule: {{ restoredrill_timer_calendar }} (enabled: {{ restoredrill_schedule_enabled }})
+        - Backup dir: {{ restoredrill_backup_dir }} (retention: {{ restoredrill_backup_retention_count }})
+        - Report dir: {{ restoredrill_report_dir }}
+        - Prometheus textfile: {{ restoredrill_prometheus_textfile }}
+  tags: ["always", "info"]

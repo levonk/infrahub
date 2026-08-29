@@ -357,9 +357,135 @@ Molecule scenarios are in `.molecule/default/` within each role directory:
 
 **When to apply**: Any Windows Docker role that deploys a container with `--user <non-root-uid>` and a writable volume mount. The chown must run **before** `docker run` for the service container, and should be idempotent (`changed_when: false`).
 
+## Stateful Data Requires Backup Verification
+
+**Any service with a database or persistent stateful data MUST have a backup job
+and restore verification.** "Untested backups aren't backups" — a volume mount
+or Docker volume is not a backup. If the data would be lost when the container
+is recreated or the host dies, it needs a backup.
+
+### When This Applies
+
+A service needs a backup job if it has ANY of:
+- A PostgreSQL, MySQL, MariaDB, MongoDB, Redis, or SQLite database
+- A Docker volume or bind mount with data that is not regenerable from config
+- Time-series data (Prometheus, OpenSearch, InfluxDB)
+- Object storage with user-uploaded content (MinIO, RustFS)
+
+A service does NOT need a backup job if:
+- All state is config rendered by Ansible (dashboards, proxies, DNS)
+- Data is a cache that can be rebuilt (Varnish, SearXNG cache)
+- Data is derived from an upstream source (Nix store, blocklists)
+
+### How to Set Up a Backup Job
+
+**For PostgreSQL databases**: use the `devops-restoredrill` role
+(`roles/devops-restoredrill/`). It combines pg_dump + restore verification in
+one scheduled job. Add the database to `restoredrill_databases` in the client's
+group_vars. See `roles/devops-restoredrill/README.md` for the database entry
+schema.
+
+**For other databases** (MySQL, Redis, SQLite, OpenSearch): restoredrill is
+Postgres-only as of v0.1.0. Use a pg_dump-equivalent (mysqldump, redis-cli
+BGSAVE, sqlite3 .backup, opensearch snapshot) + a cron job. Track the
+restoredrill roadmap for multi-engine support.
+
+**For file-based state**: use `rsync` or `tar` to a backup directory with
+retention. Not all file state needs restore verification — config files are
+in Ansible and can be redeployed. Only back up data that cannot be regenerated.
+
+### Cheap Backup Job (Low Space)
+
+The cheapest backup job that still provides verification:
+
+1. **pg_dump -Fc** (custom format) — built-in compression, typically 3-10x
+   smaller than the raw database. A 100MB database becomes a 10-30MB dump.
+2. **Retention: 7 copies** — keep only the 7 most recent backups. At daily
+   cadence, that's one week of history. The `devops-restoredrill` role does
+   this automatically (`restoredrill_backup_retention_count: 7`).
+3. **Local storage** — store backups on the same host under
+   `/opt/localnet/backup/restoredrill/`. No S3, no network, no extra infra.
+4. **Daily cadence** — run once at 03:00 (off-peak). The dump + restore drill
+   for a small database takes seconds to minutes.
+5. **No separate backup tool** — the `devops-restoredrill` role does both the
+   dump AND the restore verification in one job. No pg_dump cron + separate
+   restoredrill cron.
+
+**Total space for 7 daily backups of a 100MB database**: ~70-210MB (7 x 10-30MB
+compressed dumps). For a 1GB database: ~700MB-2GB. This is negligible on any
+server with 20GB+ of disk.
+
+**When to go beyond the cheap option**:
+- Database > 10GB: consider S3 storage + weekly full + daily incremental
+- Compliance requires off-site backups: push to S3 after local dump
+- Database > 100GB: restoredrill's ephemeral container model may not fit;
+  consider restore-to-dedicated-infra instead
+
+### Adding Backup to a New Service
+
+When adding a new service with a database (Phase 5 of the add-new-service
+workflow), also:
+
+1. Check if the database is PostgreSQL — if so, add it to
+   `restoredrill_databases` in the client's group_vars
+2. Add a storage variable for the backup path in `storage.yml` if needed
+3. Document the backup strategy in the service role's README.md
+4. For non-Postgres databases, add a cron job or systemd timer for the
+   appropriate dump tool
+
+## Monitoring, Alerting & Uptime Are Mandatory Deliverables
+
+Every new service must declare its monitoring integration. The observability
+stack (per ADR-202608270001) includes Prometheus (metrics), Grafana
+(dashboards), Alertmanager (alert routing with topology-aware inhibition),
+Loki (logs), Uptime Kuma (uptime probes), and node_exporter (host metrics).
+Even if the stack is not yet deployed, the metadata must be in place.
+
+### What Every Service Must Have
+
+1. **Health check**: A `healthcheck:` block in the `docker_container` task
+   and a `{service}_verify_health` boolean default. See `proxy-traefik` or
+   `dashboard-homepage` for the pattern.
+2. **Catalog monitoring fields**: In `services.yml`, add `metrics_path`,
+   `health_endpoint`, and `alert_labels` to the service entry. For pipeline
+   services, also add `pipeline` and `pipeline_stage`.
+3. **Metrics endpoint** (if applicable): If the service exposes Prometheus
+   metrics, declare the metrics port in `ports.yml` and set `metrics_path`
+   and `metrics_port` in `services.yml`.
+4. **Role README documentation**: A "Monitoring" section describing the
+   metrics endpoint, health check, pipeline classification, and alert
+   behavior.
+
+### Pipeline Services
+
+Services that are part of a defined pipeline (AI, DNS, Web, VPN per
+ADR-202608270001) must also have:
+
+- `pipeline` and `pipeline_stage` fields in `services.yml`
+- `alert_labels` matching the ADR label schema (`pipeline`, `stage`,
+  `service`) so Alertmanager inhibition rules apply correctly
+- Per-node alert rules in the `monitoring-alertmanager` role (when deployed)
+
+### Uptime Monitoring
+
+When the `monitoring-uptime-kuma` role is deployed, add the service to
+`monitoring_uptime_kuma_monitors` in the client's group_vars. For public
+services, probe the Traefik domain. For internal services, probe the
+container hostname:port directly.
+
+### node_exporter Textfile Collector
+
+Services that produce custom metrics (like `devops-restoredrill`) should
+write to the node_exporter textfile directory
+(`/var/lib/node_exporter/textfile/`) so the metrics are scraped by
+node_exporter without a dedicated scrape config. See the `devops-restoredrill`
+role for the pattern.
+
 ## JIT Index
 
 - Ansible Lint Troubleshooting: [`internal-docs/troubleshooting/ansible-lint.md`](../../../internal-docs/troubleshooting/ansible-lint.md) — role naming convention, yamllint config crashes, pre-existing violations
 - Windows Development: [`internal-docs/windows-development.md`](../../../internal-docs/windows-development.md) — Windows module gaps, cross-platform role patterns, win_shell for blockinfile
 - Root AGENTS.md: [`../../../AGENTS.md`](../../../AGENTS.md) — environment setup, vault, deployment workflow, architectural invariants
+- Backup Verification: [`roles/devops-restoredrill/README.md`](roles/devops-restoredrill/README.md) — restoredrill role for PostgreSQL backup + restore verification
+- Observability Strategy: [`shared/active/08-docs/adr/adr-202608270001-pipeline-observability-strategy.md`](../../08-docs/adr/adr-202608270001-pipeline-observability-strategy.md) — ADR for topology-aware monitoring with Alertmanager inhibition
 - Developer Guide: [`../../../.agents/knowledge/developer.md`](../../../.agents/knowledge/developer.md) — key directories, patterns, boundaries, known gotchas
