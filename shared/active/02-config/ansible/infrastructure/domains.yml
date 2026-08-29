@@ -68,10 +68,20 @@ infra_domain_proxy_varnish: "varnish.{{ infra_domain_base }}"
 infra_domain_sso_authelia: "auth.{{ infra_domain_base }}"
 
 # ---------------------------------------------------------------------------
-# Monitoring Services
+# Monitoring Services (per ADR-202608270001)
+# Grafana and Uptime Kuma are exposed via Traefik for browser access.
+# Prometheus and Alertmanager are internal-only (no Traefik exposure).
 # ---------------------------------------------------------------------------
 infra_domain_monitoring_grafana: "grafana.{{ infra_domain_base }}"
 infra_domain_monitoring_prometheus: "prometheus.{{ infra_domain_base }}"
+infra_domain_monitoring_uptime_kuma: "uptime.{{ infra_domain_base }}"
+infra_domain_monitoring_alertmanager: "alerts.{{ infra_domain_base }}"
+infra_hostname_monitoring_prometheus: "localnet-monitoring-prometheus"
+infra_hostname_monitoring_grafana: "localnet-monitoring-grafana"
+infra_hostname_monitoring_loki: "localnet-monitoring-loki"
+infra_hostname_monitoring_alertmanager: "localnet-monitoring-alertmanager"
+infra_hostname_monitoring_uptime_kuma: "localnet-monitoring-uptime-kuma"
+infra_hostname_monitoring_node_exporter: "localnet-monitoring-node-exporter"
 
 # ---------------------------------------------------------------------------
 # VPN Hostnames

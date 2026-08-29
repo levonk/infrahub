@@ -28,6 +28,18 @@
 #   security   — Security engine, bouncer, auth provider
 #   infra      — Infrastructure service (registry, dashboard, VM, etc.)
 # ---------------------------------------------------------------------------
+# Monitoring fields (optional, per ADR-202608270001):
+#   metrics_path: "/metrics"           — Prometheus scrape path (if service exposes metrics)
+#   metrics_port: "infra_port_..."     — Port variable for metrics endpoint
+#   health_endpoint: "/health"         — Health check path (for uptime monitoring)
+#   pipeline: "ai"                     — Which pipeline this service belongs to (ai, dns, web, vpn, none)
+#   pipeline_stage: "gateway"          — Stage within the pipeline (for alert inhibition rules)
+#   alert_labels:                      — Labels for Prometheus alert rules
+#     pipeline: "ai"
+#     stage: "gateway"
+#     service: "litellm"
+# ---------------------------------------------------------------------------
+
 # Machines:
 #   oci-cloud-server  — OCI ARM cloud server (primary, Tailscale: oci.<tailnet>)
 #   kckinai           — Inference host (local, Tailscale: kckinai.<tailnet>)
@@ -54,6 +66,14 @@ services:
       container: "infra_port_ai_litellm_container"
       label: "Web/API"
   traefik: true
+  metrics_path: "/metrics"
+  health_endpoint: "/health"
+  pipeline: "ai"
+  pipeline_stage: "gateway"
+  alert_labels:
+    pipeline: "ai"
+    stage: "gateway"
+    service: "litellm"
 
 - name: "LiteLLM Postgres"
   container: "{{ infra_hostname_litellm_postgres }}"
@@ -353,6 +373,14 @@ services:
       container: "infra_port_proxy_https_container"
       label: "HTTPS"
   network: "traefik-network"
+  metrics_path: "/metrics"
+  metrics_port: "infra_port_proxy_traefik_metrics"
+  health_endpoint: "/api/rawdata"
+  pipeline: "none"
+  alert_labels:
+    pipeline: "infra"
+    stage: "ingress"
+    service: "traefik"
 
 # ===========================================================================
 # Security / SSO
@@ -371,6 +399,13 @@ services:
       container: "infra_port_sso_authelia_web_container"
       label: "Web"
   traefik: true
+  metrics_path: "/metrics"
+  metrics_port: "infra_port_sso_authelia_metrics"
+  health_endpoint: "/api/health"
+  alert_labels:
+    pipeline: "infra"
+    stage: "auth"
+    service: "authelia"
 
 - name: "Authelia Postgres"
   container: "authelia-postgres"
@@ -395,6 +430,12 @@ services:
       container: "infra_port_security_crowdsec_container"
       label: "LAPI"
   network: "crowdsec-network"
+  metrics_path: "/metrics"
+  metrics_port: "infra_port_security_crowdsec_prometheus"
+  alert_labels:
+    pipeline: "infra"
+    stage: "security"
+    service: "crowdsec"
 
 # ===========================================================================
 # VPN / Mesh Networking
@@ -1040,6 +1081,93 @@ services:
   description: "Buzz agent runtime containers (buzz-acp + devin-cli) — one per agent, internal buzz-network only"
   source_repo: "https://github.com/block/buzz"
   network: "buzz-network"
+
+# ===========================================================================
+# Monitoring Stack (per ADR-202608270001)
+# Topology-aware observability: Prometheus, Grafana, Alertmanager, Loki,
+# Uptime Kuma, node_exporter. Deployed via deploy-monitoring-stack.yml.
+# ===========================================================================
+
+- name: "Prometheus"
+  container: "{{ infra_hostname_monitoring_prometheus }}"
+  machine: "oci-cloud-server"
+  category: "console"
+  description: "Metrics scraper for all /metrics endpoints (per ADR-202608270001)"
+  source_repo: "https://github.com/prometheus/prometheus"
+  ports:
+    - host: "infra_port_monitoring_prometheus_host"
+      container: "infra_port_monitoring_prometheus_container"
+      label: "Web UI"
+  network: "traefik-network"
+
+- name: "Grafana"
+  container: "{{ infra_hostname_monitoring_grafana }}"
+  machine: "oci-cloud-server"
+  category: "console"
+  description: "Dashboards for all pipelines (per ADR-202608270001)"
+  source_repo: "https://github.com/grafana/grafana"
+  domains:
+    - "infra_domain_monitoring_grafana"
+  ports:
+    - host: "infra_port_monitoring_grafana_host"
+      container: "infra_port_monitoring_grafana_container"
+      label: "Web UI"
+  traefik: true
+  network: "traefik-network"
+
+- name: "Alertmanager"
+  container: "{{ infra_hostname_monitoring_alertmanager }}"
+  machine: "oci-cloud-server"
+  category: "console"
+  description: "Alert routing with topology-aware inhibition (per ADR-202608270001)"
+  source_repo: "https://github.com/prometheus/alertmanager"
+  domains:
+    - "infra_domain_monitoring_alertmanager"
+  ports:
+    - host: "infra_port_monitoring_alertmanager_host"
+      container: "infra_port_monitoring_alertmanager_container"
+      label: "Web UI"
+  traefik: true
+  network: "traefik-network"
+
+- name: "Loki"
+  container: "{{ infra_hostname_monitoring_loki }}"
+  machine: "oci-cloud-server"
+  category: "passive"
+  description: "Log aggregation (Docker JSON logs via Promtail, per ADR-202608270001)"
+  source_repo: "https://github.com/grafana/loki"
+  ports:
+    - host: "infra_port_monitoring_loki_host"
+      container: "infra_port_monitoring_loki_container"
+      label: "API"
+  network: "traefik-network"
+
+- name: "Uptime Kuma"
+  container: "{{ infra_hostname_monitoring_uptime_kuma }}"
+  machine: "oci-cloud-server"
+  category: "console"
+  description: "Internal uptime monitoring — HTTP/TCP/ping probes (per ADR-202608270001)"
+  source_repo: "https://github.com/louislam/uptime-kuma"
+  domains:
+    - "infra_domain_monitoring_uptime_kuma"
+  ports:
+    - host: "infra_port_monitoring_uptime_kuma_host"
+      container: "infra_port_monitoring_uptime_kuma_container"
+      label: "Web UI"
+  traefik: true
+  network: "traefik-network"
+
+- name: "node_exporter"
+  container: "{{ infra_hostname_monitoring_node_exporter }}"
+  machine: "oci-cloud-server"
+  category: "passive"
+  description: "Host metrics exporter (CPU, memory, disk, network) + textfile collector for restoredrill"
+  source_repo: "https://github.com/prometheus/node_exporter"
+  ports:
+    - host: "infra_port_monitoring_node_exporter_host"
+      container: "infra_port_monitoring_node_exporter_container"
+      label: "Metrics"
+  network: "traefik-network"
 
 # ===========================================================================
 # Service Chains

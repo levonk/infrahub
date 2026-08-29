@@ -258,3 +258,32 @@ infra_storage_hister_data_volume: "localnet-hister-data-volume"
 # ---------------------------------------------------------------------------
 infra_storage_no_mistakes_volume: "localnet-no-mistakes-data"
 infra_storage_no_mistakes_config_dir: "{{ infra_storage_services_dir }}/no-mistakes"
+
+# ---------------------------------------------------------------------------
+# restoredrill (PostgreSQL backup restore verification)
+# Used by: deploy-restoredrill.yml playbook on cloud_servers (OCI)
+# Stores: restoredrill binary, per-database configs, pg_dump backups, JSON
+# evidence reports, and Prometheus textfile metrics.
+# The backup_dir holds pg_dump -Fc archives (compressed) with retention.
+# The report_dir holds JSON evidence reports for audit retrieval.
+# The prometheus_textfile is written for node_exporter textfile collector.
+# ---------------------------------------------------------------------------
+infra_storage_restoredrill_config_dir: "{{ infra_storage_services_dir }}/restoredrill"
+infra_storage_restoredrill_backup_dir: "{{ infra_storage_backup_dir }}/restoredrill"
+infra_storage_restoredrill_report_dir: "{{ infra_storage_data_dir }}/restoredrill/reports"
+infra_storage_restoredrill_binary_dir: "{{ infra_storage_services_dir }}/restoredrill/bin"
+infra_storage_restoredrill_prometheus_textfile: "/var/lib/node_exporter/textfile/restoredrill.prom"
+
+# ---------------------------------------------------------------------------
+# Monitoring Stack Storage (per ADR-202608270001)
+# Used by: deploy-monitoring-stack.yml playbook on cloud_servers (OCI)
+# Prometheus TSDB, Loki log chunks, Grafana SQLite + dashboards,
+# Alertmanager state, Uptime Kuma SQLite, node_exporter textfile dir.
+# ---------------------------------------------------------------------------
+infra_storage_monitoring_prometheus_volume: "localnet-monitoring-prometheus-data-volume"
+infra_storage_monitoring_loki_volume: "localnet-monitoring-loki-data-volume"
+infra_storage_monitoring_grafana_volume: "localnet-monitoring-grafana-data-volume"
+infra_storage_monitoring_alertmanager_volume: "localnet-monitoring-alertmanager-data-volume"
+infra_storage_monitoring_uptime_kuma_volume: "localnet-monitoring-uptime-kuma-data-volume"
+infra_storage_monitoring_config_dir: "{{ infra_storage_services_dir }}/monitoring"
+infra_storage_monitoring_node_exporter_textfile_dir: "/var/lib/node_exporter/textfile"

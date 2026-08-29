@@ -524,3 +524,23 @@ infra_port_search_hister_container: "4433"
 # ---------------------------------------------------------------------------
 infra_port_devops_no_mistakes_ssh_host: "2222"
 infra_port_devops_no_mistakes_ssh_container: "2222"
+
+# ---------------------------------------------------------------------------
+# Monitoring Stack Ports (per ADR-202608270001)
+# Used by: deploy-monitoring-stack.yml playbook on cloud_servers (OCI)
+# Prometheus scrapes all /metrics endpoints, Grafana visualizes,
+# Alertmanager routes alerts with topology-aware inhibition,
+# Uptime Kuma probes service availability.
+# ---------------------------------------------------------------------------
+infra_port_monitoring_prometheus_host: "9090"
+infra_port_monitoring_prometheus_container: "9090"
+infra_port_monitoring_grafana_host: "3000"
+infra_port_monitoring_grafana_container: "3000"
+infra_port_monitoring_loki_host: "3100"
+infra_port_monitoring_loki_container: "3100"
+infra_port_monitoring_alertmanager_host: "9093"
+infra_port_monitoring_alertmanager_container: "9093"
+infra_port_monitoring_uptime_kuma_host: "3001"
+infra_port_monitoring_uptime_kuma_container: "3001"
+infra_port_monitoring_node_exporter_host: "9100"
+infra_port_monitoring_node_exporter_container: "9100"
