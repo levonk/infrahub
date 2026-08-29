@@ -387,6 +387,16 @@
       tags: ["hardening", "hosts-blocklist"]
 
     # ---------------------------------------------------------------------------
+    # Firefox enterprise policy — force-install Bitwarden, disable password
+    # manager, disable telemetry, disable form autofill, force popups to tabs
+    # with full chrome. Requires root for .app/Contents/Resources/distribution.
+    # ---------------------------------------------------------------------------
+    - name: "Distribute Firefox enterprise policies.json"
+      ansible.builtin.include_role:
+        name: common-firefox-policy
+      tags: ["firefox-policy", "hardening"]
+
+    # ---------------------------------------------------------------------------
     # Xcode — install via mas (Mac App Store CLI)
     # Requires: mas in PATH (nix-darwin fleet module), Apple ID signed in to
     # App Store. Skipped if Xcode already at target version. Run selectively:

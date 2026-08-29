@@ -58,6 +58,8 @@
       tags: ["rdp", "hardening"]
     - role: common-hosts-blocklist
       tags: ["hosts-blocklist", "hardening"]
+    - role: common-firefox-policy
+      tags: ["firefox-policy", "hardening"]
 
   post_tasks:
     - name: "Report hardening complete"

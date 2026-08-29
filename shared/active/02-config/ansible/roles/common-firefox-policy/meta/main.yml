@@ -1,0 +1,25 @@
+---
+galaxy_info:
+  role_name: common_firefox_policy
+  author: levonk
+  description: >
+    Distributes Firefox enterprise policies.json to system-level distribution
+    directories (root/admin required). Force-installs the Bitwarden extension,
+    disables the built-in password manager, disables telemetry, disables form
+    autofill (addresses, credit cards), and forces popups to open as tabs with
+    full browser chrome so the Bitwarden extension is always accessible.
+    Cross-platform: Linux, macOS, Windows.
+  license: proprietary
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Debian
+      versions: ["bookworm"]
+    - name: Ubuntu
+      versions: ["focal", "jammy", "noble"]
+    - name: EL
+      versions: ["8", "9"]
+    - name: MacOSX
+      versions: ["all"]
+    - name: Windows
+      versions: ["all"]
+dependencies: []

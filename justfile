@@ -827,6 +827,50 @@ ansible_install_xcode_impl:
       --vault-password-file ~/.ansible/vault_password \
       --tags xcode
 
+# Deploy Firefox enterprise policy (Bitwarden force-install, password manager
+# disable, telemetry off, form autofill off, popups → tabs with full chrome)
+# to macOS hosts. Requires root for .app/Contents/Resources/distribution.
+ansible-deploy-firefox-policy-macos:
+    @just _devbox ansible_deploy_firefox_policy_macos_impl
+
+[private]
+ansible_deploy_firefox_policy_macos_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Deploying Firefox enterprise policy to macOS hosts"
+    ansible-playbook -i {{MACOS_INVENTORY}} {{PB_CONFIGURE_MACOS}} \
+      --vault-password-file ~/.ansible/vault_password \
+      --tags firefox-policy
+
+# Deploy Firefox enterprise policy to OCI cloud server (Linux)
+ansible-deploy-firefox-policy-oci:
+    @just _devbox ansible_deploy_firefox_policy_oci_impl
+
+[private]
+ansible_deploy_firefox_policy_oci_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Deploying Firefox enterprise policy to OCI cloud server"
+    ansible-playbook -i {{INVENTORY}} {{PB_BOOTSTRAP}} \
+      --vault-password-file ~/.ansible/vault_password \
+      --tags firefox-policy
+
+# Deploy Firefox enterprise policy to Windows Docker host
+ansible-deploy-firefox-policy-windows:
+    @just _devbox ansible_deploy_firefox_policy_windows_impl
+
+[private]
+ansible_deploy_firefox_policy_windows_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Deploying Firefox enterprise policy to Windows host"
+    ansible-playbook -i {{WINDOWS_INVENTORY}} {{ANSIBLE_ROOT}}/playbooks/harden-windows-host.yml \
+      --vault-password-file ~/.ansible/vault_password \
+      --tags firefox-policy
+
 # Deploy the sandbox CLI proxy (iron-proxy) to Mac hosts
 deploy-sandbox-proxy-macos:
     @just _devbox deploy_sandbox_proxy_macos_impl

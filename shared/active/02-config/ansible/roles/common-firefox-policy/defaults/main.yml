@@ -1,0 +1,78 @@
+---
+# defaults file for common-firefox-policy
+# Cross-platform Firefox enterprise policy distribution.
+#
+# Distributes policies.json to the system-level distribution directory for
+# each Firefox-based browser. The policy force-installs the Bitwarden
+# extension, disables the built-in password manager, disables telemetry,
+# disables form autofill (addresses, credit cards), and forces popups to
+# open as tabs with full browser chrome (url bar, toolbar, bookmarks bar)
+# so the Bitwarden extension is always accessible.
+#
+# The system-level distribution directory requires root/admin privileges,
+# which is why this is an Ansible role rather than a user-level chezmoi
+# sync. The chezmoi dotfiles repo handles the user.js profile-level sync;
+# this role handles the system-level enterprise policy that enforces the
+# same settings at a level users cannot override.
+
+# Whether to enable Firefox policy distribution.
+firefox_policy_enabled: true
+
+# The policies.json file to distribute. Override to use a custom policy file.
+firefox_policy_source: "policies.json"
+
+# Browser distribution directory candidates by platform.
+# On Linux, these are resolved dynamically from the browser binary if the
+# fixed paths don't exist. On macOS, these are inside .app bundles.
+# On Windows, these are inside %PROGRAMFILES%.
+#
+# Each entry is a list of candidate directories. The role will create the
+# distribution/ subdirectory and write policies.json into it. If the parent
+# directory doesn't exist (browser not installed), that candidate is skipped.
+
+# Linux — fixed paths (also resolved dynamically from binary)
+firefox_policy_linux_dirs:
+  - "/usr/lib/firefox/distribution"
+  - "/usr/lib64/firefox/distribution"
+  - "/opt/firefox/distribution"
+  - "/usr/lib/librewolf/distribution"
+  - "/usr/lib64/librewolf/distribution"
+  - "/opt/librewolf/distribution"
+  - "/usr/lib/waterfox/distribution"
+  - "/usr/lib64/waterfox/distribution"
+  - "/opt/waterfox/distribution"
+  - "/usr/lib/floorp/distribution"
+  - "/usr/lib64/floorp/distribution"
+  - "/opt/floorp/distribution"
+
+# Linux binary names for dynamic distribution-dir resolution
+firefox_policy_linux_binaries:
+  - { name: "firefox", dist_subdir: "distribution" }
+  - { name: "firefox-esr", dist_subdir: "distribution" }
+  - { name: "librewolf", dist_subdir: "distribution" }
+  - { name: "waterfox", dist_subdir: "distribution" }
+  - { name: "floorp", dist_subdir: "distribution" }
+
+# macOS — .app bundle paths
+firefox_policy_macos_dirs:
+  - "/Applications/Firefox.app/Contents/Resources/distribution"
+  - "/Applications/Firefox Developer Edition.app/Contents/Resources/distribution"
+  - "/Applications/Firefox Nightly.app/Contents/Resources/distribution"
+  - "/Applications/Firefox Beta.app/Contents/Resources/distribution"
+  - "/Applications/Firefox ESR.app/Contents/Resources/distribution"
+  - "/Applications/LibreWolf.app/Contents/Resources/distribution"
+  - "/Applications/Waterfox.app/Contents/Resources/distribution"
+  - "/Applications/Floorp.app/Contents/Resources/distribution"
+  - "/Applications/Zen.app/Contents/Resources/distribution"
+  - "/Applications/Mullvad Browser.app/Contents/Resources/distribution"
+
+# Windows — %PROGRAMFILES% paths (expanded on the target)
+firefox_policy_windows_dirs:
+  - "C:\\Program Files\\Mozilla Firefox\\distribution"
+  - "C:\\Program Files (x86)\\Mozilla Firefox\\distribution"
+  - "C:\\Program Files\\Firefox Developer Edition\\distribution"
+  - "C:\\Program Files (x86)\\Firefox Developer Edition\\distribution"
+  - "C:\\Program Files\\LibreWolf\\distribution"
+  - "C:\\Program Files (x86)\\LibreWolf\\distribution"
+  - "C:\\Program Files\\Waterfox\\distribution"
+  - "C:\\Program Files (x86)\\Waterfox\\distribution"

@@ -44,6 +44,9 @@
     - role: common-hosts-blocklist
       tags: ["bootstrap", "hardening", "hosts-blocklist"]
 
+    - role: common-firefox-policy
+      tags: ["bootstrap", "hardening", "firefox-policy"]
+
   post_tasks:
     - name: "Verify SSH service is running"
       ansible.builtin.systemd:

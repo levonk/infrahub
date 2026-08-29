@@ -1,0 +1,38 @@
+{
+  "policies": {
+    "OfferToSaveLogins": false,
+    "PasswordManagerEnabled": false,
+    "DisableTelemetry": true,
+    "DisableFirefoxStudies": true,
+    "Preferences": {
+      "extensions.formautofill.addresses.enabled": false,
+      "extensions.formautofill.addresses.supported": "off",
+      "extensions.formautofill.creditCards.enabled": false,
+      "extensions.formautofill.creditCards.supported": "off",
+      "extensions.formautofill.heuristics.enabled": false,
+      "browser.formfill.enable": false,
+      "signon.rememberSignons": false,
+      "signon.autofillForms": false,
+      "signon.generation.enabled": false,
+      "browser.link.open_newwindow": 3,
+      "browser.link.open_newwindow.restriction": 0,
+      "browser.link.open_newwindow.external": 3,
+      "dom.disable_window_open.feature.close": true,
+      "dom.disable_window_open.feature.minimizable": true,
+      "dom.disable_window_open.feature.titlebar": true,
+      "dom.disable_window_open.feature.toolbar": true,
+      "dom.disable_window_open.feature.location": true,
+      "dom.disable_window_open.feature.menubar": true,
+      "dom.disable_window_open.feature.personalbar": true,
+      "dom.disable_window_open.feature.scrollbars": true,
+      "dom.disable_window_open.feature.resizable": true,
+      "dom.disable_window_open.feature.status": true
+    },
+    "ExtensionSettings": {
+      "{446900e4-71c2-419f-a6a7-df9c091e268b}": {
+        "install_url": "https://addons.mozilla.org/firefox/downloads/latest/bitwarden-password-manager/latest.xpi",
+        "installation_mode": "force_installed"
+      }
+    }
+  }
+}

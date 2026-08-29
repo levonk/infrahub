@@ -1,0 +1,202 @@
+---
+# tasks file for common-firefox-policy
+# Cross-platform Firefox enterprise policy distribution.
+#
+# Distributes policies.json to the system-level distribution directory for
+# each Firefox-based browser installed on the host. The policy:
+#   - Force-installs the Bitwarden password manager extension
+#   - Disables the built-in Firefox password manager
+#   - Disables telemetry and Firefox studies
+#   - Disables form autofill (addresses, credit cards)
+#   - Forces popups to open as tabs with full chrome (url bar, toolbar, etc.)
+#
+# The distribution directory requires root/admin privileges, which is why
+# this is an Ansible role rather than a user-level sync. The chezmoi dotfiles
+# repo handles the user.js profile-level sync; this role enforces the same
+# settings at the enterprise level where users cannot override them.
+
+# ---------------------------------------------------------------------------
+# Guard — skip entirely if disabled
+# ---------------------------------------------------------------------------
+- name: "FIREFOX-POLICY | Check if Firefox policy distribution is enabled"
+  ansible.builtin.set_fact:
+    _firefox_policy_skip: "{{ not (firefox_policy_enabled | bool) }}"
+  tags: ["always"]
+
+- name: "FIREFOX-POLICY | Report skip status"
+  ansible.builtin.debug:
+    msg: "Firefox policy distribution: {{ 'skipped (disabled)' if _firefox_policy_skip else 'enabled' }}"
+  tags: ["always"]
+
+# ---------------------------------------------------------------------------
+# Linux — /usr/lib/firefox/distribution, /opt/firefox/distribution, etc.
+# Also resolves from browser binary via `which` + realpath walk-up.
+# ---------------------------------------------------------------------------
+- name: "FIREFOX-POLICY | Linux block"
+  when:
+    - not _firefox_policy_skip
+    - ansible_facts['os_family'] != "Windows"
+    - ansible_facts['os_family'] != "Darwin"
+  block:
+    - name: "FIREFOX-POLICY | Discover Firefox binary distribution dirs (Linux)"
+      ansible.builtin.shell: |
+        set -euo pipefail
+        dirs=()
+        for bin_name in {{ firefox_policy_linux_binaries | map(attribute='name') | join(' ') }}; do
+          bin_path="$(command -v "$bin_name" 2>/dev/null || true)"
+          if [ -n "$bin_path" ]; then
+            real="$(readlink -f "$bin_path")"
+            bin_dir="$(dirname "$real")"
+            # Walk up looking for application.ini or omni.ja to find install root
+            install_dir="$bin_dir"
+            for _ in 1 2 3 4; do
+              if [ -f "$install_dir/application.ini" ] || [ -f "$install_dir/omni.ja" ]; then
+                break
+              fi
+              parent="$(dirname "$install_dir")"
+              if [ "$parent" = "$install_dir" ]; then break; fi
+              install_dir="$parent"
+            done
+            dirs+=("$install_dir/distribution")
+          fi
+        done
+        # Print unique dirs
+        printf '%s\n' "${dirs[@]}" 2>/dev/null | sort -u || true
+      args:
+        executable: /bin/bash
+      register: _firefox_policy_linux_binary_dirs
+      changed_when: false
+      tags: ["firefox-policy", "discover"]
+
+    - name: "FIREFOX-POLICY | Combine fixed + binary-resolved dirs (Linux)"
+      ansible.builtin.set_fact:
+        _firefox_policy_linux_all_dirs: >-
+          {{ (firefox_policy_linux_dirs + (_firefox_policy_linux_binary_dirs.stdout_lines | select('trim') | list)) | unique }}
+      tags: ["firefox-policy", "discover"]
+
+    - name: "FIREFOX-POLICY | Find valid distribution dir candidates (Linux)"
+      ansible.builtin.stat:
+        path: "{{ item | dirname }}"
+      loop: "{{ _firefox_policy_linux_all_dirs }}"
+      register: _firefox_policy_linux_parent_stats
+      changed_when: false
+      tags: ["firefox-policy", "discover"]
+
+    - name: "FIREFOX-POLICY | Build list of valid Linux dirs"
+      ansible.builtin.set_fact:
+        _firefox_policy_linux_valid_dirs: >-
+          {{
+            _firefox_policy_linux_parent_stats.results
+            | selectattr('stat.exists', 'equalto', true)
+            | map(attribute='item')
+            | list
+          }}
+      tags: ["firefox-policy", "discover"]
+
+    - name: "FIREFOX-POLICY | Create distribution dirs and deploy policies.json (Linux)"
+      ansible.builtin.copy:
+        src: "{{ firefox_policy_source }}"
+        dest: "{{ item }}/policies.json"
+        owner: root
+        group: root
+        mode: "0644"
+        backup: true
+      loop: "{{ _firefox_policy_linux_valid_dirs }}"
+      become: true
+      tags: ["firefox-policy", "deploy"]
+
+    - name: "FIREFOX-POLICY | Report Linux deployment"
+      ansible.builtin.debug:
+        msg: >-
+          Deployed policies.json to {{ _firefox_policy_linux_valid_dirs | length }} distribution dir(s):
+          {{ _firefox_policy_linux_valid_dirs | join(', ') if _firefox_policy_linux_valid_dirs else '(none — no Firefox-based browser found)' }}
+      tags: ["firefox-policy", "report"]
+
+# ---------------------------------------------------------------------------
+# macOS — /Applications/Firefox.app/Contents/Resources/distribution
+# ---------------------------------------------------------------------------
+- name: "FIREFOX-POLICY | macOS block"
+  when:
+    - not _firefox_policy_skip
+    - ansible_facts['os_family'] == "Darwin"
+  block:
+    - name: "FIREFOX-POLICY | Find valid macOS distribution dir candidates"
+      ansible.builtin.stat:
+        path: "{{ item | dirname }}"
+      loop: "{{ firefox_policy_macos_dirs }}"
+      register: _firefox_policy_macos_parent_stats
+      changed_when: false
+      tags: ["firefox-policy", "discover"]
+
+    - name: "FIREFOX-POLICY | Build list of valid macOS dirs"
+      ansible.builtin.set_fact:
+        _firefox_policy_macos_valid_dirs: >-
+          {{
+            _firefox_policy_macos_parent_stats.results
+            | selectattr('stat.exists', 'equalto', true)
+            | map(attribute='item')
+            | list
+          }}
+      tags: ["firefox-policy", "discover"]
+
+    - name: "FIREFOX-POLICY | Create distribution dirs and deploy policies.json (macOS)"
+      ansible.builtin.copy:
+        src: "{{ firefox_policy_source }}"
+        dest: "{{ item }}/policies.json"
+        owner: root
+        group: wheel
+        mode: "0644"
+        backup: true
+      loop: "{{ _firefox_policy_macos_valid_dirs }}"
+      become: true
+      tags: ["firefox-policy", "deploy"]
+
+    - name: "FIREFOX-POLICY | Report macOS deployment"
+      ansible.builtin.debug:
+        msg: >-
+          Deployed policies.json to {{ _firefox_policy_macos_valid_dirs | length }} distribution dir(s):
+          {{ _firefox_policy_macos_valid_dirs | join(', ') if _firefox_policy_macos_valid_dirs else '(none — no Firefox-based browser found)' }}
+      tags: ["firefox-policy", "report"]
+
+# ---------------------------------------------------------------------------
+# Windows — C:\Program Files\Mozilla Firefox\distribution
+# ---------------------------------------------------------------------------
+- name: "FIREFOX-POLICY | Windows block"
+  when:
+    - not _firefox_policy_skip
+    - ansible_facts['os_family'] == "Windows"
+  block:
+    - name: "FIREFOX-POLICY | Find valid Windows distribution dir candidates"
+      ansible.windows.win_stat:
+        path: "{{ item | dirname }}"
+      loop: "{{ firefox_policy_windows_dirs }}"
+      register: _firefox_policy_windows_parent_stats
+      changed_when: false
+      tags: ["firefox-policy", "discover"]
+
+    - name: "FIREFOX-POLICY | Build list of valid Windows dirs"
+      ansible.builtin.set_fact:
+        _firefox_policy_windows_valid_dirs: >-
+          {{
+            _firefox_policy_windows_parent_stats.results
+            | selectattr('stat.exists', 'equalto', true)
+            | map(attribute='item')
+            | list
+          }}
+      tags: ["firefox-policy", "discover"]
+
+    - name: "FIREFOX-POLICY | Create distribution dirs and deploy policies.json (Windows)"
+      ansible.windows.win_copy:
+        src: "{{ firefox_policy_source }}"
+        dest: "{{ item }}\\policies.json"
+      loop: "{{ _firefox_policy_windows_valid_dirs }}"
+      become: true
+      become_method: ansible.builtin.runas
+      tags: ["firefox-policy", "deploy"]
+
+    - name: "FIREFOX-POLICY | Report Windows deployment"
+      ansible.builtin.debug:
+        msg: >-
+          Deployed policies.json to {{ _firefox_policy_windows_valid_dirs | length }} distribution dir(s):
+          {{ _firefox_policy_windows_valid_dirs | join(', ') if _firefox_policy_windows_valid_dirs else '(none — no Firefox-based browser found)' }}
+      tags: ["firefox-policy", "report"]
