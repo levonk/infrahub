@@ -7,7 +7,7 @@ Reads:
 
 Produces:
   - levonk/SERVICES.md  (in the private client submodule, viewable on GitHub)
-  - infrahub/SERVICES.md  (repo-root, shared-defaults-only catalog — use --shared-only)
+  - SERVICES.md  (repo-root, shared-defaults-only catalog — use --shared-only)
 
 The script merges shared + client YAML (client wins), resolves simple {{ var }} references,
 and renders three sections:
@@ -20,7 +20,7 @@ Usage:
 
 Run via:
   just generate-service-catalog              # levonk/SERVICES.md (client-specific)
-  just generate-service-catalog-shared       # infrahub/SERVICES.md (shared defaults only)
+  just generate-service-catalog-shared       # SERVICES.md (repo-root, shared defaults only)
 
 The --shared-only flag produces a repo-root catalog that shows only shared default
 ports, suggested hostnames (no custom domain names), and no deployed machine info.
@@ -301,19 +301,50 @@ def format_storage(svc: dict, all_vars: dict) -> str:
     return "<br>".join(found)
 
 
+def format_monitoring(svc: dict, all_vars: dict) -> str:
+    """Format monitoring metadata for a service.
+
+    Renders metrics path, health endpoint, and pipeline/stage labels.
+    Returns '—' if no monitoring fields are present.
+    """
+    parts = []
+    metrics_path = svc.get("metrics_path")
+    health_endpoint = svc.get("health_endpoint")
+    pipeline = svc.get("pipeline")
+    pipeline_stage = svc.get("pipeline_stage")
+    alert_labels = svc.get("alert_labels", {})
+
+    if metrics_path:
+        parts.append(f"metrics: `{metrics_path}`")
+    if health_endpoint:
+        parts.append(f"health: `{health_endpoint}`")
+    if pipeline and pipeline != "none":
+        label = f"pipeline: `{pipeline}`"
+        if pipeline_stage:
+            label += f"/`{pipeline_stage}`"
+        parts.append(label)
+    if alert_labels:
+        labels_str = ", ".join(f"{k}={v}" for k, v in sorted(alert_labels.items()))
+        parts.append(f"labels: `{labels_str}`")
+
+    if not parts:
+        return "—"
+    return "<br>".join(parts)
+
+
 # ---------------------------------------------------------------------------
 # Markdown generation
 # ---------------------------------------------------------------------------
 def gen_by_service_table(services: list, all_vars: dict, shared_only: bool = False) -> str:
     if shared_only:
         lines = [
-            "| Service | Container | Suggested Hostname | Port(s) (default) | Network | Storage | Category | Source |",
-            "|---------|-----------|--------------------|-------------------|---------|---------|----------|--------|",
+            "| Service | Container | Suggested Hostname | Port(s) (default) | Network | Storage | Monitoring | Category | Source |",
+            "|---------|-----------|--------------------|-------------------|---------|---------|------------|----------|--------|",
         ]
     else:
         lines = [
-            "| Service | Container | Machine | Domain(s) | Port(s) (host→container) | Network | Storage | Category | Source |",
-            "|---------|-----------|---------|-----------|--------------------------|---------|---------|----------|--------|",
+            "| Service | Container | Machine | Domain(s) | Port(s) (host→container) | Network | Storage | Monitoring | Category | Source |",
+            "|---------|-----------|---------|-----------|--------------------------|---------|---------|------------|----------|--------|",
         ]
     for svc in sorted(services, key=lambda s: s["name"].lower()):
         name = svc["name"]
@@ -321,6 +352,7 @@ def gen_by_service_table(services: list, all_vars: dict, shared_only: bool = Fal
         ports = format_ports_with_vars(svc, all_vars)
         network = format_network(svc, all_vars)
         storage = format_storage(svc, all_vars)
+        monitoring = format_monitoring(svc, all_vars)
         cats = get_categories(svc)
         cat_labels = ", ".join(CATEGORY_LABELS.get(c, c) for c in cats)
         source = format_source_repo(svc)
@@ -328,14 +360,14 @@ def gen_by_service_table(services: list, all_vars: dict, shared_only: bool = Fal
             # In shared-only mode: show suggested hostname (from domain var name), no machine, no custom domain
             hostname = format_suggested_hostname(svc, all_vars)
             lines.append(
-                f"| {name} | `{container}` | {hostname} | {ports} | {network} | {storage} | {cat_labels} | {source} |"
+                f"| {name} | `{container}` | {hostname} | {ports} | {network} | {storage} | {monitoring} | {cat_labels} | {source} |"
             )
         else:
             machine = svc.get("machine", "—")
             machine_label = MACHINES.get(machine, {}).get("label", machine)
             domains = format_domains(svc, all_vars)
             lines.append(
-                f"| {name} | `{container}` | {machine_label} | {domains} | {ports} | {network} | {storage} | {cat_labels} | {source} |"
+                f"| {name} | `{container}` | {machine_label} | {domains} | {ports} | {network} | {storage} | {monitoring} | {cat_labels} | {source} |"
             )
     return "\n".join(lines)
 
@@ -402,17 +434,17 @@ def gen_by_category_sections(services: list, all_vars: dict, shared_only: bool =
         sections.append(f"### {icon} {label}\n")
         if shared_only:
             sections.append(
-                "| Service | Container | Suggested Hostname | Port(s) (default) | Network | Storage | Source |"
+                "| Service | Container | Suggested Hostname | Port(s) (default) | Network | Storage | Monitoring | Source |"
             )
             sections.append(
-                "|---------|-----------|--------------------|-------------------|---------|---------|--------|"
+                "|---------|-----------|--------------------|-------------------|---------|---------|------------|--------|"
             )
         else:
             sections.append(
-                "| Service | Container | Machine | Domain(s) | Port(s) | Network | Storage | Source |"
+                "| Service | Container | Machine | Domain(s) | Port(s) | Network | Storage | Monitoring | Source |"
             )
             sections.append(
-                "|---------|-----------|---------|-----------|---------|---------|---------|--------|"
+                "|---------|-----------|---------|-----------|---------|---------|---------|------------|--------|"
             )
         for svc in sorted(cat_svcs, key=lambda s: s["name"].lower()):
             name = svc["name"]
@@ -420,18 +452,19 @@ def gen_by_category_sections(services: list, all_vars: dict, shared_only: bool =
             ports = format_ports_with_vars(svc, all_vars)
             network = format_network(svc, all_vars)
             storage = format_storage(svc, all_vars)
+            monitoring = format_monitoring(svc, all_vars)
             source = format_source_repo(svc)
             if shared_only:
                 hostname = format_suggested_hostname(svc, all_vars)
                 sections.append(
-                    f"| {name} | `{container}` | {hostname} | {ports} | {network} | {storage} | {source} |"
+                    f"| {name} | `{container}` | {hostname} | {ports} | {network} | {storage} | {monitoring} | {source} |"
                 )
             else:
                 machine = svc.get("machine", "—")
                 machine_label = MACHINES.get(machine, {}).get("label", machine)
                 domains = format_domains(svc, all_vars)
                 sections.append(
-                    f"| {name} | `{container}` | {machine_label} | {domains} | {ports} | {network} | {storage} | {source} |"
+                    f"| {name} | `{container}` | {machine_label} | {domains} | {ports} | {network} | {storage} | {monitoring} | {source} |"
                 )
         sections.append("")
     return "\n".join(sections)

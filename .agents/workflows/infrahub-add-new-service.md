@@ -181,7 +181,7 @@ After adding the entry to `services.yml`, regenerate **both** catalogs:
 # 1. Regenerate levonk/SERVICES.md (client-specific, deployed machines, custom domains)
 devbox run -- just generate-service-catalog
 
-# 2. Regenerate infrahub/SERVICES.md (repo-root, shared defaults only)
+# 2. Regenerate SERVICES.md (repo-root, shared defaults only)
 devbox run -- just generate-service-catalog-shared
 
 # Or run both at once:
@@ -193,7 +193,7 @@ devbox run -- just generate-service-catalog-all
 | Catalog | Path | Audience | Contents |
 |---------|------|----------|----------|
 | Client | `levonk/SERVICES.md` | Client submodule (private) | Deployed machines, custom domains, client port overrides, storage volumes |
-| Repo-root | `infrahub/SERVICES.md` | Parent repo (shared) | Default ports, suggested hostnames (no custom domains), no deployed machines, storage paths |
+| Repo-root | `SERVICES.md` | Parent repo (shared) | Default ports, suggested hostnames (no custom domains), no deployed machines, storage paths |
 
 The repo-root catalog uses `--shared-only` mode: it reads only the shared infrastructure YAML (no client overrides), shows default ports, and displays suggested hostnames (the `infra_domain_*` variable names) instead of resolved client-specific domain values. This keeps client deployment details out of the shared repo view while still documenting what services exist and what ports/defaults they use.
 
@@ -496,6 +496,157 @@ galaxy_info:
 
 ---
 
+## Phase 5b: Backup Verification (If Stateful Data)
+
+If the service has a database or persistent stateful data (PostgreSQL, MySQL,
+Redis, SQLite, OpenSearch, MinIO, etc.), it MUST have a backup job. See
+`shared/active/02-config/ansible/AGENTS.md` → "Stateful Data Requires Backup
+Verification" for the full policy.
+
+### For PostgreSQL databases
+
+Add the database to `restoredrill_databases` in the client's group_vars
+(e.g., `levonk/active/02-config/ansible/inventories/group_vars/cloud_servers.yml`):
+
+```yaml
+restoredrill_databases:
+  - name: "{service}"
+    container: "{service}-postgres"
+    db_name: "{service}"
+    db_user: "{service}"
+    db_password: "{{ vault_{service}_pg_password | default('') }}"
+    min_tables: 1
+    rpo_target: "25h"
+```
+
+The `devops-restoredrill` role handles pg_dump + restore verification + backup
+rotation in one scheduled systemd timer job. No separate backup cron needed.
+
+### For other databases
+
+restoredrill is PostgreSQL-only as of v0.1.0. For other engines, add a cron
+job or systemd timer using the appropriate dump tool:
+- MySQL/MariaDB: `mysqldump`
+- Redis: `redis-cli BGSAVE` + copy the RDB file
+- SQLite: `sqlite3 .backup`
+- OpenSearch: snapshot API to a repository
+
+### For file-based state
+
+Use `rsync` or `tar` to `/opt/localnet/backup/{service}/` with retention.
+Only back up data that cannot be regenerated from Ansible config.
+
+### Document the backup strategy
+
+Add a "Backup" section to the service role's `README.md` describing:
+- What data is backed up
+- Backup tool and format
+- Schedule and retention
+- Restore procedure
+
+---
+
+## Phase 5c: Monitoring, Alerting & Uptime
+
+Every new service must declare its monitoring integration so the observability
+stack (per ADR-202608270001) can scrape, alert, and probe it. Even if the
+monitoring stack is not yet deployed, the metadata must be in place so it is
+ready when the stack comes online.
+
+### 5c-1. Add monitoring fields to the service catalog entry
+
+In `shared/active/02-config/ansible/infrastructure/services.yml`, add these
+optional fields to the service entry:
+
+```yaml
+- name: "{Service}"
+  # ... existing fields ...
+  metrics_path: "/metrics"          # Prometheus scrape path (if exposed)
+  metrics_port: "infra_port_{service}_metrics"  # Port variable for metrics
+  health_endpoint: "/health"        # Health check path (for uptime probes)
+  pipeline: "ai"                    # Which pipeline: ai, dns, web, vpn, none
+  pipeline_stage: "gateway"         # Stage within pipeline (for inhibition rules)
+  alert_labels:                     # Labels for Prometheus alert rules
+    pipeline: "ai"
+    stage: "gateway"
+    service: "{service}"
+```
+
+**Rules:**
+- `metrics_path` is required if the service exposes a `/metrics` endpoint.
+- `health_endpoint` is required if the service has an HTTP health check path.
+- `pipeline` and `pipeline_stage` are required for services that are part of
+  a defined pipeline (AI, DNS, Web, VPN). Use `none` for standalone services.
+- `alert_labels` must match the ADR-202608270001 label schema
+  (`pipeline`, `stage`, `service`) so Alertmanager inhibition rules apply.
+
+### 5c-2. Expose a health check in the container role
+
+The service's `community.docker.docker_container` task must include a
+`healthcheck` block. Use the existing patterns:
+
+- HTTP services: `wget --spider -q http://localhost:{{ container_port }}{{ health_path }}`
+- PostgreSQL: `pg_isready -h localhost -U {{ db_user }} -d {{ db_name }}`
+- TCP services: `nc -zv localhost {{ container_port }}`
+
+Add a `{service}_verify_health: true` default and gate the post-deploy
+health check task on it (see `proxy-traefik` or `dashboard-homepage` for
+the pattern).
+
+### 5c-3. Expose metrics (if applicable)
+
+If the service supports Prometheus metrics:
+1. Enable the metrics endpoint in the service configuration (via a role
+   variable like `{service}_metrics_enabled: true`).
+2. Ensure the metrics port is declared in `ports.yml` as
+   `infra_port_{service}_metrics_host` / `_container`.
+3. The central `monitoring-prometheus` role (when deployed) will scrape it
+   based on the `metrics_path` and `metrics_port` in `services.yml`.
+
+If the service does NOT expose metrics, set `metrics_path: null` or omit it.
+Not all services need metrics — but all services need a health check.
+
+### 5c-4. Add alert rules (if part of a pipeline)
+
+For services in a defined pipeline (AI, DNS, Web, VPN), create an alert rule
+template in the `monitoring-alertmanager` role (when it exists). The rule
+must use the `alert_labels` from the catalog entry so Alertmanager inhibition
+applies correctly.
+
+For standalone services, a basic "container down" alert is sufficient —
+this is handled by the monitoring stack's default rules, not per-service.
+
+### 5c-5. Add uptime monitoring
+
+Once the `monitoring-uptime-kuma` role is deployed, add the service to the
+Uptime Kuma probe list in the client's group_vars:
+
+```yaml
+monitoring_uptime_kuma_monitors:
+  - name: "{Service}"
+    url: "https://{service}.{domain}/{{ health_endpoint }}"
+    type: "http"
+    interval: 60
+  - name: "{Service} (internal)"
+    url: "http://{{ container_name }}:{{ container_port }}{{ health_endpoint }}"
+    type: "http"
+    interval: 60
+```
+
+For internal-only services (no Traefik domain), use the container
+hostname:port directly.
+
+### 5c-6. Document monitoring in the role README
+
+Add a "Monitoring" section to the service role's `README.md` describing:
+- Metrics endpoint path and port (if exposed)
+- Health check endpoint
+- Pipeline and stage (if part of a pipeline)
+- Alert behavior (what fires, what is suppressed)
+- Uptime check configuration
+
+---
+
 ## Phase 6: Traefik Routing (If Public Domain)
 
 If the service gets a public domain, create a Traefik dynamic config template.
@@ -662,9 +813,17 @@ Do not deploy, verify, or commit from this workflow — that's the orchestrator'
 - [ ] **Service catalog metadata**: Entry added to `services.yml` with `source_repo` field (Phase 2f)
 - [ ] **`source_repo` link valid**: Points to the primary source repo (GitHub/GitLab) or product page if no source repo exists
 - [ ] **Client catalog regenerated**: `just generate-service-catalog` run and reports "✓ All services have source_repo links" (Phase 2g)
-- [ ] **Repo-root catalog regenerated**: `just generate-service-catalog-shared` run (Phase 2g) — produces `infrahub/SERVICES.md` with shared defaults only
+- [ ] **Repo-root catalog regenerated**: `just generate-service-catalog-shared` run (Phase 2g) — produces `SERVICES.md` with shared defaults only
 - [ ] **Service chain updated**: If the new service is part of a proxy/cache chain, the `chains:` entry in `services.yml` has been updated (Phase 2f)
 - [ ] **Storage column reflects changes**: If storage variables were added/changed (Phase 1d/2d), both catalogs show the updated volumes/paths
+- [ ] **Backup verification**: If the service has stateful data (database, persistent volume with non-regenerable data), a backup job is configured (Phase 5b) — PostgreSQL via `restoredrill_databases`, other engines via appropriate dump tool + cron
+- [ ] **Monitoring metadata**: Service entry in `services.yml` has `metrics_path`, `health_endpoint`, and `alert_labels` fields (Phase 5c-1)
+- [ ] **Health check**: Container role includes a `healthcheck` block and a `{service}_verify_health` flag (Phase 5c-2)
+- [ ] **Metrics endpoint**: If the service exposes metrics, the metrics port is in `ports.yml` and `metrics_path`/`metrics_port` are set in `services.yml` (Phase 5c-3)
+- [ ] **Pipeline classification**: If the service is part of a pipeline (AI/DNS/Web/VPN), `pipeline` and `pipeline_stage` are set in `services.yml` (Phase 5c-4)
+- [ ] **Uptime monitoring**: Service is added to `monitoring_uptime_kuma_monitors` in client group_vars (Phase 5c-5, when stack is deployed)
+- [ ] **Monitoring documented**: Role README has a "Monitoring" section (Phase 5c-6)
+- [ ] **Catalog monitoring column**: Both regenerated catalogs show the Monitoring column with metrics/health/pipeline info
 
 ## Context Declaration
 
@@ -675,10 +834,10 @@ Do not deploy, verify, or commit from this workflow — that's the orchestrator'
 - **Git state workflow**: `~/p/gh/levonk/infrahub/.agents/workflows/infrahub-git.md`
 - **Developer guide**: `~/p/gh/levonk/infrahub/.agents/knowledge/developer.md` — critical-files tree, known gotchas, boundaries, definition of done
 - **Infrastructure schemas**: `~/p/gh/levonk/infrahub/shared/active/02-config/ansible/infrastructure/` (ports.yml, networks.yml, domains.yml, storage.yml)
-- **Service catalog metadata**: `~/p/gh/levonk/infrahub/shared/active/02-config/ansible/infrastructure/services.yml` — manual metadata file (services: list with name, container, machine, category, description, source_repo, domains, ports, traefik, network; chains: list with request-flow topology for proxy/cache chains)
-- **Service catalog generator**: `~/p/gh/levonk/infrahub/shared/active/02-config/ansible/scripts/generate_service_catalog.py` — reads services.yml + infra YAML (ports, domains, networks, storage) → produces SERVICES.md with Source and Storage columns, source_repo validation, data-driven chain diagrams, and `--shared-only` mode for repo-root catalog
+- **Service catalog metadata**: `~/p/gh/levonk/infrahub/shared/active/02-config/ansible/infrastructure/services.yml` — manual metadata file (services: list with name, container, machine, category, description, source_repo, domains, ports, traefik, network, metrics_path, metrics_port, health_endpoint, pipeline, pipeline_stage, alert_labels; chains: list with request-flow topology for proxy/cache chains)
+- **Service catalog generator**: `~/p/gh/levonk/infrahub/shared/active/02-config/ansible/scripts/generate_service_catalog.py` — reads services.yml + infra YAML (ports, domains, networks, storage) → produces SERVICES.md with Source, Storage, and Monitoring columns, source_repo validation, data-driven chain diagrams, and `--shared-only` mode for repo-root catalog
 - **Generated catalog (client)**: `~/p/gh/levonk/infrahub/levonk/SERVICES.md` — auto-generated (client-specific, deployed machines, custom domains), do not edit manually
-- **Generated catalog (repo-root)**: `~/p/gh/levonk/infrahub/SERVICES.md` — auto-generated (shared defaults only, suggested hostnames, no deployment info), do not edit manually
+- **Generated catalog (repo-root)**: `~/p/gh/levonk/SERVICES.md` — auto-generated (shared defaults only, suggested hostnames, no deployment info), do not edit manually
 - **Client infra overrides**: `~/p/gh/levonk/infrahub/levonk/active/02-config/ansible/infrastructure/`
 - **Ansible roles**: `~/p/gh/levonk/infrahub/shared/active/02-config/ansible/roles/`
 - **Playbooks**: `~/p/gh/levonk/infrahub/shared/active/02-config/ansible/playbooks/`

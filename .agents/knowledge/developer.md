@@ -139,6 +139,7 @@ infrahub/
 ## <patterns>
 
 ### ✅ DO
+- **Deploy every service via Ansible `community.docker` modules** — `docker_container`, `docker_network`, `docker_volume`, `docker_image`. Ansible IS the container definition. There is no second definition in a compose file that can drift. (Invariant #4)
 - Reference infrastructure variables: `{{ infra_port_worldmonitor_host }}`, `{{ infra_domain_worldmonitor_web }}`
 - Use `{{ local_registry | default('100.90.22.85:5000') }}` prefix for locally-built images
 - Use `source: pull` for all `docker_image` tasks (Invariant #2: build on Mac, pull on target)
@@ -148,6 +149,7 @@ infrahub/
 - Use `include_role: name: localnet-volume-init` for every non-root container with a writable volume (ADR-20260822001). Pass a `volume_init_volumes` list of `{name, mount, uid, gid, mode}` specs — intelligent defaults are `/data`, `1000`, `1000`, `755` so single-volume services only need to declare the volume name.
 
 ### ❌ DON'T
+- **Deploy services with `docker compose up/down`** — `docker compose` is a build/orchestration convenience on the control machine ONLY. It is NEVER a deployment method. Never copy `docker-compose*.yml` to a target host, never shell out to `docker compose up/down` from a playbook, never rely on `.env` file interpolation at runtime. All container lifecycle goes through `community.docker` modules in Ansible roles. (Invariant #4)
 - Hardcode IPs, ports, domains, or storage paths in roles/playbooks/templates
 - Put client-specific values in `shared/` roles or defaults — this includes **hostnames**, **SSH key names/paths**, **Tailscale FQDNs**, and any other client-identifying data (ADR-20260624001)
 - Embed *client-specific* SSH public keys in `shared/` scripts — client keys belong in client submodules. (The operator-owned repo-wide admin bootstrap key in `shared/scripts/bootstrap-*.sh`/`.ps1` is the documented exception — see ADR-20260624001 §4. Public keys are non-secret; the exception is narrow and only covers the single operator admin key.)
@@ -157,6 +159,18 @@ infrahub/
 - Create new infrastructure variable files — use the existing 4 (`domains`, `networks`, `ports`, `storage`)
 - **Refuse to consider containerizing a service because upstream doesn't ship a Dockerfile** — this repo's entire purpose is to build and deploy containers for services that don't provide one. The absence of an upstream Dockerfile is irrelevant. The correct response is to assess whether the service *can* be containerized (Nix `dockerTools.buildImage`, hand-written Dockerfile, etc.) and deployed to a target host, not to dismiss the request because the upstream repo doesn't provide a container image. See `<agent-response-rules>` below.
 - Hand-stitch `docker run --rm alpine sh -c 'chown ...'` calls in service roles for volume ownership — use the `localnet-volume-init` role instead (ADR-20260822001). The role handles the three-phase chown+verify pattern, `DOCKER_HOST` tunneling, and multi-volume specs with per-volume uid/gid/mode.
+
+### Build vs. Deploy — the compose-file distinction
+
+The `docker-compose*.yml` files in `shared/active/03-container/services/` have **two legitimate roles and one forbidden role**:
+
+| Role | Allowed? | How |
+|------|----------|-----|
+| **Build definition** | ✅ Yes | `just build-<service>` recipes run `docker compose build <service>` on the control machine to produce images that are then pushed to the local registry and pulled by Ansible roles via `community.docker.docker_image` with `source: pull`. Adding a service to a compose file under `profiles: [build]` so it can be built this way is correct and matches the existing base-image pattern (`base-alpine`, `base-debian`, `base-nix`, `volume-init`). |
+| **Reference / documentation** | ✅ Yes | Compose files show intended topology for human reading. If a compose file and an Ansible role disagree, the Ansible role is correct and the compose file is stale. |
+| **Deployment method** | ❌ NEVER | Compose files are NOT copied to target hosts, NOT run via `docker compose up/down` at deploy time, NOT used for runtime variable interpolation. All runtime container lifecycle is `community.docker` modules in Ansible roles. |
+
+**The `localnet-volume-init` utility container** (ADR-20260822001) is a documented narrow exception to "use `community.docker` modules": the Ansible role invokes it via `ansible.builtin.command: docker run --rm ...` because it is a one-shot `--rm` ephemeral container, not a managed long-running service. This is the same pattern already used by `security-wazuh` for volume chown. The exception is scoped to ephemeral init/utility containers — it does NOT extend to service containers.
 
 </patterns>
 
@@ -325,7 +339,7 @@ Chains define request-flow topology for proxy/cache chains (e.g., AI Pipeline, N
 - Put client-specific values in `shared/` directory — this includes hostnames, SSH keys (public or private, client-specific), Tailscale FQDNs, and machine metadata
 - Embed *client-specific* SSH public keys in `shared/` scripts or playbooks — require them as parameters instead. (The operator-owned repo-wide admin bootstrap key in `shared/scripts/bootstrap-*.sh`/`.ps1` is the documented exception — see ADR-20260624001 §4.)
 - Use `source: build` in `docker_image` tasks on target hosts
-- Use `docker compose` for deployments (use `community.docker` modules only)
+- Deploy services with `docker compose up/down` — all container lifecycle MUST go through `community.docker` Ansible modules (`docker_container`, `docker_network`, `docker_volume`, `docker_image`). Compose files in `shared/active/03-container/services/` are build definitions + reference only, never deployed. See `<patterns>` → "Build vs. Deploy" for the full distinction. (Invariant #4)
 - Hardcode IPs, ports, domains, or storage paths
 - Delete or modify `~/.ansible/vault_password`
 - Edit the vault file directly (use the `docker run` ansible-vault edit command from AGENTS.md)
