@@ -16,6 +16,62 @@
       - git
     state: present
 
+# =====================================================================
+# System-wide git security baseline: /etc/gitconfig
+#
+# Security Stance
+# ---------------
+# This is the SYSTEM-LEVEL config (/etc/gitconfig), the lowest-precedence
+# layer in git's config chain (system < global < local < cmdline).
+# It sets the tightest default so that all users on the host inherit
+# "never" for the file:// protocol unless a higher layer widens it.
+#
+# Why we do this
+# --------------
+# Git 2.38.1 (Oct 2022) changed the default for protocol.file.allow
+# from "always" to "user" to close CVE-2022-39253. That CVE let a
+# malicious superproject include a submodule with a file:// URL
+# pointing at a victim's local path (e.g. file:///home/user/.ssh),
+# and `git clone --recurse-submodules` would silently exfiltrate
+# those local files to the attacker.
+#
+# We go one step tighter: "never" at the system level so that even
+# direct, user-typed file:// operations are blocked unless the
+# user's global config or a repo's local config explicitly opts in.
+#
+# Expectation
+# -----------
+# - The user-global config (~/.config/git/config, managed by chezmoi
+#   via the dotfiles repo) also sets "never", matching this baseline.
+# - Trusted repos that need file:// (e.g. local-sibling submodules)
+#   override this in their own .git/config with:
+#       git config protocol.file.allow always
+# - That override is safe: .git/config is generated locally during
+#   clone and is NOT a tracked file, so an untrusted remote cannot
+#   inject it. The opt-in is a deliberate local action.
+#
+# protocol.file.allow values
+# --------------------------
+#   always  - file:// allowed everywhere, including indirect
+#             (submodule-initiated) transports. Required for repos
+#             with file:// submodule URLs. Use only in trusted repos.
+#   user    - file:// allowed only for direct, user-typed commands.
+#             Git's default since 2.38.1. Blocked for indirect use.
+#   never   - file:// blocked entirely. Our system-wide default.
+# =====================================================================
+- name: Configure system-wide git file:// protocol restriction
+  ansible.builtin.copy:
+    dest: /etc/gitconfig
+    content: |
+      # Managed by Ansible — role: common
+      # Do not edit manually; changes will be overwritten.
+      [protocol "file"]
+          allow = never
+    owner: root
+    group: root
+    mode: "0644"
+  when: ansible_facts['os_family'] != "Windows"
+
 - name: Ensure Docker service is installed and running
   ansible.builtin.systemd:
     name: docker
