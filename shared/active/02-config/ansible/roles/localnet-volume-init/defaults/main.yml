@@ -35,7 +35,7 @@
 
 # The utility container image (with optional registry prefix).
 # Matches the pattern used by other locally-built images in the fleet.
-volume_init_image: "{{ local_registry | default('') }}localnet-volume-init:latest"
+volume_init_image: "{{ local_registry | default('100.90.22.85:5000') }}/localnet-volume-init:latest"
 
 # Docker host — defaults to the local Unix socket.
 # Override for Windows Docker Desktop hosts:
