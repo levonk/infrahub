@@ -138,4 +138,57 @@ if [[ $violations -gt 0 ]]; then
     exit 1
 fi
 
+# ---------------------------------------------------------------------------
+# Phase 2: Magic-number lint on staged files
+#
+# Scans only files staged in this commit (not the whole repo) for hardcoded
+# IPs, ports, and magic numbers that should be named variables.  This
+# prevents introducing NEW violations while allowing the existing backlog
+# to be refactored incrementally.
+#
+# Uses the project-lint magic_numbers scanner (Rust).  The binary path can
+# be overridden via PROJECT_LINT_BIN; defaults to the sibling repo's release
+# build at ~/p/gh/levonk/project-lint/target/release/project-lint.
+#
+# Run `just lint-magic` for a whole-repo scan.
+# Use `# lint-magic-numbers: disable=<rule>` to suppress specific rules
+# on a line.
+# ---------------------------------------------------------------------------
+
+project_lint_bin="${PROJECT_LINT_BIN:-$HOME/p/gh/levonk/project-lint/target/release/project-lint}"
+if [[ -x "$project_lint_bin" ]]; then
+    # Collect staged .yml/.yaml/.j2/.jinja2 files (added or modified).
+    staged_files=()
+    while IFS= read -r f; do
+        [[ -n "$f" ]] && staged_files+=("$f")
+    done < <(git diff --cached --name-only --diff-filter=ACM -- '*.yml' '*.yaml' '*.j2' '*.jinja2')
+
+    if [[ ${#staged_files[@]} -gt 0 ]]; then
+        # Run project-lint on staged files.  The scanner walks the project
+        # root, so we pass the repo root and filter by checking if any
+        # MagicNum issues are in staged files.
+        lint_output="$("$project_lint_bin" lint --path "$repo_root" 2>&1)" || true
+        staged_violations=""
+        for f in "${staged_files[@]}"; do
+            match=$(echo "$lint_output" | grep "MagicNum" | grep "$f" || true)
+            if [[ -n "$match" ]]; then
+                staged_violations="${staged_violations}${match}"$'\n'
+            fi
+        done
+
+        if [[ -n "$staged_violations" ]]; then
+            echo "" >&2
+            echo "ERROR: pre-commit hook detected magic-number violations in staged files" >&2
+            echo "" >&2
+            echo "$staged_violations" >&2
+            echo "" >&2
+            echo "To suppress a specific rule on a line, add:" >&2
+            echo "  # lint-magic-numbers: disable=<rule>  <reason>" >&2
+            echo "" >&2
+            echo "Commit aborted. Fix the violations or add inline overrides." >&2
+            exit 1
+        fi
+    fi
+fi
+
 exit 0

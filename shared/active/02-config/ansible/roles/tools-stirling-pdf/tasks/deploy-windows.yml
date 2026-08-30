@@ -22,29 +22,14 @@
     volume_init_volumes:
       - name: "{{ tools_stirling_pdf_configs_volume }}"
         mount: /configs
-        uid: 1000
-        gid: 1000
-        mode: "755"
       - name: "{{ tools_stirling_pdf_tessdata_volume }}"
         mount: /usr/share/tessdata
-        uid: 1000
-        gid: 1000
-        mode: "755"
       - name: "{{ tools_stirling_pdf_pipeline_volume }}"
         mount: /pipeline
-        uid: 1000
-        gid: 1000
-        mode: "755"
       - name: "{{ tools_stirling_pdf_custom_files_volume }}"
         mount: /customFiles
-        uid: 1000
-        gid: 1000
-        mode: "755"
       - name: "{{ tools_stirling_pdf_logs_volume }}"
         mount: /logs
-        uid: 1000
-        gid: 1000
-        mode: "755"
   tags: ["deploy", "volume"]
 
 # ============================================================================
@@ -91,7 +76,7 @@
     --log-driver json-file
     --log-opt max-size={{ tools_stirling_pdf_log_max_size }}
     --log-opt max-file={{ tools_stirling_pdf_log_max_file }}
-    --health-cmd "wget -qO- http://127.0.0.1:{{ tools_stirling_pdf_container_port }}/api/v1/info/status || exit 1"
+    --health-cmd "curl -sf http://{{ tools_stirling_pdf_healthcheck_host }}:{{ tools_stirling_pdf_container_port }}/api/v1/info/status || exit 1"
     --health-interval {{ tools_stirling_pdf_healthcheck_interval }}
     --health-timeout {{ tools_stirling_pdf_healthcheck_timeout }}
     --health-retries {{ tools_stirling_pdf_healthcheck_retries }}
@@ -115,8 +100,8 @@
   delegate_to: localhost
   register: tools_stirling_pdf_health
   until: tools_stirling_pdf_health.stdout == "healthy"
-  retries: 30
-  delay: 10
+  retries: "{{ tools_stirling_pdf_health_verify_retries }}"
+  delay: "{{ tools_stirling_pdf_health_verify_delay }}"
   changed_when: false
   ignore_errors: true
   when: tools_stirling_pdf_verify_health | bool

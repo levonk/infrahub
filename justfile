@@ -268,6 +268,32 @@ lint_impl:
     log_start "Running all lints"
     just ansible_lint_impl
     just ps_lint_impl
+    just lint_magic_impl
+
+# -- Magic-Number Lint --
+# Detects hardcoded IPs, ports, and magic numbers that should be named
+# variables.  Uses the project-lint magic_numbers scanner (Rust).
+#
+# Override the binary path with: PROJECT_LINT_BIN=/path/to/project-lint
+# Inline override syntax: # lint-magic-numbers: disable=<rule>  <reason>
+
+lint-magic:
+    @just _devbox lint_magic_impl
+
+[private]
+lint_magic_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Running magic-number lint (whole repo)"
+    project_lint_bin="${PROJECT_LINT_BIN:-$HOME/p/gh/levonk/project-lint/target/release/project-lint}"
+    if [[ ! -x "$project_lint_bin" ]]; then
+        echo "ERROR: project-lint binary not found at $project_lint_bin" >&2
+        echo "Build it with: cd ~/p/gh/levonk/project-lint && cargo build --release" >&2
+        exit 1
+    fi
+    "$project_lint_bin" lint --path {{INFRAHUB_ROOT}}
+    log_end "magic-number lint complete"
 
 quality:
     @just _devbox quality_impl

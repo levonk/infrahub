@@ -21,7 +21,7 @@
 #     shared/active/02-config/ansible/playbooks/deploy-stirling-pdf.yml \
 #     --vault-password-file ~/.ansible/vault_password
 
-- name: "Phase 1 — Deploy Stirling-PDF container on Windows Docker host (nl)"
+- name: "Phase One — Deploy Stirling-PDF container on Windows Docker host (nl)"
   hosts: windows_docker_hosts
   gather_facts: true
   become: false
@@ -71,7 +71,7 @@
       tags: ["deploy", "stirling-pdf"]
 
 
-- name: "Phase 2 — Deploy Traefik dynamic config for Stirling-PDF on Windows"
+- name: "Phase Two — Deploy Traefik dynamic config for Stirling-PDF on Windows"
   hosts: windows_docker_hosts
   become: false
   gather_facts: true
@@ -102,6 +102,11 @@
     - name: "Load tools-stirling-pdf role defaults (for container name + port vars)"
       ansible.builtin.include_vars:
         file: "{{ playbook_dir }}/../roles/tools-stirling-pdf/defaults/main.yml"
+      tags: ["always"]
+
+    - name: "Load search-hister role defaults (required by proxy_traefik_windows hister template)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../roles/search-hister/defaults/main.yml"
       tags: ["always"]
 
     - name: "Load vault secrets (Cloudflare API token for ACME)"
