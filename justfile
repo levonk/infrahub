@@ -34,6 +34,7 @@ PB_NESTED_VIRT := ANSIBLE_ROOT + "/playbooks/test-nested-virtualization.yml"
 PB_ENABLE_WSL2_KVM := ANSIBLE_ROOT + "/playbooks/enable-wsl2-kvm.yml"
 PB_NIX_CACHE_GARNIX := ANSIBLE_ROOT + "/playbooks/deploy-nix-cache-and-garnix.yml"
 PB_DIRECTORY_EMPIRE := ANSIBLE_ROOT + "/playbooks/deploy-directory-empire.yml"
+PB_STIRLING_PDF := ANSIBLE_ROOT + "/playbooks/deploy-stirling-pdf.yml"
 PB_PROXY_WEB := ANSIBLE_ROOT + "/playbooks/deploy-proxy-web-stack.yml"
 PB_VAL_PROXY_WEB := ANSIBLE_ROOT + "/playbooks/validate-proxy-web.yml"
 PB_FWKNOP := ANSIBLE_ROOT + "/playbooks/deploy-fwknop.yml"
@@ -582,6 +583,19 @@ ansible_deploy_directory_empire_impl:
     {{_log}}
     log_start "Deploying Directory Empire dashboard on Windows Docker host"
     ansible-playbook -i {{WINDOWS_INVENTORY}} {{PB_DIRECTORY_EMPIRE}} --vault-password-file ~/.ansible/vault_password
+
+# Deploy Stirling-PDF on Windows Docker host (nl region)
+# Prerequisites: Traefik Windows deployed, DNS CNAME configured.
+ansible-deploy-stirling-pdf:
+    @just _devbox ansible_deploy_stirling_pdf_impl
+
+[private]
+ansible_deploy_stirling_pdf_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Deploying Stirling-PDF on Windows Docker host"
+    ansible-playbook -i {{WINDOWS_INVENTORY}} {{PB_STIRLING_PDF}} --vault-password-file ~/.ansible/vault_password
 
 # Deploy Web Proxy Chain (MITM → Privoxy → Varnish → Gost) on Windows Docker host
 # Prerequisites: DNS chain deployed (Tor proxy at 172.26.255.70:9050), Gost image built.

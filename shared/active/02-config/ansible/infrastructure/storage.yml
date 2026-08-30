@@ -287,3 +287,17 @@ infra_storage_monitoring_alertmanager_volume: "localnet-monitoring-alertmanager-
 infra_storage_monitoring_uptime_kuma_volume: "localnet-monitoring-uptime-kuma-data-volume"
 infra_storage_monitoring_config_dir: "{{ infra_storage_services_dir }}/monitoring"
 infra_storage_monitoring_node_exporter_textfile_dir: "/var/lib/node_exporter/textfile"
+
+# ---------------------------------------------------------------------------
+# Stirling-PDF Storage (nl region — dtop202311)
+# Self-hosted PDF utility suite. Configs volume holds settings.yml, the H2
+# file database, and custom settings. Tessdata volume holds OCR language data
+# (persisted to avoid re-downloading on container recreation). Pipeline volume
+# holds saved pipeline definitions. CustomFiles volume holds user-uploaded
+# template files. Logs volume holds application logs.
+# ---------------------------------------------------------------------------
+infra_storage_stirling_pdf_configs_volume: "localnet-stirling-pdf-configs-volume"
+infra_storage_stirling_pdf_tessdata_volume: "localnet-stirling-pdf-tessdata-volume"
+infra_storage_stirling_pdf_pipeline_volume: "localnet-stirling-pdf-pipeline-volume"
+infra_storage_stirling_pdf_custom_files_volume: "localnet-stirling-pdf-custom-files-volume"
+infra_storage_stirling_pdf_logs_volume: "localnet-stirling-pdf-logs-volume"

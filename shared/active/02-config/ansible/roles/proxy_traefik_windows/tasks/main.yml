@@ -145,6 +145,17 @@
   when: proxy_traefik_windows_hister_enabled | bool
   tags: ["deploy", "config"]
 
+- name: Render Stirling-PDF (nl) dynamic config locally
+  ansible.builtin.template:
+    src: dynamic/stirling-nl.yml.j2
+    dest: "{{ proxy_traefik_windows_temp_dir }}/dynamic/stirling-nl.yml"
+    mode: "0644"
+  delegate_to: localhost
+  run_once: true
+  changed_when: false
+  when: proxy_traefik_windows_stirling_pdf_enabled | bool
+  tags: ["deploy", "config"]
+
 # ============================================================================
 # Network Management
 # ============================================================================
@@ -178,6 +189,17 @@
   delegate_to: localhost
   changed_when: false
   when: proxy_traefik_windows_hister_enabled | bool
+  tags: ["deploy", "network"]
+
+- name: Connect Stirling-PDF container to traefik-windows network
+  ansible.builtin.shell: >-
+    docker network connect {{ proxy_traefik_windows_network_name }}
+    {{ proxy_traefik_windows_stirling_pdf_container_name }} 2>/dev/null || true
+  environment:
+    DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  when: proxy_traefik_windows_stirling_pdf_enabled | bool
   tags: ["deploy", "network"]
 
 # ============================================================================
@@ -361,6 +383,17 @@
   delegate_to: localhost
   changed_when: true
   when: proxy_traefik_windows_hister_enabled | bool
+  tags: ["deploy", "config"]
+
+- name: Copy Stirling-PDF (nl) dynamic config into volume
+  ansible.builtin.command: >-
+    docker cp {{ proxy_traefik_windows_temp_dir }}/dynamic/stirling-nl.yml
+    {{ proxy_traefik_windows_container_name }}-config-seed:/config/dynamic/stirling-nl.yml
+  environment:
+    DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  when: proxy_traefik_windows_stirling_pdf_enabled | bool
   tags: ["deploy", "config"]
 
 - name: Remove temporary seed container

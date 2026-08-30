@@ -1,0 +1,10 @@
+---
+# Stirling-PDF handlers
+
+- name: restart stirling-pdf
+  ansible.builtin.command: "docker restart {{ tools_stirling_pdf_container_name }}"
+  environment:
+    DOCKER_HOST: "{{ tools_stirling_pdf_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["restart"]

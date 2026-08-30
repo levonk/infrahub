@@ -1,0 +1,30 @@
+---
+# Stirling-PDF — Deployment Tasks
+# Deploys Stirling-PDF as a Docker container on Windows Docker Desktop (dtop202311).
+#
+# Uses the ssh-tunneled Docker CLI pattern (DOCKER_HOST: ssh:// + delegate_to: localhost)
+# because community.docker modules can't run on Windows (Ansible core basic.py
+# imports grp, Unix-only).
+
+# 1. Validate required variables
+- name: Validate required variables are defined
+  ansible.builtin.assert:
+    that:
+      - tools_stirling_pdf_container_name is defined
+      - tools_stirling_pdf_image_name is defined
+      - tools_stirling_pdf_host_port is defined
+      - tools_stirling_pdf_container_port is defined
+      - tools_stirling_pdf_domain is defined
+    fail_msg: >-
+      Missing required tools_stirling_pdf variables. Check infrastructure files
+      (ports.yml, domains.yml, storage.yml) and client overrides.
+    success_msg: "All required tools_stirling_pdf variables are defined."
+  tags: ["always", "validate"]
+
+# 2. Dispatch to Windows deployment
+- name: Deploy Stirling-PDF on Windows Docker host
+  ansible.builtin.include_tasks: deploy-windows.yml
+  when:
+    - tools_stirling_pdf_enabled | bool
+    - "'windows_docker_hosts' in group_names"
+  tags: ["deploy"]

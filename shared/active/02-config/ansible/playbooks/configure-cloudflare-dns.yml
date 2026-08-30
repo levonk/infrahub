@@ -154,6 +154,14 @@
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
 
+      # Stirling-PDF — nl (Windows Docker Desktop)
+      - name: "{{ infra_domain_tools_stirling_pdf | default('stirling.nl.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "CNAME"
+        content: "{{ ts_fqdn_windows_docker }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
       # no-mistakes Shared Git Gate — default domain (CNAME → nl subdomain)
       - name: "{{ infra_domain_devops_no_mistakes_default | default('no-mistakes.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"

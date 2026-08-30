@@ -1,0 +1,17 @@
+---
+galaxy_info:
+  role_name: tools_stirling_pdf
+  author: localnet
+  description: Deploy Stirling-PDF self-hosted PDF utility suite
+  license: MIT
+  min_ansible_version: "2.9"
+  platforms:
+    - name: Windows
+      versions:
+        - "all"
+  galaxy_tags:
+    - pdf
+    - document
+    - tools
+    - web
+dependencies: []

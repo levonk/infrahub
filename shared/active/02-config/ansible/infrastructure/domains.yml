@@ -257,3 +257,12 @@ infra_hostname_dashboard_directory_empire: "localnet-dashboard-directory-empire"
 # ---------------------------------------------------------------------------
 infra_domain_devops_no_mistakes: "no-mistakes.levonk.com"
 infra_domain_devops_no_mistakes_default: "no-mistakes.{{ infra_domain_base }}"
+
+# ---------------------------------------------------------------------------
+# Stirling-PDF (nl region — X86)
+# Self-hosted PDF utility suite (merge, split, convert, sign, OCR, etc.).
+# Upstream image: stirlingtools/stirling-pdf:latest (multi-arch amd64 + arm64).
+# Web UI exposed via Traefik at stirling.nl.{{ infra_domain_base }}.
+# ---------------------------------------------------------------------------
+infra_domain_tools_stirling_pdf: "stirling.nl.{{ infra_domain_base }}"
+infra_hostname_tools_stirling_pdf: "localnet-tools-stirling-pdf"

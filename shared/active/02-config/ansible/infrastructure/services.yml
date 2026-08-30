@@ -646,6 +646,27 @@ services:
   traefik: true
   network: "traefik-windows-network"
 
+- name: "Stirling-PDF"
+  container: "{{ infra_hostname_tools_stirling_pdf }}"
+  machine: "dtop202311"
+  category: "tools"
+  description: "Self-hosted PDF utility suite (merge, split, convert, sign, OCR)"
+  source_repo: "https://github.com/Stirling-Tools/Stirling-PDF"
+  domains:
+    - "infra_domain_tools_stirling_pdf"
+  ports:
+    - host: "infra_port_tools_stirling_pdf_host"
+      container: "infra_port_tools_stirling_pdf_container"
+      label: "Web"
+  traefik: true
+  network: "traefik-windows-network"
+  health_endpoint: "/api/v1/info/status"
+  pipeline: "none"
+  alert_labels:
+    pipeline: "none"
+    stage: "tools"
+    service: "stirling-pdf"
+
 # ===========================================================================
 # Dashboards / Start Pages
 # ===========================================================================

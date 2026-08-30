@@ -1,0 +1,62 @@
+---
+# Stirling-PDF — Default Variables
+# Self-hosted PDF utility suite (merge, split, convert, sign, OCR, etc.)
+# Upstream: https://github.com/Stirling-Tools/Stirling-PDF
+# Docs: https://docs.stirlingpdf.com/
+
+# Service Configuration
+tools_stirling_pdf_enabled: true
+tools_stirling_pdf_container_name: "{{ infra_hostname_tools_stirling_pdf | default('localnet-tools-stirling-pdf') }}"
+tools_stirling_pdf_image_name: "stirlingtools/stirling-pdf"
+tools_stirling_pdf_image_tag: "latest"
+
+# Ports (reference infrastructure variables)
+tools_stirling_pdf_host_port: "{{ infra_port_tools_stirling_pdf_host | default('4531') }}"
+tools_stirling_pdf_container_port: "{{ infra_port_tools_stirling_pdf_container | default('8080') }}"
+
+# Domain (reference infrastructure variables)
+tools_stirling_pdf_domain: "{{ infra_domain_tools_stirling_pdf | default('stirling.nl.levonk.com') }}"
+
+# Volumes (reference infrastructure variables)
+tools_stirling_pdf_configs_volume: "{{ infra_storage_stirling_pdf_configs_volume | default('localnet-stirling-pdf-configs-volume') }}"
+tools_stirling_pdf_tessdata_volume: "{{ infra_storage_stirling_pdf_tessdata_volume | default('localnet-stirling-pdf-tessdata-volume') }}"
+tools_stirling_pdf_pipeline_volume: "{{ infra_storage_stirling_pdf_pipeline_volume | default('localnet-stirling-pdf-pipeline-volume') }}"
+tools_stirling_pdf_custom_files_volume: "{{ infra_storage_stirling_pdf_custom_files_volume | default('localnet-stirling-pdf-custom-files-volume') }}"
+tools_stirling_pdf_logs_volume: "{{ infra_storage_stirling_pdf_logs_volume | default('localnet-stirling-pdf-logs-volume') }}"
+
+# Network — joins traefik-windows-network for Traefik routing
+tools_stirling_pdf_network_name: "{{ proxy_traefik_windows_network_name | default('traefik-windows-network') }}"
+
+# Docker host for SSH-tunneled CLI (Windows Docker Desktop)
+tools_stirling_pdf_docker_host: "{{ proxy_traefik_windows_docker_host | default('ssh://ansible@dtop202311.tale-grouper.ts.net') }}"
+
+# Stirling-PDF Application Configuration (via environment variables)
+# Base URL the app advertises (used for redirects, links, etc.)
+tools_stirling_pdf_base_url: "https://{{ tools_stirling_pdf_domain }}"
+# Application display name
+tools_stirling_pdf_app_name: "Stirling-PDF"
+# Default locale for the UI
+tools_stirling_pdf_default_locale: "en-US"
+# Java memory limits (Stirling-PDF is a Java/Spring Boot app)
+tools_stirling_pdf_java_memory: "1g"
+
+# Security — free tier uses Authelia forward-auth via Traefik.
+# Disable Stirling-PDF's internal login so Authelia is the sole gate.
+tools_stirling_pdf_login_enabled: "false"
+tools_stirling_pdf_pro_enabled: "false"
+
+# Timezone
+tools_stirling_pdf_tz: "{{ localnet_tz | default('UTC') }}"
+
+# Logging
+tools_stirling_pdf_log_max_size: "10m"
+tools_stirling_pdf_log_max_file: "5"
+
+# Healthcheck — GET /api/v1/info/status returns status JSON
+tools_stirling_pdf_healthcheck_interval: "30s"
+tools_stirling_pdf_healthcheck_timeout: "10s"
+tools_stirling_pdf_healthcheck_retries: 5
+tools_stirling_pdf_healthcheck_start_period: "60s"
+
+# Verify health after deploy
+tools_stirling_pdf_verify_health: true

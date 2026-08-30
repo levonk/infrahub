@@ -1,0 +1,149 @@
+---
+# Stirling-PDF Windows (nl) deployment — ssh-tunneled Docker CLI pattern
+# Target: Windows Docker Desktop (dtop202311, X86).
+#
+# community.docker modules can't run on Windows (Ansible core basic.py imports
+# grp, Unix-only). We use ansible.builtin.shell with DOCKER_HOST: ssh:// and
+# delegate_to: localhost, matching the search-hister pattern.
+#
+# Stirling-PDF is configured via environment variables and persists state
+# (settings.yml + H2 file DB) in the configs volume. No config files need
+# to be rendered ahead of time — the app creates them on first run.
+
+# ============================================================================
+# Volume Management — three-phase ownership init per ADR-20260822001.
+# Stirling-PDF runs as UID 1000 inside the container (Java user).
+# ============================================================================
+- name: Initialize Stirling-PDF volumes ownership
+  ansible.builtin.include_role:
+    name: localnet-volume-init
+  vars:
+    volume_init_docker_host: "{{ tools_stirling_pdf_docker_host }}"
+    volume_init_volumes:
+      - name: "{{ tools_stirling_pdf_configs_volume }}"
+        mount: /configs
+        uid: 1000
+        gid: 1000
+        mode: "755"
+      - name: "{{ tools_stirling_pdf_tessdata_volume }}"
+        mount: /usr/share/tessdata
+        uid: 1000
+        gid: 1000
+        mode: "755"
+      - name: "{{ tools_stirling_pdf_pipeline_volume }}"
+        mount: /pipeline
+        uid: 1000
+        gid: 1000
+        mode: "755"
+      - name: "{{ tools_stirling_pdf_custom_files_volume }}"
+        mount: /customFiles
+        uid: 1000
+        gid: 1000
+        mode: "755"
+      - name: "{{ tools_stirling_pdf_logs_volume }}"
+        mount: /logs
+        uid: 1000
+        gid: 1000
+        mode: "755"
+  tags: ["deploy", "volume"]
+
+# ============================================================================
+# Pull Image
+# ============================================================================
+- name: Pull Stirling-PDF image
+  ansible.builtin.command: "docker pull {{ tools_stirling_pdf_image_name }}:{{ tools_stirling_pdf_image_tag }}"
+  environment:
+    DOCKER_HOST: "{{ tools_stirling_pdf_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "pull"]
+
+# ============================================================================
+# Container Deployment
+# ============================================================================
+- name: Stop existing Stirling-PDF container
+  ansible.builtin.shell: "docker rm -f {{ tools_stirling_pdf_container_name }} 2>/dev/null || true"
+  environment:
+    DOCKER_HOST: "{{ tools_stirling_pdf_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "container"]
+
+- name: Deploy Stirling-PDF container
+  ansible.builtin.shell: >-
+    docker run -d
+    --name {{ tools_stirling_pdf_container_name }}
+    --restart unless-stopped
+    --network {{ tools_stirling_pdf_network_name }}
+    -p {{ tools_stirling_pdf_host_port }}:{{ tools_stirling_pdf_container_port }}/tcp
+    -v {{ tools_stirling_pdf_configs_volume }}:/configs:rw
+    -v {{ tools_stirling_pdf_tessdata_volume }}:/usr/share/tessdata:rw
+    -v {{ tools_stirling_pdf_pipeline_volume }}:/pipeline:rw
+    -v {{ tools_stirling_pdf_custom_files_volume }}:/customFiles:rw
+    -v {{ tools_stirling_pdf_logs_volume }}:/logs:rw
+    -e SYSTEM_DEFAULTLOCALE={{ tools_stirling_pdf_default_locale }}
+    -e UI_APPNAME={{ tools_stirling_pdf_app_name }}
+    -e SYSTEM_BASEURL={{ tools_stirling_pdf_base_url }}
+    -e SECURITY_ENABLE_LOGIN={{ tools_stirling_pdf_login_enabled }}
+    -e SECURITY_ENABLE_PRO={{ tools_stirling_pdf_pro_enabled }}
+    -e JAVA_TOOL_OPTIONS=-Xmx{{ tools_stirling_pdf_java_memory }}
+    -e TZ={{ tools_stirling_pdf_tz }}
+    --log-driver json-file
+    --log-opt max-size={{ tools_stirling_pdf_log_max_size }}
+    --log-opt max-file={{ tools_stirling_pdf_log_max_file }}
+    --health-cmd "wget -qO- http://127.0.0.1:{{ tools_stirling_pdf_container_port }}/api/v1/info/status || exit 1"
+    --health-interval {{ tools_stirling_pdf_healthcheck_interval }}
+    --health-timeout {{ tools_stirling_pdf_healthcheck_timeout }}
+    --health-retries {{ tools_stirling_pdf_healthcheck_retries }}
+    --health-start-period {{ tools_stirling_pdf_healthcheck_start_period }}
+    --security-opt no-new-privileges:true
+    {{ tools_stirling_pdf_image_name }}:{{ tools_stirling_pdf_image_tag }}
+  environment:
+    DOCKER_HOST: "{{ tools_stirling_pdf_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "container"]
+
+# ============================================================================
+# Wait for health
+# ============================================================================
+- name: Wait for Stirling-PDF to be healthy
+  ansible.builtin.command: >-
+    docker inspect --format '{% raw %}{{.State.Health.Status}}{% endraw %}' {{ tools_stirling_pdf_container_name }}
+  environment:
+    DOCKER_HOST: "{{ tools_stirling_pdf_docker_host }}"
+  delegate_to: localhost
+  register: tools_stirling_pdf_health
+  until: tools_stirling_pdf_health.stdout == "healthy"
+  retries: 30
+  delay: 10
+  changed_when: false
+  ignore_errors: true
+  when: tools_stirling_pdf_verify_health | bool
+  tags: ["deploy", "container"]
+
+# ============================================================================
+# Status Report
+# ============================================================================
+- name: Get Stirling-PDF container status
+  ansible.builtin.command: >-
+    docker inspect --format '{% raw %}{{.Name}}={{.State.Status}} health={{.State.Health.Status}}{% endraw %}'
+    {{ tools_stirling_pdf_container_name }}
+  environment:
+    DOCKER_HOST: "{{ tools_stirling_pdf_docker_host }}"
+  delegate_to: localhost
+  register: tools_stirling_pdf_status
+  changed_when: false
+  ignore_errors: true
+  tags: ["always", "info"]
+
+- name: Report Stirling-PDF status
+  ansible.builtin.debug:
+    msg: |
+      Stirling-PDF deployed:
+        - URL: https://{{ tools_stirling_pdf_domain }}
+        - Container: {{ tools_stirling_pdf_container_name }}
+        - Image: {{ tools_stirling_pdf_image_name }}:{{ tools_stirling_pdf_image_tag }}
+        - Port: {{ tools_stirling_pdf_host_port }}:{{ tools_stirling_pdf_container_port }}/tcp
+        - Status: {{ tools_stirling_pdf_status.stdout | default('unknown') }}
+  tags: ["always", "info"]

@@ -544,3 +544,13 @@ infra_port_monitoring_uptime_kuma_host: "3001"
 infra_port_monitoring_uptime_kuma_container: "3001"
 infra_port_monitoring_node_exporter_host: "9100"
 infra_port_monitoring_node_exporter_container: "9100"
+
+# ---------------------------------------------------------------------------
+# Stirling-PDF (Self-hosted PDF utility suite)
+# Used by: Windows Docker Desktop hosts (deploy-stirling-pdf.yml playbook, nl region)
+# Upstream image: stirlingtools/stirling-pdf:latest (multi-arch amd64 + arm64)
+# Web UI exposed via Traefik at stirling.nl.{{ infra_domain_base }}.
+# Host port 4531 follows the nl-region tools range (directory-empire=4530).
+# ---------------------------------------------------------------------------
+infra_port_tools_stirling_pdf_host: "4531"
+infra_port_tools_stirling_pdf_container: "8080"

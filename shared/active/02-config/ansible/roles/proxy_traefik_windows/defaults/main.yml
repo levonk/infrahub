@@ -113,6 +113,14 @@ proxy_traefik_windows_hister_container_name: "{{ search_hister_container_name | 
 proxy_traefik_windows_hister_container_port: "{{ search_hister_container_port | default('4433') }}"
 
 # ---------------------------------------------------------------------------
+# Stirling-PDF Integration (nl — self-hosted PDF utility suite)
+# ---------------------------------------------------------------------------
+proxy_traefik_windows_stirling_pdf_enabled: true
+proxy_traefik_windows_stirling_pdf_domain: "{{ tools_stirling_pdf_domain | default('stirling.nl.levonk.com') }}"
+proxy_traefik_windows_stirling_pdf_container_name: "{{ tools_stirling_pdf_container_name | default('localnet-tools-stirling-pdf') }}"
+proxy_traefik_windows_stirling_pdf_container_port: "{{ tools_stirling_pdf_container_port | default('8080') }}"
+
+# ---------------------------------------------------------------------------
 # Docker Host (Windows — ssh-tunneled)
 # ---------------------------------------------------------------------------
 proxy_traefik_windows_docker_host: "{{ verdaccio_docker_host_windows | default('ssh://ansible@dtop202311.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) }}"
