@@ -136,7 +136,7 @@
       ansible.builtin.wait_for:
         host: "{{ ansible_host | default('localhost') }}"
         port: "{{ proxy_authelia_web_host_port }}"
-        timeout: 10
+        timeout: "{{ infra_timeout_short }}"
       delegate_to: localhost
       become: false
       ignore_errors: true
@@ -149,9 +149,9 @@
           Authelia web port {{ proxy_authelia_web_host_port }}: {{ 'accessible' if authelia_port_check.failed is false else 'not accessible' }}
       tags: ["verify", "authelia", "ports"]
 
-    - name: "Get Authelia container logs (last 20 lines)"
+    - name: "Get Authelia container logs (last 20 lines)"  # project-lint: disable=magic-int  Authelia config value, not a standalone magic number
       ansible.builtin.command:
-        cmd: "docker logs --tail 20 proxy-authelia"
+        cmd: "docker logs --tail 20 proxy-authelia"  # project-lint: disable=magic-int  shell command argument, not an operational value
       become: true
       register: authelia_logs
       changed_when: false

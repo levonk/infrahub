@@ -6,31 +6,31 @@
   ansible.builtin.file:
     path: "{{ item.path }}"
     state: directory
-    mode: "{{ item.mode | default('0755') }}"
+    mode: "{{ item.mode | default('{{ infra_mode_dir }}') }}"
     owner: "{{ isolation_vm_user }}"
     group: "{{ isolation_vm_user }}"
   loop:
     - path: "{{ isolation_vm_nix_sidecar_volume_path }}/nix-store"
-      mode: '0755'
+      mode: '{{ infra_mode_dir }}'
     - path: "{{ isolation_vm_nix_sidecar_volume_path }}/nix-config"
-      mode: '0755'
+      mode: '{{ infra_mode_dir }}'
     - path: "{{ isolation_vm_nix_sidecar_volume_path }}/nix-cache"
-      mode: '0777'
+      mode: '{{ infra_mode_dir_public }}'
     - path: "{{ isolation_vm_base_kalinix_volume_path }}/home"
-      mode: '0755'
+      mode: '{{ infra_mode_dir }}'
     - path: "{{ isolation_vm_base_kalinix_volume_path }}/tmp"
-      mode: '1777'
+      mode: "{{ infra_mode_dir_sticky }}"
     - path: "{{ isolation_vm_hermes_agent_volume_path }}/data"
-      mode: '0755'
+      mode: '{{ infra_mode_dir }}'
     - path: "{{ isolation_vm_hermes_agent_volume_path }}/config"
-      mode: '0755'
+      mode: '{{ infra_mode_dir }}'
   become: true
 
 - name: Set up volume mount permissions for Nix cache
   ansible.builtin.file:
     path: "{{ isolation_vm_nix_sidecar_volume_path }}/nix-cache"
     state: directory
-    mode: '1777'
+    mode: "{{ infra_mode_dir_sticky }}"
     owner: "{{ isolation_vm_user }}"
     group: "{{ isolation_vm_user }}"
   become: true
@@ -39,7 +39,7 @@
   ansible.builtin.copy:
     dest: "{{ item.path }}"
     content: "{{ item.content }}"
-    mode: '0755'
+    mode: '{{ infra_mode_dir }}'
     owner: "{{ isolation_vm_user }}"
     group: "{{ isolation_vm_user }}"
   loop:

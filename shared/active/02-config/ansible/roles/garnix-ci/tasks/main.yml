@@ -60,7 +60,7 @@
   ansible.builtin.file:
     path: "{{ garnix_ci_windows_temp_dir }}"
     state: directory
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   delegate_to: localhost
   run_once: true
   changed_when: false
@@ -73,7 +73,7 @@
   ansible.builtin.template:
     src: nix.conf.j2
     dest: "{{ garnix_ci_windows_temp_dir }}/nix.conf"
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   delegate_to: localhost
   run_once: true
   changed_when: false
@@ -138,7 +138,6 @@
   ansible.builtin.command: "docker pull {{ garnix_ci_image_name }}:{{ garnix_ci_image_tag }}"
   environment:
     DOCKER_HOST: "{{ garnix_ci_docker_host_windows }}"
-    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
   delegate_to: localhost
   changed_when: true
   tags: ["deploy", "pull"]
@@ -175,7 +174,7 @@
     --log-driver json-file
     --log-opt max-size={{ garnix_ci_log_max_size }}
     --log-opt max-file={{ garnix_ci_log_max_file }}
-    --health-cmd "wget -qO- http://127.0.0.1:{{ garnix_ci_web_container_port }}/ || exit 1"
+    --health-cmd "wget -qO- http://{{ infra_network_bind_localhost }}:{{ garnix_ci_web_container_port }}/ || exit 1"
     --health-interval {{ garnix_ci_healthcheck_interval }}
     --health-timeout {{ garnix_ci_healthcheck_timeout }}
     --health-retries {{ garnix_ci_healthcheck_retries }}
@@ -199,7 +198,7 @@
   delegate_to: localhost
   register: garnix_ci_health
   until: garnix_ci_health.stdout == "healthy"
-  retries: 30
+  retries: "{{ infra_retry_extended }}"
   delay: 3
   changed_when: false
   ignore_errors: true

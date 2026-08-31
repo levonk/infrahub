@@ -55,7 +55,7 @@
         state: directory
         owner: "{{ cloud_server_admin_user }}"
         group: "{{ cloud_server_admin_user }}"
-        mode: "0700"
+        mode: "{{ infra_mode_dir_restricted }}"
       become: true
       tags: ["always", "setup"]
 

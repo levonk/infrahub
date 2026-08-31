@@ -31,7 +31,7 @@
   ansible.builtin.file:
     path: /etc/apt/keyrings
     state: directory
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   become: true
   when:
     - ansible_facts['os_family'] == "Debian"
@@ -42,7 +42,7 @@
   ansible.builtin.get_url:
     url: https://download.docker.com/linux/debian/gpg
     dest: /etc/apt/keyrings/docker.asc
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
   when:
     - ansible_facts['os_family'] == "Debian"
@@ -94,7 +94,7 @@
 - name: Ensure dockremap group exists for userns-remap
   ansible.builtin.group:
     name: dockremap
-    gid: 100000
+    gid: "{{ infra_storage_userns_remap_gid }}"
     state: present
   become: true
   when: 
@@ -104,7 +104,7 @@
 - name: Ensure dockremap user exists for userns-remap
   ansible.builtin.user:
     name: dockremap
-    uid: 100000
+    uid: "{{ infra_storage_userns_remap_uid }}"
     group: dockremap
     home: /var/lib/dockremap
     create_home: true
@@ -119,9 +119,9 @@
 - name: Ensure userns-remap subordinate UID range exists
   ansible.builtin.lineinfile:
     path: /etc/subuid
-    line: "dockremap:100000:65536"
+    line: "dockremap:{{ infra_storage_userns_remap_uid }}:{{ infra_size_64k }}"
     create: true
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
   when: 
     - docker_engine_userns_remap | length > 0
@@ -130,9 +130,9 @@
 - name: Ensure userns-remap subordinate GID range exists
   ansible.builtin.lineinfile:
     path: /etc/subgid
-    line: "dockremap:100000:65536"
+    line: "dockremap:{{ infra_storage_userns_remap_uid }}:{{ infra_size_64k }}"
     create: true
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
   when: 
     - docker_engine_userns_remap | length > 0
@@ -147,7 +147,7 @@
     state: directory
     owner: "{{ docker_engine_daemon_config_owner }}"
     group: "{{ docker_engine_daemon_config_group }}"
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   become: true
   when: not docker_engine_skip_installation | default(false) | bool
 

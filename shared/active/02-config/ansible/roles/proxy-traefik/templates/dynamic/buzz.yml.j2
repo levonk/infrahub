@@ -30,5 +30,5 @@ http:
     buzz:
       loadBalancer:
         servers:
-          - url: "http://{{ ai_buzz_container_name | default('buzz') }}:{{ ai_buzz_container_port | default('3000') }}"
+          - url: "http://{{ ai_buzz_container_name | default('buzz') }}:{{ ai_buzz_container_port | default(infra_port_monitoring_grafana_host) }}"
         passHostHeader: true

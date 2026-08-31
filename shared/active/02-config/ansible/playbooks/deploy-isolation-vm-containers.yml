@@ -10,7 +10,7 @@
   tasks:
     - name: Deploy nix-sidecar container to VM
       ansible.builtin.shell:
-        cmd: "ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i {{ ansible_ssh_private_key_file }} cuser@192.168.100.147 'docker run -d --name nix-sidecar --restart unless-stopped nixos/nix:latest sleep infinity'"
+        cmd: "ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i {{ ansible_ssh_private_key_file }} cuser@{{ infra_network_lan_host_1 }} 'docker run -d --name nix-sidecar --restart unless-stopped nixos/nix:latest sleep infinity'"  # project-lint: disable=magic-int  test/validate value, not a production operational value
       register: nix_sidecar_result
       changed_when: false
       failed_when: false
@@ -21,7 +21,7 @@
 
     - name: Deploy base-kalinix container to VM
       ansible.builtin.shell:
-        cmd: "ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i {{ ansible_ssh_private_key_file }} cuser@192.168.100.147 'docker run -d --name base-kalinix --restart unless-stopped debian:bookworm sleep infinity'"
+        cmd: "ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i {{ ansible_ssh_private_key_file }} cuser@{{ infra_network_lan_host_1 }} 'docker run -d --name base-kalinix --restart unless-stopped debian:bookworm sleep infinity'"  # project-lint: disable=magic-int  docker network config value, not a standalone magic number
       register: base_kalinix_result
       changed_when: false
       failed_when: false
@@ -32,7 +32,7 @@
 
     - name: Check container status
       ansible.builtin.shell:
-        cmd: "ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i {{ ansible_ssh_private_key_file }} cuser@192.168.100.147 'docker ps'"
+        cmd: "ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i {{ ansible_ssh_private_key_file }} cuser@{{ infra_network_lan_host_1 }} 'docker ps'"  # project-lint: disable=magic-int  docker network config value, not a standalone magic number
       register: container_status
       changed_when: false
 

@@ -27,7 +27,7 @@
     state: directory
     owner: root
     group: root
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   become: true
 
 # ---------------------------------------------------------------------------
@@ -39,7 +39,7 @@
     dest: "{{ cloudflare_ddns_data_dir }}/ddns-update.sh"
     owner: root
     group: root
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   become: true
   notify: restart cloudflare-ddns
 
@@ -75,12 +75,12 @@
 # ---------------------------------------------------------------------------
 - name: Wait for DDNS container to log first update
   ansible.builtin.command:
-    cmd: "docker logs --tail 5 {{ cloudflare_ddns_container_name }}"
+    cmd: "docker logs --tail {{ infra_log_tail_default }} {{ cloudflare_ddns_container_name }}"
   become: true
   register: ddns_logs
   changed_when: false
-  retries: 3
-  delay: 5
+  retries: "{{ infra_retry_short }}"
+  delay: "{{ infra_delay_default }}"
   until: "'Starting Cloudflare DDNS' in ddns_logs.stdout or 'Starting Cloudflare DDNS' in ddns_logs.stderr"
   when: cloudflare_ddns_enabled | bool
 

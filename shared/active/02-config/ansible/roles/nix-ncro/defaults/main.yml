@@ -12,8 +12,8 @@
 nix_ncro_enabled: true
 
 # Container configuration — per-region container names
-nix_ncro_container_name_nl: "{{ infra_hostname_nix_ncro_nl | default('localnet-nix-ncro') }}"
-nix_ncro_container_name_cno: "{{ infra_hostname_nix_ncro_cno | default('localnet-nix-ncro-cno') }}"
+nix_ncro_container_name_nl: "{{ infra_hostname_nix_ncro_nl | default(infra_value_nix_ncro_container_name_nl) }}"
+nix_ncro_container_name_cno: "{{ infra_hostname_nix_ncro_cno | default(infra_value_nix_ncro_container_name_cno) }}"
 # Locally-built image from Nix flake (harmonia + ncro flakes now support aarch64-linux)
 nix_ncro_image_name: "localnet-nix-ncro"
 nix_ncro_image_tag: "latest"
@@ -26,16 +26,16 @@ nix_ncro_container_port: "{{ infra_port_nix_ncro_container | default(infra_port_
 nix_ncro_config_volume_nl: "localnet-ncro-config-volume"
 nix_ncro_data_volume_nl: "localnet-ncro-data-volume"
 # cno: Volumes
-nix_ncro_config_volume_cno: "{{ infra_storage_nix_ncro_config_volume_cno | default('localnet-ncro-cno-config-volume') }}"
-nix_ncro_data_volume_cno: "{{ infra_storage_nix_ncro_data_volume_cno | default('localnet-ncro-cno-data-volume') }}"
+nix_ncro_config_volume_cno: "{{ infra_storage_nix_ncro_config_volume_cno | default(infra_value_nix_ncro_config_volume_cno) }}"
+nix_ncro_data_volume_cno: "{{ infra_storage_nix_ncro_data_volume_cno | default(infra_value_nix_ncro_data_volume_cno) }}"
 
 # nl: Network — same network as ncps for internal communication
 nix_ncro_network_name_nl: "traefik-windows-network"
 # cno: Network — join traefik-network for container DNS resolution
-nix_ncro_network_name_cno: "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"
+nix_ncro_network_name_cno: "{{ infra_network_proxy_traefik_network_name | default(infra_network_nix_ncro_network_name_cno) }}"
 
 # Docker host for Windows deployment (ssh-tunneled)
-nix_ncro_docker_host_windows: "ssh://ansible@{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) }}"
+nix_ncro_docker_host_windows: "ssh://ansible@{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.' ~ (infra_tailscale_tailnet | default(infra_value_nix_ncro_docker_host_windows))) }}"
 
 # Local temp directory for rendering config files
 nix_ncro_windows_temp_dir: "/tmp/nix-ncro-config-{{ inventory_hostname }}"
@@ -78,4 +78,4 @@ nix_ncro_log_max_size: "10m"
 nix_ncro_log_max_file: "5"
 
 # Timezone
-nix_ncro_tz: "{{ localnet_tz | default(timezone | default('UTC')) }}"
+nix_ncro_tz: "{{ localnet_tz | default(timezone | default(infra_value_nix_ncro_tz)) }}"

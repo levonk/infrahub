@@ -7,7 +7,7 @@
   register: nix_sidecar_connectivity
   failed_when: nix_sidecar_connectivity.rc != 0
   changed_when: false
-  timeout: 30
+  timeout: "{{ infra_timeout_default }}"
   when: isolation_vm_nix_sidecar_container_name is defined
 
 - name: Test basic connectivity from base-kalinix container
@@ -15,7 +15,7 @@
   register: base_kalinix_connectivity
   failed_when: base_kalinix_connectivity.rc != 0
   changed_when: false
-  timeout: 30
+  timeout: "{{ infra_timeout_default }}"
   when: isolation_vm_base_kalinix_container_name is defined
 
 - name: Test basic connectivity from hermes-agent container
@@ -23,28 +23,28 @@
   register: hermes_agent_connectivity
   failed_when: hermes_agent_connectivity.rc != 0
   changed_when: false
-  timeout: 30
+  timeout: "{{ infra_timeout_default }}"
   when: isolation_vm_hermes_agent_container_name is defined
 
 - name: Check external IP from nix-sidecar container
   ansible.builtin.command: "docker exec {{ isolation_vm_nix_sidecar_container_name }} curl ifconfig.me"
   register: nix_sidecar_external_ip
   changed_when: false
-  timeout: 30
+  timeout: "{{ infra_timeout_default }}"
   when: isolation_vm_nix_sidecar_container_name is defined
 
 - name: Check external IP from base-kalinix container
   ansible.builtin.command: "docker exec {{ isolation_vm_base_kalinix_container_name }} curl ifconfig.me"
   register: base_kalinix_external_ip
   changed_when: false
-  timeout: 30
+  timeout: "{{ infra_timeout_default }}"
   when: isolation_vm_base_kalinix_container_name is defined
 
 - name: Check external IP from hermes-agent container
   ansible.builtin.command: "docker exec {{ isolation_vm_hermes_agent_container_name }} curl ifconfig.me"
   register: hermes_agent_external_ip
   changed_when: false
-  timeout: 30
+  timeout: "{{ infra_timeout_default }}"
   when: isolation_vm_hermes_agent_container_name is defined
 
 - name: Test DNS resolution from nix-sidecar container
@@ -52,7 +52,7 @@
   register: nix_sidecar_dns
   failed_when: nix_sidecar_dns.rc != 0
   changed_when: false
-  timeout: 30
+  timeout: "{{ infra_timeout_default }}"
   when: isolation_vm_nix_sidecar_container_name is defined
 
 - name: Test DNS resolution from base-kalinix container
@@ -60,7 +60,7 @@
   register: base_kalinix_dns
   failed_when: base_kalinix_dns.rc != 0
   changed_when: false
-  timeout: 30
+  timeout: "{{ infra_timeout_default }}"
   when: isolation_vm_base_kalinix_container_name is defined
 
 - name: Test DNS resolution from hermes-agent container
@@ -68,7 +68,7 @@
   register: hermes_agent_dns
   failed_when: hermes_agent_dns.rc != 0
   changed_when: false
-  timeout: 30
+  timeout: "{{ infra_timeout_default }}"
   when: isolation_vm_hermes_agent_container_name is defined
 
 - name: Check routing table on host
@@ -108,22 +108,22 @@
   register: local_network_test
   failed_when: false
   changed_when: false
-  timeout: 10
+  timeout: "{{ infra_timeout_short }}"
   when: isolation_vm_nix_sidecar_container_name is defined
 
 - name: Test split-tunneling - external network routing
-  ansible.builtin.command: "docker exec {{ isolation_vm_nix_sidecar_container_name }} ping -c 2 8.8.8.8"
+  ansible.builtin.command: "docker exec {{ isolation_vm_nix_sidecar_container_name }} ping -c 2 {{ infra_network_ip_google_dns_primary }}"
   register: external_network_test
   failed_when: false
   changed_when: false
-  timeout: 10
+  timeout: "{{ infra_timeout_short }}"
   when: isolation_vm_nix_sidecar_container_name is defined
 
 - name: Display split-tunneling test results
   ansible.builtin.debug:
     msg:
       - "Local network ({{ isolation_vm_network_gateway }}): {{ 'REACHABLE' if local_network_test.rc == 0 else 'UNREACHABLE' }}"
-      - "External network (8.8.8.8): {{ 'REACHABLE' if external_network_test.rc == 0 else 'UNREACHABLE' }}"
+      - "External network ({{ infra_network_ip_google_dns_primary }}): {{ 'REACHABLE' if external_network_test.rc == 0 else 'UNREACHABLE' }}"
       - "VPN routing enabled: {{ isolation_vm_enable_vpn_routing }}"
       - "Expected behavior: {{ 'External traffic through VPN' if isolation_vm_enable_vpn_routing | bool else 'External traffic through default route' }}"
 
@@ -248,7 +248,7 @@
       
       Split-Tunneling Tests:
       - Local network ({{ isolation_vm_network_gateway }}): {{ 'REACHABLE' if local_network_test.rc == 0 else 'UNREACHABLE' if local_network_test is defined else 'SKIPPED' }}
-      - External network (8.8.8.8): {{ 'REACHABLE' if external_network_test.rc == 0 else 'UNREACHABLE' if external_network_test is defined else 'SKIPPED' }}
+      - External network ({{ infra_network_ip_google_dns_primary }}): {{ 'REACHABLE' if external_network_test.rc == 0 else 'UNREACHABLE' if external_network_test is defined else 'SKIPPED' }}
       - VPN routing enabled: {{ isolation_vm_enable_vpn_routing }}
       
       Network Configuration:
@@ -280,4 +280,4 @@
       {{ iptables_rules.stdout | default('N/A') }}
       {% endif %}
     dest: "{{ result_filename }}"
-    mode: '0644'
+    mode: '{{ infra_mode_file }}'

@@ -27,8 +27,8 @@ agentmemory_network_name: "traefik-network"
 agentmemory_container_ip: "172.31.0.7"
 
 # Ports (from infrastructure variables)
-agentmemory_host_port: "{{ infra_port_ai_agentmemory_host | default('3111') }}"
-agentmemory_container_port: "{{ infra_port_ai_agentmemory_container | default('3111') }}"
+agentmemory_host_port: "{{ infra_port_ai_agentmemory_host | default(infra_port_agentmemory_host) }}"
+agentmemory_container_port: "{{ infra_port_ai_agentmemory_container | default(infra_port_agentmemory_container) }}"
 
 # ---------------------------------------------------------------------------
 # Volume Configuration
@@ -39,7 +39,7 @@ agentmemory_data_dir: "/data"
 # ---------------------------------------------------------------------------
 # Domain Configuration (for Traefik routing)
 # ---------------------------------------------------------------------------
-agentmemory_domain: "{{ infra_domain_ai_agentmemory | default('agentmemory.' ~ (infra_domain_base | default('example.com'))) }}"
+agentmemory_domain: "{{ infra_domain_ai_agentmemory | default('agentmemory.' ~ (infra_domain_base | default(infra_value_agentmemory_domain))) }}"
 
 # ---------------------------------------------------------------------------
 # Security — HMAC secret for API authentication

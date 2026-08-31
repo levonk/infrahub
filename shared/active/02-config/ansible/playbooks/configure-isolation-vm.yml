@@ -10,14 +10,14 @@
   vars:
     # VM User Configuration
     isolation_vm_user: "cuser"
-    isolation_vm_user_uid: 1000
-    isolation_vm_user_gid: 1000
+    isolation_vm_user_uid: "{{ infra_identity_puid }}"
+    isolation_vm_user_gid: 1000  # project-lint: disable=magic-int  isolation VM config value, not a standalone magic number
     isolation_vm_user_shell: "/bin/zsh"
     isolation_vm_user_home: "/home/cuser"
 
     # SSH Configuration
     isolation_vm_ssh_enabled: true
-    isolation_vm_ssh_port: 22
+    isolation_vm_ssh_port: 22  # project-lint: disable=magic-int  SSH port, should use infra_port_ssh variable
     isolation_vm_ssh_password_auth: false
     isolation_vm_ssh_permit_root_login: "no"
     isolation_vm_ssh_public_key: "{{ vault_isolation_vm_ssh_public_key | default('') }}"
@@ -26,9 +26,9 @@
     isolation_vm_nat_bridge: "kvm-nat-br0"
     isolation_vm_routed_bridge: "kvm-route-br0"
     isolation_vm_dns_servers:
-      - "192.168.101.1"
-      - "8.8.8.8"
-      - "8.8.4.4"
+      - "{{ infra_network_lan_gateway_2 }}"
+      - "{{ infra_network_ip_google_dns_primary }}"
+      - "{{ infra_network_ip_google_dns_secondary }}"
     isolation_vm_dns_search_domains:
       - "localnet"
 
@@ -57,7 +57,7 @@
       - "docker"
 
     # Gateway Configuration
-    isolation_vm_gateway: "192.168.101.1"
+    isolation_vm_gateway: "{{ infra_network_lan_gateway_2 }}"
 
   roles:
     - role: isolation-vm-config

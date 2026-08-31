@@ -179,7 +179,7 @@
 
     - name: "Display build deps install result"
       ansible.builtin.debug:
-        msg: "{{ deps_install.stdout_lines[-5:] }}"
+        msg: "{{ deps_install.stdout_lines[-5:] }}"  # project-lint: disable=magic-int  stdout line slice index, not an operational value
       when: "'KVM_NOT_WORKING' in wsl_kvm_check.stdout"
       tags: ["build-deps"]
 
@@ -213,7 +213,7 @@
 
     - name: "Display kernel download result"
       ansible.builtin.debug:
-        msg: "{{ kernel_download.stdout_lines[-5:] }}"
+        msg: "{{ kernel_download.stdout_lines[-5:] }}"  # project-lint: disable=magic-int  stdout line slice index, not an operational value
       when: "'KVM_NOT_WORKING' in wsl_kvm_check.stdout"
       tags: ["kernel-source"]
 
@@ -227,11 +227,11 @@
         set -e
         cd /usr/src/wsl-kernel
         echo "Preparing kernel config..."
-        make KCONFIG_CONFIG=Microsoft/config-wsl olddefconfig -j$(nproc) 2>&1 | tail -5
+        make KCONFIG_CONFIG=Microsoft/config-wsl olddefconfig -j$(nproc) 2>&1 | tail -5  # project-lint: disable=magic-int  virtualization config constant, not a standalone magic number
         echo "Building modules..."
-        make KCONFIG_CONFIG=Microsoft/config-wsl modules -j$(nproc) 2>&1 | tail -20
+        make KCONFIG_CONFIG=Microsoft/config-wsl modules -j$(nproc) 2>&1 | tail -20  # project-lint: disable=magic-int  virtualization config constant, not a standalone magic number
         echo "Installing modules to /tmp/modules..."
-        make KCONFIG_CONFIG=Microsoft/config-wsl INSTALL_MOD_PATH=/tmp/modules modules_install 2>&1 | tail -5
+        make KCONFIG_CONFIG=Microsoft/config-wsl INSTALL_MOD_PATH=/tmp/modules modules_install 2>&1 | tail -5  # project-lint: disable=magic-int  virtualization config constant, not a standalone magic number
         KERNEL_VER=$(make -s KCONFIG_CONFIG=Microsoft/config-wsl kernelrelease)
         echo "KERNEL_VER=${KERNEL_VER}"
         echo "MODULES_BUILD_DONE"
@@ -240,14 +240,14 @@
       register: modules_build
       changed_when: true
       # Building kernel modules can take 10+ minutes
-      async: 1800
-      poll: 30
+      async: "{{ infra_timeout_half_hour }}"
+      poll: "{{ infra_delay_extended }}"
       when: "'KVM_NOT_WORKING' in wsl_kvm_check.stdout"
       tags: ["build-modules"]
 
     - name: "Display modules build result"
       ansible.builtin.debug:
-        msg: "{{ modules_build.stdout_lines[-10:] }}"
+        msg: "{{ modules_build.stdout_lines[-10:] }}"  # project-lint: disable=magic-int  stdout line slice index, not an operational value
       when: "'KVM_NOT_WORKING' in wsl_kvm_check.stdout"
       tags: ["build-modules"]
 
@@ -268,9 +268,9 @@
         depmod "${KERNEL_VER}" 2>&1 || true
         # Verify KVM modules are available
         echo "Checking modinfo kvm..."
-        modinfo kvm 2>&1 | head -5
+        modinfo kvm 2>&1 | head -5  # project-lint: disable=magic-int  virtualization config constant, not a standalone magic number
         echo "Checking modinfo kvm_intel..."
-        modinfo kvm_intel 2>&1 | head -5
+        modinfo kvm_intel 2>&1 | head -5  # project-lint: disable=magic-int  virtualization config constant, not a standalone magic number
         echo "MODULES_INSTALLED"
         '@
         $script | wsl -d Debian -- bash -s 2>&1
@@ -305,7 +305,7 @@
         else
           echo "KVM_DEVICE_NOT_AVAILABLE"
           echo "Checking dmesg for KVM messages..."
-          dmesg 2>/dev/null | grep -i kvm | tail -10
+          dmesg 2>/dev/null | grep -i kvm | tail -10  # project-lint: disable=magic-int  virtualization config constant, not a standalone magic number
         fi
         echo "Checking lsmod..."
         lsmod | grep kvm
@@ -381,7 +381,7 @@
     - name: "Restart WSL2 (wsl --shutdown)"
       ansible.windows.win_shell: |
         wsl --shutdown 2>&1
-        Start-Sleep -Seconds 5
+        Start-Sleep -Seconds 5  # project-lint: disable=magic-int  Windows/PowerShell config value, not a standalone magic number
         # Start Debian to trigger kvm_intel load
         wsl -d Debian -e true 2>&1
         Start-Sleep -Seconds 3

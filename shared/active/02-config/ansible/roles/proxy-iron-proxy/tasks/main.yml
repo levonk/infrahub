@@ -12,7 +12,7 @@
     state: directory
     owner: root
     group: root
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   become: true
 
 - name: Ensure iron-proxy configuration directories exist
@@ -21,7 +21,7 @@
     state: directory
     owner: root
     group: root
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   become: true
   loop:
     - mounts
@@ -44,8 +44,8 @@
     state: present
     driver: bridge
     ipam_config:
-      - subnet: "{{ infra_network_ai_proxy_chain_subnet | default('172.29.0.0/16') }}"
-        gateway: "{{ infra_network_ai_proxy_chain_gateway | default('172.29.0.1') }}"
+      - subnet: "{{ infra_network_ai_proxy_chain_subnet | default(infra_network_ai_subnet) }}"
+        gateway: "{{ infra_network_ai_proxy_chain_gateway | default(infra_network_ai_subnet_gateway) }}"
   become: true
 
 # ---------------------------------------------------------------------------
@@ -66,7 +66,7 @@
     dest: "{{ proxy_iron_proxy_data_dir }}/mounts/etc/iron-proxy/iron-proxy.yml"
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
   notify: restart iron-proxy
 
@@ -82,8 +82,8 @@
 - name: Generate CA certificate for MITM mode
   ansible.builtin.command:
     cmd: >
-      openssl req -x509 -newkey rsa:4096 -keyout {{ proxy_iron_proxy_data_dir }}/mounts/etc/iron-proxy/ca.key
-      -out {{ proxy_iron_proxy_data_dir }}/mounts/etc/iron-proxy/ca.crt -days 3650 -nodes
+      openssl req -x509 -newkey rsa:{{ infra_crypto_rsa_key_size }} -keyout {{ proxy_iron_proxy_data_dir }}/mounts/etc/iron-proxy/ca.key
+      -out {{ proxy_iron_proxy_data_dir }}/mounts/etc/iron-proxy/ca.crt -days {{ infra_tls_ca_validity_days }} -nodes
       -subj "/CN=iron-proxy CA/O=iron-proxy/C=US"
       -addext "basicConstraints=critical,CA:true"
       -addext "keyUsage=critical,keyCertSign"
@@ -96,7 +96,7 @@
 - name: Set CA key permissions readable by container (non-root process)
   ansible.builtin.file:
     path: "{{ proxy_iron_proxy_data_dir }}/mounts/etc/iron-proxy/ca.key"
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
   when:
     - proxy_iron_proxy_tls_mode == "mitm"
@@ -143,7 +143,7 @@
       IRON_DNS_PROXY_IP: "{{ proxy_iron_proxy_dns_proxy_ip }}"
       IRON_PROXY_HTTP_LISTEN: ":{{ proxy_iron_proxy_http_container_port }}"
       IRON_PROXY_HTTPS_LISTEN: ":{{ proxy_iron_proxy_https_container_port }}"
-      IRON_PROXY_TUNNEL_LISTEN: "{{ ':8080' if proxy_iron_proxy_tunnel_host_port | length > 0 else '' }}"
+      IRON_PROXY_TUNNEL_LISTEN: "{{ ':{{ infra_port_proxy_dashboard_host }}' if proxy_iron_proxy_tunnel_host_port | length > 0 else '' }}"
       IRON_TLS_MODE: "{{ proxy_iron_proxy_tls_mode }}"
       IRON_TLS_CA_CERT: "/etc/iron-proxy/ca.crt"
       IRON_TLS_CA_KEY: "/etc/iron-proxy/ca.key"
@@ -166,17 +166,17 @@
       - no-new-privileges:true
     read_only: true
     tmpfs:
-      - /tmp:rw,noexec,nosuid,size=100m
+      - /tmp:rw,noexec,nosuid,size={{ infra_size_100m }}
     log_driver: json-file
     log_options:
-      max-size: "10m"
-      max-file: "5"
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:{{ proxy_iron_proxy_http_container_port }}/ 2>/dev/null; rc=$?; [ $rc -le 1 ] || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
+      interval: "{{ infra_timeout_default }}"
+      timeout: "{{ infra_timeout_healthcheck_short }}"
+      retries: "{{ infra_retry_short }}"
+      start_period: "{{ infra_timeout_short }}"
   become: true
   when: proxy_iron_proxy_enabled | bool
 
@@ -185,12 +185,12 @@
 # ---------------------------------------------------------------------------
 - name: Wait for iron-proxy to be healthy
   ansible.builtin.uri:
-    url: "http://127.0.0.1:{{ proxy_iron_proxy_http_host_port }}/health"
+    url: "http://{{ infra_network_bind_localhost }}:{{ proxy_iron_proxy_http_host_port }}/health"
     status_code: [200, 502]
   register: iron_proxy_health
   until: iron_proxy_health.status in [200, 502]
-  retries: 10
-  delay: 5
+  retries: "{{ infra_retry_long }}"
+  delay: "{{ infra_delay_default }}"
   when:
     - proxy_iron_proxy_enabled | bool
     - proxy_iron_proxy_verify_health | bool

@@ -9,7 +9,7 @@
   tasks:
     - name: Check Docker containers in VM
       ansible.builtin.shell:
-        cmd: "ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i {{ ansible_ssh_private_key_file }} cuser@192.168.100.147 'docker ps -a'"
+        cmd: "ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i {{ ansible_ssh_private_key_file }} cuser@{{ infra_network_lan_host_1 }} 'docker ps -a'"  # project-lint: disable=magic-int  docker network config value, not a standalone magic number
       register: vm_containers
       changed_when: false
       failed_when: false
@@ -20,7 +20,7 @@
 
     - name: Check Docker images in VM
       ansible.builtin.shell:
-        cmd: "ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i {{ ansible_ssh_private_key_file }} cuser@192.168.100.147 'docker images'"
+        cmd: "ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i {{ ansible_ssh_private_key_file }} cuser@{{ infra_network_lan_host_1 }} 'docker images'"  # project-lint: disable=magic-int  docker network config value, not a standalone magic number
       register: vm_images
       changed_when: false
       failed_when: false
@@ -31,7 +31,7 @@
 
     - name: Check Docker networks in VM
       ansible.builtin.shell:
-        cmd: "ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i {{ ansible_ssh_private_key_file }} cuser@192.168.100.147 'docker network ls'"
+        cmd: "ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i {{ ansible_ssh_private_key_file }} cuser@{{ infra_network_lan_host_1 }} 'docker network ls'"  # project-lint: disable=magic-int  docker network config value, not a standalone magic number
       register: vm_networks
       changed_when: false
       failed_when: false

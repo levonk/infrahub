@@ -35,5 +35,5 @@ http:
     wazuh:
       loadBalancer:
         servers:
-          - url: "{{ wazuh_traefik_backend_url | default('http://' ~ infra_tailscale_fqdn_windows_docker | default('dtop202311.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) ~ ':' ~ infra_port_security_wazuh_dashboard_host | default('5601')) }}"
+          - url: "{{ wazuh_traefik_backend_url | default('http://' ~ infra_tailscale_fqdn_windows_docker | default('dtop202311.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) ~ ':' ~ infra_port_security_wazuh_dashboard_host | default('5601')) }}"  # project-lint: disable=magic-int  Jinja default port value, should use infra_port variable
         passHostHeader: true

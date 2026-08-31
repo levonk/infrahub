@@ -22,9 +22,9 @@ vpn_nordvpn_windows_tailscale_image: "tailscale/tailscale:latest"
 # Docker networks are local to each host — same names as OCI (cno) since
 # they are on separate Docker daemons. Subnets differ to avoid confusion.
 # ---------------------------------------------------------------------------
-vpn_nordvpn_windows_network_name: "{{ infra_network_vpn_nordvpn_windows_network_name | default('vpn-network') }}"
-vpn_nordvpn_windows_network_subnet: "{{ infra_network_vpn_nordvpn_windows_subnet | default('172.40.0.0/16') }}"
-vpn_nordvpn_windows_network_gateway: "{{ infra_network_vpn_nordvpn_windows_gateway | default('172.40.0.1') }}"
+vpn_nordvpn_windows_network_name: "{{ infra_network_vpn_nordvpn_windows_network_name | default(infra_network_vpn_nordvpn_windows_network_name) }}"
+vpn_nordvpn_windows_network_subnet: "{{ infra_network_vpn_nordvpn_windows_subnet | default(infra_network_vpn_nordvpn_windows_network_subnet) }}"
+vpn_nordvpn_windows_network_gateway: "{{ infra_network_vpn_nordvpn_windows_gateway | default(infra_network_vpn_nordvpn_windows_network_gateway) }}"
 
 # ---------------------------------------------------------------------------
 # Port configuration (ALL ports as variables — offset from OCI to avoid
@@ -32,13 +32,13 @@ vpn_nordvpn_windows_network_gateway: "{{ infra_network_vpn_nordvpn_windows_gatew
 # ---------------------------------------------------------------------------
 vpn_nordvpn_windows_wireguard_host_port: "{{ infra_port_vpn_nordvpn_windows_wireguard_host | default(infra_port_vpn_wireguard_transparent) }}"
 vpn_nordvpn_windows_wireguard_container_port: "{{ infra_port_vpn_nordvpn_windows_wireguard_container | default(infra_port_vpn_nordvpn_wireguard_host) }}"
-vpn_nordvpn_windows_socks_host_port: "{{ infra_port_vpn_nordvpn_windows_socks_host | default('1081') }}"
+vpn_nordvpn_windows_socks_host_port: "{{ infra_port_vpn_nordvpn_windows_socks_host | default(infra_port_vpn_nordvpn_socks_alt_host) }}"
 vpn_nordvpn_windows_socks_container_port: "{{ infra_port_vpn_nordvpn_windows_socks_container | default(infra_port_vpn_nordvpn_socks_host) }}"
-vpn_nordvpn_windows_http_host_port: "{{ infra_port_vpn_nordvpn_windows_http_host | default('8889') }}"
+vpn_nordvpn_windows_http_host_port: "{{ infra_port_vpn_nordvpn_windows_http_host | default(infra_port_vpn_nordvpn_aux_host) }}"
 vpn_nordvpn_windows_http_container_port: "{{ infra_port_vpn_nordvpn_windows_http_container | default(infra_port_vpn_nordvpn_http_host) }}"
-vpn_nordvpn_windows_https_host_port: "{{ infra_port_vpn_nordvpn_windows_https_host | default('8444') }}"
+vpn_nordvpn_windows_https_host_port: "{{ infra_port_vpn_nordvpn_windows_https_host | default(infra_port_vpn_nordvpn_aux3_host) }}"
 vpn_nordvpn_windows_https_container_port: "{{ infra_port_vpn_nordvpn_windows_https_container | default(infra_port_vpn_nordvpn_https_host) }}"
-vpn_nordvpn_windows_shadowsocks_host_port: "{{ infra_port_vpn_nordvpn_windows_shadowsocks_host | default('8389') }}"
+vpn_nordvpn_windows_shadowsocks_host_port: "{{ infra_port_vpn_nordvpn_windows_shadowsocks_host | default(infra_port_vpn_nordvpn_aux2_host) }}"
 vpn_nordvpn_windows_shadowsocks_container_port: "{{ infra_port_vpn_nordvpn_windows_shadowsocks_container | default(infra_port_vpn_nordvpn_shadowsocks_host) }}"
 
 # ---------------------------------------------------------------------------
@@ -53,7 +53,7 @@ vpn_nordvpn_windows_tailscale_state_volume_name: "localnet-vpn-tailscale-exit-nl
 # community.docker modules run on the Ansible controller (localhost) and
 # connect to the Windows Docker daemon via SSH using the docker_host parameter.
 # ---------------------------------------------------------------------------
-vpn_nordvpn_windows_docker_host: "{{ windows_exit_nodes_docker_host | default('ssh://ansible@dtop202311.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) }}"
+vpn_nordvpn_windows_docker_host: "{{ windows_exit_nodes_docker_host | default('ssh://ansible@dtop202311.' ~ (infra_tailscale_tailnet | default(infra_value_vpn_nordvpn_windows_docker_host))) }}"
 
 # ---------------------------------------------------------------------------
 # NordVPN configuration

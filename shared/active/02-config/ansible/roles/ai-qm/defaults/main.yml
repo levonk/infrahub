@@ -10,9 +10,9 @@
 qm_enabled: true
 
 # Container names (match qm init convention: qm-{org}-{service})
-qm_core_container_name: "{{ infra_hostname_qm | default('qm-levonk-core') }}"
-qm_web_container_name: "{{ infra_hostname_qm_web | default('qm-levonk-web-ui') }}"
-qm_postgres_container_name: "{{ infra_hostname_qm_postgres | default('qm-levonk-pg') }}"
+qm_core_container_name: "{{ infra_hostname_qm | default(infra_value_qm_core_container_name) }}"
+qm_web_container_name: "{{ infra_hostname_qm_web | default(infra_value_qm_web_container_name) }}"
+qm_postgres_container_name: "{{ infra_hostname_qm_postgres | default(infra_value_qm_postgres_container_name) }}"
 
 # Images — upstream pre-built from ghcr.io/yc-software/qm
 # Pinned by SHA-256 digest (from `qm plan` output)
@@ -26,15 +26,15 @@ qm_sandbox_image: "{{ windows_registry_url | default(infra_registry) }}/localnet
 qm_sandbox_image_tag: "latest"
 
 # Port configuration
-qm_core_host_port: "{{ infra_port_ai_qm_core_host | default('3104') }}"
+qm_core_host_port: "{{ infra_port_ai_qm_core_host | default(infra_port_qm_core_host) }}"
 qm_core_container_port: "{{ infra_port_ai_qm_core_container | default(infra_port_proxy_dashboard_host) }}"
-qm_web_host_port: "{{ infra_port_ai_qm_web_host | default('3105') }}"
-qm_web_container_port: "{{ infra_port_ai_qm_web_container | default('8082') }}"
-qm_postgres_host_port: "{{ infra_port_ai_qm_postgres_host | default('5437') }}"
+qm_web_host_port: "{{ infra_port_ai_qm_web_host | default(infra_port_qm_web_host) }}"
+qm_web_container_port: "{{ infra_port_ai_qm_web_container | default(infra_port_ai_qm_host) }}"
+qm_postgres_host_port: "{{ infra_port_ai_qm_postgres_host | default(infra_port_proxy_mitm_alt3_host) }}"
 qm_postgres_container_port: "{{ infra_port_ai_qm_postgres_container | default(infra_port_db_postgres_host) }}"
 
 # Domain for Traefik routing
-qm_domain: "{{ infra_domain_ai_qm | default('qm.' ~ (infra_domain_base | default('example.com'))) }}"
+qm_domain: "{{ infra_domain_ai_qm | default('qm.' ~ (infra_domain_base | default(infra_value_qm_domain))) }}"
 
 # Public URLs (used by QM core for generating links)
 qm_public_url: "https://{{ qm_domain }}"
@@ -42,9 +42,9 @@ qm_public_api_url: "https://{{ qm_domain }}"
 qm_web_ui_public_url: "https://{{ qm_domain }}"
 
 # Network configuration
-qm_network_name: "{{ infra_network_ai_qm_network_name | default('qm-levonk') }}"
-qm_traefik_network_name: "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"
-qm_traefik_network_ip: "{{ infra_network_ip_qm_traefik | default('172.31.0.22') }}"
+qm_network_name: "{{ infra_network_ai_qm_network_name | default(infra_network_qm_network_name) }}"
+qm_traefik_network_name: "{{ infra_network_proxy_traefik_network_name | default(infra_network_qm_traefik_network_name) }}"
+qm_traefik_network_ip: "{{ infra_network_ip_qm_traefik | default(infra_network_ip_qm_traefik_network) }}"
 
 # Organization ID (matches qm init --org levonk)
 qm_org_id: "levonk"
@@ -52,19 +52,19 @@ qm_org_id: "levonk"
 # PostgreSQL configuration
 qm_postgres_db: "qm"
 qm_postgres_user: "qm"
-qm_postgres_password: "{{ vault_qm_postgres_password | default('changeme') }}"
+qm_postgres_password: "{{ vault_qm_postgres_password | default(infra_value_qm_postgres_password) }}"
 
 # Volume names
-qm_postgres_volume_name: "{{ infra_storage_qm_postgres_volume | default('localnet-qm-postgres-data-volume') }}"
-qm_layer_volume_name: "{{ infra_storage_qm_layer_volume | default('localnet-qm-layer-volume') }}"
+qm_postgres_volume_name: "{{ infra_storage_qm_postgres_volume | default(infra_value_qm_postgres_volume_name) }}"
+qm_layer_volume_name: "{{ infra_storage_qm_layer_volume | default(infra_value_qm_layer_volume_name) }}"
 
 # Secrets (from vault)
-qm_anthropic_api_key: "{{ vault_qm_anthropic_api_key | default('changeme') }}"
-qm_capability_secret: "{{ vault_qm_capability_secret | default('changeme') }}"
-qm_connector_secret_key: "{{ vault_qm_connector_secret_key | default('changeme') }}"
-qm_core_signing_secret: "{{ vault_qm_core_signing_secret | default('changeme') }}"
-qm_portal_identity_secret: "{{ vault_qm_portal_identity_secret | default('changeme') }}"
-qm_skill_signing_secret: "{{ vault_qm_skill_signing_secret | default('changeme') }}"
+qm_anthropic_api_key: "{{ vault_qm_anthropic_api_key | default(infra_value_qm_anthropic_api_key) }}"
+qm_capability_secret: "{{ vault_qm_capability_secret | default(infra_value_qm_capability_secret) }}"
+qm_connector_secret_key: "{{ vault_qm_connector_secret_key | default(infra_value_qm_connector_secret_key) }}"
+qm_core_signing_secret: "{{ vault_qm_core_signing_secret | default(infra_value_qm_core_signing_secret) }}"
+qm_portal_identity_secret: "{{ vault_qm_portal_identity_secret | default(infra_port_qmal_identity_secret) }}"
+qm_skill_signing_secret: "{{ vault_qm_skill_signing_secret | default(infra_value_qm_skill_signing_secret) }}"
 
 # QM harness mode: "pi" (real agent turns) or "mock" (fake turns, no model calls)
 qm_harness: "pi"
@@ -80,7 +80,7 @@ qm_model_provider: "anthropic"
 # community.docker modules can't run directly on Windows (Ansible core basic.py
 # imports grp, Unix-only). We delegate_to: localhost and connect to the Windows
 # Docker daemon via ssh://. Requires SSH config entry for the Windows host.
-qm_docker_host: "ssh://ansible@{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) }}"
+qm_docker_host: "ssh://ansible@{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.' ~ (infra_tailscale_tailnet | default(infra_value_qm_docker_host))) }}"
 
 # Health check configuration
 qm_health_interval: "30s"
@@ -93,4 +93,4 @@ qm_log_max_size: "10m"
 qm_log_max_file: "5"
 
 # Timezone
-qm_tz: "{{ localnet_tz | default(timezone | default('UTC')) }}"
+qm_tz: "{{ localnet_tz | default(timezone | default(infra_value_qm_tz)) }}"

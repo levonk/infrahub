@@ -12,7 +12,7 @@
     state: directory
     owner: root
     group: root
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   become: true
 
 - name: Ensure SearXNG configuration directories exist
@@ -21,7 +21,7 @@
     state: directory
     owner: root
     group: root
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   become: true
   loop:
     - mounts
@@ -86,11 +86,11 @@
       HTTP_PROXY: "{{ search_searxng_http_proxy }}"
       HTTPS_PROXY: "{{ search_searxng_https_proxy }}"
     tmpfs:
-      - /tmp:rw,noexec,nosuid,size=100m
+      - /tmp:rw,noexec,nosuid,size={{ infra_size_100m }}
     log_driver: json-file
     log_options:
-      max-size: "10m"
-      max-file: "5"
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
     # NOTE: Traefik Docker provider is disabled (v3.0 API incompatibility).
     # Routing is handled by file-provider dynamic config in proxy-traefik role.
     # Do NOT add traefik.* labels here — they are silently ignored.
@@ -102,12 +102,12 @@
 # ---------------------------------------------------------------------------
 - name: Wait for SearXNG to be healthy
   ansible.builtin.uri:
-    url: "http://127.0.0.1:{{ search_searxng_host_port }}{{ search_searxng_health_endpoint }}"
-    status_code: 200
+    url: "http://{{ infra_network_bind_localhost }}:{{ search_searxng_host_port }}{{ search_searxng_health_endpoint }}"
+    status_code: "{{ infra_http_status_ok }}"
   register: searxng_health
-  until: searxng_health.status == 200
-  retries: 10
-  delay: 5
+  until: searxng_health.status == {{ infra_http_status_ok }}
+  retries: "{{ infra_retry_long }}"
+  delay: "{{ infra_delay_default }}"
   when:
     - search_searxng_enabled | bool
     - search_searxng_verify_health | bool

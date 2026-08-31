@@ -33,7 +33,6 @@
   ansible.builtin.command: "docker pull {{ p2p_freenet_image_name }}:{{ p2p_freenet_image_tag }}"
   environment:
     DOCKER_HOST: "{{ p2p_freenet_docker_host }}"
-    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
   delegate_to: localhost
   changed_when: true
   tags: ["deploy", "pull"]
@@ -124,7 +123,7 @@
     --log-driver json-file
     --log-opt max-size={{ p2p_freenet_log_max_size }}
     --log-opt max-file={{ p2p_freenet_log_max_file }}
-    --health-cmd "curl -fsS http://127.0.0.1:{{ p2p_freenet_ws_api_container_port }}/ || exit 1"
+    --health-cmd "curl -fsS http://{{ infra_network_bind_localhost }}:{{ p2p_freenet_ws_api_container_port }}/ || exit 1"
     --health-interval {{ p2p_freenet_healthcheck_interval }}
     --health-timeout {{ p2p_freenet_healthcheck_timeout }}
     --health-retries {{ p2p_freenet_healthcheck_retries }}
@@ -143,8 +142,8 @@
   ansible.builtin.wait_for:
     host: "{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) }}"
     port: "{{ p2p_freenet_ws_api_host_port }}"
-    delay: 10
-    timeout: 120
+    delay: "{{ infra_delay_long }}"
+    timeout: "{{ infra_timeout_extended }}"
   when: freenet_needs_redeploy | bool
   tags: ["deploy", "verify"]
 

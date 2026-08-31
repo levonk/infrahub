@@ -6,7 +6,7 @@ http:
     # Authelia middleware with redirect support
     authelia:
       forwardAuth:
-        address: "http://{{ proxy_authelia_container_name | default('proxy-authelia') }}:9091/api/verify?rd=https://{{ infra_domain_sso_authelia }}"
+        address: "http://{{ proxy_authelia_container_name | default('proxy-authelia') }}:{{ infra_port_proxy_authelia_host }}/api/verify?rd=https://{{ infra_domain_sso_authelia }}"
         trustForwardHeader: true
         authResponseHeaders:
           - Remote-User

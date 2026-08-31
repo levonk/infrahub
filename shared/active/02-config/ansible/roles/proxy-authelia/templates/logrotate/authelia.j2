@@ -9,7 +9,7 @@
     compress
     delaycompress
     copytruncate
-    create 0644 root root
+    create {{ infra_mode_file }} root root
     sharedscripts
     postrotate
         docker exec proxy-authelia kill -USR1 1 || true

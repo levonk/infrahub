@@ -209,23 +209,23 @@
           Timestamp: {{ ansible_date_time.iso8601 }}
           ----------------------------------------
           Deployed via Ansible roles (community.docker):
-          - Iron-Proxy: egress firewall (proxy-chain-network 172.29.0.17)
+          - Iron-Proxy: egress firewall (proxy-chain-network {{ infra_network_ai_subnet_ip_17 }})
             [Unique to this playbook — gateway playbook does not yet include Iron-Proxy]
-          - Headroom: context compression (proxy-chain-network 172.29.0.13)
+          - Headroom: context compression (proxy-chain-network {{ infra_network_ai_subnet_ip_13 }})
             [Also deployed by deploy-ai-gateway-pipeline.yml]
-          - OmniRoute: AI gateway (proxy-chain-network 172.29.0.14, traefik airoute.<base>)
+          - OmniRoute: AI gateway (proxy-chain-network {{ infra_network_ai_subnet_ip_14 }}, traefik airoute.<base>)
             [Also deployed by deploy-ai-gateway-pipeline.yml]
           ----------------------------------------
           DEFERRED — Future Evolution (not deployed):
           - Forge (Phase 2 — tool-call repair)
-          - Privacy Orchestrator (superseded by LiteLLM Presidio; standalone deferred to Phase 5)
-          - AI Dashboard Proxy 1/2 (Phase 4 — deep analytics collectors)
-          - AI Dashboard DB (Phase 4 — analytics database)
+          - Privacy Orchestrator (superseded by LiteLLM Presidio; standalone deferred to Phase 5)  # project-lint: disable=magic-int  phase number in documentation/comment, not an operational value
+          - AI Dashboard Proxy 1/2 (Phase 4 — deep analytics collectors)  # project-lint: disable=magic-int  phase number in documentation/comment, not an operational value
+          - AI Dashboard DB (Phase 4 — analytics database)  # project-lint: disable=magic-int  phase number in documentation/comment, not an operational value
           ----------------------------------------
           Current MVP Pipeline Flow:
           Omnigent -> Pi -> LiteLLM (aigate) -> Headroom -> OmniRoute (airoute) -> Iron-Proxy -> Internet
           [LiteLLM + Headroom + OmniRoute deployed via deploy-ai-gateway-pipeline.yml]
           [Iron-Proxy deployed via this playbook]
-          Network: proxy-chain-network (172.29.0.0/16)
+          Network: proxy-chain-network ({{ infra_network_ai_subnet }})
           ========================================
       tags: ["always", "summary"]

@@ -38,7 +38,7 @@
         state: directory
         owner: "{{ cloud_server_admin_user }}"
         group: "{{ cloud_server_admin_user }}"
-        mode: "0700"
+        mode: "{{ infra_mode_dir_restricted }}"
       become: true
       tags: ["always", "setup"]
 
@@ -98,7 +98,7 @@
 
     - name: "Wait for NordVPN container to be fully running"
       ansible.builtin.pause:
-        seconds: 30
+        seconds: "{{ infra_delay_extended }}"
       when: nordvpn_container_info.container.State.Status == "restarting"
       tags: ["verify", "vpn", "nordvpn"]
 

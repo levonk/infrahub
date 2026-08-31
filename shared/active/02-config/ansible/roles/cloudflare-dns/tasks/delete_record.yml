@@ -11,7 +11,7 @@
       Content-Type: "application/json"
     body_format: json
     return_content: true
-    status_code: [200, 401, 403, 404]
+    status_code: ["{{ infra_http_status_ok }}", "{{ infra_http_status_unauthorized }}", "{{ infra_http_status_forbidden }}", "{{ infra_http_status_not_found }}"]
   register: existing_records
   no_log: true
 
@@ -37,7 +37,7 @@
       Content-Type: "application/json"
     body_format: json
     return_content: true
-    status_code: [200]
+    status_code: ["{{ infra_http_status_ok }}"]
   register: delete_result
   when: record_exists
   no_log: true

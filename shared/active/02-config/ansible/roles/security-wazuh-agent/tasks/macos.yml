@@ -14,7 +14,7 @@
   ansible.builtin.get_url:
     url: "{{ wazuh_agent_macos_pkg_url }}"
     dest: "/tmp/{{ wazuh_agent_macos_pkg_filename }}"
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   when: not wazuh_agent_macos_installed.stat.exists
   tags: ["deploy", "wazuh-agent"]
 
@@ -31,7 +31,7 @@
       {% if wazuh_agent_enrollment_password | length > 0 %}
       WAZUH_REGISTRATION_PASSWORD='{{ wazuh_agent_enrollment_password }}'
       {% endif %}
-    mode: "0600"
+    mode: "{{ infra_mode_file_restricted }}"
   when: not wazuh_agent_macos_installed.stat.exists
   no_log: true
   tags: ["deploy", "wazuh-agent"]

@@ -9,7 +9,7 @@
   ansible.builtin.file:
     path: "{{ rustdesk_server_service_dir }}"
     state: directory
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
 
 # ============================================================================
 # Volume Management
@@ -49,8 +49,8 @@
       ALWAYS_USE_RELAY: "{{ rustdesk_server_always_use_relay }}"
     log_driver: json-file
     log_options:
-      max-size: "10m"
-      max-file: "5"
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
     security_opts:
       - no-new-privileges:true
   register: rustdesk_hbbs_deploy
@@ -72,8 +72,8 @@
       ALWAYS_USE_RELAY: "{{ rustdesk_server_always_use_relay }}"
     log_driver: json-file
     log_options:
-      max-size: "10m"
-      max-file: "5"
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
     security_opts:
       - no-new-privileges:true
   register: rustdesk_hbbs_deploy
@@ -101,8 +101,8 @@
       TZ: "{{ cloud_server_tz | default('UTC') }}"
     log_driver: json-file
     log_options:
-      max-size: "10m"
-      max-file: "5"
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
     security_opts:
       - no-new-privileges:true
   register: rustdesk_hbbr_deploy
@@ -123,8 +123,8 @@
       TZ: "{{ cloud_server_tz | default('UTC') }}"
     log_driver: json-file
     log_options:
-      max-size: "10m"
-      max-file: "5"
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
     security_opts:
       - no-new-privileges:true
   register: rustdesk_hbbr_deploy
@@ -156,8 +156,8 @@
       ALWAYS_USE_RELAY: "{{ rustdesk_server_always_use_relay }}"
     log_driver: json-file
     log_options:
-      max-size: "10m"
-      max-file: "5"
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
     security_opts:
       - no-new-privileges:true
   register: rustdesk_hbbs_web_deploy
@@ -185,8 +185,8 @@
       TZ: "{{ cloud_server_tz | default('UTC') }}"
     log_driver: json-file
     log_options:
-      max-size: "10m"
-      max-file: "5"
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
     security_opts:
       - no-new-privileges:true
   register: rustdesk_hbbr_web_deploy
@@ -200,10 +200,10 @@
 # ============================================================================
 - name: Wait for RustDesk hbbs to be healthy
   ansible.builtin.wait_for:
-    host: "{{ '127.0.0.1' if rustdesk_server_network_mode == 'host' else ansible_facts.default_ipv4.address }}"
+    host: "{{ infra_network_bind_localhost if rustdesk_server_network_mode == 'host' else ansible_facts.default_ipv4.address }}"
     port: "{{ rustdesk_server_hbbs_id_reg_host_port }}"
-    delay: 5
-    timeout: 30
+    delay: "{{ infra_delay_default }}"
+    timeout: "{{ infra_timeout_default }}"
   when:
     - rustdesk_server_verify_health | bool
     - rustdesk_hbbs_deploy.changed
@@ -211,10 +211,10 @@
 
 - name: Wait for RustDesk hbbr to be healthy
   ansible.builtin.wait_for:
-    host: "{{ '127.0.0.1' if rustdesk_server_network_mode == 'host' else ansible_facts.default_ipv4.address }}"
+    host: "{{ infra_network_bind_localhost if rustdesk_server_network_mode == 'host' else ansible_facts.default_ipv4.address }}"
     port: "{{ rustdesk_server_hbbr_relay_host_port }}"
-    delay: 5
-    timeout: 30
+    delay: "{{ infra_delay_default }}"
+    timeout: "{{ infra_timeout_default }}"
   when:
     - rustdesk_server_verify_health | bool
     - rustdesk_hbbr_deploy.changed

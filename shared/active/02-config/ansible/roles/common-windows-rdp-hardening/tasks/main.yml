@@ -64,7 +64,7 @@
     description: "RDP inbound restricted to {{ win_rdp_hardening_allowed_subnet }} (Tailscale)"
     direction: in
     protocol: TCP
-    localport: 3389
+    localport: "{{ infra_port_rdp_host }}"
     remote_addresses: "{{ win_rdp_hardening_allowed_subnet }}"
     action: allow
     enabled: true

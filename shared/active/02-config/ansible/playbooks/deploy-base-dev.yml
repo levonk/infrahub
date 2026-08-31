@@ -117,8 +117,8 @@
         cmd: "docker push {{ windows_registry_url }}/localnet-base-dev:latest"
       register: push_result
       changed_when: "'Pushed' in push_result.stdout or 'sha256' in push_result.stdout"
-      retries: 3
-      delay: 5
+      retries: "{{ infra_retry_short }}"
+      delay: "{{ infra_delay_default }}"
       until: push_result.rc == 0
 
     - name: "Also push base-kalinix (base-dev dependency)"
@@ -127,8 +127,8 @@
       register: push_kalinix
       changed_when: false
       failed_when: false
-      retries: 3
-      delay: 5
+      retries: "{{ infra_retry_short }}"
+      delay: "{{ infra_delay_default }}"
       until: push_kalinix.rc == 0
 
     - name: "Report build and push completion"
@@ -189,8 +189,8 @@
         name: "{{ windows_registry_url }}/localnet-base-kalinix:latest"
         source: pull
         state: present
-      retries: 3
-      delay: 5
+      retries: "{{ infra_retry_short }}"
+      delay: "{{ infra_delay_default }}"
 
     - name: "Tag base-kalinix as localnet-base-kalinix:latest"
       community.docker.docker_image:
@@ -205,8 +205,8 @@
         name: "{{ windows_registry_url }}/localnet-base-dev:latest"
         source: pull
         state: present
-      retries: 3
-      delay: 5
+      retries: "{{ infra_retry_short }}"
+      delay: "{{ infra_delay_default }}"
 
     - name: "Tag base-dev as localnet-base-dev:latest"
       community.docker.docker_image:
@@ -229,8 +229,8 @@
         state: started
         restart_policy: unless-stopped
         env:
-          PUID: "1000"
-          PGID: "1000"
+          PUID: "{{ infra_identity_puid }}"
+          PGID: "{{ infra_identity_pgid }}"
           TZ: "UTC"
           USERNAME: "cuser"
           OMNIGENT_SERVER_URL: "{{ omnigent_server_url | default('https://aiif.' ~ (infra_domain_base | default('example.com'))) }}"
@@ -242,7 +242,7 @@
         # Hardcode the OCI server's Tailscale IP until Docker Desktop DNS
         # supports Tailscale, or we switch to a public DNS name.
         etc_hosts:
-          "{{ 'aiif.' ~ (infra_domain_base | default('example.com')) }}": "{{ omnigent_server_ip | default('100.90.22.85') }}"
+          "{{ 'aiif.' ~ (infra_domain_base | default('example.com')) }}": "{{ omnigent_server_ip | default('{{ infra_registry_host }}') }}"
         volumes:
           - nix-cache:/root/.cache/nix
           - nix-config:/etc/nix
@@ -250,19 +250,19 @@
           - "C:\\localnet\\services\\base-dev\\home:/home/cuser/project"
           - "C:\\localnet\\services\\base-dev\\omnigent:/home/cuser/.omnigent"
         published_ports:
-          - "33000:3000"
-          - "33080:8080"
+          - "{{ infra_port_dev_app_host }}:{{ infra_port_monitoring_grafana_host }}"
+          - "{{ infra_port_dev_alt_host }}:{{ infra_port_proxy_dashboard_host }}"
         healthcheck:
           test: ["CMD", "/base-dev/bin/healthcheck-base-dev.sh"]
-          interval: "60s"
-          timeout: "60s"
-          retries: 3
-          start_period: "120s"
+          interval: "{{ infra_timeout_long }}"
+          timeout: "{{ infra_timeout_long }}"
+          retries: "{{ infra_retry_short }}"
+          start_period: "{{ infra_timeout_extended }}"
       register: base_dev_container
 
     - name: "Wait for base-dev to start"
       ansible.builtin.wait_for:
-        timeout: 30
+        timeout: "{{ infra_timeout_default }}"
       delegate_to: localhost
       when: base_dev_container.changed
 
@@ -273,7 +273,7 @@
           base-dev container deployed on {{ inventory_hostname }}
           ========================================
           Container: localnet-base-dev
-          Ports: 33000 (app), 33080 (alt)
+          Ports: 33000 (app), 33080 (alt)  # project-lint: disable=magic-int  port number in comment, not an operational value
           Omnigent Server: {{ omnigent_server_url | default('https://aiif.' ~ (infra_domain_base | default('example.com'))) }}
           ========================================
           The container will install the omni CLI on first shell init

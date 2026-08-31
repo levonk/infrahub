@@ -82,10 +82,10 @@
       max-file: "{{ ai_paperclip_log_max_file }}"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U {{ ai_paperclip_postgres_user }} -d {{ ai_paperclip_postgres_db }}"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 10s
+      interval: "{{ infra_timeout_short }}"
+      timeout: "{{ infra_timeout_healthcheck_short }}"
+      retries: "{{ infra_retry_long }}"
+      start_period: "{{ infra_timeout_short }}"
     security_opts:
       - no-new-privileges:true
   notify: restart paperclip-postgres
@@ -95,8 +95,8 @@
     name: "{{ ai_paperclip_postgres_container_name }}"
   register: paperclip_pg_info
   until: paperclip_pg_info.container.State.Health.Status == "healthy"
-  retries: 30
-  delay: 2
+  retries: "{{ infra_retry_extended }}"
+  delay: "{{ infra_delay_short }}"
 
 # ============================================================================
 # Paperclip Container Deployment
@@ -128,7 +128,7 @@
       max-size: "{{ ai_paperclip_log_max_size }}"
       max-file: "{{ ai_paperclip_log_max_file }}"
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://127.0.0.1:{{ ai_paperclip_container_port }}{{ ai_paperclip_health_endpoint }} || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://{{ infra_network_bind_localhost }}:{{ ai_paperclip_container_port }}{{ ai_paperclip_health_endpoint }} || exit 1"]
       interval: "{{ ai_paperclip_health_interval }}"
       timeout: "{{ ai_paperclip_health_timeout }}"
       retries: "{{ ai_paperclip_health_retries }}"
@@ -141,8 +141,8 @@
   ansible.builtin.wait_for:
     host: localhost
     port: "{{ ai_paperclip_host_port }}"
-    delay: 15
-    timeout: 120
+    delay: "{{ infra_delay_long }}"
+    timeout: "{{ infra_timeout_extended }}"
   register: paperclip_wait
 
 # ============================================================================

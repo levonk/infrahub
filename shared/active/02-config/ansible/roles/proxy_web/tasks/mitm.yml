@@ -17,7 +17,7 @@
     restart_policy: unless-stopped
     command: >-
       mitmweb
-      --web-host 0.0.0.0
+      --web-host {{ infra_network_bind_all }}
       --web-port {{ proxy_web_mitm_webui_container_port }}
       --mode regular@{{ proxy_web_mitm_adblock_container_port }}
     networks:
@@ -35,20 +35,20 @@
       TZ: "{{ localnet_tz | default('UTC') }}"
     log_driver: json-file
     log_options:
-      max-size: 10m
-      max-file: "5"
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
     healthcheck:
-      test: ["CMD-SHELL", "python3 -c \"import socket; s=socket.socket(); s.settimeout(5); s.connect(('127.0.0.1', {{ proxy_web_mitm_webui_container_port }})); s.close()\""]
-      interval: "30s"
-      timeout: "10s"
-      retries: 3
-      start_period: "30s"
+      test: ["CMD-SHELL", "python3 -c \"import socket; s=socket.socket(); s.settimeout({{ infra_timeout_short }}); s.connect(('{{ infra_network_bind_localhost }}', {{ proxy_web_mitm_webui_container_port }})); s.close()\""]
+      interval: "{{ infra_timeout_default }}"
+      timeout: "{{ infra_timeout_short }}"
+      retries: "{{ infra_retry_short }}"
+      start_period: "{{ infra_timeout_default }}"
 
 - name: Wait for MITM proxy web UI to be ready
   ansible.builtin.uri:
-    url: "http://127.0.0.1:{{ proxy_web_mitm_webui_host_port }}/"
+    url: "http://{{ infra_network_bind_localhost }}:{{ proxy_web_mitm_webui_host_port }}/"
     status_code: [200, 403]
   register: proxy_web_mitm_health
   until: proxy_web_mitm_health.status in [200, 403]
-  retries: 10
-  delay: 5
+  retries: "{{ infra_retry_long }}"
+  delay: "{{ infra_delay_default }}"

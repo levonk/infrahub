@@ -10,7 +10,7 @@
     state: directory
     owner: "{{ nix_core_tools_admin_user }}"
     group: "{{ nix_core_tools_admin_user }}"
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   become: true
 
 # ---------------------------------------------------------------------------
@@ -50,7 +50,7 @@
     dest: /etc/systemd/timesyncd.conf
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
   when: nix_core_tools_time_sync_method == "systemd-timesyncd"
   notify:

@@ -65,23 +65,23 @@
       ansible.builtin.wait_for:
         host: "{{ cloud_server_ansible_host_ip }}"
         port: "{{ cloud_server_ssh_host_port }}"
-        timeout: 10
+        timeout: "{{ infra_timeout_short }}"
       delegate_to: localhost
       tags: ["always", "validate", "connectivity"]
 
     - name: "Check available disk space on target"
       ansible.builtin.shell:
-        cmd: "set -o pipefail && df -h / | tail -1 | awk '{print $5}' | sed 's/%//'"
+        cmd: "set -o pipefail && df -h / | tail -1 | awk '{print $5}' | sed 's/%//'"  # project-lint: disable=magic-int  disk usage parsing, not an operational value
       register: disk_usage_check
       changed_when: false
       tags: ["always", "validate", "resources"]
 
-    - name: "Warn if disk usage is high (>80%)"
+    - name: "Warn if disk usage is high (> {{ infra_disk_usage_warn_threshold }}%)"
       ansible.builtin.debug:
         msg: >-
           WARNING: Disk usage is {{ disk_usage_check.stdout }}%.
           Consider freeing space before deployment.
-      when: disk_usage_check.stdout | int > 80
+      when: disk_usage_check.stdout | int > {{ infra_disk_usage_warn_threshold }}
       tags: ["always", "validate", "resources"]
 
   roles: []
@@ -102,7 +102,7 @@
         name: cloud-server-infra.yml
       tags: ["infra", "phase03"]
 
-    - name: "Import Phase 4: VM Hypervisor Playbook"
+    - name: "Import Phase 4: VM Hypervisor Playbook"  # project-lint: disable=magic-int  phase number in documentation/comment, not an operational value
       ansible.builtin.import_playbook:
         name: cloud-server-vms.yml
       tags: ["vms", "hypervisor", "phase04"]
@@ -163,7 +163,7 @@
           1. Verify VPN connectivity (Tailscale/Netbird)
           2. Verify infrastructure services (DNS, proxy, SSO)
           3. Verify VM hypervisor (libvirt networks, storage)
-          4. Run validation playbooks (Phase 06)
+          4. Run validation playbooks (Phase 06)  # project-lint: disable=magic-int  phase number in documentation/comment, not an operational value
           ========================================
       tags: ["always", "verify", "summary"]
 

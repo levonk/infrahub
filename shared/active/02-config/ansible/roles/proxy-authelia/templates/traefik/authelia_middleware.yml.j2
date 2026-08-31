@@ -6,7 +6,7 @@ http:
   middlewares:
     authelia-forwardauth:
       forwardAuth:
-        address: "http://proxy-authelia:{{ proxy_authelia_web_container_port }}/api/verify?rd=https://{{ ansible_host | default('localhost') }}{% if proxy_authelia_web_host_port != '443' %}:{{ proxy_authelia_web_host_port }}{% endif %}"
+        address: "http://proxy-authelia:{{ proxy_authelia_web_container_port }}/api/verify?rd=https://{{ ansible_host | default('localhost') }}{% if proxy_authelia_web_host_port != '443' %}:{{ proxy_authelia_web_host_port }}{% endif %}"  # project-lint: disable=magic-int  port comparison in Jinja conditional, not a standalone magic number
         trustForwardHeader: true
         authResponseHeaders:
           - "Remote-User"

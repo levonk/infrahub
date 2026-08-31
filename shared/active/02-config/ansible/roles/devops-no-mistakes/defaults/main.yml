@@ -13,10 +13,10 @@ no_mistakes_ssh_host_port: "{{ infra_port_devops_no_mistakes_ssh_host | default(
 no_mistakes_ssh_container_port: "{{ infra_port_devops_no_mistakes_ssh_container | default(infra_port_ssh_container) }}"
 
 # Domain (reference infrastructure variables)
-no_mistakes_domain: "{{ infra_domain_devops_no_mistakes | default('no-mistakes.' ~ (infra_domain_base | default('example.com'))) }}"
+no_mistakes_domain: "{{ infra_domain_devops_no_mistakes | default('no-mistakes.' ~ (infra_domain_base | default(infra_value_no_mistakes_domain))) }}"
 
 # Volumes
-no_mistakes_data_volume: "{{ infra_storage_no_mistakes_volume | default('localnet-no-mistakes-data') }}"
+no_mistakes_data_volume: "{{ infra_storage_no_mistakes_volume | default(infra_value_no_mistakes_data_volume) }}"
 
 # Network (joined for cross-machine visibility; SSH does not route via Traefik)
 no_mistakes_network_name: "traefik-windows-network"
@@ -45,7 +45,7 @@ no_mistakes_devin_api_key: "{{ vault_no_mistakes_devin_api_key | default('') }}"
 # community.docker modules can't run directly on Windows (Ansible core basic.py
 # imports grp, Unix-only). We delegate_to: localhost and connect to the Windows
 # Docker daemon via ssh://. Requires SSH config entry for the Windows host.
-no_mistakes_docker_host: "ssh://ansible@{{ windows_tailscale_hostname | default('dtop202311') }}.{{ infra_tailscale_tailnet | default('example.ts.net') }}"
+no_mistakes_docker_host: "ssh://ansible@{{ windows_tailscale_hostname | default(infra_value_no_mistakes_docker_host) }}.{{ infra_tailscale_tailnet | default(infra_value_no_mistakes_docker_host) }}"
 
 # Temp dir for rendered config files (on localhost, then docker cp into container)
 no_mistakes_temp_dir: "/tmp/no-mistakes-config"

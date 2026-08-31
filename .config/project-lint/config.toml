@@ -1,0 +1,53 @@
+# project-lint configuration for infrahub
+# Enables the magic_numbers scanner with infrastructure-specific exemptions.
+
+[rules]
+mode = "denylist"
+enabled_checks = ["magic_numbers"]
+disabled_checks = []
+
+[scanner_config.magic_numbers]
+# Directories where variable definitions are expected (key: value is exempt).
+definition_dirs = [
+    "defaults",
+    "vars",
+    "group_vars",
+    "host_vars",
+    "infrastructure",
+]
+
+# Directories fully exempt from scanning.
+# shared/active/03-container: Docker Compose reference docs (AGENTS.md: "reference/documentation only, not deployment files")
+# shared/active/08-docs: ADRs and documentation
+# internal-docs: internal documentation
+exempt_dirs = [
+    "internal-docs",
+    ".agents",
+    ".claude",
+    ".devin",
+    ".git",
+    ".molecule",
+    "collections",
+    "node_modules",
+    ".venv",
+    ".cache",
+    "08-docs",
+    "docs",
+    "tests",
+    "test",
+    "__pycache__",
+    "03-container",
+    "meta",
+]
+
+# File extensions to scan.
+scan_extensions = [".yml", ".yaml", ".j2", ".jinja2"]
+
+# Filename substrings that mark generated/lock files (always exempt).
+exempt_name_substrings = ["lock", ".vault"]
+
+# When false, inline overrides (# project-lint: disable=...) are honored.
+ignore_overrides = false
+
+# When false, variable definitions in definition_dirs are exempt.
+strict = false

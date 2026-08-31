@@ -4,7 +4,7 @@
 
 - name: "Wait for DNS propagation"
   ansible.builtin.pause:
-    seconds: "{{ cloudflare_dns_propagation_wait | default(10) }}"
+    seconds: "{{ cloudflare_dns_propagation_wait | default(infra_retry_long) }}"
   when: cloudflare_dns_verify_propagation | default(false)
 
 - name: "Verify DNS record {{ cloudflare_dns_record_name }} exists"
@@ -16,7 +16,7 @@
       Content-Type: "application/json"
     body_format: json
     return_content: true
-    status_code: [200, 401, 403, 404]
+    status_code: ["{{ infra_http_status_ok }}", "{{ infra_http_status_unauthorized }}", "{{ infra_http_status_forbidden }}", "{{ infra_http_status_not_found }}"]
   register: verify_records
   no_log: true
 

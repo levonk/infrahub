@@ -110,7 +110,7 @@
 
     - name: "Check firewall default-deny policy (iptables)"
       ansible.builtin.command:
-        cmd: iptables -L INPUT -n -v | head -20
+        cmd: iptables -L INPUT -n -v | head -20  # project-lint: disable=magic-int  shell head line count, not an operational value
       register: iptables_input
       changed_when: false
       failed_when: false
@@ -133,7 +133,7 @@
       ansible.builtin.wait_for:
         host: "{{ ansible_facts['default_ipv4']['address'] }}"
         port: "{{ cloud_server_ssh_host_port }}"
-        timeout: 5
+        timeout: "{{ infra_timeout_short }}"
       delegate_to: localhost
       become: false
       register: ssh_accessible
@@ -142,7 +142,7 @@
 
     - name: "Record SSH accessibility"
       ansible.builtin.set_fact:
-        validation_results: "{{ validation_results | combine({'ssh_accessible': ssh_accessible.elapsed < 5}) }}"
+        validation_results: "{{ validation_results | combine({'ssh_accessible': ssh_accessible.elapsed < 5}) }}"  # project-lint: disable=magic-int  sed/awk line number, not an operational value
       tags: ["validate", "ssh"]
 
     - name: "Check SSH password authentication setting"
@@ -192,7 +192,7 @@
 
     - name: "Test VPN subnet routing (ping across VPN)"
       ansible.builtin.command:
-        cmd: ping -c 3 {{ vpn_test_target | default('8.8.8.8') }} -W 2
+        cmd: ping -c 3 {{ vpn_test_target | default(infra_network_ip_google_dns_primary) }} -W 2
       become: true
       become_user: "{{ cloud_server_admin_user }}"
       register: vpn_ping

@@ -13,10 +13,10 @@ proxy_headroom_image: "{{ local_registry | default(infra_registry) }}/headroom:l
 # ---------------------------------------------------------------------------
 # Headroom Configuration
 # ---------------------------------------------------------------------------
-proxy_headroom_host_port: "{{ cloud_server_headroom_host_port | default('8787') }}"
+proxy_headroom_host_port: "{{ cloud_server_headroom_host_port | default(infra_port_ai_litellm_host) }}"
 proxy_headroom_container_port: "8787"
-proxy_headroom_host_ip: "{{ cloud_server_headroom_host_ip | default('0.0.0.0') }}"
-proxy_headroom_container_ip: "{{ cloud_server_headroom_container_ip | default('0.0.0.0') }}"
+proxy_headroom_host_ip: "{{ cloud_server_headroom_host_ip | default(infra_network_bind_all) }}"
+proxy_headroom_container_ip: "{{ cloud_server_headroom_container_ip | default(infra_network_bind_all) }}"
 
 # ---------------------------------------------------------------------------
 # Upstream HTTP Proxy Configuration (for egress, e.g. iron-proxy)
@@ -31,22 +31,22 @@ proxy_headroom_upstream_proxy: ""
 # forwards to this OpenAI-compatible endpoint.
 # Env var: OPENAI_TARGET_API_URL
 # ---------------------------------------------------------------------------
-proxy_headroom_openai_target_api_url: "http://{{ ai_omniroute_container_name | default('localnet-ai-omniroute') }}:{{ infra_port_ai_omniroute_container | default('20128') }}"
+proxy_headroom_openai_target_api_url: "http://{{ ai_omniroute_container_name | default(infra_value_proxy_headroom_openai_target_api_url) }}:{{ infra_port_ai_omniroute_container | default(infra_port_vpn_netbird_management_host) }}"
 
 # ---------------------------------------------------------------------------
 # Output Token Reduction
 # ---------------------------------------------------------------------------
-proxy_headroom_output_shaper: "{{ cloud_server_headroom_output_shaper | default('0') }}"
+proxy_headroom_output_shaper: "{{ cloud_server_headroom_output_shaper | default(infra_value_proxy_headroom_output_shaper) }}"
 
 # ---------------------------------------------------------------------------
 # Data Directory
 # ---------------------------------------------------------------------------
-proxy_headroom_data_dir: "{{ cloud_server_proxy_data_dir | default('/opt/proxy') }}/headroom"
+proxy_headroom_data_dir: "{{ cloud_server_proxy_data_dir | default(infra_value_proxy_headroom_data_dir) }}/headroom"
 
 # ---------------------------------------------------------------------------
 # Docker Network & Volumes
 # ---------------------------------------------------------------------------
-proxy_headroom_docker_network_name: "{{ cloud_server_proxy_network_name | default('proxy-chain-network') }}"
+proxy_headroom_docker_network_name: "{{ cloud_server_proxy_network_name | default(infra_network_proxy_headroom_docker_network_name) }}"
 proxy_headroom_volume_name: "localnet-headroom-data-volume"
 
 # ---------------------------------------------------------------------------

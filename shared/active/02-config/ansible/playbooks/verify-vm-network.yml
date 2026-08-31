@@ -7,7 +7,7 @@
   gather_facts: true
 
   vars:
-    isolation_vm_ip_address: "192.168.101.10"
+    isolation_vm_ip_address: "{{ infra_network_lan_host_2 }}"
 
   tasks:
     - name: Get VM network interfaces

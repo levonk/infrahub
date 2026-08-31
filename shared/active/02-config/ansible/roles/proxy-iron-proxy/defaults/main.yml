@@ -17,7 +17,7 @@ proxy_iron_proxy_dns_enabled: true
 proxy_iron_proxy_dns_host_port: "{{ cloud_server_iron_proxy_dns_host_port | default(infra_port_dns_host) }}"
 proxy_iron_proxy_dns_container_port: "53"
 proxy_iron_proxy_dns_proxy_ip: "{{ cloud_server_iron_proxy_dns_proxy_ip | default(infra_network_ip_cloudflare_dns_primary) }}"
-proxy_iron_proxy_upstream_dns: "{{ cloud_server_iron_proxy_upstream_dns | default('8.8.8.8:53') }}"
+proxy_iron_proxy_upstream_dns: "{{ cloud_server_iron_proxy_upstream_dns | default(infra_value_proxy_iron_proxy_upstream_dns) }}"
 
 # ---------------------------------------------------------------------------
 # HTTP/HTTPS Proxy Configuration
@@ -36,15 +36,15 @@ proxy_iron_proxy_tunnel_container_port: "{{ cloud_server_iron_proxy_tunnel_conta
 # ---------------------------------------------------------------------------
 # TLS Configuration
 # ---------------------------------------------------------------------------
-proxy_iron_proxy_tls_mode: "{{ cloud_server_iron_proxy_tls_mode | default('mitm') }}"
-proxy_iron_proxy_cert_cache_size: "{{ cloud_server_iron_proxy_cert_cache_size | default(1000) }}"
-proxy_iron_proxy_leaf_cert_expiry_hours: "{{ cloud_server_iron_proxy_leaf_cert_expiry_hours | default(72) }}"
+proxy_iron_proxy_tls_mode: "{{ cloud_server_iron_proxy_tls_mode | default(infra_value_proxy_iron_proxy_tls_mode) }}"
+proxy_iron_proxy_cert_cache_size: "{{ cloud_server_iron_proxy_cert_cache_size | default(infra_proxy_iron_proxy_cert_cache_size) }}"
+proxy_iron_proxy_leaf_cert_expiry_hours: "{{ cloud_server_iron_proxy_leaf_cert_expiry_hours | default(infra_timeout_cert_expiry_hours) }}"
 
 # ---------------------------------------------------------------------------
 # Proxy Limits
 # ---------------------------------------------------------------------------
-proxy_iron_proxy_max_request_body_bytes: "{{ cloud_server_iron_proxy_max_request_body_bytes | default(1048576) }}"
-proxy_iron_proxy_max_response_body_bytes: "{{ cloud_server_iron_proxy_max_response_body_bytes | default(0) }}"
+proxy_iron_proxy_max_request_body_bytes: "{{ cloud_server_iron_proxy_max_request_body_bytes | default(infra_size_1m) }}"
+proxy_iron_proxy_max_response_body_bytes: "{{ cloud_server_iron_proxy_max_response_body_bytes | default(infra_size_unlimited) }}"
 proxy_iron_proxy_upstream_timeout: "{{ cloud_server_iron_proxy_upstream_timeout | default(infra_timeout_default) }}"
 
 # ---------------------------------------------------------------------------
@@ -81,12 +81,12 @@ proxy_iron_proxy_no_proxy: "{{ cloud_server_iron_proxy_no_proxy | default('') }}
 # ---------------------------------------------------------------------------
 # Docker Network & Volumes
 # ---------------------------------------------------------------------------
-proxy_iron_proxy_docker_network_name: "{{ cloud_server_proxy_network_name | default('proxy-network') }}"
-proxy_iron_proxy_data_dir: "{{ cloud_server_proxy_data_dir | default('/opt/proxy') }}/iron-proxy"
+proxy_iron_proxy_docker_network_name: "{{ cloud_server_proxy_network_name | default(infra_network_proxy_iron_proxy_docker_network_name) }}"
+proxy_iron_proxy_data_dir: "{{ cloud_server_proxy_data_dir | default(infra_value_proxy_iron_proxy_data_dir) }}/iron-proxy"
 
 # Proxy-chain network (shared with headroom, omniroute, forge for the AI pipeline)
-proxy_iron_proxy_chain_network_name: "{{ infra_network_ai_proxy_chain_network_name | default('proxy-chain-network') }}"
-proxy_iron_proxy_chain_network_ip: "{{ infra_network_ip_iron_proxy | default('172.29.0.17') }}"
+proxy_iron_proxy_chain_network_name: "{{ infra_network_ai_proxy_chain_network_name | default(infra_network_proxy_iron_proxy_chain_network_name) }}"
+proxy_iron_proxy_chain_network_ip: "{{ infra_network_ip_iron_proxy | default(infra_network_ip_proxy_iron_proxy_chain_network) }}"
 
 # VPN network (for chaining egress through NordVPN/gluetun proxy)
 # Set to empty string to skip joining the VPN network

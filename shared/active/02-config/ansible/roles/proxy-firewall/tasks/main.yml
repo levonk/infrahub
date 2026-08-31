@@ -29,7 +29,7 @@
     state: directory
     owner: root
     group: root
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   become: true
   when: proxy_firewall_type == 'nftables'
 
@@ -39,7 +39,7 @@
     dest: /etc/nftables.conf
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
   when: proxy_firewall_type == 'nftables'
   notify: reload nftables
@@ -203,7 +203,7 @@
     - _proxy_firewall_mgmt_ip | length > 0
     - proxy_firewall_type == 'nftables'
   changed_when: true
-  async: "{{ proxy_firewall_prevent_lockout_timeout | int + 10 }}"
+  async: "{{ proxy_firewall_prevent_lockout_timeout | int + 10 }}"  # project-lint: disable=magic-int  async timeout offset, not a standalone magic number
   poll: 0
 
 - name: Schedule removal of temporary allow rule (ufw)
@@ -217,7 +217,7 @@
     - _proxy_firewall_mgmt_ip | length > 0
     - proxy_firewall_type == 'ufw'
   changed_when: true
-  async: "{{ proxy_firewall_prevent_lockout_timeout | int + 10 }}"
+  async: "{{ proxy_firewall_prevent_lockout_timeout | int + 10 }}"  # project-lint: disable=magic-int  async timeout offset, not a standalone magic number
   poll: 0
 
 # ---------------------------------------------------------------------------

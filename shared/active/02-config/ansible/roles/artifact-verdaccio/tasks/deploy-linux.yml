@@ -11,7 +11,7 @@
     state: directory
     owner: "{{ verdaccio_config_owner }}"
     group: "{{ verdaccio_config_owner }}"
-    mode: "0755"
+    mode: "{{ infra_mode_dir_0755 }}"
   tags: ["deploy", "config"]
 
 - name: Render verdaccio config.yaml
@@ -20,7 +20,7 @@
     dest: "{{ verdaccio_config_dir }}/config.yaml"
     owner: "{{ verdaccio_config_owner }}"
     group: "{{ verdaccio_config_owner }}"
-    mode: "0644"
+    mode: "{{ infra_mode_file_0644 }}"
   notify: restart verdaccio
   tags: ["deploy", "config"]
 
@@ -30,7 +30,7 @@
     dest: "{{ verdaccio_config_dir }}/htpasswd"
     owner: "{{ verdaccio_config_owner }}"
     group: "{{ verdaccio_config_owner }}"
-    mode: "0640"
+    mode: "{{ infra_mode_file_0640 }}"
   notify: restart verdaccio
   no_log: true
   tags: ["deploy", "config"]
@@ -73,7 +73,7 @@
       max-size: "{{ verdaccio_log_max_size }}"
       max-file: "{{ verdaccio_log_max_file }}"
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:{{ verdaccio_container_port }}/-/ping || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://{{ infra_network_bind_localhost }}:{{ verdaccio_container_port }}/-/ping || exit 1"]
       interval: "{{ verdaccio_healthcheck_interval }}"
       timeout: "{{ verdaccio_healthcheck_timeout }}"
       retries: "{{ verdaccio_healthcheck_retries }}"
@@ -88,10 +88,10 @@
 # ============================================================================
 - name: Wait for verdaccio to be reachable
   ansible.builtin.wait_for:
-    host: 127.0.0.1
+    host: "{{ infra_network_bind_localhost }}"
     port: "{{ verdaccio_host_port }}"
-    delay: 10
-    timeout: 120
+    delay: "{{ infra_delay_long }}"
+    timeout: "{{ infra_timeout_max }}"
   register: verdaccio_linux_wait
   tags: ["deploy", "container"]
 

@@ -31,7 +31,7 @@
   ansible.builtin.file:
     path: "{{ proxy_traefik_windows_temp_dir }}/dynamic"
     state: directory
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   delegate_to: localhost
   run_once: true
   changed_when: false
@@ -41,7 +41,7 @@
   ansible.builtin.template:
     src: traefik.yml.j2
     dest: "{{ proxy_traefik_windows_temp_dir }}/traefik.yml"
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   delegate_to: localhost
   run_once: true
   changed_when: false
@@ -51,7 +51,7 @@
   ansible.builtin.template:
     src: dynamic/middlewares.yml.j2
     dest: "{{ proxy_traefik_windows_temp_dir }}/dynamic/middlewares.yml"
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   delegate_to: localhost
   run_once: true
   changed_when: false
@@ -61,7 +61,7 @@
   ansible.builtin.template:
     src: dynamic/npmjs-nl.yml.j2
     dest: "{{ proxy_traefik_windows_temp_dir }}/dynamic/npmjs-nl.yml"
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   delegate_to: localhost
   run_once: true
   changed_when: false
@@ -72,7 +72,7 @@
   ansible.builtin.template:
     src: dynamic/start-nl.yml.j2
     dest: "{{ proxy_traefik_windows_temp_dir }}/dynamic/start-nl.yml"
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   delegate_to: localhost
   run_once: true
   changed_when: false
@@ -83,7 +83,7 @@
   ansible.builtin.template:
     src: dynamic/start2-nl.yml.j2
     dest: "{{ proxy_traefik_windows_temp_dir }}/dynamic/start2-nl.yml"
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   delegate_to: localhost
   run_once: true
   changed_when: false
@@ -94,7 +94,7 @@
   ansible.builtin.template:
     src: dynamic/nixcache-nl.yml.j2
     dest: "{{ proxy_traefik_windows_temp_dir }}/dynamic/nixcache-nl.yml"
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   delegate_to: localhost
   run_once: true
   changed_when: false
@@ -105,7 +105,7 @@
   ansible.builtin.template:
     src: dynamic/ci-nl.yml.j2
     dest: "{{ proxy_traefik_windows_temp_dir }}/dynamic/ci-nl.yml"
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   delegate_to: localhost
   run_once: true
   changed_when: false
@@ -116,7 +116,7 @@
   ansible.builtin.template:
     src: dynamic/de-nl.yml.j2
     dest: "{{ proxy_traefik_windows_temp_dir }}/dynamic/de-nl.yml"
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   delegate_to: localhost
   run_once: true
   changed_when: false
@@ -127,7 +127,7 @@
   ansible.builtin.template:
     src: dynamic/dnsdist.yml.j2
     dest: "{{ proxy_traefik_windows_temp_dir }}/dynamic/dnsdist.yml"
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   delegate_to: localhost
   run_once: true
   changed_when: false
@@ -138,7 +138,7 @@
   ansible.builtin.template:
     src: dynamic/hister-nl.yml.j2
     dest: "{{ proxy_traefik_windows_temp_dir }}/dynamic/hister-nl.yml"
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   delegate_to: localhost
   run_once: true
   changed_when: false
@@ -149,7 +149,7 @@
   ansible.builtin.template:
     src: dynamic/stirling-nl.yml.j2
     dest: "{{ proxy_traefik_windows_temp_dir }}/dynamic/stirling-nl.yml"
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   delegate_to: localhost
   run_once: true
   changed_when: false
@@ -411,7 +411,6 @@
   ansible.builtin.command: "docker pull {{ proxy_traefik_windows_image }}:{{ proxy_traefik_windows_image_tag }}"
   environment:
     DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
-    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
   delegate_to: localhost
   changed_when: true
   tags: ["deploy", "pull"]
@@ -444,7 +443,7 @@
     --log-driver json-file
     --log-opt max-size={{ proxy_traefik_windows_log_max_size }}
     --log-opt max-file={{ proxy_traefik_windows_log_max_file }}
-    --health-cmd "wget -qO- http://127.0.0.1:8080/dashboard/ || exit 1"
+    --health-cmd "wget -qO- http://{{ infra_endpoint_proxy_dashboard_localhost }}/dashboard/ || exit 1"
     --health-interval {{ proxy_traefik_windows_healthcheck_interval }}
     --health-timeout {{ proxy_traefik_windows_healthcheck_timeout }}
     --health-retries {{ proxy_traefik_windows_healthcheck_retries }}
@@ -466,7 +465,6 @@
   ansible.builtin.command: "docker pull {{ proxy_traefik_windows_homepage_image }}:{{ proxy_traefik_windows_homepage_image_tag }}"
   environment:
     DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
-    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
   delegate_to: localhost
   changed_when: true
   when: proxy_traefik_windows_homepage_enabled | bool
@@ -519,7 +517,6 @@
   ansible.builtin.command: "docker pull {{ proxy_traefik_windows_trala_image }}:{{ proxy_traefik_windows_trala_image_tag }}"
   environment:
     DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
-    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
   delegate_to: localhost
   changed_when: true
   when: proxy_traefik_windows_trala_enabled | bool
@@ -551,7 +548,7 @@
     --network {{ proxy_traefik_windows_network_name }}
     -p {{ proxy_traefik_windows_trala_host_port }}:{{ proxy_traefik_windows_trala_container_port }}/tcp
     -v {{ proxy_traefik_windows_trala_container_name }}-config:/config:rw
-    -e TRAEFIK_API_HOST=http://{{ proxy_traefik_windows_container_name }}:8080
+    -e TRAEFIK_API_HOST=http://{{ proxy_traefik_windows_container_name }}:{{ infra_port_proxy_dashboard_host }}
     -e TZ=UTC
     --log-driver json-file
     --log-opt max-size={{ proxy_traefik_windows_log_max_size }}
@@ -572,7 +569,7 @@
   ansible.builtin.file:
     path: "{{ proxy_traefik_windows_temp_dir }}/{{ item }}"
     state: directory
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   loop:
     - homepage
     - trala
@@ -585,7 +582,7 @@
   ansible.builtin.template:
     src: homepage/settings.yaml.j2
     dest: "{{ proxy_traefik_windows_temp_dir }}/homepage/settings.yaml"
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   delegate_to: localhost
   run_once: true
   changed_when: false
@@ -596,7 +593,7 @@
   ansible.builtin.template:
     src: homepage/services.yaml.j2
     dest: "{{ proxy_traefik_windows_temp_dir }}/homepage/services.yaml"
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   delegate_to: localhost
   run_once: true
   changed_when: false
@@ -607,7 +604,7 @@
   ansible.builtin.template:
     src: homepage/widgets.yaml.j2
     dest: "{{ proxy_traefik_windows_temp_dir }}/homepage/widgets.yaml"
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   delegate_to: localhost
   run_once: true
   changed_when: false
@@ -663,7 +660,7 @@
   ansible.builtin.template:
     src: trala/configuration.yml.j2
     dest: "{{ proxy_traefik_windows_temp_dir }}/trala/configuration.yml"
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   delegate_to: localhost
   run_once: true
   changed_when: false
@@ -701,8 +698,8 @@
   delegate_to: localhost
   register: proxy_traefik_windows_health
   until: proxy_traefik_windows_health.stdout == "healthy"
-  retries: 30
-  delay: 5
+  retries: "{{ infra_retry_extended }}"
+  delay: "{{ infra_delay_default }}"
   changed_when: false
   ignore_errors: true
   tags: ["deploy", "container"]

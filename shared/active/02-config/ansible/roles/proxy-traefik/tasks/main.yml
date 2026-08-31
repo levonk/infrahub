@@ -12,7 +12,7 @@
     state: directory
     owner: root
     group: root
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   become: true
 
 - name: Ensure Traefik configuration directories exist
@@ -21,7 +21,7 @@
     state: directory
     owner: root
     group: root
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   become: true
   loop:
     - config
@@ -66,7 +66,7 @@
     dest: "{{ proxy_traefik_data_dir }}/config/traefik.yml"
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
   notify: restart traefik
 
@@ -79,7 +79,7 @@
     state: directory
     owner: root
     group: root
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   become: true
 
 - name: Deploy middleware configuration template
@@ -88,7 +88,7 @@
     dest: "{{ proxy_traefik_data_dir }}/config/dynamic/middlewares.yml"
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
   notify: reload traefik
 
@@ -98,7 +98,7 @@
     dest: "{{ proxy_traefik_data_dir }}/config/dynamic/search.yml"
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
   notify: reload traefik
   when: search_searxng_enabled | bool
@@ -109,7 +109,7 @@
     dest: "{{ proxy_traefik_data_dir }}/config/dynamic/auth.yml"
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
   notify: reload traefik
   when: proxy_authelia_enabled | bool
@@ -120,7 +120,7 @@
     dest: "{{ proxy_traefik_data_dir }}/config/dynamic/agentmemory.yml"
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
   notify: reload traefik
   when: agentmemory_enabled | default(false) | bool
@@ -131,7 +131,7 @@
     dest: "{{ proxy_traefik_data_dir }}/config/dynamic/paperclip.yml"
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
   notify: reload traefik
   when: ai_paperclip_enabled | default(false) | bool
@@ -142,7 +142,7 @@
     dest: "{{ proxy_traefik_data_dir }}/config/dynamic/aishrink.yml"
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
   notify: reload traefik
   when: aishrink_enabled | default(false) | bool
@@ -153,7 +153,7 @@
     dest: "{{ proxy_traefik_data_dir }}/config/dynamic/traefik-api.yml"
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
   notify: reload traefik
   when: proxy_traefik_api_entrypoint_enabled | default(false) | bool
@@ -164,7 +164,7 @@
     dest: "{{ proxy_traefik_data_dir }}/config/dynamic/start.yml"
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
   notify: reload traefik
   when: dashboard_homepage_enabled | default(true) | bool
@@ -175,7 +175,7 @@
     dest: "{{ proxy_traefik_data_dir }}/config/dynamic/start2.yml"
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
   notify: reload traefik
   when: dashboard_trala_enabled | default(true) | bool
@@ -186,7 +186,7 @@
     dest: "{{ proxy_traefik_data_dir }}/config/dynamic/start-cno.yml"
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
   notify: reload traefik
   when: dashboard_homepage_enabled | default(true) | bool
@@ -197,7 +197,7 @@
     dest: "{{ proxy_traefik_data_dir }}/config/dynamic/start2-cno.yml"
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
   notify: reload traefik
   when: dashboard_trala_enabled | default(true) | bool
@@ -208,7 +208,7 @@
     dest: "{{ proxy_traefik_data_dir }}/config/dynamic/airoute.yml"
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
   notify: reload traefik
   when: ai_omniroute_enabled | default(false) | bool
@@ -219,7 +219,7 @@
     dest: "{{ proxy_traefik_data_dir }}/config/dynamic/aigate.yml"
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
   notify: reload traefik
   when: ai_litellm_enabled | default(false) | bool
@@ -230,7 +230,7 @@
     dest: "{{ proxy_traefik_data_dir }}/config/dynamic/buzz.yml"
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
   notify: reload traefik
   when: ai_buzz_enabled | default(false) | bool
@@ -241,7 +241,7 @@
     dest: "{{ proxy_traefik_data_dir }}/config/dynamic/aiif.yml"
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
   notify: reload traefik
   when: aiif_enabled | default(false) | bool
@@ -252,7 +252,7 @@
     dest: "{{ proxy_traefik_data_dir }}/config/dynamic/jobops.yml"
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
   notify: reload traefik
   when: career_jobops_enabled | default(false) | bool
@@ -263,7 +263,7 @@
     dest: "{{ proxy_traefik_data_dir }}/config/dynamic/rustfs.yml"
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
   notify: reload traefik
   when: rustfs_enabled | default(false) | bool
@@ -274,7 +274,7 @@
     dest: "{{ proxy_traefik_data_dir }}/config/dynamic/wazuh.yml"
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
   notify: reload traefik
   when: wazuh_enabled | default(false) | bool
@@ -285,7 +285,7 @@
     dest: "{{ proxy_traefik_data_dir }}/config/dynamic/npmjs-cno.yml"
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
   notify: reload traefik
   when: verdaccio_enabled | default(false) | bool
@@ -297,7 +297,7 @@
     dest: "{{ proxy_traefik_data_dir }}/config/dynamic/nixcache-cno.yml"
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
   notify: reload traefik
   when: nix_ncps_enabled | default(false) | bool
@@ -309,7 +309,7 @@
     dest: "{{ proxy_traefik_data_dir }}/config/dynamic/adguard.yml"
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
   notify: reload traefik
   when: dns_adguard_enabled | default(false) | bool
@@ -321,7 +321,7 @@
     dest: "{{ proxy_traefik_data_dir }}/config/dynamic/langfuse.yml"
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
   notify: reload traefik
   when: ai_langfuse_enabled | default(false) | bool
@@ -333,7 +333,7 @@
     dest: "{{ proxy_traefik_data_dir }}/config/dynamic/crowdsec.yml"
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
   notify: reload traefik
   when: security_crowdsec_enabled | default(false) | bool
@@ -345,7 +345,7 @@
     dest: "{{ proxy_traefik_data_dir }}/config/dynamic/langfuse-minio.yml"
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
   notify: reload traefik
   when: ai_langfuse_enabled | default(false) | bool
@@ -358,7 +358,7 @@
     dest: "{{ proxy_traefik_data_dir }}/config/dynamic/mitm.yml"
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
   notify: reload traefik
   when: proxy_web_mitm_enabled | default(false) | bool
@@ -370,7 +370,7 @@
     dest: "{{ proxy_traefik_data_dir }}/config/dynamic/varnish.yml"
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
   notify: reload traefik
   when: proxy_web_varnish_enabled | default(false) | bool
@@ -382,7 +382,7 @@
     dest: "{{ proxy_traefik_data_dir }}/config/dynamic/mitm-ca.yml"
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
   notify: reload traefik
   when: proxy_web_mitm_enabled | default(false) | bool
@@ -402,7 +402,7 @@
     published_ports:
       - "{{ proxy_traefik_host_ip }}:{{ proxy_traefik_http_port }}:{{ proxy_traefik_http_container_port }}/tcp"
       - "{{ proxy_traefik_host_ip }}:{{ proxy_traefik_https_port }}:{{ proxy_traefik_https_container_port }}/tcp"
-      - "127.0.0.1:{{ proxy_traefik_dashboard_port }}:{{ proxy_traefik_dashboard_container_port }}/tcp"
+      - "{{ infra_network_bind_localhost }}:{{ proxy_traefik_dashboard_port }}:{{ proxy_traefik_dashboard_container_port }}/tcp"
       - "{{ proxy_traefik_host_ip }}:{{ proxy_traefik_metrics_port }}:{{ proxy_traefik_metrics_container_port }}/tcp"
     volumes:
       - "{{ proxy_traefik_ssl_volume }}:/letsencrypt"
@@ -432,7 +432,7 @@
     dest: /etc/logrotate.d/traefik
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
   when: proxy_traefik_enabled | bool
 
@@ -441,13 +441,13 @@
 # ---------------------------------------------------------------------------
 - name: Wait for Traefik dashboard to be healthy
   ansible.builtin.uri:
-    url: "http://127.0.0.1:{{ proxy_traefik_dashboard_port }}{{ proxy_traefik_dashboard_endpoint }}"
+    url: "http://{{ infra_network_bind_localhost }}:{{ proxy_traefik_dashboard_port }}{{ proxy_traefik_dashboard_endpoint }}"
     status_code: [200, 401]
     return_content: false
   register: traefik_health
   until: traefik_health.status in [200, 401]
-  retries: 10
-  delay: 5
+  retries: "{{ infra_retry_long }}"
+  delay: "{{ infra_delay_default }}"
   when:
     - proxy_traefik_enabled | bool
     - proxy_traefik_verify_health | bool

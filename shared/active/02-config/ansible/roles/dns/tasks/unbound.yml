@@ -36,16 +36,16 @@
       DNS_COREDNS_INTERNAL_CONTAINER_PORT: "{{ dns_coredns_internal_container_port }}"
     log_driver: json-file
     log_options:
-      max-size: 10m
-      max-file: 5
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
   when: dns_unbound_validator_enabled | bool
 
 - name: Wait for unbound validator to be ready
   ansible.builtin.wait_for:
     host: "{{ dns_unbound_validator_ip }}"
     port: "{{ dns_unbound_validator_container_port }}"
-    delay: 5
-    timeout: 30
+    delay: "{{ infra_delay_default }}"
+    timeout: "{{ infra_timeout_default }}"
   when: dns_unbound_validator_enabled | bool
 
 # ============================================================================
@@ -72,8 +72,8 @@
       PROXY_TOR_SOCKS5_CONTAINER_PORT: "{{ proxy_tor_socks5_container_port }}"
     log_driver: json-file
     log_options:
-      max-size: 10m
-      max-file: 5
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
   when: dns_unbound_tor_enabled | bool
 
 # ============================================================================
@@ -98,6 +98,6 @@
       DNS_UNBOUND_ROOT_CONTAINER_PORT: "{{ dns_unbound_root_container_port }}"
     log_driver: json-file
     log_options:
-      max-size: 10m
-      max-file: 5
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
   when: dns_unbound_root_enabled | bool

@@ -14,7 +14,7 @@ vpn_nordvpn_config_volume_name: "localnet-nordvpn-config-volume"
 vpn_nordvpn_data_volume_name: "localnet-nordvpn-data-volume"
 
 # Network Configuration
-vpn_nordvpn_network_name: "{{ cloud_server_nordvpn_network_name | default('vpn-network') }}"
+vpn_nordvpn_network_name: "{{ cloud_server_nordvpn_network_name | default(infra_network_vpn_nordvpn_network_name) }}"
 vpn_nordvpn_network_subnet: "{{ cloud_server_nordvpn_network_subnet | default(infra_network_vpn_nordvpn_subnet) }}"
 vpn_nordvpn_network_gateway: "{{ cloud_server_nordvpn_network_gateway | default(infra_network_vpn_nordvpn_gateway) }}"
 

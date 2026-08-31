@@ -22,20 +22,20 @@ vpn_tor_windows_tailscale_image: "tailscale/tailscale:latest"
 # Docker networks are local to each host — same names as OCI (cno) since
 # they are on separate Docker daemons. Subnets differ to avoid confusion.
 # ---------------------------------------------------------------------------
-vpn_tor_windows_network_name: "{{ infra_network_proxy_tor_windows_network_name | default('tor-network') }}"
-vpn_tor_windows_network_subnet: "{{ infra_network_proxy_tor_windows_subnet | default('172.41.0.0/16') }}"
-vpn_tor_windows_network_gateway: "{{ infra_network_proxy_tor_windows_gateway | default('172.41.0.1') }}"
+vpn_tor_windows_network_name: "{{ infra_network_proxy_tor_windows_network_name | default(infra_network_vpn_tor_windows_network_name) }}"
+vpn_tor_windows_network_subnet: "{{ infra_network_proxy_tor_windows_subnet | default(infra_network_vpn_tor_windows_network_subnet) }}"
+vpn_tor_windows_network_gateway: "{{ infra_network_proxy_tor_windows_gateway | default(infra_network_vpn_tor_windows_network_gateway) }}"
 
 # ---------------------------------------------------------------------------
 # Port configuration (ALL ports as variables — offset from OCI to avoid
 # conflicts with existing Windows services like RustFS on 9000/9001)
 # ---------------------------------------------------------------------------
-vpn_tor_windows_socks5_host_port: "{{ infra_port_proxy_tor_windows_socks5_host | default('9051') }}"
-vpn_tor_windows_socks5_container_port: "{{ infra_port_proxy_tor_windows_socks5_container | default('9050') }}"
-vpn_tor_windows_orport_host_port: "{{ infra_port_tor_windows_orport_host | default('9011') }}"
-vpn_tor_windows_orport_container_port: "{{ infra_port_tor_windows_orport_container | default('9001') }}"
-vpn_tor_windows_dirport_host_port: "{{ infra_port_tor_windows_dirport_host | default('9031') }}"
-vpn_tor_windows_dirport_container_port: "{{ infra_port_tor_windows_dirport_container | default('9030') }}"
+vpn_tor_windows_socks5_host_port: "{{ infra_port_proxy_tor_windows_socks5_host | default(infra_port_vpn_tor_transparent_alt_host) }}"
+vpn_tor_windows_socks5_container_port: "{{ infra_port_proxy_tor_windows_socks5_container | default(infra_port_vpn_tor_transparent_host) }}"
+vpn_tor_windows_orport_host_port: "{{ infra_port_tor_windows_orport_host | default(infra_port_vpn_tor_socks_host) }}"
+vpn_tor_windows_orport_container_port: "{{ infra_port_tor_windows_orport_container | default(infra_port_storage_rustfs_console_host) }}"
+vpn_tor_windows_dirport_host_port: "{{ infra_port_tor_windows_dirport_host | default(infra_port_vpn_tor_control_host) }}"
+vpn_tor_windows_dirport_container_port: "{{ infra_port_tor_windows_dirport_container | default(infra_port_vpn_tor_dns_host) }}"
 
 # ---------------------------------------------------------------------------
 # Volume configuration
@@ -50,7 +50,7 @@ vpn_tor_windows_tailscale_state_volume_name: "localnet-tor-tailscale-exit-nl-sta
 # community.docker modules run on the Ansible controller (localhost) and
 # connect to the Windows Docker daemon via SSH using the docker_host parameter.
 # ---------------------------------------------------------------------------
-vpn_tor_windows_docker_host: "{{ windows_exit_nodes_docker_host | default('ssh://ansible@dtop202311.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) }}"
+vpn_tor_windows_docker_host: "{{ windows_exit_nodes_docker_host | default('ssh://ansible@dtop202311.' ~ (infra_tailscale_tailnet | default(infra_value_vpn_tor_windows_docker_host))) }}"
 
 # ---------------------------------------------------------------------------
 # Tor exit node configuration

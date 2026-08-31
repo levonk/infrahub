@@ -10,38 +10,38 @@
 verdaccio_enabled: true
 
 # Container configuration
-verdaccio_container_name_cno: "{{ infra_hostname_verdaccio_cno | default('localnet-artifact-verdaccio') }}"
-verdaccio_container_name_nl: "{{ infra_hostname_verdaccio_nl | default('localnet-artifact-verdaccio-nl') }}"
+verdaccio_container_name_cno: "{{ infra_hostname_verdaccio_cno | default(infra_value_verdaccio_container_name_cno) }}"
+verdaccio_container_name_nl: "{{ infra_hostname_verdaccio_nl | default(infra_value_verdaccio_container_name_nl) }}"
 verdaccio_image_name: "verdaccio/verdaccio"
 verdaccio_image_tag: "latest"
 
 # Ports (reference infrastructure variables)
-verdaccio_host_port: "{{ infra_port_artifact_verdaccio_host | default('4873') }}"
-verdaccio_container_port: "{{ infra_port_artifact_verdaccio_container | default('4873') }}"
+verdaccio_host_port: "{{ infra_port_artifact_verdaccio_host | default(infra_port_nix_ncro_web_alt_host) }}"
+verdaccio_container_port: "{{ infra_port_artifact_verdaccio_container | default(infra_port_nix_ncro_web_alt_host) }}"
 
 # Domains (reference infrastructure variables)
-verdaccio_domain_cno: "{{ infra_domain_artifact_verdaccio_cno | default('npmjs.cno.' ~ (infra_domain_base | default('example.com'))) }}"
-verdaccio_domain_nl: "{{ infra_domain_artifact_verdaccio_nl | default('npmjs.nl.' ~ (infra_domain_base | default('example.com'))) }}"
+verdaccio_domain_cno: "{{ infra_domain_artifact_verdaccio_cno | default('npmjs.cno.' ~ (infra_domain_base | default(infra_value_verdaccio_domain_cno))) }}"
+verdaccio_domain_nl: "{{ infra_domain_artifact_verdaccio_nl | default('npmjs.nl.' ~ (infra_domain_base | default(infra_value_verdaccio_domain_nl))) }}"
 
 # Network (cno joins traefik-network; nl is standalone)
-verdaccio_network_name_cno: "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"
+verdaccio_network_name_cno: "{{ infra_network_proxy_traefik_network_name | default(infra_network_verdaccio_network_name_cno) }}"
 
 # Volumes
-verdaccio_data_volume: "{{ infra_storage_verdaccio_data_volume | default('localnet-verdaccio-data-volume') }}"
-verdaccio_config_volume: "{{ infra_storage_verdaccio_config_volume | default('localnet-verdaccio-config-volume') }}"
+verdaccio_data_volume: "{{ infra_storage_verdaccio_data_volume | default(infra_value_verdaccio_data_volume) }}"
+verdaccio_config_volume: "{{ infra_storage_verdaccio_config_volume | default(infra_value_verdaccio_config_volume) }}"
 
 # Config directory on the Linux host (bind-mounted into the container)
-verdaccio_config_dir: "{{ infra_storage_config_dir | default('/opt/localnet/config') }}/verdaccio"
+verdaccio_config_dir: "{{ infra_storage_config_dir | default(infra_value_verdaccio_config_dir) }}/verdaccio"
 
 # Secrets (from vault — user must add these via vault handoff)
-verdaccio_admin_username: "{{ vault_verdaccio_admin_username | default('levonk-admin') }}"
+verdaccio_admin_username: "{{ vault_verdaccio_admin_username | default(infra_value_verdaccio_admin_username) }}"
 verdaccio_admin_password: "{{ vault_verdaccio_admin_password | default('') }}"
 
 # Docker host for Windows deployment (ssh-tunneled)
 # community.docker modules can't run directly on Windows (Ansible core basic.py
 # imports grp, Unix-only). We delegate_to: localhost and connect to the Windows
 # Docker daemon via ssh://. Requires SSH config entry for the Windows host.
-verdaccio_docker_host_windows: "ssh://ansible@{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) }}"
+verdaccio_docker_host_windows: "ssh://ansible@{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.' ~ (infra_tailscale_tailnet | default(infra_value_verdaccio_docker_host_windows))) }}"
 
 # Local temp directory for rendering Windows config files before copying into the config volume
 verdaccio_windows_temp_dir: "/tmp/verdaccio-config-{{ inventory_hostname }}"
@@ -57,7 +57,7 @@ verdaccio_log_max_size: "10m"
 verdaccio_log_max_file: "5"
 
 # Timezone
-verdaccio_tz: "{{ localnet_tz | default(timezone | default('UTC')) }}"
+verdaccio_tz: "{{ localnet_tz | default(timezone | default(infra_value_verdaccio_tz)) }}"
 
 # Admin user for file ownership on the Linux host
-verdaccio_config_owner: "{{ cloud_server_admin_user | default('cuser') }}"
+verdaccio_config_owner: "{{ cloud_server_admin_user | default(infra_value_verdaccio_config_owner) }}"

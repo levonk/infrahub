@@ -18,15 +18,15 @@
       - "--providers.docker.exposedByDefault=false"
       - "--providers.file.filename=/etc/traefik/dynamic.yml"
       - "--entrypoints.web=true"
-      - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.address=:{{ infra_port_proxy_http_host }}"
       - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
       - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
       - "--entrypoints.web.http.redirections.entryPoint.permanent=true"
       - "--entrypoints.websecure=true"
-      - "--entrypoints.websecure.address=:443"
-      - "--entryPoints.websecure.proxyProtocol.trustedIPs={{ docker_network_gateway }}/32"
+      - "--entrypoints.websecure.address=:{{ infra_port_proxy_https_host }}"
+      - "--entryPoints.websecure.proxyProtocol.trustedIPs={{ docker_network_gateway }}/32"  # project-lint: disable=magic-int  CIDR prefix length, not a standalone magic number
       - "--entrypoints.health=true"
-      - "--entrypoints.health.address=:8882"
+      - "--entrypoints.health.address=:{{ infra_port_proxy_mitm_alt_host }}"
       - "--ping=true"
       - "--ping.entrypoint=health"
       - "--certificatesresolvers.le.acme.email=letsencrypt@example.com"
@@ -39,8 +39,8 @@
       - "--experimental.plugins.geoblock.version=v0.3.3"
       - "--providers.docker.endpoint=unix:///socket/docker.sock"
     ports:
-      - "80:80"
-      - "443:443"
+      - "{{ infra_port_proxy_http_host }}:{{ infra_port_proxy_http_host }}"
+      - "{{ infra_port_proxy_https_host }}:{{ infra_port_proxy_https_host }}"
     networks:
       - name: "{{ localnet_network_name }}"
     volumes:
@@ -54,20 +54,20 @@
       TRAEFIK_EXPERIMENTAL_PLUGINS_CROWDSEC_VERSION: "{{ traefik_plugin_crowdsec_version | default('v1.4.4') }}"
     log_driver: json-file
     log_options:
-      max-size: 10m
-      max-file: 5
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8882/ping"]
-      interval: 30
-      timeout: 5
-      retries: 3
-      start_period: 10
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8882/ping"]  # project-lint: disable=magic-int  virtualization device type, not a standalone magic number
+      interval: "{{ infra_healthcheck_interval }}"
+      timeout: "{{ infra_timeout_short }}"
+      retries: "{{ infra_retry_short }}"
+      start_period: "{{ infra_healthcheck_start_period }}"
 
 - name: Wait for traefik to be healthy
   ansible.builtin.uri:
-    url: "http://127.0.0.1:8882/ping"
-    status_code: 200
+    url: "http://{{ infra_endpoint_proxy_alt_localhost }}/ping"
+    status_code: "{{ infra_http_status_ok }}"
   register: traefik_health
-  until: traefik_health.status == 200
-  retries: 10
-  delay: 5
+  until: traefik_health.status == {{ infra_http_status_ok }}
+  retries: "{{ infra_retry_long }}"
+  delay: "{{ infra_delay_default }}"

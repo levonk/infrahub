@@ -49,7 +49,7 @@
           ========================================
           Target: {{ inventory_hostname }}
           Agents: {{ ai_buzz_agent_agents | length }}
-          Relay: {{ ai_buzz_agent_relay_url | default('ws://buzz:3000') }}
+          Relay: {{ ai_buzz_agent_relay_url | default('ws://buzz:{{ infra_port_monitoring_grafana_host }}') }}
           ========================================
       tags: ["always", "info"]
 
@@ -62,7 +62,7 @@
         msg: |
           Buzz Agent deployment complete on {{ inventory_hostname }}:
             - Agents deployed: {{ ai_buzz_agent_agents | length }}
-            - Relay: {{ ai_buzz_agent_relay_url | default('ws://buzz:3000') }}
+            - Relay: {{ ai_buzz_agent_relay_url | default('ws://buzz:{{ infra_port_monitoring_grafana_host }}') }}
             - Model: {{ ai_buzz_agent_model | default('glm-5-2') }}
             - Telemetry: disabled (account-level + client-side config)
       tags: ["always", "info"]

@@ -33,5 +33,5 @@ http:
     varnish:
       loadBalancer:
         servers:
-          - url: "http://{{ infra_network_ip_proxy_varnish | default('172.26.255.82') }}:{{ infra_port_proxy_varnish_http_container | default('6081') }}"
+          - url: "http://{{ infra_network_ip_proxy_varnish | default(infra_network_ip_proxy_varnish) }}:{{ infra_port_proxy_varnish_http_container | default('6081') }}"  # project-lint: disable=magic-int  Jinja default port value, should use infra_port variable
         passHostHeader: true

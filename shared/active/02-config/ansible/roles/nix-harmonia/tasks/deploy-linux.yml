@@ -1,7 +1,7 @@
 ---
 # nix-harmonia Linux (cno) deployment — community.docker pattern
 # Target: OCI cloud server (ARM64, Oracle Linux). Harmonia serves the local
-# /nix/store over HTTP on 127.0.0.1 only (local access, not exposed externally).
+# /nix/store over HTTP on {{ infra_network_bind_localhost }} only (local access, not exposed externally).
 #
 # On cno, Nix is installed natively on the host. Harmonia bind-mounts
 # /nix/store and /nix/var/nix/db directly from the host filesystem (no Docker
@@ -16,7 +16,7 @@
     state: directory
     owner: "{{ cloud_server_admin_user | default('cuser') }}"
     group: "{{ cloud_server_admin_user | default('cuser') }}"
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   tags: ["deploy", "config"]
 
 - name: Render harmonia.toml
@@ -25,7 +25,7 @@
     dest: "{{ nix_harmonia_config_dir | default('/opt/localnet/config/nix-harmonia') }}/harmonia.toml"
     owner: "{{ cloud_server_admin_user | default('cuser') }}"
     group: "{{ cloud_server_admin_user | default('cuser') }}"
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   notify: restart nix-harmonia
   tags: ["deploy", "config"]
 
@@ -40,7 +40,7 @@
     group: "{{ cloud_server_admin_user | default('cuser') }}"
     # Mode 0644 because Docker userns-remap maps container root to a
     # different host UID. Mode 0600 would be unreadable by the container.
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   no_log: true
   when: vault_nix_harmonia_sign_key is defined and vault_nix_harmonia_sign_key | length > 0
   notify: restart nix-harmonia
@@ -93,7 +93,7 @@
     networks:
       - name: "{{ nix_harmonia_network_name }}"
     published_ports:
-      - "127.0.0.1:{{ nix_harmonia_host_port }}:{{ nix_harmonia_container_port }}/tcp"
+      - "{{ infra_network_bind_localhost }}:{{ nix_harmonia_host_port }}:{{ nix_harmonia_container_port }}/tcp"
     volumes:
       # Bind mount /nix/store from the host (Nix is native on OCI)
       - "{{ nix_harmonia_host_nix_store }}:/shared-nix/store:ro"
@@ -105,7 +105,7 @@
       max-size: "{{ nix_harmonia_log_max_size }}"
       max-file: "{{ nix_harmonia_log_max_file }}"
     healthcheck:
-      test: ["CMD-SHELL", "echo > /dev/tcp/127.0.0.1/{{ nix_harmonia_container_port }} || exit 1"]
+      test: ["CMD-SHELL", "echo > /dev/tcp/{{ infra_network_bind_localhost }}/{{ nix_harmonia_container_port }} || exit 1"]
       interval: "{{ nix_harmonia_healthcheck_interval }}"
       timeout: "{{ nix_harmonia_healthcheck_timeout }}"
       retries: "{{ nix_harmonia_healthcheck_retries }}"
@@ -120,10 +120,10 @@
 # ============================================================================
 - name: Wait for nix-harmonia (cno) to be healthy
   ansible.builtin.wait_for:
-    host: "127.0.0.1"
+    host: "{{ infra_network_bind_localhost }}"
     port: "{{ nix_harmonia_host_port }}"
-    delay: 5
-    timeout: 60
+    delay: "{{ infra_delay_default }}"
+    timeout: "{{ infra_timeout_long }}"
   tags: ["deploy", "container"]
 
 # ============================================================================
@@ -140,7 +140,7 @@
   ansible.builtin.debug:
     msg: |
       nix-harmonia (cno) deployed:
-        - URL: http://127.0.0.1:{{ nix_harmonia_host_port }} (local access only, not exposed externally)
+        - URL: http://{{ infra_network_bind_localhost }}:{{ nix_harmonia_host_port }} (local access only, not exposed externally)
         - Container: {{ nix_harmonia_container_name }}
         - Image: {{ nix_harmonia_image_name }}:{{ nix_harmonia_image_tag }}
         - Network: {{ nix_harmonia_network_name }}

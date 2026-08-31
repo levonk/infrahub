@@ -13,9 +13,9 @@ sandbox:
   keep: on-failure
 
 checks:
-  min_size_bytes: 1024
+  min_size_bytes: "{{ infra_size_1k }}"
   archive_integrity: true
-  rpo_target: "{{ db_item.rpo_target | default('25h') }}"
+  rpo_target: "{{ db_item.rpo_target | default(infra_timeout_day_long) }}"
   min_tables: "{{ db_item.min_tables | default(1) }}"
   sequence_integrity: true
 {% if db_item.rto_target is defined %}

@@ -6,7 +6,7 @@
   ansible.builtin.file:
     path: "{{ localnet_services_dir }}/proxy"
     state: directory
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
 
 # ============================================================================
 # Volume Management
@@ -39,9 +39,9 @@
   ansible.builtin.debug:
     msg: |
       Proxy Stack deployed successfully:
-        - Traefik: http://localhost:80 / https://localhost:443
+        - Traefik: http://localhost:{{ infra_port_proxy_http_host }} / https://localhost:{{ infra_port_proxy_https_host }}
         - Envoy Admin: http://localhost:{{ proxy_envoy_admin_host_port }}
         - Envoy Transparent HTTP: http://localhost:{{ proxy_http_transparent_port }}
         - Envoy Transparent HTTPS: https://localhost:{{ proxy_https_transparent_port }}
         - Squid Direct: http://localhost:{{ proxy_direct_port }}
-        - Privoxy: http://localhost:8118
+        - Privoxy: http://localhost:{{ infra_port_proxy_privoxy_host }}

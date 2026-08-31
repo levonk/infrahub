@@ -103,7 +103,7 @@ Host ocispa
     #   fwknop sends the encrypted SPA UDP packet to port {{ fwknop_client_spa_port }}
     #   sleep 2 gives fwknopd time to process and insert the iptables rule
     #   exec nc connects to port {{ fwknop_client_public_ssh_port }} and pipes stdin/stdout to SSH
-    ProxyCommand bash -c 'fwknop -n oci-cloud-server 2>/dev/null; sleep 2; exec nc -w 10 %h %p'
+    ProxyCommand bash -c 'fwknop -n oci-cloud-server 2>/dev/null; sleep 2; exec nc -w 10 %h %p'  # project-lint: disable=magic-int  SSH proxy command timing, not a standalone magic number
 
 # --- Tailscale IP alias (same as Host oci, matches IP literal) ---
 Host {{ fwknop_client_tailscale_ip }}
@@ -119,15 +119,15 @@ Host {{ fwknop_client_tailscale_ip }}
 # and is reached by proxying through the OCI server's Tailscale IP.
 # No SPA needed — the ProxyJump goes through Tailscale (Host {{ fwknop_client_tailscale_ip }}).
 Host ocivm
-    HostName 192.168.100.147
+    HostName {{ infra_network_lan_host_1 }}
     User cuser
     IdentityFile {{ fwknop_client_ssh_key }}
     StrictHostKeyChecking no
     UserKnownHostsFile /dev/null
     ProxyJump {{ fwknop_client_tailscale_ip }}
 
-Host 192.168.100.147
-    HostName 192.168.100.147
+Host {{ infra_network_lan_host_1 }}
+    HostName {{ infra_network_lan_host_1 }}
     User cuser
     IdentityFile {{ fwknop_client_ssh_key }}
     StrictHostKeyChecking no

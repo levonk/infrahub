@@ -7,7 +7,7 @@
 
 # Service configuration
 ai_paperclip_enabled: true
-ai_paperclip_container_name: "{{ infra_hostname_paperclip | default('paperclip') }}"
+ai_paperclip_container_name: "{{ infra_hostname_paperclip | default(infra_network_ip_ai_paperclcontainer_name) }}"
 
 # Image — locally-built from shared/active/03-container/services/ai-codeassist/paperclip/Dockerfile
 # Registered in scripts/build-and-push-images.sh as localnet-ai-paperclip
@@ -20,25 +20,25 @@ ai_paperclip_host_port: "{{ infra_port_ai_paperclip_host | default(infra_port_mo
 ai_paperclip_container_port: "{{ infra_port_ai_paperclip_container | default(infra_port_monitoring_loki_host) }}"
 
 # Domain for Traefik routing
-ai_paperclip_domain: "{{ infra_domain_ai_paperclip | default('paperclip.' ~ (infra_domain_base | default('example.com'))) }}"
+ai_paperclip_domain: "{{ infra_domain_ai_paperclip | default('paperclip.' ~ (infra_domain_base | default(infra_network_ip_ai_papercldomain))) }}"
 
 # Network configuration
-ai_paperclip_traefik_network_name: "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"
-ai_paperclip_traefik_network_ip: "{{ infra_network_ip_paperclip_traefik | default('172.31.0.21') }}"
-ai_paperclip_localnet_network_name: "{{ localnet_network_name | default('cloud-server') }}"
+ai_paperclip_traefik_network_name: "{{ infra_network_proxy_traefik_network_name | default(infra_network_ip_ai_papercltraefik_network_name) }}"
+ai_paperclip_traefik_network_ip: "{{ infra_network_ip_paperclip_traefik | default(infra_network_ip_ai_papercltraefik_network) }}"
+ai_paperclip_localnet_network_name: "{{ localnet_network_name | default(infra_network_ip_ai_papercllocalnet_network_name) }}"
 
 # PostgreSQL configuration (external container, not embedded)
-ai_paperclip_postgres_container_name: "{{ infra_hostname_paperclip_postgres | default('paperclip-postgres') }}"
+ai_paperclip_postgres_container_name: "{{ infra_hostname_paperclip_postgres | default(infra_network_ip_ai_paperclpostgres_container_name) }}"
 ai_paperclip_postgres_image: "postgres:16-alpine"
-ai_paperclip_postgres_host_port: "{{ infra_port_ai_paperclip_postgres_host | default('5436') }}"
+ai_paperclip_postgres_host_port: "{{ infra_port_ai_paperclip_postgres_host | default(infra_port_proxy_mitm_alt2_host) }}"
 ai_paperclip_postgres_container_port: "{{ infra_port_ai_paperclip_postgres_container | default(infra_port_db_postgres_host) }}"
 ai_paperclip_postgres_db: "paperclip"
 ai_paperclip_postgres_user: "paperclip"
-ai_paperclip_postgres_password: "{{ vault_paperclip_postgres_password | default('changeme') }}"
+ai_paperclip_postgres_password: "{{ vault_paperclip_postgres_password | default(infra_network_ip_ai_paperclpostgres_password) }}"
 
 # Volume names
-ai_paperclip_volume_name: "{{ infra_storage_paperclip_volume | default('localnet-paperclip-data-volume') }}"
-ai_paperclip_postgres_volume_name: "{{ infra_storage_paperclip_postgres_volume | default('localnet-paperclip-postgres-data-volume') }}"
+ai_paperclip_volume_name: "{{ infra_storage_paperclip_volume | default(infra_network_ip_ai_paperclvolume_name) }}"
+ai_paperclip_postgres_volume_name: "{{ infra_storage_paperclip_postgres_volume | default(infra_network_ip_ai_paperclpostgres_volume_name) }}"
 
 # Health check configuration (Paperclip exposes /health endpoint)
 ai_paperclip_health_endpoint: "/health"
@@ -48,9 +48,9 @@ ai_paperclip_health_start_period: "40s"
 ai_paperclip_health_retries: 3
 
 # User/Group IDs
-ai_paperclip_puid: "{{ localnet_puid | default(cuser_uid | default(1000)) | string }}"
-ai_paperclip_pgid: "{{ localnet_pgid | default(cuser_gid | default(1000)) | string }}"
-ai_paperclip_tz: "{{ localnet_tz | default(timezone | default('UTC')) }}"
+ai_paperclip_puid: "{{ localnet_puid | default(cuser_uid | default(infra_identity_puid)) | string }}"
+ai_paperclip_pgid: "{{ localnet_pgid | default(cuser_gid | default(infra_identity_pgid)) | string }}"
+ai_paperclip_tz: "{{ localnet_tz | default(timezone | default(infra_network_ip_ai_papercltz)) }}"
 
 # Logging
 ai_paperclip_log_max_size: "10m"

@@ -8,14 +8,14 @@
 proxy_web_enabled: true
 
 # Network (shares localnet-network with DNS chain)
-proxy_web_network_name: "{{ infra_network_dns_localnet_network_name | default('localnet-network') }}"
+proxy_web_network_name: "{{ infra_network_dns_localnet_network_name | default(infra_network_proxy_web_network_name) }}"
 proxy_web_network_subnet: "{{ infra_network_dns_localnet_subnet | default(infra_network_dns_localnet_subnet) }}"
 
 # Registry
 proxy_web_registry: "{{ local_registry | default(infra_registry) }}"
 
 # Docker host for Windows deployment (ssh-tunneled)
-proxy_web_docker_host_windows: "ssh://ansible@{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) }}"
+proxy_web_docker_host_windows: "ssh://ansible@{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.' ~ (infra_tailscale_tailnet | default(infra_value_proxy_web_docker_host_windows))) }}"
 
 # IP allocations (from networks.yml — shared localnet-network, high range 172.26.255.x)
 proxy_web_mitm_ip: "{{ infra_network_ip_proxy_mitm | default(infra_network_ip_proxy_mitm) }}"
@@ -25,38 +25,38 @@ proxy_web_gost_ip: "{{ infra_network_ip_proxy_gost | default(infra_network_ip_pr
 
 # Tor proxy (shared with DNS chain)
 proxy_web_tor_socks5_ip: "{{ infra_network_ip_dns_tor_proxy | default(infra_network_ip_dns_tor_proxy) }}"
-proxy_web_tor_socks5_port: "{{ infra_port_proxy_tor_socks5_container | default('9050') }}"
+proxy_web_tor_socks5_port: "{{ infra_port_proxy_tor_socks5_container | default(infra_port_vpn_tor_transparent_host) }}"
 
 # Port allocations (from ports.yml)
 # MITM Proxy
-proxy_web_mitm_transparent_host_port: "{{ infra_port_proxy_mitm_transparent_host | default('3127') }}"
-proxy_web_mitm_transparent_container_port: "{{ infra_port_proxy_mitm_transparent_container | default('3127') }}"
-proxy_web_mitm_adblock_host_port: "{{ infra_port_proxy_mitm_adblock_host | default('3128') }}"
-proxy_web_mitm_adblock_container_port: "{{ infra_port_proxy_mitm_adblock_container | default('3128') }}"
-proxy_web_mitm_webui_host_port: "{{ infra_port_proxy_mitm_webui_host | default('19081') }}"
+proxy_web_mitm_transparent_host_port: "{{ infra_port_proxy_mitm_transparent_host | default(infra_port_proxy_mitm_explicit_host) }}"
+proxy_web_mitm_transparent_container_port: "{{ infra_port_proxy_mitm_transparent_container | default(infra_port_proxy_mitm_explicit_host) }}"
+proxy_web_mitm_adblock_host_port: "{{ infra_port_proxy_mitm_adblock_host | default(infra_port_proxy_mitm_transparent_host) }}"
+proxy_web_mitm_adblock_container_port: "{{ infra_port_proxy_mitm_adblock_container | default(infra_port_proxy_mitm_transparent_host) }}"
+proxy_web_mitm_webui_host_port: "{{ infra_port_proxy_mitm_webui_host | default(infra_port_proxy_gost_admin_alt_host) }}"
 proxy_web_mitm_webui_container_port: "{{ infra_port_proxy_mitm_webui_container | default(infra_port_nix_ncro_host) }}"
 
 # Privoxy
-proxy_web_privoxy_host_port: "{{ infra_port_proxy_privoxy_host | default('8118') }}"
-proxy_web_privoxy_container_port: "{{ infra_port_proxy_privoxy_container | default('8118') }}"
+proxy_web_privoxy_host_port: "{{ infra_port_proxy_privoxy_host | default(infra_port_proxy_privoxy_host) }}"
+proxy_web_privoxy_container_port: "{{ infra_port_proxy_privoxy_container | default(infra_port_proxy_privoxy_host) }}"
 
 # Varnish
-proxy_web_varnish_http_host_port: "{{ infra_port_proxy_varnish_http_host | default('6081') }}"
-proxy_web_varnish_http_container_port: "{{ infra_port_proxy_varnish_http_container | default('6081') }}"
-proxy_web_varnish_admin_host_port: "{{ infra_port_proxy_varnish_admin_host | default('6082') }}"
-proxy_web_varnish_admin_container_port: "{{ infra_port_proxy_varnish_admin_container | default('6082') }}"
+proxy_web_varnish_http_host_port: "{{ infra_port_proxy_varnish_http_host | default(infra_port_proxy_varnish_host) }}"
+proxy_web_varnish_http_container_port: "{{ infra_port_proxy_varnish_http_container | default(infra_port_proxy_varnish_host) }}"
+proxy_web_varnish_admin_host_port: "{{ infra_port_proxy_varnish_admin_host | default(infra_port_proxy_varnish_admin_host) }}"
+proxy_web_varnish_admin_container_port: "{{ infra_port_proxy_varnish_admin_container | default(infra_port_proxy_varnish_admin_host) }}"
 
 # Gost
-proxy_web_gost_socks5_host_port: "{{ infra_port_proxy_gost_socks5_host | default('11080') }}"
+proxy_web_gost_socks5_host_port: "{{ infra_port_proxy_gost_socks5_host | default(infra_port_proxy_gost_host) }}"
 proxy_web_gost_socks5_container_port: "{{ infra_port_proxy_gost_socks5_container | default(infra_port_vpn_nordvpn_socks_host) }}"
-proxy_web_gost_http_host_port: "{{ infra_port_proxy_gost_http_host | default('19080') }}"
+proxy_web_gost_http_host_port: "{{ infra_port_proxy_gost_http_host | default(infra_port_proxy_gost_admin_host) }}"
 proxy_web_gost_http_container_port: "{{ infra_port_proxy_gost_http_container | default(infra_port_proxy_dashboard_host) }}"
 
 # Volumes (from storage.yml)
-proxy_web_mitm_ca_volume: "{{ infra_storage_proxy_mitm_ca_volume | default('localnet-proxy-mitm-ca-volume') }}"
-proxy_web_varnish_cache_volume: "{{ infra_storage_proxy_varnish_cache_volume | default('localnet-proxy-varnish-cache-volume') }}"
-proxy_web_gost_config_volume: "{{ infra_storage_proxy_gost_config_volume | default('localnet-proxy-gost-config-volume') }}"
-proxy_web_privoxy_config_volume: "{{ infra_storage_proxy_privoxy_config_volume | default('localnet-proxy-privoxy-config-volume') }}"
+proxy_web_mitm_ca_volume: "{{ infra_storage_proxy_mitm_ca_volume | default(infra_value_proxy_web_mitm_ca_volume) }}"
+proxy_web_varnish_cache_volume: "{{ infra_storage_proxy_varnish_cache_volume | default(infra_value_proxy_web_varnish_cache_volume) }}"
+proxy_web_gost_config_volume: "{{ infra_storage_proxy_gost_config_volume | default(infra_value_proxy_web_gost_config_volume) }}"
+proxy_web_privoxy_config_volume: "{{ infra_storage_proxy_privoxy_config_volume | default(infra_value_proxy_web_privoxy_config_volume) }}"
 
 # Container images
 proxy_web_mitm_image: "mitmproxy/mitmproxy"

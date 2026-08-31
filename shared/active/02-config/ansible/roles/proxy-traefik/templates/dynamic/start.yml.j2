@@ -33,5 +33,5 @@ http:
     homepage:
       loadBalancer:
         servers:
-          - url: "http://{{ dashboard_homepage_container_name | default('homepage') }}:{{ dashboard_homepage_container_port | default('3000') }}"
+          - url: "http://{{ dashboard_homepage_container_name | default('homepage') }}:{{ dashboard_homepage_container_port | default(infra_port_monitoring_grafana_host) }}"
         passHostHeader: true

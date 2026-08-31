@@ -1,9 +1,9 @@
 . {
-    bind 0.0.0.0
+    bind {{ infra_network_bind_all }}
     prometheus :{{ dns_coredns_metrics_container_port }}
     cache {{ dns_coredns_cache_ttl_max }}
     forward . {{ dns_coredns_upstreams | join(' ') }} {
-        health_check 5s
+        health_check {{ infra_healthcheck_interval_short }}
     }
     log
     errors
@@ -12,7 +12,7 @@
 
 {% for zone in dns_coredns_local_zones %}
 {{ zone.name }} {
-    bind 0.0.0.0
+    bind {{ infra_network_bind_all }}
     file /etc/coredns/zones/{{ zone.name }}.db
     prometheus :{{ dns_coredns_metrics_container_port }}
     log

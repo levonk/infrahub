@@ -11,7 +11,7 @@ win_rdp_hardening_enabled: false
 win_rdp_hardening_nla_required: true
 
 # Restrict RDP inbound to this subnet only. Default: Tailscale CGNAT range.
-win_rdp_hardening_allowed_subnet: "{{ infra_network_vpn_tailscale_subnet | default('100.64.0.0/10') }}"
+win_rdp_hardening_allowed_subnet: "{{ infra_network_vpn_tailscale_subnet | default(infra_network_tailscale_cidr) }}"
 
 # Firewall rule name for RDP.
 win_rdp_hardening_firewall_rule_name: "RDP-Tailscale-Only"

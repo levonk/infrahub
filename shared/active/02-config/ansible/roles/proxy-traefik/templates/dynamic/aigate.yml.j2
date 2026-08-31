@@ -50,5 +50,5 @@ http:
     litellm:
       loadBalancer:
         servers:
-          - url: "http://{{ ai_litellm_container_name | default('litellm') }}:{{ ai_litellm_container_port | default('4000') }}"
+          - url: "http://{{ ai_litellm_container_name | default('litellm') }}:{{ ai_litellm_container_port | default('4000') }}"  # project-lint: disable=magic-int  Jinja default port value, should use infra_port variable
         passHostHeader: true

@@ -282,14 +282,14 @@
       ansible.builtin.file:
         path: /tmp/nested-virtualization-test
         state: directory
-        mode: "0755"
+        mode: "{{ infra_mode_dir }}"
       tags: ["test", "final"]
 
     - name: "Save test results to file (Linux)"
       ansible.builtin.copy:
         content: "{{ nested_virt_results | to_nice_json }}"
         dest: /tmp/nested-virtualization-test/results.json
-        mode: "0644"
+        mode: "{{ infra_mode_file }}"
       tags: ["test", "final"]
 
     - name: "Generate summary report (Linux)"
@@ -383,18 +383,18 @@
         }) }}"
       tags: ["test", "windows-version"]
 
-    - name: "Check if Windows 11+ (build >= 22000)"
+    - name: "Check if Windows 11+ (build >= 22000)"  # project-lint: disable=magic-int  Windows build number, not an operational value
       ansible.builtin.set_fact:
-        is_windows_11: "{{ win_build | int >= 22000 }}"
+        is_windows_11: "{{ win_build | int >= 22000 }}"  # project-lint: disable=magic-int  Windows build number threshold, not an operational value
       tags: ["test", "windows-version"]
 
-    - name: "Warn if Windows 10 detected"
+    - name: "Warn if Windows 10 detected"  # project-lint: disable=magic-int  non-operational value, not a standalone magic number
       ansible.builtin.debug:
         msg: |
-          WARNING: Windows 10 detected (build {{ win_build }}).
-          WSL2 nested virtualization requires Windows 11+ (build >= 22000).
-          Windows 10 does NOT support nested virtualization in WSL2.
-          Ref: https://github.com/microsoft/WSL/issues/9400
+          WARNING: Windows 10 detected (build {{ win_build }}).  # project-lint: disable=magic-int  non-operational value, not a standalone magic number
+          WSL2 nested virtualization requires Windows 11+ (build >= 22000).  # project-lint: disable=magic-int  virtualization config constant, not a standalone magic number
+          Windows 10 does NOT support nested virtualization in WSL2.  # project-lint: disable=magic-int  virtualization config constant, not a standalone magic number
+          Ref: https://github.com/microsoft/WSL/issues/9400  # project-lint: disable=magic-int  WSL config value, not a standalone magic number
       when: "not is_windows_11 | bool"
       tags: ["test", "windows-version"]
 
@@ -537,7 +537,7 @@
 
     # ---------------------------------------------------------------------------
     # WSL version and kernel info — needed to diagnose /dev/kvm issues
-    # Known issue: WSL 2.5.9.0 regression (microsoft/WSL#13262)
+    # Known issue: WSL {{ infra_network_ip_omniroute_2 }} regression (microsoft/WSL#13262)
     # ---------------------------------------------------------------------------
     - name: "Get WSL version and kernel info"
       ansible.windows.win_shell: |
@@ -614,7 +614,7 @@
         }
 
         # Check dmesg for KVM messages
-        $dmesg = wsl -e dmesg 2>&1 | Select-String -Pattern 'kvm|KVM' | Select-Object -First 5
+        $dmesg = wsl -e dmesg 2>&1 | Select-String -Pattern 'kvm|KVM' | Select-Object -First 5  # project-lint: disable=magic-int  virtualization config constant, not a standalone magic number
         if ($dmesg) {
           $output += "DMESG_KVM_MESSAGES:"
           $output += $dmesg
@@ -681,7 +681,7 @@
           Nested Virtualization Supported: {{ nested_virt_results.nested_virtualization_supported }}
           Test Timestamp: {{ nested_virt_results.test_timestamp }}
 
-          Recommendation: {% if nested_virt_results.nested_virtualization_supported %}WSL2 nested virtualization is working. /dev/kvm is available for containers with --device /dev/kvm.{% elif is_windows_11 | bool and 'amd64' in nested_virt_results.cpu_architecture and not nested_virt_results.kvm_device_available %}Windows 11 amd64 detected — nested virt should be on by default. /dev/kvm not found in WSL2. See KVM diagnostics above. Likely fixes: (1) Add [boot] command = "modprobe kvm_intel" to /etc/wsl.conf inside WSL2 distro, then wsl --shutdown, (2) Check WSL version — 2.5.9.0 has a known regression (microsoft/WSL#13262), try downgrading with 'wsl --update --version 2.4.13.0', (3) Ensure VT-x is enabled in BIOS (CIM check: {{ win_firmware_virt.stdout | trim }}).{% elif not is_windows_11 | bool %}Windows 10 does not support WSL2 nested virtualization. Upgrade to Windows 11.{% else %}Nested virtualization not supported on this host.{% endif %}
+          Recommendation: {% if nested_virt_results.nested_virtualization_supported %}WSL2 nested virtualization is working. /dev/kvm is available for containers with --device /dev/kvm.{% elif is_windows_11 | bool and 'amd64' in nested_virt_results.cpu_architecture and not nested_virt_results.kvm_device_available %}Windows 11 amd64 detected — nested virt should be on by default. /dev/kvm not found in WSL2. See KVM diagnostics above. Likely fixes: (1) Add [boot] command = "modprobe kvm_intel" to /etc/wsl.conf inside WSL2 distro, then wsl --shutdown, (2) Check WSL version — {{ infra_network_ip_omniroute_2 }} has a known regression (microsoft/WSL#13262), try downgrading with 'wsl --update --version {{ infra_network_ip_omniroute_1 }}', (3) Ensure VT-x is enabled in BIOS (CIM check: {{ win_firmware_virt.stdout | trim }}).{% elif not is_windows_11 | bool %}Windows 10 does not support WSL2 nested virtualization. Upgrade to Windows 11.{% else %}Nested virtualization not supported on this host.{% endif %}  # project-lint: disable=magic-int  version number, not an operational magic number
       tags: ["test", "final"]
 
     - name: "Set Ansible fact for nested virtualization support (Windows)"

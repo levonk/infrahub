@@ -40,7 +40,7 @@
   ansible.builtin.get_url:
     url: "{{ nix_installation_installer_url }}"
     dest: /tmp/nix-installer.sh
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   when: 
     - not nix_installation_nix_dir.stat.exists
     - not nix_installation_skip_installation | bool
@@ -61,7 +61,7 @@
   ansible.builtin.get_url:
     url: "https://releases.nixos.org/nix/nix-{{ nix_installation_version }}/nix-{{ nix_installation_version }}-x86_64-linux.tar.xz"
     dest: /tmp/nix.tar.xz
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   when: 
     - not nix_installation_nix_dir.stat.exists
     - nix_installation_container_mode | bool
@@ -71,7 +71,7 @@
   ansible.builtin.file:
     path: /tmp/nix-install
     state: directory
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   when: 
     - not nix_installation_nix_dir.stat.exists
     - nix_installation_container_mode | bool
@@ -167,7 +167,7 @@
     state: directory
     owner: "{{ nix_installation_nix_conf_owner }}"
     group: "{{ nix_installation_nix_conf_group }}"
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   become: true
 
 - name: Deploy nix.conf

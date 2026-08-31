@@ -3,7 +3,7 @@
 
 - name: Pull adguard image
   community.docker.docker_image:
-    name: "{{ local_registry | default('100.90.22.85:5000') }}/localnet-dns-adguard:latest"
+    name: "{{ local_registry | default('{{ infra_registry }}') }}/localnet-dns-adguard:latest"
     source: pull
     state: present
 
@@ -21,7 +21,7 @@
     ports:
       - "{{ dns_adguard_host_port }}:{{ dns_adguard_container_port }}/udp"
       - "{{ dns_adguard_host_port }}:{{ dns_adguard_container_port }}/tcp"
-      - "{{ dns_adguard_web_host_port }}:3000/tcp"
+      - "{{ dns_adguard_web_host_port }}:{{ infra_port_monitoring_grafana_host }}/tcp"
     volumes:
       - localnet-dns-adguard-conf-volume:/opt/adguardhome/conf
       - localnet-dns-adguard-work-volume:/opt/adguardhome/work
@@ -36,20 +36,20 @@
       DNS_ADGUARD_WEB_CONTAINER_PORT: "{{ dns_adguard_web_container_port }}"
     log_driver: json-file
     log_options:
-      max-size: 10m
-      max-file: 5
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
     healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:3000"]
-      interval: 30
-      timeout: 10
-      retries: 3
-      start_period: 30
+      test: ["CMD", "curl", "--fail", "http://localhost:{{ infra_port_monitoring_grafana_host }}"]
+      interval: "{{ infra_healthcheck_interval }}"
+      timeout: "{{ infra_timeout_short }}"
+      retries: "{{ infra_retry_short }}"
+      start_period: "{{ infra_healthcheck_start_period }}"
 
 - name: Wait for adguard to be healthy
   ansible.builtin.uri:
-    url: "http://127.0.0.1:{{ dns_adguard_web_host_port }}"
-    status_code: 200
+    url: "http://{{ infra_network_bind_localhost }}:{{ dns_adguard_web_host_port }}"
+    status_code: "{{ infra_http_status_ok }}"
   register: adguard_health
-  until: adguard_health.status == 200
-  retries: 10
-  delay: 5
+  until: adguard_health.status == {{ infra_http_status_ok }}
+  retries: "{{ infra_retry_long }}"
+  delay: "{{ infra_delay_default }}"

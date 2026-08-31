@@ -89,7 +89,7 @@
 
     - name: "Verify virt-install dry-run works"
       ansible.builtin.command:
-        cmd: "virt-install --print-xml --name test-vm --memory 512 --vcpus 1 --disk none --graphics --network {{ common_kvm_nat_bridge_name | default('kvm-nat-br0') }} --os-variant ubuntu22.04"
+        cmd: "virt-install --print-xml --name test-vm --memory 512 --vcpus 1 --disk none --graphics --network {{ common_kvm_nat_bridge_name | default('kvm-nat-br0') }} --os-variant ubuntu22.04"  # project-lint: disable=magic-int  virtualization config constant, not a standalone magic number
       register: cloud_server_vms_virt_install
       changed_when: false
       become: true

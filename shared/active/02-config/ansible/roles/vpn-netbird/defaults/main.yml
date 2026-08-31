@@ -23,7 +23,7 @@ vpn_netbird_setup_key: ""
 vpn_netbird_port: "{{ cloud_server_netbird_port | default(infra_port_vpn_nordvpn_wireguard_host) }}"
 
 # Hostname advertised in the Netbird network.
-vpn_netbird_hostname: "{{ inventory_hostname | default('cloud-server') }}"
+vpn_netbird_hostname: "{{ inventory_hostname | default(infra_value_vpn_netbird_hostname) }}"
 
 # ---------------------------------------------------------------------------
 # Route Advertisement

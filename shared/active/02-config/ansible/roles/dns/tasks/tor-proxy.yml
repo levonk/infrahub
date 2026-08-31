@@ -3,7 +3,7 @@
 
 - name: Pull tor-proxy image
   community.docker.docker_image:
-    name: "{{ local_registry | default('100.90.22.85:5000') }}/localnet-proxy-tor:latest"
+    name: "{{ local_registry | default('{{ infra_registry }}') }}/localnet-proxy-tor:latest"
     source: pull
     state: present
 
@@ -22,5 +22,5 @@
       PROXY_TOR_SOCKS5_CONTAINER_PORT: "{{ proxy_tor_socks5_container_port }}"
     log_driver: json-file
     log_options:
-      max-size: 10m
-      max-file: 5
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"

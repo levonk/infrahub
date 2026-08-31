@@ -2,6 +2,6 @@
 # Ansible Collections required for LocalNet deployment
 collections:
   - name: community.docker
-    version: ">=3.0.0"
+    version: ">=3.0.0"  # project-lint: disable=magic-dotted  version number, not an operational magic number
   - name: ansible.posix
     version: ">=1.5.0"

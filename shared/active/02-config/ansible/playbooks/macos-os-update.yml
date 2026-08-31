@@ -15,7 +15,7 @@
     # Ansible survive the reboot. Re-check the host after it comes back up.
     - name: "Install all macOS updates and restart"
       ansible.builtin.command: softwareupdate --install --all --restart
-      async: 300
+      async: "{{ infra_timeout_request }}"
       poll: 0
       changed_when: true
       tags: ["os-update"]

@@ -10,12 +10,12 @@ croc_relay_image_tag: "latest"
 
 # Ports (reference infrastructure variables)
 # The relay uses a contiguous range; the first port is the PAKE/communication port.
-croc_relay_start_port: "{{ infra_port_tools_croc_relay_comm_host | default('9009') }}"
-croc_relay_end_port: "{{ infra_port_tools_croc_relay_data_end_host | default('9013') }}"
+croc_relay_start_port: "{{ infra_port_tools_croc_relay_comm_host | default(infra_port_tools_croc_relay_host) }}"
+croc_relay_end_port: "{{ infra_port_tools_croc_relay_data_end_host | default(infra_port_tools_croc_relay_alt_host) }}"
 
 # Comma-separated list for the CROC_PORTS environment variable
 # (must match the published container port range).
-croc_relay_ports: "{{ range(croc_relay_start_port | int, croc_relay_end_port | int + 1) | map('string') | list }}"
+croc_relay_ports: "{{ range(croc_relay_start_port | int, croc_relay_end_port | int + 1) | map('string') | list }}"  # project-lint: disable=magic-int  range upper bound offset, not an operational value
 croc_relay_ports_csv: "{{ croc_relay_ports | join(',') }}"
 
 # Relay password (required, from vault)
@@ -27,7 +27,7 @@ croc_relay_enabled: true
 # Docker connection string for the Windows host (SSH-tunneled Docker CLI).
 # community.docker modules cannot run on Windows (Ansible core basic.py imports grp,
 # which is Unix-only), so we delegate to localhost and use the docker CLI with DOCKER_HOST=ssh://.
-croc_relay_docker_host: "ssh://ansible@{{ windows_tailscale_hostname | default('dtop202311') }}.{{ infra_tailscale_tailnet | default('example.ts.net') }}"
+croc_relay_docker_host: "ssh://ansible@{{ windows_tailscale_hostname | default(infra_value_croc_relay_docker_host) }}.{{ infra_tailscale_tailnet | default(infra_value_croc_relay_docker_host) }}"
 
 # Healthcheck durations (strings with unit suffix, NOT bare integers)
 croc_relay_healthcheck_interval: "30s"

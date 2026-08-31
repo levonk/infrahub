@@ -1,4 +1,4 @@
-network.host: "0.0.0.0"
+network.host: "{{ infra_network_bind_all }}"
 node.name: "{{ wazuh_indexer_container_name }}"
 cluster.name: "wazuh-cluster"
 path.data: /var/lib/wazuh-indexer

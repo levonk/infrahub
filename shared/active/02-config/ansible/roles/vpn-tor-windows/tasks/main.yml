@@ -40,7 +40,6 @@
   ansible.builtin.command: "docker pull {{ vpn_tor_windows_tor_image }}"
   environment:
     DOCKER_HOST: "{{ vpn_tor_windows_docker_host }}"
-    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
   delegate_to: localhost
   changed_when: true
   when: tor_image_check.rc != 0
@@ -60,7 +59,6 @@
   ansible.builtin.command: "docker pull {{ vpn_tor_windows_tailscale_image }}"
   environment:
     DOCKER_HOST: "{{ vpn_tor_windows_docker_host }}"
-    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
   delegate_to: localhost
   changed_when: true
   when: tailscale_image_check.rc != 0
@@ -161,8 +159,8 @@
     -v {{ vpn_tor_windows_data_volume_name }}:/var/lib/tor
     -v {{ vpn_tor_windows_logs_volume_name }}:/var/log/tor
     --log-driver json-file
-    --log-opt max-size=10m
-    --log-opt max-file=5
+    --log-opt max-size={{ infra_log_max_size }}
+    --log-opt max-file={{ infra_log_max_file }}
     {{ vpn_tor_windows_tor_image }}
   environment:
     DOCKER_HOST: "{{ vpn_tor_windows_docker_host }}"
@@ -173,7 +171,7 @@
 # 8. Wait for Tor to initialize
 - name: "Wait for Tor Windows container to initialize"
   ansible.builtin.pause:
-    seconds: 15
+    seconds: "{{ infra_delay_long }}"
   tags: ["deploy", "wait"]
 
 # 9. Deploy Tailscale exit node container (routes through Tor via ALL_PROXY)
@@ -197,8 +195,8 @@
     -e TZ={{ vpn_tor_windows_tz }}
     -v {{ vpn_tor_windows_tailscale_state_volume_name }}:/var/lib/tailscale
     --log-driver json-file
-    --log-opt max-size=10m
-    --log-opt max-file=5
+    --log-opt max-size={{ infra_log_max_size }}
+    --log-opt max-file={{ infra_log_max_file }}
     {{ vpn_tor_windows_tailscale_image }}
   environment:
     DOCKER_HOST: "{{ vpn_tor_windows_docker_host }}"
@@ -210,7 +208,7 @@
 # 10. Wait for Tailscale to initialize
 - name: "Wait for Tailscale Tor Windows to initialize"
   ansible.builtin.pause:
-    seconds: 30
+    seconds: "{{ infra_delay_extended }}"
   tags: ["deploy", "wait"]
 
 # 11. Status report

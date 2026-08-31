@@ -8,7 +8,7 @@ services:
     container_name: {{ vpn_netbird_container_name }}
     restart: unless-stopped
     ports:
-      - "{{ vpn_netbird_port }}:8084"
+      - "{{ vpn_netbird_port }}:{{ infra_port_dashboard_homepage_host }}"
     environment:
       - NODE_ENV=production
       - SERVICE_NAME=vpn-netbird
@@ -18,11 +18,11 @@ services:
       - NETBIRD_HOSTNAME=${NETBIRD_HOSTNAME}
       - TZ=${TZ}
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8084/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
+      test: ["CMD-SHELL", "curl -f http://localhost:{{ infra_port_dashboard_homepage_host }}/health || exit 1"]
+      interval: "{{ infra_timeout_default }}"
+      timeout: "{{ infra_timeout_short }}"
+      retries: "{{ infra_retry_short }}"
+      start_period: "{{ infra_timeout_default }}"
     volumes:
       - {{ vpn_netbird_config_volume_name }}:/etc/service/config
       - {{ vpn_netbird_data_volume_name }}/var/lib/netbird

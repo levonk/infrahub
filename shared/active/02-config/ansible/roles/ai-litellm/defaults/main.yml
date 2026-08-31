@@ -18,27 +18,27 @@ ai_litellm_postgres_db: "litellm"
 ai_litellm_postgres_user: "litellm"
 
 # Port configuration
-ai_litellm_host_port: "{{ infra_port_ai_litellm_host | default('4000') }}"
-ai_litellm_container_port: "{{ infra_port_ai_litellm_container | default('4000') }}"
-ai_litellm_postgres_host_port: "{{ infra_port_ai_litellm_postgres_host | default('5435') }}"
+ai_litellm_host_port: "{{ infra_port_ai_litellm_host | default(infra_port_dashboard_portainer_host) }}"
+ai_litellm_container_port: "{{ infra_port_ai_litellm_container | default(infra_port_dashboard_portainer_host) }}"
+ai_litellm_postgres_host_port: "{{ infra_port_ai_litellm_postgres_host | default(infra_port_proxy_mitm_alt_host) }}"
 ai_litellm_postgres_container_port: "{{ infra_port_ai_litellm_postgres_container | default(infra_port_db_postgres_host) }}"
 
 # Network configuration
-ai_litellm_chain_network_name: "{{ infra_network_ai_proxy_chain_network_name | default('proxy-chain-network') }}"
-ai_litellm_chain_network_ip: "{{ infra_network_ip_litellm | default('172.29.0.18') }}"
-ai_litellm_traefik_network_name: "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"
-ai_litellm_traefik_network_ip: "{{ infra_network_ip_litellm_traefik | default('172.31.0.18') }}"
-ai_litellm_localnet_network_name: "{{ localnet_network_name | default('cloud-server') }}"
+ai_litellm_chain_network_name: "{{ infra_network_ai_proxy_chain_network_name | default(infra_network_ai_litellm_chain_network_name) }}"
+ai_litellm_chain_network_ip: "{{ infra_network_ip_litellm | default(infra_network_ip_ai_litellm_chain_network) }}"
+ai_litellm_traefik_network_name: "{{ infra_network_proxy_traefik_network_name | default(infra_network_ai_litellm_traefik_network_name) }}"
+ai_litellm_traefik_network_ip: "{{ infra_network_ip_litellm_traefik | default(infra_network_ip_ai_litellm_traefik_network) }}"
+ai_litellm_localnet_network_name: "{{ localnet_network_name | default(infra_network_ai_litellm_localnet_network_name) }}"
 
 # Domain for Traefik routing
-ai_litellm_domain: "{{ infra_domain_ai_litellm | default('aigate.' ~ (infra_domain_base | default('example.com'))) }}"
-ai_litellm_api_domain: "{{ infra_domain_ai_litellm_api | default('aigate-api.' ~ (infra_domain_base | default('example.com'))) }}"
+ai_litellm_domain: "{{ infra_domain_ai_litellm | default('aigate.' ~ (infra_domain_base | default(infra_value_ai_litellm_domain))) }}"
+ai_litellm_api_domain: "{{ infra_domain_ai_litellm_api | default('aigate-api.' ~ (infra_domain_base | default(infra_value_ai_litellm_api_domain))) }}"
 
 # Upstream: Headroom (context compression) — LiteLLM routes to Headroom which routes to OmniRoute
-ai_litellm_upstream_url: "http://headroom:{{ infra_port_ai_headroom_container | default('8787') }}"
+ai_litellm_upstream_url: "http://headroom:{{ infra_port_ai_headroom_container | default(infra_port_ai_litellm_host) }}"
 
 # Langfuse integration (parallel observability sink)
-ai_litellm_langfuse_host: "{{ infra_hostname_langfuse_web | default('langfuse-web') }}"
+ai_litellm_langfuse_host: "{{ infra_hostname_langfuse_web | default(infra_value_ai_litellm_langfuse_host) }}"
 ai_litellm_langfuse_port: "{{ infra_port_ai_langfuse_web_container | default(infra_port_monitoring_grafana_host) }}"
 
 # OpenTelemetry / OpenLIT integration (distributed tracing)
@@ -54,20 +54,20 @@ ai_litellm_otel_service_name: "litellm-gateway"
 # When enabled, LiteLLM shows an SSO login button and users authenticate via Authelia.
 # The default username/password login is disabled by not setting UI_USERNAME/UI_PASSWORD.
 ai_litellm_sso_enabled: false
-ai_litellm_oidc_client_id: "{{ vault_litellm_oidc_client_id | default('litellm') }}"
+ai_litellm_oidc_client_id: "{{ vault_litellm_oidc_client_id | default(infra_value_ai_litellm_oidc_client_id) }}"
 ai_litellm_oidc_client_secret: "{{ vault_litellm_oidc_client_secret | default('') }}"
-ai_litellm_oidc_authorization_endpoint: "https://{{ infra_domain_sso_authelia | default('auth.' ~ (infra_domain_base | default('example.com'))) }}/api/oidc/authorization"
-ai_litellm_oidc_token_endpoint: "https://{{ infra_domain_sso_authelia | default('auth.' ~ (infra_domain_base | default('example.com'))) }}/api/oidc/token"
-ai_litellm_oidc_userinfo_endpoint: "https://{{ infra_domain_sso_authelia | default('auth.' ~ (infra_domain_base | default('example.com'))) }}/api/oidc/userinfo"
+ai_litellm_oidc_authorization_endpoint: "https://{{ infra_domain_sso_authelia | default('auth.' ~ (infra_domain_base | default(infra_value_ai_litellm_oidc_authorization_endpoint))) }}/api/oidc/authorization"
+ai_litellm_oidc_token_endpoint: "https://{{ infra_domain_sso_authelia | default('auth.' ~ (infra_domain_base | default(infra_value_ai_litellm_oidc_token_endpoint))) }}/api/oidc/token"
+ai_litellm_oidc_userinfo_endpoint: "https://{{ infra_domain_sso_authelia | default('auth.' ~ (infra_domain_base | default(infra_value_ai_litellm_oidc_userinfo_endpoint))) }}/api/oidc/userinfo"
 
 # Secrets (from vault)
-ai_litellm_master_key: "{{ vault_litellm_master_key | default('sk-changeme') }}"
-ai_litellm_database_password: "{{ vault_litellm_database_password | default('changeme') }}"
-ai_litellm_salt_key: "{{ vault_litellm_salt_key | default('changeme') }}"
-ai_litellm_admin_username: "{{ vault_litellm_admin_username | default('admin') }}"
-ai_litellm_admin_password: "{{ vault_litellm_admin_password | default('changeme') }}"
+ai_litellm_master_key: "{{ vault_litellm_master_key | default(infra_value_ai_litellm_master_key) }}"
+ai_litellm_database_password: "{{ vault_litellm_database_password | default(infra_value_ai_litellm_database_password) }}"
+ai_litellm_salt_key: "{{ vault_litellm_salt_key | default(infra_value_ai_litellm_salt_key) }}"
+ai_litellm_admin_username: "{{ vault_litellm_admin_username | default(infra_value_ai_litellm_admin_username) }}"
+ai_litellm_admin_password: "{{ vault_litellm_admin_password | default(infra_value_ai_litellm_admin_password) }}"
 
 # User/Group IDs
-ai_litellm_puid: "{{ localnet_puid | default(cuser_uid | default(1000)) | string }}"
-ai_litellm_pgid: "{{ localnet_pgid | default(cuser_gid | default(1000)) | string }}"
-ai_litellm_tz: "{{ localnet_tz | default(timezone | default('UTC')) }}"
+ai_litellm_puid: "{{ localnet_puid | default(cuser_uid | default(infra_identity_puid)) | string }}"
+ai_litellm_pgid: "{{ localnet_pgid | default(cuser_gid | default(infra_identity_pgid)) | string }}"
+ai_litellm_tz: "{{ localnet_tz | default(timezone | default(infra_value_ai_litellm_tz)) }}"

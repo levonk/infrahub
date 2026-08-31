@@ -312,8 +312,8 @@
 
     - name: "HTTP probe — Traefik ping endpoint"
       ansible.builtin.uri:
-        url: "http://127.0.0.1:{{ proxy_traefik_api_port }}/ping"
-        status_code: 200
+        url: "http://{{ infra_network_bind_localhost }}:{{ proxy_traefik_api_port }}/ping"
+        status_code: "{{ infra_http_status_ok }}"
       register: traefik_ping
       ignore_errors: true
       tags: ["verify", "proxy", "traefik", "health"]
@@ -326,7 +326,7 @@
 
     - name: "HTTP probe — iron-proxy health endpoint"
       ansible.builtin.uri:
-        url: "http://127.0.0.1:{{ proxy_iron_proxy_http_host_port }}/health"
+        url: "http://{{ infra_network_bind_localhost }}:{{ proxy_iron_proxy_http_host_port }}/health"
         status_code: [200, 502]
       register: iron_proxy_health
       ignore_errors: true
@@ -340,8 +340,8 @@
 
     - name: "HTTP probe — Authelia health endpoint"
       ansible.builtin.uri:
-        url: "http://127.0.0.1:{{ proxy_authelia_web_host_port }}/api/health"
-        status_code: 200
+        url: "http://{{ infra_network_bind_localhost }}:{{ proxy_authelia_web_host_port }}/api/health"
+        status_code: "{{ infra_http_status_ok }}"
       register: authelia_health
       ignore_errors: true
       tags: ["verify", "proxy", "authelia", "health"]
@@ -354,7 +354,7 @@
 
     - name: "DNS query — verify CoreDNS responds"
       ansible.builtin.command:
-        cmd: "dig @127.0.0.1 -p {{ dns_coredns_host_port }} +short +time=5 +tries=1 cloudflare.com"
+        cmd: "dig @{{ infra_network_bind_localhost }} -p {{ dns_coredns_host_port }} +short +time={{ infra_timeout_short }} +tries={{ infra_retry_min }} cloudflare.com"
       become: true
       become_user: "{{ cloud_server_admin_user }}"
       register: coredns_dig

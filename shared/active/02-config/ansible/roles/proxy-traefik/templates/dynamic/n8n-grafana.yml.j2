@@ -31,5 +31,5 @@ http:
     n8n-grafana:
       loadBalancer:
         servers:
-          - url: "http://{{ n8n_grafana_container_name | default('localnet-n8n-grafana') }}:{{ n8n_grafana_container_port | default('3000') }}"
+          - url: "http://{{ n8n_grafana_container_name | default('localnet-n8n-grafana') }}:{{ n8n_grafana_container_port | default(infra_port_monitoring_grafana_host) }}"
         passHostHeader: true

@@ -30,7 +30,7 @@
           }
         ]
       }
-    mode: '0644'
+    mode: '{{ infra_mode_file }}'
   become: true
   notify: restart docker
   when: isolation_vm_network.changed
@@ -70,7 +70,7 @@
       # Enable bridge netfilter for firewall rules
       net.bridge.bridge-nf-call-iptables = 1
       net.bridge.bridge-nf-call-ip6tables = 1
-    mode: '0644'
+    mode: '{{ infra_mode_file }}'
   become: true
   notify: reload sysctl
 
@@ -88,10 +88,10 @@
             "size": {{ isolation_vm_network_subnet_size }}
           }
         ],
-        "metrics-addr": "{{ isolation_vm_docker_metrics_address | default('127.0.0.1:9323') }}",
+        "metrics-addr": "{{ isolation_vm_docker_metrics_address | default('{{ infra_network_bind_localhost }}:9323') }}",  # project-lint: disable=magic-int  Jinja default port value, should use infra_port variable
         "experimental": false
       }
-    mode: '0644'
+    mode: '{{ infra_mode_file }}'
   become: true
   notify: restart docker
 
@@ -102,16 +102,16 @@
       #
       # reserved values
       #
-      255	local
-      254	main
-      253	default
+      255	local  # project-lint: disable=magic-int  routing table ID, not an operational value
+      254	main  # project-lint: disable=magic-int  routing table ID, not an operational value
+      253	default  # project-lint: disable=magic-int  routing table ID, not an operational value
       0	unspec
       #
       # local
       #
       #1	inr.ruhep
-      200	isolation-vm
-    mode: '0644'
+      200	isolation-vm  # project-lint: disable=magic-int  routing table ID, not an operational value
+    mode: '{{ infra_mode_file }}'
   become: true
 
 - name: Configure routing rules for VPN/proxy egress
@@ -120,8 +120,8 @@
     content: |
       # Routing rules for isolation-vm container egress
       post-up ip route add {{ isolation_vm_network_subnet }} dev isolation-vm-br0 src {{ isolation_vm_network_gateway }} table isolation-vm
-      post-up ip route add default via {{ isolation_vm_vpn_gateway | default('192.168.101.1') }} table isolation-vm
+      post-up ip route add default via {{ isolation_vm_vpn_gateway | default(infra_network_lan_gateway_2) }} table isolation-vm
       post-up ip rule add from {{ isolation_vm_network_subnet }} table isolation-vm
-    mode: '0644'
+    mode: '{{ infra_mode_file }}'
   become: true
   when: isolation_vm_enable_vpn_routing | default(false)

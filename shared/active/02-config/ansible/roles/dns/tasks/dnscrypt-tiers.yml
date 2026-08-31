@@ -32,16 +32,16 @@
       DNS_DNSCRYPT_ODOH_CONTAINER_PORT: "{{ dns_dnscrypt_odoh_container_port }}"
     log_driver: json-file
     log_options:
-      max-size: 10m
-      max-file: 5
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
   when: dns_dnscrypt_odoh_enabled | bool
 
 - name: Wait for dnscrypt-odoh to be ready
   ansible.builtin.wait_for:
     host: "{{ dns_dnscrypt_odoh_ip }}"
     port: "{{ dns_dnscrypt_odoh_container_port }}"
-    delay: 10
-    timeout: 60
+    delay: "{{ infra_delay_long }}"
+    timeout: "{{ infra_timeout_long }}"
   when: dns_dnscrypt_odoh_enabled | bool
 
 # ============================================================================
@@ -66,14 +66,14 @@
       DNS_DNSCRYPT_ANON_CONTAINER_PORT: "{{ dns_dnscrypt_anon_container_port }}"
     log_driver: json-file
     log_options:
-      max-size: 10m
-      max-file: 5
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
   when: dns_dnscrypt_anon_enabled | bool
 
 - name: Wait for dnscrypt-anon to be ready
   ansible.builtin.wait_for:
     host: "{{ dns_dnscrypt_anon_ip }}"
     port: "{{ dns_dnscrypt_anon_container_port }}"
-    delay: 10
-    timeout: 60
+    delay: "{{ infra_delay_long }}"
+    timeout: "{{ infra_timeout_long }}"
   when: dns_dnscrypt_anon_enabled | bool

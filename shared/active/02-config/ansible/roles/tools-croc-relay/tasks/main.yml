@@ -32,7 +32,6 @@
   ansible.builtin.shell: "docker pull {{ croc_relay_image_name }}:{{ croc_relay_image_tag }}"
   environment:
     DOCKER_HOST: "{{ croc_relay_docker_host }}"
-    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
   delegate_to: localhost
   changed_when: true
   tags: ["deploy", "pull"]
@@ -56,8 +55,8 @@
     -e CROC_PORTS="$CROC_PORTS"
     -e CROC_PASS="$CROC_PASS"
     --log-driver json-file
-    --log-opt max-size=10m
-    --log-opt max-file=5
+    --log-opt max-size={{ infra_log_max_size }}
+    --log-opt max-file={{ infra_log_max_file }}
     --health-cmd "nc -z -w 3 localhost {{ croc_relay_start_port }} || exit 1"
     --health-interval {{ croc_relay_healthcheck_interval }}
     --health-timeout {{ croc_relay_healthcheck_timeout }}
