@@ -31,7 +31,7 @@
     cloudflare_api_token: "{{ vault_cloudflare_api_token | default('') }}"
     cloudflare_zone_id: "{{ vault_cloudflare_zone_id | default('') }}"
     cloudflare_dns_state: "present"
-    cloudflare_dns_ttl: 300
+    cloudflare_dns_ttl: "{{ infra_dns_ttl }}"
     cloudflare_dns_proxied: false
     cloudflare_dns_verify: true
     cloudflare_dns_verify_propagation: false
@@ -142,7 +142,7 @@
         dest: "{{ proxy_traefik_data_dir | default('/opt/traefik') }}/config/dynamic/paperclip.yml"
         owner: root
         group: root
-        mode: "0644"
+        mode: "{{ infra_mode_file }}"
       become: true
       notify: reload traefik
       tags: ["traefik", "routing"]

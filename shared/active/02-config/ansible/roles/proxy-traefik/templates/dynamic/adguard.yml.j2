@@ -34,5 +34,5 @@ http:
     adguard:
       loadBalancer:
         servers:
-          - url: "http://{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) }}:{{ infra_port_dns_adguard_web_host | default('3000') }}"
+          - url: "http://{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) }}:{{ infra_port_dns_adguard_web_host | default(infra_port_monitoring_grafana_host) }}"
         passHostHeader: true

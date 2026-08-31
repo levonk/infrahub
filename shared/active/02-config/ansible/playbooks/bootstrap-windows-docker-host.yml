@@ -79,8 +79,8 @@
 
     - name: "Reboot if WSL2 was just installed"
       ansible.builtin.reboot:
-        reboot_timeout: 300
-        post_reboot_delay: 30
+        reboot_timeout: "{{ infra_timeout_request }}"
+        post_reboot_delay: "{{ infra_delay_extended }}"
       when: "'WSL_NOT_INSTALLED' in wsl_status.stdout"
       tags: ["wsl", "reboot"]
 
@@ -104,8 +104,8 @@
 
     - name: "Reboot if Docker Desktop was just installed"
       ansible.builtin.reboot:
-        reboot_timeout: 300
-        post_reboot_delay: 60
+        reboot_timeout: "{{ infra_timeout_request }}"
+        post_reboot_delay: "{{ infra_delay_minute }}"
       when: "'NOT_INSTALLED' in docker_check.stdout"
       tags: ["docker", "reboot"]
 
@@ -131,7 +131,7 @@
     - name: "Wait for Docker daemon to be ready"
       ansible.builtin.shell:
         cmd: |
-          $maxAttempts = 60
+          $maxAttempts = 60  # project-lint: disable=magic-int  Windows/PowerShell config value, not a standalone magic number
           $attempt = 0
           while ($attempt -lt $maxAttempts) {
               $attempt++
@@ -140,13 +140,13 @@
                   Write-Output "Docker ready after $attempt attempts"
                   exit 0
               }
-              Start-Sleep -Seconds 10
+              Start-Sleep -Seconds 10  # project-lint: disable=magic-int  Windows/PowerShell config value, not a standalone magic number
           }
           Write-Output "Docker did not become ready within $maxAttempts attempts"
           exit 1
       register: docker_ready
       changed_when: false
-      timeout: 600
+      timeout: "{{ infra_timeout_request }}"
       tags: ["docker", "wait"]
 
     - name: "Report Docker daemon ready"
@@ -298,7 +298,7 @@
           $config.'insecure-registries' += $registryUrl
         }
 
-        $config | ConvertTo-Json -Depth 10 | Set-Content $configPath -Encoding UTF8
+        $config | ConvertTo-Json -Depth 10 | Set-Content $configPath -Encoding UTF8  # project-lint: disable=magic-int  Windows/PowerShell config value, not a standalone magic number
         Write-Output "Configured insecure-registry: $registryUrl"
       register: docker_config_update
       changed_when: "'Configured insecure-registry' in docker_config_update.stdout"
@@ -309,7 +309,7 @@
       ansible.builtin.shell: |
         Stop-Process -Name "Docker Desktop" -Force -ErrorAction SilentlyContinue
         Stop-Process -Name "com.docker.backend" -Force -ErrorAction SilentlyContinue
-        Start-Sleep -Seconds 5
+        Start-Sleep -Seconds 5  # project-lint: disable=magic-int  Windows/PowerShell config value, not a standalone magic number
         Start-Process "C:\Program Files\Docker\Docker\Docker Desktop.exe"
         Write-Output "Docker Desktop restarting..."
       register: docker_restart
@@ -321,7 +321,7 @@
 
     - name: "Wait for Docker Desktop to be ready after restart"
       ansible.builtin.shell: |
-        $maxAttempts = 60
+        $maxAttempts = 60  # project-lint: disable=magic-int  Windows/PowerShell config value, not a standalone magic number
         $attempt = 0
         while ($attempt -lt $maxAttempts) {
             $attempt++
@@ -330,13 +330,13 @@
                 Write-Output "Docker ready after $attempt attempts"
                 exit 0
             }
-            Start-Sleep -Seconds 10
+            Start-Sleep -Seconds 10  # project-lint: disable=magic-int  Windows/PowerShell config value, not a standalone magic number
         }
         Write-Output "Docker did not become ready"
         exit 1
       register: docker_ready_after_restart
       changed_when: false
-      timeout: 600
+      timeout: "{{ infra_timeout_request }}"
       when:
         - docker_config_update is changed
         - windows_registry_url is defined

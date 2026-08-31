@@ -16,7 +16,7 @@
     networks:
       - name: "{{ localnet_network_name }}"
     ports:
-      - "{{ proxy_direct_port }}:3128/tcp"
+      - "{{ proxy_direct_port }}:{{ infra_port_proxy_mitm_transparent_host }}/tcp"
     volumes:
       - "{{ localnet_services_dir }}/proxy/configs/web/squid.conf:/etc/squid/conf.d/localnet.conf:ro"
       - localnet-web-cache-volume:/var/spool/squid
@@ -24,20 +24,20 @@
       CACHE_SIZE_MB: "{{ proxy_cache_size_mb }}"
     log_driver: json-file
     log_options:
-      max-size: 10m
-      max-file: 5
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
     healthcheck:
       test: ["CMD", "squidclient", "-h", "localhost", "mgr:info"]
-      interval: 30
-      timeout: 5
-      retries: 3
-      start_period: 10
+      interval: "{{ infra_healthcheck_interval }}"
+      timeout: "{{ infra_timeout_short }}"
+      retries: "{{ infra_retry_short }}"
+      start_period: "{{ infra_healthcheck_start_period }}"
 
 - name: Wait for squid to be healthy
   ansible.builtin.shell: |
     docker inspect --format='{{"{{"}}.State.Health.Status{{"}}"}}' localnet-proxy-squid
   register: squid_health
   until: squid_health.stdout == "healthy"
-  retries: 10
-  delay: 10
+  retries: "{{ infra_retry_long }}"
+  delay: "{{ infra_delay_long }}"
   ignore_errors: true

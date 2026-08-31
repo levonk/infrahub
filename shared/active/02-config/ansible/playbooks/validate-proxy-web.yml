@@ -45,7 +45,7 @@
 
     - name: "Check MITM proxy web UI is reachable"
       ansible.builtin.shell: |
-        docker exec localnet-proxy-mitm curl -sf http://127.0.0.1:8081/ >/dev/null 2>&1 && echo "OK" || echo "FAIL"
+        docker exec localnet-proxy-mitm curl -sf http://{{ infra_network_bind_localhost }}:{{ infra_port_nix_ncro_host }}/ >/dev/null 2>&1 && echo "OK" || echo "FAIL"
       environment:
         DOCKER_HOST: "ssh://ansible@{{ ansible_host }}:{{ ansible_port }}"
       delegate_to: localhost
@@ -60,7 +60,7 @@
 
     - name: "Check Gost SOCKS5 is reachable"
       ansible.builtin.shell: |
-        docker exec localnet-proxy-gost nc -z 127.0.0.1 1080 2>/dev/null && echo "OK" || echo "FAIL"
+        docker exec localnet-proxy-gost nc -z {{ infra_network_bind_localhost }} {{ infra_port_vpn_nordvpn_socks_host }} 2>/dev/null && echo "OK" || echo "FAIL"
       environment:
         DOCKER_HOST: "ssh://ansible@{{ ansible_host }}:{{ ansible_port }}"
       delegate_to: localhost
@@ -111,22 +111,22 @@
 
     - name: "Check MITM proxy web UI is reachable"
       ansible.builtin.uri:
-        url: "http://127.0.0.1:{{ infra_port_proxy_mitm_webui_host | default('19081') }}/"
-        status_code: 200
+        url: "http://{{ infra_network_bind_localhost }}:{{ infra_port_proxy_mitm_webui_host | default('19081') }}/"  # project-lint: disable=magic-int  Jinja default port value, should use infra_port variable
+        status_code: "{{ infra_http_status_ok }}"
       register: mitm_ui_check
       failed_when: false
       tags: ["validate", "mitm"]
 
     - name: "Display MITM UI check result"
       ansible.builtin.debug:
-        msg: "MITM web UI: {{ 'OK' if mitm_ui_check.status == 200 else 'FAIL' }}"
+        msg: "MITM web UI: {{ 'OK' if mitm_ui_check.status == {{ infra_http_status_ok }} else 'FAIL' }}"
       tags: ["validate", "mitm"]
 
     - name: "Check Gost SOCKS5 is reachable"
       ansible.builtin.wait_for:
-        host: "127.0.0.1"
-        port: "{{ infra_port_proxy_gost_socks5_host | default('11080') }}"
-        timeout: 5
+        host: "{{ infra_network_bind_localhost }}"
+        port: "{{ infra_port_proxy_gost_socks5_host | default('11080') }}"  # project-lint: disable=magic-int  Jinja default port value, should use infra_port variable
+        timeout: "{{ infra_timeout_short }}"
       register: gost_check
       failed_when: false
       tags: ["validate", "gost"]

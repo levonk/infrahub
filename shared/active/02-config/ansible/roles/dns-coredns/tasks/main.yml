@@ -9,7 +9,7 @@
   ansible.builtin.file:
     path: "{{ dns_coredns_service_dir }}"
     state: directory
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
 
 # ============================================================================
 # Configuration
@@ -18,7 +18,7 @@
   ansible.builtin.template:
     src: Corefile.j2
     dest: "{{ dns_coredns_service_dir }}/Corefile"
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   notify: restart dns coredns
 
 # ============================================================================
@@ -57,19 +57,19 @@
       TZ: "{{ cloud_server_tz | default('UTC') }}"
     log_driver: json-file
     log_options:
-      max-size: 10m
-      max-file: 5
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
     security_opts:
       - no-new-privileges:true
     read_only: true
     tmpfs:
-      - /tmp:mode=1777,size=64m
+      - /tmp:mode={{ infra_mode_dir_sticky }},size={{ infra_size_64m }}
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:{{ dns_coredns_metrics_container_port }}/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
+      interval: "{{ infra_timeout_default }}"
+      timeout: "{{ infra_timeout_short }}"
+      retries: "{{ infra_retry_short }}"
+      start_period: "{{ infra_timeout_short }}"
   register: dns_coredns_deploy
   notify: restart dns coredns
 
@@ -79,10 +79,10 @@
 - name: Wait for CoreDNS to be healthy
   ansible.builtin.uri:
     url: "http://localhost:{{ dns_coredns_metrics_host_port }}/health"
-    status_code: 200
+    status_code: "{{ infra_http_status_ok }}"
   register: dns_coredns_health
-  until: dns_coredns_health.status == 200
-  retries: 10
+  until: dns_coredns_health.status == {{ infra_http_status_ok }}
+  retries: "{{ infra_retry_long }}"
   delay: 3
   when:
     - dns_coredns_verify_health | bool
@@ -90,7 +90,7 @@
 
 - name: Verify CoreDNS responds to DNS queries
   ansible.builtin.command:
-    cmd: "dig @127.0.0.1 -p {{ dns_coredns_host_port }} +short +time=5 +tries=1 cloudflare.com"
+    cmd: "dig @{{ infra_network_bind_localhost }} -p {{ dns_coredns_host_port }} +short +time={{ infra_timeout_short }} +tries={{ infra_retry_min }} cloudflare.com"
   changed_when: false
   when: dns_coredns_verify_health | bool
 

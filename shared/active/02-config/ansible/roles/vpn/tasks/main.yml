@@ -6,7 +6,7 @@
   ansible.builtin.file:
     path: "{{ localnet_services_dir }}/vpn"
     state: directory
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
 
 # ============================================================================
 # Volume Management
@@ -36,9 +36,9 @@
   ansible.builtin.debug:
     msg: |
       VPN Stack deployed successfully:
-        - Netbird: http://localhost:{{ vpn_netbird_http_container_port | default('8084') }}
-        - Tailscale: http://localhost:{{ vpn_tailscale_http_container_port | default('8085') }}
-        - Gluetun: http://localhost:8888 (HTTP proxy)
-        - WireGuard Direct: localhost:{{ wireguard_direct_port | default('51820') }}/udp
-        - WireGuard Transparent: localhost:{{ wireguard_transparent_port | default('51821') }}/udp
+        - Netbird: http://localhost:{{ vpn_netbird_http_container_port | default(infra_port_vpn_netbird_http_container) }}
+        - Tailscale: http://localhost:{{ vpn_tailscale_http_container_port | default(infra_port_vpn_tailscale_http_container) }}
+        - Gluetun: http://localhost:{{ infra_port_vpn_nordvpn_http_host }} (HTTP proxy)
+        - WireGuard Direct: localhost:{{ wireguard_direct_port | default('51820') }}/udp  # project-lint: disable=magic-int  WireGuard port, should use infra_port variable
+        - WireGuard Transparent: localhost:{{ wireguard_transparent_port | default('51821') }}/udp  # project-lint: disable=magic-int  Jinja default port value, should use infra_port variable
         - Twingate: Connector running

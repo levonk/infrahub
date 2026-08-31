@@ -61,8 +61,8 @@
     env: "{{ openlit_collector_env }}"
     log_driver: json-file
     log_options:
-      max-size: "10m"
-      max-file: "5"
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
   become: true
   when: openlit_collector_gpu_vendor == "nvidia"
 
@@ -80,8 +80,8 @@
     env: "{{ openlit_collector_env }}"
     log_driver: json-file
     log_options:
-      max-size: 10m
-      max-file: 5
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
   become: true
   when: openlit_collector_gpu_vendor == "amd"
 
@@ -98,8 +98,8 @@
     env: "{{ openlit_collector_env }}"
     log_driver: json-file
     log_options:
-      max-size: 10m
-      max-file: 5
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
   become: true
   when: openlit_collector_gpu_vendor == "intel"
 
@@ -114,8 +114,8 @@
     env: "{{ openlit_collector_env }}"
     log_driver: json-file
     log_options:
-      max-size: 10m
-      max-file: 5
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
   become: true
   when: openlit_collector_gpu_vendor == "none"
 

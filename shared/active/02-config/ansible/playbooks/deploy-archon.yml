@@ -148,13 +148,13 @@
           - "archon-postgres-data-volume:/var/lib/postgresql/data"
         healthcheck:
           test: ["CMD-SHELL", "pg_isready -U {{ archon_db_user | default('archon') }} -d {{ archon_db_name | default('remote_coding_agent') }}"]
-          interval: "10s"
-          timeout: "5s"
-          retries: 5
+          interval: "{{ infra_timeout_short }}"
+          timeout: "{{ infra_timeout_healthcheck_short }}"
+          retries: "{{ infra_retry_default }}"
         log_driver: json-file
         log_options:
-          max-size: "10m"
-          max-file: "5"
+          max-size: "{{ infra_log_max_size }}"
+          max-file: "{{ infra_log_max_file }}"
       tags: ["deploy", "postgres"]
 
     # ---------------------------------------------------------------------------
@@ -175,11 +175,11 @@
           - "{{ archon_host_port | default(infra_port_ai_archon_host) }}:{{ archon_container_port | default(infra_port_ai_archon_container) }}"
         env:
           # Database
-          DATABASE_URL: "postgresql://{{ archon_db_user | default('archon') }}:{{ archon_postgres_password }}@archon-postgres:5432/{{ archon_db_name | default('remote_coding_agent') }}"
+          DATABASE_URL: "postgresql://{{ archon_db_user | default('archon') }}:{{ archon_postgres_password }}@archon-postgres:{{ infra_port_db_postgres_host }}/{{ archon_db_name | default('remote_coding_agent') }}"
           # Server
           PORT: "{{ archon_container_port | default(infra_port_ai_archon_container) | string }}"
           LOG_LEVEL: "{{ archon_log_level | default('info') }}"
-          MAX_CONCURRENT_CONVERSATIONS: "{{ archon_max_concurrent | default('10') | string }}"
+          MAX_CONCURRENT_CONVERSATIONS: "{{ archon_max_concurrent | default(infra_retry_long) | string }}"
           # AI Credentials — pipeline-routed via LiteLLM
           CLAUDE_API_KEY: "{{ archon_claude_api_key }}"
           ANTHROPIC_BASE_URL: "{{ archon_anthropic_base_url | default('') }}"
@@ -198,20 +198,20 @@
           - "archon-user-home-volume:/home/appuser"
         healthcheck:
           test: ["CMD-SHELL", "curl -f http://localhost:{{ archon_container_port | default(infra_port_ai_archon_container) }}/api/health || exit 1"]
-          interval: "30s"
-          timeout: "10s"
-          retries: 3
-          start_period: "60s"
+          interval: "{{ infra_timeout_default }}"
+          timeout: "{{ infra_timeout_short }}"
+          retries: "{{ infra_retry_short }}"
+          start_period: "{{ infra_timeout_long }}"
         log_driver: json-file
         log_options:
-          max-size: "10m"
-          max-file: "5"
+          max-size: "{{ infra_log_max_size }}"
+          max-file: "{{ infra_log_max_file }}"
       tags: ["deploy", "archon"]
 
   post_tasks:
     - name: "Wait for containers to initialize"
       ansible.builtin.pause:
-        seconds: 20
+        seconds: "{{ infra_delay_long }}"
       tags: ["verify"]
 
     - name: "Verify Archon containers are running"

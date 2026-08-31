@@ -33,7 +33,7 @@
   ansible.builtin.file:
     path: "{{ directory_empire_windows_temp_dir }}"
     state: directory
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   delegate_to: localhost
   run_once: true
   changed_when: false
@@ -88,7 +88,7 @@
     --log-driver json-file
     --log-opt max-size={{ directory_empire_log_max_size }}
     --log-opt max-file={{ directory_empire_log_max_file }}
-    --health-cmd "wget -qO- http://127.0.0.1:{{ directory_empire_container_port }}/ || exit 1"
+    --health-cmd "wget -qO- http://{{ infra_network_bind_localhost }}:{{ directory_empire_container_port }}/ || exit 1"
     --health-interval {{ directory_empire_healthcheck_interval }}
     --health-timeout {{ directory_empire_healthcheck_timeout }}
     --health-retries {{ directory_empire_healthcheck_retries }}
@@ -112,7 +112,7 @@
   delegate_to: localhost
   register: directory_empire_health
   until: directory_empire_health.stdout == "healthy"
-  retries: 30
+  retries: "{{ infra_retry_extended }}"
   delay: 3
   changed_when: false
   ignore_errors: true

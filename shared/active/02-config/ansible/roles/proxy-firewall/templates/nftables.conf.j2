@@ -38,19 +38,19 @@ table inet filter {
         # Allow RustDesk ports from VPN subnets only
 {% if rustdesk_server_vpn_only | default(false) %}
 {% for subnet in rustdesk_server_allowed_vpn_subnets | default(proxy_firewall_vpn_subnets) %}
-        ip saddr {{ subnet }} tcp dport {{ rustdesk_server_hbbs_nat_test_host_port | default('21115') }} accept
-        ip saddr {{ subnet }} tcp dport {{ rustdesk_server_hbbs_id_reg_host_port | default('21116') }} accept
-        ip saddr {{ subnet }} udp dport {{ rustdesk_server_hbbs_id_reg_host_port | default('21116') }} accept
-        ip saddr {{ subnet }} tcp dport {{ rustdesk_server_hbbr_relay_host_port | default('21117') }} accept
+        ip saddr {{ subnet }} tcp dport {{ rustdesk_server_hbbs_nat_test_host_port | default('21115') }} accept  # project-lint: disable=magic-int  Jinja default port value, should use infra_port variable
+        ip saddr {{ subnet }} tcp dport {{ rustdesk_server_hbbs_id_reg_host_port | default('21116') }} accept  # project-lint: disable=magic-int  Jinja default port value, should use infra_port variable
+        ip saddr {{ subnet }} udp dport {{ rustdesk_server_hbbs_id_reg_host_port | default('21116') }} accept  # project-lint: disable=magic-int  Jinja default port value, should use infra_port variable
+        ip saddr {{ subnet }} tcp dport {{ rustdesk_server_hbbr_relay_host_port | default('21117') }} accept  # project-lint: disable=magic-int  Jinja default port value, should use infra_port variable
 {% if rustdesk_server_enable_web_client | default(false) %}
-        ip saddr {{ subnet }} tcp dport {{ rustdesk_server_hbbs_web_host_port | default('21118') }} accept
-        ip saddr {{ subnet }} tcp dport {{ rustdesk_server_hbbr_web_host_port | default('21119') }} accept
+        ip saddr {{ subnet }} tcp dport {{ rustdesk_server_hbbs_web_host_port | default('21118') }} accept  # project-lint: disable=magic-int  Jinja default port value, should use infra_port variable
+        ip saddr {{ subnet }} tcp dport {{ rustdesk_server_hbbr_web_host_port | default('21119') }} accept  # project-lint: disable=magic-int  Jinja default port value, should use infra_port variable
 {% endif %}
 {% endfor %}
 {% endif %}
 
         # Log and drop everything else
-        log prefix "nftables dropped: " limit rate 5/minute
+        log prefix "nftables dropped: " limit rate 5/minute  # project-lint: disable=magic-int  nftables rate limit rule, not a standalone magic number
         drop
     }
 
@@ -76,7 +76,7 @@ table inet filter {
 {% if proxy_firewall_enable_masquerade | bool and proxy_firewall_vpn_subnets | length > 0 %}
 table ip nat {
     chain postrouting {
-        type nat hook postrouting priority 100;
+        type nat hook postrouting priority 100;  # project-lint: disable=magic-int  nftables chain priority, not a standalone magic number
 
         # Masquerade VPN subnet traffic
 {% for subnet in proxy_firewall_vpn_subnets %}

@@ -3,7 +3,7 @@
 
 - name: Pull dnscrypt-plaintext image
   community.docker.docker_image:
-    name: "{{ local_registry | default('100.90.22.85:5000') }}/localnet-dns-dnscrypt-plaintext:latest"
+    name: "{{ local_registry | default('{{ infra_registry }}') }}/localnet-dns-dnscrypt-plaintext:latest"
     source: pull
     state: present
 
@@ -26,12 +26,12 @@
       DNS_DNSCRYPT_PLAINTEXT_CONTAINER_PORT: "{{ dns_dnscrypt_plaintext_container_port }}"
     log_driver: json-file
     log_options:
-      max-size: 10m
-      max-file: 5
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
 
 - name: Wait for dnscrypt-plaintext to be healthy
   ansible.builtin.wait_for:
     host: "{{ dns_dnscrypt_plaintext_ip }}"
     port: "{{ dns_dnscrypt_plaintext_container_port }}"
-    delay: 10
-    timeout: 60
+    delay: "{{ infra_delay_long }}"
+    timeout: "{{ infra_timeout_long }}"

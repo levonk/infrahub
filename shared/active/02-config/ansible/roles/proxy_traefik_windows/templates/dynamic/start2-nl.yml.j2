@@ -30,5 +30,5 @@ http:
     trala-nl:
       loadBalancer:
         servers:
-          - url: "http://{{ proxy_traefik_windows_trala_container_name | default('trala-nl') }}:{{ proxy_traefik_windows_trala_container_port | default('8080') }}"
+          - url: "http://{{ proxy_traefik_windows_trala_container_name | default('trala-nl') }}:{{ proxy_traefik_windows_trala_container_port | default(infra_port_proxy_dashboard_host) }}"
         passHostHeader: true

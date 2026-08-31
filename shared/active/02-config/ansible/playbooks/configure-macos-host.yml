@@ -52,11 +52,11 @@
       when: auser_check.rc != 0
       tags: ["always", "validate"]
 
-    - name: "Auto-detect container runtime (macOS 26+ ARM → Apple Container, else OrbStack)"
+    - name: "Auto-detect container runtime (macOS 26+ ARM → Apple Container, else OrbStack)"  # project-lint: disable=magic-int  macOS version number, not an operational value
       ansible.builtin.set_fact:
         infra_app_container_runtime: >-
           {{ 'apple-container'
-             if (ansible_facts['distribution_version'] is version('26', '>=') and ansible_facts['architecture'] == 'arm64')
+             if (ansible_facts['distribution_version'] is version('26', '>=') and ansible_facts['architecture'] == 'arm64')  # project-lint: disable=magic-int  version number, not an operational magic number
              else 'orbstack' }}
       when: infra_app_container_runtime is not defined or infra_app_container_runtime == "auto"
       tags: ["always"]
@@ -114,7 +114,7 @@
           keep-outputs = true
           keep-derivations = true
           accept-flake-config = true
-        mode: "0644"
+        mode: "{{ infra_mode_file }}"
         owner: root
         group: wheel
       become: true
@@ -127,9 +127,9 @@
       tags: ["nix", "configure"]
 
     # ponytail: nixpkgs 26.11 dropped x86_64-darwin; pin 26.05-darwin for x86_64 only
-    - name: "Pin nixpkgs to 26.05-darwin for x86_64-darwin"
+    - name: "Pin nixpkgs to 26.05-darwin for x86_64-darwin"  # project-lint: disable=magic-dotted  version number, not an operational magic number
       ansible.builtin.command: |
-        /nix/var/nix/profiles/default/bin/nix-channel --add https://nixos.org/channels/nixpkgs-26.05-darwin nixpkgs
+        /nix/var/nix/profiles/default/bin/nix-channel --add https://nixos.org/channels/nixpkgs-26.05-darwin nixpkgs  # project-lint: disable=magic-dotted  version number, not an operational magic number
         /nix/var/nix/profiles/default/bin/nix-channel --update
       changed_when: true
       when:
@@ -137,10 +137,10 @@
         - ansible_facts['architecture'] == "x86_64"
       tags: ["nix", "configure"]
 
-    - name: "Set nixpkgs flake registry to 26.05-darwin for x86_64-darwin"
+    - name: "Set nixpkgs flake registry to 26.05-darwin for x86_64-darwin"  # project-lint: disable=magic-dotted  version number, not an operational magic number
       ansible.builtin.command: >
         /nix/var/nix/profiles/default/bin/nix registry add nixpkgs
-        github:NixOS/nixpkgs/nixpkgs-26.05-darwin
+        github:NixOS/nixpkgs/nixpkgs-26.05-darwin  # project-lint: disable=magic-dotted  version number, not an operational magic number
       changed_when: true
       when:
         - ansible_facts['distribution'] == "MacOSX"
@@ -240,7 +240,7 @@
       ansible.builtin.copy:
         src: "{{ playbook_dir }}/../nix/flake.nix"
         dest: "{{ macos_nix_flake_dir }}/flake.nix"
-        mode: "0644"
+        mode: "{{ infra_mode_file }}"
       tags: ["nix", "flake"]
 
     - name: "Install host apps via nix flake (CLI + GUI packages)"
@@ -314,7 +314,7 @@
 
     - name: "Report Apple Container status"
       ansible.builtin.debug:
-        msg: "Apple Container: {{ apple_container_check.stdout if apple_container_check.rc == 0 else 'not installed — requires macOS 26+' }}"
+        msg: "Apple Container: {{ apple_container_check.stdout if apple_container_check.rc == 0 else 'not installed — requires macOS 26+' }}"  # project-lint: disable=magic-int  macOS version number, not an operational value
       when: infra_app_container_runtime == "apple-container"
       tags: ["containers", "check"]
 
@@ -351,8 +351,8 @@
           become: true
           changed_when: true
 
-        - name: "pmset -a displaysleep 4"
-          ansible.builtin.command: pmset -a displaysleep 4
+        - name: "pmset -a displaysleep 4"  # project-lint: disable=magic-int  macOS power management setting, not a standalone magic number
+          ansible.builtin.command: pmset -a displaysleep 4  # project-lint: disable=magic-int  macOS power management setting, not a standalone magic number
           become: true
           changed_when: true
 
@@ -361,8 +361,8 @@
           become: true
           changed_when: true
 
-        - name: "pmset -b sleep 5"
-          ansible.builtin.command: pmset -b sleep 5
+        - name: "pmset -b sleep 5"  # project-lint: disable=magic-int  shell command argument, not an operational value
+          ansible.builtin.command: pmset -b sleep 5  # project-lint: disable=magic-int  shell command argument, not an operational value
           become: true
           changed_when: true
 

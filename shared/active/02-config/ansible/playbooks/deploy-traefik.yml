@@ -109,7 +109,7 @@
       ansible.builtin.wait_for:
         host: "{{ ansible_host | default('localhost') }}"
         port: "{{ proxy_traefik_http_port }}"
-        timeout: 10
+        timeout: "{{ infra_timeout_short }}"
       delegate_to: localhost
       become: false
       ignore_errors: true
@@ -126,7 +126,7 @@
       ansible.builtin.wait_for:
         host: "{{ ansible_host | default('localhost') }}"
         port: "{{ proxy_traefik_https_port }}"
-        timeout: 10
+        timeout: "{{ infra_timeout_short }}"
       delegate_to: localhost
       become: false
       ignore_errors: true
@@ -139,9 +139,9 @@
           Traefik HTTPS port {{ proxy_traefik_https_port }}: {{ 'accessible' if traefik_https_port_check.failed is false else 'not accessible' }}
       tags: ["verify", "traefik", "ports"]
 
-    - name: "Get Traefik container logs (last 20 lines)"
+    - name: "Get Traefik container logs (last 20 lines)"  # project-lint: disable=magic-int  container log line count, not an operational value
       ansible.builtin.command:
-        cmd: "docker logs --tail 20 {{ proxy_traefik_container_name }}"
+        cmd: "docker logs --tail 20 {{ proxy_traefik_container_name }}"  # project-lint: disable=magic-int  shell command argument, not an operational value
       become: true
       register: traefik_logs
       changed_when: false

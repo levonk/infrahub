@@ -3,7 +3,7 @@
 # See: diagrams/proxy/complete-web-proxy-chain.mmd
 
 # Listen address — internal only (not exposed to host)
-listen-address  0.0.0.0:{{ proxy_web_privoxy_container_port }}
+listen-address  {{ infra_network_bind_all }}:{{ proxy_web_privoxy_container_port }}
 
 # Forward to Varnish cache (Layer 4)
 forward /  {{ proxy_web_varnish_ip }}:{{ proxy_web_varnish_http_container_port }}

@@ -12,25 +12,25 @@
 directory_empire_enabled: true
 
 # Container configuration
-directory_empire_container_name: "{{ infra_hostname_dashboard_directory_empire | default('localnet-dashboard-directory-empire') }}"
-directory_empire_image_name: "{{ local_registry | default('100.90.22.85:5000') }}/localnet-dashboard-directory-empire"
+directory_empire_container_name: "{{ infra_hostname_dashboard_directory_empire | default(infra_value_directory_empire_container_name) }}"
+directory_empire_image_name: "{{ local_registry | default(infra_registry) }}/localnet-dashboard-directory-empire"
 directory_empire_image_tag: "latest"
 
 # Ports — Web UI exposed via Traefik
-directory_empire_host_port: "{{ infra_port_dashboard_directory_empire_host | default('4530') }}"
-directory_empire_container_port: "{{ infra_port_dashboard_directory_empire_container | default('3000') }}"
+directory_empire_host_port: "{{ infra_port_dashboard_directory_empire_host | default(infra_port_nix_ncro_web_host) }}"
+directory_empire_container_port: "{{ infra_port_dashboard_directory_empire_container | default(infra_port_monitoring_grafana_host) }}"
 
 # Domain (for Traefik routing)
-directory_empire_domain: "{{ infra_domain_dashboard_directory_empire_nl | default('de.nl.' ~ (infra_domain_base | default('example.com'))) }}"
+directory_empire_domain: "{{ infra_domain_dashboard_directory_empire_nl | default('de.nl.' ~ (infra_domain_base | default(infra_value_directory_empire_domain))) }}"
 
 # Volume — config volume for runtime env files
-directory_empire_config_volume: "{{ infra_storage_directory_empire_config_volume | default('localnet-directory-empire-config-volume') }}"
+directory_empire_config_volume: "{{ infra_storage_directory_empire_config_volume | default(infra_value_directory_empire_config_volume) }}"
 
 # Network — join the traefik-windows network for Traefik routing
 directory_empire_network_name: "traefik-windows-network"
 
 # Docker host for Windows deployment (ssh-tunneled)
-directory_empire_docker_host_windows: "ssh://ansible@{{ infra_tailscale_fqdn_windows_docker | default(infra_tailscale_tailnet | default('example.ts.net')) }}"
+directory_empire_docker_host_windows: "ssh://ansible@{{ infra_tailscale_fqdn_windows_docker | default(infra_tailscale_tailnet | default(infra_value_directory_empire_docker_host_windows)) }}"
 
 # Local temp directory for rendering config files
 directory_empire_windows_temp_dir: "/tmp/directory-empire-config-{{ inventory_hostname }}"
@@ -46,4 +46,4 @@ directory_empire_log_max_size: "10m"
 directory_empire_log_max_file: "5"
 
 # Timezone
-directory_empire_tz: "{{ localnet_tz | default(timezone | default('UTC')) }}"
+directory_empire_tz: "{{ localnet_tz | default(timezone | default(infra_value_directory_empire_tz)) }}"

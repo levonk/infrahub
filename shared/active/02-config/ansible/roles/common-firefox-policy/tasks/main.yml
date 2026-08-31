@@ -99,7 +99,7 @@
         dest: "{{ item }}/policies.json"
         owner: root
         group: root
-        mode: "0644"
+        mode: "{{ infra_mode_file }}"
         backup: true
       loop: "{{ _firefox_policy_linux_valid_dirs }}"
       become: true
@@ -145,7 +145,7 @@
         dest: "{{ item }}/policies.json"
         owner: root
         group: wheel
-        mode: "0644"
+        mode: "{{ infra_mode_file }}"
         backup: true
       loop: "{{ _firefox_policy_macos_valid_dirs }}"
       become: true

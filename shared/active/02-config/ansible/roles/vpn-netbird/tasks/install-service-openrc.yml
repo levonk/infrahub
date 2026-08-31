@@ -5,7 +5,7 @@
   ansible.builtin.file:
     path: /etc/init.d
     state: directory
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   become: true
 
 - name: Deploy Netbird OpenRC init script
@@ -19,7 +19,7 @@
       command_args="service run"
       pidfile="/run/${name}.pid"
       command_background=true
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   become: true
 
 - name: Ensure Netbird service is started and enabled (OpenRC)

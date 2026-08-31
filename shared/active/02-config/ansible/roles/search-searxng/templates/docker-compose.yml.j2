@@ -6,8 +6,8 @@
 x-logging: &default-logging
   driver: "json-file"
   options:
-    max-size: "10m"
-    max-file: "5"
+    max-size: "{{ infra_log_max_size }}"
+    max-file: "{{ infra_log_max_file }}"
     tag: "{{.Name}}"
     labels: "service"
 
@@ -40,10 +40,10 @@ services:
       - {{ search_searxng_cache_volume }}:/var/cache/searxng
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:{{ search_searxng_container_port }}{{ search_searxng_health_endpoint }}"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
+      interval: "{{ infra_timeout_default }}"
+      timeout: "{{ infra_timeout_short }}"
+      retries: "{{ infra_retry_short }}"
+      start_period: "{{ infra_timeout_default }}"
     networks:
       - {{ search_searxng_network_name }}
       - {{ search_searxng_vpn_network }}
@@ -66,7 +66,7 @@ networks:
     driver: bridge
     ipam:
       config:
-        - subnet: 172.22.0.0/16
+        - subnet: {{ infra_network_warp_alt_subnet }}
   {{ search_searxng_vpn_network }}:
     external: true
     name: {{ search_searxng_vpn_network }}

@@ -4,39 +4,39 @@
 # Agents are internal — no host ports, no Traefik routing, no public domain.
 
 # Container image (locally-built, multi-arch)
-ai_buzz_agent_image_name: "{{ local_registry | default('100.90.22.85:5000') }}/localnet-ai-buzz-agent"
+ai_buzz_agent_image_name: "{{ local_registry | default(infra_registry) }}/localnet-ai-buzz-agent"
 ai_buzz_agent_image_tag: "latest"
 
 # Network — agents join the existing buzz-network to reach the relay internally
-ai_buzz_agent_network_name: "{{ infra_network_ai_buzz_network_name | default('buzz-network') }}"
+ai_buzz_agent_network_name: "{{ infra_network_ai_buzz_network_name | default(infra_network_ai_buzz_agent_network_name) }}"
 
 # Secondary network — agents also join traefik-network to reach Traefik
 # for the wss:// relay endpoint (WebSocket bypass router, no Authelia).
-ai_buzz_agent_traefik_network_name: "{{ infra_network_traefik_network_name | default('traefik-network') }}"
+ai_buzz_agent_traefik_network_name: "{{ infra_network_traefik_network_name | default(infra_network_ai_buzz_agent_traefik_network_name) }}"
 
 # Traefik container IP on traefik-network — used for /etc/hosts mapping so
 # agents can resolve buzz.levonk.com to Traefik without external DNS.
-ai_buzz_agent_traefik_ip: "{{ infra_network_ip_traefik | default('172.31.0.2') }}"
+ai_buzz_agent_traefik_ip: "{{ infra_network_ip_traefik | default(infra_network_ip_ai_buzz_agent_traefik) }}"
 
 # Buzz public domain (must match relay's RELAY_URL for NIP-42 auth)
-ai_buzz_agent_relay_domain: "{{ infra_domain_buzz | default('buzz.levonk.com') }}"
+ai_buzz_agent_relay_domain: "{{ infra_domain_buzz | default(infra_value_ai_buzz_agent_relay_domain) }}"
 
 # Relay URL — must match the relay's configured RELAY_URL for NIP-42 auth.
 # The relay validates that the URL in the auth event matches its own RELAY_URL
 # (wss://buzz.levonk.com). Agents connect via Traefik's WebSocket bypass router
 # which skips Authelia for WebSocket upgrade requests.
-ai_buzz_agent_relay_url: "wss://{{ infra_domain_buzz | default('buzz.levonk.com') }}"
+ai_buzz_agent_relay_url: "wss://{{ infra_domain_buzz | default(infra_value_ai_buzz_agent_relay_url) }}"
 
 # Devin CLI settings
 # Model defaults to the global free_model (see infrastructure/models.yml).
 # Override per-agent with the `model` field in ai_buzz_agent_agents.
-ai_buzz_agent_model: "{{ free_model | default('glm-5-2') }}"
+ai_buzz_agent_model: "{{ free_model | default(infra_value_ai_buzz_agent_model) }}"
 ai_buzz_agent_idle_timeout: 620
 ai_buzz_agent_max_turn_duration: 7200
 
 # Devin credentials — mounted read-only from vault-managed host path
 # The credentials.toml file is placed on the host by the vault handoff process.
-ai_buzz_agent_credentials_host_path: "{{ infra_storage_buzz_agent_config | default('/srv/localnet/buzz-agent') }}/devin-credentials.toml"
+ai_buzz_agent_credentials_host_path: "{{ infra_storage_buzz_agent_config | default(infra_value_ai_buzz_agent_credentials_host_path) }}/devin-credentials.toml"
 ai_buzz_agent_credentials_mount_path: "/home/agent/.local/share/devin/credentials.toml"
 
 # Agent definitions — list of agents to deploy.
@@ -63,6 +63,6 @@ ai_buzz_agent_credentials_mount_path: "/home/agent/.local/share/devin/credential
 ai_buzz_agent_agents: []
 
 # User/Group IDs and TZ
-ai_buzz_agent_puid: "{{ localnet_puid | default(cuser_uid | default(1000)) | string }}"
-ai_buzz_agent_pgid: "{{ localnet_pgid | default(cuser_gid | default(1000)) | string }}"
-ai_buzz_agent_tz: "{{ localnet_tz | default(timezone | default('UTC')) }}"
+ai_buzz_agent_puid: "{{ localnet_puid | default(cuser_uid | default(infra_identity_puid)) | string }}"
+ai_buzz_agent_pgid: "{{ localnet_pgid | default(cuser_gid | default(infra_identity_pgid)) | string }}"
+ai_buzz_agent_tz: "{{ localnet_tz | default(timezone | default(infra_value_ai_buzz_agent_tz)) }}"

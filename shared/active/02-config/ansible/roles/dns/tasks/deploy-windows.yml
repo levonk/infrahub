@@ -16,7 +16,7 @@
   ansible.builtin.file:
     path: "{{ dns_windows_temp_dir }}"
     state: directory
-    mode: "0755"
+    mode: "{{ infra_mode_dir_0755 }}"
   delegate_to: localhost
   run_once: true
   changed_when: false
@@ -29,7 +29,7 @@
   ansible.builtin.copy:
     src: "{{ role_path }}/../../../../03-container/services/dns/"
     dest: "{{ dns_windows_temp_dir }}/"
-    mode: "0644"
+    mode: "{{ infra_mode_file_0644 }}"
   delegate_to: localhost
   run_once: true
   changed_when: false
@@ -156,7 +156,7 @@
       --network {{ dns_network_name }} \
       -v localnet-dns-blocklist-archive-volume:/blocklists/sources:rw \
       -v localnet-dns-blocklist-cdbs-volume:/blocklists/compiled:rw \
-      -e DNS_BLOCKLIST_UPDATE_INTERVAL=3600 \
+      -e DNS_BLOCKLIST_UPDATE_INTERVAL={{ infra_cache_valid_time }} \
       localnet-dns-blocklist-compiler:latest
   environment:
     DOCKER_HOST: "{{ dns_docker_host_windows }}"
@@ -376,29 +376,29 @@
 - name: Render AdGuardHome.yaml to local temp
   ansible.builtin.copy:
     dest: "{{ dns_windows_temp_dir }}/AdGuardHome.yaml"
-    mode: "0644"
+    mode: "{{ infra_mode_file_0644 }}"
     content: |
       http:
-        address: 0.0.0.0:{{ dns_adguard_web_container_port }}
-        session_ttl: 720h
+        address: {{ infra_network_bind_all }}:{{ dns_adguard_web_container_port }}
+        session_ttl: "{{ infra_opensearch_session_ttl_long }}"
       users:
         - name: {{ dns_adguard_admin_user }}
           password: "{{ dns_adguard_admin_password_hash }}"
-      auth_attempts: 5
-      block_auth_min: 15
+      auth_attempts: "{{ infra_auth_attempts_default }}"
+      block_auth_min: "{{ infra_delay_long }}"
       http_proxy: ""
       language: ""
       theme: auto
       dns:
         bind_hosts:
-          - 0.0.0.0
+          - "{{ infra_network_bind_all }}"
         port: {{ dns_adguard_container_port }}
         anonymize_client_ip: false
         protection_enabled: true
         blocking_mode: default
         blocking_ipv4: ""
         blocking_ipv6: ""
-        blocked_response_ttl: 10
+        blocked_response_ttl: "{{ infra_dns_ttl_short }}"
         protection_disabled_sec: 0
         edns_cs_enabled: false
         edns_cs_use_custom: false
@@ -408,14 +408,14 @@
           - "{{ dns_dnsdist_ip }}:{{ dns_dnsdist_main_container_port }}"
         upstream_dns_file: ""
         bootstrap_dns:
-          - 1.1.1.1
-          - 9.9.9.9
+          - "{{ infra_dns_cloudflare_primary }}"
+          - "{{ infra_dns_quad9_primary }}"
         fallback_dns:
           - "{{ dns_dnscrypt_plaintext_ip }}:{{ dns_dnscrypt_plaintext_container_port }}"
         fallback_dns_file: ""
         all_servers: false
         fastest_addr: false
-        fastest_timeout: 1s
+        fastest_timeout: "{{ infra_timeout_one_second }}"
         allowed_clients: []
         disallowed_clients: []
         blocked_hosts:
@@ -423,16 +423,16 @@
           - id.server
           - hostname.bind
         trusted_proxies: []
-        cache_size: 4194304
-        cache_ttl_min: 60
-        cache_ttl_max: 86400
+        cache_size: "{{ infra_size_4m }}"
+        cache_ttl_min: "{{ infra_timeout_long }}"
+        cache_ttl_max: "{{ infra_timeout_day }}"
         cache_optimistic: true
         bogus_nxdomain: []
         aaaa_blocked: false
         remove_private_addresses: false
         dnssec_enabled: false
         upstream_mode: load_balance
-        max_goroutines: 50
+        max_goroutines: "{{ infra_worker_count_high }}"
         ipset: []
         use_private_ptr_resolvers: true
         local_ptr_upstreams: []
@@ -443,10 +443,10 @@
         enabled: false
         server_name: ""
         force_https: false
-        port_https: 443
-        port_dns_over_tls: 853
-        port_dns_over_quic: 853
-        port_dnscrypt: 5443
+        port_https: "{{ infra_port_proxy_https_host }}"
+        port_dns_over_tls: "{{ infra_port_dns_dot_host }}"
+        port_dns_over_quic: "{{ infra_port_dns_doq_host }}"
+        port_dnscrypt: "{{ infra_port_dns_dnscrypt_host }}"
         dnscrypt_config_file: ""
         allow_unencrypted_do_h: false
         strict_sni_check: false
@@ -474,12 +474,12 @@
           subnet_cidr: ""
           range_start: ""
           range_end: ""
-          lease_duration: 86400
-          icmp_timeout_msec: 1000
+          lease_duration: "{{ infra_timeout_day }}"
+          icmp_timeout_msec: "{{ infra_timeout_request }}"
           options: []
         dhcpv6:
           range_start: ""
-          lease_duration: 86400
+          lease_duration: "{{ infra_timeout_day }}"
           ra_slaac_only: false
           ra_allow_slaac: false
       clients:
@@ -491,7 +491,7 @@
           persistent: true
       log_file: ""
       log_maxbackups: 0
-      log_maxsize: 100
+      log_maxsize: "{{ infra_log_max_size_mb }}"
       log_maxage: 3
       log_compress: false
       log_localtime: false
@@ -500,7 +500,7 @@
         group: ""
         user: ""
         rlimit_nofile: 0
-      schema_version: 28
+      schema_version: "{{ infra_schema_version_adguard }}"  # project-lint: disable=magic-int  AdGuard schema version, not an operational value
   delegate_to: localhost
   run_once: true
   changed_when: false
@@ -549,28 +549,28 @@
 - name: Wait for CoreDNS to be ready
   ansible.builtin.shell: >-
     docker exec localnet-dns-coredns curl -sf
-    http://127.0.0.1:{{ dns_coredns_main_health_container_port }}/health
+    http://{{ infra_network_bind_localhost }}:{{ dns_coredns_main_health_container_port }}/health
   environment:
     DOCKER_HOST: "{{ dns_docker_host_windows }}"
   delegate_to: localhost
   register: coredns_health
   until: coredns_health.rc == 0
-  retries: 10
-  delay: 5
+  retries: "{{ infra_retry_long }}"
+  delay: "{{ infra_delay_default }}"
   changed_when: false
   tags: ["deploy", "verify"]
 
 - name: Wait for Unbound validator to be ready
   ansible.builtin.shell: >-
     docker exec localnet-dns-unbound-validator dig +short example.com
-    @127.0.0.1 -p {{ dns_unbound_validator_container_port }}
+    @{{ infra_network_bind_localhost }} -p {{ dns_unbound_validator_container_port }}
   environment:
     DOCKER_HOST: "{{ dns_docker_host_windows }}"
   delegate_to: localhost
   register: unbound_health
   until: unbound_health.rc == 0
-  retries: 10
-  delay: 5
+  retries: "{{ infra_retry_long }}"
+  delay: "{{ infra_delay_default }}"
   changed_when: false
   tags: ["deploy", "verify"]
 
@@ -600,5 +600,5 @@
         - Unbound validator: localhost:{{ dns_unbound_validator_host_port }}
         - dnscrypt-odoh (Tier 1): localhost:{{ dns_dnscrypt_odoh_host_port }}
         - dnscrypt-anon (Tier 2): localhost:{{ dns_dnscrypt_anon_host_port }}
-        - dnscrypt-plaintext (Tier 12): localhost:{{ dns_dnscrypt_plaintext_host_port }}
+        - dnscrypt-plaintext (Tier {{ infra_dns_tier_dnscrypt_plaintext }}):  # project-lint: disable=magic-int  DNS tier number, not an operational value localhost:{{ dns_dnscrypt_plaintext_host_port }}
   tags: ["deploy", "status"]

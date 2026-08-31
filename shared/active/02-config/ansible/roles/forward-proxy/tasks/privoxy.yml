@@ -19,18 +19,18 @@
       - "{{ localnet_services_dir }}/proxy/configs/web/privoxy:/etc/privoxy:ro"
     log_driver: json-file
     log_options:
-      max-size: 10m
-      max-file: 5
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
     healthcheck:
-      test: ["CMD", "nc", "-zv", "localhost", "8118"]
-      interval: 30
-      timeout: 5
-      retries: 3
-      start_period: 10
+      test: ["CMD", "nc", "-zv", "localhost", "{{ infra_port_proxy_privoxy_host }}"]
+      interval: "{{ infra_healthcheck_interval }}"
+      timeout: "{{ infra_timeout_short }}"
+      retries: "{{ infra_retry_short }}"
+      start_period: "{{ infra_healthcheck_start_period }}"
 
 - name: Wait for privoxy to be healthy
   ansible.builtin.wait_for:
     host: localhost
-    port: 8118
-    delay: 5
-    timeout: 60
+    port: {{ infra_port_proxy_privoxy_host }}
+    delay: "{{ infra_delay_default }}"
+    timeout: "{{ infra_timeout_long }}"

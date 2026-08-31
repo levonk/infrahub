@@ -91,7 +91,7 @@
     - name: Test external network connectivity from containers
       ansible.builtin.command: >
         docker exec {{ isolation_vm_base_kalinix_container_name }}
-        ping -c 2 8.8.8.8
+        ping -c 2 {{ infra_network_ip_google_dns_primary }}
       register: external_connectivity
       ignore_errors: true
 

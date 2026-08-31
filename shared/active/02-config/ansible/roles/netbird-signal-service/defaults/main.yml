@@ -6,8 +6,8 @@ netbird_signal_container_name: localnet-netbird-signal
 netbird_signal_image_name: netbirdio/signal:latest
 
 # Port configuration (references cloud_server group_vars per AGENTS.md)
-netbird_signal_host_port: "{{ cloud_server_netbird_signal_host_port | default('33074') }}"
-netbird_signal_container_port: "{{ cloud_server_netbird_signal_container_port | default('33074') }}"
+netbird_signal_host_port: "{{ cloud_server_netbird_signal_host_port | default(infra_port_vpn_netbird_alt_host) }}"
+netbird_signal_container_port: "{{ cloud_server_netbird_signal_container_port | default(infra_port_vpn_netbird_alt_host) }}"
 
 # Configuration
 netbird_signal_log_level: info

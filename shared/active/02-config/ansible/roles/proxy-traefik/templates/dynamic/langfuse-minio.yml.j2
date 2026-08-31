@@ -33,5 +33,5 @@ http:
     langfuse-minio:
       loadBalancer:
         servers:
-          - url: "http://{{ infra_hostname_langfuse_minio | default('langfuse-minio') }}:{{ infra_port_ai_langfuse_minio_console_container | default('9001') }}"
+          - url: "http://{{ infra_hostname_langfuse_minio | default('langfuse-minio') }}:{{ infra_port_ai_langfuse_minio_console_container | default(infra_port_storage_rustfs_console_host) }}"
         passHostHeader: true

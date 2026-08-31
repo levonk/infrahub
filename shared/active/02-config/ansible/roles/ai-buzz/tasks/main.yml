@@ -75,14 +75,14 @@
       - "{{ ai_buzz_postgres_volume_name }}:/var/lib/postgresql/data:rw"
     log_driver: json-file
     log_options:
-      max-size: "10m"
-      max-file: "5"
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U {{ ai_buzz_postgres_user }} -d {{ ai_buzz_postgres_db }}"]
-      interval: "10s"
-      timeout: "5s"
-      retries: 10
-      start_period: "10s"
+      interval: "{{ infra_timeout_short }}"
+      timeout: "{{ infra_timeout_healthcheck_short }}"
+      retries: "{{ infra_retry_long }}"
+      start_period: "{{ infra_timeout_short }}"
     security_opts:
       - no-new-privileges:true
   notify: restart buzz-postgres
@@ -94,8 +94,8 @@
     name: "{{ ai_buzz_postgres_container_name }}"
   register: buzz_pg_info
   until: buzz_pg_info.container.State.Health.Status == "healthy"
-  retries: 30
-  delay: 2
+  retries: "{{ infra_retry_extended }}"
+  delay: "{{ infra_delay_short }}"
   tags: ["deploy", "database"]
 
 # ============================================================================
@@ -114,14 +114,14 @@
       TZ: "{{ ai_buzz_tz }}"
     log_driver: json-file
     log_options:
-      max-size: "10m"
-      max-file: "5"
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
     healthcheck:
       test: ["CMD-SHELL", "redis-cli ping"]
-      interval: "5s"
-      timeout: "3s"
-      retries: 10
-      start_period: "5s"
+      interval: "{{ infra_timeout_healthcheck_short }}"
+      timeout: "{{ infra_timeout_connect_short }}"
+      retries: "{{ infra_retry_long }}"
+      start_period: "{{ infra_timeout_healthcheck_short }}"
     security_opts:
       - no-new-privileges:true
   notify: restart buzz-redis
@@ -139,7 +139,7 @@
     networks:
       - name: "{{ ai_buzz_network_name }}"
         ipv4_address: "{{ ai_buzz_minio_ip }}"
-    command: "server /data --console-address ':{{ infra_port_ai_buzz_minio_console_container | default('9001') }}'"
+    command: "server /data --console-address ':{{ infra_port_ai_buzz_minio_console_container | default(infra_port_storage_rustfs_console_host) }}'"
     env:
       MINIO_ROOT_USER: "{{ ai_buzz_s3_access_key }}"
       MINIO_ROOT_PASSWORD: "{{ ai_buzz_s3_secret_key }}"
@@ -148,14 +148,14 @@
       - "{{ ai_buzz_minio_volume_name }}:/data:rw"
     log_driver: json-file
     log_options:
-      max-size: "10m"
-      max-file: "5"
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:{{ infra_port_ai_buzz_minio_api_container | default('9000') }}/minio/health/live"]
-      interval: "5s"
-      timeout: "5s"
-      retries: 10
-      start_period: "10s"
+      test: ["CMD-SHELL", "curl -f http://localhost:{{ infra_port_ai_buzz_minio_api_container | default(infra_port_storage_rustfs_s3_host) }}/minio/health/live"]
+      interval: "{{ infra_timeout_healthcheck_short }}"
+      timeout: "{{ infra_timeout_healthcheck_short }}"
+      retries: "{{ infra_retry_long }}"
+      start_period: "{{ infra_timeout_short }}"
     security_opts:
       - no-new-privileges:true
   notify: restart buzz-minio
@@ -167,8 +167,8 @@
     name: "{{ ai_buzz_minio_container_name }}"
   register: buzz_minio_info
   until: buzz_minio_info.container.State.Health.Status == "healthy"
-  retries: 30
-  delay: 2
+  retries: "{{ infra_retry_extended }}"
+  delay: "{{ infra_delay_short }}"
   tags: ["deploy", "storage"]
 
 # ============================================================================
@@ -184,15 +184,15 @@
     networks:
       - name: "{{ ai_buzz_network_name }}"
     env:
-      MC_HOST_buzz: "http://{{ ai_buzz_s3_access_key }}:{{ ai_buzz_s3_secret_key }}@{{ ai_buzz_minio_container_name }}:{{ infra_port_ai_buzz_minio_api_container | default('9000') }}"
+      MC_HOST_buzz: "http://{{ ai_buzz_s3_access_key }}:{{ ai_buzz_s3_secret_key }}@{{ ai_buzz_minio_container_name }}:{{ infra_port_ai_buzz_minio_api_container | default(infra_port_storage_rustfs_s3_host) }}"
     command:
       - "mb"
       - "buzz/{{ ai_buzz_minio_bucket }}"
       - "--ignore-existing"
     log_driver: json-file
     log_options:
-      max-size: "10m"
-      max-file: "5"
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
   register: buzz_bucket_result
   changed_when: false
   no_log: true
@@ -218,20 +218,20 @@
       - "{{ ai_buzz_metrics_host_port }}:{{ ai_buzz_metrics_container_port }}/tcp"
     env:
       # Database
-      DATABASE_URL: "postgresql://{{ ai_buzz_postgres_user }}:{{ ai_buzz_postgres_password }}@{{ ai_buzz_postgres_container_name }}:{{ infra_port_ai_buzz_postgres_container | default('5432') }}/{{ ai_buzz_postgres_db }}"
+      DATABASE_URL: "postgresql://{{ ai_buzz_postgres_user }}:{{ ai_buzz_postgres_password }}@{{ ai_buzz_postgres_container_name }}:{{ infra_port_ai_buzz_postgres_container | default(infra_port_db_postgres_host) }}/{{ ai_buzz_postgres_db }}"
       PGHOST: "{{ ai_buzz_postgres_container_name }}"
-      PGPORT: "{{ infra_port_ai_buzz_postgres_container | default('5432') | string }}"
+      PGPORT: "{{ infra_port_ai_buzz_postgres_container | default(infra_port_db_postgres_host) | string }}"
       PGUSER: "{{ ai_buzz_postgres_user }}"
       PGPASSWORD: "{{ ai_buzz_postgres_password }}"
       PGDATABASE: "{{ ai_buzz_postgres_db }}"
       # Redis
-      REDIS_URL: "redis://{{ ai_buzz_redis_container_name }}:{{ infra_port_ai_buzz_redis_container | default('6379') }}"
+      REDIS_URL: "redis://{{ ai_buzz_redis_container_name }}:{{ infra_port_ai_buzz_redis_container | default('6379') }}"  # project-lint: disable=magic-int  Jinja default port value, should use infra_port variable
       # S3 / MinIO
-      BUZZ_S3_ENDPOINT: "http://{{ ai_buzz_minio_container_name }}:{{ infra_port_ai_buzz_minio_api_container | default('9000') }}"
+      BUZZ_S3_ENDPOINT: "http://{{ ai_buzz_minio_container_name }}:{{ infra_port_ai_buzz_minio_api_container | default(infra_port_storage_rustfs_s3_host) }}"
       BUZZ_S3_ACCESS_KEY: "{{ ai_buzz_s3_access_key }}"
       BUZZ_S3_SECRET_KEY: "{{ ai_buzz_s3_secret_key }}"
       # Relay binding and public URL
-      BUZZ_BIND_ADDR: "0.0.0.0:{{ ai_buzz_container_port }}"
+      BUZZ_BIND_ADDR: "{{ infra_network_bind_all }}:{{ ai_buzz_container_port }}"
       RELAY_URL: "{{ ai_buzz_relay_url }}"
       BUZZ_RELAY_PRIVATE_KEY: "{{ ai_buzz_relay_private_key if (ai_buzz_relay_private_key | length > 0) else omit }}"
       # Health / metrics ports
@@ -248,14 +248,14 @@
       TZ: "{{ ai_buzz_tz }}"
     log_driver: json-file
     log_options:
-      max-size: "10m"
-      max-file: "5"
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:{{ ai_buzz_health_container_port }}/_liveness"]
-      interval: "30s"
-      timeout: "10s"
-      retries: 5
-      start_period: "60s"
+      interval: "{{ infra_timeout_default }}"
+      timeout: "{{ infra_timeout_short }}"
+      retries: "{{ infra_retry_default }}"
+      start_period: "{{ infra_timeout_long }}"
     security_opts:
       - no-new-privileges:true
     labels:
@@ -283,8 +283,8 @@
   ansible.builtin.wait_for:
     host: localhost
     port: "{{ ai_buzz_health_host_port }}"
-    delay: 15
-    timeout: 120
+    delay: "{{ infra_delay_long }}"
+    timeout: "{{ infra_timeout_extended }}"
   tags: ["deploy", "buzz"]
 
 # ============================================================================

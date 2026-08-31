@@ -23,7 +23,7 @@ http:
       rule: "Host(`{{ proxy_traefik_windows_garnix_ci_domain }}`) && PathPrefix(`/api/`)"
       entryPoints:
         - websecure
-      priority: 100
+      priority: 100  # project-lint: disable=magic-int  nftables chain priority, not a standalone magic number
       service: garnix-ci-nl-api
       tls:
         certResolver: letsencrypt

@@ -19,5 +19,5 @@
 
     - name: Wait for instance(s) creation to complete
       ansible.builtin.wait_for:
-        timeout: 300
+        timeout: "{{ infra_timeout_request }}"
       when: create_result.changed

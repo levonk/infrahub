@@ -79,7 +79,7 @@
   ansible.builtin.get_url:
     url: "https://pkgs.netbird.io/install.sh"
     dest: /tmp/netbird-install.sh
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   become: true
   when:
     - ansible_facts.os_family == "RedHat"
@@ -103,7 +103,7 @@
     state: directory
     owner: root
     group: root
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   become: true
 
 # ---------------------------------------------------------------------------

@@ -19,7 +19,7 @@
     dest: /etc/fail2ban/jail.local
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
   notify: restart fail2ban
 

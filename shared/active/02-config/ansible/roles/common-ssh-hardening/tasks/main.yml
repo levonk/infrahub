@@ -30,7 +30,7 @@
     src: /etc/ssh/sshd_config
     dest: /etc/ssh/sshd_config.bak.{{ ansible_date_time.iso8601_basic_short }}
     remote_src: true
-    mode: "0600"
+    mode: "{{ infra_mode_file_restricted }}"
   become: true
   when: ssh_hardening_backup_config | bool
 

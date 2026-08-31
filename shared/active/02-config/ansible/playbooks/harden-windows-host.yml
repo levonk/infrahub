@@ -77,6 +77,6 @@
             Status: {{ 'enabled (NLA + Tailscale-only)' if win_rdp_hardening_enabled | default(false) | bool else 'disabled' }}
           ========================================
           Check Event Log for ACL drift warnings:
-            Get-EventLog -LogName Application -Source SSH-AclDriftCheck -Newest 10
+            Get-EventLog -LogName Application -Source SSH-AclDriftCheck -Newest 10  # project-lint: disable=magic-int  PowerShell event log count, not an operational value
           ========================================
       tags: ["verify", "summary"]

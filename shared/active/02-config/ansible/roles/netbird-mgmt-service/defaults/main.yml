@@ -7,8 +7,8 @@ netbird_mgmt_image_name: netbirdio/management:latest
 netbird_mgmt_volume_name: netbird-mgmt-data
 
 # Port configuration (references cloud_server group_vars per AGENTS.md)
-netbird_mgmt_host_port: "{{ cloud_server_netbird_mgmt_host_port | default('33073') }}"
-netbird_mgmt_container_port: "{{ cloud_server_netbird_mgmt_container_port | default('33073') }}"
+netbird_mgmt_host_port: "{{ cloud_server_netbird_mgmt_host_port | default(infra_port_vpn_netbird_mgmt_host) }}"
+netbird_mgmt_container_port: "{{ cloud_server_netbird_mgmt_container_port | default(infra_port_vpn_netbird_mgmt_host) }}"
 
 # Configuration
 netbird_mgmt_log_level: info

@@ -24,14 +24,14 @@ netbird_control_mgmt_volume_name: netbird-mgmt-data
 # ---------------------------------------------------------------------------
 # Port Configuration (references cloud_server group_vars per AGENTS.md)
 # ---------------------------------------------------------------------------
-netbird_control_mgmt_host_port: "{{ cloud_server_netbird_mgmt_host_port | default('33073') }}"
-netbird_control_mgmt_container_port: "{{ cloud_server_netbird_mgmt_container_port | default('33073') }}"
+netbird_control_mgmt_host_port: "{{ cloud_server_netbird_mgmt_host_port | default(infra_port_vpn_netbird_mgmt_host) }}"
+netbird_control_mgmt_container_port: "{{ cloud_server_netbird_mgmt_container_port | default(infra_port_vpn_netbird_mgmt_host) }}"
 
-netbird_control_signal_host_port: "{{ cloud_server_netbird_signal_host_port | default('10000') }}"
-netbird_control_signal_container_port: "{{ cloud_server_netbird_signal_container_port | default('10000') }}"
+netbird_control_signal_host_port: "{{ cloud_server_netbird_signal_host_port | default(infra_port_vpn_netbird_signal_host) }}"
+netbird_control_signal_container_port: "{{ cloud_server_netbird_signal_container_port | default(infra_port_vpn_netbird_signal_host) }}"
 
-netbird_control_relay_host_port: "{{ cloud_server_netbird_turn_host_port | default('3478') }}"
-netbird_control_relay_container_port: "{{ cloud_server_netbird_turn_container_port | default('3478') }}"
+netbird_control_relay_host_port: "{{ cloud_server_netbird_turn_host_port | default(infra_port_vpn_netbird_turn_host) }}"
+netbird_control_relay_container_port: "{{ cloud_server_netbird_turn_container_port | default(infra_port_vpn_netbird_turn_host) }}"
 
 # ---------------------------------------------------------------------------
 # Network

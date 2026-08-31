@@ -2,7 +2,7 @@
 - name: Update apt cache
   ansible.builtin.apt:
     update_cache: true
-    cache_valid_time: 3600
+    cache_valid_time: "{{ infra_cache_valid_time }}"
   when: ansible_facts['os_family'] == "Debian"
   become: true
 
@@ -80,7 +80,7 @@
     path: /etc/libvirt/libvirtd.conf
     block: |
       unix_sock_group = "libvirt"
-      unix_sock_rw_perms = "0770"
+      unix_sock_rw_perms = "{{ infra_mode_dir_shared }}"
       auth_unix_ro = "none"
       auth_unix_rw = "none"
     create: true
@@ -109,7 +109,7 @@
 - name: Wait for libvirtd to be ready
   ansible.builtin.wait_for:
     path: /var/run/libvirt/libvirt-sock
-    timeout: 30
+    timeout: "{{ infra_timeout_default }}"
   become: true
 
 - name: Test virsh connectivity
@@ -127,7 +127,7 @@
   ansible.builtin.template:
     src: network-nat.xml.j2
     dest: "/tmp/{{ common_kvm_nat_bridge_name }}.xml"
-    mode: '0644'
+    mode: '{{ infra_mode_file }}'
   become: true
 
 - name: Define NAT bridge network in libvirt
@@ -171,7 +171,7 @@
   ansible.builtin.template:
     src: network-routed.xml.j2
     dest: "/tmp/{{ common_kvm_routed_bridge_name }}.xml"
-    mode: '0644'
+    mode: '{{ infra_mode_file }}'
   become: true
 
 - name: Define routed bridge network in libvirt
@@ -247,7 +247,7 @@
   ansible.builtin.file:
     path: "{{ kvm_storage_pool_path }}"
     state: directory
-    mode: '0755'
+    mode: '{{ infra_mode_dir }}'
     owner: root
     group: root
   become: true
@@ -256,7 +256,7 @@
   ansible.builtin.template:
     src: storage-pool.xml.j2
     dest: /tmp/default-storage-pool.xml
-    mode: '0644'
+    mode: '{{ infra_mode_file }}'
   become: true
 
 - name: Define storage pool in libvirt

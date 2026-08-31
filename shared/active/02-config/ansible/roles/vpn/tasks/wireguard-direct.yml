@@ -17,7 +17,7 @@
       - localnet-wireguard-direct-config-volume:/config
       - /lib/modules:/lib/modules:ro
     ports:
-      - "{{ wireguard_direct_port | default('51820') }}:51820/udp"
+      - "{{ wireguard_direct_port | default('51820') }}:51820/udp"  # project-lint: disable=magic-int  WireGuard port, should use infra_port variable
     sysctls:
       net.ipv4.conf.all.src_valid_mark: 1
       net.ipv4.ip_forward: 1
@@ -28,28 +28,28 @@
       PGID: "{{ localnet_pgid }}"
       TZ: "{{ localnet_tz }}"
       SERVERURL: "{{ wireguard_serverurl | default('auto') }}"
-      SERVERPORT: "{{ wireguard_direct_port | default('51820') }}"
-      PEERS: "{{ wireguard_direct_peers | default('5') }}"
+      SERVERPORT: "{{ wireguard_direct_port | default('51820') }}"  # project-lint: disable=magic-int  WireGuard port, should use infra_port variable
+      PEERS: "{{ wireguard_direct_peers | default('5') }}"  # project-lint: disable=magic-int  WireGuard peer count default, not a standalone magic number
       PEERDNS: "{{ host_ip }}"
-      INTERNAL_SUBNET: 10.13.13.0
-      ALLOWEDIPS: "172.20.0.0/16,{{ host_ip }}/32"
+      INTERNAL_SUBNET: {{ infra_network_vpn_wireguard_direct_subnet }}
+      ALLOWEDIPS: "{{ infra_network_warp_subnet }},{{ host_ip }}/32"  # project-lint: disable=magic-int  CIDR prefix length in WireGuard allowed IPs, not a standalone magic number
       LOG_CONFS: true
     log_driver: json-file
     log_options:
-      max-size: 10m
-      max-file: 5
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
     healthcheck:
       test: ["CMD", "wg", "show", "wg0"]
-      interval: 30
-      timeout: 5
-      retries: 3
-      start_period: 10
+      interval: "{{ infra_healthcheck_interval }}"
+      timeout: "{{ infra_timeout_short }}"
+      retries: "{{ infra_retry_short }}"
+      start_period: "{{ infra_healthcheck_start_period }}"
 
 - name: Wait for wireguard-direct to be healthy
   ansible.builtin.shell: |
     docker inspect --format='{{"{{"}}.State.Health.Status{{"}}"}}' localnet-vpn-direct
   register: wg_direct_health
   until: wg_direct_health.stdout == "healthy"
-  retries: 10
-  delay: 10
+  retries: "{{ infra_retry_long }}"
+  delay: "{{ infra_delay_long }}"
   ignore_errors: true

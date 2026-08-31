@@ -9,5 +9,5 @@
 
 - name: wait for nordvpn
   ansible.builtin.pause:
-    seconds: 10
+    seconds: "{{ infra_delay_long }}"
   when: vpn_nordvpn_enabled

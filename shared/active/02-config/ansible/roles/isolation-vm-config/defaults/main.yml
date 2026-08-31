@@ -12,18 +12,18 @@ isolation_vm_user_home: "/home/{{ isolation_vm_user }}"
 
 # SSH Configuration
 isolation_vm_ssh_enabled: true
-isolation_vm_ssh_port: "{{ ansible_ssh_port | default(22) }}"
+isolation_vm_ssh_port: "{{ ansible_ssh_port | default(infra_port_ssh_host) }}"
 isolation_vm_ssh_password_auth: false
 isolation_vm_ssh_permit_root_login: "no"
 
 # Network Configuration
 # All network values are variables per AGENTS.md requirements
-isolation_vm_nat_bridge: "{{ common_kvm_nat_bridge_name | default('kvm-nat-br0') }}"
-isolation_vm_routed_bridge: "{{ common_kvm_routed_bridge_name | default('kvm-route-br0') }}"
+isolation_vm_nat_bridge: "{{ common_kvm_nat_bridge_name | default(infra_value_isolation_vm_nat_bridge) }}"
+isolation_vm_routed_bridge: "{{ common_kvm_routed_bridge_name | default(infra_value_isolation_vm_routed_bridge) }}"
 isolation_vm_dns_servers:
   - "{{ isolation_vm_gateway_ip }}"
-  - "8.8.8.8"
-  - "8.8.4.4"
+  - "{{ infra_network_ip_google_dns_primary }}"
+  - "{{ infra_network_ip_google_dns_secondary }}"
 isolation_vm_dns_search_domains:
   - "localnet"
 
@@ -61,4 +61,4 @@ isolation_vm_network_interfaces:
     dhcp: true
 
 # Gateway Configuration
-isolation_vm_gateway: "{{ isolation_vm_gateway_ip | default('192.168.101.1') }}"
+isolation_vm_gateway: "{{ isolation_vm_gateway_ip | default(infra_value_isolation_vm_gateway) }}"

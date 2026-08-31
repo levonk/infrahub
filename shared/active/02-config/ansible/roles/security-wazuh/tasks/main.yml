@@ -136,7 +136,7 @@
     --name wazuh-certs-generator
     -v {{ wazuh_certs_volume }}:/config
     -v {{ wazuh_certs_volume }}:/certificates
-    -e CERT_TOOL_VERSION=4.14
+    -e CERT_TOOL_VERSION=4.14  # project-lint: disable=magic-dotted  version number, not an operational magic number
     {{ wazuh_certs_generator_image }}
   environment:
     DOCKER_HOST: "{{ wazuh_docker_host }}"
@@ -147,7 +147,7 @@
 - name: Fix wazuh certificate directory permissions
   ansible.builtin.command: >-
     docker run --rm -v {{ wazuh_certs_volume }}:/certificates alpine sh -c
-    'chmod 755 /certificates && chmod 644 /certificates/root-ca.pem /certificates/root-ca-manager.pem'
+    'chmod {{ infra_mode_dir }} /certificates && chmod {{ infra_mode_file }} /certificates/root-ca.pem /certificates/root-ca-manager.pem'
   environment:
     DOCKER_HOST: "{{ wazuh_docker_host }}"
   delegate_to: localhost
@@ -160,7 +160,7 @@
     docker run --rm --user 0 --entrypoint sh
     -v {{ wazuh_indexer_config_volume }}:/config
     {{ wazuh_indexer_image_name }}:{{ wazuh_indexer_image_tag }}
-    -c 'cp -r /usr/share/wazuh-indexer/config/* /config/ && chown -R 1000:0 /config'
+    -c 'cp -r /usr/share/wazuh-indexer/config/* /config/ && chown -R {{ infra_identity_puid }}:0 /config'
   environment:
     DOCKER_HOST: "{{ wazuh_docker_host }}"
   delegate_to: localhost
@@ -209,7 +209,7 @@
     docker run --rm -i
     -v {{ wazuh_indexer_config_volume }}:/config
     --user 0
-    alpine sh -c 'cat > /config/opensearch.yml && chmod 644 /config/opensearch.yml'
+    alpine sh -c 'cat > /config/opensearch.yml && chmod {{ infra_mode_file }} /config/opensearch.yml'
   args:
     stdin: "{{ lookup('template', 'opensearch.yml.j2') }}"
   environment:
@@ -223,7 +223,7 @@
     docker run --rm -i
     -v {{ wazuh_indexer_config_volume }}:/config
     --user 0
-    alpine sh -c 'cat > /config/opensearch-security/internal_users.yml && chmod 644 /config/opensearch-security/internal_users.yml'
+    alpine sh -c 'cat > /config/opensearch-security/internal_users.yml && chmod {{ infra_mode_file }} /config/opensearch-security/internal_users.yml'
   args:
     stdin: "{{ lookup('template', 'internal_users.yml.j2') }}"
   environment:
@@ -237,7 +237,7 @@
   ansible.builtin.command: >-
     docker run --rm -i
     -v {{ wazuh_dashboard_config_volume }}:/config
-    alpine sh -c 'cat > /config/opensearch_dashboards.yml && chmod 644 /config/opensearch_dashboards.yml && chown -R 1000:0 /config'
+    alpine sh -c 'cat > /config/opensearch_dashboards.yml && chmod {{ infra_mode_file }} /config/opensearch_dashboards.yml && chown -R {{ infra_identity_puid }}:0 /config'
   args:
     stdin: "{{ lookup('template', 'opensearch_dashboards.yml.j2') }}"
   environment:
@@ -250,7 +250,7 @@
   ansible.builtin.command: >-
     docker run --rm
     -v {{ wazuh_dashboard_data_volume }}:/data
-    alpine sh -c 'chown -R 1000:0 /data && chmod 755 /data'
+    alpine sh -c 'chown -R {{ infra_identity_puid }}:0 /data && chmod {{ infra_mode_dir }} /data'
   environment:
     DOCKER_HOST: "{{ wazuh_docker_host }}"
   delegate_to: localhost
@@ -261,7 +261,7 @@
   ansible.builtin.command: >-
     docker run --rm -i
     -v {{ wazuh_manager_config_mount_volume }}:/config
-    alpine sh -c 'mkdir -p /config/etc && cat > /config/etc/ossec.conf && chmod 644 /config/etc/ossec.conf'
+    alpine sh -c 'mkdir -p /config/etc && cat > /config/etc/ossec.conf && chmod {{ infra_mode_file }} /config/etc/ossec.conf'
   args:
     stdin: "{{ lookup('template', 'wazuh-manager.conf.j2') }}"
   environment:
@@ -305,7 +305,7 @@
     --ip {{ wazuh_indexer_ip }}
     --restart unless-stopped
     --ulimit memlock=-1:-1
-    --ulimit nofile=65536:65536
+    --ulimit nofile=65536:65536  # project-lint: disable=magic-int  memory/buffer size constant, not a standalone magic number
     -e OPENSEARCH_JAVA_OPTS={{ wazuh_indexer_java_opts | quote }}
     -e bootstrap.memory_lock=true
     -v {{ wazuh_indexer_data_volume }}:/var/lib/wazuh-indexer
@@ -325,14 +325,14 @@
     --cacert /usr/share/wazuh-indexer/config/certs/root-ca.pem
     --cert /usr/share/wazuh-indexer/config/certs/admin.pem
     --key /usr/share/wazuh-indexer/config/certs/admin-key.pem
-    https://localhost:9200
+    https://localhost:{{ infra_port_search_elasticsearch_host }}
   environment:
     DOCKER_HOST: "{{ wazuh_docker_host }}"
   delegate_to: localhost
   register: wazuh_indexer_health
-  until: wazuh_indexer_health.stdout == "200"
-  retries: 24
-  delay: 5
+  until: wazuh_indexer_health.stdout == "{{ infra_http_status_ok }}"
+  retries: "{{ infra_retry_extended }}"
+  delay: "{{ infra_delay_default }}"
   changed_when: false
   tags: ["deploy", "container"]
 
@@ -346,11 +346,11 @@
     --ip {{ wazuh_manager_ip }}
     --restart unless-stopped
     --ulimit memlock=-1:-1
-    --ulimit nofile=655360:655360
+    --ulimit nofile=655360:655360  # project-lint: disable=magic-int  file descriptor limit, not a standalone magic number
     -p {{ wazuh_manager_agent_host_port }}:{{ wazuh_manager_agent_container_port }}
     -p {{ wazuh_manager_enrollment_host_port }}:{{ wazuh_manager_enrollment_container_port }}
     -p {{ wazuh_manager_api_host_port }}:{{ wazuh_manager_api_container_port }}
-    -e INDEXER_URL={{ ('"https://' ~ wazuh_indexer_ip ~ ':9200"') | quote }}
+    -e INDEXER_URL={{ ('"https://' ~ wazuh_indexer_ip ~ ':{{ infra_port_search_elasticsearch_host }}"') | quote }}
     -e INDEXER_USERNAME={{ wazuh_indexer_username | quote }}
     -e INDEXER_PASSWORD={{ wazuh_indexer_password | quote }}
     -e FILEBEAT_SSL_VERIFICATION_MODE=full
@@ -406,8 +406,8 @@
   ansible.builtin.wait_for:
     host: "{{ ansible_host }}"
     port: "{{ wazuh_dashboard_host_port }}"
-    delay: 5
-    timeout: 120
+    delay: "{{ infra_delay_default }}"
+    timeout: "{{ infra_timeout_extended }}"
   delegate_to: localhost
   tags: ["deploy", "container"]
 

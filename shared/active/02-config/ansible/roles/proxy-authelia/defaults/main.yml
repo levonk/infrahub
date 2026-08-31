@@ -10,11 +10,11 @@ proxy_authelia_enabled: true
 proxy_authelia_version: "latest"
 proxy_authelia_image: "authelia/authelia:{{ proxy_authelia_version }}"
 
-proxy_authelia_web_host_port: "{{ cloud_server_authelia_web_host_port | default('9091') }}"
-proxy_authelia_web_container_port: "{{ cloud_server_authelia_web_container_port | default('9091') }}"
+proxy_authelia_web_host_port: "{{ cloud_server_authelia_web_host_port | default(infra_port_proxy_authelia_host) }}"
+proxy_authelia_web_container_port: "{{ cloud_server_authelia_web_container_port | default(infra_port_proxy_authelia_host) }}"
 
-proxy_authelia_redis_host_port: "{{ cloud_server_authelia_redis_host_port | default('6379') }}"
-proxy_authelia_redis_container_port: "{{ cloud_server_authelia_redis_container_port | default('6379') }}"
+proxy_authelia_redis_host_port: "{{ cloud_server_authelia_redis_host_port | default(infra_port_db_redis_host) }}"
+proxy_authelia_redis_container_port: "{{ cloud_server_authelia_redis_container_port | default(infra_port_db_redis_host) }}"
 
 # ---------------------------------------------------------------------------
 # Authelia Configuration
@@ -47,7 +47,7 @@ proxy_authelia_theme: "light"
 # Default admin user (password MUST be overridden via vault)
 # Note: Password must be a hash generated with: docker run --rm authelia/authelia:latest authelia crypto hash generate argon2 --password 'yourpassword'
 proxy_authelia_admin_user: "admin"
-proxy_authelia_admin_password: "{{ vault_authelia_admin_password | default('$argon2id$v=19$m=65536,t=3,p=4$s7tNXjVewNMPStiSd7IXcA$Y5YsedFEDkvnidKb70WNTM7y9B+e30y05g4wJRFgkEQ') }}"
+proxy_authelia_admin_password: "{{ vault_authelia_admin_password | default(infra_value_proxy_authelia_admin_password) }}"
 proxy_authelia_admin_display_name: "Administrator"
 proxy_authelia_admin_email: "admin@example.com"
 
@@ -82,8 +82,8 @@ proxy_authelia_redis_password: "change-me-in-vault"
 # ---------------------------------------------------------------------------
 # Docker Network & Volumes
 # ---------------------------------------------------------------------------
-proxy_authelia_docker_network_name: "{{ cloud_server_authelia_network_name | default('proxy-network') }}"
-proxy_authelia_data_dir: "{{ cloud_server_authelia_data_dir | default('/opt/authelia') }}"
+proxy_authelia_docker_network_name: "{{ cloud_server_authelia_network_name | default(infra_network_proxy_authelia_docker_network_name) }}"
+proxy_authelia_data_dir: "{{ cloud_server_authelia_data_dir | default(infra_value_proxy_authelia_data_dir) }}"
 
 # ---------------------------------------------------------------------------
 # Feature Flags
@@ -108,8 +108,8 @@ proxy_authelia_log_retention_compression: true
 # OpenID Connect 1.0 Provider
 # ---------------------------------------------------------------------------
 proxy_authelia_oidc_enabled: false
-proxy_authelia_oidc_hmac_secret: "{{ vault_authelia_oidc_hmac_secret | default('change_me_to_random_64_chars_min_change_me_change_me') }}"
-proxy_authelia_oidc_jwks_private_key: "{{ vault_authelia_oidc_jwks_private_key | default('-----BEGIN PRIVATE KEY-----\nCHANGE_ME\n-----END PRIVATE KEY-----') }}"
+proxy_authelia_oidc_hmac_secret: "{{ vault_authelia_oidc_hmac_secret | default(infra_value_proxy_authelia_oidc_hmac_secret) }}"
+proxy_authelia_oidc_jwks_private_key: "{{ vault_authelia_oidc_jwks_private_key | default(infra_value_proxy_authelia_oidc_jwks_private_key) }}"
 
 # Registered OIDC clients (relying parties)
 # client_secret_hash must be a digest generated with:

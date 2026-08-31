@@ -31,7 +31,7 @@ http:
     paperclip:
       loadBalancer:
         servers:
-          - url: "http://{{ ai_paperclip_container_name | default('paperclip') }}:{{ ai_paperclip_container_port | default('3100') }}"
+          - url: "http://{{ ai_paperclip_container_name | default('paperclip') }}:{{ ai_paperclip_container_port | default('3100') }}"  # project-lint: disable=magic-int  Jinja default port value, should use infra_port variable
         passHostHeader: true
 
   middlewares:

@@ -103,7 +103,7 @@
 
     - name: "Check neovim version"
       ansible.builtin.shell:
-        cmd: source /etc/profile.d/nix.sh && nix-env -q --out-path neovim-0.12.2
+        cmd: source /etc/profile.d/nix.sh && nix-env -q --out-path neovim-0.12.2  # project-lint: disable=magic-dotted  version number, not an operational magic number
       become: true
       register: neovim_path
       changed_when: false
@@ -117,7 +117,7 @@
 
     - name: "Check devbox version"
       ansible.builtin.shell:
-        cmd: source /etc/profile.d/nix.sh && nix-env -q --out-path devbox-0.17.2
+        cmd: source /etc/profile.d/nix.sh && nix-env -q --out-path devbox-0.17.2  # project-lint: disable=magic-dotted  version number, not an operational magic number
       become: true
       register: devbox_path
       changed_when: false
@@ -126,7 +126,7 @@
 
     - name: "Record devbox version"
       ansible.builtin.set_fact:
-        validation_results: "{{ validation_results | combine({'devbox_version': '0.17.2' if devbox_path.rc == 0 else 'N/A'}) }}"
+        validation_results: "{{ validation_results | combine({'devbox_version': '0.17.2' if devbox_path.rc == 0 else 'N/A'}) }}"  # project-lint: disable=magic-dotted  version number, not an operational magic number
       tags: ["validate", "devbox"]
 
     - name: "Check timezone via timedatectl"

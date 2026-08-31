@@ -16,13 +16,13 @@ fwknop_close_public_ssh: false
 # ---------------------------------------------------------------------------
 # SPA Configuration
 # ---------------------------------------------------------------------------
-fwknop_spa_port: "{{ infra_port_security_fwknop_spa_host | default('62201') }}"
+fwknop_spa_port: "{{ infra_port_security_fwknop_spa_host | default(infra_port_fwknop_spa_alt_host) }}"
 # Public SSH port — SPA-protected. fwknop opens this port temporarily after
 # a valid SPA packet. Non-standard port to reduce drive-by scanner noise.
-fwknop_ssh_port: "{{ infra_port_ssh_public_host | default('7722') }}"
+fwknop_ssh_port: "{{ infra_port_ssh_public_host | default(infra_port_ssh_public_host) }}"
 # Internal SSH port — Tailscale/libvirt only. Always allowed via firewall
 # rules for Tailscale subnet, dropped from public.
-fwknop_internal_ssh_port: "{{ infra_port_ssh_host | default('22') }}"
+fwknop_internal_ssh_port: "{{ infra_port_ssh_host | default(infra_port_ssh_host) }}"
 fwknop_access_timeout: 120  # seconds — how long the public port stays open after a valid SPA packet
 
 # ---------------------------------------------------------------------------
@@ -81,8 +81,8 @@ fwknop_tailscale_subnet: "100.64.0.0/10"
 
 # Libvirt NAT bridge subnet (for isolation VMs on the OCI server)
 fwknop_libvirt_subnets:
-  - "192.168.100.0/24"
-  - "192.168.101.0/24"
+  - "{{ infra_network_lan_1_cidr }}"
+  - "{{ infra_network_lan_2_cidr }}"
 
 # ---------------------------------------------------------------------------
 # Firewall configuration

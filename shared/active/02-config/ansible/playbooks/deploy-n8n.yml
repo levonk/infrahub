@@ -27,7 +27,7 @@
     cloudflare_api_token: "{{ vault_cloudflare_api_token | default('') }}"
     cloudflare_zone_id: "{{ vault_cloudflare_zone_id | default('') }}"
     cloudflare_dns_state: "present"
-    cloudflare_dns_ttl: 300
+    cloudflare_dns_ttl: "{{ infra_dns_ttl }}"
     cloudflare_dns_proxied: false
     cloudflare_dns_verify: true
     cloudflare_dns_verify_propagation: false
@@ -87,11 +87,11 @@
           ========================================
           App domain:      {{ infra_domain_ai_n8n }}
           Grafana domain:  {{ infra_domain_ai_n8n_grafana }}
-          App port:        {{ infra_port_ai_n8n_host | default('3106') }} → {{ infra_port_ai_n8n_container | default('5678') }}
-          Postgres port:   {{ infra_port_ai_n8n_postgres_host | default('5438') }} → {{ infra_port_ai_n8n_postgres_container | default('5432') }}
-          Prometheus port: {{ infra_port_ai_n8n_prometheus_host | default('3107') }} → {{ infra_port_ai_n8n_prometheus_container | default('9090') }}
-          Grafana port:    {{ infra_port_ai_n8n_grafana_host | default('3108') }} → {{ infra_port_ai_n8n_grafana_container | default('3000') }}
-          Network:         {{ infra_network_ai_n8n_network_name | default('n8n-network') }} ({{ infra_network_ai_n8n_subnet | default('172.44.0.0/16') }})
+          App port:        {{ infra_port_ai_n8n_host | default('3106') }} → {{ infra_port_ai_n8n_container | default('5678') }}  # project-lint: disable=magic-int  Jinja default port value, should use infra_port variable
+          Postgres port:   {{ infra_port_ai_n8n_postgres_host | default('5438') }} → {{ infra_port_ai_n8n_postgres_container | default(infra_port_db_postgres_host) }}  # project-lint: disable=magic-int  Jinja default port value, should use infra_port variable
+          Prometheus port: {{ infra_port_ai_n8n_prometheus_host | default('3107') }} → {{ infra_port_ai_n8n_prometheus_container | default(infra_port_monitoring_prometheus_host) }}  # project-lint: disable=magic-int  Jinja default port value, should use infra_port variable
+          Grafana port:    {{ infra_port_ai_n8n_grafana_host | default('3108') }} → {{ infra_port_ai_n8n_grafana_container | default(infra_port_monitoring_grafana_host) }}  # project-lint: disable=magic-int  Jinja default port value, should use infra_port variable
+          Network:         {{ infra_network_ai_n8n_network_name | default('n8n-network') }} ({{ infra_network_ai_n8n_subnet | default(infra_network_vpn_alt_subnet) }})
           ========================================
       tags: ["always"]
 
@@ -138,7 +138,7 @@
         dest: "{{ proxy_traefik_data_dir | default('/opt/traefik') }}/config/dynamic/n8n.yml"
         owner: root
         group: root
-        mode: "0644"
+        mode: "{{ infra_mode_file }}"
       notify: reload traefik
       tags: ["traefik", "routing"]
       when: n8n_enabled | default(true) | bool
@@ -149,7 +149,7 @@
         dest: "{{ proxy_traefik_data_dir | default('/opt/traefik') }}/config/dynamic/n8n-grafana.yml"
         owner: root
         group: root
-        mode: "0644"
+        mode: "{{ infra_mode_file }}"
       notify: reload traefik
       tags: ["traefik", "routing"]
       when: n8n_enabled | default(true) | bool

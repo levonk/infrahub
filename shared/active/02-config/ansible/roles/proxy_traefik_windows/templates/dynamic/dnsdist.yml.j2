@@ -33,5 +33,5 @@ http:
     dnsdist:
       loadBalancer:
         servers:
-          - url: "http://{{ dns_dnsdist_container_name | default('localnet-dns-dnsdist') }}:{{ infra_port_dns_dnsdist_metrics_container | default('8083') }}"
+          - url: "http://{{ dns_dnsdist_container_name | default('localnet-dns-dnsdist') }}:{{ infra_port_dns_dnsdist_metrics_container | default('8083') }}"  # project-lint: disable=magic-int  Jinja default port value, should use infra_port variable
         passHostHeader: true

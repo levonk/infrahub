@@ -23,7 +23,7 @@ kibanaserver:
   description: "Demo kibanaserver user"
 
 kibanaro:
-  hash: "$2a$12$JJSXNfTowz7Uu5ttXfeYpeYE0arACvcwlPBStB1F.MI7f0U9Z4DGC"
+  hash: "$2a$12$JJSXNfTowz7Uu5ttXfeYpeYE0arACvcwlPBStB1F.MI7f0U9Z4DGC"  # project-lint: disable=magic-int  bcrypt hash cost factor, not an operational value
   reserved: false
   backend_roles:
   - "kibanauser"
@@ -35,21 +35,21 @@ kibanaro:
   description: "Demo kibanaro user"
 
 logstash:
-  hash: "$2a$12$u1ShR4l4uBS3Uv59Pa2y5.1uQuZBrZtmNfqB3iM/.jL0XoV9sghS2"
+  hash: "$2a$12$u1ShR4l4uBS3Uv59Pa2y5.1uQuZBrZtmNfqB3iM/.jL0XoV9sghS2"  # project-lint: disable=magic-int  bcrypt hash cost factor, not an operational value
   reserved: false
   backend_roles:
   - "logstash"
   description: "Demo logstash user"
 
 readall:
-  hash: "$2a$12$ae4ycwzwvLtZxwZ82RmiEunBbIPiAmGZduBAjKN0TXdwQFtCwARz2"
+  hash: "$2a$12$ae4ycwzwvLtZxwZ82RmiEunBbIPiAmGZduBAjKN0TXdwQFtCwARz2"  # project-lint: disable=magic-int  bcrypt hash cost factor, not an operational value
   reserved: false
   backend_roles:
   - "readall"
   description: "Demo readall user"
 
 snapshotrestore:
-  hash: "$2y$12$DpwmetHKwgYnorbgdvORCenv4NAK8cPUg8AI6pxLCuWf/ALc0.v7W"
+  hash: "$2y$12$DpwmetHKwgYnorbgdvORCenv4NAK8cPUg8AI6pxLCuWf/ALc0.v7W"  # project-lint: disable=magic-int  hash/rounds parameter, not a standalone magic number
   reserved: false
   backend_roles:
   - "snapshotrestore"

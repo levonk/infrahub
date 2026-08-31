@@ -15,7 +15,7 @@ host_os_bootstrap_admin_groups: "sudo"
 # ---------------------------------------------------------------------------
 # SSH Configuration
 # ---------------------------------------------------------------------------
-host_os_bootstrap_ssh_port: "{{ cloud_server_ssh_host_port | default(22) }}"
+host_os_bootstrap_ssh_port: "{{ cloud_server_ssh_host_port | default(infra_port_ssh_host) }}"
 host_os_bootstrap_ssh_permit_root_login: "prohibit-password"
 host_os_bootstrap_ssh_password_auth: "no"
 host_os_bootstrap_ssh_pubkey_auth: "yes"

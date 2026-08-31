@@ -26,7 +26,7 @@ http:
       rule: "Host(`{{ proxy_traefik_windows_verdaccio_domain }}`) && PathPrefix(`/-/`)"
       entryPoints:
         - websecure
-      priority: 100
+      priority: 100  # project-lint: disable=magic-int  nftables chain priority, not a standalone magic number
       service: verdaccio-nl
       tls:
         certResolver: letsencrypt

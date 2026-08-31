@@ -1,4 +1,4 @@
 {
   "LogLevel": "{{ netbird_control_signal_log_level }}",
-  "ListenAddress": "0.0.0.0:{{ netbird_control_signal_container_port }}"
+  "ListenAddress": "{{ infra_network_bind_all }}:{{ netbird_control_signal_container_port }}"
 }

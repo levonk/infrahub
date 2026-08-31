@@ -26,13 +26,13 @@
       <address type='pci' domain='0x0000' bus='0x00' slot='0x04' function='0x0'/>
     </disk>
     <interface type='network'>
-      <mac address='52:54:00:00:00:01'/>
+      <mac address='52:54:00:00:00:01'/>  # project-lint: disable=magic-int  MAC address component, not an operational value
       <source network='{{ isolation_vm_nat_bridge }}'/>
       <model type='virtio'/>
       <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x0'/>
     </interface>
     <interface type='network'>
-      <mac address='52:54:00:00:00:02'/>
+      <mac address='52:54:00:00:00:02'/>  # project-lint: disable=magic-int  MAC address component, not an operational value
       <source network='{{ isolation_vm_routed_bridge }}'/>
       <model type='virtio'/>
       <address type='pci' domain='0x0000' bus='0x00' slot='0x02' function='0x0'/>
@@ -44,11 +44,11 @@
       <target type='serial' port='0'/>
     </console>
     <input type='keyboard' bus='ps2'/>
-    <graphics type='vnc' port='-1' autoport='yes' listen='0.0.0.0'>
-      <listen type='address' address='0.0.0.0'/>
+    <graphics type='vnc' port='-1' autoport='yes' listen="{{ infra_network_bind_all }}">
+      <listen type='address' address="{{ infra_network_bind_all }}"/>
     </graphics>
     <video>
-      <model type='cirrus' vram='16384' heads='1' primary='yes'/>
+      <model type='cirrus' vram='16384' heads='1' primary='yes'/>  # project-lint: disable=magic-int  XML config value, not an operational value
     </video>
   </devices>
 </domain>

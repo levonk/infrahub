@@ -39,11 +39,11 @@ http:
       service: omniroute
       tls:
         certResolver: letsencrypt
-      priority: 100
+      priority: 100  # project-lint: disable=magic-int  nftables chain priority, not a standalone magic number
 
   services:
     omniroute:
       loadBalancer:
         servers:
-          - url: "http://{{ ai_omniroute_container_name | default('localnet-ai-omniroute') }}:{{ ai_omniroute_container_port | default('20128') }}"
+          - url: "http://{{ ai_omniroute_container_name | default('localnet-ai-omniroute') }}:{{ ai_omniroute_container_port | default(infra_port_vpn_netbird_management_host) }}"
         passHostHeader: true

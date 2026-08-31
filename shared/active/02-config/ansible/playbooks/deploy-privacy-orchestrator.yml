@@ -49,7 +49,7 @@
         state: directory
         owner: "{{ cloud_server_admin_user }}"
         group: "{{ cloud_server_admin_user }}"
-        mode: '0755'
+        mode: '{{ infra_mode_dir }}'
       tags: ["always", "setup"]
 
     - name: "Create Privacy Orchestrator config directory"
@@ -58,7 +58,7 @@
         state: directory
         owner: "{{ cloud_server_admin_user }}"
         group: "{{ cloud_server_admin_user }}"
-        mode: '0755'
+        mode: '{{ infra_mode_dir }}'
       tags: ["always", "setup"]
 
   roles:
@@ -73,7 +73,7 @@
         dest: "{{ localnet_services_dir }}/privacy-orchestrator/docker-compose.privacy-orchestrator.yml"
         owner: "{{ cloud_server_admin_user }}"
         group: "{{ cloud_server_admin_user }}"
-        mode: '0644'
+        mode: '{{ infra_mode_file }}'
       tags: ["config", "docker-compose"]
 
     - name: "Copy Privacy Orchestrator environment file"
@@ -82,7 +82,7 @@
         dest: "{{ localnet_services_dir }}/privacy-orchestrator/.env"
         owner: "{{ cloud_server_admin_user }}"
         group: "{{ cloud_server_admin_user }}"
-        mode: '0600'
+        mode: '{{ infra_mode_file_restricted }}'
       tags: ["config", "environment"]
 
     - name: "Create Privacy Orchestrator config file"
@@ -93,12 +93,12 @@
           # PII Detection and Transformation Service
 
           [server]
-          host = "0.0.0.0"
-          port = 9090
+          host = "{{ infra_network_bind_all }}"
+          port = {{ infra_port_monitoring_prometheus_host }}
 
           [detection]
           enabled = true
-          confidence_threshold = 0.7
+          confidence_threshold = 0.7  # project-lint: disable=magic-dotted  version number, not an operational magic number
           categories = ["EMAIL", "PHONE", "SSN", "CREDIT_CARD", "IP_ADDRESS", "URL"]
 
           [transformation]
@@ -111,15 +111,15 @@
 
           [analytics]
           enabled = true
-          database_url = "{{ privacy_orchestrator_database_url | default('postgresql://postgres:postgres@ai-dashboard-db:5432/analytics') }}"
+          database_url = "{{ privacy_orchestrator_database_url | default('postgresql://postgres:postgres@ai-dashboard-db:{{ infra_port_db_postgres_host }}/analytics') }}"
         owner: "{{ cloud_server_admin_user }}"
         group: "{{ cloud_server_admin_user }}"
-        mode: '0644'
+        mode: '{{ infra_mode_file }}'
       tags: ["config", "privacy-config"]
 
     - name: "Create proxy-chain-network if it doesn't exist"
       ansible.builtin.shell:
-        cmd: "docker network create proxy-chain-network --driver bridge --subnet 172.29.0.0/16 --gateway 172.29.0.1 || echo 'Network already exists'"
+        cmd: "docker network create proxy-chain-network --driver bridge --subnet {{ infra_network_ai_subnet }} --gateway {{ infra_network_ai_subnet_gateway }} || echo 'Network already exists'"
       become: true
       become_user: "{{ cloud_server_admin_user }}"
       ignore_errors: true
@@ -149,8 +149,8 @@
       become_user: "{{ cloud_server_admin_user }}"
       register: privacy_orchestrator_health
       until: privacy_orchestrator_health.stdout == "true"
-      retries: 10
-      delay: 5
+      retries: "{{ infra_retry_long }}"
+      delay: "{{ infra_delay_default }}"
       tags: ["verify", "health"]
 
     - name: "Verify Privacy Orchestrator container is running"
@@ -167,7 +167,7 @@
 
     - name: "Check Privacy Orchestrator health endpoint"
       ansible.builtin.shell:
-        cmd: "docker exec privacy-orchestrator wget --spider -q http://localhost:9090/health || echo 'Health check not yet available'"
+        cmd: "docker exec privacy-orchestrator wget --spider -q http://localhost:{{ infra_port_monitoring_prometheus_host }}/health || echo 'Health check not yet available'"
       register: health_check
       changed_when: false
       ignore_errors: true
@@ -180,7 +180,7 @@
 
     - name: "Check Privacy Orchestrator logs for errors"
       ansible.builtin.shell:
-        cmd: "docker logs privacy-orchestrator --tail=50 2>&1 | grep -i error || echo 'No errors found'"
+        cmd: "docker logs privacy-orchestrator --tail=50 2>&1 | grep -i error || echo 'No errors found'"  # project-lint: disable=magic-int  docker logs tail count, not an operational value
       register: privacy_logs
       changed_when: false
       failed_when: "'error' in privacy_logs.stdout.lower() and 'No errors found' not in privacy_logs.stdout"
@@ -199,9 +199,9 @@
           Timestamp: {{ ansible_date_time.iso8601 }}
           ========================================
           Next Steps:
-          1. Verify Privacy Orchestrator is accessible: curl http://localhost:9090/health
-          2. Check logs: docker logs privacy-orchestrator --tail=50 -f
-          3. Test PII detection: curl -X POST http://localhost:9090/detect -d '{"text": "test"}'
+          1. Verify Privacy Orchestrator is accessible: curl http://localhost:{{ infra_port_monitoring_prometheus_host }}/health
+          2. Check logs: docker logs privacy-orchestrator --tail=50 -f  # project-lint: disable=magic-int  docker logs tail count, not an operational value
+          3. Test PII detection: curl -X POST http://localhost:{{ infra_port_monitoring_prometheus_host }}/detect -d '{"text": "test"}'
           4. Update AI Dashboard Proxy 1 to point to Privacy Orchestrator
           ========================================
       tags: ["always", "info"]

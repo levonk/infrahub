@@ -8,7 +8,7 @@
 #        (metadata) + clickhouse (events) + redis (queue) + minio (blob storage)
 # Pipeline integration: LiteLLM (aigate) → (forwards traces) → langfuse-web
 # langfuse-web attaches to proxy-chain-network (172.29.0.19) so LiteLLM can
-# resolve `langfuse-web:3000` without egressing through Traefik.
+# resolve `langfuse-web:{{ infra_port_monitoring_grafana_host }}` without egressing through Traefik.
 #
 # Usage:
 #   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
@@ -28,7 +28,7 @@
     cloudflare_api_token: "{{ vault_cloudflare_api_token | default('') }}"
     cloudflare_zone_id: "{{ vault_cloudflare_zone_id | default('') }}"
     cloudflare_dns_state: "present"
-    cloudflare_dns_ttl: 300
+    cloudflare_dns_ttl: "{{ infra_dns_ttl }}"
     cloudflare_dns_proxied: false
     cloudflare_dns_verify: true
     cloudflare_dns_verify_propagation: false
@@ -106,8 +106,8 @@
           levonk/active/02-config/ansible/inventories/group_vars/cloud_servers.yml,
           group_vars/all.yml, and the client vault
           (infrahub-levonk-all.vault.yml) for vault_langfuse_* secrets.
-          Generate secrets with: openssl rand -hex 32 (for salt/encryption/nextauth)
-          and openssl rand -base64 24 (for postgres/redis/clickhouse/minio passwords).
+          Generate secrets with: openssl rand -hex 32 (for salt/encryption/nextauth)  # project-lint: disable=magic-int  openssl byte count for secret generation, not an operational value
+          and openssl rand -base64 24 (for postgres/redis/clickhouse/minio passwords).  # project-lint: disable=magic-int  openssl byte count for secret generation, not an operational value
         success_msg: "All required variables are defined."
       tags: ["always", "validate"]
 
@@ -135,7 +135,7 @@
         state: directory
         owner: "{{ cloud_server_admin_user }}"
         group: "{{ cloud_server_admin_user }}"
-        mode: '0755'
+        mode: '{{ infra_mode_dir }}'
       tags: ["always", "setup"]
 
   tasks:
@@ -146,7 +146,7 @@
         dest: "{{ localnet_services_dir }}/langfuse/docker-compose.langfuse.yml"
         owner: "{{ cloud_server_admin_user }}"
         group: "{{ cloud_server_admin_user }}"
-        mode: '0644'
+        mode: '{{ infra_mode_file }}'
       tags: ["config", "docker-compose"]
 
     # ── Generate env file from Jinja2 template (vault secrets + infra vars) ──
@@ -156,7 +156,7 @@
         dest: "{{ localnet_services_dir }}/langfuse/.env.langfuse"
         owner: "{{ cloud_server_admin_user }}"
         group: "{{ cloud_server_admin_user }}"
-        mode: '0600'
+        mode: '{{ infra_mode_file_restricted }}'
       tags: ["config", "environment"]
       no_log: true
 
@@ -173,7 +173,7 @@
 
     - name: "Network setup - Ensure ai-dashboard-network exists"
       ansible.builtin.shell:
-        cmd: "docker network inspect ai-dashboard-network >/dev/null 2>&1 || docker network create ai-dashboard-network --driver bridge --subnet 172.35.0.0/16"
+        cmd: "docker network inspect ai-dashboard-network >/dev/null 2>&1 || docker network create ai-dashboard-network --driver bridge --subnet {{ infra_network_proxy_alt_subnet }}"
       become: true
       become_user: "{{ cloud_server_admin_user }}"
       ignore_errors: true
@@ -213,19 +213,19 @@
       become_user: "{{ cloud_server_admin_user }}"
       register: langfuse_db_ready
       until: langfuse_db_ready.rc == 0
-      retries: 15
-      delay: 5
+      retries: "{{ infra_retry_long }}"
+      delay: "{{ infra_delay_default }}"
       tags: ["verify", "database"]
 
     - name: "Wait for Langfuse ClickHouse to be ready"
       ansible.builtin.shell:
-        cmd: "docker exec {{ infra_hostname_langfuse_clickhouse | default('langfuse-clickhouse') }} wget --no-verbose --tries=1 --spider http://localhost:8123/ping"
+        cmd: "docker exec {{ infra_hostname_langfuse_clickhouse | default('langfuse-clickhouse') }} wget --no-verbose --tries=1 --spider http://localhost:8123/ping"  # project-lint: disable=magic-int  Jinja default port value, should use infra_port variable
       become: true
       become_user: "{{ cloud_server_admin_user }}"
       register: langfuse_clickhouse_ready
       until: langfuse_clickhouse_ready.rc == 0
-      retries: 15
-      delay: 5
+      retries: "{{ infra_retry_long }}"
+      delay: "{{ infra_delay_default }}"
       tags: ["verify", "clickhouse"]
 
     - name: "Wait for Langfuse Web to be running"
@@ -235,8 +235,8 @@
       become_user: "{{ cloud_server_admin_user }}"
       register: langfuse_web_health
       until: langfuse_web_health.stdout == "true"
-      retries: 15
-      delay: 5
+      retries: "{{ infra_retry_long }}"
+      delay: "{{ infra_delay_default }}"
       tags: ["verify", "health"]
 
     - name: "Wait for Langfuse Worker to be running"
@@ -246,8 +246,8 @@
       become_user: "{{ cloud_server_admin_user }}"
       register: langfuse_worker_health
       until: langfuse_worker_health.stdout == "true"
-      retries: 15
-      delay: 5
+      retries: "{{ infra_retry_long }}"
+      delay: "{{ infra_delay_default }}"
       tags: ["verify", "health"]
 
     - name: "Verify Langfuse containers are running"
@@ -272,7 +272,7 @@
 
     - name: "Check Langfuse Web logs for errors"
       ansible.builtin.shell:
-        cmd: "docker logs {{ infra_hostname_langfuse_web | default('langfuse-web') }} --tail=50 2>&1 | grep -i error || echo 'No errors found'"
+        cmd: "docker logs {{ infra_hostname_langfuse_web | default('langfuse-web') }} --tail=50 2>&1 | grep -i error || echo 'No errors found'"  # project-lint: disable=magic-int  docker logs tail count, not an operational value
       register: langfuse_web_logs
       changed_when: false
       failed_when: "'error' in langfuse_web_logs.stdout.lower() and 'No errors found' not in langfuse_web_logs.stdout"
@@ -280,7 +280,7 @@
 
     - name: "Check Langfuse Worker logs for errors"
       ansible.builtin.shell:
-        cmd: "docker logs {{ infra_hostname_langfuse_worker | default('langfuse-worker') }} --tail=50 2>&1 | grep -i error || echo 'No errors found'"
+        cmd: "docker logs {{ infra_hostname_langfuse_worker | default('langfuse-worker') }} --tail=50 2>&1 | grep -i error || echo 'No errors found'"  # project-lint: disable=magic-int  docker logs tail count, not an operational value
       register: langfuse_worker_logs
       changed_when: false
       failed_when: "'error' in langfuse_worker_logs.stdout.lower() and 'No errors found' not in langfuse_worker_logs.stdout"
@@ -297,12 +297,12 @@
           Timestamp: {{ ansible_date_time.iso8601 }}
           ----------------------------------------
           Deployed Services:
-          - Langfuse Web: http://{{ infra_network_ip_langfuse_web | default('172.37.0.10') }}:3000 (UI + ingestion API)
-          - Langfuse Worker: http://{{ infra_network_ip_langfuse_worker | default('172.37.0.11') }}:3030 (async ingestion)
-          - Langfuse Postgres: postgresql://langfuse@{{ infra_network_ip_langfuse_postgres | default('172.37.0.20') }}:5432/langfuse
-          - Langfuse ClickHouse: http://{{ infra_network_ip_langfuse_clickhouse | default('172.37.0.30') }}:8123
-          - Langfuse Redis: {{ infra_network_ip_langfuse_redis | default('172.37.0.40') }}:6379
-          - Langfuse MinIO: http://{{ infra_network_ip_langfuse_minio | default('172.37.0.50') }}:9000
+          - Langfuse Web: http://{{ infra_network_ip_langfuse_web | default('{{ infra_network_monitoring_subnet_ip_10 }}') }}:{{ infra_port_monitoring_grafana_host }} (UI + ingestion API)
+          - Langfuse Worker: http://{{ infra_network_ip_langfuse_worker | default('{{ infra_network_monitoring_subnet_ip_11 }}') }}:3030 (async ingestion)  # project-lint: disable=magic-int  Jinja default port value, should use infra_port variable
+          - Langfuse Postgres: postgresql://langfuse@{{ infra_network_ip_langfuse_postgres | default('{{ infra_network_monitoring_subnet_ip_20 }}') }}:{{ infra_port_db_postgres_host }}/langfuse
+          - Langfuse ClickHouse: http://{{ infra_network_ip_langfuse_clickhouse | default('{{ infra_network_monitoring_subnet_ip_30 }}') }}:8123  # project-lint: disable=magic-int  Jinja default port value, should use infra_port variable
+          - Langfuse Redis: {{ infra_network_ip_langfuse_redis | default(infra_network_monitoring_subnet_ip_40) }}:{{ infra_port_db_redis_host }}
+          - Langfuse MinIO: http://{{ infra_network_ip_langfuse_minio | default(infra_network_monitoring_subnet_ip_50) }}:{{ infra_port_storage_rustfs_s3_host }}
           ----------------------------------------
           Pipeline Integration:
           AI Dashboard Proxy 1 → (forwards traces) → langfuse-web ingestion API
@@ -314,7 +314,7 @@
           1. Verify containers: docker ps | grep langfuse
           2. Open web UI: https://{{ infra_domain_ai_langfuse | default('langfuse.' ~ (infra_domain_base | default('example.com'))) }}
           3. Create org/project via UI (or set LANGFUSE_INIT_* vault vars for headless init)
-          4. Wire AI Dashboard Proxy 1 to forward traces to http://langfuse-web:3000
+          4. Wire AI Dashboard Proxy 1 to forward traces to http://langfuse-web:{{ infra_port_monitoring_grafana_host }}
           ========================================
       tags: ["always", "summary"]
 

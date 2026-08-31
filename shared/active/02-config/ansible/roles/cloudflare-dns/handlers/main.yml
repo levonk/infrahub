@@ -22,6 +22,6 @@
     path: "{{ cloudflare_dns_log_file }}"
     line: "{{ ansible_date_time.iso8601 }} - DNS record {{ cloudflare_dns_record_name }} {{ cloudflare_dns_state }} - Type: {{ cloudflare_dns_record_type }}, Content: {{ cloudflare_dns_record_content }}"
     create: true
-    mode: '0644'
+    mode: '{{ infra_mode_file }}'
   when: cloudflare_dns_log_operations | default(true)
   listen: [Notify DNS record created, Notify DNS record updated, Notify DNS record deleted]

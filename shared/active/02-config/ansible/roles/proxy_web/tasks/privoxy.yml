@@ -27,19 +27,19 @@
       TZ: "{{ localnet_tz | default('UTC') }}"
     log_driver: json-file
     log_options:
-      max-size: 10m
-      max-file: "5"
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
     healthcheck:
-      test: ["CMD", "nc", "-zv", "127.0.0.1", "{{ proxy_web_privoxy_container_port }}"]
-      interval: "30s"
-      timeout: "10s"
-      retries: 3
-      start_period: "15s"
+      test: ["CMD", "nc", "-zv", "{{ infra_network_bind_localhost }}", "{{ proxy_web_privoxy_container_port }}"]
+      interval: "{{ infra_timeout_default }}"
+      timeout: "{{ infra_timeout_short }}"
+      retries: "{{ infra_retry_short }}"
+      start_period: "{{ infra_timeout_healthcheck }}"
 
 - name: Wait for Privoxy to be ready
   ansible.builtin.wait_for:
     host: "{{ proxy_web_privoxy_ip }}"
     port: "{{ proxy_web_privoxy_container_port }}"
-    timeout: 30
-  retries: 5
-  delay: 5
+    timeout: "{{ infra_timeout_default }}"
+  retries: "{{ infra_retry_default }}"
+  delay: "{{ infra_delay_default }}"

@@ -62,7 +62,7 @@
     state: directory
     owner: "{{ ai_buzz_agent_puid }}"
     group: "{{ ai_buzz_agent_pgid }}"
-    mode: '0750'
+    mode: '{{ infra_mode_dir_shared }}'
   tags: ["deploy", "config"]
 
 # ============================================================================
@@ -103,8 +103,8 @@
       - "{{ ai_buzz_agent_credentials_host_path }}:{{ ai_buzz_agent_credentials_mount_path }}:ro"
     log_driver: json-file
     log_options:
-      max-size: "10m"
-      max-file: "5"
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
     security_opts:
       - no-new-privileges:true
   loop: "{{ ai_buzz_agent_agents }}"

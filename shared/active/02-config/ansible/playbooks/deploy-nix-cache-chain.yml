@@ -19,9 +19,9 @@
 # windows_docker_hosts).
 #
 # Architecture (ADR-20260708001):
-#   Harmonia (127.0.0.1:4523) — serves local /nix/store (read-only)
+#   Harmonia ({{ infra_network_bind_localhost }}:4523) — serves local /nix/store (read-only)
 #   ncps (4524, nixcache.{nl,cno}.{{ infra_domain_base }}) — NAR caching proxy (front door)
-#   ncro (127.0.0.1:4525) — parallel racing proxy (behind ncps)
+#   ncro ({{ infra_network_bind_localhost }}:4525) — parallel racing proxy (behind ncps)
 #
 # Prerequisites:
 #   1. Traefik deployed on OCI: just levonk-deploy-infra
@@ -261,23 +261,23 @@
 
           {% if 'cloud_servers' in group_names %}
           cno (OCI cloud server, ARM64):
-            Harmonia:  http://127.0.0.1:{{ infra_port_nix_harmonia_host }} (local only, bind-mount /nix/store)
+            Harmonia:  http://{{ infra_network_bind_localhost }}:{{ infra_port_nix_harmonia_host }} (local only, bind-mount /nix/store)
             ncps:      https://{{ infra_domain_nix_cache_cno }} (via Traefik on OCI)
-            ncro:      http://127.0.0.1:{{ infra_port_nix_ncro_host }} (internal, behind ncps)
+            ncro:      http://{{ infra_network_bind_localhost }}:{{ infra_port_nix_ncro_host }} (internal, behind ncps)
 
           Next steps:
-            1. Verify Harmonia: curl http://127.0.0.1:{{ infra_port_nix_harmonia_host }}/nix-cache-info
+            1. Verify Harmonia: curl http://{{ infra_network_bind_localhost }}:{{ infra_port_nix_harmonia_host }}/nix-cache-info
             2. Verify ncps: curl https://{{ infra_domain_nix_cache_cno }}/healthz
             3. Configure nix.conf on clients:
                substituters = https://{{ infra_domain_nix_cache_cno }}
           {% elif 'windows_docker_hosts' in group_names %}
           nl (Windows Docker Desktop, X86):
-            Harmonia:  http://127.0.0.1:{{ infra_port_nix_harmonia_host }} (local only, nix-sidecar volume)
+            Harmonia:  http://{{ infra_network_bind_localhost }}:{{ infra_port_nix_harmonia_host }} (local only, nix-sidecar volume)
             ncps:      https://{{ infra_domain_nix_cache_nl }} (via Traefik on Windows)
-            ncro:      http://127.0.0.1:{{ infra_port_nix_ncro_host }} (internal, behind ncps)
+            ncro:      http://{{ infra_network_bind_localhost }}:{{ infra_port_nix_ncro_host }} (internal, behind ncps)
 
           Next steps:
-            1. Verify Harmonia: curl http://127.0.0.1:{{ infra_port_nix_harmonia_host }}/nix-cache-info
+            1. Verify Harmonia: curl http://{{ infra_network_bind_localhost }}:{{ infra_port_nix_harmonia_host }}/nix-cache-info
             2. Verify ncps: curl https://{{ infra_domain_nix_cache_nl }}/healthz
             3. Configure nix.conf on clients:
                substituters = https://{{ infra_domain_nix_cache_nl }}

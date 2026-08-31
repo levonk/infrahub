@@ -51,7 +51,7 @@
     - name: "Deploy registry container"
       community.docker.docker_container:
         name: "local-registry"
-        image: "docker.io/registry:3.1.1"
+        image: "docker.io/registry:3.1.1"  # project-lint: disable=magic-dotted  version number, not an operational magic number
         state: started
         restart_policy: unless-stopped
         ports:
@@ -66,10 +66,10 @@
     - name: "Wait for registry to be ready"
       ansible.builtin.uri:
         url: "http://{{ ansible_facts['default_ipv4']['address'] }}:{{ infra_port_registry_host }}/v2/"
-        status_code: 200
-        timeout: 10
+        status_code: "{{ infra_http_status_ok }}"
+        timeout: "{{ infra_timeout_short }}"
       register: registry_check
-      retries: 5
+      retries: "{{ infra_retry_default }}"
       delay: 3
       until: registry_check is success
       tags: ["verify"]

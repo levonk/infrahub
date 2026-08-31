@@ -4,13 +4,13 @@
 # Upstream: https://github.com/manic-systems/ncro
 
 [server]
-listen = "0.0.0.0:{{ nix_ncro_container_port }}"
+listen = "{{ infra_network_bind_all }}:{{ nix_ncro_container_port }}"
 
 # Upstream caches to race in parallel (lower priority = preferred)
 {% for upstream in nix_ncro_upstreams %}
 [[upstreams]]
 url = "{{ upstream.url }}"
-priority = {{ upstream.priority | default(10) }}
+priority = {{ upstream.priority | default(infra_retry_long) }}
 {% if upstream.public_key is defined %}
 public_key = "{{ upstream.public_key }}"
 {% endif %}
@@ -18,5 +18,5 @@ public_key = "{{ upstream.public_key }}"
 {% endfor %}
 # Route cache TTL — how long to remember which upstream won a race
 [cache]
-ttl = "2h"
-negative_ttl = "15m"
+ttl = "{{ infra_timeout_hour_long }}"
+negative_ttl = "{{ infra_timeout_half_hour_quarter }}"

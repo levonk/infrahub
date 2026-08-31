@@ -123,7 +123,7 @@
     --sysctl net.ipv6.conf.all.forwarding=1
     --security-opt no-new-privileges:true
     -e VPN_SERVICE_PROVIDER=nordvpn
-    -e OPENVPN_VERSION=2.6
+    -e OPENVPN_VERSION=2.6  # project-lint: disable=magic-dotted  version number, not an operational magic number
     -e "SERVER_COUNTRIES={{ vpn_nordvpn_windows_country }}"
     -e "OPENVPN_USER={{ vpn_nordvpn_windows_openvpn_user }}"
     -e "OPENVPN_PASSWORD={{ vpn_nordvpn_windows_openvpn_pass }}"
@@ -143,8 +143,8 @@
     -v {{ vpn_nordvpn_windows_config_volume_name }}:/gluetun
     -v {{ vpn_nordvpn_windows_data_volume_name }}:/tmp/gluetun
     --log-driver json-file
-    --log-opt max-size=10m
-    --log-opt max-file=5
+    --log-opt max-size={{ infra_log_max_size }}
+    --log-opt max-file={{ infra_log_max_file }}
     {{ vpn_nordvpn_windows_image }}
   environment:
     DOCKER_HOST: "{{ vpn_nordvpn_windows_docker_host }}"
@@ -155,7 +155,7 @@
 # 8. Wait for NordVPN to initialize
 - name: "Wait for NordVPN Windows container to initialize"
   ansible.builtin.pause:
-    seconds: 15
+    seconds: "{{ infra_delay_long }}"
   tags: ["deploy", "wait"]
 
 # 9. Deploy Tailscale exit node container (routes through NordVPN)
@@ -177,8 +177,8 @@
     -e TZ={{ vpn_nordvpn_windows_tz }}
     -v {{ vpn_nordvpn_windows_tailscale_state_volume_name }}:/var/lib/tailscale
     --log-driver json-file
-    --log-opt max-size=10m
-    --log-opt max-file=5
+    --log-opt max-size={{ infra_log_max_size }}
+    --log-opt max-file={{ infra_log_max_file }}
     {{ vpn_nordvpn_windows_tailscale_image }}
   environment:
     DOCKER_HOST: "{{ vpn_nordvpn_windows_docker_host }}"
@@ -190,7 +190,7 @@
 # 10. Wait for Tailscale to initialize
 - name: "Wait for Tailscale NordVPN Windows to initialize"
   ansible.builtin.pause:
-    seconds: 30
+    seconds: "{{ infra_delay_extended }}"
   tags: ["deploy", "wait"]
 
 # 11. Configure NordVPN as gateway for Tailscale traffic

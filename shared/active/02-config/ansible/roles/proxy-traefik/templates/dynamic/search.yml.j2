@@ -31,5 +31,5 @@ http:
     searxng:
       loadBalancer:
         servers:
-          - url: "http://{{ search_searxng_container_name | default('searxng') }}:{{ search_searxng_container_port | default('8080') }}"
+          - url: "http://{{ search_searxng_container_name | default('searxng') }}:{{ search_searxng_container_port | default(infra_port_proxy_dashboard_host) }}"
         passHostHeader: true

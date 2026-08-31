@@ -29,7 +29,7 @@
     state: directory
     owner: root
     group: root
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   tags: ["deploy", "config"]
 
 - name: Ensure n8n provisioning subdirectories exist
@@ -38,7 +38,7 @@
     state: directory
     owner: root
     group: root
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   loop:
     - prometheus
     - grafana/provisioning/datasources
@@ -54,7 +54,7 @@
     dest: "{{ n8n_config_dir }}/prometheus/prometheus.yml"
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   notify: restart n8n-prometheus
   tags: ["deploy", "config", "observability"]
 
@@ -64,7 +64,7 @@
     dest: "{{ n8n_config_dir }}/grafana/provisioning/datasources/prometheus.yml"
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   notify: restart n8n-grafana
   tags: ["deploy", "config", "observability"]
 
@@ -74,7 +74,7 @@
     dest: "{{ n8n_config_dir }}/grafana/provisioning/dashboards/n8n.yml"
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   notify: restart n8n-grafana
   tags: ["deploy", "config", "observability"]
 
@@ -84,7 +84,7 @@
     dest: "{{ n8n_config_dir }}/postgres/init-data.sh"
     owner: root
     group: root
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   tags: ["deploy", "config", "database"]
 
 - name: Copy n8n Grafana dashboards
@@ -93,7 +93,7 @@
     dest: "{{ n8n_config_dir }}/grafana/dashboards/"
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   notify: restart n8n-grafana
   tags: ["deploy", "config", "observability"]
 
@@ -182,8 +182,8 @@
   community.docker.docker_container_info:
     name: "{{ n8n_postgres_container_name }}"
   register: n8n_postgres_info
-  retries: 30
-  delay: 5
+  retries: "{{ infra_retry_extended }}"
+  delay: "{{ infra_delay_default }}"
   until: n8n_postgres_info.container.State.Health.Status | default('') == "healthy"
   tags: ["deploy", "database"]
 
@@ -297,7 +297,7 @@
       GF_SECURITY_ADMIN_USER: "admin"
       GF_SECURITY_ADMIN_PASSWORD: "{{ n8n_grafana_admin_password }}"
       GF_USERS_ALLOW_SIGN_UP: "false"
-      GF_DASHBOARDS_MIN_REFRESH_INTERVAL: "1s"
+      GF_DASHBOARDS_MIN_REFRESH_INTERVAL: "{{ infra_timeout_one_second }}"
       TZ: "{{ n8n_tz }}"
     published_ports:
       - "{{ n8n_grafana_host_port }}:{{ n8n_grafana_container_port }}/tcp"
@@ -326,8 +326,8 @@
   community.docker.docker_container_info:
     name: "{{ n8n_container_name }}"
   register: n8n_container_info
-  retries: 12
-  delay: 10
+  retries: "{{ infra_retry_long }}"
+  delay: "{{ infra_delay_long }}"
   until: n8n_container_info.container.State.Health.Status | default('') == "healthy"
   tags: ["deploy", "container"]
 

@@ -6,7 +6,7 @@
   ansible.builtin.file:
     path: "{{ localnet_services_dir }}/vpn/nordvpn"
     state: directory
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
 
 - name: "Ensure NordVPN volumes exist"
   community.docker.docker_volume:
@@ -60,7 +60,7 @@
       - /dev/net/tun
     env:
       VPN_SERVICE_PROVIDER: "nordvpn"
-      OPENVPN_VERSION: "2.6"
+      OPENVPN_VERSION: "2.6"  # project-lint: disable=magic-dotted  version number, not an operational magic number
       SERVER_COUNTRIES: "{{ vpn_nordvpn_country }}"
       OPENVPN_USER: "{{ vpn_nordvpn_openvpn_user }}"
       OPENVPN_PASSWORD: "{{ vpn_nordvpn_openvpn_pass }}"

@@ -13,5 +13,5 @@
 
     - name: Wait for instance(s) deletion to complete
       ansible.builtin.wait_for:
-        timeout: 60
+        timeout: "{{ infra_timeout_extended }}"
       when: destroy_result.changed

@@ -78,8 +78,8 @@
     -e CODEX_HOME=/app/codex-home
     -e TZ={{ localnet_tz | default('UTC') }}
     --log-driver json-file
-    --log-opt max-size=10m
-    --log-opt max-file=5
+    --log-opt max-size={{ infra_log_max_size }}
+    --log-opt max-file={{ infra_log_max_file }}
     --health-cmd "curl -f http://localhost:{{ jobops_container_port }}/health || exit 1"
     --health-interval {{ jobops_healthcheck_interval }}
     --health-timeout {{ jobops_healthcheck_timeout }}

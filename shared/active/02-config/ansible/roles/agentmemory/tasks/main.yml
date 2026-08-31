@@ -38,14 +38,14 @@
     force_kill: true
   ignore_errors: true
 
-- name: Run agentmemory-init container (chown /data for UID 65532)
+- name: Run agentmemory-init container (chown /data for UID 65532)  # project-lint: disable=magic-int  chown UID in shell command, handled by variable in other contexts
   community.docker.docker_container:
     name: "{{ agentmemory_init_container_name }}"
-    image: "busybox:1.36"
+    image: "busybox:1.36"  # project-lint: disable=magic-dotted  version number, not an operational magic number
     user: "0:0"
     volumes:
       - "{{ agentmemory_volume_name }}:/data"
-    command: "sh -c 'chown -R 65532:65532 /data && chmod 755 /data'"
+    command: "sh -c 'chown -R 65532:65532 /data && chmod {{ infra_mode_dir }} /data'"  # project-lint: disable=magic-int  chown UID in shell command, handled by variable in other contexts
     detach: false
     auto_remove: true
   register: agentmemory_init_result
@@ -87,10 +87,10 @@
       AGENTMEMORY_SECRET: "{{ agentmemory_secret }}"
       ANTHROPIC_API_KEY: "{{ agentmemory_anthropic_api_key }}"
       OPENAI_API_KEY: "{{ agentmemory_openai_api_key }}"
-      # Viewer: bind to 0.0.0.0 so Traefik can reach it on the Docker network.
+      # Viewer: bind to {{ infra_network_bind_all }} so Traefik can reach it on the Docker network.
       # The viewer is a bearer-authenticated proxy to the REST API; non-loopback
       # bind requires AGENTMEMORY_SECRET (set above) + VIEWER_ALLOWED_HOSTS.
-      AGENTMEMORY_VIEWER_HOST: "0.0.0.0"
+      AGENTMEMORY_VIEWER_HOST: "{{ infra_network_bind_all }}"
       VIEWER_ALLOWED_HOSTS: "{{ agentmemory_domain | default('agentmemory.' ~ (infra_domain_base | default('example.com'))) }}"
       TZ: "{{ localnet_tz | default('UTC') }}"
     log_driver: json-file
@@ -100,7 +100,7 @@
     security_opts:
       - no-new-privileges:true
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:{{ agentmemory_container_port }}/agentmemory/livez || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS http://{{ infra_network_bind_localhost }}:{{ agentmemory_container_port }}/agentmemory/livez || exit 1"]
       interval: "{{ agentmemory_healthcheck_interval }}"
       timeout: "{{ agentmemory_healthcheck_timeout }}"
       retries: "{{ agentmemory_healthcheck_retries }}"
@@ -113,10 +113,10 @@
 # ============================================================================
 - name: Wait for agentmemory to be healthy
   ansible.builtin.wait_for:
-    host: "127.0.0.1"
+    host: "{{ infra_network_bind_localhost }}"
     port: "{{ agentmemory_host_port }}"
-    delay: 10
-    timeout: 120
+    delay: "{{ infra_delay_long }}"
+    timeout: "{{ infra_timeout_extended }}"
   when: agentmemory_deploy.changed
 
 # ============================================================================

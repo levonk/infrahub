@@ -13,7 +13,7 @@
     state: directory
     owner: root
     group: root
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   become: true
 
 # ---------------------------------------------------------------------------
@@ -31,7 +31,7 @@
     dest: "{{ dashboard_trala_data_dir }}/configuration.yml"
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
   notify: restart trala
 
@@ -72,12 +72,12 @@
 # ---------------------------------------------------------------------------
 - name: Wait for TraLa to be healthy
   ansible.builtin.uri:
-    url: "http://127.0.0.1:{{ dashboard_trala_host_port }}{{ dashboard_trala_health_endpoint }}"
-    status_code: 200
+    url: "http://{{ infra_network_bind_localhost }}:{{ dashboard_trala_host_port }}{{ dashboard_trala_health_endpoint }}"
+    status_code: "{{ infra_http_status_ok }}"
   register: trala_health
-  until: trala_health.status == 200
-  retries: 10
-  delay: 5
+  until: trala_health.status == {{ infra_http_status_ok }}
+  retries: "{{ infra_retry_long }}"
+  delay: "{{ infra_delay_default }}"
   when:
     - dashboard_trala_enabled | bool
     - dashboard_trala_verify_health | bool

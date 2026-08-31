@@ -24,7 +24,7 @@
     dest: "{{ sandbox_cli_proxy_config_dir }}/{{ profile.name }}/iron-proxy.yml"
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
   notify: restart sandbox-cli-proxy
 
@@ -40,8 +40,8 @@
 - name: Generate CA certificate for sandbox MITM mode
   ansible.builtin.command:
     cmd: >
-      openssl req -x509 -newkey rsa:4096 -keyout {{ sandbox_cli_proxy_ca_dir }}/ca.key
-      -out {{ sandbox_cli_proxy_ca_dir }}/ca.crt -days 3650 -nodes
+      openssl req -x509 -newkey rsa:{{ infra_crypto_rsa_key_size }} -keyout {{ sandbox_cli_proxy_ca_dir }}/ca.key
+      -out {{ sandbox_cli_proxy_ca_dir }}/ca.crt -days {{ infra_tls_ca_validity_days }} -nodes
       -subj "/CN=sandbox-cli-proxy CA/O=sandbox-cli/C=US"
       -addext "basicConstraints=critical,CA:true"
       -addext "keyUsage=critical,keyCertSign"
@@ -54,7 +54,7 @@
 - name: Set CA key permissions readable by container
   ansible.builtin.file:
     path: "{{ sandbox_cli_proxy_ca_dir }}/ca.key"
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
   when:
     - sandbox_cli_proxy_tls_mode == "mitm"
@@ -82,8 +82,8 @@
       - name: "{{ profile.network }}"
         ipv4_address: "{{ profile.proxy_ip }}"
     ports:
-      - "{{ profile.http_port }}:{{ sandbox_cli_proxy_http_container_port | default('80') }}/tcp"
-      - "{{ profile.https_port }}:{{ sandbox_cli_proxy_https_container_port | default('443') }}/tcp"
+      - "{{ profile.http_port }}:{{ sandbox_cli_proxy_http_container_port | default(infra_port_proxy_http_host) }}/tcp"
+      - "{{ profile.https_port }}:{{ sandbox_cli_proxy_https_container_port | default(infra_port_proxy_https_host) }}/tcp"
     volumes:
       - "{{ sandbox_cli_proxy_config_dir }}/{{ profile.name }}/iron-proxy.yml:/etc/iron-proxy/iron-proxy.yml:ro"
       - "{{ sandbox_cli_proxy_ca_dir }}/ca.crt:/etc/iron-proxy/ca.crt:ro"
@@ -91,10 +91,10 @@
       - "sandbox-cli-ca-{{ profile.name }}:/etc/iron-proxy-ca"
     env:
       IRON_DNS_ENABLED: "{{ sandbox_cli_proxy_dns_enabled | ternary('true', 'false') }}"
-      IRON_DNS_LISTEN: ":{{ profile.dns_port | default('53') }}"
+      IRON_DNS_LISTEN: ":{{ profile.dns_port | default(infra_port_dns_host) }}"
       IRON_DNS_PROXY_IP: "{{ sandbox_cli_proxy_dns_proxy_ip }}"
-      IRON_PROXY_HTTP_LISTEN: ":{{ sandbox_cli_proxy_http_container_port | default('80') }}"
-      IRON_PROXY_HTTPS_LISTEN: ":{{ sandbox_cli_proxy_https_container_port | default('443') }}"
+      IRON_PROXY_HTTP_LISTEN: ":{{ sandbox_cli_proxy_http_container_port | default(infra_port_proxy_http_host) }}"
+      IRON_PROXY_HTTPS_LISTEN: ":{{ sandbox_cli_proxy_https_container_port | default(infra_port_proxy_https_host) }}"
       IRON_TLS_MODE: "{{ sandbox_cli_proxy_tls_mode }}"
       IRON_TLS_CA_CERT: "/etc/iron-proxy/ca.crt"
       IRON_TLS_CA_KEY: "/etc/iron-proxy/ca.key"
@@ -110,17 +110,17 @@
       - no-new-privileges:true
     read_only: true
     tmpfs:
-      - /tmp:rw,noexec,nosuid,size=100m
+      - /tmp:rw,noexec,nosuid,size={{ infra_size_100m }}
     log_driver: json-file
     log_options:
-      max-size: "10m"
-      max-file: "5"
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:{{ sandbox_cli_proxy_http_container_port | default('80') }}/ 2>/dev/null; rc=$?; [ $rc -le 1 ] || exit 1"]
-      interval: "30s"
-      timeout: "5s"
-      retries: 3
-      start_period: "10s"
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:{{ sandbox_cli_proxy_http_container_port | default(infra_port_proxy_http_host) }}/ 2>/dev/null; rc=$?; [ $rc -le 1 ] || exit 1"]
+      interval: "{{ infra_timeout_default }}"
+      timeout: "{{ infra_timeout_healthcheck_short }}"
+      retries: "{{ infra_retry_short }}"
+      start_period: "{{ infra_timeout_short }}"
   become: true
 
 # ---------------------------------------------------------------------------
@@ -128,12 +128,12 @@
 # ---------------------------------------------------------------------------
 - name: "Wait for {{ profile.name }} iron-proxy to be healthy"
   ansible.builtin.uri:
-    url: "http://127.0.0.1:{{ profile.http_port }}/health"
+    url: "http://{{ infra_network_bind_localhost }}:{{ profile.http_port }}/health"
     status_code: [200, 502]
   register: profile_health
   until: profile_health.status in [200, 502]
-  retries: 10
-  delay: 5
+  retries: "{{ infra_retry_long }}"
+  delay: "{{ infra_delay_default }}"
   when:
     - sandbox_cli_proxy_enabled | bool
     - sandbox_cli_proxy_verify_health | bool
@@ -148,5 +148,5 @@
     remote_src: true
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true

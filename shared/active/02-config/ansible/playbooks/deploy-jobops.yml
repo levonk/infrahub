@@ -98,7 +98,7 @@
         dest: "{{ proxy_traefik_data_dir | default('/opt/traefik') }}/config/dynamic/jobops.yml"
         owner: root
         group: root
-        mode: "0644"
+        mode: "{{ infra_mode_file }}"
       notify: reload traefik
       tags: ["traefik", "routing"]
       when: career_jobops_enabled | default(false) | bool

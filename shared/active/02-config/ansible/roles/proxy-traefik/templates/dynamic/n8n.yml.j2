@@ -31,5 +31,5 @@ http:
     n8n:
       loadBalancer:
         servers:
-          - url: "http://{{ n8n_container_name | default('localnet-n8n') }}:{{ n8n_container_port | default('5678') }}"
+          - url: "http://{{ n8n_container_name | default('localnet-n8n') }}:{{ n8n_container_port | default('5678') }}"  # project-lint: disable=magic-int  Jinja default port value, should use infra_port variable
         passHostHeader: true

@@ -26,7 +26,7 @@
     cloudflare_api_token: "{{ vault_cloudflare_api_token | default('') }}"
     cloudflare_zone_id: "{{ vault_cloudflare_zone_id | default('') }}"
     cloudflare_dns_state: "present"
-    cloudflare_dns_ttl: 300
+    cloudflare_dns_ttl: "{{ infra_dns_ttl }}"
     cloudflare_dns_proxied: false
     cloudflare_dns_verify: true
     cloudflare_dns_verify_propagation: false

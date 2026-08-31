@@ -12,7 +12,7 @@
     state: directory
     owner: root
     group: root
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   become: true
 
 - name: Ensure CrowdSec configuration directories exist
@@ -21,7 +21,7 @@
     state: directory
     owner: root
     group: root
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   become: true
   loop:
     - config
@@ -65,7 +65,7 @@
     dest: "{{ security_crowdsec_data_dir }}/config/config.yaml"
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
   notify: restart crowdsec
 
@@ -75,7 +75,7 @@
     dest: "{{ security_crowdsec_data_dir }}/config/acquis.yaml"
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
   notify: restart crowdsec
 
@@ -85,7 +85,7 @@
     dest: "{{ security_crowdsec_data_dir }}/config/profiles.yaml"
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
   notify: restart crowdsec
 
@@ -98,7 +98,7 @@
     dest: "{{ security_crowdsec_data_dir }}/config/bouncer.yaml"
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
   notify: restart crowdsec-bouncer
 
@@ -183,7 +183,7 @@
     dest: /etc/logrotate.d/crowdsec
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
   when: security_crowdsec_enabled | bool
 
@@ -192,13 +192,13 @@
 # ---------------------------------------------------------------------------
 - name: Wait for CrowdSec LAPI to be healthy
   ansible.builtin.uri:
-    url: "http://127.0.0.1:{{ security_crowdsec_lapi_port }}{{ security_crowdsec_lapi_health_endpoint }}"
+    url: "http://{{ infra_network_bind_localhost }}:{{ security_crowdsec_lapi_port }}{{ security_crowdsec_lapi_health_endpoint }}"
     status_code: [200]
     return_content: false
   register: crowdsec_health
-  until: crowdsec_health.status == 200
-  retries: 10
-  delay: 5
+  until: crowdsec_health.status == {{ infra_http_status_ok }}
+  retries: "{{ infra_retry_long }}"
+  delay: "{{ infra_delay_default }}"
   when:
     - security_crowdsec_enabled | bool
     - security_crowdsec_verify_health | bool
