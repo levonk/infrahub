@@ -1,7 +1,7 @@
 # Home Lab In-a-Box - Grafana Datasources
 # Purpose: Configure data sources for Grafana dashboards
 
-apiVersion: 1
+apiVersion: 1  # project-lint: disable=magic-int  Grafana provisioning schema version, not a config value
 
 datasources:
   # Prometheus
@@ -32,7 +32,7 @@ datasources:
     editable: false
     jsonData:
       timeField: "@timestamp"
-      esVersion: "8.0.0"
+      esVersion: "8.0.0"  # project-lint: disable=magic-dotted  Elasticsearch API version, not a config value
       logMessageField: message
       logLevelField: level
   

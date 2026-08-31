@@ -6,7 +6,7 @@
 # actual deployment tasks.
 #
 # Purpose: documents the intended topology for human reading.
-version: "3.8"
+version: "3.8"  # project-lint: disable=magic-dotted  compose schema version, not a config value
 
 services:
   no-mistakes:

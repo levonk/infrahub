@@ -55,7 +55,7 @@ if [[ -n "$file_violations" ]]; then
     echo "$file_violations" >&2
     echo "" >&2
     echo "Fix by replacing hardcoded values with {{ variable }} references." >&2
-    echo "For exceptions, add: # lint-magic-numbers: disable=<rule>  <reason>" >&2
+    echo "For exceptions, add: # project-lint: disable=<magic-rule>  <reason>" >&2
 fi
 
 exit 0

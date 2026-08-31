@@ -151,7 +151,7 @@ fi
 # build at ~/p/gh/levonk/project-lint/target/release/project-lint.
 #
 # Run `just lint-magic` for a whole-repo scan.
-# Use `# lint-magic-numbers: disable=<rule>` to suppress specific rules
+# Use `# project-lint: disable=<magic-rule>` to suppress specific rules
 # on a line.
 # ---------------------------------------------------------------------------
 
@@ -183,7 +183,7 @@ if [[ -x "$project_lint_bin" ]]; then
             echo "$staged_violations" >&2
             echo "" >&2
             echo "To suppress a specific rule on a line, add:" >&2
-            echo "  # lint-magic-numbers: disable=<rule>  <reason>" >&2
+            echo "  # project-lint: disable=<magic-rule>  <reason>" >&2
             echo "" >&2
             echo "Commit aborted. Fix the violations or add inline overrides." >&2
             exit 1

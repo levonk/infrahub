@@ -275,7 +275,7 @@ lint_impl:
 # variables.  Uses the project-lint magic_numbers scanner (Rust).
 #
 # Override the binary path with: PROJECT_LINT_BIN=/path/to/project-lint
-# Inline override syntax: # lint-magic-numbers: disable=<rule>  <reason>
+# Inline override syntax: # project-lint: disable=<magic-rule>  <reason>
 
 lint-magic:
     @just _devbox lint_magic_impl
