@@ -8,7 +8,7 @@ Desktop (dtop202311, nl region).
 
 - **Image**: `ghcr.io/asciimoo/hister:latest` (upstream, AMD64)
 - **Port**: 4433 (host and container)
-- **Domain**: `hister.nl.levonk.com` (via Traefik on Windows)
+- **Domain**: `hister.nl.{{ infra_domain_base }}` (via Traefik on Windows)
 - **Auth**: Authelia SSO (forward-auth middleware in Traefik)
 - **Storage**: Docker named volume `localnet-hister-data-volume` at `/hister/data`
 - **Database**: SQLite (stored in data volume)
@@ -26,7 +26,7 @@ Hister is configured entirely via environment variables — no config files:
 | Variable | Purpose |
 |----------|---------|
 | `HISTER__SERVER__ADDRESS` | Listen address (`0.0.0.0:4433`) |
-| `HISTER__SERVER__BASE_URL` | Public URL (`https://hister.nl.levonk.com`) |
+| `HISTER__SERVER__BASE_URL` | Public URL (`https://hister.nl.{{ infra_domain_base }}`) |
 | `HISTER__APP__TITLE` | Web UI title |
 | `HISTER__APP__LOG_LEVEL` | Log verbosity (`info`) |
 

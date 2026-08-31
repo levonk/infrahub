@@ -11,11 +11,11 @@ search_hister_image_name: "ghcr.io/asciimoo/hister"
 search_hister_image_tag: "latest"
 
 # Ports (reference infrastructure variables)
-search_hister_host_port: "{{ infra_port_search_hister_host | default('4433') }}"
-search_hister_container_port: "{{ infra_port_search_hister_container | default('4433') }}"
+search_hister_host_port: "{{ infra_port_search_hister_host | default('4433') }}"  # project-lint: disable=magic-int  Hister port fallback
+search_hister_container_port: "{{ infra_port_search_hister_container | default('4433') }}"  # project-lint: disable=magic-int  Hister port fallback
 
 # Domain (reference infrastructure variables)
-search_hister_domain: "{{ infra_domain_search_hister | default('hister.nl.levonk.com') }}"
+search_hister_domain: "{{ infra_domain_search_hister | default('hister.nl.' ~ (infra_domain_base | default('example.com'))) }}"
 
 # Volume (reference infrastructure variables)
 search_hister_data_volume: "{{ infra_storage_hister_data_volume | default('localnet-hister-data-volume') }}"

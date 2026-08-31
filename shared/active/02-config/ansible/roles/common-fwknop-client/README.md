@@ -27,7 +27,7 @@ Installs the fwknop SPA (Single Packet Authorization) client and deploys configu
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `fwknop_client_enabled` | `true` | Whether to install and configure |
-| `fwknop_client_spa_server` | `oci.mach.levonk.com` | SPA server public hostname |
+| `fwknop_client_spa_server` | `oci.mach.{{ infra_domain_base }}` | SPA server public hostname |
 | `fwknop_client_spa_port` | `62271` | SPA UDP port |
 | `fwknop_client_ssh_key` | `~/.ssh/lzkmbp2016-micro-oracle` | SSH key for OCI server |
 | `fwknop_client_tailscale_ip` | `100.90.22.85` | OCI Tailscale IP |

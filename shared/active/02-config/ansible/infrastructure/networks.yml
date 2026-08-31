@@ -141,7 +141,7 @@ infra_network_proxy_traefik_subnet: "172.31.0.0/16"
 infra_network_proxy_traefik_gateway: "172.31.0.1"
 # Traefik container's static IP on traefik-network.
 # Used by internal containers that need to resolve public domain names
-# (e.g. buzz.levonk.com) to Traefik for WebSocket/TLS termination.
+# (e.g. the relay domain) to Traefik for WebSocket/TLS termination.
 infra_network_ip_traefik: "172.31.0.2"
 
 # ---------------------------------------------------------------------------

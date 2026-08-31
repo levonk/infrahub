@@ -7,7 +7,7 @@ How to add, configure, and manage Buzz agent runtime containers.
 ```
 Buzz clients (desktop/web/CLI)
     ↕ WebSocket
-Buzz relay (buzz.levonk.com, already deployed)
+Buzz relay (relay domain, already deployed)
     ↕ WebSocket (internal buzz-network)
 buzz-agent-<id> containers (one per agent)
     ↕ spawns via stdio
@@ -19,13 +19,13 @@ its ACP subprocess. The agent connects to the relay using its own Nostr
 identity (keypair) and listens for @mentions in channels it's a member of.
 
 **Network topology**: Agents join both `buzz-network` and `traefik-network`.
-They connect to the relay via `wss://buzz.levonk.com` (through Traefik), not
+They connect to the relay via `wss://{{ infra_domain_buzz }}` (through Traefik), not
 via the internal `ws://buzz:3000` address. This is required because the relay
 validates that the URL in the NIP-42 auth event matches its configured
-`RELAY_URL` (`wss://buzz.levonk.com`). A Traefik WebSocket bypass router
+`RELAY_URL` (`wss://{{ infra_domain_buzz }}`). A Traefik WebSocket bypass router
 (`buzz-agent-ws.yml` in Traefik's dynamic config) skips Authelia for WebSocket
 upgrade requests and `/query` API calls, so agents can authenticate via NIP-42
-without SSO credentials. The `buzz.levonk.com` hostname is resolved via
+without SSO credentials. The relay hostname is resolved via
 `/etc/hosts` inside each container, pointing to Traefik's IP on
 `traefik-network`.
 

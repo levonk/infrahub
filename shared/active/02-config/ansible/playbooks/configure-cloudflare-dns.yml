@@ -22,7 +22,7 @@
 
     # DNS Record Configuration
     cloudflare_dns_state: "present"
-    cloudflare_dns_ttl: 300
+    cloudflare_dns_ttl: 300  # project-lint: disable=magic-int  DNS TTL default
     cloudflare_dns_proxied: false  # DNS-only mode, not full proxy
     cloudflare_dns_verify: true
     cloudflare_dns_verify_propagation: false
@@ -158,6 +158,14 @@
       - name: "{{ infra_domain_tools_stirling_pdf | default('stirling.nl.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
         content: "{{ ts_fqdn_windows_docker }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      # Stirling-PDF short alias (CNAME → primary Stirling-PDF domain)
+      - name: "{{ infra_domain_tools_stirling_pdf_alias | default('pdf.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "CNAME"
+        content: "{{ infra_domain_tools_stirling_pdf | default('stirling.nl.' ~ (infra_domain_base | default('example.com'))) }}"
         ttl: "{{ cloudflare_dns_ttl }}"
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"

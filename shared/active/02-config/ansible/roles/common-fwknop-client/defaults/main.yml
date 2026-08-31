@@ -6,12 +6,12 @@
 fwknop_client_enabled: true
 
 # SPA server connection details (sourced from infrastructure variables)
-fwknop_client_spa_server: "oci.mach.levonk.com"
-fwknop_client_spa_port: "{{ infra_port_security_fwknop_spa_host | default('62271') }}"
+fwknop_client_spa_server: "{{ infra_domain_fwknop_spa_server | default('oci.mach.' ~ (infra_domain_base | default('example.com'))) }}"
+fwknop_client_spa_port: "{{ infra_port_security_fwknop_spa_host | default(infra_port_fwknop_spa_host) }}"
 # Internal SSH port — Tailscale path (ssh oci)
-fwknop_client_ssh_port: "{{ infra_port_ssh_host | default('22') }}"
+fwknop_client_ssh_port: "{{ infra_port_ssh_host | default(infra_port_ssh_host) }}"
 # Public SSH port — SPA-protected path (ssh ocispa)
-fwknop_client_public_ssh_port: "{{ infra_port_ssh_public_host | default('7722') }}"
+fwknop_client_public_ssh_port: "{{ infra_port_ssh_public_host | default(infra_port_ssh_public_host) }}"
 
 # ---------------------------------------------------------------------------
 # Per-client key selection (from Ansible vault)

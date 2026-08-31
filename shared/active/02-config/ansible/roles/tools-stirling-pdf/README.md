@@ -28,7 +28,7 @@ ansible-playbook -i levonk/active/02-config/ansible/inventories/windows-docker.y
 
 - **Image**: `stirlingtools/stirling-pdf:latest` (Docker Hub, multi-arch amd64 + arm64)
 - **Port**: Container 8080, host 4531 (variable: `infra_port_tools_stirling_pdf_host`)
-- **Domain**: `stirling.nl.levonk.com` (variable: `infra_domain_tools_stirling_pdf`)
+- **Domain**: `stirling.nl.{{ infra_domain_base }}` (variable: `infra_domain_tools_stirling_pdf`)
 - **Network**: `traefik-windows-network` (joined for Traefik routing)
 - **Reverse proxy**: Traefik (Windows instance) with Authelia forward-auth SSO
 

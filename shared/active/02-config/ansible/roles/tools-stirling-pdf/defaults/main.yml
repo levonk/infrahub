@@ -15,7 +15,9 @@ tools_stirling_pdf_host_port: "{{ infra_port_tools_stirling_pdf_host | default('
 tools_stirling_pdf_container_port: "{{ infra_port_tools_stirling_pdf_container | default('8080') }}"  # project-lint: disable=magic-int  fallback container port
 
 # Domain (reference infrastructure variables)
-tools_stirling_pdf_domain: "{{ infra_domain_tools_stirling_pdf | default('stirling.nl.levonk.com') }}"
+tools_stirling_pdf_domain: "{{ infra_domain_tools_stirling_pdf | default('stirling.nl.' ~ (infra_domain_base | default('example.com'))) }}"
+# Short alias domain (CNAME → primary domain)
+tools_stirling_pdf_domain_alias: "{{ infra_domain_tools_stirling_pdf_alias | default('') }}"
 
 # Volumes (reference infrastructure variables)
 tools_stirling_pdf_configs_volume: "{{ infra_storage_stirling_pdf_configs_volume | default('localnet-stirling-pdf-configs-volume') }}"

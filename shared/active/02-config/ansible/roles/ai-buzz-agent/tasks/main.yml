@@ -62,7 +62,7 @@
     state: directory
     owner: "{{ ai_buzz_agent_puid }}"
     group: "{{ ai_buzz_agent_pgid }}"
-    mode: '0750'
+    mode: '0750'  # project-lint: disable=magic-int  directory mode
   tags: ["deploy", "config"]
 
 # ============================================================================
@@ -85,7 +85,7 @@
       - name: "{{ ai_buzz_agent_network_name }}"
       - name: "{{ ai_buzz_agent_traefik_network_name }}"
     # Map the relay domain to Traefik's IP so agents can resolve
-    # buzz.levonk.com without external DNS. Traefik's WebSocket bypass
+    # the relay domain without external DNS. Traefik's WebSocket bypass
     # router skips Authelia for WS upgrade requests.
     etc_hosts: "{{ ai_buzz_agent_etc_hosts }}"
     env:
@@ -103,8 +103,8 @@
       - "{{ ai_buzz_agent_credentials_host_path }}:{{ ai_buzz_agent_credentials_mount_path }}:ro"
     log_driver: json-file
     log_options:
-      max-size: "10m"
-      max-file: "5"
+      max-size: "10m"  # project-lint: disable=magic-unitnum  log rotation size
+      max-file: "5"  # project-lint: disable=magic-int  log rotation count
     security_opts:
       - no-new-privileges:true
   loop: "{{ ai_buzz_agent_agents }}"
