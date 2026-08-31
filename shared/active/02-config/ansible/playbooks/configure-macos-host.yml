@@ -27,6 +27,8 @@
     # 5 dirname steps: playbooks -> ansible -> 02-config -> active -> shared -> infrahub root
     infrahub_root: "{{ playbook_dir | dirname | dirname | dirname | dirname | dirname }}"
     macos_infrahub_git_key_file: "{{ macos_auser_home }}/.ssh/{{ ansible_ssh_private_key_file | basename }}"
+    # macOS version threshold for Apple Container (built-in, no third-party runtime)
+    macos_apple_container_min_version: "26"  # project-lint: disable=magic-int  macOS major version threshold
 
   pre_tasks:
     - name: "Gather ansible_facts"
@@ -52,11 +54,11 @@
       when: auser_check.rc != 0
       tags: ["always", "validate"]
 
-    - name: "Auto-detect container runtime (macOS 26+ ARM → Apple Container, else OrbStack)"
+    - name: "Auto-detect container runtime (Apple Container on ARM macOS, else OrbStack)"
       ansible.builtin.set_fact:
         infra_app_container_runtime: >-
           {{ 'apple-container'
-             if (ansible_facts['distribution_version'] is version('26', '>=') and ansible_facts['architecture'] == 'arm64')
+             if (ansible_facts['distribution_version'] is version(macos_apple_container_min_version, '>=') and ansible_facts['architecture'] == 'arm64')
              else 'orbstack' }}
       when: infra_app_container_runtime is not defined or infra_app_container_runtime == "auto"
       tags: ["always"]
@@ -114,7 +116,7 @@
           keep-outputs = true
           keep-derivations = true
           accept-flake-config = true
-        mode: "0644"
+        mode: "0644"  # project-lint: disable=magic-int  standard config file mode
         owner: root
         group: wheel
       become: true
@@ -127,9 +129,9 @@
       tags: ["nix", "configure"]
 
     # ponytail: nixpkgs 26.11 dropped x86_64-darwin; pin 26.05-darwin for x86_64 only
-    - name: "Pin nixpkgs to 26.05-darwin for x86_64-darwin"
+    - name: "Pin nixpkgs to 26.05-darwin for x86_64-darwin"  # project-lint: disable=magic-dotted  nixpkgs channel version
       ansible.builtin.command: |
-        /nix/var/nix/profiles/default/bin/nix-channel --add https://nixos.org/channels/nixpkgs-26.05-darwin nixpkgs
+        /nix/var/nix/profiles/default/bin/nix-channel --add https://nixos.org/channels/nixpkgs-26.05-darwin nixpkgs  # project-lint: disable=magic-dotted  nixpkgs channel URL
         /nix/var/nix/profiles/default/bin/nix-channel --update
       changed_when: true
       when:
@@ -137,10 +139,10 @@
         - ansible_facts['architecture'] == "x86_64"
       tags: ["nix", "configure"]
 
-    - name: "Set nixpkgs flake registry to 26.05-darwin for x86_64-darwin"
+    - name: "Set nixpkgs flake registry to 26.05-darwin for x86_64-darwin"  # project-lint: disable=magic-dotted  nixpkgs registry version
       ansible.builtin.command: >
         /nix/var/nix/profiles/default/bin/nix registry add nixpkgs
-        github:NixOS/nixpkgs/nixpkgs-26.05-darwin
+        github:NixOS/nixpkgs/nixpkgs-26.05-darwin  # project-lint: disable=magic-dotted  nixpkgs registry URL
       changed_when: true
       when:
         - ansible_facts['distribution'] == "MacOSX"
@@ -201,8 +203,94 @@
         /nix/var/nix/profiles/default/bin/nix run nix-darwin -- switch
         --flake {{ macos_darwin_flake_dir }}#{{ inventory_hostname }}
       become: true
+      register: nix_darwin_switch
+      # nix-darwin switch exits non-zero if the Homebrew bundle step fails
+      # during activation, even though the system generation was built and
+      # profiled successfully. The verification gate below checks whether
+      # the new generation is actually active — that's the real success
+      # signal. We tolerate non-zero exit here so the gate can run.
+      failed_when: false
       changed_when: true
       tags: ["nix-darwin", "apply"]
+
+    # ---------------------------------------------------------------------------
+    # Verification gate — ensure the new generation is actually active before
+    # proceeding to Homebrew, casks, container runtime, and pmset tasks.
+    #
+    # nix-darwin's activate-system launchd daemon is responsible for updating
+    # /run/current-system to point at the newly-built generation. On first
+    # install (or if the daemon didn't reload during activation), the symlink
+    # may still point at the old generation — the switch command exits
+    # successfully, but the new packages are not on PATH. This gate detects
+    # the mismatch, restarts the daemon, and fails if it still doesn't pick
+    # up the new generation.
+    # ---------------------------------------------------------------------------
+    - name: "Read the latest profile generation"
+      ansible.builtin.command: readlink -f /nix/var/nix/profiles/system
+      register: nix_darwin_profile_target
+      changed_when: false
+      failed_when: false
+      tags: ["nix-darwin", "verify"]
+
+    - name: "Read the active system symlink"
+      ansible.builtin.command: readlink -f /run/current-system
+      register: nix_darwin_active_target
+      changed_when: false
+      failed_when: false
+      tags: ["nix-darwin", "verify"]
+
+    - name: "Restart activate-system daemon if generation is not active"
+      ansible.builtin.command: |
+        launchctl bootout system/org.nixos.activate-system 2>/dev/null || true
+        sleep 2  # project-lint: disable=magic-int  brief pause before re-bootstrap
+        launchctl bootstrap system /Library/LaunchDaemons/org.nixos.activate-system.plist
+        sleep 5  # project-lint: disable=magic-int  wait for daemon to update /run/current-system
+      become: true
+      when: >
+        nix_darwin_active_target.stdout | default('') != nix_darwin_profile_target.stdout | default('')
+      tags: ["nix-darwin", "verify"]
+
+    - name: "Re-read the active system symlink after daemon restart"
+      ansible.builtin.command: readlink -f /run/current-system
+      register: nix_darwin_active_target_after
+      changed_when: false
+      failed_when: false
+      when: >
+        nix_darwin_active_target.stdout | default('') != nix_darwin_profile_target.stdout | default('')
+      tags: ["nix-darwin", "verify"]
+
+    - name: "Fail if new generation is still not active"
+      ansible.builtin.fail:
+        msg: |
+          nix-darwin switch completed but /run/current-system does not point
+          at the latest generation. Even after restarting the activate-system
+          daemon, the mismatch persists.
+          Profile generation: {{ nix_darwin_profile_target.stdout | default('NOT FOUND') }}
+          Active system:      {{ nix_darwin_active_target_after.stdout | default('NOT FOUND') }}
+          Switch exit code:   {{ nix_darwin_switch.rc }}
+          Manual recovery:
+            sudo launchctl bootout system/org.nixos.activate-system
+            sudo launchctl bootstrap system /Library/LaunchDaemons/org.nixos.activate-system.plist
+            readlink -f /run/current-system
+      when: >
+        nix_darwin_active_target.stdout | default('') != nix_darwin_profile_target.stdout | default('')
+        and
+        nix_darwin_active_target_after.stdout | default('') != nix_darwin_profile_target.stdout | default('')
+      tags: ["nix-darwin", "verify"]
+
+    - name: "Warn if switch exited non-zero but generation is active"
+      ansible.builtin.debug:
+        msg: |
+          WARNING: nix-darwin switch exited with code {{ nix_darwin_switch.rc }}
+          but the new generation IS active. The non-zero exit was likely caused
+          by a Homebrew bundle failure during activation — the system packages
+          are correct, but some casks may not have installed. Check switch output:
+          {{ nix_darwin_switch.stderr_lines[-3:] | default('no stderr') }}
+      when: >
+        nix_darwin_switch.rc | default(0) != 0
+        and
+        nix_darwin_active_target_after.stdout | default(nix_darwin_active_target.stdout | default('')) == nix_darwin_profile_target.stdout | default('')
+      tags: ["nix-darwin", "verify"]
 
     # ---------------------------------------------------------------------------
     # Homebrew — for cask apps not in nixpkgs
@@ -240,7 +328,7 @@
       ansible.builtin.copy:
         src: "{{ playbook_dir }}/../nix/flake.nix"
         dest: "{{ macos_nix_flake_dir }}/flake.nix"
-        mode: "0644"
+        mode: "0644"  # project-lint: disable=magic-int  standard config file mode
       tags: ["nix", "flake"]
 
     - name: "Install host apps via nix flake (CLI + GUI packages)"
@@ -314,7 +402,7 @@
 
     - name: "Report Apple Container status"
       ansible.builtin.debug:
-        msg: "Apple Container: {{ apple_container_check.stdout if apple_container_check.rc == 0 else 'not installed — requires macOS 26+' }}"
+        msg: "Apple Container: {{ apple_container_check.stdout if apple_container_check.rc == 0 else 'not installed — requires macOS ' ~ macos_apple_container_min_version ~ '+)' }}"
       when: infra_app_container_runtime == "apple-container"
       tags: ["containers", "check"]
 
@@ -351,8 +439,8 @@
           become: true
           changed_when: true
 
-        - name: "pmset -a displaysleep 4"
-          ansible.builtin.command: pmset -a displaysleep 4
+        - name: "pmset -a displaysleep 4"  # project-lint: disable=magic-int  pmset display sleep minutes
+          ansible.builtin.command: pmset -a displaysleep 4  # project-lint: disable=magic-int  pmset display sleep minutes
           become: true
           changed_when: true
 
@@ -361,8 +449,8 @@
           become: true
           changed_when: true
 
-        - name: "pmset -b sleep 5"
-          ansible.builtin.command: pmset -b sleep 5
+        - name: "pmset -b sleep 5"  # project-lint: disable=magic-int  pmset battery sleep minutes
+          ansible.builtin.command: pmset -b sleep 5  # project-lint: disable=magic-int  pmset battery sleep minutes
           become: true
           changed_when: true
 

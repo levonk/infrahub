@@ -69,6 +69,45 @@ The final line is typically silent (exit 0) with no error. If you see
 `error: unsupported Nix option` or `error: attribute 'x' missing`, see
 Troubleshooting below.
 
+> **Non-zero exit from Homebrew**: `darwin-rebuild switch` runs
+> `brew bundle` during activation. If any cask or formula fails to
+> install, the switch exits with code 1 — but the nix-darwin system
+> generation is still built and profiled. The Ansible playbook
+> (`configure-macos-host.yml`) tolerates this and verifies the
+> generation is active via the verification gate (see below). When
+> running manually, check `/run/current-system` (next section) rather
+> than relying on the exit code alone.
+
+### Post-switch verification gate (automated in Ansible)
+
+After the switch, verify that `/run/current-system` actually points
+at the generation that was just built. The `activate-system` launchd
+daemon is responsible for updating this symlink. On first install
+(or if the daemon didn't reload during activation), the symlink may
+still point at the old generation — the switch exits successfully,
+but the new packages are not on PATH.
+
+```bash
+# The profile always points at the latest generation:
+readlink -f /nix/var/nix/profiles/system
+
+# The active system should match:
+readlink -f /run/current-system
+
+# If they don't match, restart the daemon:
+sudo launchctl bootout system/org.nixos.activate-system 2>/dev/null
+sleep 2
+sudo launchctl bootstrap system /Library/LaunchDaemons/org.nixos.activate-system.plist
+sleep 5
+
+# Re-check:
+readlink -f /run/current-system
+```
+
+The Ansible playbook automates this check — if the symlink doesn't
+match after the switch, it restarts the daemon and re-checks. If it
+still doesn't match, the playbook fails with a diagnostic message.
+
 ## Verification
 
 After a successful apply, run these spot-checks on the target Mac:
@@ -224,6 +263,32 @@ nix flake lock --update-input nix-darwin
 ```
 
 Then re-run the apply command from the repo root.
+
+### `/run/current-system` not updated after switch
+
+The switch command builds the new generation and updates the profile
+(`/nix/var/nix/profiles/system`), but `/run/current-system` is
+maintained by the `org.nixos.activate-system` launchd daemon. On first
+install or if the daemon didn't reload, the symlink stays on the old
+generation — new packages are not on PATH despite a successful build.
+
+```bash
+# Check if they match:
+diff <(readlink -f /nix/var/nix/profiles/system) <(readlink -f /run/current-system)
+
+# If they don't match, restart the daemon:
+sudo launchctl bootout system/org.nixos.activate-system 2>/dev/null
+sleep 2
+sudo launchctl bootstrap system /Library/LaunchDaemons/org.nixos.activate-system.plist
+sleep 5
+
+# Verify:
+readlink -f /run/current-system
+```
+
+The Ansible playbook's verification gate automates this — it detects
+the mismatch, restarts the daemon, and fails if the symlink still
+doesn't update.
 
 ## See Also
 
