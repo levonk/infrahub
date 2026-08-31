@@ -54,6 +54,16 @@
         file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/storage.yml"
       tags: ["always"]
 
+    - name: "Load shared infrastructure timing defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/timing.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure mode defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/modes.yml"
+      tags: ["always"]
+
     - name: "Validate required variables"
       ansible.builtin.assert:
         that:
@@ -97,6 +107,16 @@
     - name: "Load client infrastructure domain overrides"
       ansible.builtin.include_vars:
         file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/domains.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure timing defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/timing.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure mode defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/modes.yml"
       tags: ["always"]
 
     - name: "Load tools-stirling-pdf role defaults (for container name + port vars)"

@@ -1,0 +1,83 @@
+# ACME TXT Record Cleanup — Delete stale _acme-challenge.* TXT records
+#
+# Traefik's Cloudflare DNS-01 provider cannot overwrite an existing TXT
+# record. If a previous ACME challenge left a stale _acme-challenge.<domain>
+# TXT record, the next challenge fails with:
+#   "An identical record already exists. (81058)"
+#
+# This task queries the Cloudflare API for any _acme-challenge.* TXT records
+# matching the managed domains and deletes them before Traefik starts.
+
+# Validate Cloudflare credentials are available
+- name: Validate Cloudflare credentials for ACME TXT cleanup
+  ansible.builtin.assert:
+    that:
+      - proxy_traefik_windows_cf_dns_api_token | length > 0
+      - proxy_traefik_windows_cf_zone_id | length > 0
+    msg: >-
+      Cloudflare API token and zone ID are required for ACME TXT cleanup.
+      Ensure vault_cloudflare_api_token and vault_cloudflare_zone_id are set.
+  delegate_to: localhost
+  run_once: true
+
+# Query stale TXT records for each managed domain
+- name: Find stale ACME TXT records for managed domains
+  ansible.builtin.uri:
+    url: "https://api.cloudflare.com/client/v4/zones/{{ proxy_traefik_windows_cf_zone_id }}/dns_records?type=TXT&name=_acme-challenge.{{ domain_item }}"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ proxy_traefik_windows_cf_dns_api_token }}"
+      Content-Type: "application/json"
+    return_content: true
+    status_code: 200  # project-lint: disable=magic-int  HTTP success status code
+  register: acme_txt_query
+  loop: "{{ proxy_traefik_windows_cert_domains }}"
+  loop_control:
+    loop_var: domain_item
+  delegate_to: localhost
+  run_once: true
+  changed_when: false
+  no_log: true
+
+# Flatten all found TXT records into a single list
+- name: Collect stale ACME TXT records for deletion
+  ansible.builtin.set_fact:
+    stale_acme_txt_records: >-
+      {{
+        acme_txt_query.results
+        | map(attribute='json.result')
+        | flatten
+        | list
+      }}
+  delegate_to: localhost
+  run_once: true
+
+# Delete each stale TXT record
+- name: Delete stale ACME TXT records
+  ansible.builtin.uri:
+    url: "https://api.cloudflare.com/client/v4/zones/{{ proxy_traefik_windows_cf_zone_id }}/dns_records/{{ txt_record.id }}"
+    method: DELETE
+    headers:
+      Authorization: "Bearer {{ proxy_traefik_windows_cf_dns_api_token }}"
+      Content-Type: "application/json"
+    status_code: 200  # project-lint: disable=magic-int  HTTP success status code
+  loop: "{{ stale_acme_txt_records }}"
+  loop_control:
+    loop_var: txt_record
+    label: "{{ txt_record.name }}"
+  delegate_to: localhost
+  run_once: true
+  changed_when: true
+  no_log: true
+  when: stale_acme_txt_records | length > 0
+
+# Report results
+- name: Report ACME TXT cleanup results
+  ansible.builtin.debug:
+    msg: >-
+      ACME TXT cleanup complete.
+      {% set count = stale_acme_txt_records | length %}
+      Deleted {{ count }} stale _acme-challenge TXT record(s) across {{ proxy_traefik_windows_cert_domains | length }} domain(s).
+      {% if count == 0 %}No stale records found. {% endif %}Domains checked: {{ proxy_traefik_windows_cert_domains | join(', ') }}
+  delegate_to: localhost
+  run_once: true

@@ -18,6 +18,8 @@ tools_stirling_pdf_container_port: "{{ infra_port_tools_stirling_pdf_container |
 tools_stirling_pdf_domain: "{{ infra_domain_tools_stirling_pdf | default('stirling.nl.' ~ (infra_domain_base | default('example.com'))) }}"
 # Short alias domain (CNAME → primary domain)
 tools_stirling_pdf_domain_alias: "{{ infra_domain_tools_stirling_pdf_alias | default('') }}"
+# API subdomain (no Authelia — for desktop client direct API access)
+tools_stirling_pdf_domain_api: "{{ infra_domain_tools_stirling_pdf_api | default('') }}"
 
 # Volumes (reference infrastructure variables)
 tools_stirling_pdf_configs_volume: "{{ infra_storage_stirling_pdf_configs_volume | default('localnet-stirling-pdf-configs-volume') }}"

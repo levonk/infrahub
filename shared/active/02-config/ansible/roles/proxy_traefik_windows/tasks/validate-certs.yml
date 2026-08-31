@@ -1,0 +1,63 @@
+# Certificate Validation — Verify TLS certs are issued and valid
+#
+# After Traefik is healthy, poll each managed domain's TLS certificate via
+# openssl s_client. A cert with CN=TRAEFIK DEFAULT CERT means the ACME
+# challenge hasn't completed yet (Traefik serves its self-signed fallback).
+# Poll until the CN matches the domain name or the timeout is reached.
+
+- name: Validate managed domains list is not empty
+  ansible.builtin.assert:
+    that:
+      - proxy_traefik_windows_cert_domains | length > 0
+    msg: "No managed domains configured for cert validation."
+  delegate_to: localhost
+  run_once: true
+
+# Check each domain's cert — retry until CN matches or timeout
+# Uses shell (not command) because pipes are needed for openssl
+- name: Wait for TLS certificates to be issued
+  ansible.builtin.shell: >-
+    echo | openssl s_client -connect {{ domain_item }}:443 -servername {{ domain_item }} 2>/dev/null  # project-lint: disable=magic-int  HTTPS port
+    | openssl x509 -noout -subject 2>/dev/null
+  register: cert_check
+  loop: "{{ proxy_traefik_windows_cert_domains }}"
+  loop_control:
+    loop_var: domain_item
+    label: "{{ domain_item }}"
+  delegate_to: localhost
+  run_once: true
+  changed_when: false
+  until: cert_check.rc == 0 and cert_check.stdout | length > 0 and "TRAEFIK DEFAULT CERT" not in cert_check.stdout
+  retries: "{{ (proxy_traefik_windows_cert_validation_timeout | int // proxy_traefik_windows_cert_validation_interval | int) }}"
+  delay: "{{ proxy_traefik_windows_cert_validation_interval | int }}"
+  ignore_errors: true
+
+# Report per-domain results
+- name: Report certificate validation results
+  ansible.builtin.debug:
+    msg: >-
+      Certificate validation:
+      {% for result in cert_check.results %}
+      {{ '\n' }}  {{ 'OK  ' if (result.rc | default(1)) == 0 and 'TRAEFIK DEFAULT CERT' not in result.stdout else 'FAIL' }} {{ result.domain_item }} → {{ result.stdout | regex_replace('subject=', '') | trim | default('no cert') }}
+      {% endfor %}
+  delegate_to: localhost
+  run_once: true
+
+# Fail if any certs are still invalid (unless fail_on_error is false)
+- name: Check for failed certificates
+  ansible.builtin.assert:
+    that: >-
+      cert_check.results
+      | selectattr('rc', 'defined')
+      | rejectattr('rc', 'equalto', 0)
+      | list
+      | length
+      | int == 0
+    msg: >-
+      One or more TLS certificates are invalid (still using TRAEFIK DEFAULT CERT or unreachable).
+      Failed domains:
+      {{ cert_check.results | selectattr('rc', 'defined') | rejectattr('rc', 'equalto', 0) | map(attribute='domain_item') | join(', ') }}
+      Check Traefik logs for ACME errors: docker logs {{ proxy_traefik_windows_container_name }}
+  delegate_to: localhost
+  run_once: true
+  when: proxy_traefik_windows_cert_validation_fail_on_error | default(true) | bool
