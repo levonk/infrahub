@@ -55,14 +55,13 @@ in
   };
 
   config = {
-    # Allow unfree packages in nixpkgs for fleet apps (Firefox Dev Edition,
-    # Raycast, OrbStack, RustDesk, etc.).
-    # Nixpkgs 26.11 dropped x86_64-darwin; the x86 host uses 26.05 where
-    # it's deprecated but still supported — force it through.
-    nixpkgs.config = {
-      allowUnfree = true;
-      allowDeprecatedx86_64Darwin = lib.mkIf (pkgs.system == "x86_64-darwin") "force";
-    };
+    # nixpkgs.config (allowUnfree, allowDeprecatedx86_64Darwin) is set in the
+    # client flake's mkPkgs function, not here. Setting nixpkgs.config in a
+    # module causes nix-darwin to re-import nixpkgs internally (via
+    # defaultPkgs), which fails on x86_64-darwin because nix-darwin's
+    # nixpkgs.source points to nixpkgs-unstable (26.11) for the non-x86
+    # nix-darwin input. The mkPkgs function in the client flake already
+    # sets allowUnfree = true and permittedInsecurePackages.
 
     # Admin user account — replaces imperative sysadminctl/dscl creation
     # Password stays vault-owned (Ansible bootstrap sets it), not managed here.
