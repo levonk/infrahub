@@ -112,6 +112,7 @@ in
         discord
         zoom-us
         bitwarden-desktop
+        stirling-pdf-desktop
 
         # --- CLI tools (migrated from nix profile) ---
         cargo
@@ -125,10 +126,45 @@ in
         nodejs
         pnpm
 
+        # --- Secret scanning ---
+        gitleaks
+        git-secrets
+
+        # --- Git workflow tools ---
+        git-imerge
+        quilt
+        guilt
+
+        # --- Search / file / data tools ---
+        ripgrep
+        bat
+        jq
+        yq-go
+
+        # --- Linting / formatting / testing ---
+        shellcheck
+        shfmt
+        bats
+
+        # --- Dev workflow tools ---
+        just
+        direnv
+        jujutsu
+        ast-grep
+        copier
+        jinja2-cli
+        pyright
+
         # --- Security tools ---
         fwknop # SPA (Single Packet Authorization) client for OCI SSH access
+        yara-x
+        rtk
       ]
       ++ lib.optional (cfg.containerRuntime == "orbstack") orbstack
-      ++ lib.optional (cfg.containerRuntime == "apple-container") container;
+      ++ lib.optional (cfg.containerRuntime == "apple-container") container
+      # treehouse (git worktree pool manager) — provided via a flake overlay
+      # in client flakes that declare the treehouse input. Guarded so shared
+      # module consumers without the overlay don't fail.
+      ++ lib.optional (pkgs ? treehouse) pkgs.treehouse;
   };
 }
