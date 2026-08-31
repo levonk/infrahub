@@ -70,6 +70,7 @@
   ansible.builtin.shell: "docker pull {{ qm_core_image }}"
   environment:
     DOCKER_HOST: "{{ qm_docker_host }}"
+    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
   delegate_to: localhost
   changed_when: true
   tags: ["deploy", "pull"]
@@ -78,6 +79,7 @@
   ansible.builtin.shell: "docker pull {{ qm_web_image }}"
   environment:
     DOCKER_HOST: "{{ qm_docker_host }}"
+    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
   delegate_to: localhost
   changed_when: true
   tags: ["deploy", "pull"]
@@ -86,6 +88,7 @@
   ansible.builtin.shell: "docker pull {{ qm_postgres_image }}"
   environment:
     DOCKER_HOST: "{{ qm_docker_host }}"
+    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
   delegate_to: localhost
   changed_when: true
   tags: ["deploy", "pull"]
@@ -94,6 +97,7 @@
   ansible.builtin.shell: "docker pull {{ qm_sandbox_image }}:{{ qm_sandbox_image_tag }}"
   environment:
     DOCKER_HOST: "{{ qm_docker_host }}"
+    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
   delegate_to: localhost
   changed_when: true
   failed_when: false  # Sandbox image may not exist yet in dev mode

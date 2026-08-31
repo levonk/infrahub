@@ -15,20 +15,20 @@ vpn_nordvpn_data_volume_name: "localnet-nordvpn-data-volume"
 
 # Network Configuration
 vpn_nordvpn_network_name: "{{ cloud_server_nordvpn_network_name | default('vpn-network') }}"
-vpn_nordvpn_network_subnet: "{{ cloud_server_nordvpn_network_subnet | default('10.10.0.0/24') }}"
-vpn_nordvpn_network_gateway: "{{ cloud_server_nordvpn_network_gateway | default('10.10.0.1') }}"
+vpn_nordvpn_network_subnet: "{{ cloud_server_nordvpn_network_subnet | default(infra_network_vpn_nordvpn_subnet) }}"
+vpn_nordvpn_network_gateway: "{{ cloud_server_nordvpn_network_gateway | default(infra_network_vpn_nordvpn_gateway) }}"
 
 # Port Configuration (ALL ports must be variables - NO hardcoded ports)
-vpn_nordvpn_wireguard_host_port: "{{ cloud_server_nordvpn_wireguard_host_port | default('51820') }}"
-vpn_nordvpn_wireguard_container_port: "{{ cloud_server_nordvpn_wireguard_container_port | default('51820') }}"
-vpn_nordvpn_socks_host_port: "{{ cloud_server_nordvpn_socks_host_port | default('1080') }}"
-vpn_nordvpn_socks_container_port: "{{ cloud_server_nordvpn_socks_container_port | default('1080') }}"
-vpn_nordvpn_http_host_port: "{{ cloud_server_nordvpn_http_host_port | default('8888') }}"
-vpn_nordvpn_http_container_port: "{{ cloud_server_nordvpn_http_container_port | default('8888') }}"
-vpn_nordvpn_https_host_port: "{{ cloud_server_nordvpn_https_host_port | default('8443') }}"
-vpn_nordvpn_https_container_port: "{{ cloud_server_nordvpn_https_container_port | default('8443') }}"
-vpn_nordvpn_shadowsocks_host_port: "{{ cloud_server_nordvpn_shadowsocks_host_port | default('8388') }}"
-vpn_nordvpn_shadowsocks_container_port: "{{ cloud_server_nordvpn_shadowsocks_container_port | default('8388') }}"
+vpn_nordvpn_wireguard_host_port: "{{ cloud_server_nordvpn_wireguard_host_port | default(infra_port_vpn_nordvpn_wireguard_host) }}"
+vpn_nordvpn_wireguard_container_port: "{{ cloud_server_nordvpn_wireguard_container_port | default(infra_port_vpn_nordvpn_wireguard_host) }}"
+vpn_nordvpn_socks_host_port: "{{ cloud_server_nordvpn_socks_host_port | default(infra_port_vpn_nordvpn_socks_host) }}"
+vpn_nordvpn_socks_container_port: "{{ cloud_server_nordvpn_socks_container_port | default(infra_port_vpn_nordvpn_socks_host) }}"
+vpn_nordvpn_http_host_port: "{{ cloud_server_nordvpn_http_host_port | default(infra_port_vpn_nordvpn_http_host) }}"
+vpn_nordvpn_http_container_port: "{{ cloud_server_nordvpn_http_container_port | default(infra_port_vpn_nordvpn_http_host) }}"
+vpn_nordvpn_https_host_port: "{{ cloud_server_nordvpn_https_host_port | default(infra_port_vpn_nordvpn_https_host) }}"
+vpn_nordvpn_https_container_port: "{{ cloud_server_nordvpn_https_container_port | default(infra_port_vpn_nordvpn_https_host) }}"
+vpn_nordvpn_shadowsocks_host_port: "{{ cloud_server_nordvpn_shadowsocks_host_port | default(infra_port_vpn_nordvpn_shadowsocks_host) }}"
+vpn_nordvpn_shadowsocks_container_port: "{{ cloud_server_nordvpn_shadowsocks_container_port | default(infra_port_vpn_nordvpn_shadowsocks_host) }}"
 
 # Service Directories
 localnet_services_dir: "/opt/localnet/services"

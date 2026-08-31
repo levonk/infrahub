@@ -20,12 +20,12 @@ dns_coredns_network_name: "{{ cloud_server_docker_network_name | default('cloud-
 # Ports — all variable-driven per ADR (host:container mapping)
 # ---------------------------------------------------------------------------
 # Main DNS port (UDP/TCP)
-dns_coredns_host_port: "{{ cloud_server_dns_port | default('53') }}"
-dns_coredns_container_port: "{{ cloud_server_dns_container_port | default('53') }}"
+dns_coredns_host_port: "{{ cloud_server_dns_port | default(infra_port_dns_host) }}"
+dns_coredns_container_port: "{{ cloud_server_dns_container_port | default(infra_port_dns_host) }}"
 
 # Metrics / health port
-dns_coredns_metrics_host_port: "{{ cloud_server_dns_metrics_port | default('9153') }}"
-dns_coredns_metrics_container_port: "{{ cloud_server_dns_metrics_container_port | default('9153') }}"
+dns_coredns_metrics_host_port: "{{ cloud_server_dns_metrics_port | default(infra_port_dns_coredns_prometheus_host) }}"
+dns_coredns_metrics_container_port: "{{ cloud_server_dns_metrics_container_port | default(infra_port_dns_coredns_prometheus_host) }}"
 
 # ---------------------------------------------------------------------------
 # Upstream Resolvers

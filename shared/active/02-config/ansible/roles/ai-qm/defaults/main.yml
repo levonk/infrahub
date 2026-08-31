@@ -22,16 +22,16 @@ qm_postgres_image: "postgres:16"
 
 # Sandbox image — built locally with `qm sandbox build`, pushed to local registry
 # SANDBOX_BACKEND=local uses this image for agent sandboxes (dev-only)
-qm_sandbox_image: "{{ windows_registry_url | default('100.90.22.85:5000') }}/localnet-qm-sandbox"
+qm_sandbox_image: "{{ windows_registry_url | default(infra_registry) }}/localnet-qm-sandbox"
 qm_sandbox_image_tag: "latest"
 
 # Port configuration
 qm_core_host_port: "{{ infra_port_ai_qm_core_host | default('3104') }}"
-qm_core_container_port: "{{ infra_port_ai_qm_core_container | default('8080') }}"
+qm_core_container_port: "{{ infra_port_ai_qm_core_container | default(infra_port_proxy_dashboard_host) }}"
 qm_web_host_port: "{{ infra_port_ai_qm_web_host | default('3105') }}"
 qm_web_container_port: "{{ infra_port_ai_qm_web_container | default('8082') }}"
 qm_postgres_host_port: "{{ infra_port_ai_qm_postgres_host | default('5437') }}"
-qm_postgres_container_port: "{{ infra_port_ai_qm_postgres_container | default('5432') }}"
+qm_postgres_container_port: "{{ infra_port_ai_qm_postgres_container | default(infra_port_db_postgres_host) }}"
 
 # Domain for Traefik routing
 qm_domain: "{{ infra_domain_ai_qm | default('qm.' ~ (infra_domain_base | default('example.com'))) }}"

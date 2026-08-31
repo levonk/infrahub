@@ -10,7 +10,7 @@
 # Primary port (Tailscale/internal path). Additional ports (e.g., public SPA
 # port) can be added via ssh_hardening_additional_ports — sshd will listen on
 # all of them. OpenSSH supports multiple Port directives.
-ssh_hardening_port: "{{ cloud_server_ssh_host_port | default('22') }}"
+ssh_hardening_port: "{{ cloud_server_ssh_host_port | default(infra_port_ssh_host) }}"
 ssh_hardening_additional_ports: []
 ssh_hardening_service_name: "{{ 'sshd' if ansible_facts.os_family == 'RedHat' else 'ssh' }}"
 

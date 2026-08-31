@@ -39,6 +39,10 @@
   ansible.builtin.command: "docker pull {{ tools_stirling_pdf_image_name }}:{{ tools_stirling_pdf_image_tag }}"
   environment:
     DOCKER_HOST: "{{ tools_stirling_pdf_docker_host }}"
+    # Use a Docker config with no credsStore so public-image pulls don't
+    # trigger the macOS keychain unlock modal. ~/.docker-no-creds/config.json
+    # contains just `{}`.
+    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
   delegate_to: localhost
   changed_when: true
   tags: ["deploy", "pull"]

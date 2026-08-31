@@ -3,7 +3,7 @@
 
 # Container configuration
 ai_omniroute_container_name: localnet-ai-omniroute
-ai_omniroute_image_name: "{{ local_registry | default('100.90.22.85:5000') }}/localnet-ai-omniroute:latest"
+ai_omniroute_image_name: "{{ local_registry | default(infra_registry) }}/localnet-ai-omniroute:latest"
 ai_omniroute_volume_name: ai-omniroute-data
 
 # Port configuration

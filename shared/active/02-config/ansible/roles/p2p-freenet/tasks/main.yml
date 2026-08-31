@@ -33,6 +33,7 @@
   ansible.builtin.command: "docker pull {{ p2p_freenet_image_name }}:{{ p2p_freenet_image_tag }}"
   environment:
     DOCKER_HOST: "{{ p2p_freenet_docker_host }}"
+    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
   delegate_to: localhost
   changed_when: true
   tags: ["deploy", "pull"]

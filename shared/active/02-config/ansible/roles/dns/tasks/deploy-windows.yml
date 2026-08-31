@@ -109,6 +109,7 @@
     docker pull {{ dns_registry }}/{{ item }}:latest
   environment:
     DOCKER_HOST: "{{ dns_docker_host_windows }}"
+    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
   delegate_to: localhost
   changed_when: false
   failed_when: false

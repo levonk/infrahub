@@ -17,7 +17,7 @@ fail2ban_ignoreip: "{{ cloud_server_fail2ban_ignoreip | default(['127.0.0.1/8', 
 # ---------------------------------------------------------------------------
 # SSH Jail Settings
 # ---------------------------------------------------------------------------
-fail2ban_sshd_port: "{{ cloud_server_ssh_host_port | default('22') }}"
+fail2ban_sshd_port: "{{ cloud_server_ssh_host_port | default(infra_port_ssh_host) }}"
 fail2ban_backend: "systemd"
 
 # ---------------------------------------------------------------------------

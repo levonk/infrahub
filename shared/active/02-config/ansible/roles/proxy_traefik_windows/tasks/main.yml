@@ -411,6 +411,7 @@
   ansible.builtin.command: "docker pull {{ proxy_traefik_windows_image }}:{{ proxy_traefik_windows_image_tag }}"
   environment:
     DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
+    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
   delegate_to: localhost
   changed_when: true
   tags: ["deploy", "pull"]
@@ -465,6 +466,7 @@
   ansible.builtin.command: "docker pull {{ proxy_traefik_windows_homepage_image }}:{{ proxy_traefik_windows_homepage_image_tag }}"
   environment:
     DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
+    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
   delegate_to: localhost
   changed_when: true
   when: proxy_traefik_windows_homepage_enabled | bool
@@ -517,6 +519,7 @@
   ansible.builtin.command: "docker pull {{ proxy_traefik_windows_trala_image }}:{{ proxy_traefik_windows_trala_image_tag }}"
   environment:
     DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
+    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
   delegate_to: localhost
   changed_when: true
   when: proxy_traefik_windows_trala_enabled | bool

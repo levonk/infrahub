@@ -20,7 +20,7 @@ dashboard_homepage_image_tag: "latest"
 dashboard_homepage_network_name: "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"
 dashboard_homepage_host_ip: "0.0.0.0"
 dashboard_homepage_host_port: "{{ infra_port_dashboard_homepage_host | default('8084') }}"
-dashboard_homepage_container_port: "{{ infra_port_dashboard_homepage_container | default('3000') }}"
+dashboard_homepage_container_port: "{{ infra_port_dashboard_homepage_container | default(infra_port_monitoring_grafana_host) }}"
 
 # ---------------------------------------------------------------------------
 # User/Group Configuration

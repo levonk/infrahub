@@ -9,7 +9,7 @@
 # Container configuration
 # ---------------------------------------------------------------------------
 p2p_freenet_container_name: "localnet-p2p-freenet"
-p2p_freenet_image_name: "{{ local_registry | default('100.90.22.85:5000') }}/localnet-p2p-freenet"
+p2p_freenet_image_name: "{{ local_registry | default(infra_registry) }}/localnet-p2p-freenet"
 p2p_freenet_image_tag: "latest"
 
 # ---------------------------------------------------------------------------

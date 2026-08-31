@@ -16,8 +16,8 @@ ai_paperclip_image: "100.90.22.85:5000/localnet-ai-paperclip"
 ai_paperclip_image_tag: "latest"
 
 # Port configuration
-ai_paperclip_host_port: "{{ infra_port_ai_paperclip_host | default('3100') }}"
-ai_paperclip_container_port: "{{ infra_port_ai_paperclip_container | default('3100') }}"
+ai_paperclip_host_port: "{{ infra_port_ai_paperclip_host | default(infra_port_monitoring_loki_host) }}"
+ai_paperclip_container_port: "{{ infra_port_ai_paperclip_container | default(infra_port_monitoring_loki_host) }}"
 
 # Domain for Traefik routing
 ai_paperclip_domain: "{{ infra_domain_ai_paperclip | default('paperclip.' ~ (infra_domain_base | default('example.com'))) }}"
@@ -31,7 +31,7 @@ ai_paperclip_localnet_network_name: "{{ localnet_network_name | default('cloud-s
 ai_paperclip_postgres_container_name: "{{ infra_hostname_paperclip_postgres | default('paperclip-postgres') }}"
 ai_paperclip_postgres_image: "postgres:16-alpine"
 ai_paperclip_postgres_host_port: "{{ infra_port_ai_paperclip_postgres_host | default('5436') }}"
-ai_paperclip_postgres_container_port: "{{ infra_port_ai_paperclip_postgres_container | default('5432') }}"
+ai_paperclip_postgres_container_port: "{{ infra_port_ai_paperclip_postgres_container | default(infra_port_db_postgres_host) }}"
 ai_paperclip_postgres_db: "paperclip"
 ai_paperclip_postgres_user: "paperclip"
 ai_paperclip_postgres_password: "{{ vault_paperclip_postgres_password | default('changeme') }}"

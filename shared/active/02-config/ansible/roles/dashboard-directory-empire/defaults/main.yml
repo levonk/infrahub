@@ -13,12 +13,12 @@ directory_empire_enabled: true
 
 # Container configuration
 directory_empire_container_name: "{{ infra_hostname_dashboard_directory_empire | default('localnet-dashboard-directory-empire') }}"
-directory_empire_image_name: "{{ local_registry | default('100.90.22.85:5000') }}/localnet-dashboard-directory-empire"
+directory_empire_image_name: "{{ local_registry | default(infra_registry) }}/localnet-dashboard-directory-empire"
 directory_empire_image_tag: "latest"
 
 # Ports — Web UI exposed via Traefik
 directory_empire_host_port: "{{ infra_port_dashboard_directory_empire_host | default('4530') }}"
-directory_empire_container_port: "{{ infra_port_dashboard_directory_empire_container | default('3000') }}"
+directory_empire_container_port: "{{ infra_port_dashboard_directory_empire_container | default(infra_port_monitoring_grafana_host) }}"
 
 # Domain (for Traefik routing)
 directory_empire_domain: "{{ infra_domain_dashboard_directory_empire_nl | default('de.nl.' ~ (infra_domain_base | default('example.com'))) }}"

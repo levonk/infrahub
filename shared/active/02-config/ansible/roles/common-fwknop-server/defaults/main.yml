@@ -19,10 +19,10 @@ fwknop_close_public_ssh: false
 fwknop_spa_port: "{{ infra_port_security_fwknop_spa_host | default('62201') }}"
 # Public SSH port — SPA-protected. fwknop opens this port temporarily after
 # a valid SPA packet. Non-standard port to reduce drive-by scanner noise.
-fwknop_ssh_port: "{{ infra_port_ssh_public_host | default('7722') }}"
+fwknop_ssh_port: "{{ infra_port_ssh_public_host | default(infra_port_ssh_public_host) }}"
 # Internal SSH port — Tailscale/libvirt only. Always allowed via firewall
 # rules for Tailscale subnet, dropped from public.
-fwknop_internal_ssh_port: "{{ infra_port_ssh_host | default('22') }}"
+fwknop_internal_ssh_port: "{{ infra_port_ssh_host | default(infra_port_ssh_host) }}"
 fwknop_access_timeout: 120  # seconds — how long the public port stays open after a valid SPA packet
 
 # ---------------------------------------------------------------------------

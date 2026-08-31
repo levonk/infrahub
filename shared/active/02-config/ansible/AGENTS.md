@@ -514,6 +514,33 @@ The `proxy_traefik_windows` role renders dynamic config templates for all nl-reg
 
 Not all container images include `wget`. Stirling-PDF (and other Java/Alpine-based images) may only have `curl`. Always verify the healthcheck command is available in the target image before deploying. Use `curl -sf` as a safer default than `wget -qO-`.
 
+### DOCKER_CONFIG on `docker pull` — macOS Keychain Unlock Modal
+
+**MANDATORY**: Every `docker pull` task that uses `delegate_to: localhost` with `DOCKER_HOST: ssh://...` MUST set `DOCKER_CONFIG` to a credential-free config directory. Without this, the Docker CLI invokes `docker-credential-osxkeychain` (configured via `credsStore: osxkeychain` in `~/.docker/config.json`) on every pull — including pulls of **public images** — which triggers the macOS "unlock keychain" modal when the login keychain is locked (after sleep, screen lock, or reboot).
+
+**Setup** (one-time, on the control machine):
+```bash
+mkdir -p ~/.docker-no-creds
+printf '{}\n' > ~/.docker-no-creds/config.json
+chmod 600 ~/.docker-no-creds/config.json
+```
+
+**Required pattern** for all `docker pull` tasks in Windows-deploy roles:
+```yaml
+- name: Pull <image>
+  ansible.builtin.command: "docker pull {{ some_image }}"
+  environment:
+    DOCKER_HOST: "{{ some_docker_host }}"
+    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "pull"]
+```
+
+**Why not remove `credsStore` globally?** The default `~/.docker/config.json` uses `osxkeychain` for private registry auth (Docker Hub, ghcr.io, etc.). Removing it would break `docker login` flows. The `DOCKER_CONFIG` override is surgical — it only applies to the Ansible-managed pull tasks, leaving interactive `docker pull`/`docker login` unaffected.
+
+**Why not set `DOCKER_CONFIG` on non-pull tasks?** `docker run` with a missing image will auto-pull, but in these roles `docker pull` is always a separate preceding task. If a role ever uses `docker run` without a preceding `docker pull`, add `DOCKER_CONFIG` to that task too.
+
 ### Image Transfer to Windows Docker Hosts
 
 When the local registry (`100.90.22.85:5000`) is not configured as insecure on the Windows Docker host, images can be transferred via `docker save | gzip` + `scp` + `docker load`:

@@ -40,6 +40,7 @@
   ansible.builtin.command: "docker pull {{ vpn_tor_windows_tor_image }}"
   environment:
     DOCKER_HOST: "{{ vpn_tor_windows_docker_host }}"
+    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
   delegate_to: localhost
   changed_when: true
   when: tor_image_check.rc != 0
@@ -59,6 +60,7 @@
   ansible.builtin.command: "docker pull {{ vpn_tor_windows_tailscale_image }}"
   environment:
     DOCKER_HOST: "{{ vpn_tor_windows_docker_host }}"
+    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
   delegate_to: localhost
   changed_when: true
   when: tailscale_image_check.rc != 0

@@ -8,7 +8,7 @@
 # ---------------------------------------------------------------------------
 agentmemory_enabled: true
 agentmemory_container_name: "localnet-agentmemory"
-agentmemory_image_name: "{{ local_registry | default('100.90.22.85:5000') }}/localnet-agentmemory"
+agentmemory_image_name: "{{ local_registry | default(infra_registry) }}/localnet-agentmemory"
 agentmemory_image_tag: "latest"
 agentmemory_init_container_name: "localnet-agentmemory-init"
 

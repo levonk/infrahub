@@ -16,7 +16,7 @@ vpn_tailscale_channel: "stable"
 vpn_tailscale_auth_key: ""
 
 # Port for Tailscale WireGuard traffic (UDP).
-vpn_tailscale_port: "{{ cloud_server_tailscale_port | default('41641') }}"
+vpn_tailscale_port: "{{ cloud_server_tailscale_port | default(infra_port_vpn_tailscale) }}"
 
 # Hostname advertised in the Tailscale network.
 vpn_tailscale_hostname: "{{ inventory_hostname | default('cloud-server') }}"

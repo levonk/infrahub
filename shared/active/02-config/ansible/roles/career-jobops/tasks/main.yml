@@ -32,6 +32,7 @@
   ansible.builtin.shell: "docker pull {{ jobops_image_name }}:{{ jobops_image_tag }}"
   environment:
     DOCKER_HOST: "{{ jobops_docker_host }}"
+    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
   delegate_to: localhost
   changed_when: true
   tags: ["deploy", "pull"]

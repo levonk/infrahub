@@ -30,6 +30,7 @@
   ansible.builtin.command: "docker pull {{ vpn_nordvpn_windows_image }}"
   environment:
     DOCKER_HOST: "{{ vpn_nordvpn_windows_docker_host }}"
+    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
   delegate_to: localhost
   changed_when: true
   tags: ["deploy", "pull"]
@@ -38,6 +39,7 @@
   ansible.builtin.command: "docker pull {{ vpn_nordvpn_windows_tailscale_image }}"
   environment:
     DOCKER_HOST: "{{ vpn_nordvpn_windows_docker_host }}"
+    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
   delegate_to: localhost
   changed_when: true
   tags: ["deploy", "pull"]

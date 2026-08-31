@@ -24,9 +24,9 @@ ai_buzz_minio_bucket: "buzz-media"
 
 # Port configuration
 ai_buzz_host_port: "{{ infra_port_ai_buzz_host | default('3101') }}"
-ai_buzz_container_port: "{{ infra_port_ai_buzz_container | default('3000') }}"
+ai_buzz_container_port: "{{ infra_port_ai_buzz_container | default(infra_port_monitoring_grafana_host) }}"
 ai_buzz_health_host_port: "{{ infra_port_ai_buzz_health_host | default('3102') }}"
-ai_buzz_health_container_port: "{{ infra_port_ai_buzz_health_container | default('8080') }}"
+ai_buzz_health_container_port: "{{ infra_port_ai_buzz_health_container | default(infra_port_proxy_dashboard_host) }}"
 ai_buzz_metrics_host_port: "{{ infra_port_ai_buzz_metrics_host | default('3103') }}"
 ai_buzz_metrics_container_port: "{{ infra_port_ai_buzz_metrics_container | default('9102') }}"
 

@@ -40,6 +40,7 @@
     || docker image inspect {{ no_mistakes_image_name }}:{{ no_mistakes_image_tag }} >/dev/null 2>&1
   environment:
     DOCKER_HOST: "{{ no_mistakes_docker_host }}"
+    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
   delegate_to: localhost
   changed_when: true
   tags: ["deploy", "pull"]

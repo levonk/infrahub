@@ -38,6 +38,7 @@
   ansible.builtin.command: "docker pull {{ wazuh_manager_image_name }}:{{ wazuh_manager_image_tag }}"
   environment:
     DOCKER_HOST: "{{ wazuh_docker_host }}"
+    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
   delegate_to: localhost
   changed_when: true
   tags: ["deploy", "pull"]
@@ -46,6 +47,7 @@
   ansible.builtin.command: "docker pull {{ wazuh_indexer_image_name }}:{{ wazuh_indexer_image_tag }}"
   environment:
     DOCKER_HOST: "{{ wazuh_docker_host }}"
+    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
   delegate_to: localhost
   changed_when: true
   tags: ["deploy", "pull"]
@@ -54,6 +56,7 @@
   ansible.builtin.command: "docker pull {{ wazuh_dashboard_image_name }}:{{ wazuh_dashboard_image_tag }}"
   environment:
     DOCKER_HOST: "{{ wazuh_docker_host }}"
+    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
   delegate_to: localhost
   changed_when: true
   tags: ["deploy", "pull"]
@@ -62,6 +65,7 @@
   ansible.builtin.command: "docker pull {{ wazuh_certs_generator_image }}"
   environment:
     DOCKER_HOST: "{{ wazuh_docker_host }}"
+    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
   delegate_to: localhost
   changed_when: true
   tags: ["deploy", "pull", "certs"]

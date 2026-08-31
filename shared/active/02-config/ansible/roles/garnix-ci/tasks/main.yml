@@ -138,6 +138,7 @@
   ansible.builtin.command: "docker pull {{ garnix_ci_image_name }}:{{ garnix_ci_image_tag }}"
   environment:
     DOCKER_HOST: "{{ garnix_ci_docker_host_windows }}"
+    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
   delegate_to: localhost
   changed_when: true
   tags: ["deploy", "pull"]

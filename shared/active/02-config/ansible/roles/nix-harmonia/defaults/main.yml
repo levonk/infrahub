@@ -17,7 +17,7 @@ nix_harmonia_image_tag: "latest"
 
 # Ports — Harmonia binds 127.0.0.1 only (local access, not exposed externally)
 nix_harmonia_host_port: "{{ infra_port_nix_harmonia_host | default('4523') }}"
-nix_harmonia_container_port: "{{ infra_port_nix_harmonia_container | default('5000') }}"
+nix_harmonia_container_port: "{{ infra_port_nix_harmonia_container | default(infra_port_registry_host) }}"
 
 # nl: Volumes — reuse the shared nix-sidecar volumes
 nix_harmonia_nix_store_volume: "{{ infra_storage_nix_shared_store_volume | default('localnet-base-nix-store-volume') }}"

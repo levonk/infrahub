@@ -14,7 +14,7 @@
 # ---------------------------------------------------------------------------
 vpn_tor_windows_tor_container_name: "tor-exit"
 vpn_tor_windows_tailscale_container_name: "tor-tailscale-exit"
-vpn_tor_windows_tor_image: "{{ local_registry | default('100.90.22.85:5000') }}/localnet-proxy-tor:latest"
+vpn_tor_windows_tor_image: "{{ local_registry | default(infra_registry) }}/localnet-proxy-tor:latest"
 vpn_tor_windows_tailscale_image: "tailscale/tailscale:latest"
 
 # ---------------------------------------------------------------------------

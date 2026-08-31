@@ -138,6 +138,7 @@
     docker pull {{ item }}
   environment:
     DOCKER_HOST: "{{ proxy_web_docker_host_windows }}"
+    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
   delegate_to: localhost
   changed_when: false
   failed_when: false
@@ -153,6 +154,7 @@
     docker pull {{ proxy_web_registry }}/{{ proxy_web_gost_image }}:latest
   environment:
     DOCKER_HOST: "{{ proxy_web_docker_host_windows }}"
+    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
   delegate_to: localhost
   changed_when: false
   failed_when: false

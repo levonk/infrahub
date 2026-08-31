@@ -19,8 +19,8 @@ nix_ncro_image_name: "localnet-nix-ncro"
 nix_ncro_image_tag: "latest"
 
 # Ports — ncro is internal only (behind ncps), not exposed externally
-nix_ncro_host_port: "{{ infra_port_nix_ncro_host | default('4525') }}"
-nix_ncro_container_port: "{{ infra_port_nix_ncro_container | default('8081') }}"
+nix_ncro_host_port: "{{ infra_port_nix_ncro_host | default(infra_port_nix_ncro_proxy_host) }}"
+nix_ncro_container_port: "{{ infra_port_nix_ncro_container | default(infra_port_nix_ncro_host) }}"
 
 # nl: Volumes — ncro is stateless (no NAR storage), only needs config + SQLite route cache
 nix_ncro_config_volume_nl: "localnet-ncro-config-volume"
@@ -48,7 +48,7 @@ nix_ncro_windows_temp_dir: "/tmp/nix-ncro-config-{{ inventory_hostname }}"
 # Public keys are intentionally omitted from ncro's upstream config.
 # nl: Harmonia container name on nl network
 nix_ncro_upstreams_nl:
-  - url: "http://{{ nix_harmonia_container_name_nl | default('localnet-nix-harmonia') }}:{{ infra_port_nix_harmonia_container | default('5000') }}"
+  - url: "http://{{ nix_harmonia_container_name_nl | default('localnet-nix-harmonia') }}:{{ infra_port_nix_harmonia_container | default(infra_port_registry_host) }}"
     priority: 10
   - url: "https://cache.nixos.org"
     priority: 20
@@ -58,7 +58,7 @@ nix_ncro_upstreams_nl:
     priority: 30
 # cno: Harmonia container name on cno network
 nix_ncro_upstreams_cno:
-  - url: "http://{{ nix_harmonia_container_name_cno | default('localnet-nix-harmonia-cno') }}:{{ infra_port_nix_harmonia_container | default('5000') }}"
+  - url: "http://{{ nix_harmonia_container_name_cno | default('localnet-nix-harmonia-cno') }}:{{ infra_port_nix_harmonia_container | default(infra_port_registry_host) }}"
     priority: 10
   - url: "https://cache.nixos.org"
     priority: 20

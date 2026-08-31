@@ -15,9 +15,9 @@ garnix_ci_image_tag: "latest"
 
 # Ports — Web UI exposed via Traefik
 garnix_ci_web_host_port: "{{ infra_port_garnix_ci_web_host | default('4526') }}"
-garnix_ci_web_container_port: "{{ infra_port_garnix_ci_web_container | default('3000') }}"
+garnix_ci_web_container_port: "{{ infra_port_garnix_ci_web_container | default(infra_port_monitoring_grafana_host) }}"
 garnix_ci_api_host_port: "{{ infra_port_garnix_ci_api_host | default('4527') }}"
-garnix_ci_api_container_port: "{{ infra_port_garnix_ci_api_container | default('8080') }}"
+garnix_ci_api_container_port: "{{ infra_port_garnix_ci_api_container | default(infra_port_proxy_dashboard_host) }}"
 
 # Domain (for Traefik routing)
 garnix_ci_domain: "{{ infra_domain_garnix_ci_nl | default('ci.nl.' ~ (infra_domain_base | default('example.com'))) }}"
@@ -47,7 +47,7 @@ garnix_ci_kvm_device: "/dev/kvm"
 # downloading from cache.nixos.org directly
 garnix_ci_substituters:
   - "http://127.0.0.1:{{ infra_port_nix_harmonia_host | default('4523') }}"
-  - "http://{{ nix_ncps_container_name | default('localnet-nix-ncps') }}:{{ infra_port_nix_ncps_container | default('8080') }}"
+  - "http://{{ nix_ncps_container_name | default('localnet-nix-ncps') }}:{{ infra_port_nix_ncps_container | default(infra_port_proxy_dashboard_host) }}"
   - "https://cache.nixos.org"
   - "https://cache.garnix.io"
 

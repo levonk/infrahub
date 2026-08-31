@@ -14,24 +14,24 @@ proxy_iron_proxy_image: "ironsh/iron-proxy:{{ proxy_iron_proxy_version }}"
 # DNS Configuration
 # ---------------------------------------------------------------------------
 proxy_iron_proxy_dns_enabled: true
-proxy_iron_proxy_dns_host_port: "{{ cloud_server_iron_proxy_dns_host_port | default('53') }}"
+proxy_iron_proxy_dns_host_port: "{{ cloud_server_iron_proxy_dns_host_port | default(infra_port_dns_host) }}"
 proxy_iron_proxy_dns_container_port: "53"
-proxy_iron_proxy_dns_proxy_ip: "{{ cloud_server_iron_proxy_dns_proxy_ip | default('1.1.1.1') }}"
+proxy_iron_proxy_dns_proxy_ip: "{{ cloud_server_iron_proxy_dns_proxy_ip | default(infra_network_ip_cloudflare_dns_primary) }}"
 proxy_iron_proxy_upstream_dns: "{{ cloud_server_iron_proxy_upstream_dns | default('8.8.8.8:53') }}"
 
 # ---------------------------------------------------------------------------
 # HTTP/HTTPS Proxy Configuration
 # ---------------------------------------------------------------------------
-proxy_iron_proxy_http_host_port: "{{ cloud_server_iron_proxy_http_host_port | default('8080') }}"
+proxy_iron_proxy_http_host_port: "{{ cloud_server_iron_proxy_http_host_port | default(infra_port_proxy_dashboard_host) }}"
 proxy_iron_proxy_http_container_port: "80"
-proxy_iron_proxy_https_host_port: "{{ cloud_server_iron_proxy_https_host_port | default('8443') }}"
+proxy_iron_proxy_https_host_port: "{{ cloud_server_iron_proxy_https_host_port | default(infra_port_vpn_nordvpn_https_host) }}"
 proxy_iron_proxy_https_container_port: "443"
 
 # Tunnel listener (CONNECT/SOCKS5) — needed for clients that send CONNECT
 # for HTTPS proxying (e.g. Node.js fetch with HTTPS_PROXY, curl --proxy).
 # Empty string disables the tunnel listener.
 proxy_iron_proxy_tunnel_host_port: "{{ cloud_server_iron_proxy_tunnel_host_port | default('') }}"
-proxy_iron_proxy_tunnel_container_port: "{{ cloud_server_iron_proxy_tunnel_container_port | default('8080') }}"
+proxy_iron_proxy_tunnel_container_port: "{{ cloud_server_iron_proxy_tunnel_container_port | default(infra_port_proxy_dashboard_host) }}"
 
 # ---------------------------------------------------------------------------
 # TLS Configuration
@@ -45,7 +45,7 @@ proxy_iron_proxy_leaf_cert_expiry_hours: "{{ cloud_server_iron_proxy_leaf_cert_e
 # ---------------------------------------------------------------------------
 proxy_iron_proxy_max_request_body_bytes: "{{ cloud_server_iron_proxy_max_request_body_bytes | default(1048576) }}"
 proxy_iron_proxy_max_response_body_bytes: "{{ cloud_server_iron_proxy_max_response_body_bytes | default(0) }}"
-proxy_iron_proxy_upstream_timeout: "{{ cloud_server_iron_proxy_upstream_timeout | default('30s') }}"
+proxy_iron_proxy_upstream_timeout: "{{ cloud_server_iron_proxy_upstream_timeout | default(infra_timeout_default) }}"
 
 # ---------------------------------------------------------------------------
 # Allowlist Configuration

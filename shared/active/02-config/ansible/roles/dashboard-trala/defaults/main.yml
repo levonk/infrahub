@@ -17,8 +17,8 @@ dashboard_trala_image_tag: "latest"
 # ---------------------------------------------------------------------------
 dashboard_trala_network_name: "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"
 dashboard_trala_host_ip: "0.0.0.0"
-dashboard_trala_host_port: "{{ infra_port_dashboard_trala_host | default('8085') }}"
-dashboard_trala_container_port: "{{ infra_port_dashboard_trala_container | default('8080') }}"
+dashboard_trala_host_port: "{{ infra_port_dashboard_trala_host | default(infra_port_dashboard_trala_host) }}"
+dashboard_trala_container_port: "{{ infra_port_dashboard_trala_container | default(infra_port_proxy_dashboard_host) }}"
 
 # ---------------------------------------------------------------------------
 # Traefik API Configuration
