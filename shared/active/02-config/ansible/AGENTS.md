@@ -489,3 +489,37 @@ role for the pattern.
 - Backup Verification: [`roles/devops-restoredrill/README.md`](roles/devops-restoredrill/README.md) — restoredrill role for PostgreSQL backup + restore verification
 - Observability Strategy: [`shared/active/08-docs/adr/adr-202608270001-pipeline-observability-strategy.md`](../../08-docs/adr/adr-202608270001-pipeline-observability-strategy.md) — ADR for topology-aware monitoring with Alertmanager inhibition
 - Developer Guide: [`../../../.agents/knowledge/developer.md`](../../../.agents/knowledge/developer.md) — key directories, patterns, boundaries, known gotchas
+
+## Windows Docker Desktop Gotchas
+
+### Insecure Registry Configuration
+
+Docker Desktop on Windows does **not** read `~/.docker/daemon.json` for daemon configuration. The `daemon.json` in the user's `.docker` directory is for the Docker CLI, not for the daemon. To configure insecure registries:
+
+1. Open Docker Desktop → Settings → Docker Engine → add `"insecure-registries": ["100.90.22.85:5000"]`
+2. Apply & Restart from the UI
+3. Docker Desktop cannot be restarted via SSH — it requires an interactive desktop session
+
+### proxy_traefik_windows Role Dependencies
+
+The `proxy_traefik_windows` role renders dynamic config templates for all nl-region services. The Hister template (`hister-nl.yml.j2`) uses `search_hister_*` variables directly (not the `proxy_traefik_windows_hister_*` wrapper variables). Any playbook that includes `proxy_traefik_windows` must also load the `search-hister` role defaults:
+
+```yaml
+- name: "Load search-hister role defaults (required by proxy_traefik_windows hister template)"
+  ansible.builtin.include_vars:
+    file: "{{ playbook_dir }}/../roles/search-hister/defaults/main.yml"
+```
+
+### Container Healthcheck Commands
+
+Not all container images include `wget`. Stirling-PDF (and other Java/Alpine-based images) may only have `curl`. Always verify the healthcheck command is available in the target image before deploying. Use `curl -sf` as a safer default than `wget -qO-`.
+
+### Image Transfer to Windows Docker Hosts
+
+When the local registry (`100.90.22.85:5000`) is not configured as insecure on the Windows Docker host, images can be transferred via `docker save | gzip` + `scp` + `docker load`:
+
+```bash
+docker save <image> | gzip > /tmp/image.tar.gz
+scp /tmp/image.tar.gz 'dtop202311.tale-grouper.ts.net:C:/Users/ansible/image.tar.gz'
+ssh dtop202311.tale-grouper.ts.net 'docker load -i C:/Users/ansible/image.tar.gz'
+```
