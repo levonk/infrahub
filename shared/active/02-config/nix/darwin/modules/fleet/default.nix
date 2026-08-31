@@ -155,10 +155,13 @@ in
         pyright
 
         # --- Security tools ---
-        fwknop # SPA (Single Packet Authorization) client for OCI SSH access
+        # fwknop (SPA client) is Linux-only — meta.platforms excludes Darwin.
+        # Guarded so macOS hosts skip it; macOS uses the fwknop client via
+        # Homebrew or a separate install path.
         yara-x
         rtk
       ]
+      ++ lib.optional (pkgs.stdenv.hostPlatform.isLinux) fwknop
       ++ lib.optional (cfg.containerRuntime == "orbstack") orbstack
       ++ lib.optional (cfg.containerRuntime == "apple-container") container
       # treehouse (git worktree pool manager) — provided via a flake overlay
