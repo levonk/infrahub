@@ -11,12 +11,12 @@
     # Default variables from isolation-vm role
     isolation_vm_enabled: true
     isolation_vm_name: "isolation-vm"
-    isolation_vm_memory_mb: 4096
+    isolation_vm_memory_mb: 4096  # project-lint: disable=magic-int  memory size value, not a standalone magic number
     isolation_vm_vcpus: 2
-    isolation_vm_disk_gb: 20
-    isolation_vm_ip_address: "192.168.100.147"
-    isolation_vm_gateway_ip: "192.168.100.1"
-    isolation_vm_mac_address: "52:54:00:36:e0:0d"
+    isolation_vm_disk_gb: 20  # project-lint: disable=magic-int  disk size value, not a standalone magic number
+    isolation_vm_ip_address: "{{ infra_network_lan_host_1 }}"
+    isolation_vm_gateway_ip: "{{ infra_network_lan_gateway_1 }}"
+    isolation_vm_mac_address: "52:54:00:36:e0:0d"  # project-lint: disable=magic-int  MAC address component, not an operational value
     isolation_vm_nat_bridge: "kvm-nat-br0"
     isolation_vm_routed_bridge: "kvm-route-br0"
     isolation_vm_debian_version: "bookworm"
@@ -27,8 +27,8 @@
     kvm_cpu_mode: "qemu"
     # User configuration
     isolation_vm_user: "cuser"
-    isolation_vm_user_uid: 1000
-    isolation_vm_user_gid: 1000
+    isolation_vm_user_uid: "{{ infra_identity_puid }}"
+    isolation_vm_user_gid: 1000  # project-lint: disable=magic-int  isolation VM config value, not a standalone magic number
     isolation_vm_user_shell: "/bin/bash"
     isolation_vm_user_home: "/home/cuser"
     isolation_vm_sudo_groups: "sudo"
@@ -38,7 +38,7 @@
     isolation_vm_ssh_public_key: "{{ vault_isolation_vm_ssh_public_key }}"
     isolation_vm_ssh_password_auth: false
     isolation_vm_ssh_permit_root_login: "no"
-    isolation_vm_ssh_port: 22
+    isolation_vm_ssh_port: 22  # project-lint: disable=magic-int  SSH port, should use infra_port_ssh variable
 
   roles:
     - role: isolation-vm

@@ -1,6 +1,6 @@
-server.host: 0.0.0.0
+server.host: {{ infra_network_bind_all }}
 server.port: {{ wazuh_dashboard_container_port }}
-opensearch.hosts: https://{{ wazuh_indexer_ip }}:9200
+opensearch.hosts: https://{{ wazuh_indexer_ip }}:{{ infra_port_search_elasticsearch_host }}
 opensearch.ssl.verificationMode: certificate
 opensearch.requestHeadersWhitelist: ["securitytenant","Authorization"]
 opensearch_security.multitenancy.enabled: false
@@ -9,6 +9,6 @@ server.ssl.enabled: false
 opensearch.ssl.certificateAuthorities: ["/usr/share/wazuh-dashboard/config/certs/root-ca.pem"]
 uiSettings.overrides.defaultRoute: /app/wz-home
 # Session expiration settings
-opensearch_security.cookie.ttl: 900000
-opensearch_security.session.ttl: 900000
+opensearch_security.cookie.ttl: "{{ infra_opensearch_cookie_ttl }}"
+opensearch_security.session.ttl: "{{ infra_opensearch_session_ttl }}"
 opensearch_security.session.keepalive: true

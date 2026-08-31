@@ -12,9 +12,9 @@
   ansible.builtin.set_fact:
     _vi_name: "{{ volume_spec.name }}"
     _vi_mount: "{{ volume_spec.mount | default('/data') }}"
-    _vi_uid: "{{ volume_spec.uid | default(1000) }}"
-    _vi_gid: "{{ volume_spec.gid | default(1000) }}"
-    _vi_mode: "{{ volume_spec.mode | default('755') }}"
+    _vi_uid: "{{ volume_spec.uid | default(infra_identity_puid) }}"
+    _vi_gid: "{{ volume_spec.gid | default(infra_identity_puid) }}"
+    _vi_mode: "{{ volume_spec.mode | default(infra_mode_dir) }}"
 
 # --- Phase 0: Ensure the Docker volume exists ---
 # Skipped when volume_init_create_volumes is false (volume managed elsewhere).

@@ -32,9 +32,9 @@ profiles:
   {{ profile.name }}:
     decisions:
       - type: {{ profile.decision_type | default('ban') }}
-        duration: {{ profile.duration | default('4h') }}
+        duration: {{ profile.duration | default(infra_timeout_hour_long) }}
         scope: {{ profile.scope | default('ip') }}
-        on_duration: {{ profile.on_duration | default('4h') }}
+        on_duration: {{ profile.on_duration | default(infra_timeout_hour_long) }}
         on_alert: {{ profile.on_alert | default('true') }}
     filters:
       {% for filter in profile.filters %}

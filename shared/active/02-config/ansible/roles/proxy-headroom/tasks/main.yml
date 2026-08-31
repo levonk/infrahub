@@ -12,7 +12,7 @@
     state: directory
     owner: root
     group: root
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   become: true
 
 - name: Ensure headroom configuration directories exist
@@ -21,7 +21,7 @@
     state: directory
     owner: root
     group: root
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   become: true
   loop:
     - mounts
@@ -67,7 +67,7 @@
     restart_policy: unless-stopped
     networks:
       - name: "{{ proxy_headroom_docker_network_name }}"
-        ipv4_address: "{{ infra_network_ip_headroom | default('172.29.0.13') }}"
+        ipv4_address: "{{ infra_network_ip_headroom | default(infra_network_ai_subnet_ip_13) }}"
       - name: "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"
     ports:
       - "{{ proxy_headroom_host_ip }}:{{ proxy_headroom_host_port }}:{{ proxy_headroom_container_port }}/tcp"
@@ -93,17 +93,17 @@
       - no-new-privileges:true
     read_only: true
     tmpfs:
-      - /tmp:rw,noexec,nosuid,size=100m
+      - /tmp:rw,noexec,nosuid,size={{ infra_size_100m }}
     log_driver: json-file
     log_options:
-      max-size: "10m"
-      max-file: "5"
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:{{ proxy_headroom_container_port }}/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
+      interval: "{{ infra_timeout_default }}"
+      timeout: "{{ infra_timeout_short }}"
+      retries: "{{ infra_retry_short }}"
+      start_period: "{{ infra_timeout_default }}"
   become: true
   when: proxy_headroom_enabled | bool
 
@@ -112,12 +112,12 @@
 # ---------------------------------------------------------------------------
 - name: Wait for headroom to be healthy
   ansible.builtin.uri:
-    url: "http://127.0.0.1:{{ proxy_headroom_host_port }}/health"
-    status_code: 200
+    url: "http://{{ infra_network_bind_localhost }}:{{ proxy_headroom_host_port }}/health"
+    status_code: "{{ infra_http_status_ok }}"
   register: headroom_health
-  until: headroom_health.status == 200
-  retries: 10
-  delay: 5
+  until: headroom_health.status == {{ infra_http_status_ok }}
+  retries: "{{ infra_retry_long }}"
+  delay: "{{ infra_delay_default }}"
   when:
     - proxy_headroom_enabled | bool
     - proxy_headroom_verify_health | bool

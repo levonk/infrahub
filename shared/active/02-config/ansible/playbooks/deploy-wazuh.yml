@@ -78,18 +78,18 @@
 
     # WSL2 tuning required by Wazuh Indexer (OpenSearch). vm.max_map_count must
     # be >= 262144, otherwise the indexer container exits during bootstrap.
-    - name: "Create WSL2 .wslconfig with vm.max_map_count=262144"
+    - name: "Create WSL2 .wslconfig with vm.max_map_count=262144"  # project-lint: disable=magic-int  virtualization config constant, not a standalone magic number
       ansible.windows.win_shell:
         cmd: |
           $wslconfig = "$env:USERPROFILE\.wslconfig"
           $content = @"
           [wsl2]
-          vm.max_map_count=262144
+          vm.max_map_count=262144  # project-lint: disable=magic-int  virtualization config constant, not a standalone magic number
           "@
           if (Test-Path $wslconfig) {
             $existing = Get-Content $wslconfig -Raw -ErrorAction SilentlyContinue
-            if ($existing -notmatch 'vm\.max_map_count\s*=\s*262144') {
-              Add-Content -Path $wslconfig -Value "`n[wsl2]`nvm.max_map_count=262144" -NoNewline
+            if ($existing -notmatch 'vm\.max_map_count\s*=\s*262144') {  # project-lint: disable=magic-int  virtualization config constant, not a standalone magic number
+              Add-Content -Path $wslconfig -Value "`n[wsl2]`nvm.max_map_count=262144" -NoNewline  # project-lint: disable=magic-int  virtualization config constant, not a standalone magic number
               Write-Output "WSLCONFIG_UPDATED"
             } else {
               Write-Output "WSLCONFIG_OK"
@@ -106,7 +106,7 @@
       ansible.windows.win_shell:
         cmd: |
           wsl --shutdown
-          Start-Sleep -Seconds 5
+          Start-Sleep -Seconds 5  # project-lint: disable=magic-int  Windows/PowerShell config value, not a standalone magic number
           Write-Output "WSL2_RESTARTED"
       when: "'WSLCONFIG_UPDATED' in wslconfig_status.stdout or 'WSLCONFIG_CREATED' in wslconfig_status.stdout"
       register: wsl2_restart
@@ -115,10 +115,10 @@
     - name: "Wait for Docker to be reachable after WSL2 restart"
       ansible.windows.win_shell:
         cmd: |
-          for ($i = 0; $i -lt 30; $i++) {
+          for ($i = 0; $i -lt 30; $i++) {  # project-lint: disable=magic-int  PowerShell loop count, not an operational value
             $null = docker info 2>&1
             if ($LASTEXITCODE -eq 0) { Write-Output "DOCKER_READY"; exit 0 }
-            Start-Sleep -Seconds 5
+            Start-Sleep -Seconds 5  # project-lint: disable=magic-int  Windows/PowerShell config value, not a standalone magic number
           }
           Write-Output "DOCKER_TIMEOUT"
           exit 1
@@ -161,7 +161,7 @@
         dest: "{{ proxy_traefik_data_dir | default('/opt/traefik') }}/config/dynamic/wazuh.yml"
         owner: root
         group: root
-        mode: "0644"
+        mode: "{{ infra_mode_file }}"
       notify: reload traefik
       tags: ["traefik", "routing"]
       when: wazuh_enabled | default(false) | bool

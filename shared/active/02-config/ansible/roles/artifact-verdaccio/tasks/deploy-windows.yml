@@ -14,7 +14,7 @@
   ansible.builtin.file:
     path: "{{ verdaccio_windows_temp_dir }}"
     state: directory
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   delegate_to: localhost
   run_once: true
   changed_when: false
@@ -24,7 +24,7 @@
   ansible.builtin.template:
     src: config.yaml.j2
     dest: "{{ verdaccio_windows_temp_dir }}/config.yaml"
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   delegate_to: localhost
   run_once: true
   changed_when: false
@@ -34,7 +34,7 @@
   ansible.builtin.template:
     src: htpasswd.j2
     dest: "{{ verdaccio_windows_temp_dir }}/htpasswd"
-    mode: "0640"
+    mode: "{{ infra_mode_file_shared }}"
   delegate_to: localhost
   run_once: true
   changed_when: false
@@ -139,7 +139,7 @@
     --log-driver json-file
     --log-opt max-size={{ verdaccio_log_max_size }}
     --log-opt max-file={{ verdaccio_log_max_file }}
-    --health-cmd "wget -qO- http://127.0.0.1:{{ verdaccio_container_port }}/-/ping || exit 1"
+    --health-cmd "wget -qO- http://{{ infra_network_bind_localhost }}:{{ verdaccio_container_port }}/-/ping || exit 1"
     --health-interval {{ verdaccio_healthcheck_interval }}
     --health-timeout {{ verdaccio_healthcheck_timeout }}
     --health-retries {{ verdaccio_healthcheck_retries }}
@@ -163,7 +163,7 @@
   delegate_to: localhost
   register: verdaccio_windows_health
   until: verdaccio_windows_health.stdout == "healthy"
-  retries: 30
+  retries: "{{ infra_retry_extended }}"
   delay: 3
   changed_when: false
   ignore_errors: true

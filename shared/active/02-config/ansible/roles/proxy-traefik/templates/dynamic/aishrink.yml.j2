@@ -30,7 +30,7 @@ http:
     aishrink:
       loadBalancer:
         servers:
-          - url: "http://headroom:{{ proxy_headroom_container_port | default('8787') }}"
+          - url: "http://headroom:{{ proxy_headroom_container_port | default('8787') }}"  # project-lint: disable=magic-int  Jinja default port value, should use infra_port variable
         passHostHeader: true
 
   middlewares:

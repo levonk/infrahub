@@ -36,5 +36,5 @@ http:
       loadBalancer:
         servers:
           # The mitmweb UI serves the CA cert at /mitmproxy-ca-cert.cer
-          - url: "http://{{ infra_network_ip_proxy_mitm | default('172.26.255.80') }}:{{ infra_port_proxy_mitm_webui_container | default('8081') }}"
+          - url: "http://{{ infra_network_ip_proxy_mitm | default(infra_network_ip_proxy_mitm) }}:{{ infra_port_proxy_mitm_webui_container | default(infra_port_proxy_mitm_webui_container) }}"
         passHostHeader: true

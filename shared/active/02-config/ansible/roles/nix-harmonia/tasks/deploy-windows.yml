@@ -1,7 +1,7 @@
 ---
 # nix-harmonia Windows (nl) deployment — ssh-tunneled Docker CLI pattern
 # Target: Windows Docker Desktop (dtop202311, X86). Harmonia serves the local
-# /nix/store over HTTP on 127.0.0.1 only (local access, not exposed externally).
+# /nix/store over HTTP on {{ infra_network_bind_localhost }} only (local access, not exposed externally).
 #
 # community.docker modules can't run on Windows (Ansible core basic.py imports
 # grp, Unix-only). We use ansible.builtin.shell with DOCKER_HOST: ssh:// and
@@ -16,7 +16,7 @@
   ansible.builtin.file:
     path: "{{ nix_harmonia_windows_temp_dir }}"
     state: directory
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   delegate_to: localhost
   run_once: true
   changed_when: false
@@ -26,7 +26,7 @@
   ansible.builtin.template:
     src: harmonia.toml.j2
     dest: "{{ nix_harmonia_windows_temp_dir }}/harmonia.toml"
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   delegate_to: localhost
   run_once: true
   changed_when: false
@@ -99,7 +99,7 @@
   ansible.builtin.copy:
     dest: "{{ nix_harmonia_windows_temp_dir }}/signing-key"
     content: "{{ vault_nix_harmonia_sign_key }}"
-    mode: "0600"
+    mode: "{{ infra_mode_file_restricted }}"
   delegate_to: localhost
   run_once: true
   changed_when: false
@@ -176,7 +176,7 @@
     docker run -d
     --name {{ nix_harmonia_container_name }}
     --restart unless-stopped
-    -p 127.0.0.1:{{ nix_harmonia_host_port }}:{{ nix_harmonia_container_port }}/tcp
+    -p {{ infra_network_bind_localhost }}:{{ nix_harmonia_host_port }}:{{ nix_harmonia_container_port }}/tcp
     -v {{ nix_harmonia_nix_store_volume }}:/shared-nix:ro
     -v {{ nix_harmonia_nix_config_volume }}:/etc/nix:ro
     -v {{ nix_harmonia_data_volume }}:/data:rw
@@ -187,7 +187,7 @@
     --log-driver json-file
     --log-opt max-size={{ nix_harmonia_log_max_size }}
     --log-opt max-file={{ nix_harmonia_log_max_file }}
-    --health-cmd "echo > /dev/tcp/127.0.0.1/{{ nix_harmonia_container_port }}"
+    --health-cmd "echo > /dev/tcp/{{ infra_network_bind_localhost }}/{{ nix_harmonia_container_port }}"
     --health-interval {{ nix_harmonia_healthcheck_interval }}
     --health-timeout {{ nix_harmonia_healthcheck_timeout }}
     --health-retries {{ nix_harmonia_healthcheck_retries }}
@@ -211,7 +211,7 @@
   delegate_to: localhost
   register: nix_harmonia_windows_health
   until: nix_harmonia_windows_health.stdout == "healthy"
-  retries: 30
+  retries: "{{ infra_retry_extended }}"
   delay: 3
   changed_when: false
   ignore_errors: true
@@ -236,9 +236,9 @@
   ansible.builtin.debug:
     msg: |
       nix-harmonia (nl) deployed:
-        - URL: http://127.0.0.1:{{ nix_harmonia_host_port }} (local access only, not exposed externally)
+        - URL: http://{{ infra_network_bind_localhost }}:{{ nix_harmonia_host_port }} (local access only, not exposed externally)
         - Container: {{ nix_harmonia_container_name }}
         - Image: {{ nix_harmonia_image_name }}:{{ nix_harmonia_image_tag }}
-        - Port: 127.0.0.1:{{ nix_harmonia_host_port }}:{{ nix_harmonia_container_port }}/tcp
+        - Port: {{ infra_network_bind_localhost }}:{{ nix_harmonia_host_port }}:{{ nix_harmonia_container_port }}/tcp
         - Status: {{ nix_harmonia_windows_status.stdout | default('unknown') }}
   tags: ["always", "info"]

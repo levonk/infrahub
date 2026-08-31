@@ -32,7 +32,7 @@
   ansible.builtin.file:
     path: /etc/apt/keyrings
     state: directory
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   become: true
   when:
     - ansible_facts['os_family'] == "Debian"
@@ -43,7 +43,7 @@
   ansible.builtin.get_url:
     url: https://download.docker.com/linux/debian/gpg
     dest: /etc/apt/keyrings/docker.asc
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
   when:
     - ansible_facts['os_family'] == "Debian"
@@ -98,7 +98,7 @@
     state: directory
     owner: "{{ isolation_vm_docker_daemon_config_owner }}"
     group: "{{ isolation_vm_docker_daemon_config_group }}"
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   become: true
   when: not isolation_vm_docker_skip_installation | default(false) | bool
 

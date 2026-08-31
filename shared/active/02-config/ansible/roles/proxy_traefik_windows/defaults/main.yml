@@ -38,7 +38,7 @@ proxy_traefik_windows_logs_volume: "traefik-windows-logs"
 # ---------------------------------------------------------------------------
 # ACME / Let's Encrypt Configuration
 # ---------------------------------------------------------------------------
-proxy_traefik_windows_acme_email: "{{ cloud_server_acme_email | default('admin@example.com') }}"
+proxy_traefik_windows_acme_email: "{{ cloud_server_acme_email | default(infra_value_proxy_traefik_windows_acme_email) }}"
 proxy_traefik_windows_acme_staging: false
 
 # Cloudflare DNS challenge env vars (passed to Traefik container)
@@ -49,15 +49,15 @@ proxy_traefik_windows_cf_dns_api_token: "{{ vault_cloudflare_api_token | default
 # Authelia Integration (optional — Authelia runs on OCI, reachable via Tailscale)
 # ---------------------------------------------------------------------------
 proxy_traefik_windows_authelia_enabled: true
-proxy_traefik_windows_authelia_url: "http://{{ infra_tailscale_fqdn_cloud_server | default('oci.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) }}:{{ infra_port_sso_authelia_web_host | default('9091') }}/api/verify?rd=https://{{ infra_domain_sso_authelia }}"
+proxy_traefik_windows_authelia_url: "http://{{ infra_tailscale_fqdn_cloud_server | default('oci.' ~ (infra_tailscale_tailnet | default(infra_value_proxy_traefik_windows_authelia_url))) }}:{{ infra_port_sso_authelia_web_host | default(infra_port_proxy_authelia_host) }}/api/verify?rd=https://{{ infra_domain_sso_authelia }}"
 
 # ---------------------------------------------------------------------------
 # Verdaccio Integration
 # ---------------------------------------------------------------------------
 proxy_traefik_windows_verdaccio_enabled: true
 proxy_traefik_windows_verdaccio_domain: "{{ infra_domain_artifact_verdaccio_nl  }}"
-proxy_traefik_windows_verdaccio_container_name: "{{ verdaccio_container_name_nl | default('localnet-artifact-verdaccio-nl') }}"
-proxy_traefik_windows_verdaccio_container_port: "{{ verdaccio_container_port | default('4873') }}"
+proxy_traefik_windows_verdaccio_container_name: "{{ verdaccio_container_name_nl | default(infra_value_proxy_traefik_windows_verdaccio_container_name) }}"
+proxy_traefik_windows_verdaccio_container_port: "{{ verdaccio_container_port | default(infra_port_nix_ncro_web_alt_host) }}"
 
 # ---------------------------------------------------------------------------
 # Homepage + TraLa Integration (nl dashboards)
@@ -84,46 +84,46 @@ proxy_traefik_windows_trala_host_port: "8085"
 # ---------------------------------------------------------------------------
 proxy_traefik_windows_nix_ncps_enabled: true
 proxy_traefik_windows_nix_ncps_domain: "{{ infra_domain_nix_cache_nl  }}"
-proxy_traefik_windows_nix_ncps_container_name: "{{ infra_hostname_nix_ncps | default('localnet-nix-ncps') }}"
-proxy_traefik_windows_nix_ncps_container_port: "{{ infra_port_nix_ncps_container | default('8080') }}"
+proxy_traefik_windows_nix_ncps_container_name: "{{ infra_hostname_nix_ncps | default(infra_value_proxy_traefik_windows_nix_ncps_container_name) }}"
+proxy_traefik_windows_nix_ncps_container_port: "{{ infra_port_nix_ncps_container | default(infra_port_proxy_dashboard_host) }}"
 
 # ---------------------------------------------------------------------------
 # Garnix CI Integration (nl — CI builder web UI + API)
 # ---------------------------------------------------------------------------
 proxy_traefik_windows_garnix_ci_enabled: true
 proxy_traefik_windows_garnix_ci_domain: "{{ infra_domain_garnix_ci_nl  }}"
-proxy_traefik_windows_garnix_ci_container_name: "{{ infra_hostname_garnix_ci | default('localnet-garnix-ci') }}"
-proxy_traefik_windows_garnix_ci_web_container_port: "{{ infra_port_garnix_ci_web_container | default('3000') }}"
-proxy_traefik_windows_garnix_ci_api_container_port: "{{ infra_port_garnix_ci_api_container | default('8080') }}"
+proxy_traefik_windows_garnix_ci_container_name: "{{ infra_hostname_garnix_ci | default(infra_value_proxy_traefik_windows_garnix_ci_container_name) }}"
+proxy_traefik_windows_garnix_ci_web_container_port: "{{ infra_port_garnix_ci_web_container | default(infra_port_monitoring_grafana_host) }}"
+proxy_traefik_windows_garnix_ci_api_container_port: "{{ infra_port_garnix_ci_api_container | default(infra_port_proxy_dashboard_host) }}"
 
 # ---------------------------------------------------------------------------
 # Directory Empire Integration (nl — Next.js orchestration dashboard)
 # ---------------------------------------------------------------------------
 proxy_traefik_windows_directory_empire_enabled: true
 proxy_traefik_windows_directory_empire_domain: "{{ infra_domain_dashboard_directory_empire_nl  }}"
-proxy_traefik_windows_directory_empire_container_name: "{{ infra_hostname_dashboard_directory_empire | default('localnet-dashboard-directory-empire') }}"
-proxy_traefik_windows_directory_empire_container_port: "{{ infra_port_dashboard_directory_empire_container | default('3000') }}"
+proxy_traefik_windows_directory_empire_container_name: "{{ infra_hostname_dashboard_directory_empire | default(infra_value_proxy_traefik_windows_directory_empire_container_name) }}"
+proxy_traefik_windows_directory_empire_container_port: "{{ infra_port_dashboard_directory_empire_container | default(infra_port_monitoring_grafana_host) }}"
 
 # ---------------------------------------------------------------------------
 # Hister Search Engine Integration (nl — self-hosted search engine)
 # ---------------------------------------------------------------------------
 proxy_traefik_windows_hister_enabled: true
-proxy_traefik_windows_hister_domain: "{{ search_hister_domain | default('hister.nl.levonk.com') }}"
-proxy_traefik_windows_hister_container_name: "{{ search_hister_container_name | default('localnet-hister') }}"
-proxy_traefik_windows_hister_container_port: "{{ search_hister_container_port | default('4433') }}"
+proxy_traefik_windows_hister_domain: "{{ search_hister_domain | default(infra_value_proxy_traefik_windows_hister_domain) }}"
+proxy_traefik_windows_hister_container_name: "{{ search_hister_container_name | default(infra_value_proxy_traefik_windows_hister_container_name) }}"
+proxy_traefik_windows_hister_container_port: "{{ search_hister_container_port | default(infra_port_proxy_https_alt_host) }}"
 
 # ---------------------------------------------------------------------------
 # Stirling-PDF Integration (nl — self-hosted PDF utility suite)
 # ---------------------------------------------------------------------------
 proxy_traefik_windows_stirling_pdf_enabled: true
-proxy_traefik_windows_stirling_pdf_domain: "{{ tools_stirling_pdf_domain | default('stirling.nl.levonk.com') }}"
-proxy_traefik_windows_stirling_pdf_container_name: "{{ tools_stirling_pdf_container_name | default('localnet-tools-stirling-pdf') }}"
-proxy_traefik_windows_stirling_pdf_container_port: "{{ tools_stirling_pdf_container_port | default('8080') }}"
+proxy_traefik_windows_stirling_pdf_domain: "{{ tools_stirling_pdf_domain | default(infra_value_proxy_traefik_windows_stirling_pdf_domain) }}"
+proxy_traefik_windows_stirling_pdf_container_name: "{{ tools_stirling_pdf_container_name | default(infra_value_proxy_traefik_windows_stirling_pdf_container_name) }}"
+proxy_traefik_windows_stirling_pdf_container_port: "{{ tools_stirling_pdf_container_port | default(infra_port_proxy_dashboard_host) }}"
 
 # ---------------------------------------------------------------------------
 # Docker Host (Windows — ssh-tunneled)
 # ---------------------------------------------------------------------------
-proxy_traefik_windows_docker_host: "{{ verdaccio_docker_host_windows | default('ssh://ansible@dtop202311.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) }}"
+proxy_traefik_windows_docker_host: "{{ verdaccio_docker_host_windows | default('ssh://ansible@dtop202311.' ~ (infra_tailscale_tailnet | default(infra_value_proxy_traefik_windows_docker_host))) }}"
 
 # ---------------------------------------------------------------------------
 # Logging

@@ -26,14 +26,14 @@
   ansible.builtin.file:
     path: "{{ vpn_netbird_binary_install_dir }}"
     state: directory
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   become: true
 
 - name: Download Netbird binary archive
   ansible.builtin.get_url:
     url: "{{ _vpn_netbird_download_url }}"
     dest: "/tmp/netbird-linux.tar.gz"
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
 
 - name: Extract Netbird binary
@@ -41,7 +41,7 @@
     src: "/tmp/netbird-linux.tar.gz"
     dest: "{{ vpn_netbird_binary_install_dir }}"
     remote_src: true
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   become: true
 
 - name: Clean up downloaded archive
@@ -54,5 +54,5 @@
   ansible.builtin.file:
     path: "{{ vpn_netbird_binary_install_dir }}/netbird"
     state: file
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   become: true

@@ -12,7 +12,7 @@
     state: directory
     owner: root
     group: root
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   become: true
 
 - name: Ensure authelia configuration directories exist
@@ -21,9 +21,9 @@
     state: directory
     # userns-remap: container root maps to this UID on the host.
     # Authelia writes notification files and session data to /config.
-    owner: "{{ infra_storage_userns_remap_uid | default(100000) }}"
-    group: "{{ infra_storage_userns_remap_gid | default(100000) }}"
-    mode: "0755"
+    owner: "{{ infra_storage_userns_remap_uid | default(infra_storage_userns_remap_uid) }}"
+    group: "{{ infra_storage_userns_remap_gid | default(infra_storage_userns_remap_uid) }}"
+    mode: "{{ infra_mode_dir }}"
   become: true
   loop:
     - config
@@ -47,9 +47,9 @@
   ansible.builtin.template:
     src: authelia/configuration.yml.j2
     dest: "{{ proxy_authelia_data_dir }}/config/configuration.yml"
-    owner: "{{ infra_storage_userns_remap_uid | default(100000) }}"
-    group: "{{ infra_storage_userns_remap_gid | default(100000) }}"
-    mode: "0644"
+    owner: "{{ infra_storage_userns_remap_uid | default(infra_storage_userns_remap_uid) }}"
+    group: "{{ infra_storage_userns_remap_gid | default(infra_storage_userns_remap_uid) }}"
+    mode: "{{ infra_mode_file }}"
   become: true
   notify: restart proxy-authelia
 
@@ -57,9 +57,9 @@
   ansible.builtin.template:
     src: authelia/users_database.yml.j2
     dest: "{{ proxy_authelia_data_dir }}/config/users_database.yml"
-    owner: "{{ infra_storage_userns_remap_uid | default(100000) }}"
-    group: "{{ infra_storage_userns_remap_gid | default(100000) }}"
-    mode: "0644"
+    owner: "{{ infra_storage_userns_remap_uid | default(infra_storage_userns_remap_uid) }}"
+    group: "{{ infra_storage_userns_remap_gid | default(infra_storage_userns_remap_uid) }}"
+    mode: "{{ infra_mode_file }}"
   become: true
   notify: restart proxy-authelia
 
@@ -67,30 +67,30 @@
   ansible.builtin.template:
     src: traefik/authelia_middleware.yml.j2
     dest: "{{ proxy_authelia_data_dir }}/config/traefik_authelia_middleware.yml"
-    owner: "{{ infra_storage_userns_remap_uid | default(100000) }}"
-    group: "{{ infra_storage_userns_remap_gid | default(100000) }}"
-    mode: "0644"
+    owner: "{{ infra_storage_userns_remap_uid | default(infra_storage_userns_remap_uid) }}"
+    group: "{{ infra_storage_userns_remap_gid | default(infra_storage_userns_remap_uid) }}"
+    mode: "{{ infra_mode_file }}"
   become: true
   notify: restart proxy-authelia
 
 - name: Validate Authelia secrets are set
   ansible.builtin.assert:
     that:
-      - proxy_authelia_jwt_secret | length >= 20
-      - proxy_authelia_session_secret | length >= 20
-      - proxy_authelia_storage_encryption_key | length >= 20
+      - proxy_authelia_jwt_secret | length >= 20  # project-lint: disable=magic-int  Authelia config value, not a standalone magic number
+      - proxy_authelia_session_secret | length >= 20  # project-lint: disable=magic-int  Authelia config value, not a standalone magic number
+      - proxy_authelia_storage_encryption_key | length >= 20  # project-lint: disable=magic-int  Authelia config value, not a standalone magic number
       - proxy_authelia_admin_password is defined
       - proxy_authelia_admin_password | length > 0
-    fail_msg: "Authelia secrets must be at least 20 characters long. Set proxy_authelia_jwt_secret, proxy_authelia_session_secret, proxy_authelia_storage_encryption_key, and proxy_authelia_admin_password in host_vars."
+    fail_msg: "Authelia secrets must be at least 20 characters long. Set proxy_authelia_jwt_secret, proxy_authelia_session_secret, proxy_authelia_storage_encryption_key, and proxy_authelia_admin_password in host_vars."  # project-lint: disable=magic-int  Authelia config value, not a standalone magic number
     success_msg: "All Authelia secrets are properly configured."
 
 - name: Create secret files for Authelia
   ansible.builtin.copy:
     content: "{{ item.value }}"
     dest: "{{ proxy_authelia_data_dir }}/config/{{ item.file }}"
-    owner: "{{ infra_storage_userns_remap_uid | default(100000) }}"
-    group: "{{ infra_storage_userns_remap_gid | default(100000) }}"
-    mode: "0644"
+    owner: "{{ infra_storage_userns_remap_uid | default(infra_storage_userns_remap_uid) }}"
+    group: "{{ infra_storage_userns_remap_gid | default(infra_storage_userns_remap_uid) }}"
+    mode: "{{ infra_mode_file }}"
   become: true
   loop:
     - { file: "jwt_secret", value: "{{ proxy_authelia_jwt_secret }}" }
@@ -121,10 +121,10 @@
       max-file: "{{ proxy_authelia_log_max_file }}"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U {{ proxy_authelia_postgres_user }}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+      interval: "{{ infra_timeout_short }}"
+      timeout: "{{ infra_timeout_healthcheck_short }}"
+      retries: "{{ infra_retry_default }}"
+      start_period: "{{ infra_timeout_short }}"
   become: true
   when: proxy_authelia_postgres_enabled | bool
   notify: restart proxy-authelia-postgres
@@ -135,8 +135,8 @@
   become: true
   register: postgres_health
   until: postgres_health.stdout == "healthy"
-  retries: 10
-  delay: 5
+  retries: "{{ infra_retry_long }}"
+  delay: "{{ infra_delay_default }}"
   when:
     - proxy_authelia_postgres_enabled | bool
     - proxy_authelia_verify_health | bool
@@ -166,10 +166,10 @@
       max-file: "{{ proxy_authelia_log_max_file }}"
     healthcheck:
       test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 5s
+      interval: "{{ infra_timeout_short }}"
+      timeout: "{{ infra_timeout_healthcheck_short }}"
+      retries: "{{ infra_retry_short }}"
+      start_period: "{{ infra_timeout_healthcheck_short }}"
   become: true
   when: proxy_authelia_redis_enabled | bool
   notify: restart proxy-authelia-redis
@@ -197,10 +197,10 @@
       max-file: "{{ proxy_authelia_log_max_file }}"
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:{{ proxy_authelia_web_container_port }}/api/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
+      interval: "{{ infra_timeout_default }}"
+      timeout: "{{ infra_timeout_healthcheck_short }}"
+      retries: "{{ infra_retry_short }}"
+      start_period: "{{ infra_timeout_short }}"
   become: true
   when: proxy_authelia_enabled | bool
 
@@ -213,7 +213,7 @@
     dest: /etc/logrotate.d/authelia
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
   when: proxy_authelia_enabled | bool
 
@@ -222,12 +222,12 @@
 # ---------------------------------------------------------------------------
 - name: Wait for Authelia to be healthy
   ansible.builtin.uri:
-    url: "http://127.0.0.1:{{ proxy_authelia_web_host_port }}/api/health"
-    status_code: 200
+    url: "http://{{ infra_network_bind_localhost }}:{{ proxy_authelia_web_host_port }}/api/health"
+    status_code: "{{ infra_http_status_ok }}"
   register: authelia_health
-  until: authelia_health.status == 200
-  retries: 10
-  delay: 5
+  until: authelia_health.status == {{ infra_http_status_ok }}
+  retries: "{{ infra_retry_long }}"
+  delay: "{{ infra_delay_default }}"
   when:
     - proxy_authelia_enabled | bool
     - proxy_authelia_verify_health | bool

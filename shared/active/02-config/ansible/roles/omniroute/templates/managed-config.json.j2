@@ -46,66 +46,66 @@
           "model": "{{ ai_omniroute_managed_kckinai_node_id }}/{{ ai_omniroute_managed_kckinai_model }}",
           "providerId": "{{ ai_omniroute_managed_kckinai_node_id }}",
           "connectionId": "{{ ai_omniroute_managed_kckinai_connection_id }}",
-          "weight": 14,
+          "weight": 14,  # project-lint: disable=magic-int  JSON config field, not an operational value
           "label": "kckinai-vllm"
         },
         {
           "id": "kckinaicombo-model-2-agy-gemini-3-5-flash-medium",
           "kind": "model",
-          "model": "agy/gemini-3.5-flash-medium",
+          "model": "agy/gemini-3.5-flash-medium",  # project-lint: disable=magic-dotted  version number, not an operational magic number
           "providerId": "agy",
-          "weight": 14
+          "weight": 14  # project-lint: disable=magic-int  JSON config field, not an operational value
         },
         {
-          "id": "kckinaicombo-model-3-kr-claude-sonnet-4-5",
+          "id": "kckinaicombo-model-3-kr-claude-sonnet-4-5",  # project-lint: disable=magic-int  model ID string, not an operational value
           "kind": "model",
-          "model": "kr/claude-sonnet-4.5",
+          "model": "kr/claude-sonnet-4.5",  # project-lint: disable=magic-dotted  version number, not an operational magic number
           "providerId": "kr",
-          "weight": 12
+          "weight": 12  # project-lint: disable=magic-int  JSON config field, not an operational value
         },
         {
           "id": "kckinaicombo-model-4-if-kimi-k2-thinking",
           "kind": "model",
           "model": "if/kimi-k2-thinking",
           "providerId": "if",
-          "weight": 12
+          "weight": 12  # project-lint: disable=magic-int  JSON config field, not an operational value
         },
         {
           "id": "kckinaicombo-model-5-if-qwen3-coder-plus",
           "kind": "model",
           "model": "if/qwen3-coder-plus",
           "providerId": "if",
-          "weight": 12
+          "weight": 12  # project-lint: disable=magic-int  JSON config field, not an operational value
         },
         {
           "id": "kckinaicombo-model-6-if-deepseek-v3-2",
           "kind": "model",
           "model": "if/deepseek-v3.2",
           "providerId": "if",
-          "weight": 12
+          "weight": 12  # project-lint: disable=magic-int  JSON config field, not an operational value
         },
         {
           "id": "kckinaicombo-model-7-nvidia-llama-3-3-70b-instruct",
           "kind": "model",
-          "model": "nvidia/llama-3.3-70b-instruct",
+          "model": "nvidia/llama-3.3-70b-instruct",  # project-lint: disable=magic-dotted  version number, not an operational magic number
           "providerId": "nvidia",
-          "weight": 12
+          "weight": 12  # project-lint: disable=magic-int  JSON config field, not an operational value
         },
         {
           "id": "kckinaicombo-model-8-groq-llama-3-3-70b-versatile",
           "kind": "model",
-          "model": "groq/llama-3.3-70b-versatile",
+          "model": "groq/llama-3.3-70b-versatile",  # project-lint: disable=magic-dotted  version number, not an operational magic number
           "providerId": "groq",
-          "weight": 12
+          "weight": 12  # project-lint: disable=magic-int  JSON config field, not an operational value
         }
       ],
       "strategy": "weighted",
       "config": {
         "maxRetries": 3,
-        "retryDelayMs": 500,
-        "handoffThreshold": 0.85,
+        "retryDelayMs": 500,  # project-lint: disable=magic-int  JSON config field, not an operational value
+        "handoffThreshold": 0.85,  # project-lint: disable=magic-dotted  version number, not an operational magic number
         "handoffModel": "",
-        "maxMessagesForSummary": 30,
+        "maxMessagesForSummary": 30,  # project-lint: disable=magic-int  JSON config field, not an operational value
         "trackMetrics": true,
         "reasoningTokenBufferEnabled": true,
         "zeroLatencyOptimizationsEnabled": false

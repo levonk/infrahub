@@ -17,39 +17,39 @@
       - localnet-wireguard-transparent-config-volume:/config
       - /lib/modules:/lib/modules:ro
     ports:
-      - "{{ wireguard_transparent_port | default('51821') }}:51820/udp"
+      - "{{ wireguard_transparent_port | default(infra_port_vpn_wireguard_transparent_host) }}:{{ infra_port_vpn_wireguard_host }}/udp"
     sysctls:
       net.ipv4.conf.all.src_valid_mark: 1
       net.ipv4.ip_forward: 1
     dns_servers:
-      - 172.20.0.254
+      - "{{ infra_network_vpn_wireguard_transparent_dns }}"
     env:
       PUID: "{{ localnet_puid }}"
       PGID: "{{ localnet_pgid }}"
       TZ: "{{ localnet_tz }}"
       SERVERURL: "{{ wireguard_serverurl | default('auto') }}"
-      SERVERPORT: "{{ wireguard_transparent_port | default('51821') }}"
+      SERVERPORT: "{{ wireguard_transparent_port | default(infra_port_vpn_wireguard_transparent_host) }}"
       PEERS: "{{ wireguard_transparent_peers | default('3') }}"
-      PEERDNS: 172.20.0.254
-      INTERNAL_SUBNET: 10.13.14.0
-      ALLOWEDIPS: 172.20.0.0/16
+      PEERDNS: "{{ infra_network_vpn_wireguard_transparent_dns }}"
+      INTERNAL_SUBNET: "{{ infra_network_vpn_wireguard_transparent_subnet }}"
+      ALLOWEDIPS: "{{ infra_network_vpn_wireguard_transparent_allowed }}"
       LOG_CONFS: true
     log_driver: json-file
     log_options:
-      max-size: 10m
-      max-file: 5
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
     healthcheck:
       test: ["CMD", "wg", "show", "wg0"]
-      interval: 30
-      timeout: 5
+      interval: "{{ infra_healthcheck_interval }}"
+      timeout: "{{ infra_timeout_short }}"
       retries: 3
-      start_period: 10
+      start_period: "{{ infra_healthcheck_start_period }}"
 
 - name: Wait for wireguard-transparent to be healthy
   ansible.builtin.shell: |
     docker inspect --format='{{"{{"}}.State.Health.Status{{"}}"}}' localnet-vpn-transparent
   register: wg_transparent_health
   until: wg_transparent_health.stdout == "healthy"
-  retries: 10
-  delay: 10
+  retries: "{{ infra_retry_long }}"
+  delay: "{{ infra_delay_long }}"
   ignore_errors: true

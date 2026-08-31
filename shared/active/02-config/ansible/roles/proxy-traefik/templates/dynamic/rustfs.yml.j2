@@ -54,11 +54,11 @@ http:
     rustfs:
       loadBalancer:
         servers:
-          - url: "{{ rustfs_traefik_backend_url | default('http://' ~ infra_tailscale_fqdn_windows_docker | default('dtop202311.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) ~ ':' ~ infra_port_storage_rustfs_s3_host | default('9000')) }}"
+          - url: "{{ rustfs_traefik_backend_url | default('http://' ~ infra_tailscale_fqdn_windows_docker | default('dtop202311.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) ~ ':' ~ infra_port_storage_rustfs_s3_host | default(infra_port_storage_rustfs_s3_host)) }}"
         passHostHeader: true
 
     rustfs-console:
       loadBalancer:
         servers:
-          - url: "{{ rustfs_console_traefik_backend_url | default('http://' ~ infra_tailscale_fqdn_windows_docker | default('dtop202311.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) ~ ':' ~ infra_port_storage_rustfs_console_host | default('9001')) }}"
+          - url: "{{ rustfs_console_traefik_backend_url | default('http://' ~ infra_tailscale_fqdn_windows_docker | default('dtop202311.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) ~ ':' ~ infra_port_storage_rustfs_console_host | default(infra_port_storage_rustfs_console_host)) }}"
         passHostHeader: true

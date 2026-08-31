@@ -14,7 +14,7 @@
       - "traefik.example.com"
 
     # Expected IP address (OCI cloud server)
-    expected_ip: "161.153.91.163"
+    expected_ip: "{{ infra_network_external_dns_test }}"
 
   tasks:
     - name: Test DNS resolution for each domain

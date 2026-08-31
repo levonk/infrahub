@@ -15,7 +15,7 @@
   ansible.builtin.file:
     path: "{{ nix_ncro_windows_temp_dir }}"
     state: directory
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   delegate_to: localhost
   run_once: true
   changed_when: false
@@ -28,7 +28,7 @@
   ansible.builtin.template:
     src: config.toml.j2
     dest: "{{ nix_ncro_windows_temp_dir }}/config.toml"
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   delegate_to: localhost
   run_once: true
   changed_when: false
@@ -124,7 +124,7 @@
     docker run -d
     --name {{ nix_ncro_container_name }}
     --restart unless-stopped
-    -p 127.0.0.1:{{ nix_ncro_host_port }}:{{ nix_ncro_container_port }}/tcp
+    -p {{ infra_network_bind_localhost }}:{{ nix_ncro_host_port }}:{{ nix_ncro_container_port }}/tcp
     -v {{ nix_ncro_config_volume }}:/config:ro
     -v {{ nix_ncro_data_volume }}:/data:rw
     --network {{ nix_ncro_network_name }}
@@ -133,7 +133,7 @@
     --log-driver json-file
     --log-opt max-size={{ nix_ncro_log_max_size }}
     --log-opt max-file={{ nix_ncro_log_max_file }}
-    --health-cmd "echo > /dev/tcp/127.0.0.1/{{ nix_ncro_container_port }}"
+    --health-cmd "echo > /dev/tcp/{{ infra_network_bind_localhost }}/{{ nix_ncro_container_port }}"
     --health-interval {{ nix_ncro_healthcheck_interval }}
     --health-timeout {{ nix_ncro_healthcheck_timeout }}
     --health-retries {{ nix_ncro_healthcheck_retries }}
@@ -158,7 +158,7 @@
   delegate_to: localhost
   register: nix_ncro_health
   until: nix_ncro_health.stdout == "healthy"
-  retries: 30
+  retries: "{{ infra_retry_extended }}"
   delay: 3
   changed_when: false
   ignore_errors: true
@@ -185,7 +185,7 @@
       ncro (nl) deployed:
         - Container: {{ nix_ncro_container_name }}
         - Image: {{ nix_ncro_image_name }}:{{ nix_ncro_image_tag }}
-        - Port: 127.0.0.1:{{ nix_ncro_host_port }}:{{ nix_ncro_container_port }}/tcp (internal only, behind ncps)
+        - Port: {{ infra_network_bind_localhost }}:{{ nix_ncro_host_port }}:{{ nix_ncro_container_port }}/tcp (internal only, behind ncps)
         - Network: {{ nix_ncro_network_name }}
         - Upstreams: {{ nix_ncro_upstreams | map(attribute='url') | list | join(', ') }}
         - Status: {{ nix_ncro_status.stdout | default('unknown') }}

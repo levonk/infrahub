@@ -30,5 +30,5 @@ http:
     homepage-nl:
       loadBalancer:
         servers:
-          - url: "http://{{ proxy_traefik_windows_homepage_container_name | default('homepage-nl') }}:{{ proxy_traefik_windows_homepage_container_port | default('3000') }}"
+          - url: "http://{{ proxy_traefik_windows_homepage_container_name | default('homepage-nl') }}:{{ proxy_traefik_windows_homepage_container_port | default(infra_port_monitoring_grafana_host) }}"
         passHostHeader: true

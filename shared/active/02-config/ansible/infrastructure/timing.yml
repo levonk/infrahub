@@ -1,0 +1,217 @@
+---
+# Timing and Retry Allocation Schema
+# Location: shared/active/02-config/ansible/infrastructure/timing.yml
+# Purpose: Standard timing, retry, and delay values as named variables
+# Client-specific values in levonk/active/02-config/ansible/infrastructure/timing.yml
+# ---------------------------------------------------------------------------
+# Variable Naming: infra_{CATEGORY}_{DESCRIPTION}
+# Categories: timeout, retry, delay, interval, healthcheck
+# ---------------------------------------------------------------------------
+# NOTE: All values are strings to support YAML number/string compatibility
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Retry counts
+# ---------------------------------------------------------------------------
+infra_retry_default: "5"
+infra_retry_short: "3"
+infra_retry_long: "10"
+infra_retry_extended: "30"
+infra_retry_max: "50"
+
+# ---------------------------------------------------------------------------
+# Delays (seconds)
+# ---------------------------------------------------------------------------
+infra_delay_default: "5"
+infra_delay_short: "2"
+infra_delay_long: "10"
+infra_delay_extended: "30"
+infra_delay_minute: "60"
+
+# ---------------------------------------------------------------------------
+# Timeouts (seconds)
+# ---------------------------------------------------------------------------
+infra_timeout_default: "30"
+infra_timeout_short: "10"
+infra_timeout_long: "60"
+infra_timeout_extended: "120"
+infra_timeout_max: "300"
+infra_timeout_request: "600"
+infra_timeout_fail2ban_ban: "3600"
+
+# ---------------------------------------------------------------------------
+# Health check intervals (seconds)
+# ---------------------------------------------------------------------------
+infra_healthcheck_interval: "30"
+infra_healthcheck_interval_short: "10"
+infra_healthcheck_interval_long: "60"
+infra_healthcheck_timeout: "10"
+infra_healthcheck_start_period: "40"
+infra_healthcheck_retries: "3"
+
+# ---------------------------------------------------------------------------
+# HTTP status codes
+# ---------------------------------------------------------------------------
+infra_http_status_ok: "200"
+infra_http_status_created: "201"
+infra_http_status_no_content: "204"
+infra_http_status_redirect: "301"
+infra_http_status_not_modified: "304"
+infra_http_status_bad_request: "400"
+infra_http_status_unauthorized: "401"
+infra_http_status_forbidden: "403"
+infra_http_status_not_found: "404"
+infra_http_status_server_error: "500"
+infra_http_status_bad_gateway: "502"
+infra_http_status_service_unavailable: "503"
+
+# ---------------------------------------------------------------------------
+# Log rotation
+# ---------------------------------------------------------------------------
+infra_log_max_size: "10m"
+infra_log_max_file: "5"
+infra_log_rotate_count: "7"
+
+# ---------------------------------------------------------------------------
+# Identity/UID-GID
+# ---------------------------------------------------------------------------
+infra_identity_puid: "1000"
+infra_identity_pgid: "1000"
+
+# ---------------------------------------------------------------------------
+# Size limits
+# ---------------------------------------------------------------------------
+infra_size_unlimited: "0"
+infra_size_1k: "1024"
+infra_size_64k: "65536"
+infra_size_1m: "1048576"
+infra_size_10m: "10485760"
+infra_size_100m: "104857600"
+
+# ---------------------------------------------------------------------------
+# Misc operational values
+# ---------------------------------------------------------------------------
+infra_cert_expiry_hours: "72"
+infra_dns_ttl: "300"
+infra_dns_ttl_short: "30"
+infra_dns_ttl_long: "3600"
+infra_cache_valid_time: "3600"
+infra_crypto_rsa_key_size: "4096"
+infra_buffer_size_default: "4096"
+infra_size_32: "32"
+infra_size_64k: "65536"
+infra_size_128k: "131072"
+infra_size_256k: "262144"
+infra_mode_dir_sticky: "1777"
+infra_shell_history_size: "1000"
+infra_log_truncate_default: "200"
+infra_log_tail_default: "50"
+infra_log_tail_long: "100"
+infra_timeout_zero: "0"
+infra_timeout_one_second: "1"
+infra_timeout_connect_short: "3"
+infra_timeout_http: "200"
+infra_timeout_http_half: "500"
+infra_timeout_minute_long: "300"
+infra_timeout_minute_extended: "600"
+infra_timeout_half_hour: "1800"
+infra_timeout_half_hour_quarter: "900"
+infra_timeout_three_quarters: "2700"
+infra_timeout_hour_long: "7200"
+infra_timeout_quarter_day: "21600"
+infra_timeout_half_day: "43200"
+infra_timeout_day_long: "86400"
+infra_timeout_week: "604800"
+infra_timeout_month: "2592000"
+infra_retry_min: "1"
+infra_healthcheck_retries: "3"
+infra_healthcheck_start_period: "30"
+infra_size_128m: "128m"
+infra_size_100m: "100m"
+infra_size_256m: "256m"
+infra_size_512m: "512m"
+infra_size_1g: "1g"
+infra_size_2g: "2g"
+infra_size_64m: "64m"
+infra_size_10m: "10485760"
+infra_size_100m_bytes: "104857600"
+infra_endpoint_proxy_dashboard_localhost: "127.0.0.1:8080"
+infra_endpoint_cloudflare_dns_primary: "1.1.1.1:53"
+infra_endpoint_google_dns_primary: "8.8.8.8:53"
+infra_endpoint_proxy_alt_localhost: "127.0.0.1:8882"
+infra_registry: "100.90.22.85:5000"
+infra_registry_host: "100.90.22.85"
+infra_tls_ca_validity_days: "3650"
+infra_worker_count_default: "4"
+infra_worker_count_medium: "8"
+infra_worker_count_high: "16"
+infra_port_vpn_tor_dirport_host: "9030"
+infra_port_vpn_tailscale_http_container: "8085"
+infra_port_vpn_netbird_http_container: "8084"
+infra_port_proxy_mitm_webui_container: "8081"
+infra_proxy_tor_bandwidth_burst: "200 KB"
+infra_storage_userns_remap_uid: "100000"
+infra_storage_userns_remap_gid: "100000"
+infra_size_4m: "4194304"
+infra_log_max_size_mb: "100"
+infra_port_dns_dot_host: "853"
+infra_port_dns_doq_host: "853"
+infra_port_dns_dnscrypt_host: "5443"
+infra_worker_count_high: "50"
+infra_healthcheck_start_period_long: "170"
+infra_password_min_entropy: "8"
+infra_port_rdp_host: "3389"
+infra_disk_usage_warn_threshold: "80"
+infra_port_proxy_mitm_alt_host: "8882"
+infra_port_proxy_privoxy_host: "8118"
+infra_port_proxy_envoy_admin_host: "9901"
+infra_port_dns_coredns_metrics_host: "9153"
+infra_port_dashboard_homepage_custom: "5700"
+infra_port_dev_app_host: "33000"
+infra_port_dev_alt_host: "33080"
+infra_opensearch_cookie_ttl: "900000"
+infra_opensearch_session_ttl: "900000"
+infra_port_smtp_host: "25"
+infra_session_ttl_hours_default: "8"
+infra_port_proxy_envoy_internal_host: "3129"
+infra_port_omnigent_local_api_host: "46123"
+infra_ai_max_concurrent: "10"
+infra_port_vpn_gluetun_http_proxy_host: "8888"
+infra_port_vpn_gluetun_http_proxy_container: "8888"
+infra_port_vpn_gluetun_shadowsocks_host: "8388"
+infra_port_vpn_gluetun_shadowsocks_container: "8388"
+infra_port_vpn_gluetun_wireguard_host: "8701"
+infra_port_vpn_gluetun_wireguard_container: "8701"
+infra_port_vpn_gluetun_bt_host: "6881"
+infra_port_vpn_gluetun_bt_container: "6881"
+infra_port_vpn_gluetun_torrent_host: "7878"
+infra_port_vpn_gluetun_torrent_container: "7878"
+infra_port_vpn_gluetun_prowlarr_host: "8989"
+infra_port_vpn_gluetun_prowlarr_container: "8989"
+infra_port_vpn_gluetun_qbittorrent_host: "8685"
+infra_port_vpn_gluetun_qbittorrent_container: "8685"
+infra_port_vpn_gluetun_radarr_host: "6767"
+infra_port_vpn_gluetun_radarr_container: "6767"
+infra_port_vpn_gluetun_lidarr_host: "9696"
+infra_port_vpn_gluetun_lidarr_container: "9696"
+infra_port_vpn_gluetun_sonarr_host: "8191"
+infra_port_vpn_gluetun_sonarr_container: "8191"
+infra_network_vpn_gluetun_wireguard_address: "10.14.14.2/32"
+infra_port_vpn_wireguard_transparent_host: "51821"
+infra_port_vpn_wireguard_host: "51820"
+infra_network_vpn_wireguard_transparent_dns: "172.20.0.254"
+infra_network_vpn_wireguard_transparent_subnet: "10.13.14.0"
+infra_network_vpn_wireguard_transparent_allowed: "172.20.0.0/16"
+infra_mode_dir_0755: "0755"
+infra_mode_file_0644: "0644"
+infra_mode_file_0640: "0640"
+infra_port_proxy_router_9router_host: "20128"
+infra_network_bind_all: "0.0.0.0"
+infra_cpu_count_default: "2.0"
+infra_cpu_count_small: "0.5"
+infra_dns_cloudflare_primary: "1.1.1.1"
+infra_dns_quad9_primary: "9.9.9.9"
+infra_auth_attempts_default: "5"
+infra_opensearch_session_ttl_long: "720h"
+infra_mode_file_0600: "0600"
+infra_schema_version_adguard: "28"

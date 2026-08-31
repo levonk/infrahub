@@ -6,7 +6,7 @@
   ansible.builtin.file:
     path: "{{ localnet_services_dir }}/proxy-web"
     state: directory
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
 
 # ============================================================================
 # Network Management
@@ -40,19 +40,19 @@
   ansible.builtin.template:
     src: gost.yaml.j2
     dest: "{{ localnet_services_dir }}/proxy-web/gost.yaml"
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
 
 - name: Render Varnish VCL config
   ansible.builtin.template:
     src: varnish-default.vcl.j2
     dest: "{{ localnet_services_dir }}/proxy-web/default.vcl"
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
 
 - name: Render Privoxy config
   ansible.builtin.template:
     src: privoxy-config.j2
     dest: "{{ localnet_services_dir }}/proxy-web/privoxy-config"
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
 
 # ============================================================================
 # Service Deployment (order matters — dependencies flow upward)

@@ -6,7 +6,7 @@
   ansible.builtin.file:
     path: "{{ item }}"
     state: directory
-    mode: '0755'
+    mode: '{{ infra_mode_dir }}'
     owner: "{{ isolation_vm_user }}"
     group: "{{ isolation_vm_user }}"
   loop:
@@ -19,7 +19,7 @@
   ansible.builtin.copy:
     content: "{{ isolation_vm_hermes_agent_ssh_public_key }}"
     dest: "{{ isolation_vm_hermes_agent_volume_path }}/ssh/authorized_keys"
-    mode: '0600'
+    mode: '{{ infra_mode_file_restricted }}'
     owner: "{{ isolation_vm_user }}"
     group: "{{ isolation_vm_user }}"
   become: true

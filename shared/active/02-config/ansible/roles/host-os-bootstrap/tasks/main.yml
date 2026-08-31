@@ -7,7 +7,7 @@
 - name: Update apt cache (Debian/Ubuntu)
   ansible.builtin.apt:
     update_cache: true
-    cache_valid_time: 3600
+    cache_valid_time: "{{ infra_cache_valid_time }}"
   when: ansible_facts['os_family'] == "Debian"
   become: true
 
@@ -111,7 +111,7 @@
     dest: "/etc/sudoers.d/{{ host_os_bootstrap_admin_user }}"
     owner: root
     group: root
-    mode: "0440"
+    mode: "{{ infra_mode_file_readonly }}"
     validate: "visudo -cf %s"
   become: true
 
@@ -124,7 +124,7 @@
     state: directory
     owner: "{{ host_os_bootstrap_admin_user }}"
     group: "{{ host_os_bootstrap_admin_user }}"
-    mode: "0700"
+    mode: "{{ infra_mode_dir_restricted }}"
   become: true
 
 - name: Deploy admin user authorized keys
@@ -133,7 +133,7 @@
     dest: "{{ host_os_bootstrap_admin_home }}/.ssh/authorized_keys"
     owner: "{{ host_os_bootstrap_admin_user }}"
     group: "{{ host_os_bootstrap_admin_user }}"
-    mode: "0600"
+    mode: "{{ infra_mode_file_restricted }}"
   when: host_os_bootstrap_admin_authorized_keys | default([]) | length > 0
   become: true
 
@@ -143,7 +143,7 @@
     state: directory
     owner: root
     group: root
-    mode: "0700"
+    mode: "{{ infra_mode_dir_restricted }}"
   become: true
 
 - name: Deploy root authorized keys
@@ -152,7 +152,7 @@
     dest: /root/.ssh/authorized_keys
     owner: root
     group: root
-    mode: "0600"
+    mode: "{{ infra_mode_file_restricted }}"
   when: host_os_bootstrap_root_authorized_keys | default([]) | length > 0
   become: true
 
@@ -163,7 +163,7 @@
   ansible.builtin.file:
     path: /run/sshd
     state: directory
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   become: true
 
 - name: Configure SSH server
@@ -172,7 +172,7 @@
     dest: /etc/ssh/sshd_config
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
     validate: "sshd -t -f %s"
   become: true
   notify:
@@ -188,7 +188,7 @@
     dest: /etc/apt/apt.conf.d/50unattended-upgrades
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   when:
     - ansible_facts['os_family'] == "Debian"
     - host_os_bootstrap_unattended_upgrades_enabled | bool
@@ -200,7 +200,7 @@
     dest: /etc/apt/apt.conf.d/20auto-upgrades
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   when:
     - ansible_facts['os_family'] == "Debian"
     - host_os_bootstrap_unattended_upgrades_enabled | bool
@@ -214,7 +214,7 @@
     create: true
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   loop:
     - { regexp: '^apply_updates', line: 'apply_updates = yes' }
     - { regexp: '^upgrade_type', line: 'upgrade_type = security' }

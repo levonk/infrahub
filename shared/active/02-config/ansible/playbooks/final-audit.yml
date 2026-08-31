@@ -55,7 +55,7 @@
 
     - name: "Check for hardcoded IP addresses in critical configs (excluding comments)"
       ansible.builtin.shell:
-        cmd: "grep -rE '^[^#]*([0-9]{1,3}\.){3}[0-9]{1,3}' /etc/ssh/ /etc/docker/ /etc/systemd/ 2>/dev/null || true"
+        cmd: "grep -rE '^[^#]*([0-9]{1,3}\\.){3}[0-9]{1,3}' /etc/ssh/ /etc/docker/ /etc/systemd/ 2>/dev/null || true"
       register: hardcoded_ip_check
       changed_when: false
       failed_when: false
@@ -234,7 +234,7 @@
         audit_results: "{{ audit_results | combine({'container_images': container_images_check.stdout_lines}) }}"
       tags: ["audit", "containers"]
 
-    - name: "Check container image ages (images older than 30 days may need updates)"
+    - name: "Check container image ages (images older than 30 days may need updates)"  # project-lint: disable=magic-int  container image age threshold in message, not a standalone magic number
       # ansible-lint disable-line: risky-shell-pipe
       ansible.builtin.shell:
         cmd: "docker images --format '{% raw %}{{.Repository}}:{{.Tag}} {{.CreatedSince}}{% endraw %}' | grep -E '[0-9]+ months?|[3-9][0-9]+ days?' || echo 'no_old_images'"
@@ -253,7 +253,7 @@
 
     - name: "Add old images to security warnings if found (non-critical)"
       ansible.builtin.set_fact:
-        security_warnings: "{{ security_warnings + ['Container images older than 30 days found'] if old_images_check.stdout != 'no_old_images' else security_warnings }}"
+        security_warnings: "{{ security_warnings + ['Container images older than 30 days found'] if old_images_check.stdout != 'no_old_images' else security_warnings }}"  # project-lint: disable=magic-int  container image age threshold in message, not a standalone magic number
       tags: ["audit", "containers"]
 
     - name: "Check NordVPN container status"

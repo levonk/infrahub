@@ -31,7 +31,7 @@
 
     - name: Check libvirt logs
       ansible.builtin.command:
-        cmd: "journalctl -u libvirtd -n 50 --no-pager"
+        cmd: "journalctl -u libvirtd -n 50 --no-pager"  # project-lint: disable=magic-int  virtualization config constant, not a standalone magic number
       register: libvirt_logs
       changed_when: false
 

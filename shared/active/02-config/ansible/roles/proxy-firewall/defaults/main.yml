@@ -6,14 +6,14 @@
 # ---------------------------------------------------------------------------
 # Firewall Engine Selection
 # ---------------------------------------------------------------------------
-proxy_firewall_type: "{{ cloud_server_firewall_type | default('nftables') }}"
+proxy_firewall_type: "{{ cloud_server_firewall_type | default(infra_value_proxy_firewall_type) }}"
 # Supported: nftables, ufw
 
 # ---------------------------------------------------------------------------
 # Allowed Ports
 # ---------------------------------------------------------------------------
-proxy_firewall_ssh_port: "{{ cloud_server_ssh_host_port | default('22') }}"
-proxy_firewall_mosh_port: "{{ cloud_server_mosh_port | default('60000:61000') }}"
+proxy_firewall_ssh_port: "{{ cloud_server_ssh_host_port | default(infra_port_ssh_host) }}"
+proxy_firewall_mosh_port: "{{ cloud_server_mosh_port | default(infra_port_proxy_firewall_mosh) }}"
 # Mosh uses a UDP port range; define as a string range or single port.
 
 # ---------------------------------------------------------------------------
@@ -22,15 +22,15 @@ proxy_firewall_mosh_port: "{{ cloud_server_mosh_port | default('60000:61000') }}
 proxy_firewall_vpn_subnets: "{{ cloud_server_vpn_subnets | default([]) }}"
 # List of CIDRs to allow inbound/outbound (e.g., ['100.64.0.0/10', '10.0.0.0/8'])
 
-proxy_firewall_tailscale_subnet: "{{ cloud_server_tailscale_subnet | default('100.64.0.0/10') }}"
-proxy_firewall_netbird_subnet: "{{ cloud_server_netbird_subnet | default('10.0.0.0/8') }}"
+proxy_firewall_tailscale_subnet: "{{ cloud_server_tailscale_subnet | default(infra_network_tailscale_cidr) }}"
+proxy_firewall_netbird_subnet: "{{ cloud_server_netbird_subnet | default(infra_network_private_class_a) }}"
 
 # ---------------------------------------------------------------------------
 # Rate Limiting
 # ---------------------------------------------------------------------------
 proxy_firewall_rate_limit_ssh: "{{ cloud_server_firewall_rate_limit_ssh | default(true) }}"
-proxy_firewall_rate_limit_connections: "{{ cloud_server_firewall_rate_limit_connections | default(5) }}"
-proxy_firewall_rate_limit_interval: "{{ cloud_server_firewall_rate_limit_interval | default('1/minute') }}"
+proxy_firewall_rate_limit_connections: "{{ cloud_server_firewall_rate_limit_connections | default(infra_retry_default) }}"
+proxy_firewall_rate_limit_interval: "{{ cloud_server_firewall_rate_limit_interval | default(infra_size_proxy_firewall_rate_interval) }}"
 
 # ---------------------------------------------------------------------------
 # Forwarding & Masquerade
@@ -42,7 +42,7 @@ proxy_firewall_enable_masquerade: "{{ cloud_server_firewall_enable_masquerade | 
 # Lockout Prevention
 # ---------------------------------------------------------------------------
 proxy_firewall_prevent_lockout: "{{ cloud_server_firewall_prevent_lockout | default(true) }}"
-proxy_firewall_prevent_lockout_timeout: "{{ cloud_server_firewall_prevent_lockout_timeout | default(300) }}"
+proxy_firewall_prevent_lockout_timeout: "{{ cloud_server_firewall_prevent_lockout_timeout | default(infra_timeout_dns_ttl) }}"
 # Seconds to keep a temporary allow rule for the current management IP.
 
 # ---------------------------------------------------------------------------

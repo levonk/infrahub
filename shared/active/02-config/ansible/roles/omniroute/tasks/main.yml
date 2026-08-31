@@ -29,8 +29,8 @@
     state: present
     driver: bridge
     ipam_config:
-      - subnet: "{{ infra_network_ai_proxy_chain_subnet | default('172.29.0.0/16') }}"
-        gateway: "{{ infra_network_ai_proxy_chain_gateway | default('172.29.0.1') }}"
+      - subnet: "{{ infra_network_ai_proxy_chain_subnet | default(infra_network_ai_proxy_chain_subnet) }}"
+        gateway: "{{ infra_network_ai_proxy_chain_gateway | default(infra_network_ai_proxy_chain_gateway) }}"
 
 - name: Ensure localnet Docker network exists
   community.docker.docker_network:
@@ -86,19 +86,19 @@
       SSL_CERT_FILE: "/usr/local/share/ca-certificates/iron-proxy-ca.crt"
     log_driver: json-file
     log_options:
-      max-size: 10m
-      max-file: 5
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
     security_opts:
       - no-new-privileges:true
     read_only: true
     tmpfs:
-      - /tmp:mode=1777,size=128m
+      - /tmp:mode={{ infra_mode_dir_sticky }},size={{ infra_size_128m }}
     healthcheck:
       test: ["CMD", "/usr/local/bin/healthcheck-omniroute.sh"]
-      interval: 30s
-      timeout: 10s
+      interval: "{{ infra_healthcheck_interval }}"
+      timeout: "{{ infra_timeout_short }}"
       retries: 3
-      start_period: 40s
+      start_period: "{{ infra_healthcheck_start_period }}"
     labels:
       traefik.enable: "true"
       traefik.http.routers.omniroute-http.rule: "Host(`{{ ai_omniroute_domain }}`)"
@@ -119,8 +119,8 @@
   ansible.builtin.wait_for:
     host: localhost
     port: "{{ ai_omniroute_host_port }}"
-    delay: 10
-    timeout: 120
+    delay: "{{ infra_delay_long }}"
+    timeout: "{{ infra_timeout_max }}"
   when: omniroute_deploy.changed
 
 # ---------------------------------------------------------------------------
@@ -133,7 +133,7 @@
   ansible.builtin.template:
     src: managed-config.json.j2
     dest: "/tmp/omniroute-managed-config-{{ ai_omniroute_container_name }}.json"
-    mode: "0600"
+    mode: "{{ infra_mode_file_0600 }}"
   when: ai_omniroute_managed_config_enabled | bool
   changed_when: false
   no_log: true
@@ -149,7 +149,7 @@
       -X POST -H "Content-Type: application/json" \
       -d "{\"username\":\"admin\",\"password\":\"{{ ai_omniroute_admin_password }}\"}" \
       http://localhost:{{ ai_omniroute_host_port }}/api/auth/login)
-    if [ "$HTTP_CODE" != "200" ]; then
+    if [ "$HTTP_CODE" != "{{ infra_http_status_ok }}" ]; then
       echo "Login failed with HTTP $HTTP_CODE" >&2
       exit 1
     fi
@@ -160,7 +160,7 @@
       -d @/tmp/omniroute-managed-config-{{ ai_omniroute_container_name }}.json \
       http://localhost:{{ ai_omniroute_host_port }}/api/settings/import-json)
     cat /tmp/omniroute-import-response.txt
-    if [ "$HTTP_CODE" != "200" ]; then
+    if [ "$HTTP_CODE" != "{{ infra_http_status_ok }}" ]; then
       echo "Import failed with HTTP $HTTP_CODE" >&2
       exit 1
     fi

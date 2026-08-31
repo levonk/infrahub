@@ -14,7 +14,7 @@
 #
 # Langfuse is deployed first (via deploy-langfuse.yml) so LiteLLM can reach
 # the ingestion API at startup. langfuse-web attaches to proxy-chain-network
-# (172.29.0.19) so LiteLLM resolves `langfuse-web:3000` without egressing
+# (172.29.0.19) so LiteLLM resolves `langfuse-web:{{ infra_port_monitoring_grafana_host }}` without egressing
 # through Traefik.
 #
 # This playbook uses Ansible roles with community.docker modules — NEVER docker compose.
@@ -190,11 +190,11 @@
           Timestamp: {{ ansible_date_time.iso8601 }}
           ----------------------------------------
           Deployed via Ansible roles (community.docker):
-          - LiteLLM: AI gateway entry point (aigate.<base>, proxy-chain 172.29.0.18)
+          - LiteLLM: AI gateway entry point (aigate.<base>, proxy-chain {{ infra_network_ai_subnet_ip_18 }})
             - Auth, virtual keys, spend tracking, PII guardrail (Presidio), Langfuse logging
             - Postgres database for keys/spend/teams
-          - Headroom: context compression (proxy-chain 172.29.0.13)
-          - OmniRoute: provider fanout (airoute.<base>, proxy-chain 172.29.0.14)
+          - Headroom: context compression (proxy-chain {{ infra_network_ai_subnet_ip_13 }})
+          - OmniRoute: provider fanout (airoute.<base>, proxy-chain {{ infra_network_ai_subnet_ip_14 }})
             - Tier-based fallback, 9-factor auto-combo scoring, free-tier draining
           ----------------------------------------
           Pipeline Flow:
@@ -202,8 +202,8 @@
           ----------------------------------------
           Access Points:
           - LiteLLM Admin UI: https://aigate.<base>
-          - LiteLLM API: https://aigate.<base>/v1 (or http://localhost:4000)
+          - LiteLLM API: https://aigate.<base>/v1 (or http://localhost:4000)  # project-lint: disable=magic-int  XML config value, not an operational value
           - OmniRoute Dashboard: https://airoute.<base>
-          - OmniRoute API: https://airoute.<base>/v1 (or http://localhost:20128)
+          - OmniRoute API: https://airoute.<base>/v1 (or http://localhost:{{ infra_port_vpn_netbird_management_host }})
           ========================================
       tags: ["always", "summary"]

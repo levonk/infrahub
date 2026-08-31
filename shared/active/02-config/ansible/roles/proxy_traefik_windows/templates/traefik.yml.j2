@@ -9,7 +9,7 @@ global:
 
 # API and Dashboard configuration
 # insecure: true serves the dashboard on the internal traefik entrypoint
-# (port 8080) without authentication. The container maps 8882:8080 so the
+# (port 8080) without authentication. The container maps 8882:{{ infra_port_proxy_dashboard_host }} so the
 # dashboard is accessible on the host's port 8882 but not exposed externally.
 api:
   dashboard: true
@@ -45,10 +45,10 @@ certificatesResolvers:
       storage: /letsencrypt/acme.json
       dnsChallenge:
         provider: cloudflare
-        delayBeforeCheck: 30
+        delayBeforeCheck: "{{ infra_dns_ttl_short }}"
         resolvers:
-          - "1.1.1.1:53"
-          - "8.8.8.8:53"
+          - "{{ infra_endpoint_cloudflare_dns_primary }}"
+          - "{{ infra_endpoint_google_dns_primary }}"
 {% if proxy_traefik_windows_acme_staging %}
       caServer: https://acme-staging-v02.api.letsencrypt.org/directory
 {% else %}

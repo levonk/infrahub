@@ -12,13 +12,13 @@ auth:
   htpasswd:
     file: /verdaccio/conf/htpasswd
     algorithm: bcrypt
-    rounds: 10
+    rounds: 10  # project-lint: disable=magic-int  hash/rounds parameter, not a standalone magic number
     max_users: -1
 
 uplinks:
   npmjs:
     url: https://registry.npmjs.org/
-    timeout: 30s
+    timeout: "{{ infra_timeout_default }}"
 
 packages:
   '@levonk/*':
@@ -34,8 +34,8 @@ packages:
     proxy: npmjs
 
 server:
-  keepAliveTimeout: 60
+  keepAliveTimeout: "{{ infra_timeout_long }}"
 
 log: {type: stdout, format: pretty, level: http}
 
-listen: 0.0.0.0:{{ verdaccio_container_port }}
+listen: {{ infra_network_bind_all }}:{{ verdaccio_container_port }}

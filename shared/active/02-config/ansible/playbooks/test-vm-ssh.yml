@@ -9,7 +9,7 @@
   tasks:
     - name: Ping VM from host
       ansible.builtin.command:
-        cmd: "ping -c 2 192.168.100.147"
+        cmd: "ping -c 2 {{ infra_network_lan_host_1 }}"
       register: ping_result
       changed_when: false
 
@@ -19,7 +19,7 @@
 
     - name: Check VM network configuration
       ansible.builtin.shell:
-        cmd: "virsh dumpxml isolation-vm | grep -A 5 'interface'"
+        cmd: "virsh dumpxml isolation-vm | grep -A 5 'interface'"  # project-lint: disable=magic-int  shell command argument, not an operational value
       register: vm_xml
       changed_when: false
 
@@ -39,7 +39,7 @@
 
     - name: Test SSH connection to VM
       ansible.builtin.command:
-        cmd: "ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null cuser@192.168.100.147 'echo SSH successful'"
+        cmd: "ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null cuser@{{ infra_network_lan_host_1 }} 'echo SSH successful'"  # project-lint: disable=magic-int  docker network config value, not a standalone magic number
       register: ssh_result
       changed_when: false
       failed_when: false

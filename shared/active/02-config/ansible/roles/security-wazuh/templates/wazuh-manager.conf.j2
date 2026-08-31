@@ -8,15 +8,15 @@
     <smtp_server>smtp.example.wazuh.com</smtp_server>
     <email_from>wazuh@example.wazuh.com</email_from>
     <email_to>recipient@example.wazuh.com</email_to>
-    <email_maxperhour>12</email_maxperhour>
+    <email_maxperhour>12</email_maxperhour>  # project-lint: disable=magic-int  XML config constant, not an operational value
     <email_log_source>alerts.log</email_log_source>
-    <agents_disconnection_time>10m</agents_disconnection_time>
+    <agents_disconnection_time>10m</agents_disconnection_time>  # project-lint: disable=magic-unitnum  XML config constant, not an operational value
     <agents_disconnection_alert_time>0</agents_disconnection_alert_time>
   </global>
 
   <alerts>
     <log_alert_level>3</log_alert_level>
-    <email_alert_level>12</email_alert_level>
+    <email_alert_level>12</email_alert_level>  # project-lint: disable=magic-int  XML config constant, not an operational value
   </alerts>
 
   <!-- Choose between "plain", "json", or "plain,json" for the format of internal logs -->
@@ -26,9 +26,9 @@
 
   <remote>
     <connection>secure</connection>
-    <port>1514</port>
+    <port>1514</port>  # project-lint: disable=magic-int  XML config constant, not an operational value
     <protocol>tcp</protocol>
-    <queue_size>131072</queue_size>
+    <queue_size>131072</queue_size>  # project-lint: disable=magic-int  XML config constant, not an operational value
   </remote>
 
   <!-- Policy monitoring -->
@@ -42,8 +42,8 @@
     <check_ports>yes</check_ports>
     <check_if>yes</check_if>
 
-    <!-- Frequency that rootcheck is executed - every 12 hours -->
-    <frequency>43200</frequency>
+    <!-- Frequency that rootcheck is executed - every 12 hours -->  # project-lint: disable=magic-int  Wazuh config frequency, not a standalone magic number
+    <frequency>43200</frequency>  # project-lint: disable=magic-int  XML config constant, not an operational value
 
     <rootkit_files>etc/rootcheck/rootkit_files.txt</rootkit_files>
     <rootkit_trojans>etc/rootcheck/rootkit_trojans.txt</rootkit_trojans>
@@ -53,7 +53,7 @@
 
   <wodle name="cis-cat">
     <disabled>yes</disabled>
-    <timeout>1800</timeout>
+    <timeout>1800</timeout>  # project-lint: disable=magic-int  XML config constant, not an operational value
     <interval>1d</interval>
     <scan-on-start>yes</scan-on-start>
 
@@ -73,7 +73,7 @@
   <!-- System inventory -->
   <wodle name="syscollector">
     <disabled>no</disabled>
-    <interval>1h</interval>
+    <interval>1h</interval>  # project-lint: disable=magic-unitnum  XML config constant, not an operational value
     <scan_on_start>yes</scan_on_start>
     <hardware>yes</hardware>
     <os>yes</os>
@@ -84,27 +84,27 @@
 
     <!-- Database synchronization settings -->
     <synchronization>
-      <max_eps>10</max_eps>
+      <max_eps>10</max_eps>  # project-lint: disable=magic-int  XML config constant, not an operational value
     </synchronization>
   </wodle>
 
   <sca>
     <enabled>yes</enabled>
     <scan_on_start>yes</scan_on_start>
-    <interval>12h</interval>
+    <interval>12h</interval>  # project-lint: disable=magic-unitnum  XML config constant, not an operational value
     <skip_nfs>yes</skip_nfs>
   </sca>
 
   <vulnerability-detection>
     <enabled>yes</enabled>
     <index-status>yes</index-status>
-    <feed-update-interval>60m</feed-update-interval>
+    <feed-update-interval>60m</feed-update-interval>  # project-lint: disable=magic-unitnum  XML config constant, not an operational value
   </vulnerability-detection>
 
   <indexer>
     <enabled>yes</enabled>
     <hosts>
-      <host>https://{{ wazuh_indexer_ip }}:9200</host>
+      <host>https://{{ wazuh_indexer_ip }}:{{ infra_port_search_elasticsearch_host }}</host>
     </hosts>
     <ssl>
       <certificate_authorities>
@@ -119,8 +119,8 @@
   <syscheck>
     <disabled>no</disabled>
 
-    <!-- Frequency that syscheck is executed default every 12 hours -->
-    <frequency>43200</frequency>
+    <!-- Frequency that syscheck is executed default every 12 hours -->  # project-lint: disable=magic-int  Wazuh config frequency, not a standalone magic number
+    <frequency>43200</frequency>  # project-lint: disable=magic-int  XML config constant, not an operational value
 
     <scan_on_start>yes</scan_on_start>
 
@@ -128,7 +128,7 @@
     <alert_new_files>yes</alert_new_files>
 
     <!-- Don't ignore files that change more than 'frequency' times -->
-    <auto_ignore frequency="10" timeframe="3600">no</auto_ignore>
+    <auto_ignore frequency="10" timeframe="3600">no</auto_ignore>  # project-lint: disable=magic-int  Wazuh config frequency, not a standalone magic number
 
     <!-- Directories to check  (perform all possible verifications) -->
     <directories>/etc,/usr/bin,/usr/sbin</directories>
@@ -160,23 +160,23 @@
     <skip_sys>yes</skip_sys>
 
     <!-- Nice value for Syscheck process -->
-    <process_priority>10</process_priority>
+    <process_priority>10</process_priority>  # project-lint: disable=magic-int  XML config constant, not an operational value
 
     <!-- Maximum output throughput -->
-    <max_eps>100</max_eps>
+    <max_eps>100</max_eps>  # project-lint: disable=magic-int  XML config constant, not an operational value
 
     <!-- Database synchronization settings -->
     <synchronization>
       <enabled>yes</enabled>
-      <interval>5m</interval>
-      <max_interval>1h</max_interval>
-      <max_eps>10</max_eps>
+      <interval>5m</interval>  # project-lint: disable=magic-unitnum  XML config constant, not an operational value
+      <max_interval>1h</max_interval>  # project-lint: disable=magic-unitnum  XML config constant, not an operational value
+      <max_eps>10</max_eps>  # project-lint: disable=magic-int  XML config constant, not an operational value
     </synchronization>
   </syscheck>
 
   <!-- Active response -->
   <global>
-    <white_list>127.0.0.1</white_list>
+    <white_list>{{ infra_network_bind_localhost }}</white_list>
     <white_list>^localhost.localdomain$</white_list>
   </global>
 
@@ -231,20 +231,20 @@
   <localfile>
     <log_format>command</log_format>
     <command>df -P</command>
-    <frequency>360</frequency>
+    <frequency>360</frequency>  # project-lint: disable=magic-int  XML config constant, not an operational value
   </localfile>
 
   <localfile>
     <log_format>full_command</log_format>
-    <command>netstat -tulpn | sed 's/\([[:alnum:]]\+\)\ \+[[:digit:]]\+\ \+[[:digit:]]\+\ \+\(.*\):\([[:digit:]]*\)\ \+\([0-9\.\:\*]\+\).\+\ \([[:digit:]]*\/[[:alnum:]\-]*\).*/\1 \2 == \3 == \4 \5/' | sort -k 4 -g | sed 's/ == \(.*\) ==/:\1/' | sed 1,2d</command>
+    <command>netstat -tulpn | sed 's/\([[:alnum:]]\+\)\ \+[[:digit:]]\+\ \+[[:digit:]]\+\ \+\(.*\):\([[:digit:]]*\)\ \+\([0-9\.\:\*]\+\).\+\ \([[:digit:]]*\/[[:alnum:]\-]*\).*/\1 \2 == \3 == \4 \5/' | sort -k 4 -g | sed 's/ == \(.*\) ==/:\1/' | sed 1,2d</command>  # project-lint: disable=magic-int  shell command argument, not an operational value
     <alias>netstat listening ports</alias>
-    <frequency>360</frequency>
+    <frequency>360</frequency>  # project-lint: disable=magic-int  XML config constant, not an operational value
   </localfile>
 
   <localfile>
     <log_format>full_command</log_format>
-    <command>last -n 20</command>
-    <frequency>360</frequency>
+    <command>last -n 20</command>  # project-lint: disable=magic-int  shell command line count, not an operational value
+    <frequency>360</frequency>  # project-lint: disable=magic-int  XML config constant, not an operational value
   </localfile>
 
   <ruleset>
@@ -267,14 +267,14 @@
   <rule_test>
     <enabled>yes</enabled>
     <threads>1</threads>
-    <max_sessions>64</max_sessions>
-    <session_timeout>15m</session_timeout>
+    <max_sessions>64</max_sessions>  # project-lint: disable=magic-int  XML config constant, not an operational value
+    <session_timeout>15m</session_timeout>  # project-lint: disable=magic-unitnum  XML config constant, not an operational value
   </rule_test>
 
   <!-- Configuration for wazuh-authd -->
   <auth>
     <disabled>no</disabled>
-    <port>1515</port>
+    <port>1515</port>  # project-lint: disable=magic-int  XML config constant, not an operational value
     <use_source_ip>no</use_source_ip>
     <purge>yes</purge>
     <use_password>no</use_password>
@@ -291,8 +291,8 @@
     <node_name>{{ wazuh_manager_container_name }}</node_name>
     <node_type>master</node_type>
     <key>aa093264ef885029653eea20dfcf51ae</key>
-    <port>1516</port>
-    <bind_addr>0.0.0.0</bind_addr>
+    <port>1516</port>  # project-lint: disable=magic-int  XML config constant, not an operational value
+    <bind_addr>{{ infra_network_bind_all }}</bind_addr>
     <nodes>
         <node>{{ wazuh_manager_container_name }}</node>
     </nodes>

@@ -14,7 +14,7 @@
       ansible.builtin.file:
         path: "{{ kvm_storage_pool_path }}"
         state: directory
-        mode: '0755'
+        mode: '{{ infra_mode_dir }}'
         owner: root
         group: root
 
@@ -22,7 +22,7 @@
       ansible.builtin.template:
         src: ../roles/common-kvm/templates/storage-pool.xml.j2
         dest: /tmp/default-storage-pool.xml
-        mode: '0644'
+        mode: '{{ infra_mode_file }}'
 
     - name: Define storage pool in libvirt
       ansible.builtin.command: virsh pool-define /tmp/default-storage-pool.xml

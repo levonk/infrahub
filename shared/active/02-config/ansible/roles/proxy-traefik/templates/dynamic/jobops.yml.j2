@@ -38,5 +38,5 @@ http:
     jobops:
       loadBalancer:
         servers:
-          - url: "{{ jobops_traefik_backend_url | default('http://' ~ infra_tailscale_fqdn_windows_docker | default('dtop202311.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) ~ ':' ~ infra_port_career_jobops_host | default('3005')) }}"
+          - url: "{{ jobops_traefik_backend_url | default('http://' ~ infra_tailscale_fqdn_windows_docker | default('dtop202311.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) ~ ':' ~ infra_port_career_jobops_host | default('3005')) }}"  # project-lint: disable=magic-int  Jinja default port value, should use infra_port variable
         passHostHeader: true

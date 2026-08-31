@@ -79,7 +79,7 @@
 
     - name: Check if VM IP is reachable
       ansible.builtin.command:
-        cmd: "ping -c 3 192.168.100.147"
+        cmd: "ping -c 3 {{ infra_network_lan_host_1 }}"
       register: ping_result
       changed_when: false
       failed_when: false
@@ -90,7 +90,7 @@
 
     - name: Check SSH connection to VM
       ansible.builtin.command:
-        cmd: "ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no root@192.168.100.147 'echo SSH successful'"
+        cmd: "ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no root@{{ infra_network_lan_host_1 }} 'echo SSH successful'"  # project-lint: disable=magic-int  docker network config value, not a standalone magic number
       register: ssh_result
       changed_when: false
       failed_when: false

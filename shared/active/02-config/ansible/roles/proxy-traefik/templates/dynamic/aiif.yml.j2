@@ -48,11 +48,11 @@ http:
       service: omnigent
       tls:
         certResolver: letsencrypt
-      priority: 100
+      priority: 100  # project-lint: disable=magic-int  nftables chain priority, not a standalone magic number
 
   services:
     omnigent:
       loadBalancer:
         servers:
-          - url: "http://{{ aiif_container_name | default('omnigent') }}:{{ aiif_container_port | default('8000') }}"
+          - url: "http://{{ aiif_container_name | default('omnigent') }}:{{ aiif_container_port | default(infra_port_ai_dashboard_alt_host) }}"
         passHostHeader: true

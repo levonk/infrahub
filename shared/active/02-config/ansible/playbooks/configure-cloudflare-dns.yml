@@ -22,7 +22,7 @@
 
     # DNS Record Configuration
     cloudflare_dns_state: "present"
-    cloudflare_dns_ttl: 300
+    cloudflare_dns_ttl: "{{ infra_dns_ttl }}"
     cloudflare_dns_proxied: false  # DNS-only mode, not full proxy
     cloudflare_dns_verify: true
     cloudflare_dns_verify_propagation: false

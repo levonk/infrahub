@@ -106,7 +106,7 @@
   delegate_to: localhost
   register: nix_ncps_windows_health
   until: nix_ncps_windows_health.stdout == "running"
-  retries: 30
+  retries: "{{ infra_retry_extended }}"
   delay: 3
   changed_when: false
   ignore_errors: true

@@ -7,9 +7,9 @@
 # nix-sidecar's /nix/store volume for maximum package reuse.
 #
 # Architecture (ADR-20260708001):
-#   Harmonia (127.0.0.1:4523) — serves local /nix/store (read-only)
+#   Harmonia ({{ infra_network_bind_localhost }}:4523) — serves local /nix/store (read-only)
 #   ncps (4524, nixcache.nl.{{ infra_domain_base }}) — NAR caching proxy (front door)
-#   ncro (127.0.0.1:4525) — parallel racing proxy (behind ncps)
+#   ncro ({{ infra_network_bind_localhost }}:4525) — parallel racing proxy (behind ncps)
 #   garnix-ci (4526/4527, ci.nl.{{ infra_domain_base }}) — Nix CI builder with /dev/kvm
 #
 # The nix-sidecar must already be running (it manages the shared /nix/store).
@@ -101,9 +101,9 @@
           Host: {{ inventory_hostname }}
 
           Nix Cache Chain:
-            Harmonia:  http://127.0.0.1:{{ infra_port_nix_harmonia_host }} (local only)
+            Harmonia:  http://{{ infra_network_bind_localhost }}:{{ infra_port_nix_harmonia_host }} (local only)
             ncps:      https://{{ infra_domain_nix_cache_nl }} (via Traefik)
-            ncro:      http://127.0.0.1:{{ infra_port_nix_ncro_host }} (internal, behind ncps)
+            ncro:      http://{{ infra_network_bind_localhost }}:{{ infra_port_nix_ncro_host }} (internal, behind ncps)
 
           Garnix CI:
             Web UI:    https://{{ infra_domain_garnix_ci_nl }} (via Traefik, SSO-protected)
@@ -112,10 +112,10 @@
             Nix store: shared with nix-sidecar (no re-downloads)
 
           Next steps:
-            1. Verify Harmonia: curl http://127.0.0.1:{{ infra_port_nix_harmonia_host }}/nix-cache-info
+            1. Verify Harmonia: curl http://{{ infra_network_bind_localhost }}:{{ infra_port_nix_harmonia_host }}/nix-cache-info
             2. Verify ncps: curl https://{{ infra_domain_nix_cache_nl }}/healthz
             3. Verify garnix-ci: curl https://{{ infra_domain_garnix_ci_nl }}/
             4. Configure nix.conf on clients to use the cache chain:
-               substituters = http://127.0.0.1:{{ infra_port_nix_harmonia_host }} https://{{ infra_domain_nix_cache_nl }}
+               substituters = http://{{ infra_network_bind_localhost }}:{{ infra_port_nix_harmonia_host }} https://{{ infra_domain_nix_cache_nl }}
           ================================================
       tags: ["always", "summary"]

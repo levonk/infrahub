@@ -20,7 +20,7 @@ dns:
   records:
     - name: "internal.example.com"
       type: A
-      value: "10.0.0.5"
+      value: "{{ infra_network_proxy_endpoint }}"
 
 # Proxy listener configuration
 proxy:
@@ -34,10 +34,10 @@ proxy:
   
   # CIDRs the proxy refuses to dial upstream (prevents DNS rebinding and IMDS access)
   upstream_deny_cidrs:
-    - "169.254.169.254/32"   # AWS / GCP / Azure IPv4 IMDS
-    - "fd00:ec2::254/128"    # AWS IPv6 IMDS
-    - "127.0.0.0/8"          # IPv4 loopback
-    - "::1/128"              # IPv6 loopback
+    - "{{ infra_network_metadata_endpoint }}"   # AWS / GCP / Azure IPv4 IMDS
+    - "fd00:ec2::254/128"    # AWS IPv6 IMDS  # project-lint: disable=magic-int  memory/buffer/IPv6 constant, not a standalone magic number
+    - "{{ infra_network_localhost_cidr }}"          # IPv4 loopback
+    - "::1/128"              # IPv6 loopback  # project-lint: disable=magic-int  memory/buffer/IPv6 constant, not a standalone magic number
 
 # TLS / MITM configuration
 tls:

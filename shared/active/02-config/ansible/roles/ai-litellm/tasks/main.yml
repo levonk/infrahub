@@ -24,7 +24,7 @@
     state: directory
     owner: "{{ cloud_server_admin_user | default('cuser') }}"
     group: "{{ cloud_server_admin_user | default('cuser') }}"
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
 
 # ============================================================================
 # Generate LiteLLM Config (proxy_config.yaml)
@@ -43,9 +43,9 @@
             api_base: "{{ ai_litellm_upstream_url }}"
             api_key: "sk-litellm-internal"
         # Claude models
-        - model_name: "claude-sonnet-4-20250514"
+        - model_name: "claude-sonnet-4-20250514"  # project-lint: disable=magic-int  model identifier/version string, not an operational value
           litellm_params:
-            model: "openai/claude-sonnet-4-20250514"
+            model: "openai/claude-sonnet-4-20250514"  # project-lint: disable=magic-int  model identifier/version string, not an operational value
             api_base: "{{ ai_litellm_upstream_url }}"
             api_key: "sk-litellm-internal"
         - model_name: "claude-3-5-sonnet-20241022"
@@ -69,7 +69,7 @@
         # Drop params that upstream (Headroom/OmniRoute) doesn't support
         drop_params: true
         # Request timeout (seconds) — generous for multi-stage pipeline
-        request_timeout: 600
+        request_timeout: "{{ infra_timeout_request }}"
         # Retry on failure
         num_retries: 2
         # Langfuse logging integration (parallel observability sink)
@@ -78,7 +78,7 @@
 
       general_settings:
         master_key: "{{ ai_litellm_master_key }}"
-        database_url: "postgresql://{{ ai_litellm_postgres_user }}:{{ ai_litellm_database_password }}@{{ ai_litellm_postgres_container_name }}:5432/{{ ai_litellm_postgres_db }}"
+        database_url: "postgresql://{{ ai_litellm_postgres_user }}:{{ ai_litellm_database_password }}@{{ ai_litellm_postgres_container_name }}:{{ infra_port_db_postgres_host }}/{{ ai_litellm_postgres_db }}"
         # Spend tracking
         disable_spend_logs: false
         # PII guardrail (Presidio) — masks PII before forwarding to upstream
@@ -95,7 +95,7 @@
         enable_pre_call_checks: true
     owner: "{{ cloud_server_admin_user | default('cuser') }}"
     group: "{{ cloud_server_admin_user | default('cuser') }}"
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   notify: restart litellm
 
 # ============================================================================
@@ -120,8 +120,8 @@
     state: present
     driver: bridge
     ipam_config:
-      - subnet: "{{ infra_network_ai_proxy_chain_subnet | default('172.29.0.0/16') }}"
-        gateway: "{{ infra_network_ai_proxy_chain_gateway | default('172.29.0.1') }}"
+      - subnet: "{{ infra_network_ai_proxy_chain_subnet | default(infra_network_ai_subnet) }}"
+        gateway: "{{ infra_network_ai_proxy_chain_gateway | default(infra_network_ai_subnet_gateway) }}"
   ignore_errors: true  # Network may already exist with different config
 
 - name: Ensure localnet Docker network exists
@@ -159,14 +159,14 @@
       - "{{ ai_litellm_postgres_volume_name }}:/var/lib/postgresql/data:rw"
     log_driver: json-file
     log_options:
-      max-size: 10m
-      max-file: 5
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U {{ ai_litellm_postgres_user }} -d {{ ai_litellm_postgres_db }}"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 10s
+      interval: "{{ infra_timeout_short }}"
+      timeout: "{{ infra_timeout_healthcheck_short }}"
+      retries: "{{ infra_retry_long }}"
+      start_period: "{{ infra_timeout_short }}"
     security_opts:
       - no-new-privileges:true
   notify: restart litellm-postgres
@@ -176,8 +176,8 @@
     name: "{{ ai_litellm_postgres_container_name }}"
   register: litellm_pg_info
   until: litellm_pg_info.container.State.Health.Status == "healthy"
-  retries: 30
-  delay: 2
+  retries: "{{ infra_retry_extended }}"
+  delay: "{{ infra_delay_short }}"
 
 # ============================================================================
 # LiteLLM Proxy Container Deployment
@@ -202,7 +202,7 @@
       # Config file path
       LITELLM_CONFIG_FILE_PATH: "/app/config.yaml"
       # Database
-      DATABASE_URL: "postgresql://{{ ai_litellm_postgres_user }}:{{ ai_litellm_database_password }}@{{ ai_litellm_postgres_container_name }}:5432/{{ ai_litellm_postgres_db }}"
+      DATABASE_URL: "postgresql://{{ ai_litellm_postgres_user }}:{{ ai_litellm_database_password }}@{{ ai_litellm_postgres_container_name }}:{{ infra_port_db_postgres_host }}/{{ ai_litellm_postgres_db }}"
       # Auth
       LITELLM_MASTER_KEY: "{{ ai_litellm_master_key }}"
       LITELLM_SALT_KEY: "{{ ai_litellm_salt_key }}"
@@ -236,14 +236,14 @@
     command: "--config /app/config.yaml --port {{ ai_litellm_container_port }} --num_workers 2"
     log_driver: json-file
     log_options:
-      max-size: 10m
-      max-file: 5
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
     healthcheck:
       test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:{{ ai_litellm_container_port }}/health/liveness')\""]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
+      interval: "{{ infra_timeout_default }}"
+      timeout: "{{ infra_timeout_short }}"
+      retries: "{{ infra_retry_default }}"
+      start_period: "{{ infra_timeout_long }}"
     security_opts:
       - no-new-privileges:true
     labels:
@@ -282,8 +282,8 @@
   ansible.builtin.wait_for:
     host: localhost
     port: "{{ ai_litellm_host_port }}"
-    delay: 15
-    timeout: 120
+    delay: "{{ infra_delay_long }}"
+    timeout: "{{ infra_timeout_extended }}"
   register: litellm_wait
 
 # ============================================================================

@@ -5,23 +5,23 @@
 
 # Container configuration
 rustfs_enabled: true
-rustfs_container_name: "{{ infra_hostname_rustfs | default('localnet-rustfs') }}"
+rustfs_container_name: "{{ infra_hostname_rustfs | default(infra_value_rustfs_container_name) }}"
 rustfs_image_name: "rustfs/rustfs"
 rustfs_image_tag: "latest"
 
 # Ports (reference infrastructure variables)
-rustfs_s3_host_port: "{{ infra_port_storage_rustfs_s3_host | default('9000') }}"
-rustfs_s3_container_port: "{{ infra_port_storage_rustfs_s3_container | default('9000') }}"
-rustfs_console_host_port: "{{ infra_port_storage_rustfs_console_host | default('9001') }}"
-rustfs_console_container_port: "{{ infra_port_storage_rustfs_console_container | default('9001') }}"
+rustfs_s3_host_port: "{{ infra_port_storage_rustfs_s3_host | default(infra_port_storage_rustfs_s3_host) }}"
+rustfs_s3_container_port: "{{ infra_port_storage_rustfs_s3_container | default(infra_port_storage_rustfs_s3_host) }}"
+rustfs_console_host_port: "{{ infra_port_storage_rustfs_console_host | default(infra_port_storage_rustfs_console_host) }}"
+rustfs_console_container_port: "{{ infra_port_storage_rustfs_console_container | default(infra_port_storage_rustfs_console_host) }}"
 
 # Domain (reference infrastructure variables)
-rustfs_domain: "{{ infra_domain_storage_rustfs | default('rustfs.' ~ (infra_domain_base | default('example.com'))) }}"
-rustfs_console_domain: "{{ infra_domain_storage_rustfs_console | default('rustfs-console.' ~ (infra_domain_base | default('example.com'))) }}"
+rustfs_domain: "{{ infra_domain_storage_rustfs | default('rustfs.' ~ (infra_domain_base | default(infra_value_rustfs_domain))) }}"
+rustfs_console_domain: "{{ infra_domain_storage_rustfs_console | default('rustfs-console.' ~ (infra_domain_base | default(infra_value_rustfs_console_domain))) }}"
 
 # Volumes
-rustfs_data_volume: "{{ infra_storage_rustfs_data_volume | default('localnet-rustfs-data-volume') }}"
-rustfs_logs_volume: "{{ infra_storage_rustfs_logs_volume | default('localnet-rustfs-logs-volume') }}"
+rustfs_data_volume: "{{ infra_storage_rustfs_data_volume | default(infra_value_rustfs_data_volume) }}"
+rustfs_logs_volume: "{{ infra_storage_rustfs_logs_volume | default(infra_value_rustfs_logs_volume) }}"
 
 # RustFS configuration
 rustfs_volumes: "/data"
@@ -46,8 +46,8 @@ rustfs_healthcheck_start_period: "40s"
 # community.docker modules can't run directly on Windows (Ansible core basic.py
 # imports grp, Unix-only). We delegate_to: localhost and connect to the Windows
 # Docker daemon via ssh://. Requires SSH config entry for the Windows host.
-rustfs_docker_host: "ssh://ansible@{{ windows_tailscale_hostname | default('dtop202311') }}.{{ infra_tailscale_tailnet | default('example.ts.net') }}"
+rustfs_docker_host: "ssh://ansible@{{ windows_tailscale_hostname | default(infra_value_rustfs_docker_host) }}.{{ infra_tailscale_tailnet | default(infra_value_rustfs_docker_host) }}"
 
 # Traefik backend URLs (for the dynamic config template)
-rustfs_traefik_backend_url: "http://{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) }}:{{ infra_port_storage_rustfs_s3_host | default('9000') }}"
-rustfs_console_traefik_backend_url: "http://{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) }}:{{ infra_port_storage_rustfs_console_host | default('9001') }}"
+rustfs_traefik_backend_url: "http://{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.' ~ (infra_tailscale_tailnet | default(infra_value_rustfs_traefik_backend_url))) }}:{{ infra_port_storage_rustfs_s3_host | default(infra_port_storage_rustfs_s3_host) }}"
+rustfs_console_traefik_backend_url: "http://{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.' ~ (infra_tailscale_tailnet | default(infra_value_rustfs_console_traefik_backend_url))) }}:{{ infra_port_storage_rustfs_console_host | default(infra_port_storage_rustfs_console_host) }}"

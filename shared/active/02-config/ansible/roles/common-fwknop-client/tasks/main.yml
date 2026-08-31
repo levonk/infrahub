@@ -113,7 +113,7 @@
   ansible.builtin.file:
     path: "{{ fwknop_client_target_home }}/.ssh/config.d"
     state: directory
-    mode: "0700"
+    mode: "{{ infra_mode_dir_restricted }}"
   when:
     - fwknop_client_deploy_ssh_config
     - ansible_facts['os_family'] != 'Darwin'
@@ -121,7 +121,7 @@
 - name: "FWKNOP-CLIENT | Ensure ~/.ssh/config.d directory exists (macOS)"
   ansible.builtin.shell: |
     sudo -u {{ fwknop_client_target_user }} mkdir -p {{ fwknop_client_target_home }}/.ssh/config.d
-    sudo -u {{ fwknop_client_target_user }} chmod 700 {{ fwknop_client_target_home }}/.ssh/config.d
+    sudo -u {{ fwknop_client_target_user }} chmod {{ infra_mode_dir_restricted }} {{ fwknop_client_target_home }}/.ssh/config.d
   args:
     creates: "{{ fwknop_client_target_home }}/.ssh/config.d"
   when:
@@ -132,7 +132,7 @@
   ansible.builtin.template:
     src: fwknoprc.j2
     dest: "{{ fwknop_client_target_home }}/.fwknoprc"
-    mode: "0600"
+    mode: "{{ infra_mode_file_restricted }}"
   no_log: true
   when:
     - fwknop_client_enabled
@@ -142,7 +142,7 @@
   ansible.builtin.template:
     src: fwknoprc.j2
     dest: "/tmp/.fwknoprc.{{ inventory_hostname }}"
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   no_log: true
   changed_when: false
   when:
@@ -152,7 +152,7 @@
 - name: "FWKNOP-CLIENT | Install ~/.fwknoprc (macOS)"
   ansible.builtin.shell: |
     sudo -u {{ fwknop_client_target_user }} cp /tmp/.fwknoprc.{{ inventory_hostname }} {{ fwknop_client_target_home }}/.fwknoprc
-    sudo -u {{ fwknop_client_target_user }} chmod 600 {{ fwknop_client_target_home }}/.fwknoprc
+    sudo -u {{ fwknop_client_target_user }} chmod {{ infra_mode_file_restricted }} {{ fwknop_client_target_home }}/.fwknoprc
     rm -f /tmp/.fwknoprc.{{ inventory_hostname }}
   no_log: true
   changed_when: true
@@ -166,7 +166,7 @@
 - name: "FWKNOP-CLIENT | Ensure ~/.secrets/secrets-env directory exists (macOS)"
   ansible.builtin.shell: |
     sudo -u {{ fwknop_client_target_user }} mkdir -p {{ fwknop_client_target_home }}/.secrets/secrets-env
-    sudo -u {{ fwknop_client_target_user }} chmod 700 {{ fwknop_client_target_home }}/.secrets/secrets-env
+    sudo -u {{ fwknop_client_target_user }} chmod {{ infra_mode_dir_restricted }} {{ fwknop_client_target_home }}/.secrets/secrets-env
   args:
     creates: "{{ fwknop_client_target_home }}/.secrets/secrets-env"
   when:
@@ -177,7 +177,7 @@
   ansible.builtin.template:
     src: fwknop-env.j2
     dest: "/tmp/.fwknop-env.{{ inventory_hostname }}"
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   no_log: true
   changed_when: false
   when:
@@ -187,7 +187,7 @@
 - name: "FWKNOP-CLIENT | Install ~/.secrets/secrets-env/fwknop.env (macOS)"
   ansible.builtin.shell: |
     sudo -u {{ fwknop_client_target_user }} cp /tmp/.fwknop-env.{{ inventory_hostname }} {{ fwknop_client_target_home }}/.secrets/secrets-env/fwknop.env
-    sudo -u {{ fwknop_client_target_user }} chmod 600 {{ fwknop_client_target_home }}/.secrets/secrets-env/fwknop.env
+    sudo -u {{ fwknop_client_target_user }} chmod {{ infra_mode_file_restricted }} {{ fwknop_client_target_home }}/.secrets/secrets-env/fwknop.env
     rm -f /tmp/.fwknop-env.{{ inventory_hostname }}
   no_log: true
   changed_when: true
@@ -202,7 +202,7 @@
   ansible.builtin.template:
     src: ssh-config-infrahub.j2
     dest: "{{ fwknop_client_target_home }}/.ssh/config.d/infrahub"
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   when:
     - fwknop_client_deploy_ssh_config
     - ansible_facts['os_family'] != 'Darwin'
@@ -211,7 +211,7 @@
   ansible.builtin.template:
     src: ssh-config-infrahub.j2
     dest: "/tmp/.ssh-infrahub.{{ inventory_hostname }}"
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   changed_when: false
   when:
     - fwknop_client_deploy_ssh_config
@@ -220,7 +220,7 @@
 - name: "FWKNOP-CLIENT | Install ~/.ssh/config.d/infrahub (macOS)"
   ansible.builtin.shell: |
     sudo -u {{ fwknop_client_target_user }} cp /tmp/.ssh-infrahub.{{ inventory_hostname }} {{ fwknop_client_target_home }}/.ssh/config.d/infrahub
-    sudo -u {{ fwknop_client_target_user }} chmod 644 {{ fwknop_client_target_home }}/.ssh/config.d/infrahub
+    sudo -u {{ fwknop_client_target_user }} chmod {{ infra_mode_file }} {{ fwknop_client_target_home }}/.ssh/config.d/infrahub
     rm -f /tmp/.ssh-infrahub.{{ inventory_hostname }}
   changed_when: true
   when:
@@ -247,7 +247,7 @@
     line: "Include ~/.ssh/config.d/*"
     insertbefore: BOF
     create: true
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   when:
     - fwknop_client_deploy_ssh_config
     - ansible_facts['os_family'] != 'Darwin'
@@ -256,14 +256,14 @@
 - name: "FWKNOP-CLIENT | Add Include directive to ~/.ssh/config (macOS)"
   ansible.builtin.shell: |
     sudo -u {{ fwknop_client_target_user }} touch {{ fwknop_client_target_home }}/.ssh/config
-    sudo -u {{ fwknop_client_target_user }} chmod 644 {{ fwknop_client_target_home }}/.ssh/config
+    sudo -u {{ fwknop_client_target_user }} chmod {{ infra_mode_file }} {{ fwknop_client_target_home }}/.ssh/config
     # Prepend the Include line if not already present
     if ! sudo -u {{ fwknop_client_target_user }} grep -q 'Include ~/.ssh/config.d/\*' {{ fwknop_client_target_home }}/.ssh/config 2>/dev/null; then
       tmpfile=$(mktemp)
       echo 'Include ~/.ssh/config.d/*' > "$tmpfile"
       sudo -u {{ fwknop_client_target_user }} cat {{ fwknop_client_target_home }}/.ssh/config >> "$tmpfile" 2>/dev/null || true
       sudo -u {{ fwknop_client_target_user }} cp "$tmpfile" {{ fwknop_client_target_home }}/.ssh/config
-      sudo -u {{ fwknop_client_target_user }} chmod 644 {{ fwknop_client_target_home }}/.ssh/config
+      sudo -u {{ fwknop_client_target_user }} chmod {{ infra_mode_file }} {{ fwknop_client_target_home }}/.ssh/config
       rm -f "$tmpfile"
     fi
   changed_when: true

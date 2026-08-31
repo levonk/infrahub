@@ -51,7 +51,7 @@
 
     - name: "Report Tailscale IP"
       ansible.builtin.command:
-        cmd: "tailscale ip -4"
+        cmd: "tailscale ip -4"  # project-lint: disable=magic-int  IP version flag in tailscale command, not an operational value
       become: true
       register: tailscale_ip
       changed_when: false

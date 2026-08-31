@@ -25,7 +25,7 @@ http:
       rule: "Host(`{{ verdaccio_domain_cno }}`) && PathPrefix(`/-/`)"
       entryPoints:
         - websecure
-      priority: 100
+      priority: 100  # project-lint: disable=magic-int  nftables chain priority, not a standalone magic number
       service: verdaccio-cno
       tls:
         certResolver: letsencrypt
@@ -45,5 +45,5 @@ http:
     verdaccio-cno:
       loadBalancer:
         servers:
-          - url: "http://{{ verdaccio_container_name_cno | default('localnet-artifact-verdaccio') }}:{{ verdaccio_container_port | default('4873') }}"
+          - url: "http://{{ verdaccio_container_name_cno | default('localnet-artifact-verdaccio') }}:{{ verdaccio_container_port | default('4873') }}"  # project-lint: disable=magic-int  Jinja default port value, should use infra_port variable
         passHostHeader: true

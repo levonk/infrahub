@@ -16,10 +16,10 @@ vpn_tailscale_channel: "stable"
 vpn_tailscale_auth_key: ""
 
 # Port for Tailscale WireGuard traffic (UDP).
-vpn_tailscale_port: "{{ cloud_server_tailscale_port | default('41641') }}"
+vpn_tailscale_port: "{{ cloud_server_tailscale_port | default(infra_port_vpn_tailscale) }}"
 
 # Hostname advertised in the Tailscale network.
-vpn_tailscale_hostname: "{{ inventory_hostname | default('cloud-server') }}"
+vpn_tailscale_hostname: "{{ inventory_hostname | default(infra_value_vpn_tailscale_hostname) }}"
 
 # ---------------------------------------------------------------------------
 # Route Advertisement
@@ -44,17 +44,17 @@ vpn_tailscale_run_exit_node: false
 # Tor Integration
 # ---------------------------------------------------------------------------
 vpn_tailscale_tor_enabled: false
-vpn_tailscale_tor_hostname: "{{ inventory_hostname | default('cloud-server') }}-tor"
+vpn_tailscale_tor_hostname: "{{ inventory_hostname | default(infra_value_vpn_tailscale_tor_hostname) }}-tor"
 vpn_tailscale_tor_network_name: "tor-network"
 
 # ---------------------------------------------------------------------------
 # NordVPN Integration
 # ---------------------------------------------------------------------------
-vpn_nordvpn_network_name: "{{ cloud_server_nordvpn_network_name | default('vpn-network') }}"
+vpn_nordvpn_network_name: "{{ cloud_server_nordvpn_network_name | default(infra_network_vpn_nordvpn_network_name) }}"
 
 # Tailscale hostname for the NordVPN exit node (must be unique in the tailnet).
 # Override per-client: e.g. "cno-vpn-tailscale-exit" for OCI, "nl-vpn-tailscale-exit" for Windows.
-vpn_tailscale_nordvpn_hostname: "{{ inventory_hostname | default('cloud-server') }}-vpn"
+vpn_tailscale_nordvpn_hostname: "{{ inventory_hostname | default(infra_value_vpn_tailscale_nordvpn_hostname) }}-vpn"
 
 # ---------------------------------------------------------------------------
 # Verification

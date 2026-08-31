@@ -105,17 +105,17 @@
     # =========================================================================
     - name: "Check Paperclip /health endpoint on localhost"
       ansible.builtin.uri:
-        url: "http://127.0.0.1:{{ ai_paperclip_host_port }}{{ ai_paperclip_health_endpoint }}"
+        url: "http://{{ infra_network_bind_localhost }}:{{ ai_paperclip_host_port }}{{ ai_paperclip_health_endpoint }}"
         method: GET
         return_content: false
-        status_code: [200]
+        status_code: ["{{ infra_http_status_ok }}"]
       register: paperclip_health
       failed_when: false
       tags: ["validate", "paperclip"]
 
     - name: "Record Paperclip /health status"
       ansible.builtin.set_fact:
-        validation_results: "{{ validation_results | combine({'paperclip_health_ok': paperclip_health.status | default(0) == 200}) }}"
+        validation_results: "{{ validation_results | combine({'paperclip_health_ok': paperclip_health.status | default(infra_size_unlimited) == {{ infra_http_status_ok }}}) }}"
       tags: ["validate", "paperclip"]
 
     # =========================================================================
@@ -127,15 +127,15 @@
     # We check via localhost with a Host header because the Tailscale MagicDNS
     # resolver on the OCI host may not follow CNAME chains for getaddrinfo()
     # (dig works, but Python's urllib/curl may fail to resolve the CNAME target).
-    # Checking 127.0.0.1:443 with the correct Host header bypasses DNS resolution
+    # Checking {{ infra_network_bind_localhost }}:{{ infra_port_proxy_https_host }} with the correct Host header bypasses DNS resolution
     # and tests the Traefik router + middleware chain directly.
     # =========================================================================
     - name: "Check Traefik routing for https://{{ ai_paperclip_domain }}"
       ansible.builtin.uri:
-        url: "https://127.0.0.1:443/"
+        url: "https://{{ infra_network_bind_localhost }}:{{ infra_port_proxy_https_host }}/"
         method: GET
         return_content: false
-        status_code: [200, 302, 301, 401]
+        status_code: ["{{ infra_http_status_ok }}", "{{ infra_http_status_redirect }}", "{{ infra_http_status_redirect }}", "{{ infra_http_status_unauthorized }}"]  # project-lint: disable=magic-int  HTTP status code in list, should use infra_http_status variable
         follow_redirects: false
         validate_certs: false
         headers:
@@ -146,7 +146,7 @@
 
     - name: "Record Traefik route status"
       ansible.builtin.set_fact:
-        validation_results: "{{ validation_results | combine({'traefik_route_ok': traefik_route.status | default(0) in [200, 302, 301, 401]}) }}"
+        validation_results: "{{ validation_results | combine({'traefik_route_ok': traefik_route.status | default(infra_size_unlimited) in [infra_http_status_ok, infra_http_status_redirect, infra_http_status_redirect, infra_http_status_unauthorized]}) }}"
       tags: ["validate", "paperclip", "traefik"]
 
     # =========================================================================

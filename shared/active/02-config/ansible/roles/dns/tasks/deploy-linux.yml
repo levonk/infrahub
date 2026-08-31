@@ -6,7 +6,7 @@
   ansible.builtin.file:
     path: "{{ localnet_services_dir }}/dns"
     state: directory
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
 
 # ============================================================================
 # Volume Management
@@ -49,8 +49,8 @@
         - CoreDNS: localhost:{{ dns_coredns_main_host_port }} (direct)
         - Unbound Validator: localhost:{{ dns_unbound_validator_host_port }}
         - Unbound Tor (Tier 3): internal only
-        - Unbound Root (Tier 10): internal only
+        - Unbound Root (Tier 10): internal only  # project-lint: disable=magic-int  DNS tier number, not an operational value
         - dnscrypt-odoh (Tier 1): localhost:{{ dns_dnscrypt_odoh_host_port }}
         - dnscrypt-anon (Tier 2): localhost:{{ dns_dnscrypt_anon_host_port }}
-        - dnscrypt-plaintext (Tier 12): localhost:{{ dns_dnscrypt_plaintext_host_port }}
+        - dnscrypt-plaintext (Tier 12): localhost:{{ dns_dnscrypt_plaintext_host_port }}  # project-lint: disable=magic-int  DNS tier number, not an operational value
         - Tor SOCKS5: socks5://localhost:{{ proxy_tor_socks5_host_port }}

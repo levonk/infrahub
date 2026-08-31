@@ -3,7 +3,7 @@
 
 - name: Pull coredns image
   community.docker.docker_image:
-    name: "{{ local_registry | default('100.90.22.85:5000') }}/localnet-dns-coredns:latest"
+    name: "{{ local_registry | default('{{ infra_registry }}') }}/localnet-dns-coredns:latest"
     source: pull
     state: present
 
@@ -21,7 +21,7 @@
     ports:
       - "{{ dns_coredns_main_host_port }}:{{ dns_coredns_main_container_port }}/udp"
       - "{{ dns_coredns_main_host_port }}:{{ dns_coredns_main_container_port }}/tcp"
-      - "{{ dns_coredns_main_metrics_host_port }}:9153/tcp"
+      - "{{ dns_coredns_main_metrics_host_port }}:{{ infra_port_dns_coredns_metrics_host }}/tcp"
       - "{{ dns_coredns_main_health_host_port }}:{{ dns_coredns_main_health_container_port }}/tcp"
     volumes:
       - "{{ localnet_services_dir }}/dns/coredns/mounts/templates:/templates:ro"
@@ -58,20 +58,20 @@
       PROXY_TOR_SOCKS5_CONTAINER_PORT: "{{ proxy_tor_socks5_container_port }}"
     log_driver: json-file
     log_options:
-      max-size: 10m
-      max-file: 5
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://127.0.0.1:{{ dns_coredns_main_health_container_port }}/health"]
-      interval: 30
-      timeout: 10
-      retries: 3
-      start_period: 30
+      test: ["CMD", "curl", "-f", "http://{{ infra_network_bind_localhost }}:{{ dns_coredns_main_health_container_port }}/health"]
+      interval: "{{ infra_healthcheck_interval }}"
+      timeout: "{{ infra_timeout_short }}"
+      retries: "{{ infra_retry_short }}"
+      start_period: "{{ infra_healthcheck_start_period }}"
 
 - name: Wait for coredns to be healthy
   ansible.builtin.uri:
-    url: "http://127.0.0.1:{{ dns_coredns_main_health_host_port }}/health"
-    status_code: 200
+    url: "http://{{ infra_network_bind_localhost }}:{{ dns_coredns_main_health_host_port }}/health"
+    status_code: "{{ infra_http_status_ok }}"
   register: coredns_health
-  until: coredns_health.status == 200
-  retries: 10
-  delay: 5
+  until: coredns_health.status == {{ infra_http_status_ok }}
+  retries: "{{ infra_retry_long }}"
+  delay: "{{ infra_delay_default }}"

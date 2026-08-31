@@ -3,7 +3,7 @@
 
 - name: Pull dnsdist image
   community.docker.docker_image:
-    name: "{{ local_registry | default('100.90.22.85:5000') }}/localnet-dns-dnsdist:latest"
+    name: "{{ local_registry | default('{{ infra_registry }}') }}/localnet-dns-dnsdist:latest"
     source: pull
     state: present
 
@@ -26,20 +26,20 @@
       - localnet-dns-blocklist-cdbs-volume:/etc/dnsdist/blocklists:ro
     log_driver: json-file
     log_options:
-      max-size: 10m
-      max-file: 5
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
     healthcheck:
-      test: ["CMD", "dig", "+short", "example.com", "@127.0.0.1", "-p", "{{ dns_dnsdist_main_container_port }}"]
-      interval: 30
-      timeout: 10
-      retries: 3
-      start_period: 170
+      test: ["CMD", "dig", "+short", "example.com", "@{{ infra_network_bind_localhost }}", "-p", "{{ dns_dnsdist_main_container_port }}"]
+      interval: "{{ infra_healthcheck_interval }}"
+      timeout: "{{ infra_timeout_short }}"
+      retries: "{{ infra_retry_short }}"
+      start_period: "{{ infra_healthcheck_start_period_long }}"
 
 - name: Wait for dnsdist to be healthy
   ansible.builtin.shell: |
     docker inspect --format='{{"{{"}}.State.Health.Status{{"}}"}}' localnet-dns-dnsdist
   register: dnsdist_health
   until: dnsdist_health.stdout == "healthy"
-  retries: 10
-  delay: 15
+  retries: "{{ infra_retry_long }}"
+  delay: "{{ infra_delay_long }}"
   ignore_errors: true

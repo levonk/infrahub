@@ -26,9 +26,9 @@ macos_xcode_target_version: ""
 # x86_64 on Sequoia (15.x): Xcode 26.3 (terminal version — no Tahoe on Intel)
 # arm64 on Sequoia (15.x):  Xcode 26.3 (latest Sequoia-compatible)
 # arm64 on Tahoe (26.x):    dynamic lookup via iTunes API (see below)
-macos_xcode_version_sequoia: "{{ infra_app_xcode_version_sequoia | default('26.3') }}"
+macos_xcode_version_sequoia: "{{ infra_app_xcode_version_sequoia | default(infra_value_macos_xcode_version_sequoia) }}"
 # Fallback for Tahoe if the dynamic lookup is disabled or fails
-macos_xcode_version_tahoe_fallback: "{{ infra_app_xcode_version_tahoe | default('26.3') }}"
+macos_xcode_version_tahoe_fallback: "{{ infra_app_xcode_version_tahoe | default(infra_value_macos_xcode_version_tahoe_fallback) }}"
 
 # ---------------------------------------------------------------------------
 # Dynamic latest-version lookup (Tahoe+ hosts only)
@@ -54,7 +54,7 @@ macos_xcode_lookup_timeout: 15
 # Mac App Store configuration
 # ---------------------------------------------------------------------------
 # Xcode's Mac App Store app ID (constant — never changes)
-macos_xcode_mas_app_id: "{{ infra_app_xcode_mas_app_id | default('497799835') }}"
+macos_xcode_mas_app_id: "{{ infra_app_xcode_mas_app_id | default(infra_size_large) }}"
 
 # Which macOS user to run mas as.
 #

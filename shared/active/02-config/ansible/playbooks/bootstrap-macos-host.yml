@@ -95,7 +95,7 @@
         dest: "/etc/sudoers.d/{{ macos_auser }}"
         owner: "root"
         group: "wheel"
-        mode: "0440"
+        mode: "{{ infra_mode_file_readonly }}"
         validate: "visudo -cf %s"
       become: true
       tags: ["auser", "sudoers"]
@@ -106,7 +106,7 @@
         state: directory
         owner: "{{ macos_auser }}"
         group: "staff"
-        mode: "0700"
+        mode: "{{ infra_mode_dir_restricted }}"
       become: true
       tags: ["auser", "ssh"]
 
@@ -116,7 +116,7 @@
         dest: "/Users/{{ macos_auser }}/.ssh/authorized_keys"
         owner: "{{ macos_auser }}"
         group: "staff"
-        mode: "0600"
+        mode: "{{ infra_mode_file_restricted }}"
       become: true
       when: macos_auser_ssh_public_key is defined
       tags: ["auser", "ssh"]
@@ -157,7 +157,7 @@
       ansible.builtin.shell:
         cmd: |
           sh <(curl -L https://nixos.org/nix/install) --daemon --yes \
-            --daemon-user-count 4 \
+            --daemon-user-count 4 \  # project-lint: disable=magic-int  Docker daemon user count, not a standalone magic number
             --nix-extra-conf 'experimental-features = nix-command flakes'
       when: nix_check.rc != 0
       become: true
@@ -234,7 +234,7 @@
     - name: "Join Netbird network with setup key"
       ansible.builtin.command: >
         netbird up
-        --managementURL {{ macos_netbird_management_url | default('https://api.netbird.io:443') }}
+        --managementURL {{ macos_netbird_management_url | default('https://api.netbird.io:{{ infra_port_proxy_https_host }}') }}
         --setupKey {{ vault_netbird_setup_key }}
         --hostname {{ macos_netbird_hostname }}
       when:

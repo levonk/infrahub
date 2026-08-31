@@ -58,7 +58,7 @@
   ansible.builtin.file:
     path: "{{ no_mistakes_temp_dir }}"
     state: directory
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   delegate_to: localhost
   changed_when: false
   tags: ["deploy", "config"]
@@ -68,7 +68,7 @@
   ansible.builtin.template:
     src: config.yaml.j2
     dest: "{{ no_mistakes_temp_dir }}/config.yaml"
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   delegate_to: localhost
   changed_when: true
   tags: ["deploy", "config"]
@@ -78,7 +78,7 @@
   ansible.builtin.template:
     src: authorized_keys.j2
     dest: "{{ no_mistakes_temp_dir }}/authorized_keys"
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   delegate_to: localhost
   changed_when: true
   tags: ["deploy", "config"]
@@ -108,8 +108,8 @@
     -e NM_HOME=/home/gate/.no-mistakes
     -e TZ={{ localnet_tz | default('UTC') }}
     --log-driver json-file
-    --log-opt max-size=10m
-    --log-opt max-file=5
+    --log-opt max-size={{ infra_log_max_size }}
+    --log-opt max-file={{ infra_log_max_file }}
     --health-cmd "bash -c 'echo > /dev/tcp/127.0.0.1/{{ no_mistakes_ssh_container_port }}' 2>/dev/null || exit 1"
     --health-interval {{ no_mistakes_healthcheck_interval }}
     --health-timeout {{ no_mistakes_healthcheck_timeout }}

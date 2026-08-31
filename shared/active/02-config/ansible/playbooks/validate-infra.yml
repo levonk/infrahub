@@ -63,7 +63,7 @@
 
     - name: "Record Netbird management API status"
       ansible.builtin.set_fact:
-        validation_results: "{{ validation_results | combine({'netbird_mgmt_api_ok': netbird_api_check.status == 200}) }}"
+        validation_results: "{{ validation_results | combine({'netbird_mgmt_api_ok': netbird_api_check.status == {{ infra_http_status_ok }}}) }}"
       tags: ["validate", "netbird"]
 
     - name: "Check Netbird signal container status"
@@ -138,14 +138,14 @@
         url: "http://localhost:{{ cloud_server_proxy_http_container_port }}"
         method: GET
         return_content: false
-        status_code: [200, 404, 403]
+        status_code: ["{{ infra_http_status_ok }}", "{{ infra_http_status_not_found }}", "{{ infra_http_status_forbidden }}"]  # project-lint: disable=magic-int  HTTP status code in list, should use infra_http_status variable
       register: proxy_check
       failed_when: false
       tags: ["validate", "proxy"]
 
     - name: "Record proxy accessibility status"
       ansible.builtin.set_fact:
-        validation_results: "{{ validation_results | combine({'proxy_accessible': proxy_check.status in [200, 404, 403]}) }}"
+        validation_results: "{{ validation_results | combine({'proxy_accessible': proxy_check.status in [infra_http_status_ok, infra_http_status_not_found, infra_http_status_forbidden]}) }}"
       tags: ["validate", "proxy"]
 
     - name: "Check Tor relay container status"
@@ -189,14 +189,14 @@
         url: "http://localhost:{{ cloud_server_authelia_web_container_port }}"
         method: GET
         return_content: false
-        status_code: [200, 302, 401]
+        status_code: ["{{ infra_http_status_ok }}", "{{ infra_http_status_redirect }}", "{{ infra_http_status_unauthorized }}"]
       register: authelia_check
       failed_when: false
       tags: ["validate", "authelia"]
 
     - name: "Record Authelia accessibility status"
       ansible.builtin.set_fact:
-        validation_results: "{{ validation_results | combine({'authelia_accessible': authelia_check.status in [200, 302, 401]}) }}"
+        validation_results: "{{ validation_results | combine({'authelia_accessible': authelia_check.status in [infra_http_status_ok, infra_http_status_redirect, infra_http_status_unauthorized]}) }}"
       tags: ["validate", "authelia"]
 
     - name: "Verify container ports match variable definitions"
@@ -221,14 +221,14 @@
     - name: "Check container logs for errors"
       ansible.builtin.shell:
         cmd: |
-          docker logs --tail 50 netbird-mgmt 2>&1 | grep -i "error\|fatal\|failed" || true
-          docker logs --tail 50 netbird-signal 2>&1 | grep -i "error\|fatal\|failed" || true
-          docker logs --tail 50 netbird-turn 2>&1 | grep -i "error\|fatal\|failed" || true
-          docker logs --tail 50 dns-stack 2>&1 | grep -i "error\|fatal\|failed" || true
-          docker logs --tail 50 proxy-stack 2>&1 | grep -i "error\|fatal\|failed" || true
-          docker logs --tail 50 tor-relay 2>&1 | grep -i "error\|fatal\|failed" || true
-          docker logs --tail 50 authelia-web 2>&1 | grep -i "error\|fatal\|failed" || true
-          docker logs --tail 50 authelia-redis 2>&1 | grep -i "error\|fatal\|failed" || true
+          docker logs --tail 50 netbird-mgmt 2>&1 | grep -i "error\|fatal\|failed" || true  # project-lint: disable=magic-int  shell command argument, not an operational value
+          docker logs --tail 50 netbird-signal 2>&1 | grep -i "error\|fatal\|failed" || true  # project-lint: disable=magic-int  shell command argument, not an operational value
+          docker logs --tail 50 netbird-turn 2>&1 | grep -i "error\|fatal\|failed" || true  # project-lint: disable=magic-int  shell command argument, not an operational value
+          docker logs --tail 50 dns-stack 2>&1 | grep -i "error\|fatal\|failed" || true  # project-lint: disable=magic-int  shell command argument, not an operational value
+          docker logs --tail 50 proxy-stack 2>&1 | grep -i "error\|fatal\|failed" || true  # project-lint: disable=magic-int  shell command argument, not an operational value
+          docker logs --tail 50 tor-relay 2>&1 | grep -i "error\|fatal\|failed" || true  # project-lint: disable=magic-int  shell command argument, not an operational value
+          docker logs --tail 50 authelia-web 2>&1 | grep -i "error\|fatal\|failed" || true  # project-lint: disable=magic-int  shell command argument, not an operational value
+          docker logs --tail 50 authelia-redis 2>&1 | grep -i "error\|fatal\|failed" || true  # project-lint: disable=magic-int  shell command argument, not an operational value
       register: container_errors
       changed_when: false
       failed_when: false

@@ -10,7 +10,7 @@
     networks:
       - name: "{{ localnet_network_name }}"
     sysctls:
-      net.ipv4.ping_group_range: 0 2147483647
+      net.ipv4.ping_group_range: 0 2147483647  # project-lint: disable=magic-int  sysctl boolean flag, not an operational magic number
     env:
       TENANT_URL: "{{ twingate_tenant_url }}"
       ACCESS_TOKEN: "{{ twingate_access_token }}"
@@ -18,5 +18,5 @@
       TWINGATE_LABEL_HOSTNAME: "{{ twingate_label_hostname | default('localnet-connector') }}"
     log_driver: json-file
     log_options:
-      max-size: 10m
-      max-file: 5
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"

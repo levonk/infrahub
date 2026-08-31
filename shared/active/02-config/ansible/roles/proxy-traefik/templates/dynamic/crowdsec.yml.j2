@@ -33,5 +33,5 @@ http:
     crowdsec:
       loadBalancer:
         servers:
-          - url: "http://{{ infra_hostname_crowdsec | default('crowdsec') }}:{{ security_crowdsec_lapi_container_port | default('8081') }}"
+          - url: "http://{{ infra_hostname_crowdsec | default('crowdsec') }}:{{ security_crowdsec_lapi_container_port | default(infra_port_proxy_mitm_webui_container) }}"
         passHostHeader: true

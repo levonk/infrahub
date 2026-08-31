@@ -5,7 +5,7 @@ all:
       hosts:
         localnet-primary:
           ansible_connection: local
-          ansible_host: 127.0.0.1
+          ansible_host: "{{ infra_network_bind_localhost }}"
           # Override for remote deployment:
           # ansible_host: 192.168.1.100
           # ansible_user: admin
@@ -15,5 +15,5 @@ all:
         localnet_container_dir: "{{ localnet_base_dir }}/active/infra/container"
         localnet_services_dir: "{{ localnet_container_dir }}/services"
         localnet_config_dir: "{{ localnet_base_dir }}/active/infra/config"
-        docker_network_gateway: "172.26.0.1"
-        docker_network_subnet: "172.26.0.0/16"
+        docker_network_gateway: "{{ infra_network_dns_localnet_gateway }}"
+        docker_network_subnet: "{{ infra_network_dns_localnet_subnet }}"

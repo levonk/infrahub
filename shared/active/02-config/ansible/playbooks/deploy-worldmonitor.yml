@@ -242,10 +242,10 @@
         networks:
           - name: "{{ worldmonitor_network_name }}"
         ports:
-          - "127.0.0.1:{{ worldmonitor_redis_rest_host_port }}:{{ worldmonitor_redis_rest_container_port }}"
+          - "{{ infra_network_bind_localhost }}:{{ worldmonitor_redis_rest_host_port }}:{{ worldmonitor_redis_rest_container_port }}"
         env:
           SRH_TOKEN: "{{ worldmonitor_redis_token }}"
-          SRH_CONNECTION_STRING: "redis://:{{ worldmonitor_redis_password }}@redis:6379"
+          SRH_CONNECTION_STRING: "redis://:{{ worldmonitor_redis_password }}@redis:{{ infra_port_db_redis_host }}"
       tags: ["deploy", "redis-rest"]
 
     - name: "Deploy AIS relay container"
@@ -277,7 +277,7 @@
         env:
           UPSTASH_REDIS_REST_URL: "http://redis-rest:{{ worldmonitor_redis_rest_container_port }}"
           UPSTASH_REDIS_REST_TOKEN: "{{ worldmonitor_redis_token }}"
-          LOCAL_API_PORT: "46123"
+          LOCAL_API_PORT: "{{ infra_port_omnigent_local_api_host }}"
           LOCAL_API_MODE: "docker"
           LOCAL_API_CLOUD_FALLBACK: "false"
           WS_RELAY_URL: "http://ais-relay:{{ worldmonitor_ais_relay_container_port }}"
@@ -302,7 +302,7 @@
   post_tasks:
     - name: "Wait for containers to initialize"
       ansible.builtin.pause:
-        seconds: 15
+        seconds: "{{ infra_delay_long }}"
       tags: ["verify"]
 
     - name: "Verify all WorldMonitor containers are running"
@@ -342,7 +342,7 @@
           Host: {{ inventory_hostname }}
           Registry: {{ worldmonitor_registry_url }}
           Dashboard: http://localhost:{{ worldmonitor_app_host_port }}
-          Redis REST: http://127.0.0.1:{{ worldmonitor_redis_rest_host_port }}
+          Redis REST: http://{{ infra_network_bind_localhost }}:{{ worldmonitor_redis_rest_host_port }}
           ========================================
           Next: Run seeders to populate data.
           See https://github.com/koala73/worldmonitor SELF_HOSTING.md

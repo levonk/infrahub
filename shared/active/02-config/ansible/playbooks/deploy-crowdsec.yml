@@ -116,7 +116,7 @@
       ansible.builtin.wait_for:
         host: "{{ ansible_host | default('localhost') }}"
         port: "{{ security_crowdsec_lapi_port }}"
-        timeout: 10
+        timeout: "{{ infra_timeout_short }}"
       delegate_to: localhost
       become: false
       ignore_errors: true
@@ -129,9 +129,9 @@
           CrowdSec LAPI port {{ security_crowdsec_lapi_port }}: {{ 'accessible' if crowdsec_lapi_port_check.failed is false else 'not accessible' }}
       tags: ["verify", "crowdsec", "ports"]
 
-    - name: "Get CrowdSec container logs (last 20 lines)"
+    - name: "Get CrowdSec container logs (last 20 lines)"  # project-lint: disable=magic-int  container log line count, not an operational value
       ansible.builtin.command:
-        cmd: "docker logs --tail 20 {{ security_crowdsec_container_name }}"
+        cmd: "docker logs --tail 20 {{ security_crowdsec_container_name }}"  # project-lint: disable=magic-int  shell command argument, not an operational value
       become: true
       register: crowdsec_logs
       changed_when: false

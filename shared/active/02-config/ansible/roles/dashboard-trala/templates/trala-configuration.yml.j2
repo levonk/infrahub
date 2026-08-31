@@ -5,7 +5,7 @@
 # Basic auth credentials are injected via TRAEFIK_BASIC_AUTH_USERNAME/PASSWORD
 # env vars (from vault). enable_basic_auth must be true in the YAML to activate them.
 
-version: "3.0"
+version: "3.0"  # project-lint: disable=magic-dotted  version number, not an operational magic number
 
 environment:
   selfhst_icon_url: https://cdn.jsdelivr.net/gh/selfhst/icons/

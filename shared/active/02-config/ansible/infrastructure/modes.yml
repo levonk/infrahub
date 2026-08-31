@@ -1,0 +1,59 @@
+---
+# File Mode Allocation Schema
+# Location: shared/active/02-config/ansible/infrastructure/modes.yml
+# Purpose: Standard file permission modes as named variables
+# Client-specific values in levonk/active/02-config/ansible/infrastructure/modes.yml
+# ---------------------------------------------------------------------------
+# Variable Naming: infra_mode_{CONTEXT}_{DESCRIPTION}
+# Contexts: file, dir, secret, exec, socket, lock
+# ---------------------------------------------------------------------------
+# NOTE: All modes are strings to support YAML number/string compatibility
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Standard file modes
+# ---------------------------------------------------------------------------
+# infra_mode_file: Standard config file (readable by all, writable by owner)
+# infra_mode_file_readonly: Read-only file (readable by all, writable by none)
+# infra_mode_file_restricted: Restricted file (readable/writable by owner only)
+# infra_mode_file_shared: Shared file (readable by group, writable by owner)
+infra_mode_file: "0644"
+infra_mode_file_readonly: "0444"
+infra_mode_file_restricted: "0600"
+infra_mode_file_shared: "0640"
+
+# ---------------------------------------------------------------------------
+# Standard directory modes
+# ---------------------------------------------------------------------------
+# infra_mode_dir: Standard directory (traversable by all, writable by owner)
+# infra_mode_dir_restricted: Restricted directory (accessible by owner only)
+# infra_mode_dir_shared: Shared directory (accessible by group)
+# infra_mode_dir_public: Public directory (full access)
+infra_mode_dir: "0755"
+infra_mode_dir_restricted: "0700"
+infra_mode_dir_shared: "0750"
+infra_mode_dir_public: "0777"
+
+# ---------------------------------------------------------------------------
+# Secret/sensitive file modes
+# ---------------------------------------------------------------------------
+# infra_mode_secret: Secret file (readable/writable by owner only)
+# infra_mode_secret_dir: Secret directory (accessible by owner only)
+infra_mode_secret: "0600"
+infra_mode_secret_dir: "0700"
+
+# ---------------------------------------------------------------------------
+# Executable modes
+# ---------------------------------------------------------------------------
+# infra_mode_exec: Executable file (executable by all, writable by owner)
+# infra_mode_exec_restricted: Executable file (executable by owner only)
+infra_mode_exec: "0755"
+infra_mode_exec_restricted: "0700"
+
+# ---------------------------------------------------------------------------
+# Socket/lock modes
+# ---------------------------------------------------------------------------
+# infra_mode_socket: Socket file
+# infra_mode_lock: Lock file
+infra_mode_socket: "0660"
+infra_mode_lock: "0644"

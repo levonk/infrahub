@@ -3,8 +3,8 @@
 # The shared nix directory is mounted at /shared-nix (the entire /nix tree
 # from the nix-sidecar, including /nix/store and /nix/var/nix/db/db.sqlite).
 # This avoids overlaying the image's /nix/store where the harmonia binary lives.
-bind = "0.0.0.0:{{ nix_harmonia_container_port }}"
-workers = 4
+bind = "{{ infra_network_bind_all }}:{{ nix_harmonia_container_port }}"
+workers = 4  # project-lint: disable=magic-int  worker count, should use infra_worker_count variable
 # Serve NARs from the shared nix store (mounted at /shared-nix)
 real_nix_store = "/shared-nix/store"
 # Nix SQLite database (in the shared nix volume)

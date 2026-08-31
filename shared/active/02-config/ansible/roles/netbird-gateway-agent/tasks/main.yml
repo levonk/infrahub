@@ -51,19 +51,19 @@
   ansible.builtin.file:
     path: "{{ netbird_agent_install_dir }}"
     state: directory
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
 
 - name: Create NetBird configuration directory
   ansible.builtin.file:
     path: "{{ netbird_agent_config_dir }}"
     state: directory
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
 
 - name: Download NetBird agent
   ansible.builtin.get_url:
     url: "{{ netbird_download_url }}"
     dest: "{{ netbird_agent_install_dir }}/netbird"
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
     owner: root
     group: root
   vars:
@@ -75,7 +75,7 @@
   ansible.builtin.get_url:
     url: "{{ netbird_download_url }}"
     dest: /tmp/netbird.rpm
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   vars:
     netbird_download_url: >-
       {{ netbird_download_base_url }}/{{ netbird_agent_version }}/netbird_{{ netbird_agent_version }}_linux_{{ netbird_download_arch }}.rpm
@@ -104,7 +104,7 @@
       Setup Key: {{ netbird_setup_key }}
       Hostname: {{ netbird_agent_hostname }}
     dest: "{{ netbird_agent_config_dir }}/config.yml"
-    mode: "0600"
+    mode: "{{ infra_mode_file_restricted }}"
     owner: root
     group: root
   when: netbird_os_family == 'debian'
@@ -123,12 +123,12 @@
       Type=simple
       ExecStart={{ netbird_agent_install_dir }}/netbird service install --setup-key {{ netbird_setup_key }} --management-url {{ netbird_management_url }} --hostname {{ netbird_agent_hostname }}
       Restart=on-failure
-      RestartSec=5
+      RestartSec: "{{ infra_delay_default }}"
 
       [Install]
       WantedBy=multi-user.target
     dest: /etc/systemd/system/netbird.service
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   when: netbird_systemd
 
 - name: Reload systemd daemon

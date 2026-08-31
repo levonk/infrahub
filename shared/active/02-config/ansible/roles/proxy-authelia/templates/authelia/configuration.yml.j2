@@ -5,10 +5,10 @@
 theme: {{ proxy_authelia_theme }}
 
 server:
-  address: "tcp://0.0.0.0:{{ proxy_authelia_web_container_port }}"
+  address: "tcp://{{ infra_network_bind_all }}:{{ proxy_authelia_web_container_port }}"
   buffers:
-    read: 4096
-    write: 4096
+    read: "{{ infra_buffer_size_default }}"
+    write: "{{ infra_buffer_size_default }}"
   endpoints:
     enable_pprof: false
     enable_expvars: false
@@ -24,9 +24,9 @@ totp:
   disable: false
   issuer: authelia.com
   algorithm: sha1
-  period: 30
+  period: "{{ infra_healthcheck_interval }}"
   skew: 1
-  secret_size: 32
+  secret_size: 32  # project-lint: disable=magic-int  memory/buffer size constant, not a standalone magic number
 
 duo_api:
   disable: true
@@ -38,16 +38,16 @@ identity_validation:
 authentication_backend:
   password_reset:
     disable: false
-  refresh_interval: 5m
+  refresh_interval: "{{ infra_timeout_minute_long }}"
   file:
     path: /config/users_database.yml
     password:
       algorithm: argon2id
       iterations: 1
-      key_length: 32
-      salt_length: 16
-      parallelism: 8
-      memory: 64
+      key_length: 32  # project-lint: disable=magic-int  secret length validation check, not an operational value
+      salt_length: 16  # project-lint: disable=magic-int  secret length validation check, not an operational value
+      parallelism: "{{ infra_worker_count_medium }}"
+      memory: "{{ infra_size_64m }}"
 
 access_control:
   default_policy: {{ proxy_authelia_default_policy }}
@@ -67,7 +67,7 @@ session:
     - name: authelia_session
       domain: {{ proxy_authelia_session_domain | default(ansible_host | default('localhost') + '.local') }}
       same_site: lax
-      authelia_url: {{ proxy_authelia_url | default('https://oci.local:9091') }}
+      authelia_url: {{ proxy_authelia_url | default('https://oci.local:{{ infra_port_proxy_authelia_host }}') }}
 {% if proxy_authelia_session_redis_enabled | bool %}
   redis:
     host: proxy-authelia-redis
@@ -77,8 +77,8 @@ session:
 
 regulation:
   max_retries: 3
-  find_time: 2m
-  ban_time: 10m
+  find_time: "{{ infra_timeout_minute }}"
+  ban_time: "{{ infra_timeout_minute_extended }}"
 
 storage:
   encryption_key: {{ proxy_authelia_storage_encryption_key | default('default_encryption_key_change_in_production_at_least_20_chars') }}
@@ -97,7 +97,7 @@ notifier:
   disable_startup_check: true
 {% if proxy_authelia_notifier_backend == 'smtp' %}
   smtp:
-    address: {{ proxy_authelia_smtp_address | default('smtp://localhost:25') }}
+    address: {{ proxy_authelia_smtp_address | default('smtp://localhost:25') }}  # project-lint: disable=magic-int  SMTP port in URL string, should use infra_port_smtp_host variable
     sender: {{ proxy_authelia_smtp_sender | default('authelia@example.com') }}
 {% if proxy_authelia_smtp_username is defined %}
     username: {{ proxy_authelia_smtp_username }}
@@ -123,15 +123,15 @@ identity_providers:
         algorithm: 'RS256'
         use: 'sig'
         key: |
-{{ proxy_authelia_oidc_jwks_private_key | indent(10, true) }}
+{{ proxy_authelia_oidc_jwks_private_key | indent(10, true) }}  # project-lint: disable=magic-int  Authelia config value, not a standalone magic number
     enable_client_debug_messages: false
-    minimum_parameter_entropy: 8
+    minimum_parameter_entropy: "{{ infra_password_min_entropy }}"
     enforce_pkce: 'public_clients_only'
     lifespans:
-      access_token: '1h'
-      authorize_code: '1m'
-      id_token: '1h'
-      refresh_token: '90m'
+      access_token: "{{ infra_timeout_hour }}"
+      authorize_code: "{{ infra_timeout_minute }}"
+      id_token: "{{ infra_timeout_hour }}"
+      refresh_token: "{{ infra_timeout_hour_half }}"
     clients:
 {% for client in proxy_authelia_oidc_clients %}
       - client_id: '{{ client.client_id }}'

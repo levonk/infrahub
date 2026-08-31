@@ -7,8 +7,8 @@
     - name: Check if VM is accessible
       ansible.builtin.wait_for:
         host: "{{ inventory_hostname }}"
-        port: 22
-        timeout: 30
+        port: "{{ infra_port_ssh_host }}"
+        timeout: "{{ infra_timeout_default }}"
       delegate_to: localhost
       become: false
 
@@ -94,7 +94,7 @@
     - name: Test VPN credential files not accessible
       ansible.builtin.shell: |
         # Search for VPN credential files
-        docker exec {{ item }} find / -name "*vpn*" -o -name "*cred*" 2>/dev/null | head -5 || echo "No VPN/cred files found"
+        docker exec {{ item }} find / -name "*vpn*" -o -name "*cred*" 2>/dev/null | head -5 || echo "No VPN/cred files found"  # project-lint: disable=magic-int  shell head line count, not an operational value
       register: vpn_file_test
       failed_when: false
       loop:
@@ -116,7 +116,7 @@
     - name: Test VM network firewall from host
       ansible.builtin.shell: |
         # Scan VM network from host
-        nmap -sS --max-retries 1 --host-timeout 5s {{ isolation_vm_nat_bridge_subnet }} | grep -E "open|closed" || echo "No open ports found (expected)"
+        nmap -sS --max-retries 1 --host-timeout {{ infra_timeout_short }} {{ isolation_vm_nat_bridge_subnet }} | grep -E "open|closed" || echo "No open ports found (expected)"
       register: firewall_test
       failed_when: false
       become: true
@@ -195,7 +195,7 @@
     - name: Test inter-container network isolation
       ansible.builtin.shell: |
         # Test if one container can access another's ports
-        docker exec {{ isolation_vm_nix_sidecar_container_name }} sh -c "nc -z -w2 {{ isolation_vm_base_kalinix_container_name }} 22 || echo 'Port closed (expected)'"
+        docker exec {{ isolation_vm_nix_sidecar_container_name }} sh -c "nc -z -w2 {{ isolation_vm_base_kalinix_container_name }} 22 || echo 'Port closed (expected)'"  # project-lint: disable=magic-int  virtualization device type, not a standalone magic number
       register: inter_container_test
       failed_when: false
       become: true

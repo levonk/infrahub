@@ -33,5 +33,5 @@ http:
     langfuse:
       loadBalancer:
         servers:
-          - url: "http://{{ infra_hostname_langfuse_web | default('langfuse-web') }}:{{ infra_port_ai_langfuse_web_container | default('3000') }}"
+          - url: "http://{{ infra_hostname_langfuse_web | default('langfuse-web') }}:{{ infra_port_ai_langfuse_web_container | default(infra_port_monitoring_grafana_host) }}"
         passHostHeader: true

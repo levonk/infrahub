@@ -3,8 +3,8 @@
 # Scrapes n8n /metrics endpoint on the n8n container (same Docker network)
 
 global:
-  scrape_interval: 15s
-  evaluation_interval: 15s
+  scrape_interval: "{{ infra_timeout_healthcheck }}"
+  evaluation_interval: "{{ infra_timeout_healthcheck }}"
 
 scrape_configs:
   - job_name: "n8n"

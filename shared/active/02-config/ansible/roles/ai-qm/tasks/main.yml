@@ -127,10 +127,10 @@
     --log-opt max-size={{ qm_log_max_size }}
     --log-opt max-file={{ qm_log_max_file }}
     --health-cmd "pg_isready -U {{ qm_postgres_user }} -d {{ qm_postgres_db }}"
-    --health-interval 10s
-    --health-timeout 5s
-    --health-retries 10
-    --health-start-period 10s
+    --health-interval {{ infra_healthcheck_interval_short }}
+    --health-timeout {{ infra_timeout_healthcheck_short }}
+    --health-retries {{ infra_retry_long }}
+    --health-start-period {{ infra_timeout_short }}
     --security-opt no-new-privileges:true
     {{ qm_postgres_image }}
   environment:
@@ -147,8 +147,8 @@
   delegate_to: localhost
   register: qm_pg_health
   until: qm_pg_health.stdout == "healthy"
-  retries: 30
-  delay: 2
+  retries: "{{ infra_retry_extended }}"
+  delay: "{{ infra_delay_short }}"
   changed_when: false
   tags: ["deploy", "container"]
 
@@ -261,7 +261,7 @@
   delegate_to: localhost
   register: qm_core_health
   until: qm_core_health.stdout == "healthy"
-  retries: 30
+  retries: "{{ infra_retry_extended }}"
   delay: 3
   changed_when: false
   ignore_errors: true  # Core may not have a health endpoint; check logs if this fails
@@ -275,7 +275,7 @@
   delegate_to: localhost
   register: qm_web_health
   until: qm_web_health.stdout == "healthy"
-  retries: 30
+  retries: "{{ infra_retry_extended }}"
   delay: 3
   changed_when: false
   ignore_errors: true

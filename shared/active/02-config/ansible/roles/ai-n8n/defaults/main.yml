@@ -6,58 +6,58 @@
 
 # Service configuration
 n8n_enabled: true
-n8n_container_name: "{{ infra_hostname_n8n | default('localnet-n8n') }}"
+n8n_container_name: "{{ infra_hostname_n8n | default(infra_value_n8n_container_name) }}"
 n8n_image: "docker.n8n.io/n8nio/n8n"
 n8n_image_tag: "latest"
 
 # Postgres configuration
-n8n_postgres_container_name: "{{ infra_hostname_n8n_postgres | default('localnet-n8n-postgres') }}"
+n8n_postgres_container_name: "{{ infra_hostname_n8n_postgres | default(infra_value_n8n_postgres_container_name) }}"
 n8n_postgres_image: "postgres:16-alpine"
 n8n_postgres_db: "n8n"
 n8n_postgres_user: "n8n"
 
 # Prometheus configuration
-n8n_prometheus_container_name: "{{ infra_hostname_n8n_prometheus | default('localnet-n8n-prometheus') }}"
+n8n_prometheus_container_name: "{{ infra_hostname_n8n_prometheus | default(infra_value_n8n_prometheus_container_name) }}"
 n8n_prometheus_image: "prom/prometheus"
 n8n_prometheus_image_tag: "latest"
 
 # Grafana configuration
-n8n_grafana_container_name: "{{ infra_hostname_n8n_grafana | default('localnet-n8n-grafana') }}"
+n8n_grafana_container_name: "{{ infra_hostname_n8n_grafana | default(infra_value_n8n_grafana_container_name) }}"
 n8n_grafana_image: "grafana/grafana"
 n8n_grafana_image_tag: "latest"
 
 # Port configuration (reference infrastructure variables)
-n8n_host_port: "{{ infra_port_ai_n8n_host | default('3106') }}"
-n8n_container_port: "{{ infra_port_ai_n8n_container | default('5678') }}"
-n8n_postgres_host_port: "{{ infra_port_ai_n8n_postgres_host | default('5438') }}"
-n8n_postgres_container_port: "{{ infra_port_ai_n8n_postgres_container | default('5432') }}"
-n8n_prometheus_host_port: "{{ infra_port_ai_n8n_prometheus_host | default('3107') }}"
-n8n_prometheus_container_port: "{{ infra_port_ai_n8n_prometheus_container | default('9090') }}"
-n8n_grafana_host_port: "{{ infra_port_ai_n8n_grafana_host | default('3108') }}"
-n8n_grafana_container_port: "{{ infra_port_ai_n8n_grafana_container | default('3000') }}"
+n8n_host_port: "{{ infra_port_ai_n8n_host | default(infra_port_n8n_host) }}"
+n8n_container_port: "{{ infra_port_ai_n8n_container | default(infra_port_ai_n8n_host) }}"
+n8n_postgres_host_port: "{{ infra_port_ai_n8n_postgres_host | default(infra_port_proxy_mitm_alt4_host) }}"
+n8n_postgres_container_port: "{{ infra_port_ai_n8n_postgres_container | default(infra_port_db_postgres_host) }}"
+n8n_prometheus_host_port: "{{ infra_port_ai_n8n_prometheus_host | default(infra_port_n8n_prometheus_host) }}"
+n8n_prometheus_container_port: "{{ infra_port_ai_n8n_prometheus_container | default(infra_port_monitoring_prometheus_host) }}"
+n8n_grafana_host_port: "{{ infra_port_ai_n8n_grafana_host | default(infra_port_n8n_grafana_host) }}"
+n8n_grafana_container_port: "{{ infra_port_ai_n8n_grafana_container | default(infra_port_monitoring_grafana_host) }}"
 
 # Network configuration
-n8n_network_name: "{{ infra_network_ai_n8n_network_name | default('n8n-network') }}"
-n8n_network_subnet: "{{ infra_network_ai_n8n_subnet | default('172.44.0.0/16') }}"
-n8n_network_gateway: "{{ infra_network_ai_n8n_gateway | default('172.44.0.1') }}"
-n8n_network_ip: "{{ infra_network_ip_n8n | default('172.44.0.10') }}"
-n8n_postgres_network_ip: "{{ infra_network_ip_n8n_postgres | default('172.44.0.20') }}"
-n8n_prometheus_network_ip: "{{ infra_network_ip_n8n_prometheus | default('172.44.0.30') }}"
-n8n_grafana_network_ip: "{{ infra_network_ip_n8n_grafana | default('172.44.0.40') }}"
-n8n_traefik_network_name: "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"
-n8n_traefik_network_ip: "{{ infra_network_ip_n8n_traefik | default('172.31.0.20') }}"
-n8n_grafana_traefik_network_ip: "{{ infra_network_ip_n8n_grafana_traefik | default('172.31.0.21') }}"
+n8n_network_name: "{{ infra_network_ai_n8n_network_name | default(infra_network_n8n_network_name) }}"
+n8n_network_subnet: "{{ infra_network_ai_n8n_subnet | default(infra_network_n8n_network_subnet) }}"
+n8n_network_gateway: "{{ infra_network_ai_n8n_gateway | default(infra_network_n8n_network_gateway) }}"
+n8n_network_ip: "{{ infra_network_ip_n8n | default(infra_network_ip_n8n_network) }}"
+n8n_postgres_network_ip: "{{ infra_network_ip_n8n_postgres | default(infra_network_ip_n8n_postgres_network) }}"
+n8n_prometheus_network_ip: "{{ infra_network_ip_n8n_prometheus | default(infra_network_ip_n8n_prometheus_network) }}"
+n8n_grafana_network_ip: "{{ infra_network_ip_n8n_grafana | default(infra_network_ip_n8n_grafana_network) }}"
+n8n_traefik_network_name: "{{ infra_network_proxy_traefik_network_name | default(infra_network_n8n_traefik_network_name) }}"
+n8n_traefik_network_ip: "{{ infra_network_ip_n8n_traefik | default(infra_network_ip_n8n_traefik_network) }}"
+n8n_grafana_traefik_network_ip: "{{ infra_network_ip_n8n_grafana_traefik | default(infra_network_ip_n8n_grafana_traefik_network) }}"
 
 # Domain configuration
-n8n_domain: "{{ infra_domain_ai_n8n | default('n8n.' ~ (infra_domain_base | default('example.com'))) }}"
-n8n_grafana_domain: "{{ infra_domain_ai_n8n_grafana | default('n8n-grafana.' ~ (infra_domain_base | default('example.com'))) }}"
+n8n_domain: "{{ infra_domain_ai_n8n | default('n8n.' ~ (infra_domain_base | default(infra_value_n8n_domain))) }}"
+n8n_grafana_domain: "{{ infra_domain_ai_n8n_grafana | default('n8n-grafana.' ~ (infra_domain_base | default(infra_value_n8n_grafana_domain))) }}"
 
 # Volume configuration
-n8n_volume_name: "{{ infra_storage_n8n_data_volume | default('localnet-n8n-data-volume') }}"
-n8n_postgres_volume_name: "{{ infra_storage_n8n_postgres_volume | default('localnet-n8n-postgres-data-volume') }}"
-n8n_prometheus_volume_name: "{{ infra_storage_n8n_prometheus_volume | default('localnet-n8n-prometheus-data-volume') }}"
-n8n_grafana_volume_name: "{{ infra_storage_n8n_grafana_volume | default('localnet-n8n-grafana-data-volume') }}"
-n8n_config_dir: "{{ infra_storage_n8n_config_dir | default('/opt/services/n8n') }}"
+n8n_volume_name: "{{ infra_storage_n8n_data_volume | default(infra_value_n8n_volume_name) }}"
+n8n_postgres_volume_name: "{{ infra_storage_n8n_postgres_volume | default(infra_value_n8n_postgres_volume_name) }}"
+n8n_prometheus_volume_name: "{{ infra_storage_n8n_prometheus_volume | default(infra_value_n8n_prometheus_volume_name) }}"
+n8n_grafana_volume_name: "{{ infra_storage_n8n_grafana_volume | default(infra_value_n8n_grafana_volume_name) }}"
+n8n_config_dir: "{{ infra_storage_n8n_config_dir | default(infra_value_n8n_config_dir) }}"
 
 # Secrets (from vault)
 n8n_encryption_key: "{{ vault_n8n_encryption_key | default('') }}"
@@ -66,7 +66,7 @@ n8n_postgres_user_password: "{{ vault_n8n_postgres_user_password | default('') }
 n8n_grafana_admin_password: "{{ vault_n8n_grafana_admin_password | default('') }}"
 
 # User/Group IDs and timezone
-n8n_tz: "{{ localnet_tz | default(timezone | default('UTC')) }}"
+n8n_tz: "{{ localnet_tz | default(timezone | default(infra_value_n8n_tz)) }}"
 
 # Health check configuration
 n8n_healthcheck_interval: "30s"

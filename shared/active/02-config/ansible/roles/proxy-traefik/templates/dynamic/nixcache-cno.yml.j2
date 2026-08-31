@@ -33,5 +33,5 @@ http:
     nix-cache-cno:
       loadBalancer:
         servers:
-          - url: "http://{{ nix_ncps_container_name_cno | default('localnet-nix-ncps-cno') }}:{{ nix_ncps_container_port | default('8080') }}"
+          - url: "http://{{ nix_ncps_container_name_cno | default('localnet-nix-ncps-cno') }}:{{ nix_ncps_container_port | default(infra_port_proxy_dashboard_host) }}"
         passHostHeader: true

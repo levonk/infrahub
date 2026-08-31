@@ -6,7 +6,7 @@
 # DNS server configuration
 dns:
   enabled: {{ sandbox_cli_proxy_dns_enabled | ternary('true', 'false') }}
-  listen: ":{{ profile.dns_port | default('53') }}"
+  listen: ":{{ profile.dns_port | default(infra_port_dns_host) }}"
   proxy_ip: "{{ sandbox_cli_proxy_dns_proxy_ip }}"
   upstream_resolver: "{{ sandbox_cli_proxy_upstream_dns }}"
   passthrough:
@@ -16,18 +16,18 @@ dns:
 
 # Proxy listener configuration
 proxy:
-  http_listen: ":{{ sandbox_cli_proxy_http_container_port | default('80') }}"
-  https_listen: ":{{ sandbox_cli_proxy_https_container_port | default('443') }}"
+  http_listen: ":{{ sandbox_cli_proxy_http_container_port | default(infra_port_proxy_http_host) }}"
+  https_listen: ":{{ sandbox_cli_proxy_https_container_port | default(infra_port_proxy_https_host) }}"
   max_request_body_bytes: {{ sandbox_cli_proxy_max_request_body_bytes }}
   max_response_body_bytes: {{ sandbox_cli_proxy_max_response_body_bytes }}
   upstream_response_header_timeout: "{{ sandbox_cli_proxy_upstream_timeout }}"
 
   # CIDRs the proxy refuses to dial upstream (prevents DNS rebinding and IMDS access)
   upstream_deny_cidrs:
-    - "169.254.169.254/32"   # AWS / GCP / Azure IPv4 IMDS
-    - "fd00:ec2::254/128"    # AWS IPv6 IMDS
-    - "127.0.0.0/8"          # IPv4 loopback
-    - "::1/128"              # IPv6 loopback
+    - "{{ infra_network_metadata_endpoint }}"   # AWS / GCP / Azure IPv4 IMDS
+    - "fd00:ec2::254/128"    # AWS IPv6 IMDS  # project-lint: disable=magic-int  memory/buffer/IPv6 constant, not a standalone magic number
+    - "{{ infra_network_localhost_cidr }}"          # IPv4 loopback
+    - "::1/128"              # IPv6 loopback  # project-lint: disable=magic-int  memory/buffer/IPv6 constant, not a standalone magic number
 
 # TLS / MITM configuration
 tls:

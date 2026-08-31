@@ -86,7 +86,7 @@
         state: directory
         owner: "{{ cloud_server_admin_user }}"
         group: "{{ cloud_server_admin_user }}"
-        mode: '0755'
+        mode: '{{ infra_mode_dir }}'
       tags: ["always", "setup"]
 
   tasks:
@@ -99,7 +99,7 @@
         state: directory
         owner: "{{ cloud_server_admin_user }}"
         group: "{{ cloud_server_admin_user }}"
-        mode: '0755'
+        mode: '{{ infra_mode_dir }}'
       tags: ["config", "setup"]
 
     - name: "Copy Pi Dockerfile"
@@ -108,7 +108,7 @@
         dest: "{{ localnet_services_dir }}/omnigent/pi-build/Dockerfile"
         owner: "{{ cloud_server_admin_user }}"
         group: "{{ cloud_server_admin_user }}"
-        mode: '0644'
+        mode: '{{ infra_mode_file }}'
       tags: ["config", "dockerfile"]
 
     - name: "Copy Pi RPC bridge script"
@@ -117,7 +117,7 @@
         dest: "{{ localnet_services_dir }}/omnigent/pi-build/rpc-bridge.py"
         owner: "{{ cloud_server_admin_user }}"
         group: "{{ cloud_server_admin_user }}"
-        mode: '0755'
+        mode: '{{ infra_mode_dir }}'
       tags: ["config", "bridge"]
 
     - name: "Copy Pi models.json (custom pipeline provider config)"
@@ -126,7 +126,7 @@
         dest: "{{ localnet_services_dir }}/omnigent/pi-build/models.json"
         owner: "{{ cloud_server_admin_user }}"
         group: "{{ cloud_server_admin_user }}"
-        mode: '0644'
+        mode: '{{ infra_mode_file }}'
       tags: ["config", "models"]
 
     # ── Pi bind-mount source files ─────────────────────────
@@ -140,7 +140,7 @@
           if [ -d "$path" ]; then rmdir "$path" 2>/dev/null || true; fi
           if [ ! -e "$path" ]; then
             touch "$path"
-            chmod 600 "$path"
+            chmod {{ infra_mode_file_restricted }} "$path"
             chown {{ cloud_server_admin_user }}:{{ cloud_server_admin_user }} "$path"
           fi
         done
@@ -175,8 +175,8 @@
         state: present
         driver: bridge
         ipam_config:
-          - subnet: "172.36.0.0/16"
-            gateway: "172.36.0.1"
+          - subnet: "{{ infra_network_proxy_subnet }}"
+            gateway: "{{ infra_network_proxy_subnet_gateway }}"
       tags: ["network", "setup"]
 
     - name: "Ensure ai-dashboard-network exists (may be owned by another role)"
@@ -185,7 +185,7 @@
         state: present
         driver: bridge
         ipam_config:
-          - subnet: "172.35.0.0/16"
+          - subnet: "{{ infra_network_proxy_alt_subnet }}"
       ignore_errors: true
       tags: ["network", "setup"]
 
@@ -195,8 +195,8 @@
         state: present
         driver: bridge
         ipam_config:
-          - subnet: "172.29.0.0/16"
-            gateway: "172.29.0.1"
+          - subnet: "{{ infra_network_ai_subnet }}"
+            gateway: "{{ infra_network_ai_subnet_gateway }}"
       ignore_errors: true
       tags: ["network", "setup"]
 
@@ -206,7 +206,7 @@
         state: present
         driver: bridge
         ipam_config:
-          - subnet: "172.28.0.0/16"
+          - subnet: "{{ infra_network_monitoring_subnet }}"
       ignore_errors: true
       tags: ["network", "setup"]
 
@@ -246,7 +246,7 @@
         restart_policy: unless-stopped
         networks:
           - name: omnigent-network
-            ipv4_address: "{{ omnigent_db_container_ip | default('172.36.0.20') }}"
+            ipv4_address: "{{ omnigent_db_container_ip | default(infra_network_proxy_subnet_ip_20) }}"
         env:
           POSTGRES_DB: "{{ omnigent_db_name | default('omnigent') }}"
           POSTGRES_USER: "{{ omnigent_db_user | default('omnigent') }}"
@@ -255,14 +255,14 @@
           - "localnet-omnigent-postgres-data-volume:/var/lib/postgresql/data"
         log_driver: json-file
         log_options:
-          max-size: "10m"
-          max-file: "5"
+          max-size: "{{ infra_log_max_size }}"
+          max-file: "{{ infra_log_max_file }}"
         healthcheck:
           test: ["CMD-SHELL", "pg_isready -U {{ omnigent_db_user | default('omnigent') }} -d {{ omnigent_db_name | default('omnigent') }}"]
-          interval: "10s"
-          timeout: "5s"
-          retries: 5
-          start_period: "10s"
+          interval: "{{ infra_timeout_short }}"
+          timeout: "{{ infra_timeout_healthcheck_short }}"
+          retries: "{{ infra_retry_default }}"
+          start_period: "{{ infra_timeout_short }}"
       no_log: true
       tags: ["deploy", "database"]
 
@@ -275,15 +275,15 @@
         restart_policy: unless-stopped
         networks:
           - name: omnigent-network
-            ipv4_address: "{{ omnigent_container_ip | default('172.36.0.10') }}"
+            ipv4_address: "{{ omnigent_container_ip | default(infra_network_proxy_subnet_ip_10) }}"
           - name: traefik-network
-            ipv4_address: "{{ omnigent_traefik_ip | default('172.31.0.30') }}"
+            ipv4_address: "{{ omnigent_traefik_ip | default('{{ infra_network_ai_subnet_alt_ip_30 }}') }}"
         env:
           # ── Database ─────────────────────────────────────
-          DATABASE_URL: "postgresql+psycopg://{{ omnigent_db_user | default('omnigent') }}:{{ omnigent_db_password }}@{{ infra_hostname_omnigent_postgres | default('omnigent-postgres') }}:5432/{{ omnigent_db_name | default('omnigent') }}"
+          DATABASE_URL: "postgresql+psycopg://{{ omnigent_db_user | default('omnigent') }}:{{ omnigent_db_password }}@{{ infra_hostname_omnigent_postgres | default('omnigent-postgres') }}:{{ infra_port_db_postgres_host }}/{{ omnigent_db_name | default('omnigent') }}"
           ARTIFACT_DIR: "/data/artifacts"
-          HOST: "0.0.0.0"
-          PORT: "{{ omnigent_container_port | default('8000') }}"
+          HOST: "{{ infra_network_bind_all }}"
+          PORT: "{{ omnigent_container_port | default(infra_port_ai_dashboard_alt_host) }}"
           OMNIGENT_ADMIN_CREDENTIALS_PATH: "/data/admin-credentials"
           # ── Auth ─────────────────────────────────────────
           OMNIGENT_AUTH_ENABLED: "{{ omnigent_auth_enabled | default('1') }}"
@@ -294,7 +294,7 @@
           OMNIGENT_OIDC_CLIENT_SECRET: "{{ omnigent_oidc_client_secret | default('') }}"
           OMNIGENT_OIDC_COOKIE_SECRET: "{{ omnigent_oidc_cookie_secret | default('') }}"
           OMNIGENT_OIDC_SCOPES: "{{ omnigent_oidc_scopes | default('') }}"
-          OMNIGENT_OIDC_SESSION_TTL_HOURS: "{{ omnigent_oidc_session_ttl_hours | default('8') }}"
+          OMNIGENT_OIDC_SESSION_TTL_HOURS: "{{ omnigent_oidc_session_ttl_hours | default(infra_session_ttl_hours_default) }}"
           OMNIGENT_OIDC_ALLOWED_DOMAINS: "{{ omnigent_oidc_allowed_domains | default('') }}"
           OMNIGENT_OIDC_LOGOUT_REDIRECT_URI: "{{ omnigent_oidc_logout_redirect_uri | default('') }}"
           OMNIGENT_OIDC_ALLOW_INVITES: "{{ omnigent_oidc_allow_invites | default('') }}"
@@ -304,24 +304,24 @@
           OMNIGENT_ACCOUNTS_COOKIE_SECRET: "{{ omnigent_accounts_cookie_secret }}"
           OMNIGENT_ACCOUNTS_BASE_URL: "{{ omnigent_accounts_base_url | default('https://' + (infra_domain_ai_omnigent | default('aiif.' ~ (infra_domain_base | default('example.com'))))) }}"
           OMNIGENT_ACCOUNTS_INIT_ADMIN_PASSWORD: "{{ omnigent_accounts_init_admin_password }}"
-          OMNIGENT_ACCOUNTS_SESSION_TTL_HOURS: "{{ omnigent_accounts_session_ttl_hours | default('8') }}"
-          OMNIGENT_ACCOUNTS_INVITE_TTL_HOURS: "{{ omnigent_accounts_invite_ttl_hours | default('72') }}"
-          OMNIGENT_ACCOUNTS_MAGIC_TTL_MINUTES: "{{ omnigent_accounts_magic_ttl_minutes | default('10') }}"
+          OMNIGENT_ACCOUNTS_SESSION_TTL_HOURS: "{{ omnigent_accounts_session_ttl_hours | default(infra_session_ttl_hours_default) }}"
+          OMNIGENT_ACCOUNTS_INVITE_TTL_HOURS: "{{ omnigent_accounts_invite_ttl_hours | default(infra_cert_expiry_hours) }}"
+          OMNIGENT_ACCOUNTS_MAGIC_TTL_MINUTES: "{{ omnigent_accounts_magic_ttl_minutes | default(infra_retry_long) }}"
           OMNIGENT_ACCOUNTS_AUTO_OPEN: "{{ omnigent_accounts_auto_open | default('0') }}"
         ports:
-          - "{{ omnigent_host_port | default('8000') }}:{{ omnigent_container_port | default('8000') }}/tcp"
+          - "{{ omnigent_host_port | default(infra_port_ai_dashboard_alt_host) }}:{{ omnigent_container_port | default(infra_port_ai_dashboard_alt_host) }}/tcp"
         volumes:
           - "localnet-omnigent-artifact-data-volume:/data"
         log_driver: json-file
         log_options:
-          max-size: "10m"
-          max-file: "5"
+          max-size: "{{ infra_log_max_size }}"
+          max-file: "{{ infra_log_max_file }}"
         healthcheck:
-          test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:{{ omnigent_container_port | default('8000') }}/health')"]
-          interval: "30s"
-          timeout: "10s"
-          retries: 3
-          start_period: "40s"
+          test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:{{ omnigent_container_port | default(infra_port_ai_dashboard_alt_host) }}/health')"]
+          interval: "{{ infra_timeout_default }}"
+          timeout: "{{ infra_timeout_short }}"
+          retries: "{{ infra_retry_short }}"
+          start_period: "{{ infra_timeout_long }}"
       no_log: true
       tags: ["deploy", "omnigent"]
 
@@ -334,26 +334,26 @@
         restart_policy: unless-stopped
         networks:
           - name: omnigent-network
-            ipv4_address: "{{ pi_container_ip | default('172.36.0.30') }}"
+            ipv4_address: "{{ pi_container_ip | default(infra_network_proxy_subnet_ip_30) }}"
           - name: ai-dashboard-network
-            ipv4_address: "{{ pi_dashboard_ip | default('172.35.0.30') }}"
+            ipv4_address: "{{ pi_dashboard_ip | default('{{ infra_network_proxy_alt_subnet_ip_30 }}') }}"
           - name: proxy-chain-network
-            ipv4_address: "{{ pi_chain_ip | default('172.29.0.30') }}"
+            ipv4_address: "{{ pi_chain_ip | default('{{ infra_network_ai_subnet_ip_30 }}') }}"
           - name: vpn-network
-            ipv4_address: "{{ pi_vpn_ip | default('172.28.0.30') }}"
+            ipv4_address: "{{ pi_vpn_ip | default('{{ infra_network_monitoring_subnet_ip_30 }}') }}"
         env:
           # ── RPC Bridge ────────────────────────────────────
-          PI_RPC_PORT: "{{ infra_port_ai_pi_container | default('8090') }}"
-          PI_RPC_HOST: "0.0.0.0"
+          PI_RPC_PORT: "{{ infra_port_ai_pi_container | default(infra_port_ai_dashboard_host) }}"
+          PI_RPC_HOST: "{{ infra_network_bind_all }}"
           # ── Pi Agent Config ───────────────────────────────
           PI_PROVIDER: "{{ pi_provider | default('openai') }}"
-          PI_MODEL: "{{ pi_model | default('claude-sonnet-4-20250514') }}"
-          PI_API_BASE_URL: "{{ pi_api_base_url | default('http://ai-dashboard-proxy-1:8081/v1') }}"
+          PI_MODEL: "{{ pi_model | default('claude-sonnet-4-20250514') }}"  # project-lint: disable=magic-int  model identifier/version string, not an operational value
+          PI_API_BASE_URL: "{{ pi_api_base_url | default('http://ai-dashboard-proxy-1:{{ infra_port_nix_ncro_host }}/v1') }}"
           PI_API_KEY: "{{ pi_api_key }}"
           # ── Egress Proxy (iron-proxy → NordVPN) ──────────
-          HTTP_PROXY: "{{ pi_http_proxy | default('http://172.29.0.17:8080') }}"
-          HTTPS_PROXY: "{{ pi_https_proxy | default('http://172.29.0.17:8080') }}"
-          NO_PROXY: "{{ pi_no_proxy | default('localhost,127.0.0.1,172.16.0.0/12,172.28.0.0/16,172.29.0.0/16,172.35.0.0/16,172.36.0.0/16') }}"
+          HTTP_PROXY: "{{ pi_http_proxy | default('http://{{ infra_network_ai_subnet_ip_17 }}:{{ infra_port_proxy_dashboard_host }}') }}"
+          HTTPS_PROXY: "{{ pi_https_proxy | default('http://{{ infra_network_ai_subnet_ip_17 }}:{{ infra_port_proxy_dashboard_host }}') }}"
+          NO_PROXY: "{{ pi_no_proxy | default('localhost,{{ infra_network_bind_localhost }},{{ infra_network_private_class_b }},{{ infra_network_monitoring_subnet }},{{ infra_network_ai_subnet }},{{ infra_network_proxy_alt_subnet }},{{ infra_network_proxy_subnet }}') }}"
           NODE_OPTIONS: "--use-env-proxy"
           NODE_EXTRA_CA_CERTS: "/etc/ssl/certs/iron-proxy-ca.crt"
           # ── Session Storage ───────────────────────────────
@@ -362,11 +362,11 @@
           # ── Workspace ─────────────────────────────────────
           PI_WORKSPACE_DIR: "/workspace"
           # ── User/Group ────────────────────────────────────
-          PUID: "{{ pi_puid | default('1001') }}"
-          PGID: "{{ pi_pgid | default('1001') }}"
+          PUID: "{{ pi_puid | default('1001') }}"  # project-lint: disable=magic-int  Jinja default port value, should use infra_port variable
+          PGID: "{{ pi_pgid | default('1001') }}"  # project-lint: disable=magic-int  Jinja default port value, should use infra_port variable
           TZ: "{{ pi_tz | default('UTC') }}"
         ports:
-          - "{{ infra_port_ai_pi_host | default('8090') }}:{{ infra_port_ai_pi_container | default('8090') }}/tcp"
+          - "{{ infra_port_ai_pi_host | default(infra_port_ai_dashboard_host) }}:{{ infra_port_ai_pi_container | default(infra_port_ai_dashboard_host) }}/tcp"
         volumes:
           - "localnet-pi-data-volume:/data"
           - "localnet-pi-sessions-volume:/data/sessions"
@@ -374,14 +374,14 @@
           - "{{ localnet_services_dir }}/omnigent/iron-proxy-ca.crt:/etc/ssl/certs/iron-proxy-ca.crt:ro"
         log_driver: json-file
         log_options:
-          max-size: "10m"
-          max-file: "5"
+          max-size: "{{ infra_log_max_size }}"
+          max-file: "{{ infra_log_max_file }}"
         healthcheck:
-          test: ["CMD", "curl", "-sf", "http://localhost:{{ infra_port_ai_pi_container | default('8090') }}/health"]
-          interval: "30s"
-          timeout: "10s"
-          retries: 3
-          start_period: "30s"
+          test: ["CMD", "curl", "-sf", "http://localhost:{{ infra_port_ai_pi_container | default(infra_port_ai_dashboard_host) }}/health"]
+          interval: "{{ infra_timeout_default }}"
+          timeout: "{{ infra_timeout_short }}"
+          retries: "{{ infra_retry_short }}"
+          start_period: "{{ infra_timeout_default }}"
       no_log: true
       tags: ["deploy", "pi"]
 
@@ -394,8 +394,8 @@
         omnigent_pg_info.exists and
         omnigent_pg_info.container.State.Health.Status is defined and
         omnigent_pg_info.container.State.Health.Status == "healthy"
-      retries: 15
-      delay: 5
+      retries: "{{ infra_retry_long }}"
+      delay: "{{ infra_delay_default }}"
       tags: ["verify", "database"]
 
     - name: "Wait for Omnigent server to be running"
@@ -405,8 +405,8 @@
       until: >-
         omnigent_info.exists and
         omnigent_info.container.State.Running
-      retries: 15
-      delay: 5
+      retries: "{{ infra_retry_long }}"
+      delay: "{{ infra_delay_default }}"
       tags: ["verify", "health"]
 
     - name: "Wait for Pi to be running"
@@ -416,8 +416,8 @@
       until: >-
         pi_info.exists and
         pi_info.container.State.Running
-      retries: 15
-      delay: 5
+      retries: "{{ infra_retry_long }}"
+      delay: "{{ infra_delay_default }}"
       tags: ["verify", "health"]
 
     - name: "Display container status"
@@ -430,7 +430,7 @@
 
     - name: "Check Omnigent server logs for errors"
       ansible.builtin.shell:
-        cmd: "set -o pipefail; docker logs {{ infra_hostname_omnigent | default('omnigent') }} --tail=50 2>&1 | grep -i error || echo 'No errors found'"
+        cmd: "set -o pipefail; docker logs {{ infra_hostname_omnigent | default('omnigent') }} --tail=50 2>&1 | grep -i error || echo 'No errors found'"  # project-lint: disable=magic-int  docker logs tail count, not an operational value
       register: omnigent_logs
       changed_when: false
       failed_when: "'error' in omnigent_logs.stdout.lower() and 'No errors found' not in omnigent_logs.stdout"
@@ -438,7 +438,7 @@
 
     - name: "Check Pi logs for errors"
       ansible.builtin.shell:
-        cmd: "set -o pipefail; docker logs {{ infra_hostname_pi | default('pi') }} --tail=50 2>&1 | grep -i error || echo 'No errors found'"
+        cmd: "set -o pipefail; docker logs {{ infra_hostname_pi | default('pi') }} --tail=50 2>&1 | grep -i error || echo 'No errors found'"  # project-lint: disable=magic-int  docker logs tail count, not an operational value
       register: pi_logs
       changed_when: false
       failed_when: "'error' in pi_logs.stdout.lower() and 'No errors found' not in pi_logs.stdout"
@@ -455,9 +455,9 @@
           Timestamp: {{ ansible_date_time.iso8601 }}
           ----------------------------------------
           Deployed Services:
-          - Omnigent Server: http://{{ omnigent_container_ip | default('172.36.0.10') }}:{{ omnigent_container_port | default('8000') }} (API + web UI)
-          - Omnigent Postgres: postgresql://{{ omnigent_db_user | default('omnigent') }}@{{ omnigent_db_container_ip | default('172.36.0.20') }}:5432/{{ omnigent_db_name | default('omnigent') }}
-          - Pi (RPC bridge): http://{{ pi_container_ip | default('172.36.0.30') }}:{{ infra_port_ai_pi_container | default('8090') }} (coding agent harness)
+          - Omnigent Server: http://{{ omnigent_container_ip | default(infra_network_proxy_subnet_ip_10) }}:{{ omnigent_container_port | default(infra_port_ai_dashboard_alt_host) }} (API + web UI)
+          - Omnigent Postgres: postgresql://{{ omnigent_db_user | default('omnigent') }}@{{ omnigent_db_container_ip | default(infra_network_proxy_subnet_ip_20) }}:{{ infra_port_db_postgres_host }}/{{ omnigent_db_name | default('omnigent') }}
+          - Pi (RPC bridge): http://{{ pi_container_ip | default(infra_network_proxy_subnet_ip_30) }}:{{ infra_port_ai_pi_container | default(infra_port_ai_dashboard_host) }} (coding agent harness)
           ----------------------------------------
           Pipeline Flow:
           Omnigent → Pi → AI Dashboard Proxy 1 → Privacy Orchestrator → Headroom → OmniRoute → Forge → AI Dashboard Proxy 2 → Iron-Proxy → NordVPN → Internet
@@ -469,7 +469,7 @@
           1. Verify containers: docker ps | grep -E "omnigent|pi"
           2. Create admin account: open web UI or check docker logs omnigent for auto-generated password
           3. Register a runner: omni login https://{{ infra_domain_ai_omnigent | default('aiif.' ~ (infra_domain_base | default('example.com'))) }} && omni host https://{{ infra_domain_ai_omnigent | default('aiif.' ~ (infra_domain_base | default('example.com'))) }}
-          4. Verify Pi RPC bridge: curl http://localhost:{{ infra_port_ai_pi_host | default('8090') }}/health
+          4. Verify Pi RPC bridge: curl http://localhost:{{ infra_port_ai_pi_host | default(infra_port_ai_dashboard_host) }}/health
           ========================================
       tags: ["always", "summary"]
 

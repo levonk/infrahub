@@ -34,5 +34,5 @@ http:
     qm:
       loadBalancer:
         servers:
-          - url: "{{ qm_traefik_backend_url | default('http://' ~ infra_tailscale_fqdn_windows_docker | default('dtop202311.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) ~ ':' ~ infra_port_ai_qm_web_host | default('3105')) }}"
+          - url: "{{ qm_traefik_backend_url | default('http://' ~ infra_tailscale_fqdn_windows_docker | default('dtop202311.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) ~ ':' ~ infra_port_ai_qm_web_host | default('3105')) }}"  # project-lint: disable=magic-int  Jinja default port value, should use infra_port variable
         passHostHeader: true

@@ -4,7 +4,7 @@
 - name: Update apt cache (Debian/Ubuntu)
   ansible.builtin.apt:
     update_cache: true
-    cache_valid_time: 3600
+    cache_valid_time: "{{ infra_cache_valid_time }}"
   when: ansible_facts['os_family'] == "Debian"
 
 - name: Ensure required packages are installed
@@ -69,7 +69,7 @@
           allow = never
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   when: ansible_facts['os_family'] != "Windows"
 
 - name: Ensure Docker service is installed and running
@@ -90,7 +90,7 @@
   ansible.builtin.get_url:
     url: "https://github.com/docker/compose/releases/download/v{{ docker_compose_version }}/docker-compose-linux-{{ ansible_facts['architecture'] }}"
     dest: /usr/local/lib/docker/cli-plugins/docker-compose
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   when: docker_compose_check.rc != 0
 
 - name: Ensure Docker networks exist

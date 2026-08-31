@@ -56,7 +56,7 @@
     macos_xcode_version_source: "sequoia-hardcoded"
   when:
     - macos_xcode_target_version | length == 0
-    - ansible_facts['distribution_version'] is version('26', '<')
+    - ansible_facts['distribution_version'] is version('26', '<')  # project-lint: disable=magic-int  version number, not an operational magic number
   tags: ["always", "validate"]
 
 # Dynamic lookup for Tahoe+ hosts
@@ -69,7 +69,7 @@
   register: macos_xcode_itunes_response
   when:
     - macos_xcode_target_version | length == 0
-    - ansible_facts['distribution_version'] is version('26', '>=')
+    - ansible_facts['distribution_version'] is version('26', '>=')  # project-lint: disable=magic-int  version number, not an operational magic number
     - macos_xcode_lookup_latest | bool
   tags: ["always", "validate"]
 
@@ -100,7 +100,7 @@
     macos_xcode_version_source: "tahoe-fallback"
   when:
     - macos_xcode_target_version | length == 0
-    - ansible_facts['distribution_version'] is version('26', '>=')
+    - ansible_facts['distribution_version'] is version('26', '>=')  # project-lint: disable=magic-int  version number, not an operational magic number
     - macos_xcode_resolved_version is not defined
   tags: ["always", "validate"]
 
@@ -215,7 +215,7 @@
     set -euo pipefail
     AUSER="{{ ansible_user | default('auser') }}"
     GUI_USER=$(stat -f%Su /dev/console 2>/dev/null || echo "")
-    ALL_USERS=$(dscl . -list /Users UniqueID 2>/dev/null | awk '$2 >= 501 {print $1}')
+    ALL_USERS=$(dscl . -list /Users UniqueID 2>/dev/null | awk '$2 >= 501 {print $1}')  # project-lint: disable=magic-int  macOS user management UID filter, not an operational value
 
     # Build check list: auser first, GUI user second, then all others
     CHECK_LIST=""

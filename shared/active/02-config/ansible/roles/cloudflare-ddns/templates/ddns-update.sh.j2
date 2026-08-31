@@ -9,9 +9,9 @@ set -eu
 API_TOKEN="{{ cloudflare_ddns_api_token }}"
 ZONE_ID="{{ cloudflare_ddns_zone_id }}"
 RECORD_NAME="{{ cloudflare_ddns_record_name }}"
-RECORD_TTL="{{ cloudflare_ddns_record_ttl | default(300) }}"
+RECORD_TTL="{{ cloudflare_ddns_record_ttl | default(infra_dns_ttl) }}"
 PROXIED="{{ cloudflare_ddns_record_proxied | default(false) | string | lower }}"
-INTERVAL="{{ cloudflare_ddns_update_interval | default(300) }}"
+INTERVAL="{{ cloudflare_ddns_update_interval | default(infra_dns_ttl) }}"
 
 # Detect public IP via external services (tried in order, first success wins)
 detect_ip() {
@@ -20,7 +20,7 @@ detect_ip() {
         "https://ifconfig.me" \
         "https://icanhazip.com"
     do
-        ip=$(curl -s --max-time 5 "$url" | tr -d '[:space:]')
+        ip=$(curl -s --max-time {{ infra_timeout_short }} "$url" | tr -d '[:space:]')
         if [ -n "$ip" ]; then
             echo "$ip"
             return 0
@@ -40,7 +40,7 @@ update_record() {
 
     success=$(echo "$response" | grep -o '"success": *true')
     if [ -z "$success" ]; then
-        echo "$(date -Iseconds) ERROR: Cloudflare API lookup failed for ${RECORD_NAME}: $(echo "$response" | head -c 200)"
+        echo "$(date -Iseconds) ERROR: Cloudflare API lookup failed for ${RECORD_NAME}: $(echo "$response" | head -c {{ infra_log_truncate_default }})"
         return 1
     fi
 

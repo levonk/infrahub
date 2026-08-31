@@ -11,7 +11,7 @@ ExecStart={{ restoredrill_config_dir }}/restoredrill-drill-{{ db_item.name }}.sh
 User=root
 Group=root
 # Timeout: allow up to 30 minutes for large databases
-TimeoutStartSec=1800
+TimeoutStartSec={{ infra_timeout_half_hour }}
 # Standard output/error go to journald
 StandardOutput=journal
 StandardError=journal

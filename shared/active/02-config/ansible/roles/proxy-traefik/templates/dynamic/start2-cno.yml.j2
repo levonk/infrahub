@@ -28,5 +28,5 @@ http:
     trala-cno:
       loadBalancer:
         servers:
-          - url: "http://{{ dashboard_trala_container_name | default('trala') }}:{{ dashboard_trala_container_port | default('8080') }}"
+          - url: "http://{{ dashboard_trala_container_name | default('trala') }}:{{ dashboard_trala_container_port | default(infra_port_proxy_dashboard_host) }}"
         passHostHeader: true

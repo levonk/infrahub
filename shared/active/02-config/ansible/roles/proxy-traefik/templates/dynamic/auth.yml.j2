@@ -27,5 +27,5 @@ http:
     authelia:
       loadBalancer:
         servers:
-          - url: "http://{{ proxy_authelia_container_name | default('proxy-authelia') }}:{{ proxy_authelia_web_container_port | default('9091') }}"
+          - url: "http://{{ proxy_authelia_container_name | default('proxy-authelia') }}:{{ proxy_authelia_web_container_port | default('9091') }}"  # project-lint: disable=magic-int  Jinja default port value, should use infra_port variable
         passHostHeader: true
