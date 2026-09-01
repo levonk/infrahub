@@ -8,9 +8,14 @@
   e2dsa  # enable file indexing
   e2ts  # enable media tag indexing
   hist: /cfg/hists  # keep sqlite index/thumbnails out of shared volumes
-  xff-hdr: X-Forwarded-For  # read real client IP from reverse proxy
+  xff-hdr: cf-connecting-ip  # Cloudflare Tunnel sends real client IP in this header
+  xff-src: lan  # trust proxy headers from the docker network (cloudflared container)
   rproxy: 1  # project-lint: disable=magic-int  copyparty config: one reverse proxy in front
+  acao: *  # allow all origins — copyparty handles auth internally; CORS check otherwise rejects HTTPS origin when behind Cloudflare Tunnel (HTTP to origin)
   i: 0.0.0.0  # project-lint: disable  copyparty config: bind all interfaces inside container
+  css-browser: /public/.res/catppuccin-mocha.css  # custom theme served from /w/public/.res/
+  themes: 11  # project-lint: disable=magic-int  copyparty config: add theme slot 10 for catppuccin
+  theme: 10  # project-lint: disable=magic-int  copyparty config: default to catppuccin theme
 
 [accounts]
   admin: {{ copyparty_admin_password }}

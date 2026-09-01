@@ -59,6 +59,22 @@
   notify: restart copyparty
 
 # ---------------------------------------------------------------------------
+# Deploy Catppuccin Theme
+# The CSS file is served from /.res/ inside the public volume so copyparty
+# can serve it to browsers. We download it to the config dir and copy it
+# into the container's data volume after the container is running.
+# ---------------------------------------------------------------------------
+- name: Download catppuccin theme CSS
+  ansible.builtin.get_url:
+    url: "https://raw.githubusercontent.com/elouangrimm/copyparty-catppuccin/main/catppuccin-mocha.css"
+    dest: "{{ copyparty_config_dir }}/catppuccin-mocha.css"
+    owner: "{{ infra_storage_userns_remap_uid | default(infra_storage_userns_remap_uid) }}"
+    group: "{{ infra_storage_userns_remap_gid | default(infra_storage_userns_remap_uid) }}"
+    mode: "{{ infra_mode_file }}"
+  become: true
+  become_user: root
+
+# ---------------------------------------------------------------------------
 # copyparty Container
 # ---------------------------------------------------------------------------
 - name: Deploy copyparty container
@@ -90,6 +106,25 @@
       retries: "{{ copyparty_healthcheck_retries }}"
       start_period: "{{ copyparty_healthcheck_start_period }}"
   become: true
+  when: copyparty_enabled | bool
+
+# ---------------------------------------------------------------------------
+# Copy catppuccin theme into the container's public volume
+# The CSS is downloaded to the config dir, then docker cp'd into the
+# container at /w/public/.res/ so copyparty can serve it at /.res/
+# ---------------------------------------------------------------------------
+- name: Create .res directory in copyparty public volume
+  ansible.builtin.command:
+    cmd: "docker exec {{ copyparty_container_name }} mkdir -p /w/public/.res"
+  become: true
+  changed_when: false
+  when: copyparty_enabled | bool
+
+- name: Copy catppuccin theme into container
+  ansible.builtin.command:
+    cmd: "docker cp {{ copyparty_config_dir }}/catppuccin-mocha.css {{ copyparty_container_name }}:/w/public/.res/catppuccin-mocha.css"
+  become: true
+  changed_when: false
   when: copyparty_enabled | bool
 
 # ---------------------------------------------------------------------------
