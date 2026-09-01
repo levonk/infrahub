@@ -100,7 +100,7 @@
     url: "http://{{ infra_network_bind_localhost }}:{{ copyparty_host_port }}/"
     status_code: "{{ infra_http_status_ok }}"
   register: copyparty_health
-  until: copyparty_health.status == {{ infra_http_status_ok }}
+  until: copyparty_health.status == (infra_http_status_ok | int)
   retries: "{{ infra_retry_long }}"
   delay: "{{ infra_delay_default }}"
   when:
