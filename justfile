@@ -34,6 +34,8 @@ PB_NESTED_VIRT := ANSIBLE_ROOT + "/playbooks/test-nested-virtualization.yml"
 PB_ENABLE_WSL2_KVM := ANSIBLE_ROOT + "/playbooks/enable-wsl2-kvm.yml"
 PB_NIX_CACHE_GARNIX := ANSIBLE_ROOT + "/playbooks/deploy-nix-cache-and-garnix.yml"
 PB_DIRECTORY_EMPIRE := ANSIBLE_ROOT + "/playbooks/deploy-directory-empire.yml"
+PB_CONTROL_CENTER := ANSIBLE_ROOT + "/playbooks/deploy-control-center.yml"
+PB_VAL_CONTROL_CENTER := ANSIBLE_ROOT + "/playbooks/validate-control-center.yml"
 PB_STIRLING_PDF := ANSIBLE_ROOT + "/playbooks/deploy-stirling-pdf.yml"
 PB_PROXY_WEB := ANSIBLE_ROOT + "/playbooks/deploy-proxy-web-stack.yml"
 PB_VAL_PROXY_WEB := ANSIBLE_ROOT + "/playbooks/validate-proxy-web.yml"
@@ -245,6 +247,19 @@ build_directory_empire_image_impl:
     {{_log}}
     log_start "Building and pushing directory-empire image to local registry"
     {{INFRAHUB_ROOT}}/scripts/build-directory-empire-image.sh
+
+# Build and push the Control Center dashboard image (external repo build)
+# Clones lrepo52/control-center, builds multi-stage Dockerfile, pushes to registry.
+build-control-center-image:
+    @just _devbox build_control_center_image_impl
+
+[private]
+build_control_center_image_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Building and pushing control-center image to local registry"
+    {{INFRAHUB_ROOT}}/scripts/build-control-center-image.sh
 
 test:
     @just _devbox test_impl
@@ -609,6 +624,31 @@ ansible_deploy_directory_empire_impl:
     {{_log}}
     log_start "Deploying Directory Empire dashboard on Windows Docker host"
     ansible-playbook -i {{WINDOWS_INVENTORY}} {{PB_DIRECTORY_EMPIRE}} --vault-password-file ~/.ansible/vault_password
+
+# Deploy Control Center dashboard on Windows Docker host
+# Prerequisites: Traefik Windows deployed, DNS CNAME configured, image built+pushed.
+ansible-deploy-control-center:
+    @just _devbox ansible_deploy_control_center_impl
+
+[private]
+ansible_deploy_control_center_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Deploying Control Center dashboard on Windows Docker host"
+    ansible-playbook -i {{WINDOWS_INVENTORY}} {{PB_CONTROL_CENTER}} --vault-password-file ~/.ansible/vault_password
+
+# Validate Control Center dashboard deployment on Windows Docker host
+ansible-validate-control-center:
+    @just _devbox ansible_validate_control_center_impl
+
+[private]
+ansible_validate_control_center_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Validating Control Center dashboard deployment"
+    ansible-playbook -i {{WINDOWS_INVENTORY}} {{PB_VAL_CONTROL_CENTER}} --vault-password-file ~/.ansible/vault_password
 
 # Deploy Stirling-PDF on Windows Docker host (nl region)
 # Prerequisites: Traefik Windows deployed, DNS CNAME configured.

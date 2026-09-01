@@ -44,6 +44,52 @@ proxy_traefik_windows_acme_staging: false
 # Cloudflare DNS challenge env vars (passed to Traefik container)
 # CF_DNS_API_TOKEN is the Cloudflare API token for DNS-01 challenge
 proxy_traefik_windows_cf_dns_api_token: "{{ vault_cloudflare_api_token | default('') }}"
+# Cloudflare zone ID (for ACME TXT record cleanup)
+proxy_traefik_windows_cf_zone_id: "{{ vault_cloudflare_zone_id | default('') }}"
+
+# ---------------------------------------------------------------------------
+# ACME TXT Record Cleanup
+# ---------------------------------------------------------------------------
+# Before Traefik starts, stale _acme-challenge.* TXT records are deleted
+# via the Cloudflare API. This prevents the "An identical record already
+# exists (81058)" error that blocks ACME DNS-01 challenges.
+# Set to false to skip cleanup (e.g., for testing or offline runs).
+proxy_traefik_windows_acme_txt_cleanup: true
+
+# ---------------------------------------------------------------------------
+# Certificate Validation
+# ---------------------------------------------------------------------------
+# After Traefik is healthy, poll each domain's TLS cert via openssl s_client
+# to verify it's not the "TRAEFIK DEFAULT CERT" (self-signed fallback).
+# Set to false to skip validation.
+proxy_traefik_windows_cert_validation: true
+# How long to wait for certs to be issued (seconds)
+proxy_traefik_windows_cert_validation_timeout: 180
+# Polling interval (seconds)
+proxy_traefik_windows_cert_validation_interval: 10
+
+# ---------------------------------------------------------------------------
+# Managed domains — auto-populated from enabled services
+# This list drives ACME TXT cleanup and cert validation.
+# Add new services here when adding Traefik dynamic config templates.
+# ---------------------------------------------------------------------------
+proxy_traefik_windows_cert_domains: >-
+  {{
+    ([] | default([])) +
+    ((proxy_traefik_windows_verdaccio_enabled | bool) | ternary([proxy_traefik_windows_verdaccio_domain], [])) +
+    ((proxy_traefik_windows_homepage_enabled | bool) | ternary([proxy_traefik_windows_homepage_domain], [])) +
+    ((proxy_traefik_windows_trala_enabled | bool) | ternary([proxy_traefik_windows_trala_domain], [])) +
+    ((proxy_traefik_windows_nix_ncps_enabled | bool) | ternary([proxy_traefik_windows_nix_ncps_domain], [])) +
+    ((proxy_traefik_windows_garnix_ci_enabled | bool) | ternary([proxy_traefik_windows_garnix_ci_domain], [])) +
+    ((proxy_traefik_windows_directory_empire_enabled | bool) | ternary([proxy_traefik_windows_directory_empire_domain], [])) +
+    ((proxy_traefik_windows_control_center_enabled | bool) | ternary([proxy_traefik_windows_control_center_domain_nl, proxy_traefik_windows_control_center_domain_default], [])) +
+    ((dns_dnsdist_enabled | default(false) | bool) | ternary([infra_domain_dns_dnsdist | default('')], [])) +
+    ((proxy_traefik_windows_hister_enabled | bool) | ternary([proxy_traefik_windows_hister_domain], [])) +
+    ((proxy_traefik_windows_stirling_pdf_enabled | bool) | ternary([proxy_traefik_windows_stirling_pdf_domain], [])) +
+    ((proxy_traefik_windows_stirling_pdf_enabled | bool and tools_stirling_pdf_domain_alias is defined and tools_stirling_pdf_domain_alias | length > 0) | ternary([tools_stirling_pdf_domain_alias], [])) +
+    ((proxy_traefik_windows_stirling_pdf_enabled | bool and proxy_traefik_windows_stirling_pdf_api_domain is defined and proxy_traefik_windows_stirling_pdf_api_domain | length > 0) | ternary([proxy_traefik_windows_stirling_pdf_api_domain], []))
+    | select('ne', '') | list
+  }}
 
 # ---------------------------------------------------------------------------
 # Authelia Integration (optional — Authelia runs on OCI, reachable via Tailscale)
@@ -103,6 +149,15 @@ proxy_traefik_windows_directory_empire_enabled: true
 proxy_traefik_windows_directory_empire_domain: "{{ infra_domain_dashboard_directory_empire_nl  }}"
 proxy_traefik_windows_directory_empire_container_name: "{{ infra_hostname_dashboard_directory_empire | default(infra_value_proxy_traefik_windows_directory_empire_container_name) }}"
 proxy_traefik_windows_directory_empire_container_port: "{{ infra_port_dashboard_directory_empire_container | default(infra_port_monitoring_grafana_host) }}"
+
+# ---------------------------------------------------------------------------
+# Control Center Dashboard Integration (nl + default — dashboard)
+# ---------------------------------------------------------------------------
+proxy_traefik_windows_control_center_enabled: true
+proxy_traefik_windows_control_center_domain_nl: "{{ infra_domain_dashboard_control_center_nl | default('dashboard.nl.' ~ (infra_domain_base | default(infra_value_control_center_domain_nl))) }}"
+proxy_traefik_windows_control_center_domain_default: "{{ infra_domain_dashboard_control_center | default('dashboard.' ~ (infra_domain_base | default(infra_value_control_center_domain_default))) }}"
+proxy_traefik_windows_control_center_container_name: "{{ infra_hostname_dashboard_control_center | default(infra_value_control_center_container_name) }}"
+proxy_traefik_windows_control_center_container_port: "{{ infra_port_dashboard_control_center_container | default(infra_value_control_center_container_port) }}"
 
 # ---------------------------------------------------------------------------
 # Hister Search Engine Integration (nl — self-hosted search engine)

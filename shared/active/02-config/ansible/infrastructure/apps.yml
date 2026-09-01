@@ -64,4 +64,5 @@ infra_app_container_runtime: "auto"  # "auto" | "orbstack" | "apple-container"
 # ---------------------------------------------------------------------------
 infra_app_xcode_mas_app_id: "497799835"  # Mac App Store app ID for Xcode (constant)
 infra_app_xcode_version_sequoia: "26.3"  # Latest Xcode for macOS Sequoia 15.6+ (terminal for Intel)
+infra_app_xcode_version_tahoe: "26.3"  # Latest Xcode for macOS Tahoe 26
 infra_app_xcode_version_tahoe_fallback: "26.3"  # Fallback for Tahoe if API lookup fails

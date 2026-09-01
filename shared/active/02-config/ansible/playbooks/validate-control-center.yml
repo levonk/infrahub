@@ -1,0 +1,152 @@
+---
+# Validate Control Center Dashboard deployment
+# Location: shared/active/02-config/ansible/playbooks/validate-control-center.yml
+#
+# Read-only post-deployment checks:
+#   1. Container is running (docker inspect via DOCKER_HOST ssh:// on Windows)
+#   2. Container is healthy (.State.Health.Status)
+#   3. /api/health endpoint responds on localhost
+#   4. Both public domains respond (dashboard.levonk.com, dashboard.nl.levonk.com)
+#
+# Usage:
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/windows-docker.yml \
+#     shared/active/02-config/ansible/playbooks/validate-control-center.yml \
+#     --vault-password-file ~/.ansible/vault_password
+
+- name: "Validate Control Center Dashboard"
+  hosts: windows_docker_hosts
+  gather_facts: false
+  become: false
+  vars:
+    validation_results: {}
+
+  pre_tasks:
+    - name: "Load shared infrastructure port defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/ports.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure storage defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/storage.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure domain defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/domains.yml"
+      tags: ["always"]
+
+    - name: "Load client infrastructure domain overrides"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/domains.yml"
+      tags: ["always"]
+
+    - name: "Load dashboard-control-center role defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../roles/dashboard-control-center/defaults/main.yml"
+      tags: ["always"]
+
+    - name: "Initialize validation results"
+      ansible.builtin.set_fact:
+        validation_results:
+          container_running: false
+          container_healthy: false
+          health_endpoint: false
+          domain_default: false
+          domain_nl: false
+      tags: ["always"]
+
+  tasks:
+    - name: "Check if container is running"
+      ansible.builtin.shell: "docker inspect -f '{% raw %}{{.State.Running}}{% endraw %}' {{ control_center_container_name }} 2>/dev/null || echo false"
+      environment:
+        DOCKER_HOST: "{{ control_center_docker_host_windows }}"
+      delegate_to: localhost
+      register: container_running_check
+      changed_when: false
+      tags: ["validate", "control-center"]
+
+    - name: "Record container running status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'container_running': (container_running_check.stdout | trim) == 'true'}) }}"
+      tags: ["validate", "control-center"]
+
+    - name: "Check container health status"
+      ansible.builtin.shell: "docker inspect -f '{% raw %}{{.State.Health.Status}}{% endraw %}' {{ control_center_container_name }} 2>/dev/null || echo 'none'"
+      environment:
+        DOCKER_HOST: "{{ control_center_docker_host_windows }}"
+      delegate_to: localhost
+      register: container_health_check
+      changed_when: false
+      when: validation_results.container_running
+      tags: ["validate", "control-center"]
+
+    - name: "Record container health status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'container_healthy': (container_health_check.stdout | trim) == 'healthy'}) }}"
+      when: validation_results.container_running
+      tags: ["validate", "control-center"]
+
+    - name: "Check /api/health endpoint on localhost"
+      ansible.builtin.shell: "curl -sf http://localhost:{{ control_center_host_port }}/api/health 2>/dev/null || echo 'failed'"
+      environment:
+        DOCKER_HOST: "{{ control_center_docker_host_windows }}"
+      delegate_to: localhost
+      register: health_endpoint_check
+      changed_when: false
+      when: validation_results.container_running
+      tags: ["validate", "control-center"]
+
+    - name: "Record health endpoint status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'health_endpoint': '\"status\":\"ready\"' in health_endpoint_check.stdout}) }}"
+      when: validation_results.container_running
+      tags: ["validate", "control-center"]
+
+    - name: "Check default domain (dashboard.levonk.com)"
+      ansible.builtin.shell: "curl -sf -o /dev/null -w '%{http_code}' https://{{ control_center_domain_default }}/api/health 2>/dev/null || echo 'failed'"
+      environment:
+        DOCKER_HOST: "{{ control_center_docker_host_windows }}"
+      delegate_to: localhost
+      register: domain_default_check
+      changed_when: false
+      tags: ["validate", "control-center"]
+
+    - name: "Record default domain status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'domain_default': domain_default_check.stdout | trim == '200'}) }}"  # project-lint: disable=magic-int  HTTP success status code
+      tags: ["validate", "control-center"]
+
+    - name: "Check nl domain (dashboard.nl.levonk.com)"
+      ansible.builtin.shell: "curl -sf -o /dev/null -w '%{http_code}' https://{{ control_center_domain }}/api/health 2>/dev/null || echo 'failed'"
+      environment:
+        DOCKER_HOST: "{{ control_center_docker_host_windows }}"
+      delegate_to: localhost
+      register: domain_nl_check
+      changed_when: false
+      tags: ["validate", "control-center"]
+
+    - name: "Record nl domain status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'domain_nl': domain_nl_check.stdout | trim == '200'}) }}"  # project-lint: disable=magic-int  HTTP success status code
+      tags: ["validate", "control-center"]
+
+    - name: "Display validation summary"
+      ansible.builtin.debug:
+        msg: |
+          ================================================
+          Control Center Validation Summary
+          ================================================
+          Container running:    {{ validation_results.container_running }}
+          Container healthy:    {{ validation_results.container_healthy }}
+          Health endpoint:      {{ validation_results.health_endpoint }}
+          Domain (default):     {{ validation_results.domain_default }} ({{ control_center_domain_default }})
+          Domain (nl):          {{ validation_results.domain_nl }} ({{ control_center_domain }})
+
+          {% if validation_results.container_running and validation_results.container_healthy and validation_results.health_endpoint %}
+          ✓ All core checks passed.
+          {% else %}
+          ⚠ Some checks failed. Review the results above.
+          {% endif %}
+          ================================================
+      tags: ["always", "summary"]

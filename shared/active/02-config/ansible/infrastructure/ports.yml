@@ -503,6 +503,17 @@ infra_port_dashboard_directory_empire_host: "4530"
 infra_port_dashboard_directory_empire_container: "3000"
 
 # ---------------------------------------------------------------------------
+# Control Center Dashboard Ports
+# Used by: deploy-control-center.yml playbook on windows_docker_hosts (nl region)
+# Business intelligence dashboard (Next.js + SQLite). Multi-stage Docker build
+# from lrepo52/control-center fork. Web UI exposed via Traefik at
+# dashboard.{{ infra_domain_base }} and dashboard.nl.{{ infra_domain_base }}.
+# Host port 4537 follows the nl-region dashboard range (directory-empire=4530).
+# ---------------------------------------------------------------------------
+infra_port_dashboard_control_center_host: "4537"
+infra_port_dashboard_control_center_container: "3000"
+
+# ---------------------------------------------------------------------------
 # fwknop SPA (Single Packet Authorization) Ports
 # Used by: deploy-fwknop.yml playbook on cloud_servers (OCI)
 # Host-level security service — hides SSH port 22 from port scanners.
@@ -556,3 +567,124 @@ infra_port_monitoring_node_exporter_container: "9100"
 # ---------------------------------------------------------------------------
 infra_port_tools_stirling_pdf_host: "4531"
 infra_port_tools_stirling_pdf_container: "8080"
+
+# ---------------------------------------------------------------------------
+# Fallback ports — referenced by role defaults but not yet allocated to specific deployments
+# ---------------------------------------------------------------------------
+# agentmemory (persistent memory for AI agents — fallback aliases)
+infra_port_agentmemory_container: "3112"
+infra_port_agentmemory_host: "3112"
+
+# AI QM (fallback alias for the qm harness)
+infra_port_ai_qm_host: "3109"
+
+# Dashboard (alt variants + portainer)
+infra_port_dashboard_alt_host: "8086"
+infra_port_dashboard_grafana_alt_host: "3002"
+infra_port_dashboard_portainer_host: "9002"
+
+# Databases (generic fallbacks)
+infra_port_db_postgres_host: "5439"
+infra_port_db_redis_host: "6380"
+
+# DNS (alt/forward/prometheus + dnscrypt alt tiers)
+infra_port_dns_alt_host: "5355"
+infra_port_dns_alt2_host: "5356"
+infra_port_dns_coredns_forward_host: "15360"
+infra_port_dns_coredns_prometheus_host: "9154"
+infra_port_dns_dnscrypt_host: "5368"
+infra_port_dns_dnscrypt_alt_host: "5369"
+infra_port_dns_dnscrypt_alt2_host: "5370"
+infra_port_dns_dnscrypt_alt3_host: "5371"
+infra_port_dns_dnscrypt_alt4_host: "5372"
+infra_port_dns_dnscrypt_alt5_host: "5373"
+infra_port_dns_dnscrypt_alt6_host: "5374"
+infra_port_dns_dnscrypt_alt7_host: "5375"
+
+# fwknop SPA (fallback aliases)
+infra_port_fwknop_spa_host: "62271"
+infra_port_fwknop_spa_alt_host: "62272"
+
+# Monitoring (kibana fallback)
+infra_port_monitoring_kibana_host: "5601"
+
+# n8n (fallback aliases — distinct from the ai_n8n_* set)
+infra_port_n8n_host: "3110"
+infra_port_n8n_grafana_host: "3113"
+infra_port_n8n_prometheus_host: "3114"
+
+# Nix ncro (parallel racing proxy — alt/proxy/web variants)
+infra_port_nix_ncro_alt_host: "4528"
+infra_port_nix_ncro_alt2_host: "4529"
+infra_port_nix_ncro_proxy_host: "4532"
+infra_port_nix_ncro_proxy_alt_host: "4533"
+infra_port_nix_ncro_proxy_alt2_host: "4534"
+infra_port_nix_ncro_web_host: "4535"
+infra_port_nix_ncro_web_alt_host: "4536"
+
+# OmniRoute (fallback alias)
+infra_port_omniroute_host: "20129"
+
+# Proxy (authelia, firewall mosh, gost admin/alt, headroom, https alt,
+# mitm alt/explicit/web variants, varnish fallback)
+infra_port_proxy_authelia_host: "9092"
+infra_port_proxy_firewall_mosh: "60000"
+infra_port_proxy_gost_admin_host: "11081"
+infra_port_proxy_gost_admin_alt_host: "11082"
+infra_port_proxy_gost_host: "19084"
+infra_port_proxy_gost_alt_host: "19085"
+infra_port_proxy_headroom_host: "8788"
+infra_port_proxy_https_alt_host: "8445"
+infra_port_proxy_mitm_alt_host: "3130"
+infra_port_proxy_mitm_alt2_host: "3131"
+infra_port_proxy_mitm_alt3_host: "3132"
+infra_port_proxy_mitm_alt4_host: "3133"
+infra_port_proxy_mitm_explicit_host: "3134"
+infra_port_proxy_mitm_web_host: "19086"
+infra_port_proxy_mitm_web_alt_host: "19087"
+infra_port_proxy_varnish_host: "6083"
+
+# QM (fallback aliases for the multiplayer agent harness)
+infra_port_qm_core_host: "3115"
+infra_port_qm_web_host: "3116"
+infra_port_qmal_identity_secret: "9101"
+
+# RustDesk (nat/relay/web alt variants — extends the 21115-21119 range)
+infra_port_rustdesk_nat_host: "21120"
+infra_port_rustdesk_relay_host: "21121"
+infra_port_rustdesk_relay_alt_host: "21122"
+infra_port_rustdesk_web_host: "21123"
+infra_port_rustdesk_web_alt_host: "21124"
+
+# Security/Wazuh (fallback aliases — match the manager/dashboard ports)
+infra_port_security_wazuh_agent_host: "1514"
+infra_port_security_wazuh_api_host: "55000"
+infra_port_security_wazuh_registration_host: "1515"
+
+# Tools/croc relay (fallback aliases — extends the 9009-9013 range)
+infra_port_tools_croc_relay_host: "9014"
+infra_port_tools_croc_relay_alt_host: "9015"
+
+# VPN/NetBird (alt management + data/turn alt variants)
+infra_port_vpn_netbird_alt_host: "33074"
+infra_port_vpn_netbird_management_host: "33075"
+infra_port_vpn_netbird_data_host: "3479"
+infra_port_vpn_netbird_data_alt_host: "3480"
+infra_port_vpn_netbird_data_alt2_host: "3481"
+infra_port_vpn_netbird_data_alt3_host: "3482"
+infra_port_vpn_netbird_data_alt4_host: "3483"
+infra_port_vpn_netbird_data_alt5_host: "3484"
+infra_port_vpn_netbird_data_alt6_host: "3485"
+
+# VPN/NordVPN (aux + socks alt variants)
+infra_port_vpn_nordvpn_aux_host: "1082"
+infra_port_vpn_nordvpn_aux2_host: "1083"
+infra_port_vpn_nordvpn_aux3_host: "1084"
+infra_port_vpn_nordvpn_socks_alt_host: "1085"
+
+# VPN/Tor (control/dns/socks/transparent fallbacks)
+infra_port_vpn_tor_control_host: "9052"
+infra_port_vpn_tor_dns_host: "9053"
+infra_port_vpn_tor_socks_host: "9054"
+infra_port_vpn_tor_transparent_host: "9040"
+infra_port_vpn_tor_transparent_alt_host: "9041"

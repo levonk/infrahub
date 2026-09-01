@@ -243,3 +243,143 @@ infra_network_ip_n8n_prometheus: "172.44.0.30"
 infra_network_ip_n8n_grafana: "172.44.0.40"
 infra_network_ip_n8n_traefik: "172.31.0.20"
 infra_network_ip_n8n_grafana_traefik: "172.31.0.21"
+
+# ---------------------------------------------------------------------------
+# Fallback network values — referenced by role defaults but not yet allocated
+# to specific deployments.
+# These are last-resort defaults used inside `default()` expressions in role
+# defaults/main.yml files. They mirror the primary allocated values above so
+# that roles resolve correctly even when loaded in isolation.
+# ---------------------------------------------------------------------------
+
+# Bind addresses
+infra_network_bind_all: "0.0.0.0"
+infra_network_bind_localhost: "127.0.0.1"
+
+# CIDR ranges
+infra_network_localhost_cidr: "127.0.0.0/8"
+infra_network_private_class_a: "10.0.0.0/8"
+infra_network_lan_1_cidr: "192.168.1.0/24"
+infra_network_lan_2_cidr: "192.168.2.0/24"
+infra_network_tailscale_cidr: "100.64.0.0/10"
+infra_network_tailscale_alt_cidr: "100.96.0.0/11"
+
+# Public DNS resolvers
+infra_network_ip_cloudflare_dns_primary: "1.1.1.1"
+infra_network_ip_cloudflare_dns_secondary: "1.0.0.1"
+infra_network_ip_google_dns_primary: "8.8.8.8"
+infra_network_ip_google_dns_secondary: "8.8.4.4"
+
+# Traefik network name (fallback for roles referencing traefik network directly)
+infra_network_traefik_network_name: "traefik-network"
+
+# DNS network fallbacks
+infra_network_dns_network_name: "localnet-network"
+infra_network_dns_coredns_network_name: "localnet-network"
+
+# Proxy network fallbacks
+infra_network_proxy_web_network_name: "localnet-network"
+infra_network_proxy_authelia_docker_network_name: "authelia-network"
+infra_network_proxy_headroom_docker_network_name: "proxy-chain-network"
+infra_network_proxy_iron_proxy_docker_network_name: "proxy-chain-network"
+infra_network_proxy_iron_proxy_chain_network_name: "proxy-chain-network"
+
+# Dashboard network fallbacks
+infra_network_dashboard_homepage_network_name: "traefik-network"
+infra_network_dashboard_trala_network_name: "traefik-network"
+
+# RustDesk server network fallbacks
+infra_network_rustdesk_server_network_name: "rustdesk-network"
+infra_network_rustdesk_server_network_mode: "bridge"
+
+# Search hister network fallback
+infra_network_search_hister_network_name: "traefik-network"
+
+# Nix build service network fallbacks
+infra_network_nix_harmonia_network_name_cno: "traefik-network"
+infra_network_nix_ncps_network_name_cno: "traefik-network"
+infra_network_nix_ncro_network_name_cno: "traefik-network"
+
+# Verdaccio network fallback
+infra_network_verdaccio_network_name_cno: "traefik-network"
+
+# AI Buzz network fallbacks (mirror primary buzz allocations)
+infra_network_ai_buzz_network_subnet: "172.38.0.0/16"
+infra_network_ai_buzz_network_gateway: "172.38.0.1"
+infra_network_ai_buzz_agent_network_name: "buzz-network"
+infra_network_ai_buzz_agent_traefik_network_name: "traefik-network"
+infra_network_ai_buzz_traefik_network_name: "traefik-network"
+infra_network_ip_ai_buzz_network: "172.38.0.10"
+infra_network_ip_ai_buzz_postgres: "172.38.0.20"
+infra_network_ip_ai_buzz_redis: "172.38.0.30"
+infra_network_ip_ai_buzz_minio: "172.38.0.40"
+infra_network_ip_ai_buzz_traefik_network: "172.31.0.50"
+infra_network_ip_ai_buzz_agent_traefik: "172.31.0.2"
+
+# AI LiteLLM network fallbacks (mirror proxy-chain & traefik allocations)
+infra_network_ai_litellm_chain_network_name: "proxy-chain-network"
+infra_network_ai_litellm_localnet_network_name: "localnet-network"
+infra_network_ai_litellm_traefik_network_name: "traefik-network"
+infra_network_ip_ai_litellm_chain_network: "172.29.0.18"
+infra_network_ip_ai_litellm_traefik_network: "172.31.0.18"
+
+# AI Omniroute network fallbacks
+infra_network_ai_omniroute_chain_network_name: "proxy-chain-network"
+infra_network_ai_omniroute_localnet_network_name: "localnet-network"
+infra_network_ai_omniroute_traefik_network_name: "traefik-network"
+infra_network_ip_ai_omniroute_chain_network: "172.29.0.14"
+
+# AI Paperclip fallbacks (non-IP attributes misnamed under ip_ namespace)
+infra_network_ip_ai_paperclcontainer_name: "paperclip"
+infra_network_ip_ai_papercldomain: "example.com"
+infra_network_ip_ai_papercllocalnet_network_name: "localnet-network"
+infra_network_ip_ai_paperclpostgres_container_name: "paperclip-postgres"
+infra_network_ip_ai_paperclpostgres_password: "changeme"
+infra_network_ip_ai_paperclpostgres_volume_name: "paperclip-postgres-data"
+infra_network_ip_ai_papercltraefik_network: "172.31.0.15"
+infra_network_ip_ai_papercltraefik_network_name: "traefik-network"
+infra_network_ip_ai_papercltz: "UTC"
+infra_network_ip_ai_paperclvolume_name: "paperclip-data"
+
+# QM network fallbacks
+infra_network_qm_network_name: "qm-levonk"
+infra_network_qm_traefik_network_name: "traefik-network"
+infra_network_ip_qm_traefik_network: "172.31.0.22"
+
+# n8n network fallbacks (mirror primary n8n allocations)
+infra_network_n8n_network_name: "n8n-network"
+infra_network_n8n_network_subnet: "172.44.0.0/16"
+infra_network_n8n_network_gateway: "172.44.0.1"
+infra_network_n8n_traefik_network_name: "traefik-network"
+infra_network_ip_n8n_network: "172.44.0.10"
+infra_network_ip_n8n_postgres_network: "172.44.0.20"
+infra_network_ip_n8n_prometheus_network: "172.44.0.30"
+infra_network_ip_n8n_grafana_network: "172.44.0.40"
+infra_network_ip_n8n_traefik_network: "172.31.0.20"
+infra_network_ip_n8n_grafana_traefik_network: "172.31.0.21"
+
+# P2P Freenet network fallbacks
+infra_network_p2p_freenet_network_subnet: "172.39.0.0/16"
+infra_network_p2p_freenet_network_gateway: "172.39.0.1"
+infra_network_ip_p2p_freenet_container: "172.39.0.10"
+
+# Proxy iron-proxy chain network IP fallback
+infra_network_ip_proxy_iron_proxy_chain_network: "172.29.0.17"
+
+# Wazuh network fallbacks (mirror primary wazuh allocations)
+infra_network_wazuh_network_name: "wazuh-network"
+infra_network_wazuh_network_subnet: "172.25.0.0/16"
+infra_network_wazuh_network_gateway: "172.25.0.1"
+infra_network_ip_wazuh_indexer: "172.25.0.10"
+infra_network_ip_wazuh_manager: "172.25.0.11"
+infra_network_ip_wazuh_dashboard: "172.25.0.12"
+infra_network_ip_wazuh_agent_manager: "tailnet.ts.net"
+
+# VPN NordVPN Windows network fallbacks (mirror primary allocations)
+infra_network_vpn_nordvpn_windows_network_subnet: "172.40.0.0/16"
+infra_network_vpn_nordvpn_windows_network_gateway: "172.40.0.1"
+
+# VPN Tor Windows network fallbacks
+infra_network_vpn_tor_windows_network_name: "tor-network"
+infra_network_vpn_tor_windows_network_subnet: "172.41.0.0/16"
+infra_network_vpn_tor_windows_network_gateway: "172.41.0.1"

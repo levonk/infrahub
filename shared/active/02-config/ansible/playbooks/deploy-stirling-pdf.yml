@@ -64,6 +64,21 @@
         file: "{{ playbook_dir }}/../infrastructure/modes.yml"
       tags: ["always"]
 
+    - name: "Load shared infrastructure network defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/networks.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure app defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/apps.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure fallback values"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/values.yml"
+      tags: ["always"]
+
     - name: "Validate required variables"
       ansible.builtin.assert:
         that:
@@ -117,6 +132,21 @@
     - name: "Load shared infrastructure mode defaults"
       ansible.builtin.include_vars:
         file: "{{ playbook_dir }}/../infrastructure/modes.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure network defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/networks.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure app defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/apps.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure fallback values"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/values.yml"
       tags: ["always"]
 
     - name: "Load tools-stirling-pdf role defaults (for container name + port vars)"

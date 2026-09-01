@@ -251,6 +251,16 @@ infra_domain_dashboard_directory_empire_nl: "de.nl.{{ infra_domain_base }}"
 infra_hostname_dashboard_directory_empire: "localnet-dashboard-directory-empire"
 
 # ---------------------------------------------------------------------------
+# Control Center Dashboard
+# Business intelligence dashboard (Next.js + SQLite) deployed to
+# windows_docker_hosts (dtop202311). Exposed via Traefik on both the
+# default domain and the nl subdomain. Authelia SSO gates the outer layer.
+# ---------------------------------------------------------------------------
+infra_domain_dashboard_control_center: "dashboard.{{ infra_domain_base }}"
+infra_domain_dashboard_control_center_nl: "dashboard.nl.{{ infra_domain_base }}"
+infra_hostname_dashboard_control_center: "localnet-dashboard-control-center"
+
+# ---------------------------------------------------------------------------
 # no-mistakes Shared Git Gate
 # Default domain (no-mistakes.{{ infra_domain_base }}) CNAMEs to the nl subdomain.
 # The nl subdomain is the actual deployment target (dtop202311).
@@ -266,3 +276,14 @@ infra_domain_devops_no_mistakes_default: "no-mistakes.{{ infra_domain_base }}"
 # ---------------------------------------------------------------------------
 infra_domain_tools_stirling_pdf: "stirling.nl.{{ infra_domain_base }}"
 infra_hostname_tools_stirling_pdf: "localnet-tools-stirling-pdf"
+
+# ---------------------------------------------------------------------------
+# Fallback hostnames — generic (non-suffixed) aliases for roles that reference
+# the service without a region suffix. Map to the nl (primary) variant.
+# ---------------------------------------------------------------------------
+infra_hostname_nix_ncps: "{{ infra_hostname_nix_ncps_nl | default('localnet-nix-ncps') }}"
+
+# ---------------------------------------------------------------------------
+# AI Buzz — relay domain for buzz-agent WebSocket connections
+# ---------------------------------------------------------------------------
+infra_domain_buzz: "buzz.{{ infra_domain_base }}"

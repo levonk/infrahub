@@ -1,0 +1,57 @@
+---
+# dashboard-control-center — Next.js Control Center dashboard
+# Control Center platform dashboard — multi-stage Docker build from the
+# control-center repo.
+# Target: Windows Docker Desktop (dtop202311, X86). Joins traefik-windows-network.
+#
+# community.docker modules can't run on Windows (Ansible core basic.py imports
+# grp, Unix-only). We use ansible.builtin.shell with DOCKER_HOST: ssh:// and
+# delegate_to: localhost, matching the garnix-ci (nl) pattern.
+
+# Service toggle
+control_center_enabled: true
+
+# Container configuration
+control_center_container_name: "{{ infra_hostname_dashboard_control_center | default(infra_value_control_center_container_name) }}"
+control_center_image_name: "{{ local_registry | default(infra_registry) }}/localnet-dashboard-control-center"
+control_center_image_tag: "latest"
+
+# Ports — Web UI exposed via Traefik
+control_center_host_port: "{{ infra_port_dashboard_control_center_host | default(infra_value_control_center_host_port) }}"
+control_center_container_port: "{{ infra_port_dashboard_control_center_container | default(infra_value_control_center_container_port) }}"
+
+# Domains (for Traefik routing)
+control_center_domain: "{{ infra_domain_dashboard_control_center_nl | default('dashboard.nl.' ~ (infra_domain_base | default(infra_value_control_center_domain))) }}"
+control_center_domain_default: "{{ infra_domain_dashboard_control_center | default('dashboard.' ~ (infra_domain_base | default(infra_value_control_center_domain_default))) }}"
+
+# Allowed hosts for the Next.js app
+control_center_allowed_hosts: "{{ control_center_domain }},{{ control_center_domain_default }}"
+
+# Volume — data volume for runtime state
+control_center_data_volume: "{{ infra_storage_control_center_data_volume | default(infra_value_control_center_data_volume) }}"
+control_center_data_dir: "/data"
+
+# Network — join the traefik-windows network for Traefik routing
+control_center_network_name: "traefik-windows-network"
+
+# Docker host for Windows deployment (ssh-tunneled)
+control_center_docker_host_windows: "ssh://ansible@{{ infra_tailscale_fqdn_windows_docker | default(infra_tailscale_tailnet | default(infra_value_control_center_docker_host_windows)) }}"
+
+# Local temp directory for rendering config files
+control_center_windows_temp_dir: "/tmp/control-center-config-{{ inventory_hostname }}"
+
+# Healthcheck
+control_center_healthcheck_interval: "30s"
+control_center_healthcheck_timeout: "5s"
+control_center_healthcheck_start_period: "30s"
+control_center_healthcheck_retries: 3
+
+# Verify health endpoint after deploy
+control_center_verify_health: true
+
+# Logging
+control_center_log_max_size: "10m"
+control_center_log_max_file: "5"
+
+# Timezone
+control_center_tz: "{{ localnet_tz | default(timezone | default(infra_value_control_center_tz)) }}"

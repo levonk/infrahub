@@ -123,6 +123,28 @@
   when: proxy_traefik_windows_directory_empire_enabled | bool
   tags: ["deploy", "config"]
 
+- name: Render Control Center (nl) dynamic config locally
+  ansible.builtin.template:
+    src: dynamic/cc-nl.yml.j2
+    dest: "{{ proxy_traefik_windows_temp_dir }}/dynamic/cc-nl.yml"
+    mode: "{{ infra_mode_file }}"
+  delegate_to: localhost
+  run_once: true
+  changed_when: false
+  when: proxy_traefik_windows_control_center_enabled | bool
+  tags: ["deploy", "config"]
+
+- name: Render Control Center (default) dynamic config locally
+  ansible.builtin.template:
+    src: dynamic/cc-default.yml.j2
+    dest: "{{ proxy_traefik_windows_temp_dir }}/dynamic/cc-default.yml"
+    mode: "{{ infra_mode_file }}"
+  delegate_to: localhost
+  run_once: true
+  changed_when: false
+  when: proxy_traefik_windows_control_center_enabled | bool
+  tags: ["deploy", "config"]
+
 - name: Render DNSDist dynamic config locally
   ansible.builtin.template:
     src: dynamic/dnsdist.yml.j2
@@ -363,6 +385,28 @@
   when: proxy_traefik_windows_directory_empire_enabled | bool
   tags: ["deploy", "config"]
 
+- name: Copy Control Center (nl) dynamic config into volume
+  ansible.builtin.command: >-
+    docker cp {{ proxy_traefik_windows_temp_dir }}/dynamic/cc-nl.yml
+    {{ proxy_traefik_windows_container_name }}-config-seed:/config/dynamic/cc-nl.yml
+  environment:
+    DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  when: proxy_traefik_windows_control_center_enabled | bool
+  tags: ["deploy", "config"]
+
+- name: Copy Control Center (default) dynamic config into volume
+  ansible.builtin.command: >-
+    docker cp {{ proxy_traefik_windows_temp_dir }}/dynamic/cc-default.yml
+    {{ proxy_traefik_windows_container_name }}-config-seed:/config/dynamic/cc-default.yml
+  environment:
+    DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  when: proxy_traefik_windows_control_center_enabled | bool
+  tags: ["deploy", "config"]
+
 - name: Copy DNSDist dynamic config into volume
   ansible.builtin.command: >-
     docker cp {{ proxy_traefik_windows_temp_dir }}/dynamic/dnsdist.yml
@@ -403,6 +447,17 @@
   delegate_to: localhost
   changed_when: false
   tags: ["deploy", "config"]
+
+# ============================================================================
+# ACME TXT Record Cleanup — delete stale _acme-challenge.* TXT records
+# before Traefik starts to prevent "An identical record already exists" errors
+# ============================================================================
+- name: Clean up stale ACME TXT records
+  ansible.builtin.include_tasks: "{{ role_path }}/tasks/cleanup-acme-txt.yml"
+  when:
+    - proxy_traefik_windows_acme_txt_cleanup | bool
+    - proxy_traefik_windows_cert_domains | length > 0
+  tags: ["deploy", "acme"]
 
 # ============================================================================
 # Pull Image
@@ -705,6 +760,16 @@
   tags: ["deploy", "container"]
 
 # ============================================================================
+# Certificate Validation — verify TLS certs are issued (not TRAEFIK DEFAULT CERT)
+# ============================================================================
+- name: Validate TLS certificates
+  ansible.builtin.include_tasks: "{{ role_path }}/tasks/validate-certs.yml"
+  when:
+    - proxy_traefik_windows_cert_validation | bool
+    - proxy_traefik_windows_cert_domains | length > 0
+  tags: ["deploy", "acme", "validate"]
+
+# ============================================================================
 # Status Report
 # ============================================================================
 - name: Get traefik-windows container status
@@ -731,4 +796,7 @@
         - ACME: Let's Encrypt (Cloudflare DNS-01 challenge)
         - Authelia: {{ proxy_traefik_windows_authelia_enabled | bool }}
         - Status: {{ proxy_traefik_windows_status.stdout | default('unknown') }}
+        - Managed domains: {{ proxy_traefik_windows_cert_domains | length }}
+        - ACME TXT cleanup: {{ proxy_traefik_windows_acme_txt_cleanup | bool }}
+        - Cert validation: {{ proxy_traefik_windows_cert_validation | bool }}
   tags: ["always", "info"]

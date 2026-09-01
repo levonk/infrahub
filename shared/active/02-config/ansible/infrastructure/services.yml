@@ -1077,6 +1077,36 @@ services:
     - "localnet-directory-empire-config-volume (runtime env config)"
 
 # ===========================================================================
+# Control Center Dashboard
+# ===========================================================================
+- name: "Control Center"
+  container: "{{ infra_hostname_dashboard_control_center }}"
+  machine: "dtop202311"
+  category: "ui"
+  description: "Business intelligence dashboard — industry updates, brand mentions, newsletter monitoring, audience tracking, reminders, tasks. Multi-tenant with session auth."
+  source_repo: "https://github.com/lrepo52/control-center"
+  domains:
+    - "infra_domain_dashboard_control_center"
+    - "infra_domain_dashboard_control_center_nl"
+  ports:
+    - host: "infra_port_dashboard_control_center_host"
+      container: "infra_port_dashboard_control_center_container"
+      label: "Web"
+  traefik: true
+  network: "traefik-windows-network"
+  storage:
+    - "localnet-control-center-data-volume (SQLite database + settings + snapshots)"
+  health_endpoint: "/api/health"
+  metrics_path: null
+  metrics_port: null
+  pipeline: "none"
+  pipeline_stage: "none"
+  alert_labels:
+    pipeline: "none"
+    stage: "none"
+    service: "control-center"
+
+# ===========================================================================
 # Host-Level Security Services (not containers)
 # ===========================================================================
 - name: "fwknop SPA"

@@ -1,0 +1,168 @@
+---
+# dashboard-control-center — Control Center Next.js dashboard
+# Target: Windows Docker Desktop (dtop202311, X86). Joins traefik-windows-network.
+#
+# community.docker modules can't run on Windows (Ansible core basic.py imports
+# grp, Unix-only). We use ansible.builtin.shell with DOCKER_HOST: ssh:// and
+# delegate_to: localhost, matching the garnix-ci (nl) pattern.
+
+# ============================================================================
+# 1. Validate required variables
+# ============================================================================
+- name: Validate required variables are defined
+  ansible.builtin.assert:
+    that:
+      - control_center_container_name is defined
+      - control_center_image_name is defined
+      - control_center_image_tag is defined
+      - control_center_host_port is defined
+      - control_center_container_port is defined
+      - control_center_data_volume is defined
+      - control_center_data_dir is defined
+      - control_center_allowed_hosts is defined
+      - control_center_network_name is defined
+      - control_center_docker_host_windows is defined
+    fail_msg: >-
+      Missing required control-center variables. Check infrastructure files
+      (ports.yml, domains.yml, storage.yml) and windows_docker_hosts group_vars.
+    success_msg: "All required control-center variables are defined."
+  tags: ["always", "validate", "control-center"]
+
+# ============================================================================
+# 2. Ensure local temp directory exists (delegate_to: localhost)
+# ============================================================================
+- name: Ensure local temp directory for control-center config exists
+  ansible.builtin.file:
+    path: "{{ control_center_windows_temp_dir }}"
+    state: directory
+    mode: "{{ infra_mode_dir }}"
+  delegate_to: localhost
+  run_once: true
+  changed_when: false
+  tags: ["deploy", "control-center"]
+
+# ============================================================================
+# 3. Ensure Docker data volume exists
+# ============================================================================
+- name: Ensure control-center data volume exists
+  ansible.builtin.shell: "docker volume inspect {{ control_center_data_volume }} 2>/dev/null || docker volume create {{ control_center_data_volume }}"
+  environment:
+    DOCKER_HOST: "{{ control_center_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "control-center"]
+
+# ============================================================================
+# 4. Pull image from local registry
+# ============================================================================
+- name: Pull control-center image
+  ansible.builtin.command: "docker pull {{ control_center_image_name }}:{{ control_center_image_tag }}"
+  environment:
+    DOCKER_HOST: "{{ control_center_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "control-center"]
+
+# ============================================================================
+# 5. Stop existing container (idempotent — docker rm -f handles updates)
+# ============================================================================
+- name: Stop existing control-center container
+  ansible.builtin.shell: "docker rm -f {{ control_center_container_name }} 2>/dev/null || true"
+  environment:
+    DOCKER_HOST: "{{ control_center_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "control-center"]
+
+# ============================================================================
+# 6. Deploy container
+# ============================================================================
+- name: Deploy control-center container
+  ansible.builtin.shell: >-
+    docker run -d
+    --name {{ control_center_container_name }}
+    --network {{ control_center_network_name }}
+    -p {{ control_center_host_port }}:{{ control_center_container_port }}/tcp
+    -v {{ control_center_data_volume }}:{{ control_center_data_dir }}
+    -e CONTROL_CENTER_DATA_DIR={{ control_center_data_dir }}
+    -e CONTROL_CENTER_ALLOWED_HOSTS={{ control_center_allowed_hosts }}
+    -e TZ={{ control_center_tz }}
+    -e NODE_ENV=production
+    --restart unless-stopped
+    --log-driver json-file
+    --log-opt max-size={{ control_center_log_max_size }}
+    --log-opt max-file={{ control_center_log_max_file }}
+    --health-cmd "curl -sf http://localhost:{{ control_center_container_port }}/api/health || exit 1"
+    --health-interval {{ control_center_healthcheck_interval }}
+    --health-timeout {{ control_center_healthcheck_timeout }}
+    --health-start-period {{ control_center_healthcheck_start_period }}
+    --health-retries {{ control_center_healthcheck_retries }}
+    --security-opt no-new-privileges:true
+    {{ control_center_image_name }}:{{ control_center_image_tag }}
+  environment:
+    DOCKER_HOST: "{{ control_center_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "control-center"]
+
+# ============================================================================
+# 7. Wait for container health
+# ============================================================================
+- name: Wait for control-center to be healthy
+  ansible.builtin.command: >-
+    docker inspect --format '{% raw %}{{.State.Health.Status}}{% endraw %}' {{ control_center_container_name }}
+  environment:
+    DOCKER_HOST: "{{ control_center_docker_host_windows }}"
+  delegate_to: localhost
+  register: control_center_health
+  until: control_center_health.stdout == "healthy"
+  retries: "{{ infra_retry_extended }}"
+  delay: 3  # project-lint: disable=magic-int  <polling interval for health check>
+  changed_when: false
+  ignore_errors: true
+  tags: ["deploy", "control-center"]
+
+# ============================================================================
+# 8. Verify health endpoint
+# ============================================================================
+- name: Verify control-center health endpoint
+  ansible.builtin.uri:
+    url: "http://localhost:{{ control_center_host_port }}/api/health"
+    method: GET
+    return_content: true
+    status_code: 200  # project-lint: disable=magic-int  HTTP success status code
+  delegate_to: localhost
+  register: control_center_health_check
+  retries: "{{ infra_retry_extended }}"
+  delay: 3  # project-lint: disable=magic-int  <polling interval for health endpoint>
+  changed_when: false
+  when: control_center_verify_health | bool
+  tags: ["validate", "control-center"]
+
+# ============================================================================
+# 9. Report status
+# ============================================================================
+- name: Get control-center container status
+  ansible.builtin.command: >-
+    docker inspect --format '{% raw %}{{.Name}}={{.State.Status}} health={{.State.Health.Status}}{% endraw %}'
+    {{ control_center_container_name }}
+  environment:
+    DOCKER_HOST: "{{ control_center_docker_host_windows }}"
+  delegate_to: localhost
+  register: control_center_status
+  changed_when: false
+  ignore_errors: true
+  tags: ["always", "info", "control-center"]
+
+- name: Report control-center status
+  ansible.builtin.debug:
+    msg: |
+      control-center deployed:
+        - URL: https://{{ control_center_domain }} (via Traefik on traefik-windows-network)
+        - Default URL: https://{{ control_center_domain_default }}
+        - Container: {{ control_center_container_name }}
+        - Image: {{ control_center_image_name }}:{{ control_center_image_tag }}
+        - Web port: {{ control_center_host_port }}:{{ control_center_container_port }}/tcp
+        - Data volume: {{ control_center_data_volume }}:{{ control_center_data_dir }}
+        - Status: {{ control_center_status.stdout | default('unknown') }}
+  tags: ["always", "info", "control-center"]

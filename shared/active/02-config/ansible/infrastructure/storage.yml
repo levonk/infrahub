@@ -247,6 +247,14 @@ infra_storage_garnix_ci_config_volume: "localnet-garnix-ci-config-volume"
 infra_storage_directory_empire_config_volume: "localnet-directory-empire-config-volume"
 
 # ---------------------------------------------------------------------------
+# Control Center Dashboard Storage (nl region — dtop202311)
+# Business intelligence dashboard (Next.js + SQLite). Data volume holds the
+# SQLite database (control-center.sqlite), settings.json, and snapshot files.
+# This is the only persistent state — back up this volume.
+# ---------------------------------------------------------------------------
+infra_storage_control_center_data_volume: "localnet-control-center-data-volume"
+
+# ---------------------------------------------------------------------------
 # Hister Search Engine Storage (nl region — dtop202311)
 # Self-hosted search engine. Data volume holds the SQLite index, rules,
 # and auto-generated secret key.
@@ -301,3 +309,10 @@ infra_storage_stirling_pdf_tessdata_volume: "localnet-stirling-pdf-tessdata-volu
 infra_storage_stirling_pdf_pipeline_volume: "localnet-stirling-pdf-pipeline-volume"
 infra_storage_stirling_pdf_custom_files_volume: "localnet-stirling-pdf-custom-files-volume"
 infra_storage_stirling_pdf_logs_volume: "localnet-stirling-pdf-logs-volume"
+
+# ---------------------------------------------------------------------------
+# Wazuh Security Stack — missing volume definitions
+# ---------------------------------------------------------------------------
+infra_storage_wazuh_indexer_config_volume: "localnet-wazuh-indexer-config-volume"
+infra_storage_wazuh_dashboard_data_volume: "localnet-wazuh-dashboard-data-volume"
+infra_storage_wazuh_manager_config_mount_volume: "localnet-wazuh-manager-config-mount-volume"

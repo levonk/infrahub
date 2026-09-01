@@ -215,3 +215,18 @@ infra_auth_attempts_default: "5"
 infra_opensearch_session_ttl_long: "720h"
 infra_mode_file_0600: "0600"
 infra_schema_version_adguard: "28"
+
+# ---------------------------------------------------------------------------
+# Missing timeout fallbacks — referenced by role defaults
+# ---------------------------------------------------------------------------
+infra_timeout_cert_expiry_hours: "8760"
+infra_timeout_dns_ttl: "300"
+infra_timeout_retry: "30"
+
+# ---------------------------------------------------------------------------
+# Missing size/proxy/ops fallbacks — referenced by role defaults
+# ---------------------------------------------------------------------------
+infra_size_large: "10000"
+infra_size_proxy_firewall_rate_interval: "1m"
+infra_proxy_iron_proxy_cert_cache_size: "10000"
+infra_ops_nsec: "0"

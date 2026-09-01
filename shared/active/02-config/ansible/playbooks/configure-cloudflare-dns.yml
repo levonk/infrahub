@@ -162,6 +162,15 @@
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
 
+      # Stirling-PDF API subdomain — no Authelia (desktop client direct API access)
+      # Security boundary: A record points to Tailscale IP, only reachable from tailnet.
+      - name: "{{ infra_domain_tools_stirling_pdf_api | default('stirling-api.nl.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "A"
+        content: "{{ ts_ip_windows_docker }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
       # Stirling-PDF short alias (CNAME → primary Stirling-PDF domain)
       - name: "{{ infra_domain_tools_stirling_pdf_alias | default('pdf.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
@@ -190,6 +199,22 @@
       - name: "{{ infra_domain_sso_authelia | default('auth.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
         content: "{{ ts_fqdn }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      # Control Center Dashboard — nl (Windows Docker Desktop)
+      - name: "{{ infra_domain_dashboard_control_center_nl | default('dashboard.nl.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "CNAME"
+        content: "{{ ts_fqdn_windows_docker }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      # Control Center Dashboard — default domain (CNAME → nl subdomain)
+      - name: "{{ infra_domain_dashboard_control_center | default('dashboard.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "CNAME"
+        content: "{{ infra_domain_dashboard_control_center_nl | default('dashboard.nl.' ~ (infra_domain_base | default('example.com'))) }}"
         ttl: "{{ cloudflare_dns_ttl }}"
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"

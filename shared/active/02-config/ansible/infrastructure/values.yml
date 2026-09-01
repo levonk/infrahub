@@ -1,0 +1,302 @@
+# ----------------------------------------------------------------------------
+# Infra Value Fallback Defaults
+# ----------------------------------------------------------------------------
+# This file defines the ultimate fallback defaults for the `infra_value_*`
+# variable pattern used across all Ansible roles in this repository.
+#
+# Each `infra_value_*` variable is referenced as the final `default()` argument
+# in role defaults files (e.g. `{{ infra_domain_foo | default(infra_value_foo) }}`).
+# These values are intentionally non-functional placeholders: domains, docker
+# hosts, ports and paths are empty strings; secrets/passwords/API keys are
+# `"change-me"`; timezones are `UTC`; container names follow the
+# `localnet-<service>` pattern; volumes follow `localnet-<service>-<type>-volume`;
+# image tags default to `latest`; versions to `0.0.0`; booleans to `false`.
+#
+# In any real deployment these values should be overridden by the matching
+# `infra_domain_*`, `infra_hostname_*`, `infra_storage_*`, `infra_port_*`,
+# `infra_tailscale_*` or `vault_*` variables.
+# ----------------------------------------------------------------------------
+
+# --- agentmemory ---
+infra_value_agentmemory_domain: ""
+
+# --- ai-buzz ---
+infra_value_ai_buzz_container_name: "localnet-ai-buzz"
+infra_value_ai_buzz_domain: ""
+infra_value_ai_buzz_minio_container_name: "localnet-ai-buzz-minio"
+infra_value_ai_buzz_minio_volume_name: "localnet-ai-buzz-minio-data-volume"
+infra_value_ai_buzz_postgres_container_name: "localnet-ai-buzz-postgres"
+infra_value_ai_buzz_postgres_password: "change-me"
+infra_value_ai_buzz_postgres_volume_name: "localnet-ai-buzz-postgres-data-volume"
+infra_value_ai_buzz_redis_container_name: "localnet-ai-buzz-redis"
+infra_value_ai_buzz_s3_access_key: "change-me"
+infra_value_ai_buzz_s3_secret_key: "change-me"
+infra_value_ai_buzz_tz: "UTC"
+
+# --- ai-buzz-agent ---
+infra_value_ai_buzz_agent_credentials_host_path: ""
+infra_value_ai_buzz_agent_model: ""
+infra_value_ai_buzz_agent_relay_domain: ""
+infra_value_ai_buzz_agent_relay_url: ""
+infra_value_ai_buzz_agent_tz: "UTC"
+
+# --- ai-litellm ---
+infra_value_ai_litellm_admin_password: "change-me"
+infra_value_ai_litellm_admin_username: "admin"
+infra_value_ai_litellm_api_domain: ""
+infra_value_ai_litellm_database_password: "change-me"
+infra_value_ai_litellm_domain: ""
+infra_value_ai_litellm_langfuse_host: ""
+infra_value_ai_litellm_master_key: "change-me"
+infra_value_ai_litellm_oidc_authorization_endpoint: ""
+infra_value_ai_litellm_oidc_client_id: "change-me"
+infra_value_ai_litellm_oidc_token_endpoint: ""
+infra_value_ai_litellm_oidc_userinfo_endpoint: ""
+infra_value_ai_litellm_salt_key: "change-me"
+infra_value_ai_litellm_tz: "UTC"
+
+# --- ai-n8n ---
+infra_value_n8n_config_dir: ""
+infra_value_n8n_container_name: "localnet-n8n"
+infra_value_n8n_domain: ""
+infra_value_n8n_grafana_container_name: "localnet-n8n-grafana"
+infra_value_n8n_grafana_domain: ""
+infra_value_n8n_grafana_volume_name: "localnet-n8n-grafana-data-volume"
+infra_value_n8n_postgres_container_name: "localnet-n8n-postgres"
+infra_value_n8n_postgres_volume_name: "localnet-n8n-postgres-data-volume"
+infra_value_n8n_prometheus_container_name: "localnet-n8n-prometheus"
+infra_value_n8n_prometheus_volume_name: "localnet-n8n-prometheus-data-volume"
+infra_value_n8n_tz: "UTC"
+infra_value_n8n_volume_name: "localnet-n8n-data-volume"
+
+# --- ai-qm ---
+infra_value_qm_anthropic_api_key: "change-me"
+infra_value_qm_capability_secret: "change-me"
+infra_value_qm_connector_secret_key: "change-me"
+infra_value_qm_core_container_name: "localnet-qm-core"
+infra_value_qm_core_signing_secret: "change-me"
+infra_value_qm_docker_host: ""
+infra_value_qm_domain: ""
+infra_value_qm_layer_volume_name: "localnet-qm-layer-volume"
+infra_value_qm_postgres_container_name: "localnet-qm-postgres"
+infra_value_qm_postgres_password: "change-me"
+infra_value_qm_postgres_volume_name: "localnet-qm-postgres-data-volume"
+infra_value_qm_skill_signing_secret: "change-me"
+infra_value_qm_tz: "UTC"
+infra_value_qm_web_container_name: "localnet-qm-web"
+
+# --- artifact-verdaccio ---
+infra_value_verdaccio_admin_username: "admin"
+infra_value_verdaccio_config_dir: ""
+infra_value_verdaccio_config_owner: "admin"
+infra_value_verdaccio_config_volume: "localnet-verdaccio-config-volume"
+infra_value_verdaccio_container_name_cno: "localnet-verdaccio-cno"
+infra_value_verdaccio_container_name_nl: "localnet-verdaccio-nl"
+infra_value_verdaccio_data_volume: "localnet-verdaccio-data-volume"
+infra_value_verdaccio_docker_host_windows: ""
+infra_value_verdaccio_domain_cno: ""
+infra_value_verdaccio_domain_nl: ""
+infra_value_verdaccio_tz: "UTC"
+
+# --- career-jobops ---
+infra_value_jobops_codex_volume: "localnet-jobops-codex-volume"
+infra_value_jobops_data_volume: "localnet-jobops-data-volume"
+infra_value_jobops_docker_host: ""
+infra_value_jobops_domain: ""
+
+# --- dashboard-directory-empire ---
+infra_value_directory_empire_config_volume: "localnet-directory-empire-config-volume"
+infra_value_directory_empire_container_name: "localnet-directory-empire"
+infra_value_directory_empire_docker_host_windows: ""
+infra_value_directory_empire_domain: ""
+infra_value_directory_empire_tz: "UTC"
+
+# --- dashboard-homepage ---
+infra_value_dashboard_homepage_tz: "UTC"
+
+# --- dashboard-trala ---
+infra_value_dashboard_trala_traefik_api_password: "change-me"
+infra_value_dashboard_trala_traefik_api_user: "admin"
+
+# --- devops-no-mistakes ---
+infra_value_no_mistakes_data_volume: "localnet-no-mistakes-data-volume"
+infra_value_no_mistakes_docker_host: ""
+infra_value_no_mistakes_domain: ""
+
+# --- dns ---
+infra_value_dns_adguard_admin_password_hash: "change-me"
+infra_value_dns_docker_host_windows: ""
+
+# --- dns-coredns ---
+infra_value_dns_coredns_container_name: "localnet-dns-coredns"
+infra_value_dns_coredns_image_tag: "latest"
+infra_value_dns_coredns_service_dir: ""
+infra_value_dns_coredns_volume_name: "localnet-dns-coredns-data-volume"
+
+# --- garnix-ci ---
+infra_value_garnix_ci_config_volume: "localnet-garnix-ci-config-volume"
+infra_value_garnix_ci_container_name: "localnet-garnix-ci"
+infra_value_garnix_ci_docker_host_windows: ""
+infra_value_garnix_ci_domain: ""
+infra_value_garnix_ci_nix_cache_volume: "localnet-garnix-ci-nix-cache-volume"
+infra_value_garnix_ci_nix_config_volume: "localnet-garnix-ci-nix-config-volume"
+infra_value_garnix_ci_nix_store_volume: "localnet-garnix-ci-nix-store-volume"
+infra_value_garnix_ci_tz: "UTC"
+infra_value_garnix_ci_work_volume: "localnet-garnix-ci-work-volume"
+
+# --- isolation-vm-config ---
+infra_value_isolation_vm_gateway: ""
+infra_value_isolation_vm_nat_bridge: ""
+infra_value_isolation_vm_routed_bridge: ""
+
+# --- macos-xcode ---
+infra_value_macos_xcode_version_sequoia: "0.0.0"
+infra_value_macos_xcode_version_tahoe_fallback: "0.0.0"
+
+# --- nix-harmonia ---
+infra_value_nix_harmonia_container_name_cno: "localnet-nix-harmonia-cno"
+infra_value_nix_harmonia_container_name_nl: "localnet-nix-harmonia-nl"
+infra_value_nix_harmonia_data_volume_cno: "localnet-nix-harmonia-data-volume-cno"
+infra_value_nix_harmonia_data_volume_nl: "localnet-nix-harmonia-data-volume-nl"
+infra_value_nix_harmonia_docker_host_windows: ""
+infra_value_nix_harmonia_nix_config_volume: "localnet-nix-harmonia-nix-config-volume"
+infra_value_nix_harmonia_nix_store_volume: "localnet-nix-harmonia-nix-store-volume"
+infra_value_nix_harmonia_tz: "UTC"
+
+# --- nix-ncps ---
+infra_value_nix_ncps_container_name_cno: "localnet-nix-ncps-cno"
+infra_value_nix_ncps_container_name_nl: "localnet-nix-ncps-nl"
+infra_value_nix_ncps_data_volume_cno: "localnet-nix-ncps-data-volume-cno"
+infra_value_nix_ncps_data_volume_nl: "localnet-nix-ncps-data-volume-nl"
+infra_value_nix_ncps_docker_host_windows: ""
+infra_value_nix_ncps_domain_cno: ""
+infra_value_nix_ncps_domain_nl: ""
+infra_value_nix_ncps_tz: "UTC"
+
+# --- nix-ncro ---
+infra_value_nix_ncro_config_volume_cno: "localnet-nix-ncro-config-volume-cno"
+infra_value_nix_ncro_container_name_cno: "localnet-nix-ncro-cno"
+infra_value_nix_ncro_container_name_nl: "localnet-nix-ncro-nl"
+infra_value_nix_ncro_data_volume_cno: "localnet-nix-ncro-data-volume-cno"
+infra_value_nix_ncro_docker_host_windows: ""
+infra_value_nix_ncro_tz: "UTC"
+
+# --- omniroute ---
+infra_value_ai_omniroute_admin_password: "change-me"
+infra_value_ai_omniroute_domain: ""
+infra_value_ai_omniroute_managed_kckinai_base_url: ""
+infra_value_ai_omniroute_no_proxy: ""
+infra_value_ai_omniroute_tz: "UTC"
+
+# --- p2p-freenet ---
+infra_value_p2p_freenet_docker_host: ""
+infra_value_p2p_freenet_tz: "UTC"
+infra_value_p2p_freenet_volume_name: "localnet-p2p-freenet-data-volume"
+
+# --- proxy-authelia ---
+infra_value_proxy_authelia_admin_password: "change-me"
+infra_value_proxy_authelia_data_dir: ""
+infra_value_proxy_authelia_oidc_hmac_secret: "change-me"
+infra_value_proxy_authelia_oidc_jwks_private_key: "change-me"
+
+# --- proxy-firewall ---
+infra_value_proxy_firewall_type: ""
+
+# --- proxy-headroom ---
+infra_value_proxy_headroom_data_dir: ""
+infra_value_proxy_headroom_openai_target_api_url: ""
+infra_value_proxy_headroom_output_shaper: ""
+
+# --- proxy-iron-proxy ---
+infra_value_proxy_iron_proxy_data_dir: ""
+infra_value_proxy_iron_proxy_tls_mode: ""
+infra_value_proxy_iron_proxy_upstream_dns: ""
+
+# --- proxy-traefik ---
+infra_value_proxy_traefik_acme_cloudflare_api_key: "change-me"
+infra_value_proxy_traefik_acme_cloudflare_email: ""
+infra_value_proxy_traefik_acme_email: ""
+
+# --- proxy_traefik_windows ---
+infra_value_proxy_traefik_windows_acme_email: ""
+infra_value_proxy_traefik_windows_authelia_url: ""
+infra_value_proxy_traefik_windows_directory_empire_container_name: "localnet-directory-empire"
+infra_value_proxy_traefik_windows_docker_host: ""
+infra_value_proxy_traefik_windows_garnix_ci_container_name: "localnet-garnix-ci"
+infra_value_proxy_traefik_windows_hister_container_name: "localnet-search-hister"
+infra_value_proxy_traefik_windows_hister_domain: ""
+infra_value_proxy_traefik_windows_nix_ncps_container_name: "localnet-nix-ncps"
+infra_value_proxy_traefik_windows_stirling_pdf_container_name: "localnet-stirling-pdf"
+infra_value_proxy_traefik_windows_stirling_pdf_domain: ""
+infra_value_proxy_traefik_windows_verdaccio_container_name: "localnet-verdaccio-nl"
+
+# --- proxy_web ---
+infra_value_proxy_web_docker_host_windows: ""
+infra_value_proxy_web_gost_config_volume: "localnet-proxy-web-gost-config-volume"
+infra_value_proxy_web_mitm_ca_volume: "localnet-proxy-web-mitm-ca-volume"
+infra_value_proxy_web_privoxy_config_volume: "localnet-proxy-web-privoxy-config-volume"
+infra_value_proxy_web_varnish_cache_volume: "localnet-proxy-web-varnish-cache-volume"
+
+# --- rustdesk-server ---
+infra_value_rustdesk_server_always_use_relay: false
+infra_value_rustdesk_server_enable_web_client: false
+infra_value_rustdesk_server_hbbr_container_name: "localnet-rustdesk-server-hbbr"
+infra_value_rustdesk_server_hbbs_container_name: "localnet-rustdesk-server-hbbs"
+infra_value_rustdesk_server_image_tag: "latest"
+infra_value_rustdesk_server_service_dir: ""
+infra_value_rustdesk_server_volume_name: "localnet-rustdesk-server-data-volume"
+infra_value_rustdesk_server_vpn_only: false
+
+# --- search-hister ---
+infra_value_search_hister_data_volume: "localnet-search-hister-data-volume"
+infra_value_search_hister_docker_host: ""
+infra_value_search_hister_domain: ""
+infra_value_search_hister_tz: "UTC"
+
+# --- security-wazuh ---
+infra_value_wazuh_certs_volume: "localnet-wazuh-certs-volume"
+infra_value_wazuh_dashboard_config_volume: "localnet-wazuh-dashboard-config-volume"
+infra_value_wazuh_dashboard_container_name: "localnet-wazuh-dashboard"
+infra_value_wazuh_dashboard_custom_volume: "localnet-wazuh-dashboard-custom-volume"
+infra_value_wazuh_dashboard_data_volume: "localnet-wazuh-dashboard-data-volume"
+infra_value_wazuh_docker_host: ""
+infra_value_wazuh_domain: ""
+infra_value_wazuh_indexer_config_volume: "localnet-wazuh-indexer-config-volume"
+infra_value_wazuh_indexer_container_name: "localnet-wazuh-indexer"
+infra_value_wazuh_indexer_data_volume: "localnet-wazuh-indexer-data-volume"
+infra_value_wazuh_manager_api_config_volume: "localnet-wazuh-manager-api-config-volume"
+infra_value_wazuh_manager_config_mount_volume: "localnet-wazuh-manager-config-mount-volume"
+infra_value_wazuh_manager_container_name: "localnet-wazuh-manager"
+infra_value_wazuh_manager_etc_volume: "localnet-wazuh-manager-etc-volume"
+infra_value_wazuh_manager_logs_volume: "localnet-wazuh-manager-logs-volume"
+infra_value_wazuh_manager_multigroups_volume: "localnet-wazuh-manager-multigroups-volume"
+infra_value_wazuh_manager_queue_volume: "localnet-wazuh-manager-queue-volume"
+infra_value_wazuh_traefik_backend_url: ""
+
+# --- storage-rustfs ---
+infra_value_rustfs_console_domain: ""
+infra_value_rustfs_console_traefik_backend_url: ""
+infra_value_rustfs_container_name: "localnet-rustfs"
+infra_value_rustfs_data_volume: "localnet-rustfs-data-volume"
+infra_value_rustfs_docker_host: ""
+infra_value_rustfs_domain: ""
+infra_value_rustfs_logs_volume: "localnet-rustfs-logs-volume"
+infra_value_rustfs_traefik_backend_url: ""
+
+# --- tools-croc-relay ---
+infra_value_croc_relay_docker_host: ""
+
+# --- vpn-netbird ---
+infra_value_vpn_netbird_hostname: ""
+
+# --- vpn-nordvpn-windows ---
+infra_value_vpn_nordvpn_windows_docker_host: ""
+
+# --- vpn-tailscale ---
+infra_value_vpn_tailscale_hostname: ""
+infra_value_vpn_tailscale_nordvpn_hostname: ""
+infra_value_vpn_tailscale_tor_hostname: ""
+
+# --- vpn-tor-windows ---
+infra_value_vpn_tor_windows_docker_host: ""
+
