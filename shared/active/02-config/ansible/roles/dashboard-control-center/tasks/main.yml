@@ -53,14 +53,25 @@
   tags: ["deploy", "control-center"]
 
 # ============================================================================
-# 4. Pull image from local registry
+# 4. Pull image from local registry (skip if already loaded locally)
 # ============================================================================
+- name: Check if control-center image exists locally
+  ansible.builtin.command: "docker image inspect {{ control_center_image_name }}:{{ control_center_image_tag }}"
+  environment:
+    DOCKER_HOST: "{{ control_center_docker_host_windows }}"
+  delegate_to: localhost
+  changed_when: false
+  failed_when: false
+  register: control_center_image_check
+  tags: ["deploy", "control-center"]
+
 - name: Pull control-center image
   ansible.builtin.command: "docker pull {{ control_center_image_name }}:{{ control_center_image_tag }}"
   environment:
     DOCKER_HOST: "{{ control_center_docker_host_windows }}"
   delegate_to: localhost
   changed_when: true
+  when: control_center_image_check.rc != 0
   tags: ["deploy", "control-center"]
 
 # ============================================================================
@@ -88,11 +99,12 @@
     -e CONTROL_CENTER_ALLOWED_HOSTS={{ control_center_allowed_hosts }}
     -e TZ={{ control_center_tz }}
     -e NODE_ENV=production
+    -e HOSTNAME={{ control_center_bind_address }}
     --restart unless-stopped
     --log-driver json-file
     --log-opt max-size={{ control_center_log_max_size }}
     --log-opt max-file={{ control_center_log_max_file }}
-    --health-cmd "curl -sf http://localhost:{{ control_center_container_port }}/api/health || exit 1"
+    --health-cmd "wget -q -O /dev/null http://{{ control_center_health_loopback }}:{{ control_center_container_port }}/api/health || exit 1"
     --health-interval {{ control_center_healthcheck_interval }}
     --health-timeout {{ control_center_healthcheck_timeout }}
     --health-start-period {{ control_center_healthcheck_start_period }}
@@ -127,7 +139,7 @@
 # ============================================================================
 - name: Verify control-center health endpoint
   ansible.builtin.uri:
-    url: "http://localhost:{{ control_center_host_port }}/api/health"
+    url: "http://{{ infra_tailscale_fqdn_windows_docker }}:{{ control_center_host_port }}/api/health"
     method: GET
     return_content: true
     status_code: 200  # project-lint: disable=magic-int  HTTP success status code

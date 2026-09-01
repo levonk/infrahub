@@ -12,6 +12,7 @@
   become: false
   vars_files:
     - "{{ playbook_dir }}/../infrastructure/domains.yml"
+    - "{{ playbook_dir }}/../infrastructure/timing.yml"
     - "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/domains.yml"
     - "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/inventories/group_vars/cloud_servers.yml"
     - "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/inventories/group_vars/infrahub-levonk-all.vault.yml"
@@ -36,6 +37,8 @@
     # Tailscale FQDN for the Windows Docker host
     # Croc relay is a TCP service that runs directly on this host, not behind Traefik.
     ts_fqdn_windows_docker: "{{ infra_tailscale_fqdn_windows_docker | default(infra_tailscale_tailnet | default('example.ts.net')) }}"
+    # Tailscale IP for the Windows Docker host (for A records — direct tailnet access)
+    ts_ip_windows_docker: "{{ infra_tailscale_ip_windows_docker | default('') }}"
 
     # Multiple DNS Records for proxy stack domains
     # All services run on the OCI cloud server → CNAME to its Tailscale FQDN

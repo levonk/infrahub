@@ -34,6 +34,12 @@ control_center_data_dir: "/data"
 # Network — join the traefik-windows network for Traefik routing
 control_center_network_name: "traefik-windows-network"
 
+# Bind address — Next.js needs to listen on all interfaces for Traefik routing
+control_center_bind_address: "0.0.0.0"
+# Loopback address for in-container health checks (Alpine wget resolves
+# localhost to IPv6 ::1 which Next.js doesn't listen on)
+control_center_health_loopback: "127.0.0.1"
+
 # Docker host for Windows deployment (ssh-tunneled)
 control_center_docker_host_windows: "ssh://ansible@{{ infra_tailscale_fqdn_windows_docker | default(infra_tailscale_tailnet | default(infra_value_control_center_docker_host_windows)) }}"
 

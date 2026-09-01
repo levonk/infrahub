@@ -74,6 +74,7 @@
     -e UI_APPNAME={{ tools_stirling_pdf_app_name }}
     -e SYSTEM_BASEURL={{ tools_stirling_pdf_base_url }}
     -e SECURITY_ENABLELOGIN={{ tools_stirling_pdf_login_enabled }}
+    -e DOCKER_ENABLE_SECURITY={{ tools_stirling_pdf_login_enabled }}
     -e SECURITY_ENABLEPRO={{ tools_stirling_pdf_pro_enabled }}
     -e JAVA_TOOL_OPTIONS=-Xmx{{ tools_stirling_pdf_java_memory }}
     -e TZ={{ tools_stirling_pdf_tz }}

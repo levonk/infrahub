@@ -315,6 +315,30 @@
   when: dns_adguard_enabled | default(false) | bool
   tags: ["deploy", "traefik", "adguard"]
 
+- name: Deploy Control Center dashboard (default domain) dynamic configuration template
+  ansible.builtin.template:
+    src: dynamic/cc-default.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/cc-default.yml"
+    owner: root
+    group: root
+    mode: "{{ infra_mode_file }}"
+  become: true
+  notify: reload traefik
+  when: control_center_enabled | default(false) | bool
+  tags: ["deploy", "traefik", "control-center"]
+
+- name: Deploy Control Center dashboard (NL domain) dynamic configuration template
+  ansible.builtin.template:
+    src: dynamic/cc-nl.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/cc-nl.yml"
+    owner: root
+    group: root
+    mode: "{{ infra_mode_file }}"
+  become: true
+  notify: reload traefik
+  when: control_center_enabled | default(false) | bool
+  tags: ["deploy", "traefik", "control-center"]
+
 - name: Deploy Langfuse dynamic configuration template
   ansible.builtin.template:
     src: dynamic/langfuse.yml.j2
@@ -419,7 +443,7 @@
     labels:
       traefik.enable: "false"
     groups:
-      - "{{ docker_group_gid | default('0') }}"
+      - "{{ docker_group_gid | default('0') }}"  # project-lint: disable=magic-int  fallback GID for Docker group
   become: true
   when: proxy_traefik_enabled | bool
 

@@ -102,6 +102,9 @@ infra_hostname_vpn_tor: "tor"
 infra_tailscale_tailnet: "example.ts.net"
 infra_tailscale_fqdn_cloud_server: "{{ infra_tailscale_tailnet }}"
 infra_tailscale_fqdn_windows_docker: "{{ infra_tailscale_tailnet }}"
+# Tailscale IP for the Windows Docker host (for A records — direct tailnet access)
+# Overridden in client infrastructure/domains.yml with the actual Tailscale IP.
+infra_tailscale_ip_windows_docker: ""
 
 # ---------------------------------------------------------------------------
 # Service Hostnames (container names)

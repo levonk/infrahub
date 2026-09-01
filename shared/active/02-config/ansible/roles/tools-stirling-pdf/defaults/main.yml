@@ -44,9 +44,12 @@ tools_stirling_pdf_default_locale: "en-US"
 # Java memory limits (Stirling-PDF is a Java/Spring Boot app)
 tools_stirling_pdf_java_memory: "1g"
 
-# Security — free tier uses Authelia forward-auth via Traefik.
-# Disable Stirling-PDF's internal login so Authelia is the sole gate.
-tools_stirling_pdf_login_enabled: "false"
+# Security — Stirling-PDF requires login to be enabled to serve any requests.
+# Without it, Stirling shows "Login Not Enabled" and refuses all connections.
+# Authelia forward-auth via Traefik adds an additional browser auth layer,
+# but Stirling's own login must be enabled for the app to function.
+# The desktop client authenticates directly with Stirling via the API subdomain.
+tools_stirling_pdf_login_enabled: "true"
 tools_stirling_pdf_pro_enabled: "false"
 
 # Timezone

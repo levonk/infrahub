@@ -60,7 +60,7 @@
     headers:
       Authorization: "Bearer {{ proxy_traefik_windows_cf_dns_api_token }}"
       Content-Type: "application/json"
-    status_code: 200  # project-lint: disable=magic-int  HTTP success status code
+    status_code: [200, 404]
   loop: "{{ stale_acme_txt_records }}"
   loop_control:
     loop_var: txt_record
@@ -70,6 +70,7 @@
   changed_when: true
   no_log: true
   when: stale_acme_txt_records | length > 0
+  ignore_errors: true
 
 # Report results
 - name: Report ACME TXT cleanup results
