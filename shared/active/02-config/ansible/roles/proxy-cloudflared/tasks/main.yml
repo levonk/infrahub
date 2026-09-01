@@ -1,0 +1,97 @@
+---
+# Cloudflare Tunnel (cloudflared) Deployment Tasks
+# Deploys cloudflared as a Docker container with a local ingress config.
+# The container makes an outbound connection to Cloudflare — no inbound
+# ports are opened on the host.
+
+# ---------------------------------------------------------------------------
+# Prerequisites
+# ---------------------------------------------------------------------------
+- name: Assert required cloudflared variables
+  ansible.builtin.assert:
+    that:
+      - cloudflared_container_name is defined
+      - cloudflared_image is defined
+      - cloudflared_tunnel_token is defined
+      - cloudflared_tunnel_token | length > 0
+    msg: "Required cloudflared variables must be defined. Check vault_cloudflare_tunnel_token."
+
+- name: Ensure cloudflared config directory exists
+  ansible.builtin.file:
+    path: "{{ cloudflared_config_dir }}"
+    state: directory
+    owner: "{{ infra_storage_userns_remap_uid | default(infra_storage_userns_remap_uid) }}"
+    group: "{{ infra_storage_userns_remap_gid | default(infra_storage_userns_remap_uid) }}"
+    mode: "{{ infra_mode_dir }}"
+  become: true
+
+# ---------------------------------------------------------------------------
+# Pull Image
+# ---------------------------------------------------------------------------
+- name: Pull cloudflared image
+  community.docker.docker_image:
+    name: "{{ cloudflared_image }}:{{ cloudflared_image_tag }}"
+    source: pull
+    state: present
+  become: true
+
+# ---------------------------------------------------------------------------
+# Deploy Ingress Configuration
+# ---------------------------------------------------------------------------
+- name: Deploy cloudflared ingress config
+  ansible.builtin.template:
+    src: config.yml.j2
+    dest: "{{ cloudflared_config_dir }}/config.yml"
+    owner: "{{ infra_storage_userns_remap_uid | default(infra_storage_userns_remap_uid) }}"
+    group: "{{ infra_storage_userns_remap_gid | default(infra_storage_userns_remap_uid) }}"
+    mode: "{{ infra_mode_file }}"
+  become: true
+  notify: restart cloudflared
+
+# ---------------------------------------------------------------------------
+# Deploy Container
+# Uses the tunnel token (from vault) to establish the outbound connection.
+# The local config file defines ingress rules (which hostnames → which services).
+# ---------------------------------------------------------------------------
+- name: Deploy cloudflared container
+  community.docker.docker_container:
+    name: "{{ cloudflared_container_name }}"
+    image: "{{ cloudflared_image }}:{{ cloudflared_image_tag }}"
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ cloudflared_network_name }}"
+    volumes:
+      - "{{ cloudflared_config_dir }}/config.yml:/etc/cloudflared/config.yml:ro"
+    command: >-
+      tunnel --config /etc/cloudflared/config.yml run
+    env:
+      TUNNEL_TOKEN: "{{ cloudflared_tunnel_token }}"
+      TZ: "{{ localnet_tz | default('UTC') }}"
+    log_driver: json-file
+    log_options:
+      max-size: "{{ cloudflared_log_max_size }}"
+      max-file: "{{ cloudflared_log_max_file }}"
+    security_opts:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "cloudflared tunnel info 2>/dev/null || exit 1"]
+      interval: "{{ cloudflared_healthcheck_interval }}"
+      timeout: "{{ cloudflared_healthcheck_timeout }}"
+      retries: "{{ cloudflared_healthcheck_retries }}"
+      start_period: "{{ cloudflared_healthcheck_start_period }}"
+  become: true
+  when: cloudflared_enabled | bool
+
+# ---------------------------------------------------------------------------
+# Status Report
+# ---------------------------------------------------------------------------
+- name: Report cloudflared status
+  ansible.builtin.debug:
+    msg: |2
+      cloudflared tunnel deployed:
+        - Tunnel container: {{ cloudflared_container_name }}
+        - Network: {{ cloudflared_network_name }}
+        - Ingress rules: {{ cloudflared_ingress_rules | length }} (including catch-all)
+        - Config: {{ cloudflared_config_dir }}/config.yml
+  when: cloudflared_enabled | bool

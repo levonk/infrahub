@@ -1,0 +1,11 @@
+---
+galaxy_info:
+  author: levonk
+  description: Cloudflare Tunnel (cloudflared) — outbound-only public access
+  license: proprietary
+  min_ansible_version: "2.16"
+  role_name: proxy_cloudflared
+  platforms:
+    - name: EL
+      versions: ["8", "9"]
+dependencies: []

@@ -1,12 +1,15 @@
 ---
 # copyparty Deployment Playbook
-# Deploys copyparty (single-binary file sharing server) on the OCI cloud server
-# behind Traefik. copyparty uses built-in basic auth (NOT Authelia — copyparty
-# handles authentication internally), so the Traefik dynamic config has no
-# authelia middleware.
+# Deploys copyparty (single-binary file sharing server) on the OCI cloud server.
+# copyparty is exposed publicly via a Cloudflare Tunnel (cloudflared), NOT
+# through Traefik. This means no inbound ports are opened on the host — the
+# tunnel makes an outbound connection to Cloudflare's edge.
+#
+# copyparty uses built-in basic auth (NOT Authelia — copyparty handles
+# authentication internally).
 #
 # Stack: copyparty (web UI + file server) — no database, no Redis.
-# Domain: files.levonk.com (single CNAME → Tailscale FQDN of the cloud server)
+# Domain: files.levonk.com (CNAME → Cloudflare Tunnel)
 #
 # Usage:
 #   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
@@ -16,7 +19,7 @@
 #     shared/active/02-config/ansible/playbooks/deploy-copyparty.yml \
 #     --check --diff --vault-password-file ~/.ansible/vault_password
 
-- name: "Configure Cloudflare DNS for copyparty"
+- name: "Configure Cloudflare DNS for copyparty (tunnel CNAME)"
   hosts: localhost
   gather_facts: false
   become: false
@@ -29,17 +32,19 @@
     cloudflare_api_token: "{{ vault_cloudflare_api_token | default('') }}"
     cloudflare_zone_id: "{{ vault_cloudflare_zone_id | default('') }}"
     cloudflare_dns_state: "present"
-    cloudflare_dns_ttl: "{{ infra_dns_ttl }}"
-    cloudflare_dns_proxied: false
+    cloudflare_dns_ttl: 1  # project-lint: disable=magic-int  Cloudflare proxied records require TTL=1 (auto)
+    cloudflare_dns_proxied: true  # Cloudflare Tunnel CNAMEs must be proxied (orange cloud)
     cloudflare_dns_verify: true
     cloudflare_dns_verify_propagation: false
     cloudflare_dns_validate_ip: true
     cloudflare_dns_allow_private_ip: false
-    ts_fqdn: "{{ infra_tailscale_fqdn_cloud_server | default(infra_tailscale_tailnet | default('example.ts.net')) }}"
+    # The tunnel CNAME is derived from the tunnel ID embedded in the token.
+    # cloudflared tunnels use <tunnel-id>.cfargotunnel.com as the CNAME target.
+    tunnel_cname: "{{ vault_cloudflare_tunnel_token | regex_replace('.*\"t\":\"([^\"]+)\".*', '\\1') }}.cfargotunnel.com"
     cloudflare_dns_records:
       - name: "{{ infra_domain_storage_copyparty | default('files.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
-        content: "{{ ts_fqdn }}"
+        content: "{{ tunnel_cname }}"
         ttl: "{{ cloudflare_dns_ttl }}"
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
@@ -107,60 +112,7 @@
       tags: ["deploy", "copyparty"]
       when: copyparty_enabled | default(true) | bool
 
-- name: "Deploy Traefik routing for copyparty"
-  hosts: cloud_servers
-  become: true
-  gather_facts: false
+# Note: copyparty is exposed via Cloudflare Tunnel (cloudflared), not Traefik.
+# The tunnel ingress config is managed by the proxy-cloudflared role in
+# deploy-cloudflared-tunnel.yml. No Traefik dynamic config is needed.
 
-  pre_tasks:
-    - name: "Load shared infrastructure defaults"
-      ansible.builtin.include_vars:
-        file: "{{ playbook_dir }}/../infrastructure/{{ item }}"
-      loop:
-        - ports.yml
-        - networks.yml
-        - domains.yml
-        - storage.yml
-        - modes.yml
-        - timing.yml
-      tags: ["always"]
-
-    - name: "Load client infrastructure overrides (levonk)"
-      ansible.builtin.include_vars:
-        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/{{ item }}"
-      loop:
-        - ports.yml
-        - networks.yml
-        - domains.yml
-        - storage.yml
-      tags: ["always"]
-
-    - name: "Load proxy-traefik role defaults (for domain variable mappings)"
-      ansible.builtin.include_vars:
-        file: "{{ playbook_dir }}/../roles/proxy-traefik/defaults/main.yml"
-      tags: ["always"]
-
-    - name: "Load storage-copyparty role defaults (for copyparty variable mappings)"
-      ansible.builtin.include_vars:
-        file: "{{ playbook_dir }}/../roles/storage-copyparty/defaults/main.yml"
-      tags: ["always"]
-
-  tasks:
-    - name: "Deploy copyparty Traefik dynamic configuration"
-      ansible.builtin.template:
-        src: "{{ playbook_dir }}/../roles/proxy-traefik/templates/dynamic/copyparty.yml.j2"
-        dest: "{{ proxy_traefik_data_dir | default('/opt/traefik') }}/config/dynamic/copyparty.yml"
-        owner: root
-        group: root
-        mode: "{{ infra_mode_file }}"
-      notify: reload traefik
-      tags: ["traefik", "routing"]
-      when: copyparty_enabled | default(true) | bool
-
-  handlers:
-    - name: reload traefik
-      community.docker.docker_container:
-        name: "{{ proxy_traefik_container_name | default('traefik') }}"
-        state: started
-        restart: true
-      when: copyparty_enabled | default(true) | bool

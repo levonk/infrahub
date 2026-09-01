@@ -1,0 +1,10 @@
+---
+# cloudflared handlers
+- name: restart cloudflared
+  community.docker.docker_container:
+    name: "{{ cloudflared_container_name }}"
+    image: "{{ cloudflared_image }}:{{ cloudflared_image_tag }}"
+    state: started
+    restart: true
+  become: true
+  when: cloudflared_enabled | bool

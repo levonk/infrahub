@@ -1,0 +1,69 @@
+---
+# Cloudflare Tunnel Deployment Playbook
+# Deploys cloudflared on the OCI cloud server to expose selected services
+# publicly without opening inbound ports. The tunnel makes an outbound
+# connection to Cloudflare's edge; only hostnames in the ingress config
+# are publicly accessible.
+#
+# Usage:
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-cloudflared-tunnel.yml \
+#     --vault-password-file ~/.ansible/vault_password
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-cloudflared-tunnel.yml \
+#     --check --diff --vault-password-file ~/.ansible/vault_password
+
+- name: "Deploy Cloudflare Tunnel"
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: "Load shared infrastructure defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+        - modes.yml
+        - timing.yml
+      tags: ["always"]
+
+    - name: "Load client infrastructure overrides (levonk)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+      tags: ["always"]
+
+    - name: "Validate required variables"
+      ansible.builtin.assert:
+        that:
+          - cloudflared_enabled is defined
+          - cloudflared_tunnel_token is defined
+          - cloudflared_tunnel_token | length > 0
+        fail_msg: "Missing vault_cloudflare_tunnel_token. Create a tunnel in Cloudflare Zero Trust dashboard and add the token to the vault."
+        success_msg: "Cloudflare tunnel token is present."
+      tags: ["always", "validate"]
+
+    - name: "Display deployment start information"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Deploying Cloudflare Tunnel
+          ========================================
+          Container:       {{ cloudflared_container_name | default('cloudflared') }}
+          Network:         {{ cloudflared_network_name | default('traefik-network') }}
+          Ingress rules:   {{ cloudflared_ingress_rules | length }} (including catch-all)
+          ========================================
+      tags: ["always"]
+
+  roles:
+    - role: proxy-cloudflared
+      tags: ["deploy", "cloudflared"]
+      when: cloudflared_enabled | default(true) | bool

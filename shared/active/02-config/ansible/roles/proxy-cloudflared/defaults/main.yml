@@ -1,0 +1,59 @@
+---
+# Cloudflare Tunnel (cloudflared) Default Variables
+# Deploys a cloudflared container that makes an outbound connection to
+# Cloudflare's edge, exposing selected services publicly without opening
+# any inbound ports on the host.
+# See internal-docs/research/service/cloudflared/ for architecture details.
+
+# ---------------------------------------------------------------------------
+# Service Configuration
+# ---------------------------------------------------------------------------
+cloudflared_enabled: true
+cloudflared_container_name: "cloudflared"
+cloudflared_image: "cloudflare/cloudflared"
+cloudflared_image_tag: "latest"
+
+# ---------------------------------------------------------------------------
+# Tunnel Configuration
+# The token is a JSON blob from the Cloudflare Zero Trust dashboard that
+# contains the account ID, tunnel ID, and tunnel secret.
+# ---------------------------------------------------------------------------
+cloudflared_tunnel_token: "{{ vault_cloudflare_tunnel_token | default('') }}"
+
+# ---------------------------------------------------------------------------
+# Ingress Configuration
+# The config file defines which public hostnames route to which local
+# services. Only services listed here are publicly accessible.
+# Format: list of {hostname, service, path?} dicts.
+# ---------------------------------------------------------------------------
+cloudflared_ingress_rules:
+  - hostname: "{{ infra_domain_storage_copyparty | default('files.levonk.com') }}"
+    service: "http://copyparty:{{ infra_port_storage_copyparty_container | default('3923') }}"  # project-lint: disable=magic-int  copyparty default port
+  # Catch-all: return 404 for any unmatched hostname
+  - service: "http_status:404"  # project-lint: disable=magic-int  HTTP 404 catch-all status code
+
+# ---------------------------------------------------------------------------
+# Network Configuration
+# The tunnel container joins the Traefik network so it can reach services
+# by container name (e.g., http://copyparty:3923).
+# ---------------------------------------------------------------------------
+cloudflared_network_name: "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"
+
+# ---------------------------------------------------------------------------
+# Config Directory
+# ---------------------------------------------------------------------------
+cloudflared_config_dir: "{{ infra_storage_services_dir | default('/opt/localnet/services') }}/cloudflared"
+
+# ---------------------------------------------------------------------------
+# Health Check
+# ---------------------------------------------------------------------------
+cloudflared_healthcheck_interval: "30s"
+cloudflared_healthcheck_timeout: "10s"
+cloudflared_healthcheck_retries: 3
+cloudflared_healthcheck_start_period: "30s"
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+cloudflared_log_max_size: "10m"
+cloudflared_log_max_file: "5"
