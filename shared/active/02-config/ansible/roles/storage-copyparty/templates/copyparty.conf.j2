@@ -28,7 +28,8 @@
 [/uploads]
   /w/uploads
   accs:
-    w: *  # anonymous write-only
+    w: *  # anonymous write-only (drop-box: upload but cannot see contents)
+    rm: admin  # admin can browse uploads and move files to /public or /family
 
 [/family]
   /w/family
