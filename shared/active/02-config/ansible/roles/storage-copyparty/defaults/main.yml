@@ -1,0 +1,51 @@
+---
+# copyparty (File Sharing Server) Default Variables
+# Deploys copyparty as a Docker container with three volumes (/public,
+# /uploads, /family), built-in basic auth, and a health check.
+# See internal-docs/research/service/copyparty/copyparty-overview.md.
+# NOTE: All client-specific content (domains, ports) must be defined in client
+#       host_vars (levonk/), NOT here. See AGENTS.md invariant.
+
+# ---------------------------------------------------------------------------
+# Service Configuration
+# ---------------------------------------------------------------------------
+copyparty_enabled: true
+copyparty_container_name: "copyparty"
+copyparty_image: "copyparty/iv"
+copyparty_image_tag: "latest"
+
+# ---------------------------------------------------------------------------
+# Network Configuration
+# ---------------------------------------------------------------------------
+copyparty_network_name: "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"
+copyparty_host_port: "{{ infra_port_storage_copyparty_host | default('3923') }}"  # project-lint: disable=magic-int  copyparty default port
+copyparty_container_port: "{{ infra_port_storage_copyparty_container | default('3923') }}"  # project-lint: disable=magic-int  copyparty default port
+copyparty_domain: "{{ infra_domain_storage_copyparty | default('files.levonk.com') }}"
+
+# ---------------------------------------------------------------------------
+# Volume Configuration
+# Data uses a Docker volume; config uses a bind-mounted directory (matches the
+# dashboard-homepage pattern so ansible.builtin.template can write directly).
+# ---------------------------------------------------------------------------
+copyparty_data_volume: "{{ infra_storage_copyparty_data_volume | default('localnet-copyparty-data-volume') }}"
+copyparty_config_dir: "{{ infra_storage_copyparty_config_dir | default('/opt/localnet/services/copyparty') }}"
+
+# ---------------------------------------------------------------------------
+# Secrets
+# ---------------------------------------------------------------------------
+copyparty_admin_password: "{{ vault_copyparty_admin_password | default('') }}"
+
+# ---------------------------------------------------------------------------
+# Health Check Configuration (durations are STRINGS with unit suffixes)
+# ---------------------------------------------------------------------------
+copyparty_verify_health: true
+copyparty_healthcheck_interval: "30s"
+copyparty_healthcheck_timeout: "10s"
+copyparty_healthcheck_retries: 3
+copyparty_healthcheck_start_period: "30s"
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+copyparty_log_max_size: "10m"
+copyparty_log_max_file: "5"

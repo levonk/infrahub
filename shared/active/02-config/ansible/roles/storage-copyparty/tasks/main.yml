@@ -1,0 +1,121 @@
+---
+# copyparty (File Sharing Server) Deployment Tasks
+# Deploys copyparty as a Docker container with Traefik routing.
+# All ports are variable-driven per AGENTS.md rules.
+# See internal-docs/research/service/copyparty/copyparty-overview.md.
+
+# ---------------------------------------------------------------------------
+# Prerequisites
+# ---------------------------------------------------------------------------
+- name: Assert required copyparty variables
+  ansible.builtin.assert:
+    that:
+      - copyparty_container_name is defined
+      - copyparty_image is defined
+      - copyparty_host_port is defined
+      - copyparty_admin_password is defined
+    msg: "Required copyparty variables must be defined."
+
+- name: Ensure copyparty config directory exists
+  ansible.builtin.file:
+    path: "{{ copyparty_config_dir }}"
+    state: directory
+    # userns-remap: container root maps to this UID on the host.
+    owner: "{{ infra_storage_userns_remap_uid | default(infra_storage_userns_remap_uid) }}"
+    group: "{{ infra_storage_userns_remap_gid | default(infra_storage_userns_remap_uid) }}"
+    mode: "{{ infra_mode_dir }}"
+  become: true
+
+# ---------------------------------------------------------------------------
+# Docker Volumes
+# ---------------------------------------------------------------------------
+- name: Ensure copyparty data volume exists
+  community.docker.docker_volume:
+    name: "{{ copyparty_data_volume }}"
+    state: present
+  become: true
+
+# ---------------------------------------------------------------------------
+# Pull Image
+# ---------------------------------------------------------------------------
+- name: Pull copyparty image
+  community.docker.docker_image:
+    name: "{{ copyparty_image }}:{{ copyparty_image_tag }}"
+    source: pull
+    state: present
+  become: true
+
+# ---------------------------------------------------------------------------
+# Deploy Configuration File
+# ---------------------------------------------------------------------------
+- name: Deploy copyparty.conf
+  ansible.builtin.template:
+    src: copyparty.conf.j2
+    dest: "{{ copyparty_config_dir }}/copyparty.conf"
+    owner: "{{ infra_storage_userns_remap_uid | default(infra_storage_userns_remap_uid) }}"
+    group: "{{ infra_storage_userns_remap_gid | default(infra_storage_userns_remap_uid) }}"
+    mode: "{{ infra_mode_file }}"
+  become: true
+  notify: restart copyparty
+
+# ---------------------------------------------------------------------------
+# copyparty Container
+# ---------------------------------------------------------------------------
+- name: Deploy copyparty container
+  community.docker.docker_container:
+    name: "{{ copyparty_container_name }}"
+    image: "{{ copyparty_image }}:{{ copyparty_image_tag }}"
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ copyparty_network_name }}"
+    published_ports:
+      - "{{ copyparty_host_port }}:{{ copyparty_container_port }}/tcp"
+    volumes:
+      - "{{ copyparty_data_volume }}:/w"
+      - "{{ copyparty_config_dir }}:/cfg"
+    env:
+      PRTY_CONFIG: "/cfg/copyparty.conf"
+      TZ: "{{ localnet_tz | default('UTC') }}"
+    log_driver: json-file
+    log_options:
+      max-size: "{{ copyparty_log_max_size }}"
+      max-file: "{{ copyparty_log_max_file }}"
+    security_opts:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://{{ infra_network_bind_localhost | default('127.0.0.1') }}:{{ copyparty_container_port }}/ >/dev/null 2>&1 || exit 1"]  # project-lint: disable  Jinja default for localhost IP
+      interval: "{{ copyparty_healthcheck_interval }}"
+      timeout: "{{ copyparty_healthcheck_timeout }}"
+      retries: "{{ copyparty_healthcheck_retries }}"
+      start_period: "{{ copyparty_healthcheck_start_period }}"
+  become: true
+  when: copyparty_enabled | bool
+
+# ---------------------------------------------------------------------------
+# Health Verification
+# ---------------------------------------------------------------------------
+- name: Wait for copyparty to be healthy
+  ansible.builtin.uri:
+    url: "http://{{ infra_network_bind_localhost }}:{{ copyparty_host_port }}/"
+    status_code: "{{ infra_http_status_ok }}"
+  register: copyparty_health
+  until: copyparty_health.status == {{ infra_http_status_ok }}
+  retries: "{{ infra_retry_long }}"
+  delay: "{{ infra_delay_default }}"
+  when:
+    - copyparty_enabled | bool
+    - copyparty_verify_health | bool
+
+# ---------------------------------------------------------------------------
+# Status Report
+# ---------------------------------------------------------------------------
+- name: Report copyparty status
+  ansible.builtin.debug:
+    msg: |2
+      copyparty deployed successfully:
+      - Web UI: https://{{ copyparty_domain }}
+      - Direct: http://{{ ansible_host | default('localhost') }}:{{ copyparty_host_port }}
+      - Network: {{ copyparty_network_name }}
+      - Container: {{ copyparty_container_name }}
+  when: copyparty_enabled | bool

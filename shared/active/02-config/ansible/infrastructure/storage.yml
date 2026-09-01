@@ -147,6 +147,13 @@ infra_storage_rustfs_data_volume: "localnet-rustfs-data-volume"
 infra_storage_rustfs_logs_volume: "localnet-rustfs-logs-volume"
 
 # ---------------------------------------------------------------------------
+# copyparty (File Sharing Server)
+# ---------------------------------------------------------------------------
+infra_storage_copyparty_data_volume: "localnet-copyparty-data-volume"
+infra_storage_copyparty_config_volume: "localnet-copyparty-config-volume"
+infra_storage_copyparty_config_dir: "{{ infra_storage_services_dir }}/copyparty"
+
+# ---------------------------------------------------------------------------
 # Wazuh SIEM/XDR Storage
 # Used by: Windows Docker Desktop hosts (deploy-wazuh.yml playbook)
 # Docker volumes for manager, indexer, and dashboard persistent data.

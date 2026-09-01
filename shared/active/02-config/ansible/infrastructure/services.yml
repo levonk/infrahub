@@ -786,6 +786,27 @@ services:
   traefik: true
   notes: "Traefik routes cross-machine via Tailscale FQDN (dtop202311.<tailnet>); S3 API on port 9000, console on port 9001"
 
+# copyparty (File Sharing Server)
+- name: "copyparty"
+  container: "{{ infra_hostname_copyparty | default('copyparty') }}"
+  machine: "oci-cloud-server"
+  category: "ui"
+  description: "Self-hosted file sharing server with WebDAV, chunked uploads, and media indexing"
+  source_repo: "https://github.com/9001/copyparty"
+  domains:
+    - "infra_domain_storage_copyparty"
+  ports:
+    - host: "infra_port_storage_copyparty_host"
+      container: "infra_port_storage_copyparty_container"
+      label: "Web"
+  traefik: true
+  health_endpoint: "/"
+  pipeline: "none"
+  alert_labels:
+    pipeline: "none"
+    stage: "storage"
+    service: "copyparty"
+
 # ---------------------------------------------------------------------------
 # QM (Multiplayer agent harness for work — web UI + core + Postgres)
 # Deployed to Windows Docker Desktop (dtop202311) via WSL Docker.

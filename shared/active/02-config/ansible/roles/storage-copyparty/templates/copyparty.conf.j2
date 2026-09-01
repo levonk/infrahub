@@ -1,0 +1,31 @@
+# copyparty configuration
+# Pseudo-YAML: [section] headers with 2-space indented keys.
+# Inline comments require TWO spaces before #.
+# See internal-docs/research/service/copyparty/copyparty-overview.md.
+
+[global]
+  p: {{ copyparty_container_port }}
+  e2dsa  # enable file indexing
+  e2ts  # enable media tag indexing
+  hist: /cfg/hists  # keep sqlite index/thumbnails out of shared volumes
+  xff-hdr: X-Forwarded-For  # read real client IP from reverse proxy
+  rproxy: 1  # project-lint: disable=magic-int  copyparty config: one reverse proxy in front
+  i: 0.0.0.0  # project-lint: disable  copyparty config: bind all interfaces inside container
+
+[accounts]
+  admin: {{ copyparty_admin_password }}
+
+[/public]
+  /w/public
+  accs:
+    r: *  # anonymous read
+
+[/uploads]
+  /w/uploads
+  accs:
+    w: *  # anonymous write-only
+
+[/family]
+  /w/family
+  accs:
+    rwmda: admin  # admin read/write/move/delete

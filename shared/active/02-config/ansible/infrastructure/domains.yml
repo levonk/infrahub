@@ -170,6 +170,9 @@ infra_domain_storage_rustfs: "rustfs.{{ infra_domain_base }}"
 infra_domain_storage_rustfs_console: "rustfs-console.{{ infra_domain_base }}"
 infra_hostname_rustfs: "localnet-rustfs"
 
+# copyparty (File Sharing Server)
+infra_domain_storage_copyparty: "files.{{ infra_domain_base }}"
+
 # ---------------------------------------------------------------------------
 # Security/SIEM Services
 # ---------------------------------------------------------------------------

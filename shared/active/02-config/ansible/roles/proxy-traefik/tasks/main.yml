@@ -268,6 +268,18 @@
   notify: reload traefik
   when: rustfs_enabled | default(false) | bool
 
+- name: Deploy copyparty dynamic configuration template
+  ansible.builtin.template:
+    src: dynamic/copyparty.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/copyparty.yml"
+    owner: root
+    group: root
+    mode: "{{ infra_mode_file }}"
+  become: true
+  notify: reload traefik
+  when: copyparty_enabled | default(false) | bool
+  tags: ["deploy", "traefik", "copyparty"]
+
 - name: Deploy Wazuh dynamic configuration template
   ansible.builtin.template:
     src: dynamic/wazuh.yml.j2

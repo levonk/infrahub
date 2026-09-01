@@ -1,0 +1,17 @@
+---
+galaxy_info:
+  role_name: storage_copyparty
+  author: localnet
+  description: Deploy copyparty file sharing server
+  license: MIT
+  min_ansible_version: "2.9"
+  platforms:
+    - name: EL
+      versions: ["8", "9"]
+  galaxy_tags:
+    - storage
+    - filesharing
+    - copyparty
+    - docker
+    - homelab
+dependencies: []

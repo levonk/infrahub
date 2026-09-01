@@ -1,0 +1,10 @@
+---
+# copyparty handlers
+- name: restart copyparty
+  community.docker.docker_container:
+    name: "{{ copyparty_container_name }}"
+    image: "{{ copyparty_image }}:{{ copyparty_image_tag }}"
+    state: started
+    restart: true
+  become: true
+  when: copyparty_enabled | bool

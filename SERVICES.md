@@ -1,11 +1,11 @@
 # Infrahub Service Catalog (Shared Defaults)
 
-> **Auto-generated** from `infrastructure/*.yml` (shared defaults only) — last updated: 2026-08-30 00:08
+> **Auto-generated** from `infrastructure/*.yml` (shared defaults only) — last updated: 2026-08-31 22:18
 > Regenerate with: `just generate-service-catalog-shared`
 > Source: `shared/active/02-config/ansible/infrastructure/services.yml`
 > Note: This catalog shows **default ports and suggested hostnames** only. Client-specific deployment details (custom domains, deployed machines, client port overrides) are not included. See `levonk/SERVICES.md` for the deployed client catalog.
 
-**77 services** (shared defaults — no deployment info)
+**79 services** (shared defaults — no deployment info)
 
 ## Table of Contents
 
@@ -115,6 +115,8 @@ flowchart TD
 | Authelia | `authelia` | `infra_domain_sso_authelia` (suggested) | `9091`→`9091` (Web) | — | — | metrics: `/metrics`<br>health: `/api/health`<br>labels: `pipeline=infra, service=authelia, stage=auth` | Security / SSO | [authelia/authelia](https://github.com/authelia/authelia) |
 | Authelia Postgres | `authelia-postgres` | — | `5432`→`5432` (PostgreSQL) | authelia-network | — | — | Passive (Databases / Caches / Queues) | [docker-library/postgres](https://github.com/docker-library/postgres) |
 | Buzz Agent Runtime | `buzz-agent-*` | — | — | buzz-network | — | — | ai | [block/buzz](https://github.com/block/buzz) |
+| Control Center | `localnet-dashboard-control-center` | `infra_domain_dashboard_control_center` (suggested)<br>`infra_domain_dashboard_control_center_nl` (suggested) | `4537`→`3000` (Web) | traefik-windows-network | `localnet-control-center-data-volume` (volume) | health: `/api/health`<br>labels: `pipeline=none, service=control-center, stage=none` | UI (Web Apps) | [lrepo52/control-center](https://github.com/lrepo52/control-center) |
+| copyparty | `{{ infra_hostname_copyparty | default('copyparty') }}` | `infra_domain_storage_copyparty` (suggested) | `3923`→`3923` (Web) | — | `localnet-copyparty-data-volume` (volume)<br>`localnet-copyparty-config-volume` (volume) | health: `/`<br>labels: `pipeline=none, service=copyparty, stage=storage` | UI (Web Apps) | [9001/copyparty](https://github.com/9001/copyparty) |
 | CoreDNS | `coredns` | — | `15354`→`15353` (DNS)<br>`9153`→`9153` (Metrics) | localnet-network | — | — | DNS | [coredns/coredns](https://github.com/coredns/coredns) |
 | CrowdSec | `crowdsec` | — | `8080`→`8080` (LAPI) | crowdsec-network | — | metrics: `/metrics`<br>labels: `pipeline=infra, service=crowdsec, stage=security` | Security / SSO | [crowdsecurity/crowdsec](https://github.com/crowdsecurity/crowdsec) |
 | Directory Empire | `localnet-dashboard-directory-empire` | `infra_domain_dashboard_directory_empire_nl` (suggested) | `4530`→`3000` (Web) | traefik-windows-network | `localnet-directory-empire-config-volume` (volume) | — | UI (Web Apps) | [lrepo52/directory-empire](https://github.com/lrepo52/directory-empire) |
@@ -195,6 +197,8 @@ flowchart TD
 |---------|-----------|--------------------|-------------------|---------|---------|------------|--------|
 | agentmemory | `agentmemory` | `infra_domain_ai_agentmemory` (suggested) | `3111`→`3111` (REST/MCP) | — | `/opt/localnet/data/agentmemory`<br>`/opt/localnet/services/agentmemory/config` | — | [rohitg00/agentmemory](https://github.com/rohitg00/agentmemory) |
 | AI Dashboard | `ai-dashboard` | `infra_domain_ai_dashboard_web` (suggested) | `3000`→`3000` (Web) | — | — | — | [levonk/ai-dashboard](https://github.com/levonk/ai-dashboard) |
+| Control Center | `localnet-dashboard-control-center` | `infra_domain_dashboard_control_center` (suggested)<br>`infra_domain_dashboard_control_center_nl` (suggested) | `4537`→`3000` (Web) | traefik-windows-network | `localnet-control-center-data-volume` (volume) | health: `/api/health`<br>labels: `pipeline=none, service=control-center, stage=none` | [lrepo52/control-center](https://github.com/lrepo52/control-center) |
+| copyparty | `{{ infra_hostname_copyparty | default('copyparty') }}` | `infra_domain_storage_copyparty` (suggested) | `3923`→`3923` (Web) | — | `localnet-copyparty-data-volume` (volume)<br>`localnet-copyparty-config-volume` (volume) | health: `/`<br>labels: `pipeline=none, service=copyparty, stage=storage` | [9001/copyparty](https://github.com/9001/copyparty) |
 | Directory Empire | `localnet-dashboard-directory-empire` | `infra_domain_dashboard_directory_empire_nl` (suggested) | `4530`→`3000` (Web) | traefik-windows-network | `localnet-directory-empire-config-volume` (volume) | — | [lrepo52/directory-empire](https://github.com/lrepo52/directory-empire) |
 | JobOps | `localnet-jobops` | `infra_domain_career_jobops` (suggested) | `3005`→`3001` (Web) | — | `localnet-jobops-data-volume` (volume) | — | [DaKheera47/job-ops](https://github.com/DaKheera47/job-ops) |
 | Langfuse Web | `langfuse-web` | `infra_domain_ai_langfuse` (suggested) | `3001`→`3000` (Web) | — | — | — | [langfuse/langfuse](https://github.com/langfuse/langfuse) |
