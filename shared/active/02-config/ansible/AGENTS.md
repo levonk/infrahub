@@ -312,6 +312,30 @@ Molecule scenarios are in `.molecule/default/` within each role directory:
 - **04-004**: Playbook validation (`validate-*.yml`) for every deploy playbook - TODO
 - **04-005**: Role-level `verify`/`validate` tags and `<service>_verify_health` flags for all roles - TODO
 
+## Lessons Learned (copyparty deployment)
+
+### Playbook `include_vars` must load all infrastructure files
+
+Playbooks that use `include_vars` to load infrastructure schemas must load `modes.yml` and `timing.yml` in addition to `ports.yml`, `networks.yml`, `domains.yml`, and `storage.yml`. The client override directory (`levonk/active/02-config/ansible/infrastructure/`) only has `ports.yml`, `networks.yml`, `domains.yml`, `storage.yml` — do NOT try to load `modes.yml` or `timing.yml` from the client directory (they don't exist there).
+
+### `until` expressions cannot use `{{ }}` template delimiters
+
+The `until` clause in Ansible tasks (e.g., `ansible.builtin.uri` retries) does not support `{{ }}` Jinja delimiters. Use a bare expression instead:
+```yaml
+# ❌ Wrong — Syntax error in expression
+until: result.status == {{ infra_http_status_ok }}
+# ✅ Correct — bare Jinja expression with filter
+until: result.status == (infra_http_status_ok | int)
+```
+
+### Cloudflare DNS TTL must be an integer
+
+The `cloudflare-dns` role fails with HTTP 400 if `cloudflare_dns_ttl` is a string (e.g., `"300"`). The Cloudflare API requires TTL as an integer. When setting `cloudflare_dns_ttl` in playbook vars, use `cloudflare_dns_ttl: "{{ infra_dns_ttl | int }}"` or pass it as an integer via `--extra-vars '{"cloudflare_dns_ttl": 300}'`. This affects all playbooks using the `cloudflare-dns` role (deploy-n8n, deploy-copyparty, etc.).
+
+### `project-lint` magic-ipv4 override
+
+The `project-lint` override regex `[A-Za-z,\-]+` does not match digits, so `disable=magic-ipv4` (which contains `4`) is silently ignored. Use `# project-lint: disable` (bare, suppresses all rules on the line) for IPv4 literals like `0.0.0.0` and `127.0.0.1` in Jinja defaults.
+
 ## Dependencies
 
 - Depends on: devbox environment
