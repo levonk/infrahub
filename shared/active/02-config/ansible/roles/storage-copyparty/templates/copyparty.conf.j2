@@ -24,14 +24,15 @@
   /w/public
   accs:
     r: *  # anonymous read
+    rwmda: admin  # admin full access
 
 [/uploads]
   /w/uploads
   accs:
     w: *  # anonymous write-only (drop-box: upload but cannot see contents)
-    rm: admin  # admin can browse uploads and move files to /public or /family
+    rwmda: admin  # admin full access
 
 [/family]
   /w/family
   accs:
-    rwmda: admin  # admin read/write/move/delete
+    rwmda: admin  # admin full access
