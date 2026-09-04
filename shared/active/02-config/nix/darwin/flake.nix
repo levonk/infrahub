@@ -54,6 +54,7 @@
         nixSettings = ./modules/nix/settings.nix;
         nixCache = ./modules/nix/cache.nix;
         privacy = ./modules/security/privacy-darwin.nix;
+        sudo = ./modules/security/sudo.nix;
         fleet = ./modules/fleet/default.nix;
         networking = ./modules/networking/default.nix;
 
@@ -65,6 +66,7 @@
           ./modules/nix/settings.nix
           ./modules/nix/cache.nix
           ./modules/security/privacy-darwin.nix
+          ./modules/security/sudo.nix
           ./modules/fleet/default.nix
           ./modules/networking/default.nix
         ];
