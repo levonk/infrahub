@@ -4,7 +4,7 @@ Web Proxy Chain — MITM → Privoxy → Varnish → Gost egress multiplexer.
 
 ## Architecture
 
-See `diagrams/proxy/complete-web-proxy-chain.mmd` for the full architecture diagram.
+See `shared/docs/pipelines/web/complete-web-proxy-chain.mmd` for the full architecture diagram.
 
 ```
 Client

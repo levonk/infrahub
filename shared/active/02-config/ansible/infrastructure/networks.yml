@@ -101,7 +101,7 @@ infra_network_dns_localnet_subnet: "172.26.0.0/16"
 infra_network_dns_localnet_gateway: "172.26.0.1"
 
 # DNS service IP allocations (within localnet-network, high range 172.26.255.x)
-# See: diagrams/dns/complete-dns-chain.mmd and complete-dns-chain.notes.md
+# See: shared/docs/pipelines/dns/complete-dns-chain.mmd and complete-dns-chain.md
 # Active tiers: odoh (1), anon (2), unbound-tor (3), unbound-root (10)
 # Dark tiers: dnscrypt-tor (4-6 shared), std (7), doh (8), encrypted (9),
 #             plaintext-tor (11), plaintext (12)
@@ -122,7 +122,7 @@ infra_network_ip_dns_dnscrypt_plaintext_tor: "172.26.255.68"
 infra_network_ip_dns_tor_proxy: "172.26.255.70"
 
 # Web Proxy Chain IP allocations (within localnet-network, high range 172.26.255.x)
-# See: diagrams/proxy/complete-web-proxy-chain.mmd and complete-web-proxy-chain.notes.md
+# See: shared/docs/pipelines/web/complete-web-proxy-chain.mmd and complete-web-proxy-chain.md
 # Shares localnet-network with DNS chain. Reuses DNS chain Tor proxy at .70.
 infra_network_ip_proxy_mitm: "172.26.255.80"
 infra_network_ip_proxy_privoxy: "172.26.255.81"

@@ -46,10 +46,12 @@ nix_ncps_windows_temp_dir: "/tmp/nix-ncps-config-{{ inventory_hostname }}"
 
 # Upstream caches — ncps queries these on cache miss
 # Per ADR-20260708001: ncps → ncro → upstreams. ncro races all upstreams
-# (Harmonia, cache.nixos.org, cache.garnix.io, nix-community.cachix.org) in
-# parallel and returns the fastest response. ncps only needs ncro as its
-# single upstream — ncro handles the racing and EMA latency learning.
+# (Harmonia, cache.nixos.org, nix-community.cachix.org) in parallel and
+# returns the fastest response. ncps only needs ncro as its single upstream
+# — ncro handles the racing and EMA latency learning.
 # ncro is on the same Docker network, so ncps reaches it via the container name.
+# Note: cache.garnix.io removed after Garnix shutdown (July 15 2026), per
+# ADR-20260708001 supplement.
 nix_ncps_upstream_urls_nl:
   - "http://{{ nix_ncro_container_name_nl | default('localnet-nix-ncro') }}:{{ nix_ncro_container_port | default(infra_port_nix_ncro_host) }}"
 nix_ncps_upstream_urls_cno:
@@ -60,7 +62,6 @@ nix_ncps_upstream_urls_cno:
 # ncro pass ncps's signature verification.
 nix_ncps_upstream_public_keys:
   - "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPSQZNGZfdL7Q="
-  - "cache.garnix.io:CTFPyKSLcx5RMJKfLo5EEPUObbA78b0YQ2DTCJXqr3g="
   - "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CXHQrkxhLww6X236k="
   - "{{ vault_nix_harmonia_public_key | default('nixcache.nl.example.com-1:placeholder') }}"
 

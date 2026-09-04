@@ -375,7 +375,7 @@
   when: ai_langfuse_enabled | default(false) | bool
   tags: ["deploy", "traefik", "langfuse-minio"]
 
-# Web Proxy Chain dynamic configs (see diagrams/proxy/complete-web-proxy-chain.mmd)
+# Web Proxy Chain dynamic configs (see shared/docs/pipelines/web/complete-web-proxy-chain.mmd)
 - name: Deploy MITM proxy web UI dynamic configuration template
   ansible.builtin.template:
     src: dynamic/mitm.yml.j2

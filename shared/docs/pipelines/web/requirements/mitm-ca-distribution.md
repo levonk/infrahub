@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-10
 **Status:** Proposed
-**Related:** `diagrams/proxy/complete-web-proxy-chain.mmd`
+**Related:** `shared/docs/pipelines/web/complete-web-proxy-chain.mmd`
 
 ## The Problem
 

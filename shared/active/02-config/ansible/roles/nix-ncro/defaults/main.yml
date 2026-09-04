@@ -52,8 +52,6 @@ nix_ncro_upstreams_nl:
     priority: 10
   - url: "https://cache.nixos.org"
     priority: 20
-  - url: "https://cache.garnix.io"
-    priority: 30
   - url: "https://nix-community.cachix.org"
     priority: 30
 # cno: Harmonia container name on cno network
@@ -62,8 +60,6 @@ nix_ncro_upstreams_cno:
     priority: 10
   - url: "https://cache.nixos.org"
     priority: 20
-  - url: "https://cache.garnix.io"
-    priority: 30
   - url: "https://nix-community.cachix.org"
     priority: 30
 

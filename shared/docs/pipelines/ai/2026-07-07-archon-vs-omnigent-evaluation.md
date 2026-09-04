@@ -19,7 +19,7 @@ scope_focus: "session sharing, Archon-to-Omnigent integration, LiteLLM gateway l
 
 ## Overview
 
-Evaluation of [coleam00/Archon](https://github.com/coleam00/Archon), [omnigent-ai/omnigent](https://github.com/omnigent-ai/omnigent), and [BerriAI/litellm](https://github.com/BerriAI/litellm) for the AI pipeline's request-origin layer. The current pipeline (`PIPELINE-AI.md`) uses Omnigent + Pi as the sole request origin. This evaluation assesses whether Archon should join as a co-origin or replace Omnigent, and clarifies LiteLLM's role (it is already the pipeline entry gateway, not an orchestrator peer).
+Evaluation of [coleam00/Archon](https://github.com/coleam00/Archon), [omnigent-ai/omnigent](https://github.com/omnigent-ai/omnigent), and [BerriAI/litellm](https://github.com/BerriAI/litellm) for the AI pipeline's request-origin layer. The current pipeline (`shared/docs/pipelines/ai/PIPELINE-AI.md`) uses Omnigent + Pi as the sole request origin. This evaluation assesses whether Archon should join as a co-origin or replace Omnigent, and clarifies LiteLLM's role (it is already the pipeline entry gateway, not an orchestrator peer).
 
 ## Key Points
 
@@ -218,7 +218,7 @@ Recommended refinement: **stacked architecture** — Archon as the workflow laye
 
 ## Action Items
 
-- [ ] Update `PIPELINE-AI.md` Architecture diagram to show stacked layers (Archon → Omnigent → Herdr → Pi → LiteLLM)
+- [ ] Update `shared/docs/pipelines/ai/PIPELINE-AI.md` Architecture diagram to show stacked layers (Archon → Omnigent → Herdr → Pi → LiteLLM)
 - [ ] Track Omnigent Herdr support issue (replace tmux with Herdr as multiplexer backend)
 - [ ] Verify Omnigent SDK exposes programmatic session create/resume/attach API for provider implementation
 - [ ] Implement Omnigent community provider for Archon (`packages/providers/src/community/omnigent/`)

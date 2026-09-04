@@ -7,7 +7,7 @@
 # Currently runs as a regular recursive resolver (same as Tier 10 but
 # on a separate port/IP for redundancy). Tor proxying will be added
 # via a custom Dockerfile build in a future iteration.
-# See: diagrams/dns/complete-dns-chain.mmd
+# See: shared/docs/pipelines/dns/complete-dns-chain.mmd
 
 server:
     interface: 0.0.0.0

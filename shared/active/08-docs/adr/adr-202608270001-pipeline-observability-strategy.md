@@ -840,7 +840,7 @@ Alertmanager routes alerts to notification channels. Per-client configuration in
 - `shared/active/03-container/internal-docs/requirements/proxy/cross-cluster-web-proxy.md` — web proxy chain topology and DNS dependency
 - `shared/active/03-container/internal-docs/requirements/001-localnet-requirements/001-localnet-requirements.md` — original monitoring stack wishlist (this ADR supersedes the wishlist with a decision)
 - `shared/active/02-config/ansible/infrastructure/services.yml` — service catalog with machines, categories, ports
-- `shared/docs/PIPELINE-AI.md` — AI pipeline architecture and troubleshooting
+- `shared/docs/pipelines/ai/PIPELINE-AI.md` — AI pipeline architecture and troubleshooting
 - ADR-20260624001: Hybrid Sensitive Information Storage Strategy
 - ADR-20260625001: Infrastructure Consolidation Strategy
 - ADR-20260625001: Multi-Exit Node Architecture

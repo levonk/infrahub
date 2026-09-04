@@ -18,8 +18,7 @@ ncro races these upstreams in parallel (defined in `defaults/main.yml`):
 
 1. `local-harmonia` — local Harmonia instance (sub-millisecond for local store hits)
 2. `cache.nixos.org`
-3. `cache.garnix.io`
-4. `nix-community.cachix.org`
+3. `nix-community.cachix.org`
 
 ## Key variables
 

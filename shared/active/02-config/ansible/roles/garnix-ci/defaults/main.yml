@@ -6,7 +6,9 @@
 # Requires: WSL2 KVM enabled (run enable-wsl2-kvm.yml playbook first)
 
 # Service toggle
-garnix_ci_enabled: true
+# garnix-ci is deferred per ADR-20260708001 supplement (Garnix shutdown
+# July 15 2026). The role is kept as scaffolding for future investigation.
+garnix_ci_enabled: false
 
 # Container configuration
 garnix_ci_container_name: "{{ infra_hostname_garnix_ci | default(infra_value_garnix_ci_container_name) }}"
@@ -49,12 +51,10 @@ garnix_ci_substituters:
   - "http://{{ infra_network_bind_localhost }}:{{ infra_port_nix_harmonia_host | default(infra_port_nix_ncro_alt_host) }}"
   - "http://{{ nix_ncps_container_name | default('localnet-nix-ncps') }}:{{ infra_port_nix_ncps_container | default(infra_port_proxy_dashboard_host) }}"
   - "https://cache.nixos.org"
-  - "https://cache.garnix.io"
 
 # Trusted public keys for substituters
 garnix_ci_trusted_public_keys:
   - "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPSQZNGZfdL7Q="
-  - "cache.garnix.io:CTFPyKSLcx5RMJKfLo5EEPUObbA78b0YQ2DTCJXqr3g="
   - "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CXHQrkxhLww6X236k="
 
 # Healthcheck

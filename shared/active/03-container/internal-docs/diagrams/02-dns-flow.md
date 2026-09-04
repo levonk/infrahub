@@ -3,7 +3,7 @@
 ## Complete DNS Chain
 
 ☑️ Diagram Source
-- [diagrams/dns/complete-dns-chain.mmd](diagrams/dns/complete-dns-chain.mmd)
+- [complete-dns-chain.mmd](../../../../../docs/pipelines/dns/complete-dns-chain.mmd) (moved to `shared/docs/pipelines/dns/`)
 
 ## DNS Access Modes
 

@@ -60,7 +60,7 @@ infra_storage_dns_data: "{{ infra_storage_services_dir }}/dns/data"
 infra_storage_proxy_config: "{{ infra_storage_services_dir }}/proxy/config"
 infra_storage_proxy_cache: "{{ infra_storage_services_dir }}/proxy/cache"
 
-# Web Proxy Chain volumes (see diagrams/proxy/complete-web-proxy-chain.mmd)
+# Web Proxy Chain volumes (see shared/docs/pipelines/web/complete-web-proxy-chain.mmd)
 infra_storage_proxy_mitm_ca_volume: "localnet-proxy-mitm-ca-volume"
 infra_storage_proxy_varnish_cache_volume: "localnet-proxy-varnish-cache-volume"
 infra_storage_proxy_gost_config_volume: "localnet-proxy-gost-config-volume"

@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-09
 **Status:** Proposed — not yet deployed
-**Related:** `diagrams/dns/complete-dns-chain.mmd`, `dnssec-gap-and-unbound-fix.md`
+**Related:** `shared/docs/pipelines/dns/complete-dns-chain.mmd`, `shared/docs/pipelines/dns/requirements/dnssec-gap-and-unbound-fix.md`
 
 ## The Problem
 

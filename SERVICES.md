@@ -69,8 +69,6 @@ flowchart TD
     Nix_ncro__nl_ -->|local /nix/store| Nix_Harmonia__nl_
     https___cache_nixos_org_Nix_Cache_Chain__nl_[("cache.nixos.org")]
     Nix_ncro__nl_ -.-> https___cache_nixos_org_Nix_Cache_Chain__nl_
-    https___cache_garnix_io_Nix_Cache_Chain__nl_[("cache.garnix.io")]
-    Nix_ncro__nl_ -.-> https___cache_garnix_io_Nix_Cache_Chain__nl_
     https___nix_community_cachix_org_Nix_Cache_Chain__nl_[("nix-community.cachix.org")]
     Nix_ncro__nl_ -.-> https___nix_community_cachix_org_Nix_Cache_Chain__nl_
 
@@ -95,8 +93,6 @@ flowchart TD
     Nix_ncro__cno_ -->|local /nix/store| Nix_Harmonia__cno_
     https___cache_nixos_org_Nix_Cache_Chain__cno_[("cache.nixos.org")]
     Nix_ncro__cno_ -.-> https___cache_nixos_org_Nix_Cache_Chain__cno_
-    https___cache_garnix_io_Nix_Cache_Chain__cno_[("cache.garnix.io")]
-    Nix_ncro__cno_ -.-> https___cache_garnix_io_Nix_Cache_Chain__cno_
     https___nix_community_cachix_org_Nix_Cache_Chain__cno_[("nix-community.cachix.org")]
     Nix_ncro__cno_ -.-> https___nix_community_cachix_org_Nix_Cache_Chain__cno_
 

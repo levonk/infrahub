@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-09
 **Status:** Proposed — not yet deployed
-**Related:** `diagrams/dns/complete-dns-chain.mmd`, `requirements/dns/coredns-vs-unbound.md`
+**Related:** `shared/docs/pipelines/dns/complete-dns-chain.mmd`, `shared/docs/pipelines/dns/requirements/coredns-vs-unbound.md`
 
 ## The Problem
 

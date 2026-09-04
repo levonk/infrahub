@@ -1,37 +1,65 @@
-# AI Dashboard Pipeline Configuration
+# AI Pipeline Configuration
 
 ## Architecture
 
+The pipeline spans two tiers: a **development environment** (local machine or homelab dev container) where agents run, and a **remote server** (OCI cloud) where the LLM pipeline, tool registry, agent memory, and egress firewall live.
+
 ```mermaid
 flowchart LR
-    subgraph Origin["Request Origin"]
-        OMN["Omnigent\n(server)"]
-        PI["Pi\n(harness)"]
+    subgraph DevEnv["Development Environment (local/homelab container)"]
+        VSC["VS Code\n(local editor)"]
+        HERDR["herdr\nTerminal runtime\n(always-running)"]
+        ACRYL["acryl\nPersistent dev env\n+ project context"]
+        PI["Pi\nCoding harness\n(harness)"]
+        PAXM["paxm\nLocal agent memory\n(SQLite)"]
+        OMN["Omnigent\nOrchestrator\n(server, goals/work)"]
+
+        VSC -- "remote-SSH" --> HERDR
+        HERDR --> ACRYL
+        ACRYL --> PI
+        ACRYL --> PAXM
         OMN -- "RPC (JSONL)" --> PI
+    end
+
+    subgraph Origins["Request Origin Peers"]
         BUZZ["Buzz\n(Nostr relay)"]
         PAPER["Paperclip\n(agent orchestration)"]
     end
 
-    subgraph Pipeline["MVP Pipeline (Phase 1)"]
-        LIT["LiteLLM — aigate\nEntry: auth, keys,\nPII masking (Presidio),\nspend, Langfuse traces"]
-        HEAD["Headroom\nContext compression\n(RTK+Caveman)"]
-        OR["OmniRoute — airoute\nProvider fanout\n4-tier fallback"]
-        IP["Iron-Proxy\nEgress firewall\nMITM TLS inspection"]
-    end
+    subgraph Remote["Remote Server (OCI cloud)"]
+        subgraph Memory["Agent Memory"]
+            AMEM["agentmemory\nServer-side persistent memory\n(MCP, iii-engine, SQLite)"]
+        end
 
-    subgraph Observability["Parallel Observability Sink"]
-        LF["Langfuse\nweb → postgres +\nclickhouse + redis + minio"]
+        subgraph Tools["Tool Call Path"]
+            TREG["treg\nTool registry + credential relay\n(OpenRouter for tools)"]
+        end
+
+        subgraph Pipeline["LLM Pipeline (Phase 1 MVP)"]
+            LIT["LiteLLM — aigate\nEntry: auth, keys,\nPII masking (Presidio),\nspend, Langfuse traces"]
+            HEAD["Headroom\nContext compression\n(RTK+Caveman)"]
+            OR["OmniRoute — airoute\nProvider fanout\n4-tier fallback"]
+            IP["Iron-Proxy\nEgress firewall\nMITM TLS inspection"]
+        end
+
+        subgraph Observability["Parallel Observability Sink"]
+            LF["Langfuse\nweb → postgres +\nclickhouse + redis + minio"]
+        end
     end
 
     subgraph Egress["Direct Egress"]
         NET(("Internet"))
     end
 
-    PI -- "OpenAI-compatible\nhttp://litellm:4000/v1" --> LIT
+    PI -- "LLM requests\nOpenAI-compatible\nhttp://litellm:4000/v1" --> LIT
+    PI -- "tool calls\n/call/{upstream_url}" --> TREG
+    PI -. "memory read/write" .-> AMEM
+    PAXM -. "memory sync" .-> AMEM
     BUZZ -. "events/requests" .-> LIT
     PAPER -. "agent tasks" .-> LIT
     LIT -- "forwards traces" -.-> LF
     LIT --> HEAD --> OR --> IP --> NET
+    TREG -- "credential-injected\nrelay" --> IP --> NET
 ```
 
 ### Future Evolution (Deferred)
@@ -43,10 +71,33 @@ flowchart LR
         NORD["NordVPN\nVPN tunnel\n(Phase 3)"]
         DASH["AI Dashboard Proxy 1/2 + DB\nAnalytics collectors\n(Phase 4)"]
         PRIV["Privacy Orchestrator\nStandalone PII service\n(Phase 5)"]
+        TREGPHASE["treg Tool Registry\n(Phase 6 — tool call\nkey management)"]
     end
 ```
 
+### Web Proxy Chain Relationship (Undecided)
+
+Agent requests (LLM calls and treg tool calls) currently egress through Iron-Proxy directly to the Internet. The web proxy chain (MITM → Privoxy → Varnish → Gost → Direct/Tor) is a separate egress system for general LAN traffic. Two options are documented:
+
+- **Option A (Iron-Proxy only)**: Agent traffic goes through Iron-Proxy directly to the Internet. The web proxy chain is for general LAN traffic only (browsers, IoT). Simpler, fewer hops, no cache/filter interference with API calls.
+- **Option B (Chain through both)**: Agent traffic goes through Iron-Proxy, then through the web proxy chain (Gost egress) for Tor/anonymity routing. Adds filtering and caching but may interfere with API responses.
+
+This is a topology decision, not a pipeline architecture decision. See `shared/docs/pipelines/web/complete-web-proxy-chain.md` for the web proxy chain details.
+
 ## Recent Changes
+
+**2026-09-03**: Expanded pipeline to include development environment, agent memory, and tool call path
+- Added **herdr** (https://github.com/herdrdev/herdr) as the terminal runtime in the dev container — always-running server for coding agents, survives laptop close/lid drop
+- Added **acryl** (https://github.com/acryldev/acryl) as the persistent development environment and project context layer in the dev container
+- Added **paxm** (https://github.com/pax-beehive/paxm) as local agent memory (SQLite) in the dev container — carries decisions and context across agent sessions
+- Added **treg** (https://github.com/superdesigndev/treg) as the tool registry + credential relay on the remote server — "OpenRouter for tools", manages non-LLM tool API keys, injects credentials server-side
+- Documented **agentmemory** (already deployed at `shared/active/03-container/services/agentmemory/`) as the server-side persistent memory layer (MCP, iii-engine, SQLite)
+- Added **tool call path**: Pi → treg (credential relay) → Iron-Proxy → Internet, parallel to the LLM request path
+- Added **agent memory path**: paxm (local, in dev container) + agentmemory (remote, on OCI) with sync between them
+- Documented the **web proxy chain relationship** as undecided (two options documented)
+- Added **Phase 6 (Future) — treg Tool Registry** to the pipeline evolution roadmap
+- Architecture diagram updated to show dev environment → remote server topology
+- Pipeline doc moved from `shared/docs/PIPELINE-AI.md` to `shared/docs/pipelines/ai/PIPELINE-AI.md` as part of pipeline doc consolidation
 
 **2026-07-25**: Added Buzz as a request-origin peer to Paperclip and Omnigent+Pi
 - Buzz (https://github.com/block/buzz) is a self-hostable Nostr relay workspace for human + AI agent collaboration
@@ -151,7 +202,25 @@ Revisit the **AI Dashboard Proxy 1/2 collectors + shared DB** for deeper per-sta
 
 Revisit the standalone **Privacy Orchestrator** (ai-privacy-proxy) if LiteLLM's Presidio PII masking proves insufficient. The standalone service offers Candle ML-based detection across 22+ PII categories with multiple transformation modes.
 
+### Phase 6 (Future) — treg Tool Registry
+
+Add **treg** (https://github.com/superdesigndev/treg) behind Iron-Proxy for non-LLM tool call key management. treg is "OpenRouter for tools" — a tool registry and credential relay that manages tool API keys (Stripe, GitHub, SEO/enrichment APIs), team key-sharing, CLI credential injection, and skill/bundle registration. Iron-Proxy's allowlist expands to permit treg as an egress destination. treg manages tool keys; Iron-Proxy remains the egress firewall. LLM provider keys continue to flow through LiteLLM + OmniRoute.
+
+**Architecture**: Iron-Proxy sits in front of treg. Iron-Proxy holds treg's `X-Treg-Token` (agent never sees it). treg holds all tool API keys and injects them server-side. Iron-Proxy's default-deny ensures the agent can only reach treg, not upstreams directly. This is CB4A Model A — two layers of credential brokering, each protecting the next.
+
+**treg interfaces**: HTTP relay proxy (`/call/{upstream_url}`), MCP server (`/mcp/`), REST API (`/docs`), CLI (`treg call`, `treg run`, `treg shell`). The HTTP relay is the interface Iron-Proxy gates. The CLI/shell features (`treg run`, `treg shell`) run locally and cannot be gated by Iron-Proxy — agents must use only the HTTP relay interface for tool calls that go through the pipeline.
+
 ## Pipeline Architecture
+
+The pipeline has three request paths from the development environment to the Internet, all converging on Iron-Proxy as the egress firewall:
+
+```
+LLM requests:    Pi → LiteLLM (aigate) → Headroom → OmniRoute (airoute) → Iron-Proxy → Internet
+Tool calls:      Pi → treg (credential relay) → Iron-Proxy → Internet
+Agent memory:    Pi → paxm (local SQLite) ← sync → agentmemory (remote MCP, iii-engine)
+```
+
+### LLM Request Path (Phase 1 MVP)
 
 ```
 Omnigent → Pi → LiteLLM (aigate) → Headroom → OmniRoute (airoute) → Iron-Proxy → Internet
@@ -165,19 +234,129 @@ Omnigent → Pi → LiteLLM (aigate) → Headroom → OmniRoute (airoute) → Ir
                 langfuse-web → postgres + clickhouse + redis + minio
 ```
 
-**Note**: LiteLLM is the entry point for the pipeline. It handles auth, virtual keys, spend tracking, PII guardrail (Presidio masking), and forwards traces to Langfuse. LiteLLM routes to Headroom for context compression, then to OmniRoute for provider fanout (tier-based fallback, 9-factor auto-combo scoring, free-tier draining). Iron-Proxy enforces egress firewall policy and egresses directly to the Internet (NordVPN VPN chaining is deferred to Phase 3). Forge (tool-call repair) is deferred to Phase 2.
+**Note**: LiteLLM is the entry point for the LLM pipeline. It handles auth, virtual keys, spend tracking, PII guardrail (Presidio masking), and forwards traces to Langfuse. LiteLLM routes to Headroom for context compression, then to OmniRoute for provider fanout (tier-based fallback, 9-factor auto-combo scoring, free-tier draining). Iron-Proxy enforces egress firewall policy and egresses directly to the Internet (NordVPN VPN chaining is deferred to Phase 3). Forge (tool-call repair) is deferred to Phase 2.
 
 **Previous architecture** (pre-2026-06-29): AI Dashboard Proxy 1 → Privacy Orchestrator → Headroom → OmniRoute → Forge → AI Dashboard Proxy 2 → Iron-Proxy. The Proxy 1/2 collectors and Privacy Orchestrator are now absorbed into LiteLLM. See PIPELINE-LITELLM-JANUS-NOTES.md for the full analysis.
+
+### Development Environment Architecture
+
+The development environment is where coding agents run. It can be a local dev container on the developer's machine or a container on a homelab server. The key property is that agents are always running and survive laptop close/lid drop — this is the exe.dev "work continues when laptop closes" property, achieved locally via herdr.
+
+```
+LOCAL MACHINE
+  └─ VS Code (local editor)
+       └─ remote-SSH into →
+            DEV CONTAINER (local machine or homelab)
+              ├─ VS Code Server (remote development)
+              ├─ herdr (terminal runtime — agents always running)
+              │    └─ acryl (persistent dev environment + project context)
+              │         ├─ pi (coding harness — makes LLM + tool requests)
+              │         └─ paxm (local agent memory — SQLite)
+              │
+              ├─ Omnigent runner (orchestrates goals/work, drives pi via RPC)
+              │
+              └─ → all requests route to REMOTE SERVER (OCI cloud)
+```
+
+**Components:**
+
+- **herdr** (https://github.com/herdrdev/herdr) — "the runtime your coding agents live on". A background server (one Rust binary, no Electron) that manages terminal panes for coding agents. Always running: close the lid, drop the network, or restart the machine; agents keep working and sessions come back. Reattach from any terminal or SSH. Agent-native: agents drive herdr through the CLI and socket API to spawn panes, prompt each other, and wait until another agent is genuinely blocked. Runs Claude Code, Codex, Cursor, OpenCode, Pi, and others — herdr doesn't wrap or replace them; it owns their terminals. 35.3k stars, Apache-2.0.
+
+- **acryl** (https://github.com/acryldev/acryl) — "Agent Context Relay Yielding Lifecycles". One persistent development environment, one persistent project context, any coding agent. Agents may come and go; the work continues. Has desktop GUI, terminal CLI, TUI, and web surfaces. Includes acryl-control, acryl-desktop, acryl-development-canvas, acryl-harness-runtime. MIT license, early development (237 stars).
+
+- **pi** (https://github.com/earendil-works/pi) — the minimal terminal coding harness. The agent that actually does the coding work (read, write, edit, bash tools). Runs in RPC mode (JSONL over stdin/stdout). Pi's LLM requests route to LiteLLM on the remote server; pi's tool calls route to treg on the remote server.
+
+- **paxm** (https://github.com/pax-beehive/paxm) — local agent memory. Carries decisions, conventions, and working context into later agent sessions. Works with Codex, Claude Code, OpenCode, Pi, Cursor, Cline, and MCP clients. Starts with local SQLite — no API key, embeddings, or extra memory-layer model calls needed. Memory providers can be swapped later (Zep, Mem0, MemOS, OpenViking, JSON-RPC) without rewiring every agent. Go binary, Apache-2.0, 421 stars.
+
+- **Omnigent** (https://omnigent.ai/docs/deploy/overview) — the AI agent framework & meta-harness that orchestrates coding agents from a central server. Coexists with herdr: herdr manages terminals, Omnigent orchestrates goals and tracks work. Omnigent's runner drives pi via RPC mode.
+
+### Agent Memory Architecture
+
+Agent memory is split into two layers — local (in the dev container) and remote (on the OCI server) — that sync with each other:
+
+```
+DEV CONTAINER                          REMOTE SERVER (OCI)
+  paxm (local)                         agentmemory (remote)
+  ├── SQLite storage                   ├── iii-engine (WebSocket daemon)
+  ├── Per-session context carry        ├── HTTP API + MCP server (port 3111)
+  ├── Decisions, conventions           ├── SQLite storage (/data/state_store.db)
+  └── Works offline                    ├── 53 MCP tools, 126 REST endpoints
+                                       └── HMAC bearer token auth
+         ↓ memory sync ↓                    ↑ memory sync ↑
+         └─────────── Tailscale ────────────┘
+```
+
+**paxm** (local, in dev container):
+- Carries context into agent sessions before they start (active memory)
+- Passively captures completed turns (passive memory via hooks)
+- SQLite storage, no external dependencies
+- Works with Codex, Claude Code, OpenCode, Pi, Cursor, Cline, MCP clients
+- Provider-swappable: Zep, Mem0, MemOS, OpenViking, JSON-RPC
+
+**agentmemory** (remote, on OCI — already deployed):
+- Persistent memory server shared across all agents and sessions
+- Built on iii-engine (WebSocket daemon, port 49134 internal)
+- HTTP API + MCP server on port 3111 (53 MCP tools, 126 REST endpoints)
+- SQLite storage at `/data/state_store.db`
+- HMAC bearer token auth (`AGENTMEMORY_SECRET`)
+- Web viewer at `agentmemory.<base-domain>` (Traefik + Authelia)
+- MCP API via Tailscale direct access
+- Ansible role: `shared/active/02-config/ansible/roles/agentmemory/`
+- Service: `shared/active/03-container/services/agentmemory/`
+
+**Sync between paxm and agentmemory**: paxm captures context locally in the dev container; agentmemory stores it persistently on the remote server. The sync path runs over Tailscale. This gives agents local-fast memory access with remote-persistent backup and cross-session/cross-agent sharing.
+
+### Tool Call Path (treg — Phase 6)
+
+When agents need to call non-LLM APIs (Stripe, GitHub, SEO tools, enrichment APIs), those requests go through treg, not through the LLM pipeline. treg is "OpenRouter for tools" — a tool registry and credential relay that manages tool API keys and injects them server-side so the agent never holds the real key.
+
+```
+Pi → treg /call/{upstream_url} → Iron-Proxy → Internet (real upstream API)
+     (agent sends X-Treg-Token)    (iron-proxy injects   (treg already injected
+                                   treg's real token)     the tool API key)
+```
+
+**Architecture (layered credential brokering):**
+- Iron-Proxy sits in front of treg. Iron-Proxy's allowlist permits only treg as the egress destination for tool calls.
+- Iron-Proxy holds treg's `X-Treg-Token` (the agent never sees it).
+- treg holds all tool API keys and injects them server-side at the relay point.
+- Iron-Proxy's default-deny ensures the agent cannot bypass treg and call upstreams directly.
+- This is CB4A Model A — two layers of credential brokering, each protecting the next.
+
+**treg interfaces:**
+- **HTTP relay proxy** (`/call/{upstream_url}`) — the primary interface. Agent builds the real upstream request and prefixes it with treg's base URL. treg resolves the tool by host, injects the credential, and streams the response back faithfully (no body buffering). This is the interface Iron-Proxy gates.
+- **MCP server** (`/mcp/`) — exposes catalog endpoints, team-owned tools, and imported skills as MCP tools. Curated `/mcp/v2/` surface for Claude Connectors Directory.
+- **REST API** (`/docs`) — everything the CLI does is plain HTTP. OpenAPI docs at `/docs`.
+- **CLI** (`treg call`, `treg run`, `treg shell`) — runs locally on the agent's machine. `treg run` executes vendor CLIs with credentials injected. `treg shell` opens a subshell where every registered CLI auto-injects. These cannot be gated by Iron-Proxy — agents must use only the HTTP relay interface for tool calls that go through the pipeline.
+
+**What treg manages that LiteLLM/OmniRoute do not:**
+- 2,896 catalogued tool endpoints across 60 providers (SEO, backlinks, social, people enrichment, ads, scraping) — priced per call
+- Team key-sharing with org RBAC (owner/admin/member/viewer)
+- CLI credential injection (`treg run stripe -- get /v1/balance`)
+- Skill/bundle registration (`SKILL.md` + secrets + tools registered together)
+- OAuth connect flows with auto-refresh
+
+**What treg does NOT do (Iron-Proxy's role):**
+- Default-deny egress (treg is opt-in, not a firewall)
+- DNS-rebinding / SSRF protection
+- MITM TLS inspection
+- Prevent agent bypass (treg cannot stop an agent from calling upstreams directly — Iron-Proxy does that)
+
+**treg vs iron-proxy**: iron-proxy is the egress firewall (security). treg is the tool registry (productivity). They are complementary: iron-proxy as the egress firewall ensures nothing bypasses the proxy layer; treg as the tool registry manages which tools are available and injects their credentials. See the 2ndbrain note "Local Self-Hosted exe.dev From Devbox and Justfile.md" for the full feature matrix comparing treg, iron-proxy, Conduct, agentgateway, Infisical agent-vault, and keys-on-the-wire.
+
+**Status**: DEFERRED — Phase 6. No Ansible role exists yet. treg is documented as a future evolution. For the MVP, agents that need tool calls must use credentials directly (or through Iron-Proxy's secret injection).
 
 ### Request Origin
 
 The pipeline originates from one of several **request-origin services** that orchestrate or collaborate with agents before sending LLM requests to the pipeline entry point.
 
-- **Omnigent + Pi** is the primary agent execution stack. Omnigent (https://omnigent.ai/docs/deploy/overview) is the AI agent framework & meta-harness that orchestrates coding agents from a central server. Pi (https://github.com/earendil-works/pi) is the minimal terminal coding harness — the agent that actually does the coding work (read, write, edit, bash tools).
+- **herdr + acryl + Pi** is the primary agent execution stack in the development environment. herdr (https://github.com/herdrdev/herdr) is the always-running terminal runtime. acryl (https://github.com/acryldev/acryl) provides persistent development environment and project context. Pi (https://github.com/earendil-works/pi) is the minimal terminal coding harness — the agent that actually does the coding work (read, write, edit, bash tools). Omnigent (https://omnigent.ai/docs/deploy/overview) coexists as the orchestrator that assigns goals and tracks work, driving pi via RPC.
 - **Buzz** is a self-hostable Nostr relay workspace where humans and AI agents share rooms. It is a peer to Paperclip and Omnigent+Pi: events and requests originating from Buzz can be forwarded to the AI pipeline.
 - **Paperclip** is an agent orchestration platform (assign goals, track work/costs, agent employee management). It is a peer to Buzz and Omnigent+Pi in the request-origin layer.
 
 Omnigent's runner drives pi via **RPC mode** (JSONL over stdin/stdout). Pi's LLM requests are routed to the pipeline entry at **LiteLLM (aigate)** via a custom "pipeline" provider in pi's `models.json` config. The pipeline entry speaks OpenAI-compatible API, so pi treats it as an OpenAI provider with a custom base URL (`http://litellm:4000/v1`). LiteLLM then handles auth, PII masking, spend tracking, and Langfuse logging before forwarding to Headroom for compression and OmniRoute for provider fanout.
+
+Pi's tool calls (non-LLM API calls) route to **treg** via the HTTP relay interface (`/call/{upstream_url}`). treg injects the tool API key server-side and relays through Iron-Proxy to the Internet.
 
 Omnigent + Pi are NOT mid-pipeline transformation stages like Headroom or Forge — they are the **source of AI work** that the pipeline observes, optimizes, and secures. The pipeline stages below describe what happens to a request after pi emits it.
 
@@ -1102,6 +1281,27 @@ Configure alerts for:
 
 ## References
 
+### Development Environment Components
+- **herdr (terminal runtime)**: https://github.com/herdrdev/herdr
+- **herdr docs**: https://herdr.dev/docs
+- **acryl (persistent dev environment)**: https://github.com/acryldev/acryl
+- **acryl docs**: https://acryl.dev
+- **paxm (local agent memory)**: https://github.com/pax-beehive/paxm
+- **paxm docs**: https://github.com/pax-beehive/paxm#docs
+
+### Agent Memory
+- **agentmemory (server-side memory — already deployed)**: https://github.com/rohitg00/agentmemory
+- **agentmemory service**: `shared/active/03-container/services/agentmemory/`
+- **agentmemory Ansible role**: `shared/active/02-config/ansible/roles/agentmemory/`
+- **agentmemory SQLite vs Postgres decision**: `shared/active/03-container/services/agentmemory/docs/why-sqlite-not-postgres.md`
+
+### Tool Call Path
+- **treg (tool registry + credential relay — Phase 6)**: https://github.com/superdesigndev/treg
+- **treg docs**: https://treg.to
+- **treg llms.txt** (agent onboarding): https://treg.to/llms.txt
+- **CB4A feature matrix** (treg vs iron-proxy vs Conduct vs agentgateway vs Infisical vs keys-on-the-wire): `~/p/gh/lrepo52/2ndbrain/2ndbrain/Default/Processes/Technology/Artificial Intelligence/Agents/Local Self-Hosted exe.dev From Devbox and Justfile.md`
+
+### Request Origins
 - **Omnigent (orchestrator / request origin)**: https://github.com/omnigent-ai/omnigent
 - **Omnigent deploy docs**: https://omnigent.ai/docs/deploy/overview
 - **Omnigent shared stack**: `shared/active/03-container/services/ai-codeassist/omnigent/`
@@ -1111,6 +1311,10 @@ Configure alerts for:
 - **Deployment playbook**: `shared/active/02-config/ansible/playbooks/deploy-omnigent.yml`
 - **Env template**: `shared/active/03-container/services/ai-codeassist/omnigent/.env.omnigent.j2`
 - **Omnigent + Pi levonk deployment**: `levonk/active/03-container/services/omnigent/DEPLOYMENT.md`
+- **Buzz (Nostr relay workspace)**: https://github.com/block/buzz
+- **Paperclip (agent orchestration)**: (see existing deployment docs)
+
+### LLM Pipeline Stages
 - **LiteLLM (AI Gateway — entry stage, Phase 1 MVP)**: https://github.com/BerriAI/litellm
 - **Langfuse (LLM observability — Phase 1 MVP)**: https://github.com/langfuse/langfuse
 - **AI Dashboard Project** *(deferred — Phase 4)*: https://github.com/levonk/ai-dashboard
@@ -1121,3 +1325,10 @@ Configure alerts for:
 - **NordVPN** *(deferred — Phase 3)*: Privacy and geo-obfuscation
 - **Forge** *(deferred — Phase 2)*: Tool-call repair reliability layer
 - **Privacy Orchestrator** *(deferred — Phase 5)*: Standalone PII detection/transformation service
+
+### Related Pipeline Docs
+- **Web proxy chain**: `shared/docs/pipelines/web/complete-web-proxy-chain.md`
+- **DNS chain**: `shared/docs/pipelines/dns/complete-dns-chain.md`
+- **NTP chain**: `shared/docs/pipelines/ntp/ntp-chain.md`
+- **Overall architecture**: `shared/docs/pipelines/overall-architecture.md`
+- **Pipeline docs index**: `shared/docs/pipelines/README.md`

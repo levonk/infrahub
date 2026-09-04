@@ -163,7 +163,7 @@ services:
       label: "API"
   network: "proxy-chain-network"
 
-# Web Proxy Chain Services (see diagrams/proxy/complete-web-proxy-chain.mmd)
+# Web Proxy Chain Services (see shared/docs/pipelines/web/complete-web-proxy-chain.mmd)
 - name: "MITM Proxy"
   container: "mitmproxy"
   machine: "oci-cloud-server"
@@ -1287,7 +1287,6 @@ chains:
           - service: "Nix Harmonia (nl)"
             role: "local /nix/store"
           - upstream: "https://cache.nixos.org"
-          - upstream: "https://cache.garnix.io"
           - upstream: "https://nix-community.cachix.org"
 
   - name: "Nix Cache Chain (cno)"
@@ -1301,5 +1300,4 @@ chains:
           - service: "Nix Harmonia (cno)"
             role: "local /nix/store"
           - upstream: "https://cache.nixos.org"
-          - upstream: "https://cache.garnix.io"
           - upstream: "https://nix-community.cachix.org"

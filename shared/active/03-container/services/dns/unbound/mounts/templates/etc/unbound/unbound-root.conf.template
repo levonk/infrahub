@@ -1,7 +1,7 @@
 # Unbound to Root — Tier 10 (ACTIVE)
 # Recursive resolution to root NS directly (no middleman).
 # DNSSEC validated natively by Unbound.
-# See: diagrams/dns/complete-dns-chain.mmd
+# See: shared/docs/pipelines/dns/complete-dns-chain.mmd
 
 server:
     interface: 0.0.0.0

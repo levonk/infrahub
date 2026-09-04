@@ -50,7 +50,7 @@ Omnigent (agent harness) → AI Dashboard Proxy 1 → Privacy Orchestrator → H
    (originates requests)        (Entry)              (PII Detection)    (Compression)   (Routing)       (Tool Calling)        (Pre-Egress)    (Security)    (Privacy)
 ```
 
-See `shared/docs/PIPELINE-AI.md` for the full pipeline architecture and how Omnigent wires in as the request origin.
+See `shared/docs/pipelines/ai/PIPELINE-AI.md` for the full pipeline architecture and how Omnigent wires in as the request origin.
 
 ## Configuration
 

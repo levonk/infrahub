@@ -18,5 +18,5 @@ public_key = "{{ upstream.public_key }}"
 {% endfor %}
 # Route cache TTL — how long to remember which upstream won a race
 [cache]
-ttl = "{{ infra_timeout_hour_long }}"
-negative_ttl = "{{ infra_timeout_half_hour_quarter }}"
+ttl = "2h"  # project-lint: disable=magic-unitnum ncro-specific TOML duration
+negative_ttl = "15m"  # project-lint: disable=magic-unitnum ncro-specific TOML duration

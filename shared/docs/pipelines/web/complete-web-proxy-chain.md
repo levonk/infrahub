@@ -155,4 +155,4 @@ knowledge bundle:
   why no failover for web proxy (unlike DNS)
 - `diagrams/proxy/web-proxy-flow-v2.mmd` — original V2 design (superseded)
 - `diagrams/04-web-proxy-flow.md` — original V2 design doc (superseded)
-- `diagrams/dns/complete-dns-chain.mmd` — DNS chain (parallel architecture)
+- `diagrams/dns/complete-dns-chain.mmd` — DNS chain (parallel architecture, now at `shared/docs/pipelines/dns/complete-dns-chain.mmd`)

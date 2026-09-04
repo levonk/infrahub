@@ -61,7 +61,7 @@ All secrets sourced from the client Ansible vault (`infrahub-levonk-all.vault.ym
 
 ## References
 
-- **Pipeline architecture**: `shared/docs/PIPELINE-AI.md` → "Archon + Omnigent + Herdr + Pi Agent Stack"
+- **Pipeline architecture**: `shared/docs/pipelines/ai/PIPELINE-AI.md` → "Archon + Omnigent + Herdr + Pi Agent Stack"
 - **Deployment playbook**: `shared/active/02-config/ansible/playbooks/deploy-archon.yml`
 - **Env template**: `shared/active/03-container/services/ai-codeassist/archon/.env.archon.j2`
 - **Levonk deployment**: `levonk/active/03-container/services/archon/DEPLOYMENT.md`

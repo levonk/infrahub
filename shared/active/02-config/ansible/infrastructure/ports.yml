@@ -75,7 +75,7 @@ infra_port_dns_coredns_main_health_container: "18080"
 infra_port_dns_dnscrypt_plaintext_host: "5365"
 infra_port_dns_dnscrypt_plaintext_container: "5058"
 
-# dnscrypt-proxy tiers (see diagrams/dns/complete-dns-chain.mmd)
+# dnscrypt-proxy tiers (see shared/docs/pipelines/dns/complete-dns-chain.mmd)
 # Active tiers: odoh (1), anon (2), tor (4-6 shared config)
 # Dark tiers: std (7), doh (8), encrypted (9), plaintext_tor (11), plaintext (12)
 infra_port_dns_dnscrypt_odoh_host: "5360"
@@ -134,7 +134,7 @@ infra_port_proxy_iron_proxy_dns_host: "53"
 infra_port_proxy_iron_proxy_http_host: "8080"
 infra_port_proxy_iron_proxy_https_host: "8443"
 
-# Web Proxy Chain (see diagrams/proxy/complete-web-proxy-chain.mmd)
+# Web Proxy Chain (see shared/docs/pipelines/web/complete-web-proxy-chain.mmd)
 # MITM Proxy (mitmproxy/mitmproxy) — HTTPS decryption + CA management
 infra_port_proxy_mitm_transparent_host: "3127"
 infra_port_proxy_mitm_transparent_container: "3127"

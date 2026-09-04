@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-10
 **Status:** Decision — Varnish
-**Related:** `diagrams/proxy/complete-web-proxy-chain.mmd`, `diagrams/04-web-proxy-flow.md`
+**Related:** `shared/docs/pipelines/web/complete-web-proxy-chain.mmd`
 
 ## Decision
 

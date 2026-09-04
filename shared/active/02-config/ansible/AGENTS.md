@@ -185,10 +185,10 @@ Both clusters run the full chain independently — no cross-cluster failover
 
 ### See Also
 
-- `diagrams/proxy/complete-web-proxy-chain.mmd` — full architecture diagram
-- `requirements/proxy/mitm-ca-distribution.md` — CA certificate strategy
-- `requirements/proxy/caching-strategy.md` — Varnish vs Squid decision
-- `requirements/proxy/egress-routing.md` — Gost egress multiplexer config
+- `shared/docs/pipelines/web/complete-web-proxy-chain.mmd` — full architecture diagram
+- `shared/docs/pipelines/web/requirements/mitm-ca-distribution.md` — CA certificate strategy
+- `shared/docs/pipelines/web/requirements/caching-strategy.md` — Varnish vs Squid decision
+- `shared/docs/pipelines/web/requirements/egress-routing.md` — Gost egress multiplexer config
 
 ## Devbox & Just Commands
 

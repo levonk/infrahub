@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-10
 **Status:** Proposed
-**Related:** `diagrams/proxy/complete-web-proxy-chain.mmd`, `requirements/dns/cross-cluster-dns-failover.md`
+**Related:** `shared/docs/pipelines/web/complete-web-proxy-chain.mmd`, `shared/docs/pipelines/dns/requirements/cross-cluster-dns-failover.md`
 
 ## The Topology
 

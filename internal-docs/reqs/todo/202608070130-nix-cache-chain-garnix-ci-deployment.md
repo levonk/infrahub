@@ -1,8 +1,24 @@
-# Nix Cache Chain + Garnix-CI Deployment on dtop202311
+# Nix Cache Chain Deployment on dtop202311
 
-**Date**: 2026-08-07
-**Session**: Deploying Nix cache chain (Harmonia + ncps + ncro) and garnix-ci on Windows Docker Desktop host (dtop202311) in the nl.levonk.com namespace
-**Status**: Infrastructure complete, image building + deployment pending
+**Date**: 2026-08-07 (updated 2026-09-04)
+**Session**: Deploying Nix cache chain (Harmonia + ncps + ncro) on Windows Docker Desktop host (dtop202311) in the nl.levonk.com namespace
+**Status**: **DEPLOYED** — cache chain live at nixcache.nl.levonk.com (2026-09-04)
+
+## Deployment Verified (2026-09-04)
+
+All three cache chain containers are running and healthy on dtop202311:
+- `localnet-nix-harmonia` — healthy, serves /nix/store on 127.0.0.1:4523
+- `localnet-nix-ncro` — healthy, races Harmonia + cache.nixos.org + nix-community.cachix.org (no garnix)
+- `localnet-nix-ncps` — running, front door at https://nixcache.nl.levonk.com
+
+Verification:
+- `curl -sk https://nixcache.nl.levonk.com/nix-cache-info` returns `StoreDir: /nix/store, WantMassQuery: 1, Priority: 10`
+- ncro config confirmed: no `cache.garnix.io` upstreams
+- nix-sidecar (`localnet-base-nix-sidecar`) provides shared /nix/store volume to Harmonia
+
+## Garnix-CI Deferred (2026-09-04 update)
+
+Garnix shut down its hosted service on July 15 2026 and open-sourced the codebase. Per ADR-20260708001 supplement, garnix-ci deployment is **deferred indefinitely**. The `garnix-ci` Ansible role is kept as scaffolding (`garnix_ci_enabled: false`) but is NOT part of the deployment. All `cache.garnix.io` references have been removed from substituter configs, upstream lists, and Nix flakes across the repo. See ADR-20260708001 supplement for the full analysis.
 
 ## Current State
 
@@ -22,8 +38,8 @@
 
 ### Blocking Issues
 1. **Harmonia + ncro Docker images not yet built**: Need to be built on dtop202311 (x86_64-linux) using Nix. The existing nix-sidecar container on dtop202311 provides the Nix environment.
-2. **garnix-ci containerization is complex**: The open-sourced garnix-io/garnix-ci runs as NixOS VMs (via nixos-compose), not a simple Docker container. The Ansible role exists as scaffolding but the image build strategy needs investigation. The hosted garnix service shut down July 2026.
-3. **WSL2 KVM support**: garnix-ci needs `/dev/kvm` for nested virtualization. Playbooks `enable-wsl2-kvm.yml` and `test-nested-virtualization.yml` were created to handle this, but haven't been tested on dtop202311 yet.
+2. ~~**garnix-ci containerization is complex**~~ — Deferred per ADR-20260708001 supplement (Garnix shutdown July 15 2026). Not part of current deployment scope.
+3. ~~**WSL2 KVM support**~~ — Not needed without garnix-ci. Deferred.
 
 ## Git State
 
@@ -70,11 +86,9 @@ ncro (127.0.0.1:4525)          ← parallel racing proxy, stateless
     │ (races all upstreams)
     ├─► Harmonia (127.0.0.1:4523)  ← serves local /nix/store (priority 10)
     ├─► cache.nixos.org            ← (priority 20)
-    ├─► cache.garnix.io            ← (priority 30)
     └─► nix-community.cachix.org   ← (priority 30)
 
-garnix-ci (ci.nl.levonk.com)   ← CI builder, separate service
-    │ uses /dev/kvm + shared nix store
+garnix-ci: DEFERRED (ADR-20260708001 supplement, Garnix shutdown July 2026)
 ```
 
 ### Current Status
@@ -196,7 +210,7 @@ works. Each line is one task; do not collapse multiple tasks into one line.
 - [x] Create nix-harmonia Ansible role
 - [x] Create nix-ncps Ansible role (upstream ghcr.io/kalbasit/ncps:v0.9.4)
 - [x] Create nix-ncro Ansible role (github.com/manic-systems/ncro)
-- [x] Create garnix-ci Ansible role (scaffolding)
+- [x] Create garnix-ci Ansible role (scaffolding, deferred — garnix_ci_enabled: false)
 - [x] Add Traefik routing for cache.nl.levonk.com + ci.nl.levonk.com
 - [x] Add DNS CNAME records for cache + ci services
 - [x] Create deployment playbook (deploy-nix-cache-and-garnix.yml)
@@ -204,17 +218,20 @@ works. Each line is one task; do not collapse multiple tasks into one line.
 - [x] Create ncro flake.nix + Makefile + README in artifact services
 - [x] Update ADR + docs with correct ncro URL (github.com/manic-systems/ncro)
 - [x] Commit all infrastructure work (commit 0079aae)
-- [ ] Build Harmonia Docker image on dtop202311 (x86_64-linux, use existing flake.nix)
-- [ ] Build ncro Docker image on dtop202311 (x86_64-linux, use new flake.nix)
-- [ ] Deploy Nix cache chain (Harmonia + ncps + ncro) to dtop202311
-- [ ] Verify cache chain: test nix substituter points to cache.nl.levonk.com
-- [ ] Investigate garnix-ci containerization (NixOS VM → Docker conversion)
-- [ ] Deploy garnix-ci if containerization is feasible
-- [ ] Test nested virtualization (KVM) on dtop202311 for garnix-ci
+- [x] Remove all cache.garnix.io references (Garnix shutdown July 15 2026, per ADR supplement)
+- [x] Set garnix_ci_enabled: false (garnix-ci deferred per ADR supplement)
+- [x] Build Harmonia Docker image on dtop202311 (x86_64-linux, use existing flake.nix)
+- [x] Build ncro Docker image on dtop202311 (x86_64-linux, use new flake.nix)
+- [x] Deploy Nix cache chain (Harmonia + ncps + ncro) to dtop202311
+- [x] Verify cache chain: nixcache.nl.levonk.com/nix-cache-info returns valid response
+- [x] Update nix-darwin client config with LAN cache module (levonk/active/02-config/nix/darwin/modules/cache-lan.nix)
+- [~] Investigate garnix-ci containerization (DEFERRED — ADR-20260708001 supplement, Garnix shutdown)
+- [~] Deploy garnix-ci (DEFERRED — not in current scope)
+- [~] Test nested virtualization (KVM) on dtop202311 for garnix-ci (DEFERRED — not needed without garnix-ci)
 ```
 
 ## Success Criteria
-- `cache.nl.levonk.com/nix-cache-info` returns valid cache info from ncps
+- `nixcache.nl.levonk.com/nix-cache-info` returns valid cache info from ncps ✅
 - `cache.nl.levonk.com` serves cached NARs (verify with `nix path-info --substituters https://cache.nl.levonk.com`)
 - ncro races upstreams and logs route decisions in SQLite
 - Harmonia serves local `/nix/store` paths that exist on dtop202311
@@ -222,9 +239,9 @@ works. Each line is one task; do not collapse multiple tasks into one line.
 - `ci.nl.levonk.com` responds (if garnix-ci is deployed)
 
 ## Open Questions/Blockers
-- **garnix-ci containerization**: The open-sourced garnix-ci runs as NixOS VMs via nixos-compose. Converting to a Docker container is non-trivial. May need to use a different CI solution (e.g., github-nix-ci from juspay) or run garnix-ci in a VM instead of a container.
+- ~~**garnix-ci containerization**~~ — Deferred per ADR-20260708001 supplement.
 - **Harmonia signing key**: Harmonia needs a signing key for the cache. This should be generated and stored in the vault. Check if `nix store generate-secret-key` needs to be run.
-- **ncps upstream config**: ncps currently points directly to cache.nixos.org and cache.garnix.io. Should it instead point to ncro as its upstream? The ADR says ncps → ncro → upstreams, but the current ncps config has ncro's URL commented out. Need to decide: does ncps query ncro, or does ncps query upstreams directly (making ncro redundant)?
+- ~~**ncps upstream config**~~ — Resolved: ncps points to ncro as its single upstream (per ADR-20260708001). cache.garnix.io removed from all configs after Garnix shutdown.
 
 ## Do Not
 - Do NOT use `docker compose` for deployment — use Ansible roles only (AGENTS.md invariant)
@@ -251,10 +268,9 @@ The upstream `ghcr.io/kalbasit/ncps:v0.9.4` image uses CLI flags, not a TOML con
   --cache-storage-local=/storage \
   --cache-database-url=sqlite:/storage/var/ncps/db/db.sqlite \
   --server-listen=0.0.0.0:8080 \
-  --cache-upstream-url=https://cache.nixos.org \
-  --cache-upstream-url=https://cache.garnix.io \
+  --cache-upstream-url=http://localnet-nix-ncro:8081 \
   --cache-upstream-public-key=cache.nixos.org-1:... \
-  --cache-upstream-public-key=cache.garnix.io:...
+  --cache-upstream-public-key=nix-community.cachix.org-1:...
 ```
 Database migration must run first: `ncps migrate up --cache-database-url=...`
 
@@ -271,6 +287,10 @@ priority = 10
 url = "https://cache.nixos.org"
 priority = 20
 public_key = "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPSQZNGZfdL7Q="
+
+[[upstreams]]
+url = "https://nix-community.cachix.org"
+priority = 30
 
 [cache]
 ttl = "2h"

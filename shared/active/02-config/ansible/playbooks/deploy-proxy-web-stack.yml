@@ -2,7 +2,7 @@
 # Web Proxy Chain Playbook
 # Deploys the full web proxy chain: MITM, Privoxy, Varnish, Gost egress.
 #
-# Architecture: see diagrams/proxy/complete-web-proxy-chain.mmd
+# Architecture: see shared/docs/pipelines/web/complete-web-proxy-chain.mmd
 # Requirements: DNS chain (Tor proxy at 172.26.255.70:9050) must be running.
 #
 # Usage:

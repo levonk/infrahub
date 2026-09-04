@@ -7,7 +7,7 @@ url: "https://github.com/levonk/infrahub/blob/main/shared/active/08-docs/adr/adr
 synopsis: "Replace the sequential waterfall Nix cache strategy with a regional multi-layer chain using ncro for parallel upstream racing and ncps for local NAR caching."
 author: "https://github.com/levonk"
 date-created: "2026-07-08"
-date-updated: "2026-07-08"
+date-updated: "2026-09-04"
 date-review: "2027-01-08"
 date-triggers: ["2026-10-08"]
 version: "0.1.0"
@@ -168,6 +168,73 @@ Rollback: If the new chain causes issues, revert nix.conf to point directly at c
 - The previous waterfall strategy is preserved in `nix-package-store.md` (marked superseded with a banner pointing to this ADR) for historical reference.
 - The `cache.nix` nix-darwin module has a TODO comment referencing this ADR for when local Harmonia is deployed.
 - Implementation details belong in the PRD: `internal-docs/feature/2026/07/nix-cache-chain/feat-202607081745-nix-cache-chain.md`
+
+## Supplement: Garnix Shutdown Validation of Excluded-Scope Decision
+
+**Date:** 2026-09-04
+
+Garnix (hosted Nix CI + binary cache) ceased hosted operations on **July 15 2026** following its acquisition by Shopify. The team open-sourced the codebase at [github.com/garnix-io/garnix-ci](https://github.com/garnix-io/garnix-ci) and invited community members to run their own instances. Source: [LavX news article](https://news.lavx.hu/article/garnix-announces-shutdown-and-open-source-release-after-joining-shopify).
+
+This event validates the `excluded-scope` decision in this ADR's frontmatter, which listed `garnix` as explicitly excluded from the cache chain architecture. The analysis at the time of the ADR (July 2026) avoided relying on a hosted third-party Nix CI — the exact failure mode that materialized.
+
+### Analysis: Self-Hosted Garnix vs. Current Cache Chain
+
+The open-source release does not warrant revisiting the excluded-scope decision, for three reasons:
+
+1. **Different problem domain.** Garnix is a *CI builder* (builds flake outputs on push, sets GitHub commit checks, serves a binary cache as a byproduct). This ADR's cache chain is a *cache acceleration layer* (parallel racing via ncro, local NAR caching via ncps, local store serving via Harmonia, cloud binary cache via Attic). They are complementary at best, not substitutive. CI needs are already covered by GitHub Actions pushing to Attic, per ADR-20260709001's three-branch decision tree.
+
+2. **Significant complexity increase.** Self-hosting Garnix requires: QEMU VMs via `nixos-compose`, a GitHub App registration, a backend service, a frontend (npm), a database, and admin tooling. The current cache chain is four lightweight containerized services deployed via Ansible `community.docker` modules. Self-hosting Garnix would add operational burden without replacing any existing component.
+
+3. **Incomplete architecture coverage.** The fleet (per ADR-20260709001) spans four architectures. Garnix's coverage:
+
+   | Architecture | Garnix support | Fleet need |
+   |---|---|---|
+   | x86_64-linux | Native (Hetzner x86) | dtop202311 WSL2, isolation-vm |
+   | aarch64-darwin | Native (M1 server, added May 2022) | lzkmbp2018 (Apple Silicon Mac) |
+   | aarch64-linux | Emulation only (binfmt/QEMU), reverted/limited due to resource costs | OCI cloud server (aarch64) |
+   | x86_64-darwin | **Not supported** — [issue #16](https://github.com/garnix-io/issues/issues/16) closed with "not planning to do this" | lzkmbp2016 (Intel Mac, OpenCore) |
+
+   Garnix covers 2 of 4 fleet architectures natively. It cannot build for x86_64-darwin at all, and aarch64-linux is emulation-only — the same QEMU emulation that ADR-20260709001 explicitly rejected due to Rust/mold segfaults and 10-24x slowdown.
+
+### Conclusion
+
+No preference changes warranted. The Garnix shutdown is recorded here as a validation data point for the 3-month review (2026-10-08). The `excluded-scope` decision stands.
+
+## Supplement: Nix-Sidecar Shared Store and Architecture Specificity
+
+**Date:** 2026-09-04
+
+During deployment preparation, the question arose of whether the nix-sidecar shared `/nix/store` volume can be shared across all fleet architectures (mac x86_64, mac aarch64, linux x86_64, linux aarch64).
+
+### Decision: Per-Architecture Nix-Sidecar, Not Cross-Arch
+
+The `/nix/store` is **architecture-specific**. A store path built for `x86_64-linux` cannot be used by `aarch64-linux` and vice versa. A single nix-sidecar shared store volume cannot serve multiple architectures. However, this is not a problem for the cache chain because each host runs its own nix-sidecar (or native Nix installation) with its own arch-appropriate store:
+
+| Host | Arch | Nix store source | Harmonia access |
+|------|------|-----------------|-----------------|
+| dtop202311 (nl) | x86_64-linux | nix-sidecar Docker volume | `nix_harmonia_nix_store_volume` (shared sidecar volume) |
+| oci-cloud-server (cno) | aarch64-linux | Native host installation | Bind-mount `/nix/store` from host |
+| lzkmbp2016 (Mac) | x86_64-darwin | Native host installation | (future: local Harmonia) |
+| lzkmbp2018 (Mac) | x86_64-darwin | Native host installation | (future: local Harmonia) |
+
+### Which Cache Chain Containers Need /nix/store at Runtime?
+
+Only **Harmonia** needs `/nix/store` at runtime — it serves the local store over HTTP to Nix clients. The other two containers do not:
+
+- **ncro**: Stateless Rust binary. No `/nix/store` dependency at runtime. Built as a Docker image from a Nix flake per-arch (`x86_64-linux`, `aarch64-linux`).
+- **ncps**: Go binary from upstream multi-arch image (`ghcr.io/kalbasit/ncps:main`). No `/nix/store` dependency at runtime.
+
+### Nix-Sidecar Sharing Within an Architecture
+
+On dtop202311 (nl), the nix-sidecar provides a shared `/nix/store` Docker volume. Harmonia mounts this volume read-only (`-v {{ nix_harmonia_nix_store_volume }}:/shared-nix:ro`) and serves it. Other containers that need Nix at runtime on the same host can also mount this volume, avoiding redundant downloads — but only within the same architecture.
+
+### Cross-Architecture Cache Sharing
+
+Cross-architecture sharing happens at the **NAR level** via ncps/ncro, not at the store level. When an x86_64-linux client requests a store path, ncro races upstreams (including the local Harmonia) for the x86_64-linux NAR. An aarch64-linux client does the same for aarch64-linux NARs. The ncps cache stores NARs keyed by store path hash, which includes the architecture derivation. So a single ncps instance can serve NARs for multiple architectures — but the `/nix/store` itself (served by Harmonia) is always arch-specific.
+
+### Implication for macOS Laptops
+
+The levonk Mac laptops (lzkmbp2016, lzkmbp2018) are both `x86_64-darwin`. They do not run nix-sidecar (Nix is installed natively via Determinate Nix). When on the LAN, they can use the nl ncps cache (`cache.nl.levonk.com`) as a substituter for `x86_64-darwin` NARs. The ncps cache will fetch from upstreams on miss and cache the NAR for future use. This is configured in the client-specific nix-darwin configuration, not in the shared `cache.nix` module.
 
 ## References
 

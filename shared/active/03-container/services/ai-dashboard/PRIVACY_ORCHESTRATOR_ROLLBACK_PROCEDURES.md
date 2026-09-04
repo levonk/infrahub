@@ -483,7 +483,7 @@ In case of emergency rollback situations:
 
 ## Related Documentation
 
-- [PIPELINE-AI.md](../../../../docs/PIPELINE-AI.md) - Pipeline architecture and configuration
+- [PIPELINE-AI.md](../../../../docs/pipelines/ai/PIPELINE-AI.md) - Pipeline architecture and configuration
 - [PIPELINE_INTEGRATION_TEST_PLAN.md](PIPELINE_INTEGRATION_TEST_PLAN.md) - Integration testing procedures
 - [deploy-privacy-orchestrator.yml](../../ansible/playbooks/deploy-privacy-orchestrator.yml) - Ansible deployment playbook
 - [privacy-orchestrator-config-example.toml](privacy-orchestrator-config-example.toml) - Configuration examples

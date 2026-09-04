@@ -2,7 +2,7 @@
 # proxy-web Role Defaults
 # Maps proxy_web_* role variables to infra_* infrastructure variables.
 # See: shared/active/02-config/ansible/infrastructure/ports.yml and networks.yml
-# See: diagrams/proxy/complete-web-proxy-chain.mmd for the full architecture
+# See: shared/docs/pipelines/web/complete-web-proxy-chain.mmd for the full architecture
 
 # Service toggle
 proxy_web_enabled: true
