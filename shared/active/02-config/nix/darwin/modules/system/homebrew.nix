@@ -110,7 +110,13 @@ in {
 
       # Network tunneling
       "ngrok"
-    ];
+    ]
+    # OpenCore Legacy Patcher — only on x86_64-darwin (unsupported Intel Macs).
+    # Apple Silicon Macs are supported by Apple and must NOT get OCLP.
+    # The cask installs the OpenCore-Patcher.pkg GUI app; it does not patch
+    # the boot state on its own (Build & Patch is run separately by the user).
+    # See https://dortania.github.io/OpenCore-Legacy-Patcher/
+    ++ lib.optional pkgs.stdenv.hostPlatform.isx86_64 "opencore-patcher";
   };
 
   # Trust third-party taps before `brew bundle` runs.
