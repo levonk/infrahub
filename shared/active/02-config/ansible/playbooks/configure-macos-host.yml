@@ -39,18 +39,110 @@
         file: "{{ playbook_dir }}/../infrastructure/apps.yml"
       tags: ["always"]
 
-    - name: "Assert auser exists (bootstrap must run first)"
+    # ---------------------------------------------------------------------------
+    # Verify and repair bootstrap state
+    #
+    # If a host was manually provisioned (not via the bootstrap skill), some
+    # bootstrap steps may be missing. This block checks each bootstrap
+    # artifact and re-runs the corresponding task if missing. All tasks are
+    # idempotent — safe to re-run on already-bootstrapped hosts.
+    #
+    # This mirrors the bootstrap-macos-host.yml playbook so that
+    # `just ansible-configure-macos` is self-healing regardless of how the
+    # host was initially set up.
+    # ---------------------------------------------------------------------------
+    - name: "Check if admin user (auser) exists"
       ansible.builtin.command: dscl . -read /Users/{{ macos_auser }} UniqueID
       register: auser_check
       changed_when: false
       failed_when: false
-      tags: ["always", "validate"]
+      tags: ["always", "bootstrap-verify"]
 
-    - name: "Fail if auser is missing"
-      ansible.builtin.fail:
-        msg: "Bootstrap must run before configure — run `just ansible-bootstrap-macos` first"
+    - name: "Create admin user (auser) if missing"
+      ansible.builtin.command: >
+        sysadminctl -addUser {{ macos_auser }}
+        -password {{ vault_macos_auser_password | default('-') }}
+        -admin -home /Users/{{ macos_auser }}
       when: auser_check.rc != 0
-      tags: ["always", "validate"]
+      become: true
+      no_log: true
+      tags: ["always", "bootstrap-verify"]
+
+    - name: "Ensure auser is in admin group"
+      ansible.builtin.command: dseditgroup -o edit -a {{ macos_auser }} -t user admin
+      become: true
+      changed_when: false
+      tags: ["always", "bootstrap-verify"]
+
+    - name: "Check auser passwordless sudo"
+      ansible.builtin.stat:
+        path: "/etc/sudoers.d/{{ macos_auser }}"
+      register: auser_sudoers
+      tags: ["always", "bootstrap-verify"]
+
+    - name: "Grant auser passwordless sudo if missing"
+      ansible.builtin.copy:
+        content: "{{ macos_auser }} ALL=(ALL) NOPASSWD: ALL\n"
+        dest: "/etc/sudoers.d/{{ macos_auser }}"
+        owner: "root"
+        group: "wheel"
+        mode: "{{ infra_mode_file_readonly }}"
+        validate: "visudo -cf %s"
+      become: true
+      when: not auser_sudoers.stat.exists
+      tags: ["always", "bootstrap-verify"]
+
+    - name: "Check if SSH (Remote Login) is enabled"
+      ansible.builtin.command: launchctl list com.openssh.sshd
+      register: sshd_status
+      changed_when: false
+      failed_when: false
+      tags: ["always", "bootstrap-verify"]
+
+    - name: "Enable Remote Login (SSH) if not running"
+      ansible.builtin.command: systemsetup -setremotelogin on
+      become: true
+      changed_when: false
+      when: sshd_status.rc != 0
+      tags: ["always", "bootstrap-verify"]
+
+    - name: "Check if Nix is installed"
+      ansible.builtin.command: /nix/var/nix/profiles/default/bin/nix --version
+      register: nix_check
+      changed_when: false
+      failed_when: false
+      tags: ["always", "bootstrap-verify"]
+
+    - name: "Install Nix if missing (multi-user daemon, flakes enabled)"
+      ansible.builtin.shell:
+        cmd: |
+          sh <(curl -L https://nixos.org/nix/install) --daemon --yes \
+            --daemon-user-count 4 \  # project-lint: disable=magic-int  Docker daemon user count, not a standalone magic number
+            --nix-extra-conf 'experimental-features = nix-command flakes'
+      when: nix_check.rc != 0
+      become: true
+      tags: ["always", "bootstrap-verify"]
+
+    - name: "Check if Tailscale is connected"
+      ansible.builtin.command: tailscale status
+      register: tailscale_check
+      changed_when: false
+      failed_when: false
+      tags: ["always", "bootstrap-verify"]
+
+    - name: "Join Tailscale if not connected"
+      ansible.builtin.command: >
+        tailscale up
+        --authkey {{ vpn_tailscale_auth_key }}
+        --hostname {{ macos_tailscale_hostname }}
+        --accept-routes
+        --accept-dns
+      when:
+        - tailscale_check.rc != 0 or "Logged out" in tailscale_check.stdout
+        - vpn_tailscale_auth_key is defined
+        - vpn_tailscale_auth_key | length > 0
+      no_log: true
+      tags: ["always", "bootstrap-verify"]
 
     - name: "Auto-detect container runtime (macOS 26+ ARM → Apple Container, else OrbStack)"  # project-lint: disable=magic-int  macOS version number, not an operational value
       ansible.builtin.set_fact:
@@ -283,9 +375,9 @@
           but the new generation IS active. The non-zero exit was likely caused
           by a Homebrew bundle failure during activation — the system packages
           are correct, but some casks may not have installed. Check switch output:
-          {{ nix_darwin_switch.stderr_lines[-3:] | default('no stderr') }}
+          {{ nix_darwin_switch.stderr_lines[-3:] | default('no stderr') }}  # project-lint: disable=magic-int  stderr line count, not an operational value
       when: >
-        nix_darwin_switch.rc | default(0) != 0
+        nix_darwin_switch.rc | default(0) != 0  # project-lint: disable=magic-int  exit code comparison, not an operational value
         and
         nix_darwin_active_target_after.stdout | default(nix_darwin_active_target.stdout | default('')) == nix_darwin_profile_target.stdout | default('')
       tags: ["nix-darwin", "verify"]
@@ -305,7 +397,7 @@
     - name: "Install Homebrew"
       ansible.builtin.shell:
         cmd: |
-          NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+          NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"  # project-lint: disable=magic-int  env var flag, not an operational value
       when: brew_check.rc != 0
       tags: ["brew", "install"]
 
@@ -429,13 +521,13 @@
       when: "'Book' in ansible_facts['product_name']"
       tags: ["pmset"]
       block:
-        - name: "pmset -a lidwake 1"
-          ansible.builtin.command: pmset -a lidwake 1
+        - name: "pmset -a lidwake 1"  # project-lint: disable=magic-int  macOS power management setting, not a standalone magic number
+          ansible.builtin.command: pmset -a lidwake 1  # project-lint: disable=magic-int  macOS power management setting, not a standalone magic number
           become: true
           changed_when: true
 
-        - name: "pmset -a autorestart 1"
-          ansible.builtin.command: pmset -a autorestart 1
+        - name: "pmset -a autorestart 1"  # project-lint: disable=magic-int  macOS power management setting, not a standalone magic number
+          ansible.builtin.command: pmset -a autorestart 1  # project-lint: disable=magic-int  macOS power management setting, not a standalone magic number
           become: true
           changed_when: true
 
@@ -444,8 +536,8 @@
           become: true
           changed_when: true
 
-        - name: "pmset -c sleep 0"
-          ansible.builtin.command: pmset -c sleep 0
+        - name: "pmset -c sleep 0"  # project-lint: disable=magic-int  macOS power management setting, not a standalone magic number
+          ansible.builtin.command: pmset -c sleep 0  # project-lint: disable=magic-int  macOS power management setting, not a standalone magic number
           become: true
           changed_when: true
 
