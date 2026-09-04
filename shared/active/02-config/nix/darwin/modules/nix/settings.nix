@@ -30,6 +30,13 @@
 # The --no-modify-nix-conf flag prevents Determinate from overwriting
 # nix-darwin's /etc/nix/nix.conf.
 { pkgs, ... }: {
+  # Determinate Nix manages the Nix installation itself (daemon, binaries,
+  # auto-updater). Setting nix.enable = false tells nix-darwin not to manage
+  # the Nix installation, avoiding the "Determinate detected, aborting
+  # activation" error. nix.settings.* still works — nix-darwin writes
+  # /etc/nix/nix.conf from those settings regardless of nix.enable.
+  nix.enable = false;
+
   nix.settings = {
     # For Remote Dev
     keep-outputs = true;
