@@ -21,18 +21,26 @@
 #   - "uninstall": removes casks/formulae not in the list (keeps app data).
 #   - "zap": removes casks/formulae not in the list AND all associated files.
 # Switch to "uninstall" or "zap" after verifying the lists are complete.
-{ pkgs, ... }: {
+{ pkgs, lib, config, ... }:
+let
+  # Third-party taps (non-homebrew/*) that need explicit `brew trust`
+  # before `brew bundle` can install their casks/formulae.
+  # Homebrew 4.x introduced tap-trust as a security feature; taps declared
+  # in nix-darwin config are the trust decision, but Homebrew's interactive
+  # trust prompt blocks `brew bundle` until `brew trust` is run per-user.
+  thirdPartyTaps = [
+    "deskflow/tap"
+  ];
+in {
   homebrew = {
     enable = true;
     onActivation.cleanup = "none"; # Safe: won't remove existing packages
     onActivation.autoUpdate = true;
     onActivation.upgrade = true;
 
-    taps = [
-      "homebrew/bundle"
-      "homebrew/services"
-      "deskflow/tap"
-    ];
+    # Only third-party taps — homebrew/bundle and homebrew/services were
+    # deprecated by Homebrew (taps are now empty, contents migrated to core).
+    taps = thirdPartyTaps;
 
     # CLI tools managed by Homebrew.
     # Excludes: git, zsh (in environment.systemPackages via nix).
@@ -104,4 +112,19 @@
       "ngrok"
     ];
   };
+
+  # Trust third-party taps before `brew bundle` runs.
+  # nix-darwin activation scripts run in alphabetical order by key;
+  # "brew-trust-taps" (b) runs before "homebrew" (h).
+  # This bridges the gap between declarative tap declaration (homebrew.taps)
+  # and Homebrew 4.x's interactive tap-trust requirement.
+  system.activationScripts.brew-trust-taps.text = let
+    primaryUser = config.system.primaryUser or "root";
+    trustCommands = map (tap: "  /usr/bin/sudo -u ${primaryUser} -H brew trust ${tap} 2>/dev/null || true") thirdPartyTaps;
+  in ''
+    # Trust third-party Homebrew taps before brew bundle runs.
+    # Homebrew 4.x requires explicit `brew trust` for non-homebrew/* taps.
+    # The taps are declared in homebrew.taps above — this is the trust step.
+    ${builtins.concatStringsSep "\n" trustCommands}
+  '';
 }
