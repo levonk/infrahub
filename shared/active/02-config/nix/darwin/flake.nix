@@ -53,6 +53,7 @@
         zsh = ./modules/system/zsh.nix;
         nixSettings = ./modules/nix/settings.nix;
         nixCache = ./modules/nix/cache.nix;
+        nixHarmonia = ./modules/nix/harmonia.nix;
         privacy = ./modules/security/privacy-darwin.nix;
         sudo = ./modules/security/sudo.nix;
         fleet = ./modules/fleet/default.nix;
@@ -65,6 +66,7 @@
           ./modules/system/zsh.nix
           ./modules/nix/settings.nix
           ./modules/nix/cache.nix
+          ./modules/nix/harmonia.nix
           ./modules/security/privacy-darwin.nix
           ./modules/security/sudo.nix
           ./modules/fleet/default.nix
