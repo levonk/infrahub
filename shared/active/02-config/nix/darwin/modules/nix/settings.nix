@@ -8,17 +8,20 @@
 #
 # This machine uses Determinate Nix (the installer that writes
 # /etc/nix/nix.conf with a "DETERMINATE NIX CONFIG" header and
-# `!include nix.custom.conf`). nix-darwin ALSO writes /etc/nix/nix.conf
-# via `nix.settings`. This creates a conflict: whichever runs last wins.
+# `!include nix.custom.conf`). With nix.enable = false, nix-darwin
+# does NOT write /etc/nix/nix.conf — Determinate Nix owns it.
 #
 # Resolution:
-#   1. nix-darwin's `nix.settings` is the declarative source of truth.
-#      `darwin-rebuild switch` writes /etc/nix/nix.conf from these settings.
-#   2. Determinate Nix's /etc/nix/nix.conf is overwritten on first
-#      `darwin-rebuild switch`. This is expected and acceptable.
-#   3. Any custom settings not covered by `nix.settings.*` should go in
-#      /etc/nix/nix.custom.conf (Determinate's include file), which
-#      nix-darwin does NOT manage.
+#   1. nix.enable = false: nix-darwin does not manage the Nix
+#      installation (daemon, binaries, auto-updater). This avoids
+#      the "Determinate detected, aborting activation" error.
+#   2. nix.settings.*: evaluated by nix-darwin but NOT written to
+#      /etc/nix/nix.conf when nix.enable = false. These are still
+#      useful for documentation and for non-Determinate hosts.
+#   3. environment.etc."nix/nix.custom.conf": nix-darwin writes this
+#      file, which Determinate Nix includes via `!include nix.custom.conf`
+#      in /etc/nix/nix.conf. This is how substituters and trusted-public-keys
+#      reach the active Nix config on Determinate Nix hosts.
 #   4. The Determinate Nix auto-updater continues to work — it updates
 #      the nix binaries, not nix.conf.
 #
@@ -33,8 +36,7 @@
   # Determinate Nix manages the Nix installation itself (daemon, binaries,
   # auto-updater). Setting nix.enable = false tells nix-darwin not to manage
   # the Nix installation, avoiding the "Determinate detected, aborting
-  # activation" error. nix.settings.* still works — nix-darwin writes
-  # /etc/nix/nix.conf from those settings regardless of nix.enable.
+  # activation" error.
   nix.enable = false;
 
   nix.settings = {
@@ -60,4 +62,10 @@
     always-allow-substitutes = true;
     max-jobs = "auto";
   };
+
+  # Determinate Nix coexistence: nix.settings.* is NOT written to
+  # /etc/nix/nix.conf when nix.enable = false. The cache.nix module writes
+  # substituters and trusted-public-keys to /etc/nix/nix.custom.conf via
+  # environment.etc, which Determinate Nix includes via `!include`.
+  # See: modules/nix/cache.nix for the environment.etc declaration.
 }
