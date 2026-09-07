@@ -38,9 +38,10 @@
   # the Nix installation, avoiding the "Determinate detected, aborting
   # activation" error.
   #
-  # Use mkDefault so hosts with vanilla Nix (no Determinate) can override
-  # to nix.enable = true and let nix-darwin manage nix.conf directly.
-  nix.enable = lib.mkDefault false;
+  # Use mkOverride 1500 (lower priority than the default 1000) so hosts with
+  # vanilla Nix (no Determinate) can override to nix.enable = true with a
+  # plain assignment and let nix-darwin manage nix.conf directly.
+  nix.enable = lib.mkOverride 1500 false;
 
   nix.settings = {
     # For Remote Dev
