@@ -33,15 +33,11 @@
 # The --no-modify-nix-conf flag prevents Determinate from overwriting
 # nix-darwin's /etc/nix/nix.conf.
 { pkgs, lib, ... }: {
-  # Determinate Nix manages the Nix installation itself (daemon, binaries,
-  # auto-updater). Setting nix.enable = false tells nix-darwin not to manage
-  # the Nix installation, avoiding the "Determinate detected, aborting
-  # activation" error.
-  #
-  # Use mkOverride 1500 (lower priority than the default 1000) so hosts with
-  # vanilla Nix (no Determinate) can override to nix.enable = true with a
-  # plain assignment and let nix-darwin manage nix.conf directly.
-  nix.enable = lib.mkOverride 1500 false;
+  # nix.enable is NOT set here. Each host must set it explicitly:
+  #   - Determinate Nix hosts: nix.enable = false (Determinate owns nix.conf)
+  #   - Vanilla Nix hosts: nix.enable = true (nix-darwin owns nix.conf)
+  # This avoids module priority conflicts between the shared default
+  # and host-level overrides.
 
   nix.settings = {
     # For Remote Dev
