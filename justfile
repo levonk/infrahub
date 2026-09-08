@@ -37,6 +37,8 @@ PB_DIRECTORY_EMPIRE := ANSIBLE_ROOT + "/playbooks/deploy-directory-empire.yml"
 PB_CONTROL_CENTER := ANSIBLE_ROOT + "/playbooks/deploy-control-center.yml"
 PB_VAL_CONTROL_CENTER := ANSIBLE_ROOT + "/playbooks/validate-control-center.yml"
 PB_STIRLING_PDF := ANSIBLE_ROOT + "/playbooks/deploy-stirling-pdf.yml"
+PB_UNDEPLOY_STIRLING_PDF := ANSIBLE_ROOT + "/playbooks/undeploy-stirling-pdf.yml"
+PB_MEDIA_STACK := ANSIBLE_ROOT + "/playbooks/deploy-media-stack.yml"
 PB_PROXY_WEB := ANSIBLE_ROOT + "/playbooks/deploy-proxy-web-stack.yml"
 PB_VAL_PROXY_WEB := ANSIBLE_ROOT + "/playbooks/validate-proxy-web.yml"
 PB_FWKNOP := ANSIBLE_ROOT + "/playbooks/deploy-fwknop.yml"
@@ -662,6 +664,32 @@ ansible_deploy_stirling_pdf_impl:
     {{_log}}
     log_start "Deploying Stirling-PDF on Windows Docker host"
     ansible-playbook -i {{WINDOWS_INVENTORY}} {{PB_STIRLING_PDF}} --vault-password-file ~/.ansible/vault_password
+
+# Undeploy (stop and remove) Stirling-PDF container on Windows Docker host.
+# Volumes are preserved — re-deploy with ansible-deploy-stirling-pdf.
+ansible-undeploy-stirling-pdf:
+    @just _devbox ansible_undeploy_stirling_pdf_impl
+
+[private]
+ansible_undeploy_stirling_pdf_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Undeploying Stirling-PDF on Windows Docker host (stopping container)"
+    ansible-playbook -i {{WINDOWS_INVENTORY}} {{PB_UNDEPLOY_STIRLING_PDF}} --vault-password-file ~/.ansible/vault_password
+
+# Deploy Media Stack (Jellyfin + *arr) on Windows Docker host (nl region)
+# Prerequisites: Traefik Windows deployed, DNS CNAMEs configured.
+ansible-deploy-media-stack:
+    @just _devbox ansible_deploy_media_stack_impl
+
+[private]
+ansible_deploy_media_stack_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Deploying Media Stack on Windows Docker host"
+    ansible-playbook -i {{WINDOWS_INVENTORY}} {{PB_MEDIA_STACK}} --vault-password-file ~/.ansible/vault_password
 
 # Deploy Web Proxy Chain (MITM → Privoxy → Varnish → Gost) on Windows Docker host
 # Prerequisites: DNS chain deployed (Tor proxy at 172.26.255.70:9050), Gost image built.

@@ -323,3 +323,58 @@ infra_storage_stirling_pdf_logs_volume: "localnet-stirling-pdf-logs-volume"
 infra_storage_wazuh_indexer_config_volume: "localnet-wazuh-indexer-config-volume"
 infra_storage_wazuh_dashboard_data_volume: "localnet-wazuh-dashboard-data-volume"
 infra_storage_wazuh_manager_config_mount_volume: "localnet-wazuh-manager-config-mount-volume"
+
+# ---------------------------------------------------------------------------
+# treg — Tool Registry Storage (cno region — oci-cloud-server)
+# Credential-injecting proxy + tool registry. PostgreSQL database volume
+# holds the treg database (tools, secrets, audit records). Config volume
+# holds the .env file rendered by Ansible.
+# ---------------------------------------------------------------------------
+infra_storage_treg_data_volume: "localnet-treg-data-volume"
+infra_storage_treg_postgres_volume: "localnet-treg-postgres-volume"
+infra_storage_treg_config_dir: "{{ infra_storage_services_dir }}/treg"
+
+# ---------------------------------------------------------------------------
+# ComfyUI — Image/Video Generation Pipeline (native on kckinai)
+# ComfyUI runs natively (not Docker) on the GB10 inference host. Storage dirs
+# hold model checkpoints, LoRAs, output videos, and the ComfyUI install itself.
+# Keep these on the fastest NVMe storage available (per the pipeline doc).
+# ---------------------------------------------------------------------------
+infra_storage_comfyui_base_dir: "{{ infra_storage_services_dir }}/comfyui"
+infra_storage_comfyui_install_dir: "{{ infra_storage_comfyui_base_dir }}/ComfyUI"
+infra_storage_comfyui_models_dir: "{{ infra_storage_comfyui_install_dir }}/models"
+infra_storage_comfyui_output_dir: "{{ infra_storage_comfyui_install_dir }}/output"
+infra_storage_comfyui_input_dir: "{{ infra_storage_comfyui_install_dir }}/input"
+infra_storage_comfyui_custom_nodes_dir: "{{ infra_storage_comfyui_install_dir }}/custom_nodes"
+infra_storage_comfyui_config_dir: "{{ infra_storage_config_dir }}/comfyui"
+
+# ---------------------------------------------------------------------------
+# Media Stack — Jellyfin + *arr services (nl region = dtop202311)
+# All media services run on Windows Docker Desktop (dtop202311, X86).
+# Config volumes hold per-service state (databases, settings, API keys).
+# The media data directory is shared across all *arr services and Jellyfin.
+# See shared/docs/pipelines/media/PIPELINE-MEDIA.md for the full pipeline.
+# ---------------------------------------------------------------------------
+
+# Shared media data directory (movies, tv, music, comics, downloads, audiobooks)
+infra_storage_media_data_dir: "{{ infra_storage_data_dir }}/media"
+# Docker volume for media data (used on Windows Docker Desktop where bind mounts
+# have permission issues). Override with a bind mount path on Linux hosts.
+infra_storage_media_data_volume: "localnet-media-data-volume"
+
+# Per-service config volumes
+infra_storage_media_jellyfin_config_volume: "localnet-media-jellyfin-config-volume"
+infra_storage_media_jellyfin_cache_volume: "localnet-media-jellyfin-cache-volume"
+infra_storage_media_jellyseerr_config_volume: "localnet-media-jellyseerr-config-volume"
+infra_storage_media_radarr_config_volume: "localnet-media-radarr-config-volume"
+infra_storage_media_sonarr_config_volume: "localnet-media-sonarr-config-volume"
+infra_storage_media_lidarr_config_volume: "localnet-media-lidarr-config-volume"
+infra_storage_media_bazarr_config_volume: "localnet-media-bazarr-config-volume"
+infra_storage_media_prowlarr_config_volume: "localnet-media-prowlarr-config-volume"
+infra_storage_media_kapowarr_config_volume: "localnet-media-kapowarr-config-volume"
+infra_storage_media_whisparr_config_volume: "localnet-media-whisparr-config-volume"
+infra_storage_media_audiobookshelf_config_volume: "localnet-media-audiobookshelf-config-volume"
+infra_storage_media_audiobookshelf_metadata_volume: "localnet-media-audiobookshelf-metadata-volume"
+infra_storage_media_flaresolverr_config_volume: "localnet-media-flaresolverr-config-volume"
+infra_storage_media_recyclarr_config_volume: "localnet-media-recyclarr-config-volume"
+infra_storage_media_unpackarr_config_volume: "localnet-media-unpackarr-config-volume"

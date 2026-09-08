@@ -1,0 +1,517 @@
+---
+# Media Stack Windows (nl) deployment — ssh-tunneled Docker CLI pattern
+# Target: Windows Docker Desktop (dtop202311, X86).
+#
+# community.docker modules can't run on Windows (Ansible core basic.py imports
+# grp, Unix-only). We use ansible.builtin.shell with DOCKER_HOST: ssh:// and
+# delegate_to: localhost, matching the stirling-pdf / search-hister pattern.
+
+# ============================================================================
+# Volume Management — three-phase ownership init per ADR-20260822001.
+# All *arr services run as UID 1000 inside the container (LinuxServer.io).
+# Jellyfin runs as UID 1000. Audiobookshelf runs as UID 1000.
+# ============================================================================
+- name: Initialize media stack volumes ownership
+  ansible.builtin.include_role:
+    name: localnet-volume-init
+  vars:
+    volume_init_docker_host: "{{ media_stack_docker_host }}"
+    volume_init_volumes:
+      - name: "{{ media_stack_data_volume }}"
+        mount: /media
+      - name: "{{ media_stack_jellyfin_config_volume }}"
+        mount: /config
+      - name: "{{ media_stack_jellyfin_cache_volume }}"
+        mount: /cache
+      - name: "{{ media_stack_jellyseerr_config_volume }}"
+        mount: /app/config
+      - name: "{{ media_stack_radarr_config_volume }}"
+        mount: /config
+      - name: "{{ media_stack_sonarr_config_volume }}"
+        mount: /config
+      - name: "{{ media_stack_lidarr_config_volume }}"
+        mount: /config
+      - name: "{{ media_stack_bazarr_config_volume }}"
+        mount: /config
+      - name: "{{ media_stack_prowlarr_config_volume }}"
+        mount: /config
+      - name: "{{ media_stack_kapowarr_config_volume }}"
+        mount: /app/db
+      - name: "{{ media_stack_whisparr_config_volume }}"
+        mount: /config
+      - name: "{{ media_stack_audiobookshelf_config_volume }}"
+        mount: /config
+      - name: "{{ media_stack_audiobookshelf_metadata_volume }}"
+        mount: /metadata
+      - name: "{{ media_stack_flaresolverr_config_volume }}"
+        mount: /config
+      - name: "{{ media_stack_recyclarr_config_volume }}"
+        mount: /config
+      - name: "{{ media_stack_unpackarr_config_volume }}"
+        mount: /config
+  tags: ["deploy", "volume"]
+
+# ============================================================================
+# Pull Images
+# ============================================================================
+- name: Pull media stack images
+  ansible.builtin.command: "docker pull {{ item }}"
+  environment:
+    DOCKER_HOST: "{{ media_stack_docker_host }}"
+    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
+  delegate_to: localhost
+  changed_when: true
+  loop:
+    - "{{ media_stack_jellyfin_image }}:{{ media_stack_jellyfin_image_tag }}"
+    - "{{ media_stack_jellyseerr_image }}:{{ media_stack_jellyseerr_image_tag }}"
+    - "{{ media_stack_radarr_image }}:{{ media_stack_radarr_image_tag }}"
+    - "{{ media_stack_sonarr_image }}:{{ media_stack_sonarr_image_tag }}"
+    - "{{ media_stack_lidarr_image }}:{{ media_stack_lidarr_image_tag }}"
+    - "{{ media_stack_bazarr_image }}:{{ media_stack_bazarr_image_tag }}"
+    - "{{ media_stack_prowlarr_image }}:{{ media_stack_prowlarr_image_tag }}"
+    - "{{ media_stack_kapowarr_image }}:{{ media_stack_kapowarr_image_tag }}"
+    - "{{ media_stack_whisparr_image }}:{{ media_stack_whisparr_image_tag }}"
+    - "{{ media_stack_audiobookshelf_image }}:{{ media_stack_audiobookshelf_image_tag }}"
+    - "{{ media_stack_flaresolverr_image }}:{{ media_stack_flaresolverr_image_tag }}"
+    - "{{ media_stack_recyclarr_image }}:{{ media_stack_recyclarr_image_tag }}"
+    - "{{ media_stack_unpackarr_image }}:{{ media_stack_unpackarr_image_tag }}"
+  tags: ["deploy", "pull"]
+
+# ============================================================================
+# Stop existing containers (idempotent re-deploy)
+# ============================================================================
+- name: Stop existing media stack containers
+  ansible.builtin.shell: >-
+    docker rm -f
+    {{ media_stack_jellyfin_container_name }}
+    {{ media_stack_jellyseerr_container_name }}
+    {{ media_stack_radarr_container_name }}
+    {{ media_stack_sonarr_container_name }}
+    {{ media_stack_lidarr_container_name }}
+    {{ media_stack_bazarr_container_name }}
+    {{ media_stack_prowlarr_container_name }}
+    {{ media_stack_kapowarr_container_name }}
+    {{ media_stack_whisparr_container_name }}
+    {{ media_stack_audiobookshelf_container_name }}
+    {{ media_stack_flaresolverr_container_name }}
+    {{ media_stack_recyclarr_container_name }}
+    {{ media_stack_unpackarr_container_name }}
+    2>/dev/null || true
+  environment:
+    DOCKER_HOST: "{{ media_stack_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "container"]
+
+# ============================================================================
+# Deploy Jellyfin — media server
+# ============================================================================
+- name: Deploy Jellyfin container
+  ansible.builtin.command: >-
+    docker run -d
+    --name {{ media_stack_jellyfin_container_name }}
+    --restart unless-stopped
+    --network {{ media_stack_network_name }}
+    -p {{ media_stack_jellyfin_host_port }}:{{ media_stack_jellyfin_container_port }}/tcp
+    -p {{ media_stack_jellyfin_discovery_host_port }}:{{ media_stack_jellyfin_discovery_container_port }}/udp
+    -v {{ media_stack_jellyfin_config_volume }}:/config:rw
+    -v {{ media_stack_jellyfin_cache_volume }}:/cache:rw
+    -v {{ media_stack_data_volume }}:/media:rw
+    -e TZ={{ media_stack_tz }}
+    -e JELLYFIN_PublishedServerUrl=https://{{ media_stack_jellyfin_domain }}
+    --log-driver json-file
+    --log-opt max-size={{ media_stack_log_max_size }}
+    --log-opt max-file={{ media_stack_log_max_file }}
+    --health-cmd "curl -sf http://{{ media_stack_healthcheck_host }}:{{ media_stack_jellyfin_container_port }}/health || exit 1"
+    --health-interval {{ media_stack_healthcheck_interval }}
+    --health-timeout {{ media_stack_healthcheck_timeout }}
+    --health-retries {{ media_stack_healthcheck_retries }}
+    --health-start-period {{ media_stack_healthcheck_start_period }}
+    --security-opt no-new-privileges:true
+    {{ media_stack_jellyfin_image }}:{{ media_stack_jellyfin_image_tag }}
+  environment:
+    DOCKER_HOST: "{{ media_stack_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "container", "jellyfin"]
+
+# ============================================================================
+# Deploy Jellyseerr — request management UI
+# ============================================================================
+- name: Deploy Jellyseerr container
+  ansible.builtin.command: >-
+    docker run -d
+    --name {{ media_stack_jellyseerr_container_name }}
+    --restart unless-stopped
+    --network {{ media_stack_network_name }}
+    -p {{ media_stack_jellyseerr_host_port }}:{{ media_stack_jellyseerr_container_port }}/tcp
+    -v {{ media_stack_jellyseerr_config_volume }}:/app/config:rw
+    -e PUID={{ media_stack_puid }}
+    -e PGID={{ media_stack_pgid }}
+    -e TZ={{ media_stack_tz }}
+    -e LOG_LEVEL=info
+    --log-driver json-file
+    --log-opt max-size={{ media_stack_log_max_size }}
+    --log-opt max-file={{ media_stack_log_max_file }}
+    --health-cmd "curl -sf http://{{ media_stack_healthcheck_host }}:{{ media_stack_jellyseerr_container_port }}/api/v1/status || exit 1"
+    --health-interval {{ media_stack_healthcheck_interval }}
+    --health-timeout {{ media_stack_healthcheck_timeout }}
+    --health-retries {{ media_stack_healthcheck_retries }}
+    --health-start-period {{ media_stack_healthcheck_start_period }}
+    --security-opt no-new-privileges:true
+    {{ media_stack_jellyseerr_image }}:{{ media_stack_jellyseerr_image_tag }}
+  environment:
+    DOCKER_HOST: "{{ media_stack_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "container", "jellyseerr"]
+
+# ============================================================================
+# Deploy *arr services (Radarr, Sonarr, Lidarr, Bazarr, Prowlarr, Whisparr)
+# All use LinuxServer.io base images with PUID/PGID and shared media volume.
+# ============================================================================
+- name: Deploy Radarr container
+  ansible.builtin.command: >-
+    docker run -d
+    --name {{ media_stack_radarr_container_name }}
+    --restart unless-stopped
+    --network {{ media_stack_network_name }}
+    -p {{ media_stack_radarr_host_port }}:{{ media_stack_radarr_container_port }}/tcp
+    -v {{ media_stack_radarr_config_volume }}:/config:rw
+    -v {{ media_stack_data_volume }}:/movies:rw
+    -v {{ media_stack_data_volume }}:/downloads:rw
+    -e PUID={{ media_stack_puid }}
+    -e PGID={{ media_stack_pgid }}
+    -e TZ={{ media_stack_tz }}
+    --log-driver json-file
+    --log-opt max-size={{ media_stack_log_max_size }}
+    --log-opt max-file={{ media_stack_log_max_file }}
+    --security-opt no-new-privileges:true
+    {{ media_stack_radarr_image }}:{{ media_stack_radarr_image_tag }}
+  environment:
+    DOCKER_HOST: "{{ media_stack_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "container", "radarr"]
+
+- name: Deploy Sonarr container
+  ansible.builtin.command: >-
+    docker run -d
+    --name {{ media_stack_sonarr_container_name }}
+    --restart unless-stopped
+    --network {{ media_stack_network_name }}
+    -p {{ media_stack_sonarr_host_port }}:{{ media_stack_sonarr_container_port }}/tcp
+    -v {{ media_stack_sonarr_config_volume }}:/config:rw
+    -v {{ media_stack_data_volume }}:/tv:rw
+    -v {{ media_stack_data_volume }}:/downloads:rw
+    -e PUID={{ media_stack_puid }}
+    -e PGID={{ media_stack_pgid }}
+    -e TZ={{ media_stack_tz }}
+    --log-driver json-file
+    --log-opt max-size={{ media_stack_log_max_size }}
+    --log-opt max-file={{ media_stack_log_max_file }}
+    --security-opt no-new-privileges:true
+    {{ media_stack_sonarr_image }}:{{ media_stack_sonarr_image_tag }}
+  environment:
+    DOCKER_HOST: "{{ media_stack_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "container", "sonarr"]
+
+- name: Deploy Lidarr container
+  ansible.builtin.command: >-
+    docker run -d
+    --name {{ media_stack_lidarr_container_name }}
+    --restart unless-stopped
+    --network {{ media_stack_network_name }}
+    -p {{ media_stack_lidarr_host_port }}:{{ media_stack_lidarr_container_port }}/tcp
+    -v {{ media_stack_lidarr_config_volume }}:/config:rw
+    -v {{ media_stack_data_volume }}:/music:rw
+    -v {{ media_stack_data_volume }}:/downloads:rw
+    -e PUID={{ media_stack_puid }}
+    -e PGID={{ media_stack_pgid }}
+    -e TZ={{ media_stack_tz }}
+    --log-driver json-file
+    --log-opt max-size={{ media_stack_log_max_size }}
+    --log-opt max-file={{ media_stack_log_max_file }}
+    --security-opt no-new-privileges:true
+    {{ media_stack_lidarr_image }}:{{ media_stack_lidarr_image_tag }}
+  environment:
+    DOCKER_HOST: "{{ media_stack_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "container", "lidarr"]
+
+- name: Deploy Bazarr container
+  ansible.builtin.command: >-
+    docker run -d
+    --name {{ media_stack_bazarr_container_name }}
+    --restart unless-stopped
+    --network {{ media_stack_network_name }}
+    -p {{ media_stack_bazarr_host_port }}:{{ media_stack_bazarr_container_port }}/tcp
+    -v {{ media_stack_bazarr_config_volume }}:/config:rw
+    -v {{ media_stack_data_volume }}:/movies:rw
+    -v {{ media_stack_data_volume }}:/tv:rw
+    -e PUID={{ media_stack_puid }}
+    -e PGID={{ media_stack_pgid }}
+    -e TZ={{ media_stack_tz }}
+    --log-driver json-file
+    --log-opt max-size={{ media_stack_log_max_size }}
+    --log-opt max-file={{ media_stack_log_max_file }}
+    --security-opt no-new-privileges:true
+    {{ media_stack_bazarr_image }}:{{ media_stack_bazarr_image_tag }}
+  environment:
+    DOCKER_HOST: "{{ media_stack_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "container", "bazarr"]
+
+- name: Deploy Prowlarr container
+  ansible.builtin.command: >-
+    docker run -d
+    --name {{ media_stack_prowlarr_container_name }}
+    --restart unless-stopped
+    --network {{ media_stack_network_name }}
+    -p {{ media_stack_prowlarr_host_port }}:{{ media_stack_prowlarr_container_port }}/tcp
+    -v {{ media_stack_prowlarr_config_volume }}:/config:rw
+    -e PUID={{ media_stack_puid }}
+    -e PGID={{ media_stack_pgid }}
+    -e TZ={{ media_stack_tz }}
+    --log-driver json-file
+    --log-opt max-size={{ media_stack_log_max_size }}
+    --log-opt max-file={{ media_stack_log_max_file }}
+    --security-opt no-new-privileges:true
+    {{ media_stack_prowlarr_image }}:{{ media_stack_prowlarr_image_tag }}
+  environment:
+    DOCKER_HOST: "{{ media_stack_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "container", "prowlarr"]
+
+- name: Deploy Kapowarr container
+  ansible.builtin.command: >-
+    docker run -d
+    --name {{ media_stack_kapowarr_container_name }}
+    --restart unless-stopped
+    --network {{ media_stack_network_name }}
+    -p {{ media_stack_kapowarr_host_port }}:{{ media_stack_kapowarr_container_port }}/tcp
+    -v {{ media_stack_kapowarr_config_volume }}:/app/db:rw
+    -v {{ media_stack_data_volume }}:/comics:rw
+    -v {{ media_stack_data_volume }}:/downloads:rw
+    -e PUID={{ media_stack_puid }}
+    -e PGID={{ media_stack_pgid }}
+    -e TZ={{ media_stack_tz }}
+    --log-driver json-file
+    --log-opt max-size={{ media_stack_log_max_size }}
+    --log-opt max-file={{ media_stack_log_max_file }}
+    --security-opt no-new-privileges:true
+    {{ media_stack_kapowarr_image }}:{{ media_stack_kapowarr_image_tag }}
+  environment:
+    DOCKER_HOST: "{{ media_stack_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "container", "kapowarr"]
+
+- name: Deploy Whisparr container
+  ansible.builtin.command: >-
+    docker run -d
+    --name {{ media_stack_whisparr_container_name }}
+    --restart unless-stopped
+    --network {{ media_stack_network_name }}
+    -p {{ media_stack_whisparr_host_port }}:{{ media_stack_whisparr_container_port }}/tcp
+    -v {{ media_stack_whisparr_config_volume }}:/config:rw
+    -v {{ media_stack_data_volume }}:/adult:rw
+    -v {{ media_stack_data_volume }}:/downloads:rw
+    -e PUID={{ media_stack_puid }}
+    -e PGID={{ media_stack_pgid }}
+    -e TZ={{ media_stack_tz }}
+    --log-driver json-file
+    --log-opt max-size={{ media_stack_log_max_size }}
+    --log-opt max-file={{ media_stack_log_max_file }}
+    --security-opt no-new-privileges:true
+    {{ media_stack_whisparr_image }}:{{ media_stack_whisparr_image_tag }}
+  environment:
+    DOCKER_HOST: "{{ media_stack_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "container", "whisparr"]
+
+# ============================================================================
+# Deploy Audiobookshelf — audiobook + podcast server
+# ============================================================================
+- name: Deploy Audiobookshelf container
+  ansible.builtin.command: >-
+    docker run -d
+    --name {{ media_stack_audiobookshelf_container_name }}
+    --restart unless-stopped
+    --network {{ media_stack_network_name }}
+    -p {{ media_stack_audiobookshelf_host_port }}:{{ media_stack_audiobookshelf_container_port }}/tcp
+    -v {{ media_stack_audiobookshelf_config_volume }}:/config:rw
+    -v {{ media_stack_audiobookshelf_metadata_volume }}:/metadata:rw
+    -v {{ media_stack_data_volume }}:/audiobooks:rw
+    -v {{ media_stack_data_volume }}:/podcasts:rw
+    -e TZ={{ media_stack_tz }}
+    -e AUDIOBOOKSHELF_UID={{ media_stack_puid }}
+    -e AUDIOBOOKSHELF_GID={{ media_stack_pgid }}
+    -e CONFIG_PATH=/config
+    -e METADATA_PATH=/metadata
+    --log-driver json-file
+    --log-opt max-size={{ media_stack_log_max_size }}
+    --log-opt max-file={{ media_stack_log_max_file }}
+    --health-cmd "curl -sf http://{{ media_stack_healthcheck_host }}:{{ media_stack_audiobookshelf_container_port }}/ping || exit 1"
+    --health-interval {{ media_stack_healthcheck_interval }}
+    --health-timeout {{ media_stack_healthcheck_timeout }}
+    --health-retries {{ media_stack_healthcheck_retries }}
+    --health-start-period {{ media_stack_healthcheck_start_period }}
+    --security-opt no-new-privileges:true
+    {{ media_stack_audiobookshelf_image }}:{{ media_stack_audiobookshelf_image_tag }}
+  environment:
+    DOCKER_HOST: "{{ media_stack_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "container", "audiobookshelf"]
+
+# ============================================================================
+# Deploy Flaresolverr — Cloudflare bypass (internal, no Traefik domain)
+# ============================================================================
+- name: Deploy Flaresolverr container
+  ansible.builtin.command: >-
+    docker run -d
+    --name {{ media_stack_flaresolverr_container_name }}
+    --restart unless-stopped
+    --network {{ media_stack_network_name }}
+    -p {{ media_stack_flaresolverr_host_port }}:{{ media_stack_flaresolverr_container_port }}/tcp
+    -v {{ media_stack_flaresolverr_config_volume }}:/config:rw
+    -e TZ={{ media_stack_tz }}
+    --log-driver json-file
+    --log-opt max-size={{ media_stack_log_max_size }}
+    --log-opt max-file={{ media_stack_log_max_file }}
+    --health-cmd "curl -sf http://{{ media_stack_healthcheck_host }}:{{ media_stack_flaresolverr_container_port }}/health || exit 1"
+    --health-interval {{ media_stack_healthcheck_interval }}
+    --health-timeout {{ media_stack_healthcheck_timeout }}
+    --health-retries {{ media_stack_healthcheck_retries }}
+    --health-start-period {{ media_stack_healthcheck_start_period }}
+    --security-opt no-new-privileges:true
+    {{ media_stack_flaresolverr_image }}:{{ media_stack_flaresolverr_image_tag }}
+  environment:
+    DOCKER_HOST: "{{ media_stack_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "container", "flaresolverr"]
+
+# ============================================================================
+# Deploy Recyclarr — profile sync (cron-based, no port, no Traefik domain)
+# ============================================================================
+- name: Deploy Recyclarr container
+  ansible.builtin.command: >-
+    docker run -d
+    --name {{ media_stack_recyclarr_container_name }}
+    --restart unless-stopped
+    --network {{ media_stack_network_name }}
+    -v {{ media_stack_recyclarr_config_volume }}:/config:rw
+    -e TZ={{ media_stack_tz }}
+    -e PUID={{ media_stack_puid }}
+    -e PGID={{ media_stack_pgid }}
+    --log-driver json-file
+    --log-opt max-size={{ media_stack_log_max_size }}
+    --log-opt max-file={{ media_stack_log_max_file }}
+    --security-opt no-new-privileges:true
+    {{ media_stack_recyclarr_image }}:{{ media_stack_recyclarr_image_tag }}
+  environment:
+    DOCKER_HOST: "{{ media_stack_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "container", "recyclarr"]
+
+# ============================================================================
+# Deploy Unpackarr — auto-unpack (sidecar, no port, no Traefik domain)
+# ============================================================================
+- name: Deploy Unpackarr container
+  ansible.builtin.command: >-
+    docker run -d
+    --name {{ media_stack_unpackarr_container_name }}
+    --restart unless-stopped
+    --network {{ media_stack_network_name }}
+    -v {{ media_stack_unpackarr_config_volume }}:/config:rw
+    -v {{ media_stack_data_volume }}:/downloads:rw
+    -e TZ={{ media_stack_tz }}
+    --log-driver json-file
+    --log-opt max-size={{ media_stack_log_max_size }}
+    --log-opt max-file={{ media_stack_log_max_file }}
+    --security-opt no-new-privileges:true
+    {{ media_stack_unpackarr_image }}:{{ media_stack_unpackarr_image_tag }}
+  environment:
+    DOCKER_HOST: "{{ media_stack_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "container", "unpackarr"]
+
+# ============================================================================
+# Wait for health (Jellyfin + Jellyseerr + Audiobookshelf + Flaresolverr)
+# ============================================================================
+- name: Wait for Jellyfin to be healthy
+  ansible.builtin.command: >-
+    docker inspect --format '{% raw %}{{.State.Health.Status}}{% endraw %}' {{ media_stack_jellyfin_container_name }}
+  environment:
+    DOCKER_HOST: "{{ media_stack_docker_host }}"
+  delegate_to: localhost
+  register: media_stack_jellyfin_health
+  until: media_stack_jellyfin_health.stdout == "healthy"
+  retries: "{{ media_stack_health_verify_retries }}"
+  delay: "{{ media_stack_health_verify_delay }}"
+  changed_when: false
+  ignore_errors: true
+  when: media_stack_verify_health | bool
+  tags: ["deploy", "container", "jellyfin"]
+
+- name: Wait for Jellyseerr to be healthy
+  ansible.builtin.command: >-
+    docker inspect --format '{% raw %}{{.State.Health.Status}}{% endraw %}' {{ media_stack_jellyseerr_container_name }}
+  environment:
+    DOCKER_HOST: "{{ media_stack_docker_host }}"
+  delegate_to: localhost
+  register: media_stack_jellyseerr_health
+  until: media_stack_jellyseerr_health.stdout == "healthy"
+  retries: "{{ media_stack_health_verify_retries }}"
+  delay: "{{ media_stack_health_verify_delay }}"
+  changed_when: false
+  ignore_errors: true
+  when: media_stack_verify_health | bool
+  tags: ["deploy", "container", "jellyseerr"]
+
+# ============================================================================
+# Status Report
+# ============================================================================
+- name: Get media stack container statuses
+  ansible.builtin.command: >-
+    docker ps --format '{% raw %}{{.Names}}\t{{.Status}}{% endraw %}'
+    --filter name=localnet-media-
+  environment:
+    DOCKER_HOST: "{{ media_stack_docker_host }}"
+  delegate_to: localhost
+  register: media_stack_status
+  changed_when: false
+  ignore_errors: true
+  tags: ["always", "info"]
+
+- name: Report media stack status
+  ansible.builtin.debug:
+    msg: |
+      Media stack deployed on dtop202311 (nl region):
+        Jellyfin:      https://{{ media_stack_jellyfin_domain }} (port {{ media_stack_jellyfin_host_port }})
+        Jellyseerr:   https://{{ media_stack_jellyseerr_domain }} (port {{ media_stack_jellyseerr_host_port }})
+        Radarr:       https://{{ media_stack_radarr_domain }} (port {{ media_stack_radarr_host_port }})
+        Sonarr:       https://{{ media_stack_sonarr_domain }} (port {{ media_stack_sonarr_host_port }})
+        Lidarr:       https://{{ media_stack_lidarr_domain }} (port {{ media_stack_lidarr_host_port }})
+        Bazarr:       https://{{ media_stack_bazarr_domain }} (port {{ media_stack_bazarr_host_port }})
+        Prowlarr:     https://{{ media_stack_prowlarr_domain }} (port {{ media_stack_prowlarr_host_port }})
+        Kapowarr:     https://{{ media_stack_kapowarr_domain }} (port {{ media_stack_kapowarr_host_port }})
+        Whisparr:     https://{{ media_stack_whisparr_domain }} (port {{ media_stack_whisparr_host_port }})
+        Audiobookshelf: https://{{ media_stack_audiobookshelf_domain }} (port {{ media_stack_audiobookshelf_host_port }})
+        Flaresolverr: internal (port {{ media_stack_flaresolverr_host_port }})
+        Recyclarr:    internal (cron, no port)
+        Unpackarr:    internal (sidecar, no port)
+
+      Container statuses:
+      {{ media_stack_status.stdout | default('unknown') }}
+  tags: ["always", "info"]

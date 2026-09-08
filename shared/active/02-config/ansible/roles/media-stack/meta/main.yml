@@ -1,0 +1,25 @@
+---
+galaxy_info:
+  role_name: media_stack
+  author: levonk
+  description: >-
+    Media stack — Jellyfin + *arr media pipeline (jellyfin, jellyseerr, radarr,
+    sonarr, lidarr, bazarr, prowlarr, kapowarr, whisparr, audiobookshelf,
+    flaresolverr, recyclarr, unpackarr). Deployed to Windows Docker Desktop
+    (dtop202311, nl region) via SSH-tunneled Docker CLI.
+  license: MIT
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Windows
+      versions: ["all"]
+  galaxy_tags:
+    - media
+    - jellyfin
+    - radarr
+    - sonarr
+    - lidarr
+    - bazarr
+    - prowlarr
+    - docker
+dependencies:
+  - role: localnet-volume-init

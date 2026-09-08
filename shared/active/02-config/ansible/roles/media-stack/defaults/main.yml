@@ -1,0 +1,182 @@
+---
+# Media Stack — Default Variables
+# Jellyfin + *arr media pipeline deployed to Windows Docker Desktop (dtop202311).
+# Upstream images from Docker Hub / GHCR / LinuxServer.io.
+# See shared/docs/pipelines/media/PIPELINE-MEDIA.md for the full pipeline.
+
+# Service Configuration
+media_stack_enabled: true
+
+# Docker host for SSH-tunneled CLI (Windows Docker Desktop)
+media_stack_docker_host: "{{ proxy_traefik_windows_docker_host | default('ssh://ansible@dtop202311.tale-grouper.ts.net') }}"
+
+# Network — joins traefik-windows-network for Traefik routing
+media_stack_network_name: "{{ proxy_traefik_windows_network_name | default('traefik-windows-network') }}"
+
+# Shared media data volume (movies, tv, music, comics, downloads, audiobooks)
+media_stack_data_volume: "{{ infra_storage_media_data_volume | default('localnet-media-data-volume') }}"
+
+# Timezone
+media_stack_tz: "{{ localnet_tz | default('UTC') }}"
+
+# PUID/PGID for LinuxServer.io images (consistent file ownership)
+media_stack_puid: "1000"
+media_stack_pgid: "1000"
+
+# Logging
+media_stack_log_max_size: "10m"
+media_stack_log_max_file: "5"
+
+# Healthcheck defaults
+media_stack_healthcheck_interval: "30s"
+media_stack_healthcheck_timeout: "10s"
+media_stack_healthcheck_retries: 3
+media_stack_healthcheck_start_period: "30s"
+media_stack_healthcheck_host: "127.0.0.1"
+
+# Health verification (Ansible retry loop)
+media_stack_health_verify_retries: 30
+media_stack_health_verify_delay: 10
+
+# Verify health after deploy
+media_stack_verify_health: true
+
+# ===========================================================================
+# Jellyfin — media server
+# ===========================================================================
+media_stack_jellyfin_container_name: "{{ infra_hostname_media_jellyfin | default('localnet-media-jellyfin') }}"
+media_stack_jellyfin_image: "jellyfin/jellyfin"
+media_stack_jellyfin_image_tag: "latest"
+media_stack_jellyfin_host_port: "{{ infra_port_media_jellyfin_host | default('8096') }}"  # project-lint: disable=magic-int  fallback port
+media_stack_jellyfin_container_port: "{{ infra_port_media_jellyfin_container | default('8096') }}"  # project-lint: disable=magic-int  fallback container port
+media_stack_jellyfin_discovery_host_port: "{{ infra_port_media_jellyfin_discovery_host | default('7359') }}"  # project-lint: disable=magic-int
+media_stack_jellyfin_discovery_container_port: "{{ infra_port_media_jellyfin_discovery_container | default('7359') }}"  # project-lint: disable=magic-int
+media_stack_jellyfin_config_volume: "{{ infra_storage_media_jellyfin_config_volume | default('localnet-media-jellyfin-config-volume') }}"
+media_stack_jellyfin_cache_volume: "{{ infra_storage_media_jellyfin_cache_volume | default('localnet-media-jellyfin-cache-volume') }}"
+media_stack_jellyfin_domain: "{{ infra_domain_media_jellyfin | default('jellyfin.nl.levonk.com') }}"
+
+# ===========================================================================
+# Jellyseerr — request management UI
+# ===========================================================================
+media_stack_jellyseerr_container_name: "{{ infra_hostname_media_jellyseerr | default('localnet-media-jellyseerr') }}"
+media_stack_jellyseerr_image: "fallenbagel/jellyseerr"
+media_stack_jellyseerr_image_tag: "latest"
+media_stack_jellyseerr_host_port: "{{ infra_port_media_jellyseerr_host | default('5055') }}"  # project-lint: disable=magic-int
+media_stack_jellyseerr_container_port: "{{ infra_port_media_jellyseerr_container | default('5055') }}"  # project-lint: disable=magic-int
+media_stack_jellyseerr_config_volume: "{{ infra_storage_media_jellyseerr_config_volume | default('localnet-media-jellyseerr-config-volume') }}"
+media_stack_jellyseerr_domain: "{{ infra_domain_media_jellyseerr | default('jellyseerr.nl.levonk.com') }}"
+
+# ===========================================================================
+# Radarr — movie manager
+# ===========================================================================
+media_stack_radarr_container_name: "{{ infra_hostname_media_radarr | default('localnet-media-radarr') }}"
+media_stack_radarr_image: "lscr.io/linuxserver/radarr"
+media_stack_radarr_image_tag: "latest"
+media_stack_radarr_host_port: "{{ infra_port_media_radarr_host | default('7878') }}"  # project-lint: disable=magic-int
+media_stack_radarr_container_port: "{{ infra_port_media_radarr_container | default('7878') }}"  # project-lint: disable=magic-int
+media_stack_radarr_config_volume: "{{ infra_storage_media_radarr_config_volume | default('localnet-media-radarr-config-volume') }}"
+media_stack_radarr_domain: "{{ infra_domain_media_radarr | default('radarr.nl.levonk.com') }}"
+
+# ===========================================================================
+# Sonarr — TV show manager
+# ===========================================================================
+media_stack_sonarr_container_name: "{{ infra_hostname_media_sonarr | default('localnet-media-sonarr') }}"
+media_stack_sonarr_image: "lscr.io/linuxserver/sonarr"
+media_stack_sonarr_image_tag: "latest"
+media_stack_sonarr_host_port: "{{ infra_port_media_sonarr_host | default('8989') }}"  # project-lint: disable=magic-int
+media_stack_sonarr_container_port: "{{ infra_port_media_sonarr_container | default('8989') }}"  # project-lint: disable=magic-int
+media_stack_sonarr_config_volume: "{{ infra_storage_media_sonarr_config_volume | default('localnet-media-sonarr-config-volume') }}"
+media_stack_sonarr_domain: "{{ infra_domain_media_sonarr | default('sonarr.nl.levonk.com') }}"
+
+# ===========================================================================
+# Lidarr — music manager
+# ===========================================================================
+media_stack_lidarr_container_name: "{{ infra_hostname_media_lidarr | default('localnet-media-lidarr') }}"
+media_stack_lidarr_image: "lscr.io/linuxserver/lidarr"
+media_stack_lidarr_image_tag: "latest"
+media_stack_lidarr_host_port: "{{ infra_port_media_lidarr_host | default('8686') }}"  # project-lint: disable=magic-int
+media_stack_lidarr_container_port: "{{ infra_port_media_lidarr_container | default('8686') }}"  # project-lint: disable=magic-int
+media_stack_lidarr_config_volume: "{{ infra_storage_media_lidarr_config_volume | default('localnet-media-lidarr-config-volume') }}"
+media_stack_lidarr_domain: "{{ infra_domain_media_lidarr | default('lidarr.nl.levonk.com') }}"
+
+# ===========================================================================
+# Bazarr — subtitle manager
+# ===========================================================================
+media_stack_bazarr_container_name: "{{ infra_hostname_media_bazarr | default('localnet-media-bazarr') }}"
+media_stack_bazarr_image: "lscr.io/linuxserver/bazarr"
+media_stack_bazarr_image_tag: "latest"
+media_stack_bazarr_host_port: "{{ infra_port_media_bazarr_host | default('6767') }}"  # project-lint: disable=magic-int
+media_stack_bazarr_container_port: "{{ infra_port_media_bazarr_container | default('6767') }}"  # project-lint: disable=magic-int
+media_stack_bazarr_config_volume: "{{ infra_storage_media_bazarr_config_volume | default('localnet-media-bazarr-config-volume') }}"
+media_stack_bazarr_domain: "{{ infra_domain_media_bazarr | default('bazarr.nl.levonk.com') }}"
+
+# ===========================================================================
+# Prowlarr — indexer manager
+# ===========================================================================
+media_stack_prowlarr_container_name: "{{ infra_hostname_media_prowlarr | default('localnet-media-prowlarr') }}"
+media_stack_prowlarr_image: "lscr.io/linuxserver/prowlarr"
+media_stack_prowlarr_image_tag: "latest"
+media_stack_prowlarr_host_port: "{{ infra_port_media_prowlarr_host | default('9696') }}"  # project-lint: disable=magic-int
+media_stack_prowlarr_container_port: "{{ infra_port_media_prowlarr_container | default('9696') }}"  # project-lint: disable=magic-int
+media_stack_prowlarr_config_volume: "{{ infra_storage_media_prowlarr_config_volume | default('localnet-media-prowlarr-config-volume') }}"
+media_stack_prowlarr_domain: "{{ infra_domain_media_prowlarr | default('prowlarr.nl.levonk.com') }}"
+
+# ===========================================================================
+# Kapowarr — comic manager
+# ===========================================================================
+media_stack_kapowarr_container_name: "{{ infra_hostname_media_kapowarr | default('localnet-media-kapowarr') }}"
+media_stack_kapowarr_image: "mrcas/kapowarr"
+media_stack_kapowarr_image_tag: "latest"
+media_stack_kapowarr_host_port: "{{ infra_port_media_kapowarr_host | default('5656') }}"  # project-lint: disable=magic-int
+media_stack_kapowarr_container_port: "{{ infra_port_media_kapowarr_container | default('5656') }}"  # project-lint: disable=magic-int
+media_stack_kapowarr_config_volume: "{{ infra_storage_media_kapowarr_config_volume | default('localnet-media-kapowarr-config-volume') }}"
+media_stack_kapowarr_domain: "{{ infra_domain_media_kapowarr | default('kapowarr.nl.levonk.com') }}"
+
+# ===========================================================================
+# Whisparr — adult content manager
+# ===========================================================================
+media_stack_whisparr_container_name: "{{ infra_hostname_media_whisparr | default('localnet-media-whisparr') }}"
+media_stack_whisparr_image: "lscr.io/linuxserver/whisparr"
+media_stack_whisparr_image_tag: "latest"
+media_stack_whisparr_host_port: "{{ infra_port_media_whisparr_host | default('6969') }}"  # project-lint: disable=magic-int
+media_stack_whisparr_container_port: "{{ infra_port_media_whisparr_container | default('6969') }}"  # project-lint: disable=magic-int
+media_stack_whisparr_config_volume: "{{ infra_storage_media_whisparr_config_volume | default('localnet-media-whisparr-config-volume') }}"
+media_stack_whisparr_domain: "{{ infra_domain_media_whisparr | default('whisparr.nl.levonk.com') }}"
+
+# ===========================================================================
+# Audiobookshelf — audiobook + podcast server
+# ===========================================================================
+media_stack_audiobookshelf_container_name: "{{ infra_hostname_media_audiobookshelf | default('localnet-media-audiobookshelf') }}"
+media_stack_audiobookshelf_image: "ghcr.io/advplyr/audiobookshelf"
+media_stack_audiobookshelf_image_tag: "latest"
+media_stack_audiobookshelf_host_port: "{{ infra_port_media_audiobookshelf_host | default('13378') }}"  # project-lint: disable=magic-int
+media_stack_audiobookshelf_container_port: "{{ infra_port_media_audiobookshelf_container | default('80') }}"  # project-lint: disable=magic-int
+media_stack_audiobookshelf_config_volume: "{{ infra_storage_media_audiobookshelf_config_volume | default('localnet-media-audiobookshelf-config-volume') }}"
+media_stack_audiobookshelf_metadata_volume: "{{ infra_storage_media_audiobookshelf_metadata_volume | default('localnet-media-audiobookshelf-metadata-volume') }}"
+media_stack_audiobookshelf_domain: "{{ infra_domain_media_audiobookshelf | default('audiobooks.nl.levonk.com') }}"
+
+# ===========================================================================
+# Flaresolverr — Cloudflare bypass (internal, no Traefik domain)
+# ===========================================================================
+media_stack_flaresolverr_container_name: "{{ infra_hostname_media_flaresolverr | default('localnet-media-flaresolverr') }}"
+media_stack_flaresolverr_image: "ghcr.io/flaresolverr/flaresolverr"
+media_stack_flaresolverr_image_tag: "latest"
+media_stack_flaresolverr_host_port: "{{ infra_port_media_flaresolverr_host | default('8191') }}"  # project-lint: disable=magic-int
+media_stack_flaresolverr_container_port: "{{ infra_port_media_flaresolverr_container | default('8191') }}"  # project-lint: disable=magic-int
+media_stack_flaresolverr_config_volume: "{{ infra_storage_media_flaresolverr_config_volume | default('localnet-media-flaresolverr-config-volume') }}"
+
+# ===========================================================================
+# Recyclarr — profile sync (cron-based, no port, no Traefik domain)
+# ===========================================================================
+media_stack_recyclarr_container_name: "{{ infra_hostname_media_recyclarr | default('localnet-media-recyclarr') }}"
+media_stack_recyclarr_image: "ghcr.io/recyclarr/recyclarr"
+media_stack_recyclarr_image_tag: "latest"
+media_stack_recyclarr_config_volume: "{{ infra_storage_media_recyclarr_config_volume | default('localnet-media-recyclarr-config-volume') }}"
+
+# ===========================================================================
+# Unpackarr — auto-unpack (sidecar, no port, no Traefik domain)
+# ===========================================================================
+media_stack_unpackarr_container_name: "{{ infra_hostname_media_unpackarr | default('localnet-media-unpackarr') }}"
+media_stack_unpackarr_image: "ghcr.io/unpackarr/unpackarr"
+media_stack_unpackarr_image_tag: "latest"
+media_stack_unpackarr_config_volume: "{{ infra_storage_media_unpackarr_config_volume | default('localnet-media-unpackarr-config-volume') }}"

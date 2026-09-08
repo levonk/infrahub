@@ -1142,6 +1142,51 @@ services:
       label: "SPA (UDP)"
 
 # ===========================================================================
+# Remote Desktop
+# ===========================================================================
+
+- name: "RustDesk hbbs (ID Server)"
+  container: "localnet-rustdesk-server-hbbs"
+  machine: "oci-cloud-server"
+  category: "infra"
+  description: "RustDesk ID server — handles NAT test and ID registration (VPN-only access)"
+  source_repo: "https://github.com/rustdesk/rustdesk-server"
+  ports:
+    - host: "infra_port_rustdesk_hbbs_nat_test_host"
+      container: "infra_port_rustdesk_hbbs_nat_test_container"
+      label: "NAT Test (TCP)"
+    - host: "infra_port_rustdesk_hbbs_id_reg_host"
+      container: "infra_port_rustdesk_hbbs_id_reg_container"
+      label: "ID Registration (TCP/UDP)"
+  network: "cloud-server"
+  health_endpoint: null
+  pipeline: "none"
+  pipeline_stage: "remote-desktop"
+  alert_labels:
+    pipeline: "none"
+    stage: "remote-desktop"
+    service: "rustdesk-hbbs"
+
+- name: "RustDesk hbbr (Relay Server)"
+  container: "localnet-rustdesk-server-hbbr"
+  machine: "oci-cloud-server"
+  category: "infra"
+  description: "RustDesk relay server — relays remote desktop traffic when direct P2P fails (VPN-only access)"
+  source_repo: "https://github.com/rustdesk/rustdesk-server"
+  ports:
+    - host: "infra_port_rustdesk_hbbr_relay_host"
+      container: "infra_port_rustdesk_hbbr_relay_container"
+      label: "Relay (TCP)"
+  network: "cloud-server"
+  health_endpoint: null
+  pipeline: "none"
+  pipeline_stage: "remote-desktop"
+  alert_labels:
+    pipeline: "none"
+    stage: "remote-desktop"
+    service: "rustdesk-hbbr"
+
+# ===========================================================================
 # Buzz Agent Runtime Containers
 # One container per agent, each running buzz-acp + devin-cli on buzz-network.
 # Internal only — no host ports, no Traefik routing, no public domain.
@@ -1241,6 +1286,318 @@ services:
       label: "Metrics"
   network: "traefik-network"
 
+# ---------------------------------------------------------------------------
+# treg — Tool Registry (OpenRouter for agent tools)
+# Credential-injecting proxy + tool registry for AI agents.
+# Deployed on cno (oci-cloud-server, ARM64). Locally-built multi-arch image.
+# Web UI behind Authelia SSO; API/proxy paths public with X-Treg-Token auth.
+# ---------------------------------------------------------------------------
+- name: "treg Tool Registry (cno)"
+  container: "{{ infra_hostname_treg }}"
+  machine: "oci-cloud-server"
+  category: "ai"
+  description: "OpenRouter for agent tools — credential-injecting proxy + tool registry"
+  source_repo: "https://github.com/superdesigndev/treg"
+  domains:
+    - "infra_domain_ai_treg"
+  ports:
+    - host: "infra_port_ai_treg_host"
+      container: "infra_port_ai_treg_container"
+      label: "Web/API"
+  traefik: true
+  network: "traefik-network"
+  health_endpoint: "/meta"
+  pipeline: "none"
+  pipeline_stage: "standalone"
+  alert_labels:
+    pipeline: "none"
+    stage: "standalone"
+    service: "treg"
+
+# ---------------------------------------------------------------------------
+# ComfyUI — Image/Video Generation Pipeline (native on kckinai)
+# ComfyUI runs natively (not Docker) on the GB10 inference host. Web UI exposed
+# via Traefik with cross-machine routing to kckinai's Tailscale FQDN.
+# Behind Authelia SSO. Used for Wan 2.2 I2V, character LoRA, keyframe generation.
+# ---------------------------------------------------------------------------
+- name: "ComfyUI"
+  container: "{{ infra_hostname_comfyui }}"
+  machine: "kckinai"
+  category: "ai"
+  description: "Image/video generation pipeline — Wan 2.2 I2V, character LoRA, keyframes"
+  source_repo: "https://github.com/comfyanonymous/ComfyUI"
+  domains:
+    - "infra_domain_ai_comfyui"
+  ports:
+    - host: "infra_port_ai_comfyui_host"
+      container: "infra_port_ai_comfyui_container"
+      label: "Web UI"
+  traefik: true
+  health_endpoint: "/"
+  pipeline: "none"
+  pipeline_stage: "standalone"
+  alert_labels:
+    pipeline: "none"
+    stage: "standalone"
+    service: "comfyui"
+
+# ===========================================================================
+# Media Stack Services (nl region = dtop202311, Windows Docker Desktop)
+# See shared/docs/pipelines/media/PIPELINE-MEDIA.md for the full pipeline.
+# ===========================================================================
+
+- name: "Jellyfin"
+  container: "{{ infra_hostname_media_jellyfin }}"
+  machine: "dtop202311"
+  category: "ui"
+  description: "Media server — streaming, transcoding, library management"
+  source_repo: "https://github.com/jellyfin/jellyfin"
+  domains:
+    - "infra_domain_media_jellyfin"
+  ports:
+    - host: "infra_port_media_jellyfin_host"
+      container: "infra_port_media_jellyfin_container"
+      label: "Web"
+    - host: "infra_port_media_jellyfin_discovery_host"
+      container: "infra_port_media_jellyfin_discovery_container"
+      label: "Discovery (UDP)"
+  traefik: true
+  network: "traefik-windows-network"
+  health_endpoint: "/health"
+  pipeline: "media"
+  alert_labels:
+    pipeline: "media"
+    stage: "streaming"
+    service: "jellyfin"
+
+- name: "Jellyseerr"
+  container: "{{ infra_hostname_media_jellyseerr }}"
+  machine: "dtop202311"
+  category: "ui"
+  description: "Request management UI — user requests for movies/TV shows"
+  source_repo: "https://github.com/fallenbagel/jellyseerr"
+  domains:
+    - "infra_domain_media_jellyseerr"
+  ports:
+    - host: "infra_port_media_jellyseerr_host"
+      container: "infra_port_media_jellyseerr_container"
+      label: "Web"
+  traefik: true
+  network: "traefik-windows-network"
+  health_endpoint: "/api/v1/status"
+  pipeline: "media"
+  alert_labels:
+    pipeline: "media"
+    stage: "request"
+    service: "jellyseerr"
+
+- name: "Radarr"
+  container: "{{ infra_hostname_media_radarr }}"
+  machine: "dtop202311"
+  category: "ui"
+  description: "Movie manager — automated movie collection management"
+  source_repo: "https://github.com/Radarr/Radarr"
+  domains:
+    - "infra_domain_media_radarr"
+  ports:
+    - host: "infra_port_media_radarr_host"
+      container: "infra_port_media_radarr_container"
+      label: "Web"
+  traefik: true
+  network: "traefik-windows-network"
+  pipeline: "media"
+  alert_labels:
+    pipeline: "media"
+    stage: "manager"
+    service: "radarr"
+
+- name: "Sonarr"
+  container: "{{ infra_hostname_media_sonarr }}"
+  machine: "dtop202311"
+  category: "ui"
+  description: "TV show manager — automated TV collection management"
+  source_repo: "https://github.com/Sonarr/Sonarr"
+  domains:
+    - "infra_domain_media_sonarr"
+  ports:
+    - host: "infra_port_media_sonarr_host"
+      container: "infra_port_media_sonarr_container"
+      label: "Web"
+  traefik: true
+  network: "traefik-windows-network"
+  pipeline: "media"
+  alert_labels:
+    pipeline: "media"
+    stage: "manager"
+    service: "sonarr"
+
+- name: "Lidarr"
+  container: "{{ infra_hostname_media_lidarr }}"
+  machine: "dtop202311"
+  category: "ui"
+  description: "Music manager — automated music collection management"
+  source_repo: "https://github.com/Lidarr/Lidarr"
+  domains:
+    - "infra_domain_media_lidarr"
+  ports:
+    - host: "infra_port_media_lidarr_host"
+      container: "infra_port_media_lidarr_container"
+      label: "Web"
+  traefik: true
+  network: "traefik-windows-network"
+  pipeline: "media"
+  alert_labels:
+    pipeline: "media"
+    stage: "manager"
+    service: "lidarr"
+
+- name: "Bazarr"
+  container: "{{ infra_hostname_media_bazarr }}"
+  machine: "dtop202311"
+  category: "ui"
+  description: "Subtitle manager — automated subtitle fetching for movies/TV"
+  source_repo: "https://github.com/morpheus65535/bazarr"
+  domains:
+    - "infra_domain_media_bazarr"
+  ports:
+    - host: "infra_port_media_bazarr_host"
+      container: "infra_port_media_bazarr_container"
+      label: "Web"
+  traefik: true
+  network: "traefik-windows-network"
+  pipeline: "media"
+  alert_labels:
+    pipeline: "media"
+    stage: "subtitles"
+    service: "bazarr"
+
+- name: "Prowlarr"
+  container: "{{ infra_hostname_media_prowlarr }}"
+  machine: "dtop202311"
+  category: "ui"
+  description: "Indexer manager — manages Usenet/torrent indexer connections"
+  source_repo: "https://github.com/Prowlarr/Prowlarr"
+  domains:
+    - "infra_domain_media_prowlarr"
+  ports:
+    - host: "infra_port_media_prowlarr_host"
+      container: "infra_port_media_prowlarr_container"
+      label: "Web"
+  traefik: true
+  network: "traefik-windows-network"
+  pipeline: "media"
+  alert_labels:
+    pipeline: "media"
+    stage: "indexer"
+    service: "prowlarr"
+
+- name: "Kapowarr"
+  container: "{{ infra_hostname_media_kapowarr }}"
+  machine: "dtop202311"
+  category: "ui"
+  description: "Comic manager — automated comic book collection management"
+  source_repo: "https://github.com/Casvt/Kapowarr"
+  domains:
+    - "infra_domain_media_kapowarr"
+  ports:
+    - host: "infra_port_media_kapowarr_host"
+      container: "infra_port_media_kapowarr_container"
+      label: "Web"
+  traefik: true
+  network: "traefik-windows-network"
+  pipeline: "media"
+  alert_labels:
+    pipeline: "media"
+    stage: "manager"
+    service: "kapowarr"
+
+- name: "Whisparr"
+  container: "{{ infra_hostname_media_whisparr }}"
+  machine: "dtop202311"
+  category: "ui"
+  description: "Adult content manager — automated adult content collection management"
+  source_repo: "https://github.com/Whisparr/Whisparr"
+  domains:
+    - "infra_domain_media_whisparr"
+  ports:
+    - host: "infra_port_media_whisparr_host"
+      container: "infra_port_media_whisparr_container"
+      label: "Web"
+  traefik: true
+  network: "traefik-windows-network"
+  pipeline: "media"
+  alert_labels:
+    pipeline: "media"
+    stage: "manager"
+    service: "whisparr"
+
+- name: "Audiobookshelf"
+  container: "{{ infra_hostname_media_audiobookshelf }}"
+  machine: "dtop202311"
+  category: "ui"
+  description: "Audiobook + podcast server — streaming, progress tracking"
+  source_repo: "https://github.com/advplyr/audiobookshelf"
+  domains:
+    - "infra_domain_media_audiobookshelf"
+  ports:
+    - host: "infra_port_media_audiobookshelf_host"
+      container: "infra_port_media_audiobookshelf_container"
+      label: "Web"
+  traefik: true
+  network: "traefik-windows-network"
+  health_endpoint: "/ping"
+  pipeline: "media"
+  alert_labels:
+    pipeline: "media"
+    stage: "streaming"
+    service: "audiobookshelf"
+
+- name: "Flaresolverr"
+  container: "{{ infra_hostname_media_flaresolverr }}"
+  machine: "dtop202311"
+  category: "passive"
+  description: "Cloudflare bypass — proxy for Prowlarr to access CF-protected indexers"
+  source_repo: "https://github.com/FlareSolverr/FlareSolverr"
+  ports:
+    - host: "infra_port_media_flaresolverr_host"
+      container: "infra_port_media_flaresolverr_container"
+      label: "API"
+  traefik: false
+  network: "traefik-windows-network"
+  pipeline: "media"
+  alert_labels:
+    pipeline: "media"
+    stage: "indexer"
+    service: "flaresolverr"
+
+- name: "Recyclarr"
+  container: "{{ infra_hostname_media_recyclarr }}"
+  machine: "dtop202311"
+  category: "passive"
+  description: "Profile sync — syncs quality profiles/custom formats to *arr services (cron)"
+  source_repo: "https://github.com/recyclarr/recyclarr"
+  traefik: false
+  network: "traefik-windows-network"
+  pipeline: "media"
+  alert_labels:
+    pipeline: "media"
+    stage: "support"
+    service: "recyclarr"
+
+- name: "Unpackarr"
+  container: "{{ infra_hostname_media_unpackarr }}"
+  machine: "dtop202311"
+  category: "passive"
+  description: "Auto-unpack — monitors download directory and unpacks RAR/ZIP archives"
+  source_repo: "https://github.com/davidnewhall/unpackarr"
+  traefik: false
+  network: "traefik-windows-network"
+  pipeline: "media"
+  alert_labels:
+    pipeline: "media"
+    stage: "support"
+    service: "unpackarr"
+
 # ===========================================================================
 # Service Chains
 # Data-driven request-flow topology for proxy/cache chains.
@@ -1301,3 +1658,31 @@ chains:
             role: "local /nix/store"
           - upstream: "https://cache.nixos.org"
           - upstream: "https://nix-community.cachix.org"
+
+  - name: "Media Pipeline"
+    description: "Content lifecycle — request → search → download → organize → subtitle → stream"
+    flow:
+      - service: "Jellyseerr"
+        role: "request management (user UI)"
+        branches:
+          - service: "Radarr"
+            role: "movie manager"
+          - service: "Sonarr"
+            role: "TV manager"
+          - service: "Lidarr"
+            role: "music manager"
+          - service: "Whisparr"
+            role: "adult manager"
+      - service: "Prowlarr"
+        role: "indexer manager + proxy"
+        branches:
+          - service: "Flaresolverr"
+            role: "Cloudflare bypass"
+      - service: "Unpackarr"
+        role: "auto-unpack downloads"
+      - service: "Bazarr"
+        role: "subtitle fetcher"
+      - service: "Jellyfin"
+        role: "media server (stream)"
+      - service: "Audiobookshelf"
+        role: "audiobook/podcast server"

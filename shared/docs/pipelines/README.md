@@ -76,9 +76,28 @@ Client → nftables → chronyd (NTS + leap smear) → Google NTP / NIST / Pool 
 **Key docs:**
 - [NTP Chain](ntp/ntp-chain.md) — NTP flow diagrams and upstream selection strategy
 
+### [Media Pipeline](media/PIPELINE-MEDIA.md)
+
+The self-hosted media pipeline — from content request to streaming. Covers the full lifecycle: request → search → download → organize → subtitle → transcode → stream.
+
+```
+User → jellyseerr (request) → *arr (manage) → prowlarr (index) → flaresolverr → indexers → download → jellyfin (stream)
+```
+
+**Single host**: All media services run on `dtop202311` (nl region, Windows Docker Desktop, X86) behind Traefik.
+
+**Services:**
+- **Streaming**: jellyfin, audiobookshelf
+- **Managers**: radarr, sonarr, lidarr, bazarr, prowlarr, kapowarr, whisparr
+- **Request**: jellyseerr
+- **Supporting**: flaresolverr (CF bypass), recyclarr (profile sync), unpackarr (auto-unpack)
+
+**Key docs:**
+- [Media Pipeline](media/PIPELINE-MEDIA.md) — main pipeline configuration
+
 ### [Overall Architecture](overall-architecture.md)
 
-The overall system architecture showing all four chains (DNS, NTP, Web Proxy, AI Pipeline) as peers, with nftables TPROXY as the host-layer interception point and WireGuard for VPN access.
+The overall system architecture showing all chains (DNS, NTP, Web Proxy, AI Pipeline, Media Pipeline) as peers, with nftables TPROXY as the host-layer interception point and WireGuard for VPN access.
 
 ## Cross-Pipeline Relationships
 
@@ -112,8 +131,10 @@ shared/docs/pipelines/
 │       ├── cross-cluster-dns-failover.md
 │       ├── coredns-vs-unbound.md
 │       └── adguard-vs-pihole.md
-└── ntp/
-    └── ntp-chain.md                   ← NTP flow diagrams
+├── ntp/
+│   └── ntp-chain.md                   ← NTP flow diagrams
+└── media/
+    └── PIPELINE-MEDIA.md              ← media pipeline (jellyfin + *arr stack)
 ```
 
 ## Origin Paths (before consolidation)

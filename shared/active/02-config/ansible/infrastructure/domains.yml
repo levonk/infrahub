@@ -293,3 +293,52 @@ infra_hostname_nix_ncps: "{{ infra_hostname_nix_ncps_nl | default('localnet-nix-
 # AI Buzz — relay domain for buzz-agent WebSocket connections
 # ---------------------------------------------------------------------------
 infra_domain_buzz: "buzz.{{ infra_domain_base }}"
+
+# ---------------------------------------------------------------------------
+# treg — Tool Registry (OpenRouter for agent tools)
+# Credential-injecting proxy + tool registry for AI agents.
+# Deployed on cno (oci-cloud-server, ARM64). Web UI behind Authelia SSO,
+# API/proxy paths public with X-Treg-Token auth.
+# ---------------------------------------------------------------------------
+infra_domain_ai_treg: "treg.cno.{{ infra_domain_base }}"
+infra_hostname_treg: "localnet-ai-treg"
+
+# ---------------------------------------------------------------------------
+# ComfyUI — Image/Video Generation Pipeline (native on kckinai)
+# ComfyUI runs natively on the GB10 inference host. Web UI exposed via Traefik
+# with cross-machine routing to kckinai's Tailscale FQDN.
+# ---------------------------------------------------------------------------
+infra_domain_ai_comfyui: "comfyui.{{ infra_domain_base }}"
+infra_hostname_comfyui: "comfyui"
+
+# ---------------------------------------------------------------------------
+# Media Stack — Jellyfin + *arr services (nl region = dtop202311)
+# All media services run on Windows Docker Desktop (dtop202311, X86).
+# Domains use the nl subdomain pattern: {service}.nl.{base_domain}
+# See shared/docs/pipelines/media/PIPELINE-MEDIA.md for the full pipeline.
+# ---------------------------------------------------------------------------
+infra_domain_media_jellyfin: "jellyfin.nl.{{ infra_domain_base }}"
+infra_domain_media_jellyseerr: "jellyseerr.nl.{{ infra_domain_base }}"
+infra_domain_media_radarr: "radarr.nl.{{ infra_domain_base }}"
+infra_domain_media_sonarr: "sonarr.nl.{{ infra_domain_base }}"
+infra_domain_media_lidarr: "lidarr.nl.{{ infra_domain_base }}"
+infra_domain_media_bazarr: "bazarr.nl.{{ infra_domain_base }}"
+infra_domain_media_prowlarr: "prowlarr.nl.{{ infra_domain_base }}"
+infra_domain_media_kapowarr: "kapowarr.nl.{{ infra_domain_base }}"
+infra_domain_media_whisparr: "whisparr.nl.{{ infra_domain_base }}"
+infra_domain_media_audiobookshelf: "audiobooks.nl.{{ infra_domain_base }}"
+
+# Container hostnames (container names on the traefik-windows-network)
+infra_hostname_media_jellyfin: "localnet-media-jellyfin"
+infra_hostname_media_jellyseerr: "localnet-media-jellyseerr"
+infra_hostname_media_radarr: "localnet-media-radarr"
+infra_hostname_media_sonarr: "localnet-media-sonarr"
+infra_hostname_media_lidarr: "localnet-media-lidarr"
+infra_hostname_media_bazarr: "localnet-media-bazarr"
+infra_hostname_media_prowlarr: "localnet-media-prowlarr"
+infra_hostname_media_kapowarr: "localnet-media-kapowarr"
+infra_hostname_media_whisparr: "localnet-media-whisparr"
+infra_hostname_media_audiobookshelf: "localnet-media-audiobookshelf"
+infra_hostname_media_flaresolverr: "localnet-media-flaresolverr"
+infra_hostname_media_recyclarr: "localnet-media-recyclarr"
+infra_hostname_media_unpackarr: "localnet-media-unpackarr"

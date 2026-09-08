@@ -694,3 +694,72 @@ infra_port_vpn_tor_dns_host: "9053"
 infra_port_vpn_tor_socks_host: "9054"
 infra_port_vpn_tor_transparent_host: "9040"
 infra_port_vpn_tor_transparent_alt_host: "9041"
+
+# ---------------------------------------------------------------------------
+# treg — Tool Registry (OpenRouter for agent tools)
+# Credential-injecting proxy + tool registry. FastAPI app on port 18790.
+# Deployed on cno (oci-cloud-server, ARM64). Locally-built image.
+# ---------------------------------------------------------------------------
+infra_port_ai_treg_host: "18790"
+infra_port_ai_treg_container: "18790"
+
+# ---------------------------------------------------------------------------
+# ComfyUI — Image/Video Generation Pipeline (native on kckinai)
+# ComfyUI runs natively (not Docker) on the GB10 inference host.
+# Default port 8188 is ComfyUI's standard web UI port.
+# ---------------------------------------------------------------------------
+infra_port_ai_comfyui_host: "8188"
+infra_port_ai_comfyui_container: "8188"
+
+# ---------------------------------------------------------------------------
+# Media Stack — Jellyfin + *arr services (nl region = dtop202311)
+# All media services run on Windows Docker Desktop (dtop202311, X86).
+# Deployed via the media-stack Ansible role using SSH-tunneled Docker CLI.
+# See shared/docs/pipelines/media/PIPELINE-MEDIA.md for the full pipeline.
+# ---------------------------------------------------------------------------
+
+# Jellyfin — media server (web UI + discovery)
+infra_port_media_jellyfin_host: "8096"
+infra_port_media_jellyfin_container: "8096"
+infra_port_media_jellyfin_discovery_host: "7359"
+infra_port_media_jellyfin_discovery_container: "7359"
+
+# Jellyseerr — request management UI
+infra_port_media_jellyseerr_host: "5055"
+infra_port_media_jellyseerr_container: "5055"
+
+# Radarr — movie manager
+infra_port_media_radarr_host: "7878"
+infra_port_media_radarr_container: "7878"
+
+# Sonarr — TV show manager
+infra_port_media_sonarr_host: "8989"
+infra_port_media_sonarr_container: "8989"
+
+# Lidarr — music manager
+infra_port_media_lidarr_host: "8686"
+infra_port_media_lidarr_container: "8686"
+
+# Bazarr — subtitle manager
+infra_port_media_bazarr_host: "6767"
+infra_port_media_bazarr_container: "6767"
+
+# Prowlarr — indexer manager
+infra_port_media_prowlarr_host: "9696"
+infra_port_media_prowlarr_container: "9696"
+
+# Kapowarr — comic manager
+infra_port_media_kapowarr_host: "5656"
+infra_port_media_kapowarr_container: "5656"
+
+# Whisparr — adult content manager
+infra_port_media_whisparr_host: "6969"
+infra_port_media_whisparr_container: "6969"
+
+# Audiobookshelf — audiobook + podcast server
+infra_port_media_audiobookshelf_host: "13378"
+infra_port_media_audiobookshelf_container: "80"
+
+# Flaresolverr — Cloudflare bypass (internal, no Traefik domain)
+infra_port_media_flaresolverr_host: "8191"
+infra_port_media_flaresolverr_container: "8191"

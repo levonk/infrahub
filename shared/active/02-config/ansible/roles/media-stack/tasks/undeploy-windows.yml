@@ -1,0 +1,31 @@
+---
+# Media Stack — Undeploy (remove all media containers)
+# Used when media_stack_enabled is set to false.
+
+- name: Stop and remove media stack containers
+  ansible.builtin.shell: >-
+    docker rm -f
+    {{ media_stack_jellyfin_container_name }}
+    {{ media_stack_jellyseerr_container_name }}
+    {{ media_stack_radarr_container_name }}
+    {{ media_stack_sonarr_container_name }}
+    {{ media_stack_lidarr_container_name }}
+    {{ media_stack_bazarr_container_name }}
+    {{ media_stack_prowlarr_container_name }}
+    {{ media_stack_kapowarr_container_name }}
+    {{ media_stack_whisparr_container_name }}
+    {{ media_stack_audiobookshelf_container_name }}
+    {{ media_stack_flaresolverr_container_name }}
+    {{ media_stack_recyclarr_container_name }}
+    {{ media_stack_unpackarr_container_name }}
+    2>/dev/null || true
+  environment:
+    DOCKER_HOST: "{{ media_stack_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["undeploy", "container"]
+
+- name: Report media stack undeployed
+  ansible.builtin.debug:
+    msg: "Media stack containers removed from dtop202311. Volumes preserved (data + config)."
+  tags: ["undeploy", "info"]

@@ -178,6 +178,17 @@
   when: proxy_traefik_windows_stirling_pdf_enabled | bool
   tags: ["deploy", "config"]
 
+- name: Render Media Stack (nl) dynamic config locally
+  ansible.builtin.template:
+    src: dynamic/media-nl.yml.j2
+    dest: "{{ proxy_traefik_windows_temp_dir }}/dynamic/media-nl.yml"
+    mode: "{{ infra_mode_file }}"
+  delegate_to: localhost
+  run_once: true
+  changed_when: false
+  when: proxy_traefik_windows_media_stack_enabled | bool
+  tags: ["deploy", "config"]
+
 # ============================================================================
 # Network Management
 # ============================================================================
@@ -222,6 +233,31 @@
   delegate_to: localhost
   changed_when: false
   when: proxy_traefik_windows_stirling_pdf_enabled | bool
+  tags: ["deploy", "network"]
+
+- name: Connect media stack containers to traefik-windows network
+  ansible.builtin.shell: >-
+    docker network connect {{ proxy_traefik_windows_network_name }}
+    {{ item }} 2>/dev/null || true
+  environment:
+    DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  loop:
+    - "{{ media_stack_jellyfin_container_name | default('localnet-media-jellyfin') }}"
+    - "{{ media_stack_jellyseerr_container_name | default('localnet-media-jellyseerr') }}"
+    - "{{ media_stack_radarr_container_name | default('localnet-media-radarr') }}"
+    - "{{ media_stack_sonarr_container_name | default('localnet-media-sonarr') }}"
+    - "{{ media_stack_lidarr_container_name | default('localnet-media-lidarr') }}"
+    - "{{ media_stack_bazarr_container_name | default('localnet-media-bazarr') }}"
+    - "{{ media_stack_prowlarr_container_name | default('localnet-media-prowlarr') }}"
+    - "{{ media_stack_kapowarr_container_name | default('localnet-media-kapowarr') }}"
+    - "{{ media_stack_whisparr_container_name | default('localnet-media-whisparr') }}"
+    - "{{ media_stack_audiobookshelf_container_name | default('localnet-media-audiobookshelf') }}"
+    - "{{ media_stack_flaresolverr_container_name | default('localnet-media-flaresolverr') }}"
+    - "{{ media_stack_recyclarr_container_name | default('localnet-media-recyclarr') }}"
+    - "{{ media_stack_unpackarr_container_name | default('localnet-media-unpackarr') }}"
+  when: proxy_traefik_windows_media_stack_enabled | bool
   tags: ["deploy", "network"]
 
 # ============================================================================
@@ -438,6 +474,17 @@
   delegate_to: localhost
   changed_when: true
   when: proxy_traefik_windows_stirling_pdf_enabled | bool
+  tags: ["deploy", "config"]
+
+- name: Copy Media Stack (nl) dynamic config into volume
+  ansible.builtin.command: >-
+    docker cp {{ proxy_traefik_windows_temp_dir }}/dynamic/media-nl.yml
+    {{ proxy_traefik_windows_container_name }}-config-seed:/config/dynamic/media-nl.yml
+  environment:
+    DOCKER_HOST: "{{ proxy_traefik_windows_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  when: proxy_traefik_windows_media_stack_enabled | bool
   tags: ["deploy", "config"]
 
 - name: Remove temporary seed container
