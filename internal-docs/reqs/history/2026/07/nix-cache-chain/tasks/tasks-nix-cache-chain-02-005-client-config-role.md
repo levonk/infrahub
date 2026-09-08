@@ -78,7 +78,7 @@ Create the `nix-client-config` Ansible role that configures `/etc/nix/nix.conf` 
   ]
   trusted-public-keys = [
     "{{ nix_harmonia_public_key }}"
-    "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPSQZNGZfdL7Q="
+    "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
   ]
   ```
   Also include standard nix.conf settings (connect-timeout, stalled-timeout, etc. — check existing nix.conf on machines for current settings to preserve).

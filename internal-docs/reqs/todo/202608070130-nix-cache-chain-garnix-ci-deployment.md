@@ -286,7 +286,7 @@ priority = 10
 [[upstreams]]
 url = "https://cache.nixos.org"
 priority = 20
-public_key = "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPSQZNGZfdL7Q="
+public_key = "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
 
 [[upstreams]]
 url = "https://nix-community.cachix.org"

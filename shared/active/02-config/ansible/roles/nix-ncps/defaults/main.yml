@@ -61,7 +61,7 @@ nix_ncps_upstream_urls_cno:
 # of the upstreams ncro races are trusted by ncps so that NARs fetched via
 # ncro pass ncps's signature verification.
 nix_ncps_upstream_public_keys:
-  - "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPSQZNGZfdL7Q="
+  - "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
   - "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CXHQrkxhLww6X236k="
   - "{{ vault_nix_harmonia_public_key | default('nixcache.nl.example.com-1:placeholder') }}"
 

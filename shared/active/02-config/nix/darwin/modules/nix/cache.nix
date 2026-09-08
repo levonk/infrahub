@@ -27,7 +27,7 @@
       "https://cache.nixos.org?priority=80"
     ];
     trusted-public-keys = [
-      "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPSQZNGZfdL7Q="
+      "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
     ];
   };
 
@@ -58,6 +58,6 @@
     # Client-specific ncps caches are prepended by the client cache module.
     # Lower priority = preferred (Nix tries lower priority first).
     substituters = https://cache.nixos.org?priority=80
-    trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPSQZNGZfdL7Q=
+    trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
   '';
 }
