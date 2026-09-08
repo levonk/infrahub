@@ -28,66 +28,11 @@
   tags: ["always", "validate"]
 
 # ---------------------------------------------------------------------------
-# 1. Storage directories
+# 1. Storage directories (base + config only — install dir created by git clone)
 # ---------------------------------------------------------------------------
 - name: Ensure ComfyUI base directory exists
   ansible.builtin.file:
     path: "{{ comfyui_base_dir }}"
-    state: directory
-    owner: "{{ comfyui_run_user }}"
-    group: "{{ comfyui_run_group }}"
-    mode: "{{ infra_mode_dir }}"
-  become: true
-
-- name: Ensure ComfyUI install directory exists
-  ansible.builtin.file:
-    path: "{{ comfyui_install_dir }}"
-    state: directory
-    owner: "{{ comfyui_run_user }}"
-    group: "{{ comfyui_run_group }}"
-    mode: "{{ infra_mode_dir }}"
-  become: true
-
-- name: Ensure ComfyUI model subdirectories exist
-  ansible.builtin.file:
-    path: "{{ comfyui_models_dir }}/{{ item }}"
-    state: directory
-    owner: "{{ comfyui_run_user }}"
-    group: "{{ comfyui_run_group }}"
-    mode: "{{ infra_mode_dir }}"
-  become: true
-  loop:
-    - "checkpoints"
-    - "loras"
-    - "vae"
-    - "clip"
-    - "unet"
-    - "controlnet"
-    - "ipadapter"
-    - "upscale_models"
-    - "animatediff_models"
-
-- name: Ensure ComfyUI output directory exists
-  ansible.builtin.file:
-    path: "{{ comfyui_output_dir }}"
-    state: directory
-    owner: "{{ comfyui_run_user }}"
-    group: "{{ comfyui_run_group }}"
-    mode: "{{ infra_mode_dir }}"
-  become: true
-
-- name: Ensure ComfyUI input directory exists
-  ansible.builtin.file:
-    path: "{{ comfyui_input_dir }}"
-    state: directory
-    owner: "{{ comfyui_run_user }}"
-    group: "{{ comfyui_run_group }}"
-    mode: "{{ infra_mode_dir }}"
-  become: true
-
-- name: Ensure ComfyUI custom nodes directory exists
-  ansible.builtin.file:
-    path: "{{ comfyui_custom_nodes_dir }}"
     state: directory
     owner: "{{ comfyui_run_user }}"
     group: "{{ comfyui_run_group }}"
@@ -177,6 +122,24 @@
     path: "{{ comfyui_install_dir }}/.git"
   register: comfyui_repo_state
 
+- name: Check if install dir has any files (not just empty subdirs)
+  ansible.builtin.find:
+    paths: "{{ comfyui_install_dir }}"
+    file_type: file
+    recurse: true
+  register: comfyui_install_dir_files
+  failed_when: false
+  when: not comfyui_repo_state.stat.exists
+
+- name: Remove empty install dir if no .git (cleanup from failed clone)
+  ansible.builtin.file:
+    path: "{{ comfyui_install_dir }}"
+    state: absent
+  become: true
+  when:
+    - not comfyui_repo_state.stat.exists
+    - comfyui_install_dir_files.matched | default(0) | int == 0  # project-lint: disable=magic-int  comparing matched file count to zero
+
 - name: Clone ComfyUI repository
   ansible.builtin.git:
     repo: "{{ comfyui_repo }}"
@@ -206,6 +169,55 @@
   become: true
   become_user: "{{ comfyui_run_user }}"
   tags: ["install"]
+
+# ---------------------------------------------------------------------------
+# 3b. Storage subdirectories (created after clone — inside the ComfyUI repo)
+# ---------------------------------------------------------------------------
+- name: Ensure ComfyUI model subdirectories exist
+  ansible.builtin.file:
+    path: "{{ comfyui_models_dir }}/{{ item }}"
+    state: directory
+    owner: "{{ comfyui_run_user }}"
+    group: "{{ comfyui_run_group }}"
+    mode: "{{ infra_mode_dir }}"
+  become: true
+  loop:
+    - "checkpoints"
+    - "loras"
+    - "vae"
+    - "clip"
+    - "unet"
+    - "controlnet"
+    - "ipadapter"
+    - "upscale_models"
+    - "animatediff_models"
+
+- name: Ensure ComfyUI output directory exists
+  ansible.builtin.file:
+    path: "{{ comfyui_output_dir }}"
+    state: directory
+    owner: "{{ comfyui_run_user }}"
+    group: "{{ comfyui_run_group }}"
+    mode: "{{ infra_mode_dir }}"
+  become: true
+
+- name: Ensure ComfyUI input directory exists
+  ansible.builtin.file:
+    path: "{{ comfyui_input_dir }}"
+    state: directory
+    owner: "{{ comfyui_run_user }}"
+    group: "{{ comfyui_run_group }}"
+    mode: "{{ infra_mode_dir }}"
+  become: true
+
+- name: Ensure ComfyUI custom nodes directory exists
+  ansible.builtin.file:
+    path: "{{ comfyui_custom_nodes_dir }}"
+    state: directory
+    owner: "{{ comfyui_run_user }}"
+    group: "{{ comfyui_run_group }}"
+    mode: "{{ infra_mode_dir }}"
+  become: true
 
 # ---------------------------------------------------------------------------
 # 4. Custom nodes
