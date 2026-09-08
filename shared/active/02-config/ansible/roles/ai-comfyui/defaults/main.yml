@@ -21,8 +21,8 @@ comfyui_state: "started"
 # ---------------------------------------------------------------------------
 # Ports (reference infrastructure variables)
 # ---------------------------------------------------------------------------
-comfyui_host_port: "{{ infra_port_ai_comfyui_host | default('8188') }}"
-comfyui_container_port: "{{ infra_port_ai_comfyui_container | default('8188') }}"
+comfyui_host_port: "{{ infra_port_ai_comfyui_host | default('8188') }}"  # project-lint: disable=magic-int  fallback only; primary value is infra_port_ai_comfyui_host
+comfyui_container_port: "{{ infra_port_ai_comfyui_container | default('8188') }}"  # project-lint: disable=magic-int  fallback only; primary value is infra_port_ai_comfyui_container
 
 # ---------------------------------------------------------------------------
 # Domain (reference infrastructure variables)
@@ -78,6 +78,9 @@ comfyui_custom_nodes:
   - name: "ComfyUI-Real-ESRGAN"
     repo: "https://github.com/space-nuko/ComfyUI-Real-ESRGAN.git"
 
+# Git clone depth for custom nodes (shallow clone)
+comfyui_custom_node_clone_depth: 1
+
 # ---------------------------------------------------------------------------
 # Model downloads — downloaded via get_url into models/ subdirs
 # Each model: { url: <download url>, dest: <target path> }
@@ -94,6 +97,9 @@ comfyui_model_downloads: []
   #   dest: "{{ comfyui_models_dir }}/vae/sdxl_vae.safetensors"
   # - url: "https://huggingface.co/ai-forever/Real-ESRGAN/resolve/main/RealESRGAN_x4plus.pth"
   #   dest: "{{ comfyui_models_dir }}/upscale_models/RealESRGAN_x4plus.pth"
+
+# Download timeout for large model checkpoints (seconds)
+comfyui_model_download_timeout: 600
 
 # ---------------------------------------------------------------------------
 # User / Group (service runs as the ansible user, not root)

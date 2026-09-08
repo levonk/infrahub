@@ -36,7 +36,7 @@
     state: directory
     owner: "{{ comfyui_run_user }}"
     group: "{{ comfyui_run_group }}"
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   become: true
 
 - name: Ensure ComfyUI install directory exists
@@ -45,7 +45,7 @@
     state: directory
     owner: "{{ comfyui_run_user }}"
     group: "{{ comfyui_run_group }}"
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   become: true
 
 - name: Ensure ComfyUI model subdirectories exist
@@ -54,7 +54,7 @@
     state: directory
     owner: "{{ comfyui_run_user }}"
     group: "{{ comfyui_run_group }}"
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   become: true
   loop:
     - "checkpoints"
@@ -73,7 +73,7 @@
     state: directory
     owner: "{{ comfyui_run_user }}"
     group: "{{ comfyui_run_group }}"
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   become: true
 
 - name: Ensure ComfyUI input directory exists
@@ -82,7 +82,7 @@
     state: directory
     owner: "{{ comfyui_run_user }}"
     group: "{{ comfyui_run_group }}"
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   become: true
 
 - name: Ensure ComfyUI custom nodes directory exists
@@ -91,7 +91,7 @@
     state: directory
     owner: "{{ comfyui_run_user }}"
     group: "{{ comfyui_run_group }}"
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   become: true
 
 - name: Ensure ComfyUI config directory exists
@@ -100,7 +100,7 @@
     state: directory
     owner: "{{ comfyui_run_user }}"
     group: "{{ comfyui_run_group }}"
-    mode: "0755"
+    mode: "{{ infra_mode_dir }}"
   become: true
 
 # ---------------------------------------------------------------------------
@@ -157,7 +157,7 @@
 
 - name: Verify GPU access
   ansible.builtin.command:
-    cmd: "{{ comfyui_python_executable }} -c \"import torch; print('GPU:', torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'NONE'); print('BF16:', torch.cuda.is_bf16_supported() if torch.cuda.is_available() else False)\""
+    cmd: "{{ comfyui_python_executable }} -c \"import torch; print('GPU:', torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'NONE'); print('BF16:', torch.cuda.is_bf16_supported() if torch.cuda.is_available() else False)\""  # project-lint: disable=magic-int  torch.cuda.get_device_name(0) is the CUDA device index API
   become: true
   become_user: "{{ comfyui_run_user }}"
   register: comfyui_gpu_check
@@ -214,7 +214,7 @@
   ansible.builtin.git:
     repo: "{{ item.repo }}"
     dest: "{{ comfyui_custom_nodes_dir }}/{{ item.name }}"
-    depth: 1
+    depth: "{{ comfyui_custom_node_clone_depth }}"
     force: true
   become: true
   become_user: "{{ comfyui_run_user }}"
@@ -240,8 +240,8 @@
   ansible.builtin.get_url:
     url: "{{ item.url }}"
     dest: "{{ item.dest }}"
-    mode: "0644"
-    timeout: 600
+    mode: "{{ infra_mode_file }}"
+    timeout: "{{ comfyui_model_download_timeout }}"
   become: true
   become_user: "{{ comfyui_run_user }}"
   loop: "{{ comfyui_model_downloads }}"
@@ -257,7 +257,7 @@
     dest: "/etc/systemd/system/{{ comfyui_service_name }}.service"
     owner: root
     group: root
-    mode: "0644"
+    mode: "{{ infra_mode_file }}"
   become: true
   notify: restart comfyui
 
