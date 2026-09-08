@@ -1,0 +1,10 @@
+---
+# ComfyUI handlers
+
+- name: restart comfyui
+  ansible.builtin.systemd:
+    name: "{{ comfyui_service_name }}"
+    state: restarted
+    daemon_reload: true
+  become: true
+  when: comfyui_enabled | bool

@@ -1,0 +1,84 @@
+---
+# Deploy ComfyUI on the kckinai inference host
+# Location: shared/active/02-config/ansible/playbooks/deploy-comfyui.yml
+#
+# Provisions storage directories, systemd service, and firewall rules for
+# ComfyUI running natively on the GB10 inference host. The actual ComfyUI
+# installation (Python venv, pip install, custom nodes, model downloads) is
+# handled by the levonk-ai-playground repo's install scripts.
+#
+# Pipeline: Wan 2.2 14B I2V + character LoRA + keyframe generation
+#
+# Usage:
+#   ansible-playbook \
+#     -i levonk/active/02-config/ansible/inventories/localnet.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-comfyui.yml \
+#     --vault-password-file ~/.ansible/vault_password \
+#     --limit kckinai
+#
+# To stop and disable ComfyUI:
+#   ansible-playbook \
+#     -i levonk/active/02-config/ansible/inventories/localnet.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-comfyui.yml \
+#     --vault-password-file ~/.ansible/vault_password \
+#     --limit kckinai \
+#     --extra-vars "comfyui_enabled=false"
+
+- name: "Deploy ComfyUI — Image/Video Generation Pipeline"
+  hosts: localnet_hosts
+  become: true
+  gather_facts: true
+
+  vars_files:
+    - "{{ playbook_dir }}/../infrastructure/ports.yml"
+    - "{{ playbook_dir }}/../infrastructure/domains.yml"
+    - "{{ playbook_dir }}/../infrastructure/storage.yml"
+    - "{{ playbook_dir }}/../infrastructure/modes.yml"
+    - "{{ playbook_dir }}/../infrastructure/timing.yml"
+    - "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/ports.yml"
+    - "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/domains.yml"
+    - "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/storage.yml"
+
+  pre_tasks:
+    - name: "Gather ansible_facts"
+      ansible.builtin.setup:
+        gather_subset: ["all"]
+      tags: ["always"]
+
+    - name: "Report target"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Deploy ComfyUI
+          ========================================
+          Host: {{ inventory_hostname }}
+          Ansible Host: {{ ansible_host }}
+          OS: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}
+          Arch: {{ ansible_facts['architecture'] }}
+          Port: {{ infra_port_ai_comfyui_host | default('8188') }}
+          Domain: {{ infra_domain_ai_comfyui | default('comfyui.levonk.com') }}
+          ========================================
+      tags: ["always", "info"]
+
+  roles:
+    - role: ai-comfyui
+      tags: ["comfyui"]
+
+  post_tasks:
+    - name: "Verify ComfyUI service is running"
+      ansible.builtin.systemd:
+        name: "{{ comfyui_service_name }}"
+      register: comfyui_verify_status
+      ignore_errors: true
+      when: comfyui_enabled | bool
+
+    - name: "Report verification"
+      ansible.builtin.debug:
+        msg: |
+          ComfyUI verification:
+            - Service state: {{ comfyui_verify_status.status.ActiveState | default('unknown') }}
+            - Service enabled: {{ comfyui_verify_status.status.UnitFileState | default('unknown') }}
+            - Web UI: http://{{ ansible_host }}:{{ comfyui_host_port }}
+            - Public URL: https://{{ comfyui_domain }}
+      when: comfyui_enabled | bool
+      tags: ["always", "info"]

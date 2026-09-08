@@ -1,0 +1,315 @@
+---
+# ComfyUI — Image/Video Generation Pipeline (native on kckinai)
+# https://github.com/comfyanonymous/ComfyUI
+#
+# Provisions and installs ComfyUI natively on the GB10 inference host:
+#   1. Storage directories (models, LoRAs, output, input, custom nodes, config)
+#   2. Python venv + PyTorch (ARM/Blackwell compatible)
+#   3. ComfyUI clone + requirements
+#   4. Custom nodes (Wan, IP-Adapter, RIFE, Real-ESRGAN, etc.)
+#   5. Model downloads (Wan 2.2 14B, SDXL, upscalers, ControlNet)
+#   6. Systemd service
+#   7. Firewall rules
+#
+# The GPU workload scripts (generation, finishing, LoRA training, workflows)
+# live in the levonk-ai-playground repo.
+
+# ---------------------------------------------------------------------------
+# Validate required variables
+# ---------------------------------------------------------------------------
+- name: Validate required variables are defined
+  ansible.builtin.assert:
+    that:
+      - comfyui_install_dir is defined
+      - comfyui_host_port is defined
+      - comfyui_run_user is defined
+    fail_msg: "Missing required comfyui variables."
+    success_msg: "All required comfyui variables are defined."
+  tags: ["always", "validate"]
+
+# ---------------------------------------------------------------------------
+# 1. Storage directories
+# ---------------------------------------------------------------------------
+- name: Ensure ComfyUI base directory exists
+  ansible.builtin.file:
+    path: "{{ comfyui_base_dir }}"
+    state: directory
+    owner: "{{ comfyui_run_user }}"
+    group: "{{ comfyui_run_group }}"
+    mode: "0755"
+  become: true
+
+- name: Ensure ComfyUI install directory exists
+  ansible.builtin.file:
+    path: "{{ comfyui_install_dir }}"
+    state: directory
+    owner: "{{ comfyui_run_user }}"
+    group: "{{ comfyui_run_group }}"
+    mode: "0755"
+  become: true
+
+- name: Ensure ComfyUI model subdirectories exist
+  ansible.builtin.file:
+    path: "{{ comfyui_models_dir }}/{{ item }}"
+    state: directory
+    owner: "{{ comfyui_run_user }}"
+    group: "{{ comfyui_run_group }}"
+    mode: "0755"
+  become: true
+  loop:
+    - "checkpoints"
+    - "loras"
+    - "vae"
+    - "clip"
+    - "unet"
+    - "controlnet"
+    - "ipadapter"
+    - "upscale_models"
+    - "animatediff_models"
+
+- name: Ensure ComfyUI output directory exists
+  ansible.builtin.file:
+    path: "{{ comfyui_output_dir }}"
+    state: directory
+    owner: "{{ comfyui_run_user }}"
+    group: "{{ comfyui_run_group }}"
+    mode: "0755"
+  become: true
+
+- name: Ensure ComfyUI input directory exists
+  ansible.builtin.file:
+    path: "{{ comfyui_input_dir }}"
+    state: directory
+    owner: "{{ comfyui_run_user }}"
+    group: "{{ comfyui_run_group }}"
+    mode: "0755"
+  become: true
+
+- name: Ensure ComfyUI custom nodes directory exists
+  ansible.builtin.file:
+    path: "{{ comfyui_custom_nodes_dir }}"
+    state: directory
+    owner: "{{ comfyui_run_user }}"
+    group: "{{ comfyui_run_group }}"
+    mode: "0755"
+  become: true
+
+- name: Ensure ComfyUI config directory exists
+  ansible.builtin.file:
+    path: "{{ comfyui_config_dir }}"
+    state: directory
+    owner: "{{ comfyui_run_user }}"
+    group: "{{ comfyui_run_group }}"
+    mode: "0755"
+  become: true
+
+# ---------------------------------------------------------------------------
+# 2. Python venv + PyTorch
+# ---------------------------------------------------------------------------
+- name: Ensure system Python build dependencies are present
+  ansible.builtin.apt:
+    name:
+      - python3
+      - python3-venv
+      - python3-dev
+      - git
+    state: present
+    update_cache: true
+  become: true
+  when: ansible_facts.os_family == "Debian"
+
+- name: Ensure system Python build dependencies are present (RedHat)
+  ansible.builtin.dnf:
+    name:
+      - python3
+      - python3-devel
+      - git
+    state: present
+  become: true
+  when: ansible_facts.os_family == "RedHat"
+
+- name: Create Python venv for ComfyUI
+  ansible.builtin.command:
+    cmd: "python3 -m venv {{ comfyui_venv_dir }}"
+    creates: "{{ comfyui_venv_dir }}/bin/activate"
+  become: true
+  become_user: "{{ comfyui_run_user }}"
+
+- name: Upgrade pip in venv
+  ansible.builtin.command:
+    cmd: "{{ comfyui_venv_dir }}/bin/pip install --upgrade pip wheel setuptools"
+  become: true
+  become_user: "{{ comfyui_run_user }}"
+  changed_when: false
+
+- name: Install PyTorch (ARM/Blackwell compatible)
+  ansible.builtin.pip:
+    name:
+      - torch
+      - torchvision
+      - torchaudio
+    state: present
+    virtualenv: "{{ comfyui_venv_dir }}"
+    extra_args: "--index-url {{ comfyui_pytorch_index_url }}"
+  become: true
+  become_user: "{{ comfyui_run_user }}"
+  tags: ["pytorch"]
+
+- name: Verify GPU access
+  ansible.builtin.command:
+    cmd: "{{ comfyui_python_executable }} -c \"import torch; print('GPU:', torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'NONE'); print('BF16:', torch.cuda.is_bf16_supported() if torch.cuda.is_available() else False)\""
+  become: true
+  become_user: "{{ comfyui_run_user }}"
+  register: comfyui_gpu_check
+  changed_when: false
+  tags: ["pytorch", "validate"]
+
+- name: Report GPU status
+  ansible.builtin.debug:
+    msg: "{{ comfyui_gpu_check.stdout_lines }}"
+  tags: ["pytorch", "validate"]
+
+# ---------------------------------------------------------------------------
+# 3. Clone ComfyUI + install requirements
+# ---------------------------------------------------------------------------
+- name: Clone ComfyUI repository
+  ansible.builtin.git:
+    repo: "{{ comfyui_repo }}"
+    dest: "{{ comfyui_install_dir }}"
+    version: "{{ comfyui_branch }}"
+    force: true
+  become: true
+  become_user: "{{ comfyui_run_user }}"
+  tags: ["install"]
+
+- name: Install ComfyUI requirements
+  ansible.builtin.pip:
+    requirements: "{{ comfyui_install_dir }}/requirements.txt"
+    state: present
+    virtualenv: "{{ comfyui_venv_dir }}"
+  become: true
+  become_user: "{{ comfyui_run_user }}"
+  tags: ["install"]
+
+# ---------------------------------------------------------------------------
+# 4. Custom nodes
+# ---------------------------------------------------------------------------
+- name: Install custom nodes
+  ansible.builtin.git:
+    repo: "{{ item.repo }}"
+    dest: "{{ comfyui_custom_nodes_dir }}/{{ item.name }}"
+    depth: 1
+    force: true
+  become: true
+  become_user: "{{ comfyui_run_user }}"
+  loop: "{{ comfyui_custom_nodes }}"
+  tags: ["install", "nodes"]
+
+- name: Install custom node requirements
+  ansible.builtin.pip:
+    requirements: "{{ comfyui_custom_nodes_dir }}/{{ item.name }}/requirements.txt"
+    state: present
+    virtualenv: "{{ comfyui_venv_dir }}"
+  become: true
+  become_user: "{{ comfyui_run_user }}"
+  loop: "{{ comfyui_custom_nodes }}"
+  when: >-
+    lookup('ansible.builtin.stat', comfyui_custom_nodes_dir ~ '/' ~ item.name ~ '/requirements.txt', wantlist=True)[0].stat.exists
+  tags: ["install", "nodes"]
+
+# ---------------------------------------------------------------------------
+# 5. Model downloads
+# ---------------------------------------------------------------------------
+- name: Download model checkpoints
+  ansible.builtin.get_url:
+    url: "{{ item.url }}"
+    dest: "{{ item.dest }}"
+    mode: "0644"
+    timeout: 600
+  become: true
+  become_user: "{{ comfyui_run_user }}"
+  loop: "{{ comfyui_model_downloads }}"
+  when: comfyui_download_models | bool
+  tags: ["install", "models"]
+
+# ---------------------------------------------------------------------------
+# 6. Systemd service
+# ---------------------------------------------------------------------------
+- name: Deploy ComfyUI systemd service
+  ansible.builtin.template:
+    src: comfyui.service.j2
+    dest: "/etc/systemd/system/{{ comfyui_service_name }}.service"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: restart comfyui
+
+- name: Ensure ComfyUI service is enabled and started
+  ansible.builtin.systemd:
+    name: "{{ comfyui_service_name }}"
+    state: "{{ comfyui_state }}"
+    enabled: true
+    daemon_reload: true
+  become: true
+  when: comfyui_enabled | bool
+
+- name: Ensure ComfyUI service is stopped and disabled
+  ansible.builtin.systemd:
+    name: "{{ comfyui_service_name }}"
+    state: stopped
+    enabled: false
+    daemon_reload: true
+  become: true
+  when: not (comfyui_enabled | bool)
+
+# ---------------------------------------------------------------------------
+# 7. Firewall
+# ---------------------------------------------------------------------------
+- name: Open firewall for ComfyUI port (ufw)
+  community.general.ufw:
+    rule: allow
+    port: "{{ comfyui_host_port }}"
+    proto: tcp
+    comment: "ComfyUI web UI"
+  become: true
+  when:
+    - comfyui_firewall_enabled | bool
+    - ansible_facts.os_family == "Debian"
+  tags: ["firewall"]
+
+- name: Open firewall for ComfyUI port (firewalld)
+  ansible.posix.firewalld:
+    port: "{{ comfyui_host_port }}/tcp"
+    permanent: true
+    state: enabled
+    immediate: true
+  become: true
+  when:
+    - comfyui_firewall_enabled | bool
+    - ansible_facts.os_family == "RedHat"
+  tags: ["firewall"]
+
+# ---------------------------------------------------------------------------
+# Status report
+# ---------------------------------------------------------------------------
+- name: Get ComfyUI service status
+  ansible.builtin.systemd:
+    name: "{{ comfyui_service_name }}"
+  register: comfyui_service_info
+  ignore_errors: true
+
+- name: Report ComfyUI status
+  ansible.builtin.debug:
+    msg: |
+      ComfyUI deployed:
+        - URL: https://{{ comfyui_domain }}
+        - Local: http://{{ ansible_host }}:{{ comfyui_host_port }}
+        - Service: {{ comfyui_service_name }}
+        - State: {{ comfyui_service_info.status.ActiveState | default('unknown') }}
+        - Install dir: {{ comfyui_install_dir }}
+        - Venv: {{ comfyui_venv_dir }}
+        - Models dir: {{ comfyui_models_dir }}
+        - Output dir: {{ comfyui_output_dir }}
+        - Custom nodes: {{ comfyui_custom_nodes | length }} installed
+  tags: ["always", "info"]

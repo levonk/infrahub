@@ -1,0 +1,115 @@
+---
+# ComfyUI — Image/Video Generation Pipeline (native on kckinai)
+# https://github.com/comfyanonymous/ComfyUI
+#
+# ComfyUI runs natively (not Docker) on the GB10 inference host. This role
+# installs ComfyUI, PyTorch, custom nodes, and model checkpoints, then
+# provisions the systemd service and firewall rules.
+#
+# The GPU workload scripts (generation, finishing, LoRA training, workflows)
+# live in the levonk-ai-playground repo.
+#
+# Pipeline: Wan 2.2 14B I2V + character LoRA + keyframe generation
+
+# ---------------------------------------------------------------------------
+# Container / Service
+# ---------------------------------------------------------------------------
+comfyui_service_name: "comfyui"
+comfyui_enabled: true
+comfyui_state: "started"
+
+# ---------------------------------------------------------------------------
+# Ports (reference infrastructure variables)
+# ---------------------------------------------------------------------------
+comfyui_host_port: "{{ infra_port_ai_comfyui_host | default('8188') }}"
+comfyui_container_port: "{{ infra_port_ai_comfyui_container | default('8188') }}"
+
+# ---------------------------------------------------------------------------
+# Domain (reference infrastructure variables)
+# ---------------------------------------------------------------------------
+comfyui_domain: "{{ infra_domain_ai_comfyui | default('comfyui.levonk.com') }}"
+
+# ---------------------------------------------------------------------------
+# Storage (reference infrastructure variables)
+# ---------------------------------------------------------------------------
+comfyui_base_dir: "{{ infra_storage_comfyui_base_dir | default('/opt/localnet/services/comfyui') }}"
+comfyui_install_dir: "{{ infra_storage_comfyui_install_dir | default(comfyui_base_dir ~ '/ComfyUI') }}"
+comfyui_models_dir: "{{ infra_storage_comfyui_models_dir | default(comfyui_install_dir ~ '/models') }}"
+comfyui_output_dir: "{{ infra_storage_comfyui_output_dir | default(comfyui_install_dir ~ '/output') }}"
+comfyui_input_dir: "{{ infra_storage_comfyui_input_dir | default(comfyui_install_dir ~ '/input') }}"
+comfyui_custom_nodes_dir: "{{ infra_storage_comfyui_custom_nodes_dir | default(comfyui_install_dir ~ '/custom_nodes') }}"
+comfyui_config_dir: "{{ infra_storage_comfyui_config_dir | default('/opt/localnet/config/comfyui') }}"
+
+# ---------------------------------------------------------------------------
+# Python / venv
+# ---------------------------------------------------------------------------
+comfyui_venv_dir: "{{ comfyui_base_dir }}/venv"
+comfyui_python_executable: "{{ comfyui_venv_dir }}/bin/python"
+
+# PyTorch wheel index URL for GB10 (ARM + Blackwell)
+# Adjust the CUDA version suffix as needed for your system
+comfyui_pytorch_index_url: "https://download.pytorch.org/whl/cu126"
+
+# ---------------------------------------------------------------------------
+# ComfyUI repository
+# ---------------------------------------------------------------------------
+comfyui_repo: "https://github.com/comfyanonymous/ComfyUI.git"
+comfyui_branch: "master"
+
+# ---------------------------------------------------------------------------
+# Custom nodes — installed via git clone into custom_nodes/
+# Each node: { name: <dir name>, repo: <git url> }
+# ---------------------------------------------------------------------------
+comfyui_custom_nodes:
+  - name: "ComfyUI-Manager"
+    repo: "https://github.com/ltdrdata/ComfyUI-Manager.git"
+  - name: "ComfyUI-WanVideoWrapper"
+    repo: "https://github.com/kijai/ComfyUI-WanVideoWrapper.git"
+  - name: "ComfyUI-VideoHelperSuite"
+    repo: "https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git"
+  - name: "comfyui_controlnet"
+    repo: "https://github.com/Fannovel16/comfyui_controlnet_aux.git"
+  - name: "ComfyUI-IP-Adapter"
+    repo: "https://github.com/cubiq/ComfyUI_IPAdapter_plus.git"
+  - name: "ComfyUI-Lora-Trainer"
+    repo: "https://github.com/ltdrdata/ComfyUI-Lora-Trainer.git"
+  - name: "ComfyUI-RIFE"
+    repo: "https://github.com/GreenLandisa/ComfyUI-RIFE.git"
+  - name: "ComfyUI-Real-ESRGAN"
+    repo: "https://github.com/space-nuko/ComfyUI-Real-ESRGAN.git"
+
+# ---------------------------------------------------------------------------
+# Model downloads — downloaded via get_url into models/ subdirs
+# Each model: { url: <download url>, dest: <target path> }
+# Set comfyui_download_models to false to skip downloads (e.g., if models
+# are already present or downloaded manually via huggingface-cli)
+# ---------------------------------------------------------------------------
+comfyui_download_models: true
+comfyui_model_downloads: []
+  # Models are large and change frequently. The default is an empty list.
+  # Populate with specific model URLs when ready, e.g.:
+  # - url: "https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_base_1.0.safetensors"
+  #   dest: "{{ comfyui_models_dir }}/checkpoints/sd_xl_base_1.0.safetensors"
+  # - url: "https://huggingface.co/stabilityai/sdxl-vae/resolve/main/sdxl_vae.safetensors"
+  #   dest: "{{ comfyui_models_dir }}/vae/sdxl_vae.safetensors"
+  # - url: "https://huggingface.co/ai-forever/Real-ESRGAN/resolve/main/RealESRGAN_x4plus.pth"
+  #   dest: "{{ comfyui_models_dir }}/upscale_models/RealESRGAN_x4plus.pth"
+
+# ---------------------------------------------------------------------------
+# User / Group (service runs as the ansible user, not root)
+# ---------------------------------------------------------------------------
+comfyui_run_user: "{{ ansible_user | default('lk') }}"
+comfyui_run_group: "{{ ansible_user | default('lk') }}"
+
+# ---------------------------------------------------------------------------
+# Firewall
+# ---------------------------------------------------------------------------
+comfyui_firewall_enabled: true
+
+# ---------------------------------------------------------------------------
+# Healthcheck
+# ---------------------------------------------------------------------------
+comfyui_healthcheck_interval: "30s"
+comfyui_healthcheck_timeout: "5s"
+comfyui_healthcheck_retries: 3
+comfyui_healthcheck_start_period: "30s"

@@ -73,6 +73,9 @@
     - role: common-hosts-blocklist
       tags: ["hardening", "hosts-blocklist"]
 
+    - role: rustdesk-client
+      tags: ["rustdesk", "remote-desktop"]
+
   post_tasks:
     - name: "Verify Tailscale status"
       ansible.builtin.command:

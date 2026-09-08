@@ -1,0 +1,24 @@
+---
+# ComfyUI systemd service
+# Runs ComfyUI natively on the GB10 inference host.
+# The Python venv and ComfyUI install are managed by levonk-ai-playground scripts.
+
+[Unit]
+Description=ComfyUI — Image/Video Generation Pipeline
+Documentation=https://github.com/comfyanonymous/ComfyUI
+After=network.target docker.service
+Wants=network.target
+
+[Service]
+Type=simple
+User={{ comfyui_run_user }}
+Group={{ comfyui_run_group }}
+WorkingDirectory={{ comfyui_install_dir }}
+ExecStart={{ comfyui_python_executable }} main.py --listen 0.0.0.0 --port {{ comfyui_host_port }}
+Restart=on-failure
+RestartSec=10
+Environment=PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+Environment=HF_HOME={{ comfyui_base_dir }}/hf_cache
+
+[Install]
+WantedBy=multi-user.target

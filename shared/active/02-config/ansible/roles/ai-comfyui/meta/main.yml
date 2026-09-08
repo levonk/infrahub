@@ -1,0 +1,14 @@
+---
+galaxy_info:
+  role_name: ai_comfyui
+  author: localnet
+  description: Deploy ComfyUI image/video generation pipeline (native on GB10)
+  license: MIT
+  min_ansible_version: "2.9"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - jammy
+    - name: EL
+      versions:
+        - "9"
