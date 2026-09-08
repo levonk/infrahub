@@ -9,4 +9,7 @@ listen_addresses = ['0.0.0.0:{DNS_DNSCRYPT_TOR_CONTAINER_PORT}']
 proxy = 'socks5://{PROXY_TOR_SOCKS5_IP}:{PROXY_TOR_SOCKS5_CONTAINER_PORT}'
 
 # Use servers that are known to work well with Tor
+# Note: Quad9 (doh-quad9-nl) is sponsored by Mullvad as of 2026-09,
+# replacing Mullvad's own public DoH servers (shut down Nov 2026).
+# See: shared/docs/pipelines/dns/requirements/upstream-provider-deprecation.md
 server_names = ['doh-crypto-sx', 'doh-securedns', 'doh-quad9-nl']

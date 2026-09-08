@@ -28,8 +28,8 @@ dns:
     - "{{ dns_dnsdist_ip }}:{{ dns_dnsdist_main_container_port }}"
   upstream_dns_file: ""
   bootstrap_dns:
-    - 1.1.1.1
-    - 9.9.9.9
+    - "{{ infra_dns_cloudflare_primary }}"
+    - "{{ infra_dns_quad9_primary }}"
   fallback_dns:
     - "{{ dns_dnscrypt_plaintext_ip }}:{{ dns_dnscrypt_plaintext_container_port }}"
   fallback_dns_file: ""

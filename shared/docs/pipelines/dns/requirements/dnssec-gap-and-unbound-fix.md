@@ -142,10 +142,43 @@ server:
   qname-minimisation: yes              # QNAME minimization (privacy)
   edns-buffer-size: 1232               # Avoid IP fragmentation
 
+  # Extended DNS Errors (RFC 8914) — without EDE, a SERVFAIL cannot be
+  # told apart from a broken delegation. Critical for debugging which
+  # tier in the fallback chain returned a bogus response.
+  ede: yes
+
+  # Threading — without so-reuseport, threads contend for one listening
+  # socket. num-threads should match available cores.
+  num-threads: 2
+  so-reuseport: yes
+
+  # IPv6 — disabled because the rear networks are IPv4-only. Enabling
+  # would only buy a timeout per authoritative server that prefers it.
+  do-ip6: no
+
+  # Trust anchor — stored in its own directory because RFC 5011 updates
+  # write a temporary file next to the anchor. The entrypoint runs
+  # unbound-anchor to refresh it on each container start.
+  auto-trust-anchor-file: "/var/lib/unbound/root.key"
+
 forward-zone:
   name: "."
   forward-addr: 172.20.255.51@15354    # CoreDNS internal port (fallback chain)
 ```
+
+### Trust anchor refresh
+
+The root KSK trust anchor must be kept up to date for DNSSEC validation
+to work. The Unbound container entrypoint handles this automatically:
+
+1. If `root.key` is missing, run `unbound-anchor -a /var/lib/unbound/root.key`
+2. If `unbound-anchor` fails (no network), fall back to the bundled KSK-2017 key
+3. Ensure proper ownership (`unbound:unbound`) and permissions (`644`)
+
+This follows the pattern used by desec-stack's `unbound/entrypoint.sh`,
+which runs `unbound-anchor` on every container start with `|| true` (exit
+code 1 means the anchor was updated, not an error; if the network is
+unavailable, the built-in anchor is used instead).
 
 ### DNSSEC trust levels per tier (with Unbound fix)
 
@@ -191,9 +224,47 @@ This means a tampered plaintext response would be caught by Unbound's validator.
 6. Test: `dig +dnssec example.com @<unbound-ip>` should return `ad` flag
 7. Test: feed a deliberately bogus DNSSEC response, confirm Unbound drops it
 
+## Reference implementations
+
+### desec-stack (github.com/desec-io/desec-stack)
+
+desec-stack is an authoritative DNS hosting platform, not a recursive
+resolver like ours. However, its Unbound configuration demonstrates
+several patterns we adopt:
+
+| Setting | desec-stack | Our stack | Why we differ |
+|---------|-------------|-----------|---------------|
+| `ede: yes` | Yes | Yes | Same — needed to distinguish SERVFAIL causes |
+| `so-reuseport: yes` | Yes (with `num-threads: ${NPROC}`) | Yes (with `num-threads: 2`) | We hardcode 2 for smaller hosts; desec-stack uses `nproc` |
+| `do-ip6: no` | Yes (rear networks IPv4-only) | Yes | Same rationale |
+| `serve-expired` | `no` | `yes` | desec-stack checks live delegation state (stale = wrong). We serve clients (stale > no answer). |
+| `prefetch` | `no` | `yes` | Same reason — we optimize for client latency, they optimize for freshness |
+| `auto-trust-anchor-file` | In its own writable directory | In `/var/lib/unbound/` | Both follow the RFC 5011 temp-file requirement |
+| `unbound-anchor` in entrypoint | `unbound-anchor -a ... \|\| true` | With bundled KSK-2017 fallback | We add a fallback for airgapped starts |
+| `control-enable: yes` | Yes (plain TCP, no certs on rear net) | No | We don't use `unbound-control` currently; could add for operational use |
+| `hide-identity: yes` / `hide-version: yes` | Yes | Not set | Should add — prevents version fingerprinting |
+
+**Key lesson from desec-stack**: The `serve-expired: no` + `prefetch: no`
+choice is deliberate for their use case (delegation checking needs live
+state, not cached state). Our use case (serving clients) is the opposite,
+so `serve-expired: yes` + `prefetch: yes` is correct. The lesson is to
+document *why* the choice was made, not just what the choice is.
+
+### Mullvad DNS shutdown (2026-09-03)
+
+Mullvad shut down their public encrypted DNS (DoH) servers on
+**November 2nd, 2026**, sponsoring Quad9 instead. See
+`requirements/upstream-provider-deprecation.md` for the full analysis.
+This does not affect our dnscrypt-proxy configs (no Mullvad DNS server
+references), but it does affect the upstream resolver landscape: Quad9
+gains institutional support while Mullvad DoH exits the public DNS space.
+
 ## References
 
 - [CoreDNS dnssec plugin](https://coredns.io/plugins/dnssec/) — "on-the-fly DNSSEC signing"
 - [Unbound DNSSEC validation](https://unbound.docs.nlnetlabs.nl/en/latest/topics/dnssec.html)
 - [RFC 4033](https://www.rfc-editor.org/rfc/rfc4033) — DNS Security Introduction
+- [RFC 8914](https://www.rfc-editor.org/rfc/rfc8914) — Extended DNS Errors
+- [desec-stack unbound config](https://github.com/desec-io/desec-stack/blob/main/unbound/conf/unbound.conf.var) — reference implementation
+- [desec-stack unbound entrypoint](https://github.com/desec-io/desec-stack/blob/main/unbound/entrypoint.sh) — trust anchor refresh pattern
 - [coredns-vs-unbound.md](coredns-vs-unbound.md) — original analysis (now corrected in diagrams)

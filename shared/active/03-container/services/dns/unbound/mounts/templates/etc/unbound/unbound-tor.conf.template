@@ -23,6 +23,11 @@ server:
     val-clean-additional: yes
     auto-trust-anchor-file: "/var/lib/unbound/root.key"
 
+    # Extended DNS Errors (RFC 8914) — without EDE, a SERVFAIL cannot be
+    # told apart from a broken delegation.
+    # Pattern adopted from desec-stack unbound.conf.var
+    ede: yes
+
     # Caching
     cache-min-ttl: 60
     cache-max-ttl: 86400
@@ -36,6 +41,10 @@ server:
     edns-buffer-size: 1232
     harden-glue: yes
     harden-dnssec-stripped: yes
+    # Prevent version/identity fingerprinting
+    # Pattern adopted from desec-stack unbound.conf.var
+    hide-identity: yes
+    hide-version: yes
 
     # Logging
     verbosity: 1

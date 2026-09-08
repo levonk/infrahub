@@ -66,10 +66,10 @@
       - /tmp:mode={{ infra_mode_dir_sticky }},size={{ infra_size_64m }}
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:{{ dns_coredns_metrics_container_port }}/health || exit 1"]
-      interval: "{{ infra_timeout_default }}"
-      timeout: "{{ infra_timeout_short }}"
-      retries: "{{ infra_retry_short }}"
-      start_period: "{{ infra_timeout_short }}"
+      interval: "{{ infra_healthcheck_interval }}"
+      timeout: "{{ infra_healthcheck_timeout }}"
+      retries: "{{ infra_healthcheck_retries }}"
+      start_period: "{{ infra_healthcheck_start_period }}"
   register: dns_coredns_deploy
   notify: restart dns coredns
 

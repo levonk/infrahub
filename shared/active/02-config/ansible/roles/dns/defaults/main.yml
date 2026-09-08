@@ -91,6 +91,13 @@ proxy_tor_socks5_ip: "{{ dns_tor_proxy_ip }}"
 proxy_tor_socks5_container_port: "9050"
 proxy_tor_socks5_host_port: "9050"
 
+# Upstream DNS providers (bootstrap only — NOT in the resolution chain)
+# These are used to resolve DoH/DoT/ODoH endpoint hostnames before
+# encrypted DNS is available. The resolution chain itself uses privacy
+# tiers ending with Unbound Root (direct ICANN recursive) and Plaintext.
+dns_quad9_primary: "{{ infra_dns_quad9_primary }}"
+dns_cloudflare_primary: "{{ infra_dns_cloudflare_primary }}"
+
 # Active vs dark tiers — dark tiers are created but not started
 dns_dnscrypt_odoh_enabled: true
 dns_dnscrypt_anon_enabled: true

@@ -35,23 +35,26 @@ done
 
 echo "[ENTRYPOINT] Config rendered, starting Unbound..." >&2
 
-# Initialize root.key for DNSSEC validation if missing
+# Initialize or refresh root.key for DNSSEC validation.
+# Pattern adopted from desec-stack unbound/entrypoint.sh:
+# Run unbound-anchor on every start to keep the trust anchor current.
+# Exit code 1 means the anchor was updated (not an error); if the network
+# is unavailable, unbound-anchor writes the built-in anchor instead.
 ROOT_KEY="/var/lib/unbound/root.key"
 BUNDLED_KEY="/usr/share/dnssec-keys/root.key"
-if [ ! -s "$ROOT_KEY" ]; then
-  echo "[ENTRYPOINT] root.key not found, initializing..." >&2
-  # Try unbound-anchor first (fetches current root trust anchor via DNS)
-  if unbound-anchor -a "$ROOT_KEY" 2>&1; then
-    echo "[ENTRYPOINT] root.key initialized via unbound-anchor" >&2
-  elif [ -s "$BUNDLED_KEY" ]; then
-    echo "[ENTRYPOINT] unbound-anchor failed, using bundled KSK-2017 trust anchor" >&2
-    cp "$BUNDLED_KEY" "$ROOT_KEY"
-  else
-    echo "[ENTRYPOINT] ERROR: No root trust anchor available" >&2
-    exit 1
-  fi
-  chown unbound:unbound "$ROOT_KEY" 2>/dev/null || true
-  chmod 644 "$ROOT_KEY"
+echo "[ENTRYPOINT] Refreshing root trust anchor..." >&2
+if unbound-anchor -a "$ROOT_KEY" 2>&1; then
+  echo "[ENTRYPOINT] root.key is current" >&2
+elif [ -s "$BUNDLED_KEY" ]; then
+  echo "[ENTRYPOINT] unbound-anchor could not fetch, using bundled KSK-2017 trust anchor" >&2
+  cp "$BUNDLED_KEY" "$ROOT_KEY"
+elif [ ! -s "$ROOT_KEY" ]; then
+  echo "[ENTRYPOINT] ERROR: No root trust anchor available" >&2
+  exit 1
+else
+  echo "[ENTRYPOINT] unbound-anchor failed, keeping existing root.key" >&2
 fi
+chown unbound:unbound "$ROOT_KEY" 2>/dev/null || true
+chmod 644 "$ROOT_KEY"
 
 exec unbound -d -c "$DEST_CONFIG_FILE"

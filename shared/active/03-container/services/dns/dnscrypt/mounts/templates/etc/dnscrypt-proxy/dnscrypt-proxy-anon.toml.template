@@ -36,7 +36,9 @@ require_nofilter = true
 
 # Use servers that support the Anonymized DNS protocol
 # Leave server_names empty to auto-select from built-in CSV lists
+# To pin Quad9 (Mullvad-sponsored as of 2026-09, replacing Mullvad DoH):
 # server_names = ['scaleway-fr', 'quad9-dnscrypt-ip4-filter-pri']
+# See: shared/docs/pipelines/dns/requirements/upstream-provider-deprecation.md
 
 [sources]
 

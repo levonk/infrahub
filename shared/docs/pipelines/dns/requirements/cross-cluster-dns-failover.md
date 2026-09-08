@@ -144,3 +144,63 @@ DNS stack and listen on their Tailscale IPs.
 - **Config sync:** This doc covers failover only. Config synchronization
   (blocklists, local zones) between clusters is a separate problem
   addressed in the PRD (`prd-dns-server.md` FR-029).
+
+## Automated failover testing
+
+The manual test steps above (stop OCI DNS, verify fallback) should be
+automated. The pattern follows desec-stack's e2e test approach (see
+`dns-testing-strategy.md`):
+
+### Test: cross-cluster failover
+
+```python
+def test_cross_cluster_failover(oci_node, local_dns_primary, local_dns_fallback):
+    """Verify Oracle nodes fall back to local cluster when OCI DNS is down."""
+    # 1. Baseline: OCI DNS resolves
+    result = oci_node.run("dig +short example.com @100.x.x.50")
+    assert result.returncode == 0
+    assert result.stdout.strip() != ""
+
+    # 2. Stop OCI DNS container
+    oci_node.run("docker stop dns-adguard dns-dnsdist dns-coredns")
+
+    # 3. Verify fallback to Windows host DNS (with timeout)
+    # OS resolver timeout is typically 1-5s; allow 10s for test reliability
+    result = oci_node.run(
+        "dig +short +time=10 +tries=1 example.com",
+        timeout=15
+    )
+    assert result.returncode == 0
+    assert result.stdout.strip() != ""
+
+    # 4. Restart OCI DNS
+    oci_node.run("docker start dns-coredns dns-dnsdist dns-adguard")
+
+    # 5. Verify primary is back
+    result = oci_node.run("dig +short example.com @100.x.x.50")
+    assert result.returncode == 0
+```
+
+### Test: change propagation verification
+
+Inspired by desec-stack's `DESECSTACK_WATCHDOG_SECONDARIES` pattern —
+after a config change, verify the change is visible from all clusters:
+
+```python
+def test_blocklist_change_propagates(local_cluster, cloud_cluster):
+    """Verify blocklist changes propagate to both clusters."""
+    # 1. Add a test domain to the blocklist
+    test_domain = "failover-test.local"
+    local_cluster.add_blocklist_entry(test_domain)
+
+    # 2. Wait for blocklist compiler to publish
+    local_cluster.wait_for_blocklist_update()
+
+    # 3. Verify both clusters block the domain
+    for cluster in [local_cluster, cloud_cluster]:
+        result = cluster.query(test_domain)
+        assert result.rcode == "NXDOMAIN"
+```
+
+These tests should live in the e2e test suite described in
+`dns-testing-strategy.md`.

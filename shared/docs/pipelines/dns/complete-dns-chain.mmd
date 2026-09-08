@@ -90,7 +90,7 @@ graph TD
         dnscrypt_tls_tor -- "Forwards through" --> tor_proxy
         dnscrypt_plaintext_tor -- "Forwards through" --> tor_proxy
         tor_proxy["Tor SOCKS Proxy<br/>172.20.255.70:9050"]
-        Resolvers["Cloudflare, Google, Quad9, Root NS, etc."]
+        Resolvers["ICANN Root NS + DoH/ODoH providers<br/>Tier 10 resolves recursively to root — no third party<br/>Bootstrap DNS Cloudflare/Quad9 for endpoint hostname resolution only<br/>Note: Mullvad DoH shut down Nov 2026, sponsors Quad9"]
     end
 
     subgraph "Cross-Cluster Failover see cross-cluster-dns-failover.md"

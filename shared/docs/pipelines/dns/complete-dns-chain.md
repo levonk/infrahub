@@ -81,8 +81,88 @@ This file follows the practices in the `documentation-diagram-practices` knowled
 - **`color:#1a1a1a` on every `style` directive** — all fills are pastel/light, so dark text is required for WCAG AA 4.5:1 contrast.
 - **All node labels with special characters are quoted** (`["..."]`).
 
+## Network isolation policy
+
+Each container in the DNS stack should only have network access to the
+containers it needs to communicate with. This follows the desec-stack
+pattern where services are "deliberately not on any other network" —
+e.g., their unbound is only on the recursion network, their gatekeeper
+is only on the api-gatekeeper network.
+
+### Current isolation rules
+
+| Container | Can talk to | Cannot talk to | Rationale |
+|-----------|-------------|----------------|-----------|
+| AdGuard | dnsdist only | All other DNS tiers | AdGuard is the entry point; it forwards to dnsdist and nothing else |
+| dnsdist | CoreDNS (external port) only | All other DNS tiers, Tor proxy | dnsdist is a load balancer, not a resolver |
+| CoreDNS (external) | Unbound validator only | All dnscrypt tiers, Tor proxy | External port handles cache + local zones, delegates to validator |
+| CoreDNS (internal) | All dnscrypt/unbound tiers | AdGuard, dnsdist, client network | Internal port runs the fallback chain only |
+| Unbound validator | CoreDNS (internal port) only | All dnscrypt tiers directly, Tor proxy | Validator forwards to CoreDNS internal, which does the tier fallback |
+| dnscrypt tiers | External resolvers via their protocol | Other dnscrypt tiers, internal services | Each tier is independent; they don't chain to each other |
+| Tor proxy | External Tor network only | Internal services, DNS tiers directly | Tor proxy is a SOCKS proxy for dnscrypt/unbound-tor tiers only |
+| Unbound root | Root NS via recursion only | Internal services, other tiers | Direct recursion, no forwarding |
+
+### Principles
+
+1. **No tier-to-tier communication** — Each tier resolves independently.
+   Tiers do not chain to each other; CoreDNS's `forward` plugin handles
+   the ordered fallback.
+2. **Tor proxy is egress-only** — The Tor SOCKS proxy accepts connections
+   from dnscrypt-tor and unbound-tor tiers only. It should not be
+   reachable from AdGuard, dnsdist, or CoreDNS.
+3. **Validator is a middlebox** — Unbound validator sits between CoreDNS
+   external and CoreDNS internal. It should not have direct access to
+   any dnscrypt tier.
+4. **Plaintext tiers have no special access** — Despite being "last resort",
+   plaintext tiers have the same network access as encrypted tiers. The
+   difference is the protocol, not the network policy.
+
+### Lesson from desec-stack
+
+desec-stack's compose file documents network isolation with inline
+comments explaining *why* a service is deliberately excluded from a
+network. For example:
+
+> "Recursion needs egress to port 53, which this bridge network's NAT
+> provides. The resolver is deliberately not on any other network."
+
+> "The arbiter is deliberately not on any other network: it answers api's
+> questions, and has no business talking to the rest of the stack."
+
+Our Docker Compose and Ansible `community.docker` network definitions
+should include similar comments documenting the isolation rationale.
+
+## Upstream provider landscape (2026-09)
+
+The resolution chain ends with **Unbound Root (Tier 10)** — direct
+recursive resolution to ICANN root servers, no third party — and
+**Plaintext (Tier 12)** as last resort. Third-party resolvers
+(Cloudflare, Quad9) are **bootstrap-only**: they resolve DoH/DoT/ODoH
+endpoint hostnames before encrypted DNS is available. They do NOT
+appear in the CoreDNS forward chain.
+
+Provider availability changes:
+
+- **Mullvad DoH**: Shut down November 2nd, 2026. Mullvad now sponsors
+  Quad9 instead. See `requirements/upstream-provider-deprecation.md`.
+  No impact on our stack — no configs reference Mullvad DNS.
+- **Quad9**: Gaining institutional support (Mullvad sponsorship).
+  Referenced as `doh-quad9-nl` in dnscrypt-proxy-tor and as bootstrap
+  DNS in AdGuard and Windows deployment. Not in the resolution chain.
+- **Cloudflare**: Still operational for DoH/ODoH. Used as bootstrap DNS
+  and as an ODoH target via the dnscrypt-proxy auto-selection lists.
+- **ICANN Root NS**: The terminal resolver for Tier 10. Always available
+  as long as the internet's root DNS infrastructure is operational.
+
+The dnscrypt-proxy configs auto-select from the DNSCrypt public resolver
+lists, so individual provider shutdowns are handled gracefully as long
+as the list is refreshed. The `refresh_delay = 72` (hours) in the
+source configs ensures stale providers are dropped within 3 days.
+
 ## Related files
 
 - `requirements/dns/dnssec-gap-and-unbound-fix.md` — DNSSEC validation gap analysis and Unbound validating cache proposal
 - `requirements/dns/cross-cluster-dns-failover.md` — cross-cluster DNS failover options (direct Tailscale IP fallback recommended)
 - `requirements/dns/coredns-vs-unbound.md` — original CoreDNS vs Unbound analysis (diagram now corrects the false DNSSEC claim documented here)
+- `requirements/dns-testing-strategy.md` — e2e test strategy for the 12-tier chain (pytest + Docker compose overlay)
+- `requirements/upstream-provider-deprecation.md` — upstream DNS provider changes (Mullvad DoH shutdown, Quad9 sponsorship)
