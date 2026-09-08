@@ -5,7 +5,11 @@
 # Docs: https://docs.stirlingpdf.com/
 
 # Service Configuration
-tools_stirling_pdf_enabled: true
+# Disabled by default — Stirling-PDF has reliability issues and is removed
+# from the normal deployment path. Use the dedicated deploy playbook
+# (deploy-stirling-pdf.yml) or set tools_stirling_pdf_enabled: true to
+# explicitly deploy it.
+tools_stirling_pdf_enabled: false
 tools_stirling_pdf_container_name: "{{ infra_hostname_tools_stirling_pdf | default('localnet-tools-stirling-pdf') }}"
 tools_stirling_pdf_image_name: "stirlingtools/stirling-pdf"
 tools_stirling_pdf_image_tag: "latest"

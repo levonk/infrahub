@@ -21,10 +21,17 @@
     success_msg: "All required tools_stirling_pdf variables are defined."
   tags: ["always", "validate"]
 
-# 2. Dispatch to Windows deployment
+# 2. Dispatch to Windows deployment or undeployment
 - name: Deploy Stirling-PDF on Windows Docker host
   ansible.builtin.include_tasks: deploy-windows.yml
   when:
     - tools_stirling_pdf_enabled | bool
     - "'windows_docker_hosts' in group_names"
   tags: ["deploy"]
+
+- name: Undeploy Stirling-PDF on Windows Docker host (disabled state)
+  ansible.builtin.include_tasks: undeploy-windows.yml
+  when:
+    - not (tools_stirling_pdf_enabled | bool)
+    - "'windows_docker_hosts' in group_names"
+  tags: ["undeploy"]

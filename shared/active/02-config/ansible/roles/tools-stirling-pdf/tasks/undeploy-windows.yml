@@ -1,0 +1,30 @@
+---
+# Stirling-PDF Windows (nl) undeploy — stop and remove the container
+# Target: Windows Docker Desktop (dtop202311, X86).
+#
+# Used when tools_stirling_pdf_enabled is false to ensure the container
+# is stopped and removed, consistent with the disabled state.
+
+# ============================================================================
+# Stop and remove Stirling-PDF container
+# ============================================================================
+- name: Stop and remove Stirling-PDF container
+  ansible.builtin.shell: "docker rm -f {{ tools_stirling_pdf_container_name }} 2>/dev/null || true"
+  environment:
+    DOCKER_HOST: "{{ tools_stirling_pdf_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["undeploy", "container"]
+
+# ============================================================================
+# Status Report
+# ============================================================================
+- name: Report Stirling-PDF undeploy status
+  ansible.builtin.debug:
+    msg: |
+      Stirling-PDF container stopped and removed:
+        - Container: {{ tools_stirling_pdf_container_name }}
+        - Docker host: {{ tools_stirling_pdf_docker_host }}
+      Note: Volumes are preserved. To re-deploy, set
+      tools_stirling_pdf_enabled: true and run the deploy playbook.
+  tags: ["always", "info"]
