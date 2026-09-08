@@ -1,11 +1,11 @@
 # Infrahub Service Catalog (Shared Defaults)
 
-> **Auto-generated** from `infrastructure/*.yml` (shared defaults only) — last updated: 2026-08-31 22:18
+> **Auto-generated** from `infrastructure/*.yml` (shared defaults only) — last updated: 2026-09-08 03:43
 > Regenerate with: `just generate-service-catalog-shared`
 > Source: `shared/active/02-config/ansible/infrastructure/services.yml`
 > Note: This catalog shows **default ports and suggested hostnames** only. Client-specific deployment details (custom domains, deployed machines, client port overrides) are not included. See `levonk/SERVICES.md` for the deployed client catalog.
 
-**79 services** (shared defaults — no deployment info)
+**83 services** (shared defaults — no deployment info)
 
 ## Table of Contents
 
@@ -111,6 +111,7 @@ flowchart TD
 | Authelia | `authelia` | `infra_domain_sso_authelia` (suggested) | `9091`→`9091` (Web) | — | — | metrics: `/metrics`<br>health: `/api/health`<br>labels: `pipeline=infra, service=authelia, stage=auth` | Security / SSO | [authelia/authelia](https://github.com/authelia/authelia) |
 | Authelia Postgres | `authelia-postgres` | — | `5432`→`5432` (PostgreSQL) | authelia-network | — | — | Passive (Databases / Caches / Queues) | [docker-library/postgres](https://github.com/docker-library/postgres) |
 | Buzz Agent Runtime | `buzz-agent-*` | — | — | buzz-network | — | — | ai | [block/buzz](https://github.com/block/buzz) |
+| ComfyUI | `comfyui` | `infra_domain_ai_comfyui` (suggested) | `8188`→`8188` (Web UI) | — | — | health: `/`<br>labels: `pipeline=none, service=comfyui, stage=standalone` | ai | [comfyanonymous/ComfyUI](https://github.com/comfyanonymous/ComfyUI) |
 | Control Center | `localnet-dashboard-control-center` | `infra_domain_dashboard_control_center` (suggested)<br>`infra_domain_dashboard_control_center_nl` (suggested) | `4537`→`3000` (Web) | traefik-windows-network | `localnet-control-center-data-volume` (volume) | health: `/api/health`<br>labels: `pipeline=none, service=control-center, stage=none` | UI (Web Apps) | [lrepo52/control-center](https://github.com/lrepo52/control-center) |
 | copyparty | `{{ infra_hostname_copyparty | default('copyparty') }}` | `infra_domain_storage_copyparty` (suggested) | `3923`→`3923` (Web) | — | `localnet-copyparty-data-volume` (volume)<br>`localnet-copyparty-config-volume` (volume) | health: `/`<br>labels: `pipeline=none, service=copyparty, stage=storage` | UI (Web Apps) | [9001/copyparty](https://github.com/9001/copyparty) |
 | CoreDNS | `coredns` | — | `15354`→`15353` (DNS)<br>`9153`→`9153` (Metrics) | localnet-network | — | — | DNS | [coredns/coredns](https://github.com/coredns/coredns) |
@@ -166,6 +167,8 @@ flowchart TD
 | QM Core | `qm-levonk-core` | — | `3104`→`8080` (Core API) | — | — | — | API (HTTP Services) | [yc-software/qm](https://github.com/yc-software/qm) |
 | QM Postgres | `qm-levonk-pg` | — | `5437`→`5432` (PostgreSQL) | qm-levonk | `localnet-qm-postgres-data-volume` (volume) | — | Passive (Databases / Caches / Queues) | [docker-library/postgres](https://github.com/docker-library/postgres) |
 | QM Web UI | `qm-levonk-web-ui` | `infra_domain_ai_qm` (suggested) | `3105`→`8082` (Web UI) | — | — | — | UI (Web Apps) | [yc-software/qm](https://github.com/yc-software/qm) |
+| RustDesk hbbr (Relay Server) | `localnet-rustdesk-server-hbbr` | — | `21117`→`21117` (Relay (TCP)) | cloud-server | — | labels: `pipeline=none, service=rustdesk-hbbr, stage=remote-desktop` | Infrastructure | [rustdesk/rustdesk-server](https://github.com/rustdesk/rustdesk-server) |
+| RustDesk hbbs (ID Server) | `localnet-rustdesk-server-hbbs` | — | `21115`→`21115` (NAT Test (TCP))<br>`21116`→`21116` (ID Registration (TCP/UDP)) | cloud-server | — | labels: `pipeline=none, service=rustdesk-hbbs, stage=remote-desktop` | Infrastructure | [rustdesk/rustdesk-server](https://github.com/rustdesk/rustdesk-server) |
 | RustFS | `localnet-rustfs` | `infra_domain_storage_rustfs` (suggested)<br>`infra_domain_storage_rustfs_console` (suggested) | `9000`→`9000` (S3 API)<br>`9001`→`9001` (Console) | — | `localnet-rustfs-data-volume` (volume) | — | Passive (Databases / Caches / Queues) | [rustfs/rustfs](https://github.com/rustfs/rustfs) |
 | SearXNG | `searxng` | `infra_domain_proxy_search` (suggested) | `8080`→`8080` (Web) | — | — | — | UI (Web Apps) | [searxng/searxng](https://github.com/searxng/searxng) |
 | Stirling-PDF | `localnet-tools-stirling-pdf` | `infra_domain_tools_stirling_pdf` (suggested) | `4531`→`8080` (Web) | traefik-windows-network | — | health: `/api/v1/info/status`<br>labels: `pipeline=none, service=stirling-pdf, stage=tools` | tools | [Stirling-Tools/Stirling-PDF](https://github.com/Stirling-Tools/Stirling-PDF) |
@@ -176,6 +179,7 @@ flowchart TD
 | Tor Tailscale Exit (nl) | `{{ infra_hostname_vpn_tailscale_tor }}` | — | — | tor-network | — | — | VPN / Mesh Networking | [torproject/tor](https://github.com/torproject/tor) |
 | Traefik | `traefik` | `infra_domain_traefik_dashboard` (suggested) | `80`→`80` (HTTP)<br>`443`→`443` (HTTPS) | traefik-network | — | metrics: `/metrics`<br>health: `/api/rawdata`<br>labels: `pipeline=infra, service=traefik, stage=ingress` | Console / Dashboard | [traefik/traefik](https://github.com/traefik/traefik) |
 | TraLa | `trala` | `infra_domain_dashboard_trala` (suggested) | `8085`→`8080` (Web) | — | — | — | Infrastructure | [dannybouwers/trala](https://github.com/dannybouwers/trala) |
+| treg Tool Registry (cno) | `localnet-ai-treg` | `infra_domain_ai_treg` (suggested) | `18790`→`18790` (Web/API) | traefik-network | — | health: `/meta`<br>labels: `pipeline=none, service=treg, stage=standalone` | ai | [superdesigndev/treg](https://github.com/superdesigndev/treg) |
 | Uptime Kuma | `localnet-monitoring-uptime-kuma` | `infra_domain_monitoring_uptime_kuma` (suggested) | `3001`→`3001` (Web UI) | traefik-network | — | — | Console / Dashboard | [louislam/uptime-kuma](https://github.com/louislam/uptime-kuma) |
 | Varnish Cache | `varnish` | — | `6081`→`6081` (HTTP) | localnet-network | — | — | Proxy Chain (Internal) | [varnishcache/varnish-cache](https://github.com/varnishcache/varnish-cache) |
 | Verdaccio NPM Registry (cno) | `localnet-artifact-verdaccio` | `infra_domain_artifact_verdaccio_cno` (suggested) | `4873`→`4873` (Web/API) | traefik-network | — | — | Infrastructure | [verdaccio/verdaccio](https://github.com/verdaccio/verdaccio) |
@@ -305,6 +309,8 @@ flowchart TD
 | Nix ncps (cno) | `localnet-nix-ncps-cno` | `infra_domain_nix_cache_cno` (suggested) | `4524`→`8080` (HTTP (via Traefik)) | traefik-network | — | — | [kalbasit/ncps](https://github.com/kalbasit/ncps) |
 | Nix ncps (nl) | `localnet-nix-ncps` | `infra_domain_nix_cache_nl` (suggested) | `4524`→`8080` (HTTP (via Traefik)) | traefik-windows-network | — | — | [kalbasit/ncps](https://github.com/kalbasit/ncps) |
 | no-mistakes Gate | `localnet-no-mistakes` | `infra_domain_devops_no_mistakes` (suggested) | `2222`→`2222` (SSH Git) | traefik-windows-network | — | — | [kunchenguid/no-mistakes](https://github.com/kunchenguid/no-mistakes) |
+| RustDesk hbbr (Relay Server) | `localnet-rustdesk-server-hbbr` | — | `21117`→`21117` (Relay (TCP)) | cloud-server | — | labels: `pipeline=none, service=rustdesk-hbbr, stage=remote-desktop` | [rustdesk/rustdesk-server](https://github.com/rustdesk/rustdesk-server) |
+| RustDesk hbbs (ID Server) | `localnet-rustdesk-server-hbbs` | — | `21115`→`21115` (NAT Test (TCP))<br>`21116`→`21116` (ID Registration (TCP/UDP)) | cloud-server | — | labels: `pipeline=none, service=rustdesk-hbbs, stage=remote-desktop` | [rustdesk/rustdesk-server](https://github.com/rustdesk/rustdesk-server) |
 | TraLa | `trala` | `infra_domain_dashboard_trala` (suggested) | `8085`→`8080` (Web) | — | — | — | [dannybouwers/trala](https://github.com/dannybouwers/trala) |
 | Verdaccio NPM Registry (cno) | `localnet-artifact-verdaccio` | `infra_domain_artifact_verdaccio_cno` (suggested) | `4873`→`4873` (Web/API) | traefik-network | — | — | [verdaccio/verdaccio](https://github.com/verdaccio/verdaccio) |
 | Verdaccio NPM Registry (nl) | `localnet-artifact-verdaccio-nl` | `infra_domain_artifact_verdaccio_nl` (suggested) | `4873`→`4873` (Web/API) | — | — | — | [verdaccio/verdaccio](https://github.com/verdaccio/verdaccio) |
