@@ -47,6 +47,18 @@
         mount: /config
       - name: "{{ media_stack_unpackarr_config_volume }}"
         mount: /config
+      - name: "{{ media_stack_romm_config_volume }}"
+        mount: /romm/config
+      - name: "{{ media_stack_romm_resources_volume }}"
+        mount: /romm/resources
+      - name: "{{ media_stack_romm_assets_volume }}"
+        mount: /romm/assets
+      - name: "{{ media_stack_kavita_config_volume }}"
+        mount: /config
+      - name: "{{ media_stack_calibre_web_config_volume }}"
+        mount: /config
+      - name: "{{ media_stack_komga_config_volume }}"
+        mount: /config
   tags: ["deploy", "volume"]
 
 # ============================================================================
@@ -418,6 +430,111 @@
   tags: ["deploy", "container", "unpackarr"]
 
 # ============================================================================
+# Deploy RomM — game/ROM library manager
+# ============================================================================
+- name: Deploy RomM container
+  ansible.builtin.command: >-
+    docker run -d
+    --name {{ media_stack_romm_container_name }}
+    --restart unless-stopped
+    --network {{ media_stack_network_name }}
+    -p {{ media_stack_romm_host_port }}:{{ media_stack_romm_container_port }}/tcp
+    -v {{ media_stack_romm_config_volume }}:/romm/config:rw
+    -v {{ media_stack_romm_resources_volume }}:/romm/resources:rw
+    -v {{ media_stack_romm_assets_volume }}:/romm/assets:rw
+    -v {{ media_stack_data_volume }}:/romm/library:rw
+    -e TZ={{ media_stack_tz }}
+    -e ROMM_DB_DRIVER=sqlite
+    -e ROMM_PORT={{ media_stack_romm_container_port }}
+    --log-driver json-file
+    --log-opt max-size={{ media_stack_log_max_size }}
+    --log-opt max-file={{ media_stack_log_max_file }}
+    --security-opt no-new-privileges:true
+    {{ media_stack_romm_image }}:{{ media_stack_romm_image_tag }}
+  environment:
+    DOCKER_HOST: "{{ media_stack_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "container", "romm"]
+
+# ============================================================================
+# Deploy Kavita — ebook/manga/comic reader
+# ============================================================================
+- name: Deploy Kavita container
+  ansible.builtin.command: >-
+    docker run -d
+    --name {{ media_stack_kavita_container_name }}
+    --restart unless-stopped
+    --network {{ media_stack_network_name }}
+    -p {{ media_stack_kavita_host_port }}:{{ media_stack_kavita_container_port }}/tcp
+    -v {{ media_stack_kavita_config_volume }}:/config:rw
+    -v {{ media_stack_data_volume }}:/data:rw
+    -e TZ={{ media_stack_tz }}
+    -e PUID={{ media_stack_puid }}
+    -e PGID={{ media_stack_pgid }}
+    --log-driver json-file
+    --log-opt max-size={{ media_stack_log_max_size }}
+    --log-opt max-file={{ media_stack_log_max_file }}
+    --security-opt no-new-privileges:true
+    {{ media_stack_kavita_image }}:{{ media_stack_kavita_image_tag }}
+  environment:
+    DOCKER_HOST: "{{ media_stack_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "container", "kavita"]
+
+# ============================================================================
+# Deploy Calibre-Web — Calibre library web frontend
+# ============================================================================
+- name: Deploy Calibre-Web container
+  ansible.builtin.command: >-
+    docker run -d
+    --name {{ media_stack_calibre_web_container_name }}
+    --restart unless-stopped
+    --network {{ media_stack_network_name }}
+    -p {{ media_stack_calibre_web_host_port }}:{{ media_stack_calibre_web_container_port }}/tcp
+    -v {{ media_stack_calibre_web_config_volume }}:/config:rw
+    -v {{ media_stack_data_volume }}:/books:rw
+    -e TZ={{ media_stack_tz }}
+    -e PUID={{ media_stack_puid }}
+    -e PGID={{ media_stack_pgid }}
+    -e DOCKER_MODS=linuxserver/mods:universal-calibre
+    --log-driver json-file
+    --log-opt max-size={{ media_stack_log_max_size }}
+    --log-opt max-file={{ media_stack_log_max_file }}
+    --security-opt no-new-privileges:true
+    {{ media_stack_calibre_web_image }}:{{ media_stack_calibre_web_image_tag }}
+  environment:
+    DOCKER_HOST: "{{ media_stack_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "container", "calibre-web"]
+
+# ============================================================================
+# Deploy Komga — comic/manga server + reader
+# ============================================================================
+- name: Deploy Komga container
+  ansible.builtin.command: >-
+    docker run -d
+    --name {{ media_stack_komga_container_name }}
+    --restart unless-stopped
+    --network {{ media_stack_network_name }}
+    -p {{ media_stack_komga_host_port }}:{{ media_stack_komga_container_port }}/tcp
+    -v {{ media_stack_komga_config_volume }}:/config:rw
+    -v {{ media_stack_data_volume }}:/data:rw
+    -e TZ={{ media_stack_tz }}
+    --log-driver json-file
+    --log-opt max-size={{ media_stack_log_max_size }}
+    --log-opt max-file={{ media_stack_log_max_file }}
+    --security-opt no-new-privileges:true
+    {{ media_stack_komga_image }}:{{ media_stack_komga_image_tag }}
+  environment:
+    DOCKER_HOST: "{{ media_stack_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "container", "komga"]
+
+# ============================================================================
 # Wait for health (Jellyfin + Jellyseerr + Audiobookshelf + Flaresolverr)
 # ============================================================================
 - name: Wait for Jellyfin to be healthy
@@ -478,6 +595,10 @@
         Prowlarr:     https://{{ media_stack_prowlarr_domain }} (port {{ media_stack_prowlarr_host_port }})
         Kapowarr:     https://{{ media_stack_kapowarr_domain }} (port {{ media_stack_kapowarr_host_port }})
         Audiobookshelf: https://{{ media_stack_audiobookshelf_domain }} (port {{ media_stack_audiobookshelf_host_port }})
+        RomM:         https://{{ media_stack_romm_domain }} (port {{ media_stack_romm_host_port }})
+        Kavita:       https://{{ media_stack_kavita_domain }} (port {{ media_stack_kavita_host_port }})
+        Calibre-Web:  https://{{ media_stack_calibre_web_domain }} (port {{ media_stack_calibre_web_host_port }})
+        Komga:        https://{{ media_stack_komga_domain }} (port {{ media_stack_komga_host_port }})
         Flaresolverr: internal (port {{ media_stack_flaresolverr_host_port }})
         Recyclarr:    internal (cron, no port)
         Unpackarr:    internal (sidecar, no port)

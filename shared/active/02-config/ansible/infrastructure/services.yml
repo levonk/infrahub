@@ -1532,6 +1532,86 @@ services:
     stage: "streaming"
     service: "audiobookshelf"
 
+- name: "RomM"
+  container: "{{ infra_hostname_media_romm }}"
+  machine: "dtop202311"
+  category: "ui"
+  description: "Game/ROM library manager — IGDB metadata, play status tracking"
+  source_repo: "https://github.com/rommapp/romm"
+  domains:
+    - "infra_domain_media_romm"
+  ports:
+    - host: "infra_port_media_romm_host"
+      container: "infra_port_media_romm_container"
+      label: "Web"
+  traefik: true
+  network: "traefik-windows-network"
+  pipeline: "media"
+  alert_labels:
+    pipeline: "media"
+    stage: "library"
+    service: "romm"
+
+- name: "Kavita"
+  container: "{{ infra_hostname_media_kavita }}"
+  machine: "dtop202311"
+  category: "ui"
+  description: "Ebook/manga/comic reader — OPDS, in-browser reading, progress tracking"
+  source_repo: "https://github.com/Kareadita/Kavita"
+  domains:
+    - "infra_domain_media_kavita"
+  ports:
+    - host: "infra_port_media_kavita_host"
+      container: "infra_port_media_kavita_container"
+      label: "Web"
+  traefik: true
+  network: "traefik-windows-network"
+  pipeline: "media"
+  alert_labels:
+    pipeline: "media"
+    stage: "library"
+    service: "kavita"
+
+- name: "Calibre-Web"
+  container: "{{ infra_hostname_media_calibre_web }}"
+  machine: "dtop202311"
+  category: "ui"
+  description: "Calibre library web frontend — ebook browsing, conversion"
+  source_repo: "https://github.com/janeczku/calibre-web"
+  domains:
+    - "infra_domain_media_calibre_web"
+  ports:
+    - host: "infra_port_media_calibre_web_host"
+      container: "infra_port_media_calibre_web_container"
+      label: "Web"
+  traefik: true
+  network: "traefik-windows-network"
+  pipeline: "media"
+  alert_labels:
+    pipeline: "media"
+    stage: "library"
+    service: "calibre-web"
+
+- name: "Komga"
+  container: "{{ infra_hostname_media_komga }}"
+  machine: "dtop202311"
+  category: "ui"
+  description: "Comic/manga server + reader — OPDS, reading progress"
+  source_repo: "https://github.com/gotson/komga"
+  domains:
+    - "infra_domain_media_komga"
+  ports:
+    - host: "infra_port_media_komga_host"
+      container: "infra_port_media_komga_container"
+      label: "Web"
+  traefik: true
+  network: "traefik-windows-network"
+  pipeline: "media"
+  alert_labels:
+    pipeline: "media"
+    stage: "library"
+    service: "komga"
+
 - name: "Flaresolverr"
   container: "{{ infra_hostname_media_flaresolverr }}"
   machine: "dtop202311"
@@ -1664,3 +1744,11 @@ chains:
         role: "media server (stream)"
       - service: "Audiobookshelf"
         role: "audiobook/podcast server"
+      - service: "RomM"
+        role: "game/ROM library"
+      - service: "Kavita"
+        role: "ebook/manga reader"
+      - service: "Calibre-Web"
+        role: "Calibre library frontend"
+      - service: "Komga"
+        role: "comic/manga reader"

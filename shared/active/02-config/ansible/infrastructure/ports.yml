@@ -760,3 +760,19 @@ infra_port_media_audiobookshelf_container: "80"
 # Flaresolverr — Cloudflare bypass (internal, no Traefik domain)
 infra_port_media_flaresolverr_host: "8191"
 infra_port_media_flaresolverr_container: "8191"
+
+# RomM — game/ROM library manager
+infra_port_media_romm_host: "8091"
+infra_port_media_romm_container: "8080"
+
+# Kavita — ebook/manga/comic reader
+infra_port_media_kavita_host: "5060"
+infra_port_media_kavita_container: "5000"
+
+# Calibre-Web — Calibre library web frontend
+infra_port_media_calibre_web_host: "8087"
+infra_port_media_calibre_web_container: "8083"
+
+# Komga — comic/manga server + reader
+infra_port_media_komga_host: "25600"
+infra_port_media_komga_container: "25600"

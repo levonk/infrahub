@@ -32,9 +32,13 @@ flowchart LR
             REC["recyclarr\nProfile sync\n(cron)"]
         end
 
-        subgraph Stream["Streaming Layer"]
+        subgraph Stream["Streaming + Library Layer"]
             JF["jellyfin\nMedia server\n(GPU transcoding)"]
             ABS["audiobookshelf\nAudiobooks + podcasts"]
+            ROMM["romm\nGame/ROM library"]
+            KAV["kavita\nEbook/manga reader"]
+            CAL["calibre-web\nCalibre library"]
+            KOM["komga\nComic/manga reader"]
         end
     end
 
@@ -86,8 +90,12 @@ dtop202311 (Windows Docker Desktop, X86, nl region)
        ├─ lidarr.nl.levonk.com / music.levonk.com          → lidarr (8686)
        ├─ bazarr.nl.levonk.com / subtitles.levonk.com      → bazarr (6767)
        ├─ prowlarr.nl.levonk.com / indexers.levonk.com     → prowlarr (9696)
-       ├─ kapowarr.nl.levonk.com / comics.levonk.com       → kapowarr (5656)
-       └─ audiobooks.nl.levonk.com / audiobooks.levonk.com → audiobookshelf (13378→80)
+       ├─ kapowarr.nl.levonk.com / comics-manager.levonk.com → kapowarr (5656)
+       ├─ audiobooks.nl.levonk.com / audiobooks.levonk.com → audiobookshelf (13378→80)
+       ├─ romm.nl.levonk.com / games.levonk.com            → romm (8091→8080)
+       ├─ kavita.nl.levonk.com / books.levonk.com          → kavita (5060→5000)
+       ├─ calibre-web.nl.levonk.com / library.levonk.com  → calibre-web (8087→8083)
+       └─ komga.nl.levonk.com / comics.levonk.com          → komga (25600)
 ```
 
 ### Domain Model — Specific + Generic Alias
@@ -103,8 +111,12 @@ Each media service has two domains following the split-horizon DNS pattern:
 | lidarr | lidarr.nl.levonk.com | music.levonk.com |
 | bazarr | bazarr.nl.levonk.com | subtitles.levonk.com |
 | prowlarr | prowlarr.nl.levonk.com | indexers.levonk.com |
-| kapowarr | kapowarr.nl.levonk.com | comics.levonk.com |
+| kapowarr | kapowarr.nl.levonk.com | comics-manager.levonk.com |
 | audiobookshelf | audiobooks.nl.levonk.com | audiobooks.levonk.com |
+| romm | romm.nl.levonk.com | games.levonk.com |
+| kavita | kavita.nl.levonk.com | books.levonk.com |
+| calibre-web | calibre-web.nl.levonk.com | library.levonk.com |
+| komga | komga.nl.levonk.com | comics.levonk.com |
 
 DNS chain:
 ```
@@ -267,8 +279,12 @@ subtitles and in which languages.
 | lidarr | `lscr.io/linuxserver/lidarr` | 8686 | 8686 | lidarr.nl.levonk.com | music.levonk.com | yes | ui |
 | bazarr | `lscr.io/linuxserver/bazarr` | 6767 | 6767 | bazarr.nl.levonk.com | subtitles.levonk.com | yes | ui |
 | prowlarr | `lscr.io/linuxserver/prowlarr` | 9696 | 9696 | prowlarr.nl.levonk.com | indexers.levonk.com | yes | ui |
-| kapowarr | `mrcas/kapowarr` | 5656 | 5656 | kapowarr.nl.levonk.com | comics.levonk.com | yes | ui |
+| kapowarr | `mrcas/kapowarr` | 5656 | 5656 | kapowarr.nl.levonk.com | comics-manager.levonk.com | yes | ui |
 | audiobookshelf | `ghcr.io/advplyr/audiobookshelf` | 13378 | 80 | audiobooks.nl.levonk.com | audiobooks.levonk.com | yes | ui |
+| romm | `rommapp/romm` | 8091 | 8080 | romm.nl.levonk.com | games.levonk.com | yes | ui |
+| kavita | `lscr.io/linuxserver/kavita` | 5060 | 5000 | kavita.nl.levonk.com | books.levonk.com | yes | ui |
+| calibre-web | `lscr.io/linuxserver/calibre-web` | 8087 | 8083 | calibre-web.nl.levonk.com | library.levonk.com | yes | ui |
+| komga | `gotson/komga` | 25600 | 25600 | komga.nl.levonk.com | comics.levonk.com | yes | ui |
 | flaresolverr | `ghcr.io/flaresolverr/flaresolverr` | 8191 | 8191 | (internal) | — | no | passive |
 | recyclarr | `ghcr.io/recyclarr/recyclarr` | — | — | (cron) | — | no | passive |
 | unpackarr | `ghcr.io/unpackarr/unpackarr` | — | — | (sidecar) | — | no | passive |
@@ -284,7 +300,10 @@ container. The *arr services organize downloaded content into subdirectories
   ├── movies/       ← radarr organizes, jellyfin streams
   ├── tv/           ← sonarr organizes, jellyfin streams
   ├── music/        ← lidarr organizes, jellyfin streams
-  ├── comics/       ← kapowarr organizes
+  ├── comics/       ← kapowarr downloads, komga serves
+  ├── books/        ← calibre-web library
+  ├── data/         ← kavita ebook/manga library
+  ├── roms/         ← romm game library
   ├── downloads/    ← shared download directory (all *arr)
   ├── audiobooks/   ← audiobookshelf
   └── podcasts/     ← audiobookshelf

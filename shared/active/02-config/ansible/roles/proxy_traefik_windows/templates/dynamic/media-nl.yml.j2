@@ -207,22 +207,6 @@ http:
             sans:
               - "{{ media_stack_kapowarr_domain_alias }}"
 
-      entryPoints:
-        - web
-      middlewares:
-        - redirect-to-https
-
-      entryPoints:
-        - websecure
-{% if proxy_traefik_windows_authelia_enabled %}
-      middlewares:
-        - authelia
-{% endif %}
-      tls:
-        certResolver: letsencrypt
-        domains:
-            sans:
-
     # Audiobookshelf — audiobook + podcast server
     audiobookshelf-nl-http:
       rule: "Host(`{{ media_stack_audiobookshelf_domain }}`) || Host(`{{ media_stack_audiobookshelf_domain_alias }}`)"
@@ -247,6 +231,106 @@ http:
           - main: "{{ media_stack_audiobookshelf_domain }}"
             sans:
               - "{{ media_stack_audiobookshelf_domain_alias }}"
+
+    # RomM — game/ROM library manager
+    romm-nl-http:
+      rule: "Host(`{{ media_stack_romm_domain }}`) || Host(`{{ media_stack_romm_domain_alias }}`)"
+      entryPoints:
+        - web
+      middlewares:
+        - redirect-to-https
+      service: romm-nl
+
+    romm-nl-https:
+      rule: "Host(`{{ media_stack_romm_domain }}`) || Host(`{{ media_stack_romm_domain_alias }}`)"
+      entryPoints:
+        - websecure
+{% if proxy_traefik_windows_authelia_enabled %}
+      middlewares:
+        - authelia
+{% endif %}
+      service: romm-nl
+      tls:
+        certResolver: letsencrypt
+        domains:
+          - main: "{{ media_stack_romm_domain }}"
+            sans:
+              - "{{ media_stack_romm_domain_alias }}"
+
+    # Kavita — ebook/manga/comic reader
+    kavita-nl-http:
+      rule: "Host(`{{ media_stack_kavita_domain }}`) || Host(`{{ media_stack_kavita_domain_alias }}`)"
+      entryPoints:
+        - web
+      middlewares:
+        - redirect-to-https
+      service: kavita-nl
+
+    kavita-nl-https:
+      rule: "Host(`{{ media_stack_kavita_domain }}`) || Host(`{{ media_stack_kavita_domain_alias }}`)"
+      entryPoints:
+        - websecure
+{% if proxy_traefik_windows_authelia_enabled %}
+      middlewares:
+        - authelia
+{% endif %}
+      service: kavita-nl
+      tls:
+        certResolver: letsencrypt
+        domains:
+          - main: "{{ media_stack_kavita_domain }}"
+            sans:
+              - "{{ media_stack_kavita_domain_alias }}"
+
+    # Calibre-Web — Calibre library web frontend
+    calibre-web-nl-http:
+      rule: "Host(`{{ media_stack_calibre_web_domain }}`) || Host(`{{ media_stack_calibre_web_domain_alias }}`)"
+      entryPoints:
+        - web
+      middlewares:
+        - redirect-to-https
+      service: calibre-web-nl
+
+    calibre-web-nl-https:
+      rule: "Host(`{{ media_stack_calibre_web_domain }}`) || Host(`{{ media_stack_calibre_web_domain_alias }}`)"
+      entryPoints:
+        - websecure
+{% if proxy_traefik_windows_authelia_enabled %}
+      middlewares:
+        - authelia
+{% endif %}
+      service: calibre-web-nl
+      tls:
+        certResolver: letsencrypt
+        domains:
+          - main: "{{ media_stack_calibre_web_domain }}"
+            sans:
+              - "{{ media_stack_calibre_web_domain_alias }}"
+
+    # Komga — comic/manga server + reader
+    komga-nl-http:
+      rule: "Host(`{{ media_stack_komga_domain }}`) || Host(`{{ media_stack_komga_domain_alias }}`)"
+      entryPoints:
+        - web
+      middlewares:
+        - redirect-to-https
+      service: komga-nl
+
+    komga-nl-https:
+      rule: "Host(`{{ media_stack_komga_domain }}`) || Host(`{{ media_stack_komga_domain_alias }}`)"
+      entryPoints:
+        - websecure
+{% if proxy_traefik_windows_authelia_enabled %}
+      middlewares:
+        - authelia
+{% endif %}
+      service: komga-nl
+      tls:
+        certResolver: letsencrypt
+        domains:
+          - main: "{{ media_stack_komga_domain }}"
+            sans:
+              - "{{ media_stack_komga_domain_alias }}"
 
   services:
     jellyfin-nl:
@@ -297,12 +381,32 @@ http:
           - url: "http://{{ media_stack_kapowarr_container_name }}:{{ media_stack_kapowarr_container_port }}"
         passHostHeader: true
 
-      loadBalancer:
-        servers:
-        passHostHeader: true
-
     audiobookshelf-nl:
       loadBalancer:
         servers:
           - url: "http://{{ media_stack_audiobookshelf_container_name }}:{{ media_stack_audiobookshelf_container_port }}"
+        passHostHeader: true
+
+    romm-nl:
+      loadBalancer:
+        servers:
+          - url: "http://{{ media_stack_romm_container_name }}:{{ media_stack_romm_container_port }}"
+        passHostHeader: true
+
+    kavita-nl:
+      loadBalancer:
+        servers:
+          - url: "http://{{ media_stack_kavita_container_name }}:{{ media_stack_kavita_container_port }}"
+        passHostHeader: true
+
+    calibre-web-nl:
+      loadBalancer:
+        servers:
+          - url: "http://{{ media_stack_calibre_web_container_name }}:{{ media_stack_calibre_web_container_port }}"
+        passHostHeader: true
+
+    komga-nl:
+      loadBalancer:
+        servers:
+          - url: "http://{{ media_stack_komga_container_name }}:{{ media_stack_komga_container_port }}"
         passHostHeader: true

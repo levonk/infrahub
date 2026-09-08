@@ -181,3 +181,53 @@ media_stack_unpackarr_container_name: "{{ infra_hostname_media_unpackarr | defau
 media_stack_unpackarr_image: "ghcr.io/unpackarr/unpackarr"
 media_stack_unpackarr_image_tag: "latest"
 media_stack_unpackarr_config_volume: "{{ infra_storage_media_unpackarr_config_volume | default('localnet-media-unpackarr-config-volume') }}"
+
+# ===========================================================================
+# RomM — game/ROM library manager
+# ===========================================================================
+media_stack_romm_container_name: "{{ infra_hostname_media_romm | default('localnet-media-romm') }}"
+media_stack_romm_image: "rommapp/romm"
+media_stack_romm_image_tag: "latest"
+media_stack_romm_host_port: "{{ infra_port_media_romm_host | default('8091') }}"  # project-lint: disable=magic-int
+media_stack_romm_container_port: "{{ infra_port_media_romm_container | default('8080') }}"  # project-lint: disable=magic-int
+media_stack_romm_config_volume: "{{ infra_storage_media_romm_config_volume | default('localnet-media-romm-config-volume') }}"
+media_stack_romm_resources_volume: "{{ infra_storage_media_romm_resources_volume | default('localnet-media-romm-resources-volume') }}"
+media_stack_romm_assets_volume: "{{ infra_storage_media_romm_assets_volume | default('localnet-media-romm-assets-volume') }}"
+media_stack_romm_domain: "{{ infra_domain_media_romm | default('romm.nl.levonk.com') }}"
+media_stack_romm_domain_alias: "{{ infra_domain_media_romm_alias | default('games.levonk.com') }}"
+
+# ===========================================================================
+# Kavita — ebook/manga/comic reader
+# ===========================================================================
+media_stack_kavita_container_name: "{{ infra_hostname_media_kavita | default('localnet-media-kavita') }}"
+media_stack_kavita_image: "lscr.io/linuxserver/kavita"
+media_stack_kavita_image_tag: "latest"
+media_stack_kavita_host_port: "{{ infra_port_media_kavita_host | default('5060') }}"  # project-lint: disable=magic-int
+media_stack_kavita_container_port: "{{ infra_port_media_kavita_container | default('5000') }}"  # project-lint: disable=magic-int
+media_stack_kavita_config_volume: "{{ infra_storage_media_kavita_config_volume | default('localnet-media-kavita-config-volume') }}"
+media_stack_kavita_domain: "{{ infra_domain_media_kavita | default('kavita.nl.levonk.com') }}"
+media_stack_kavita_domain_alias: "{{ infra_domain_media_kavita_alias | default('books.levonk.com') }}"
+
+# ===========================================================================
+# Calibre-Web — Calibre library web frontend
+# ===========================================================================
+media_stack_calibre_web_container_name: "{{ infra_hostname_media_calibre_web | default('localnet-media-calibre-web') }}"
+media_stack_calibre_web_image: "lscr.io/linuxserver/calibre-web"
+media_stack_calibre_web_image_tag: "latest"
+media_stack_calibre_web_host_port: "{{ infra_port_media_calibre_web_host | default('8087') }}"  # project-lint: disable=magic-int
+media_stack_calibre_web_container_port: "{{ infra_port_media_calibre_web_container | default('8083') }}"  # project-lint: disable=magic-int
+media_stack_calibre_web_config_volume: "{{ infra_storage_media_calibre_web_config_volume | default('localnet-media-calibre-web-config-volume') }}"
+media_stack_calibre_web_domain: "{{ infra_domain_media_calibre_web | default('calibre-web.nl.levonk.com') }}"
+media_stack_calibre_web_domain_alias: "{{ infra_domain_media_calibre_web_alias | default('library.levonk.com') }}"
+
+# ===========================================================================
+# Komga — comic/manga server + reader
+# ===========================================================================
+media_stack_komga_container_name: "{{ infra_hostname_media_komga | default('localnet-media-komga') }}"
+media_stack_komga_image: "gotson/komga"
+media_stack_komga_image_tag: "latest"
+media_stack_komga_host_port: "{{ infra_port_media_komga_host | default('25600') }}"  # project-lint: disable=magic-int
+media_stack_komga_container_port: "{{ infra_port_media_komga_container | default('25600') }}"  # project-lint: disable=magic-int
+media_stack_komga_config_volume: "{{ infra_storage_media_komga_config_volume | default('localnet-media-komga-config-volume') }}"
+media_stack_komga_domain: "{{ infra_domain_media_komga | default('komga.nl.levonk.com') }}"
+media_stack_komga_domain_alias: "{{ infra_domain_media_komga_alias | default('comics.levonk.com') }}"

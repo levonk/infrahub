@@ -16,6 +16,10 @@ nl region) via the SSH-tunneled Docker CLI pattern.
 | prowlarr | `lscr.io/linuxserver/prowlarr` | 9696 | prowlarr.nl.levonk.com |
 | kapowarr | `mrcas/kapowarr` | 5656 | kapowarr.nl.levonk.com |
 | audiobookshelf | `ghcr.io/advplyr/audiobookshelf` | 13378 | audiobooks.nl.levonk.com |
+| romm | `rommapp/romm` | 8091 | romm.nl.levonk.com |
+| kavita | `lscr.io/linuxserver/kavita` | 5060 | kavita.nl.levonk.com |
+| calibre-web | `lscr.io/linuxserver/calibre-web` | 8087 | calibre-web.nl.levonk.com |
+| komga | `gotson/komga` | 25600 | komga.nl.levonk.com |
 | flaresolverr | `ghcr.io/flaresolverr/flaresolverr` | 8191 | (internal) |
 | recyclarr | `ghcr.io/recyclarr/recyclarr` | — | (cron) |
 | unpackarr | `ghcr.io/unpackarr/unpackarr` | — | (sidecar) |
