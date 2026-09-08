@@ -1,0 +1,73 @@
+---
+# treg — Tool Registry default variables
+# OpenRouter for agent tools — credential-injecting proxy + tool registry.
+# Deployed on cno (oci-cloud-server, ARM64). Locally-built multi-arch image.
+# Web UI behind Authelia SSO; API/proxy paths public with X-Treg-Token auth.
+
+# Service toggle
+treg_enabled: true
+
+# Container configuration
+treg_container_name: "{{ infra_hostname_treg | default('localnet-ai-treg') }}"
+treg_image_name: "{{ local_registry | default('100.90.22.85:5000') }}/localnet-ai-treg"
+treg_image_tag: "latest"
+
+# Ports (reference infrastructure variables)
+treg_host_port: "{{ infra_port_ai_treg_host | default('18790') }}"
+treg_container_port: "{{ infra_port_ai_treg_container | default('18790') }}"
+
+# Domain (reference infrastructure variables)
+treg_domain: "{{ infra_domain_ai_treg | default('treg.cno.levonk.com') }}"
+
+# Network (joins traefik-network for Traefik routing)
+treg_network_name: "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"
+
+# Volumes
+treg_data_volume: "{{ infra_storage_treg_data_volume | default('localnet-treg-data-volume') }}"
+
+# PostgreSQL configuration (separate container for prod-grade storage)
+treg_postgres_enabled: true
+treg_postgres_container_name: "treg-postgres"
+treg_postgres_image: "postgres:15-alpine"
+treg_postgres_user: "treg"
+treg_postgres_database: "treg"
+treg_postgres_password: "{{ vault_treg_postgres_password | default('') }}"
+treg_postgres_volume: "{{ infra_storage_treg_postgres_volume | default('localnet-treg-postgres-volume') }}"
+treg_postgres_port: "5432"
+
+# Secrets (from vault — user must add these via vault handoff)
+treg_secret_key: "{{ vault_treg_secret_key | default('') }}"
+treg_session_secret: "{{ vault_treg_session_secret | default('') }}"
+treg_admin_token: "{{ vault_treg_admin_token | default('') }}"
+
+# Public URL (drives OAuth callback, /meta, /llms.txt, /install.sh)
+treg_public_url: "https://{{ treg_domain }}"
+
+# Auth configuration — admin token only (no OAuth, no email OTP)
+treg_email_dev_mode: "false"
+treg_github_client_id: ""
+treg_github_client_secret: ""
+treg_resend_api_key: ""
+treg_email_from: ""
+
+# Platform providers (tier 4 OFF — users register their own tools/keys)
+treg_platform_providers: ""
+
+# Overflow mode (OFF — no aggregator relay accounts)
+treg_overflow_mode: "off"
+
+# Healthcheck — MUST use string with unit suffix, NOT bare integers
+treg_healthcheck_interval: "30s"
+treg_healthcheck_timeout: "10s"
+treg_healthcheck_retries: 3
+treg_healthcheck_start_period: "60s"
+
+# Logging
+treg_log_max_size: "10m"
+treg_log_max_file: "5"
+
+# Timezone
+treg_tz: "{{ localnet_tz | default('UTC') }}"
+
+# Health verification flag
+treg_verify_health: true

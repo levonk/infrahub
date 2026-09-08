@@ -1,0 +1,12 @@
+---
+galaxy_info:
+  role_name: treg
+  author: localnet
+  description: Deploy treg Tool Registry (OpenRouter for agent tools)
+  license: MIT
+  min_ansible_version: "2.9"
+  platforms:
+    - name: EL
+      versions:
+        - "8"
+        - "9"

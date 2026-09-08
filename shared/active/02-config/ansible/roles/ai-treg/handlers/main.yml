@@ -1,0 +1,14 @@
+---
+# treg handlers
+
+- name: restart treg
+  community.docker.docker_container:
+    name: "{{ treg_container_name }}"
+    state: started
+    restart: true
+
+- name: restart treg-postgres
+  community.docker.docker_container:
+    name: "{{ treg_postgres_container_name }}"
+    state: started
+    restart: true

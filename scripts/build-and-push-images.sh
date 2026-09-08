@@ -59,6 +59,8 @@ IMAGES=(
   "headroom|Dockerfile.headroom|ai-codeassist/headroom|"
   "localnet-ai-paperclip|Dockerfile|ai-codeassist/paperclip|"
   "localnet-ai-buzz-agent|docker/Dockerfile.buzz-agent|ai-codeassist/buzz-agent|"
+  # treg — Tool Registry (OpenRouter for agent tools). Python package, no upstream image.
+  "localnet-ai-treg|docker/Dockerfile.treg|ai-services/treg|"
   # Freenet peer node — linux/amd64 ONLY (target: Windows Docker Desktop, nl).
   "localnet-p2p-freenet|docker/Dockerfile.freenet|p2p/freenet|linux/amd64"
   # no-mistakes shared git gate — linux/amd64 ONLY (target: Windows Docker Desktop, nl).

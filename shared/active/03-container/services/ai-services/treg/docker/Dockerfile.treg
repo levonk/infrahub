@@ -1,0 +1,47 @@
+# treg — Tool Registry (OpenRouter for agent tools)
+# Multi-stage build: builder installs tools-registry[server] via pip,
+# runtime copies the venv into a slim Python image.
+#
+# treg ships as a Python package (no upstream Docker image). The [server]
+# extra pulls FastAPI, SQLModel, SQLAlchemy, asyncpg, cryptography, etc.
+#
+# Multi-arch: linux/amd64 + linux/arm64 (built via buildx)
+# See scripts/build-and-push-images.sh
+
+# ---- Builder stage ----
+FROM python:3.12-slim AS builder
+
+# Install build dependencies for cryptography (compiled extension)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends gcc libffi-dev libssl-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+# Create venv and install treg with server extra
+RUN python -m venv /opt/treg-venv
+ENV PATH="/opt/treg-venv/bin:$PATH"
+
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir "tools-registry[server]"
+
+# ---- Runtime stage ----
+FROM python:3.12-slim AS runtime
+
+# Runtime dependencies: libffi + libssl for cryptography, no compiler
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends libffi8 libssl3 curl && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy the venv from builder
+COPY --from=builder /opt/treg-venv /opt/treg-venv
+ENV PATH="/opt/treg-venv/bin:$PATH"
+
+# treg serves on $PORT (default 18790)
+ENV PORT=18790
+EXPOSE 18790
+
+# Health check — treg exposes /meta endpoint
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -fsS http://127.0.0.1:${PORT}/meta || exit 1
+
+# Run the treg server (runs upgrade phase + uvicorn)
+CMD ["python", "-m", "treg"]

@@ -1,0 +1,164 @@
+---
+# treg — Tool Registry Deployment
+# OpenRouter for agent tools — credential-injecting proxy + tool registry.
+# Deployed on cno (oci-cloud-server, ARM64). Locally-built multi-arch image.
+# Web UI behind Authelia SSO; API/proxy paths public with X-Treg-Token auth.
+
+# 1. Validate required variables
+- name: Validate required variables are defined
+  ansible.builtin.assert:
+    that:
+      - treg_container_name is defined
+      - treg_image_name is defined
+      - treg_image_tag is defined
+      - treg_host_port is defined
+      - treg_container_port is defined
+      - treg_secret_key is defined
+      - treg_secret_key | length > 0
+      - treg_postgres_password is defined
+      - treg_postgres_password | length > 0
+    fail_msg: >-
+      Missing required treg variables. Check infrastructure files
+      (ports.yml, domains.yml, storage.yml) and vault for
+      vault_treg_secret_key, vault_treg_session_secret,
+      vault_treg_admin_token, vault_treg_postgres_password.
+    success_msg: "All required treg variables are defined."
+  tags: ["always", "validate"]
+
+# 2. PostgreSQL volume
+- name: Ensure treg PostgreSQL data volume exists
+  community.docker.docker_volume:
+    name: "{{ treg_postgres_volume }}"
+    state: present
+  when: treg_postgres_enabled | bool
+
+# 3. treg data volume (for .env file and any file-based state)
+- name: Ensure treg data volume exists
+  community.docker.docker_volume:
+    name: "{{ treg_data_volume }}"
+    state: present
+
+# 4. Deploy PostgreSQL container
+- name: Deploy treg PostgreSQL container
+  community.docker.docker_container:
+    name: "{{ treg_postgres_container_name }}"
+    image: "{{ treg_postgres_image }}"
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ treg_network_name }}"
+    env:
+      POSTGRES_USER: "{{ treg_postgres_user }}"
+      POSTGRES_PASSWORD: "{{ treg_postgres_password }}"
+      POSTGRES_DB: "{{ treg_postgres_database }}"
+      TZ: "{{ treg_tz }}"
+    volumes:
+      - "{{ treg_postgres_volume }}:/var/lib/postgresql/data:rw"
+    log_driver: json-file
+    log_options:
+      max-size: "{{ treg_log_max_size }}"
+      max-file: "{{ treg_log_max_file }}"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U {{ treg_postgres_user }} -d {{ treg_postgres_database }}"]
+      interval: "30s"
+      timeout: "10s"
+      retries: 3
+      start_period: "30s"
+  when: treg_postgres_enabled | bool
+  notify: restart treg-postgres
+
+# 5. Wait for PostgreSQL to be ready
+- name: Wait for treg PostgreSQL to be healthy
+  ansible.builtin.wait_for:
+    host: "{{ treg_postgres_container_name }}"
+    port: "{{ treg_postgres_port }}"
+    delay: 10
+    timeout: 120
+  when: treg_postgres_enabled | bool
+
+# 6. Pull treg image — MUST use source: pull, NEVER source: build
+- name: Pull treg image
+  community.docker.docker_image:
+    name: "{{ treg_image_name }}:{{ treg_image_tag }}"
+    source: pull
+    state: present
+  notify: restart treg
+
+# 7. Deploy treg container
+- name: Deploy treg container
+  community.docker.docker_container:
+    name: "{{ treg_container_name }}"
+    image: "{{ treg_image_name }}:{{ treg_image_tag }}"
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ treg_network_name }}"
+    ports:
+      - "{{ treg_host_port }}:{{ treg_container_port }}/tcp"
+    env:
+      PORT: "{{ treg_container_port }}"
+      TREG_DATABASE_URL: "postgresql+asyncpg://{{ treg_postgres_user }}:{{ treg_postgres_password }}@{{ treg_postgres_container_name }}:{{ treg_postgres_port }}/{{ treg_postgres_database }}"
+      TREG_SECRET_KEY: "{{ treg_secret_key }}"
+      TREG_SESSION_SECRET: "{{ treg_session_secret }}"
+      TREG_ADMIN_TOKEN: "{{ treg_admin_token }}"
+      TREG_PUBLIC_URL: "{{ treg_public_url }}"
+      TREG_EMAIL_DEV_MODE: "{{ treg_email_dev_mode }}"
+      TREG_GITHUB_CLIENT_ID: "{{ treg_github_client_id }}"
+      TREG_GITHUB_CLIENT_SECRET: "{{ treg_github_client_secret }}"
+      TREG_RESEND_API_KEY: "{{ treg_resend_api_key }}"
+      TREG_EMAIL_FROM: "{{ treg_email_from }}"
+      TREG_PLATFORM_PROVIDERS: "{{ treg_platform_providers }}"
+      TREG_OVERFLOW_MODE: "{{ treg_overflow_mode }}"
+      TZ: "{{ treg_tz }}"
+    log_driver: json-file
+    log_options:
+      max-size: "{{ treg_log_max_size }}"
+      max-file: "{{ treg_log_max_file }}"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:{{ treg_container_port }}/meta || exit 1"]
+      interval: "{{ treg_healthcheck_interval }}"
+      timeout: "{{ treg_healthcheck_timeout }}"
+      retries: "{{ treg_healthcheck_retries }}"
+      start_period: "{{ treg_healthcheck_start_period }}"
+  notify: restart treg
+
+# 8. Wait for treg to be healthy
+- name: Wait for treg to be healthy
+  ansible.builtin.wait_for:
+    host: "127.0.0.1"
+    port: "{{ treg_host_port }}"
+    delay: 15
+    timeout: 180
+  when: treg_verify_health | bool
+
+# 9. Verify health endpoint
+- name: Verify treg health endpoint
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ treg_host_port }}/meta"
+    method: GET
+    status_code: 200
+    timeout: 10
+  register: treg_health_result
+  retries: 5
+  delay: 10
+  until: treg_health_result.status == 200
+  when: treg_verify_health | bool
+  tags: ["verify", "validate"]
+
+# 10. Status report
+- name: Get treg container status
+  community.docker.docker_container_info:
+    name: "{{ treg_container_name }}"
+  register: treg_container_info
+  ignore_errors: true
+
+- name: Report treg status
+  ansible.builtin.debug:
+    msg: |
+      treg deployed:
+        - URL: https://{{ treg_domain }}
+        - Container: {{ treg_container_name }}
+        - Status: {{ treg_container_info.container.State.Status | default('unknown') }}
+        - Health: {{ treg_container_info.container.State.Health.Status | default('unknown') }}
+        - Database: {{ treg_postgres_container_name }} ({{ treg_postgres_database }})
+  tags: ["always", "info"]

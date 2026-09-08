@@ -15,7 +15,7 @@
   gather_facts: true
 
   pre_tasks:
-    - name: "Load shared infrastructure defaults (ports, networks, domains, storage)"
+    - name: "Load shared infrastructure defaults (ports, networks, domains, storage, modes, timing, values)"
       ansible.builtin.include_vars:
         file: "{{ playbook_dir }}/../infrastructure/{{ item }}"
       loop:
@@ -23,6 +23,9 @@
         - networks.yml
         - domains.yml
         - storage.yml
+        - modes.yml
+        - timing.yml
+        - values.yml
       tags: ["always"]
 
     - name: "Load client infrastructure overrides (levonk)"

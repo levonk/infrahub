@@ -1,0 +1,58 @@
+---
+# Deploy treg Tool Registry (OpenRouter for agent tools)
+# Location: shared/active/02-config/ansible/playbooks/deploy-treg.yml
+#
+# treg is a credential-injecting proxy + tool registry for AI agents.
+# "OpenRouter, but for agent tools instead of models."
+# Locally-built multi-arch image (linux/amd64 + linux/arm64).
+# Web UI behind Authelia SSO; API/proxy paths public with X-Treg-Token auth.
+#
+# Prerequisites:
+#   1. Bootstrap playbook run on OCI: just ansible-deploy-bootstrap
+#   2. Docker engine running on oci-cloud-server
+#   3. Traefik + Authelia deployed: just ansible-deploy-infra
+#   4. Image built and pushed: just docker-build-push localnet-ai-treg
+#   5. Vault secrets set: vault_treg_secret_key, vault_treg_session_secret,
+#      vault_treg_admin_token, vault_treg_postgres_password
+#
+# Usage:
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-treg.yml \
+#     --vault-password-file ~/.ansible/vault_password
+#
+# Dry run:
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-treg.yml \
+#     --check --diff --vault-password-file ~/.ansible/vault_password
+
+- name: "Deploy treg Tool Registry on OCI (cno)"
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: "Load shared infrastructure defaults (ports, networks, domains, storage)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+        - modes.yml
+        - timing.yml
+      tags: ["always"]
+
+    - name: "Load client infrastructure overrides (levonk)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+      tags: ["always"]
+
+  roles:
+    - role: ai-treg
+      tags: ["deploy", "treg"]
