@@ -131,6 +131,84 @@
   changed_when: true
 
 # ---------------------------------------------------------------------------
+# firewalld Path
+# ---------------------------------------------------------------------------
+- name: Install firewalld
+  ansible.builtin.package:
+    name: firewalld
+    state: present
+  become: true
+  when: proxy_firewall_type == 'firewalld'
+
+- name: Enable and start firewalld
+  ansible.builtin.systemd:
+    name: "{{ proxy_firewall_firewalld_service }}"
+    state: started
+    enabled: true
+  become: true
+  when: proxy_firewall_type == 'firewalld'
+
+- name: Set firewalld default zone to public
+  ansible.builtin.command:
+    cmd: "firewall-cmd --set-default-zone={{ proxy_firewall_firewalld_default_zone }}"
+  become: true
+  when: proxy_firewall_type == 'firewalld'
+  changed_when: true
+
+- name: Assign trusted interfaces to trusted zone
+  ansible.builtin.command:
+    cmd: "firewall-cmd --zone=trusted --change-interface={{ item }} --permanent"
+  become: true
+  loop: "{{ proxy_firewall_firewalld_trusted_interfaces }}"
+  when:
+    - proxy_firewall_type == 'firewalld'
+    - proxy_firewall_firewalld_trusted_interfaces | length > 0
+  changed_when: true
+
+- name: Assign public interfaces to public zone
+  ansible.builtin.command:
+    cmd: "firewall-cmd --zone=public --change-interface={{ item }} --permanent"
+  become: true
+  loop: "{{ proxy_firewall_firewalld_public_interfaces }}"
+  when:
+    - proxy_firewall_type == 'firewalld'
+    - proxy_firewall_firewalld_public_interfaces | length > 0
+  changed_when: true
+
+- name: Allow SSH via firewalld
+  ansible.posix.firewalld:
+    port: "{{ proxy_firewall_ssh_port }}/tcp"
+    state: enabled
+    permanent: true
+    immediate: true
+  become: true
+  when: proxy_firewall_type == 'firewalld'
+
+- name: Allow mosh via firewalld
+  ansible.posix.firewalld:
+    port: "{{ proxy_firewall_mosh_port }}/udp"
+    state: enabled
+    permanent: true
+    immediate: true
+  become: true
+  when:
+    - proxy_firewall_type == 'firewalld'
+    - proxy_firewall_mosh_port | length > 0
+
+- name: Allow VPN subnets via firewalld rich rules
+  ansible.posix.firewalld:
+    source: "{{ item }}"
+    state: enabled
+    permanent: true
+    immediate: true
+    zone: "{{ proxy_firewall_firewalld_default_zone }}"
+  become: true
+  loop: "{{ proxy_firewall_vpn_subnets }}"
+  when:
+    - proxy_firewall_type == 'firewalld'
+    - proxy_firewall_vpn_subnets | length > 0
+
+# ---------------------------------------------------------------------------
 # Lockout Prevention — temporary allow current management IP
 # ---------------------------------------------------------------------------
 - name: Detect current management IP for lockout prevention
@@ -162,6 +240,20 @@
     - _proxy_firewall_mgmt_ip | length > 0
     - proxy_firewall_type == 'ufw'
   changed_when: true
+
+- name: Add temporary allow rule for management IP (firewalld)
+  ansible.posix.firewalld:
+    source: "{{ _proxy_firewall_mgmt_ip }}"
+    state: enabled
+    permanent: false
+    immediate: true
+    zone: "{{ proxy_firewall_firewalld_default_zone }}"
+  become: true
+  when:
+    - proxy_firewall_prevent_lockout | bool
+    - _proxy_firewall_mgmt_ip | length > 0
+    - proxy_firewall_type == 'firewalld'
+  ignore_errors: true
 
 # ---------------------------------------------------------------------------
 # Kernel Parameters — IP Forwarding
@@ -220,6 +312,20 @@
   async: "{{ proxy_firewall_prevent_lockout_timeout | int + 10 }}"  # project-lint: disable=magic-int  async timeout offset, not a standalone magic number
   poll: 0
 
+- name: Schedule removal of temporary allow rule (firewalld)
+  ansible.builtin.command:
+    cmd: >-
+      bash -c 'sleep {{ proxy_firewall_prevent_lockout_timeout | int }};
+      firewall-cmd --remove-source={{ _proxy_firewall_mgmt_ip }} --zone={{ proxy_firewall_firewalld_default_zone }}'
+  become: true
+  when:
+    - proxy_firewall_prevent_lockout | bool
+    - _proxy_firewall_mgmt_ip | length > 0
+    - proxy_firewall_type == 'firewalld'
+  changed_when: true
+  async: "{{ proxy_firewall_prevent_lockout_timeout | int + 10 }}"  # project-lint: disable=magic-int  async timeout offset, not a standalone magic number
+  poll: 0
+
 # ---------------------------------------------------------------------------
 # Verification
 # ---------------------------------------------------------------------------
@@ -240,6 +346,15 @@
   when:
     - proxy_firewall_verify_rules | bool
     - proxy_firewall_type == 'ufw'
+
+- name: Verify firewalld ruleset is active
+  ansible.builtin.command:
+    cmd: "firewall-cmd --list-all-zones"
+  become: true
+  changed_when: false
+  when:
+    - proxy_firewall_verify_rules | bool
+    - proxy_firewall_type == 'firewalld'
 
 - name: Log firewall configuration
   ansible.builtin.debug:

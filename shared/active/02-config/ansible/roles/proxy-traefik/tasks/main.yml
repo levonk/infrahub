@@ -303,6 +303,18 @@
   when: nix_ncps_enabled | default(false) | bool
   tags: ["deploy", "traefik", "nix-cache"]
 
+- name: Deploy treg Tool Registry (cno) dynamic configuration template
+  ansible.builtin.template:
+    src: dynamic/treg-cno.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/treg-cno.yml"
+    owner: root
+    group: root
+    mode: "{{ infra_mode_file }}"
+  become: true
+  notify: reload traefik
+  when: treg_enabled | default(false) | bool
+  tags: ["deploy", "traefik", "treg"]
+
 - name: Deploy AdGuard Home dynamic configuration template
   ansible.builtin.template:
     src: dynamic/adguard.yml.j2
@@ -475,6 +487,18 @@
   when:
     - proxy_traefik_enabled | bool
     - proxy_traefik_verify_health | bool
+
+- name: Deploy ComfyUI dynamic configuration template
+  ansible.builtin.template:
+    src: dynamic/comfyui.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/comfyui.yml"
+    owner: root
+    group: root
+    mode: "{{ infra_mode_file }}"
+  become: true
+  notify: reload traefik
+  when: comfyui_enabled | default(false) | bool
+  tags: ["deploy", "traefik", "comfyui"]
 
 # ---------------------------------------------------------------------------
 # Status Report

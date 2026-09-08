@@ -1,6 +1,6 @@
 # proxy-firewall
 
-Ansible role that configures a default-deny host-level firewall using **nftables** or **ufw**.
+Ansible role that configures a default-deny host-level firewall using **nftables**, **ufw**, or **firewalld**.
 
 ## ⚠️  High-Risk Warning
 
@@ -13,14 +13,14 @@ Misconfiguration can **lock out remote access**. Before relying on remote-only c
 ## Requirements
 
 - Ansible >= 2.15
-- Target host: Debian 12 (bookworm) or Ubuntu 22.04/24.04
-- One of `nftables` or `ufw` will be installed by the role
+- Target host: Debian 12 (bookworm), Ubuntu 22.04/24.04, or Oracle Linux 8/9
+- One of `nftables`, `ufw`, or `firewalld` will be installed by the role
 
 ## Role Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `proxy_firewall_type` | `{{ cloud_server_firewall_type \| default('nftables') }}` | Firewall engine: `nftables` or `ufw` |
+| `proxy_firewall_type` | `{{ cloud_server_firewall_type \| default('nftables') }}` | Firewall engine: `nftables`, `ufw`, or `firewalld` |
 | `proxy_firewall_ssh_port` | `{{ cloud_server_ssh_port \| default('22') }}` | SSH port to allow |
 | `proxy_firewall_mosh_port` | `{{ cloud_server_mosh_port \| default('60000:61000') }}` | Mosh UDP port range |
 | `proxy_firewall_vpn_subnets` | `{{ cloud_server_vpn_subnets \| default([]) }}` | List of CIDRs to allow |

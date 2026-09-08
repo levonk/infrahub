@@ -7,7 +7,7 @@
 # Firewall Engine Selection
 # ---------------------------------------------------------------------------
 proxy_firewall_type: "{{ cloud_server_firewall_type | default(infra_value_proxy_firewall_type) }}"
-# Supported: nftables, ufw
+# Supported: nftables, ufw, firewalld
 
 # ---------------------------------------------------------------------------
 # Allowed Ports
@@ -50,6 +50,17 @@ proxy_firewall_prevent_lockout_timeout: "{{ cloud_server_firewall_prevent_lockou
 # ---------------------------------------------------------------------------
 proxy_firewall_nftables_service: "nftables"
 proxy_firewall_ufw_service: "ufw"
+proxy_firewall_firewalld_service: "firewalld"
+
+# ---------------------------------------------------------------------------
+# Firewalld Zone Configuration
+# ---------------------------------------------------------------------------
+proxy_firewall_firewalld_default_zone: "public"
+# Interfaces in the trusted zone (e.g., tailscale0) bypass all restrictions.
+# VPN interfaces that should be trusted (accept all traffic).
+proxy_firewall_firewalld_trusted_interfaces: "{{ cloud_server_firewall_trusted_interfaces | default(['tailscale0']) }}"
+# Interfaces in the public zone (e.g., enp0s6) get the default-deny policy.
+proxy_firewall_firewalld_public_interfaces: "{{ cloud_server_firewall_public_interfaces | default([]) }}"
 
 # ---------------------------------------------------------------------------
 # Verification
