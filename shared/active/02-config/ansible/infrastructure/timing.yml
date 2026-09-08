@@ -40,14 +40,21 @@ infra_timeout_request: "600"
 infra_timeout_fail2ban_ban: "3600"
 
 # ---------------------------------------------------------------------------
-# Health check intervals (seconds)
+# Health check intervals (Docker duration strings — require unit suffix)
+# community.docker.docker_container requires "30s" not "30" for durations.
 # ---------------------------------------------------------------------------
-infra_healthcheck_interval: "30"
-infra_healthcheck_interval_short: "10"
-infra_healthcheck_interval_long: "60"
-infra_healthcheck_timeout: "10"
-infra_healthcheck_start_period: "40"
+infra_healthcheck_interval: "30s"
+infra_healthcheck_interval_short: "10s"
+infra_healthcheck_interval_long: "60s"
+infra_healthcheck_timeout: "10s"
+infra_healthcheck_start_period: "40s"
 infra_healthcheck_retries: "3"
+# Long start period for services that need extra initialization time
+infra_healthcheck_start_period_long: "170s"
+# Healthcheck-scoped timeout aliases (with unit suffix) for roles that use
+# infra_timeout_healthcheck* naming. These are Docker duration strings.
+infra_timeout_healthcheck: "30s"
+infra_timeout_healthcheck_short: "10s"
 
 # ---------------------------------------------------------------------------
 # HTTP status codes
@@ -86,7 +93,8 @@ infra_size_1k: "1024"
 infra_size_64k: "65536"
 infra_size_1m: "1048576"
 infra_size_10m: "10485760"
-infra_size_100m: "104857600"
+# infra_size_100m is defined below as "100m" (Docker format).
+# Use infra_size_100m_bytes for the raw byte value.
 
 # ---------------------------------------------------------------------------
 # Misc operational values
@@ -99,7 +107,7 @@ infra_cache_valid_time: "3600"
 infra_crypto_rsa_key_size: "4096"
 infra_buffer_size_default: "4096"
 infra_size_32: "32"
-infra_size_64k: "65536"
+# infra_size_64k is defined above in the Size limits section.
 infra_size_128k: "131072"
 infra_size_256k: "262144"
 infra_mode_dir_sticky: "1777"
@@ -124,8 +132,8 @@ infra_timeout_day_long: "86400"
 infra_timeout_week: "604800"
 infra_timeout_month: "2592000"
 infra_retry_min: "1"
-infra_healthcheck_retries: "3"
-infra_healthcheck_start_period: "30"
+# infra_healthcheck_retries and infra_healthcheck_start_period are defined
+# above in the Health check section (with proper "s" suffixes).
 infra_size_128m: "128m"
 infra_size_100m: "100m"
 infra_size_256m: "256m"
@@ -133,7 +141,7 @@ infra_size_512m: "512m"
 infra_size_1g: "1g"
 infra_size_2g: "2g"
 infra_size_64m: "64m"
-infra_size_10m: "10485760"
+# infra_size_10m is defined above in the Size limits section.
 infra_size_100m_bytes: "104857600"
 infra_endpoint_proxy_dashboard_localhost: "127.0.0.1:8080"
 infra_endpoint_cloudflare_dns_primary: "1.1.1.1:53"
@@ -144,7 +152,10 @@ infra_registry_host: "100.90.22.85"
 infra_tls_ca_validity_days: "3650"
 infra_worker_count_default: "4"
 infra_worker_count_medium: "8"
-infra_worker_count_high: "16"
+# infra_worker_count_high: effective value is "50" (defined below in the
+# port/ops section). Kept there because it was the last-defined value in
+# the original file and changing it would alter runtime behavior.
+
 infra_port_vpn_tor_dirport_host: "9030"
 infra_port_vpn_tailscale_http_container: "8085"
 infra_port_vpn_netbird_http_container: "8084"
@@ -158,7 +169,8 @@ infra_port_dns_dot_host: "853"
 infra_port_dns_doq_host: "853"
 infra_port_dns_dnscrypt_host: "5443"
 infra_worker_count_high: "50"
-infra_healthcheck_start_period_long: "170"
+# infra_healthcheck_start_period_long is defined above in the Health check
+# section (with "s" suffix: "170s").
 infra_password_min_entropy: "8"
 infra_port_rdp_host: "3389"
 infra_disk_usage_warn_threshold: "80"
