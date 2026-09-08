@@ -1,0 +1,11 @@
+# RustDesk2.toml — RustDesk client configuration
+# Location: /root/.config/rustdesk/RustDesk2.toml (Linux)
+#
+# This file configures the RustDesk client to use a self-hosted server
+# instead of the default public RustDesk servers. The key is the server's
+# Ed25519 public key (not a secret).
+
+[options]
+custom-rendezvous-server = '{{ rustdesk_client_id_server }}'
+relay-server = '{{ rustdesk_client_relay_server }}'
+key = '{{ rustdesk_client_key }}'

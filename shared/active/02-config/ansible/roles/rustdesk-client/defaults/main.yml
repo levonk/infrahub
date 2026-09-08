@@ -1,0 +1,25 @@
+---
+# RustDesk client — Default Variables
+# Configures the RustDesk client on Linux hosts to use a self-hosted
+# RustDesk server (hbbs/hbbr) instead of the default public servers.
+
+# Whether to install and configure the RustDesk client
+rustdesk_client_enabled: true
+
+# RustDesk server endpoints — Tailscale MagicDNS hostname preferred over
+# raw Tailscale IP for resilience to IP reassignment. Clients must be on
+# the same tailnet to resolve the hostname.
+rustdesk_client_id_server: "oci.tale-grouper.ts.net"
+rustdesk_client_relay_server: "oci.tale-grouper.ts.net"
+
+# Server Ed25519 public key (NOT a secret — public key for server auth)
+rustdesk_client_key: "l7sKYw2gLmwNrgtXTDBbg7IPBpBmeRtbOEwytC25TZ0="
+
+# RustDesk release version to install (GitHub releases)
+# The .deb package name includes the architecture suffix.
+rustdesk_client_version: "1.3.9"
+
+# Config file path — RustDesk service runs as root, reads config from
+# /root/.config/rustdesk/RustDesk2.toml on Linux.
+rustdesk_client_config_dir: "/root/.config/rustdesk"
+rustdesk_client_config_file: "RustDesk2.toml"

@@ -1,0 +1,6 @@
+---
+# Handlers for RustDesk client
+- name: restart rustdesk service
+  ansible.builtin.systemd:
+    name: rustdesk
+    state: restarted

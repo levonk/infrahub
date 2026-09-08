@@ -1,0 +1,26 @@
+---
+galaxy_info:
+  role_name: rustdesk_client
+  author: infrahub
+  description: Installs and configures the RustDesk client on Linux hosts to use a self-hosted RustDesk server
+  company: levonk
+  license: MIT
+  min_ansible_version: "2.9"
+
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+    - name: Ubuntu
+      versions:
+        - noble
+    - name: EL
+      versions:
+        - "9"
+
+  galaxy_tags:
+    - rustdesk
+    - remote-desktop
+    - client
+
+dependencies: []

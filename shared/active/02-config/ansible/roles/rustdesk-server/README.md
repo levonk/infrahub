@@ -6,7 +6,7 @@ Deploys RustDesk server (hbbs and hbbr) as Docker containers for remote desktop 
 
 - Docker engine installed and running
 - VPN configured (Tailscale and/or NetBird)
-- Firewall (ufw or nftables) for access control
+- Firewall (firewalld, nftables, or ufw) for access control
 
 ## Role Variables
 
@@ -14,10 +14,10 @@ Deploys RustDesk server (hbbs and hbbr) as Docker containers for remote desktop 
 
 ```yaml
 rustdesk_server_image: "rustdesk/rustdesk-server"
-rustdesk_server_image_tag: "latest"
-rustdesk_server_hbbs_container_name: "rustdesk-hbbs"
-rustdesk_server_hbbr_container_name: "rustdesk-hbbr"
-rustdesk_server_volume_name: "rustdesk-server-data"
+rustdesk_server_image_tag: "1.1.16"
+rustdesk_server_hbbs_container_name: "localnet-rustdesk-server-hbbs"
+rustdesk_server_hbbr_container_name: "localnet-rustdesk-server-hbbr"
+rustdesk_server_volume_name: "localnet-rustdesk-server-data-volume"
 ```
 
 ### Network Configuration
@@ -59,6 +59,14 @@ rustdesk_server_allowed_vpn_subnets:
 ## Dependencies
 
 None
+
+## Monitoring
+
+- **Health check**: TCP port check on hbbs (21116) and hbbr (21117) via the role's `rustdesk_server_verify_health` flag
+- **Metrics**: RustDesk server does not expose a `/metrics` endpoint — `metrics_path: null` in service catalog
+- **Pipeline**: `none` (standalone service, not part of AI/DNS/Web/VPN pipelines)
+- **Alert behavior**: Default "container down" alert from the monitoring stack applies
+- **Uptime monitoring**: Add to `monitoring_uptime_kuma_monitors` with TCP probes on ports 21116 and 21117 when the monitoring stack is deployed
 
 ## Example Playbook
 
