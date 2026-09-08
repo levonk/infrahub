@@ -82,17 +82,43 @@ gates the outer layer for browser-facing services.
 ```
 dtop202311 (Windows Docker Desktop, X86, nl region)
   └─ Traefik (TLS termination, Let's Encrypt DNS-01 via Cloudflare)
-       ├─ jellyfin.nl.levonk.com        → jellyfin (8096)
-       ├─ jellyseerr.nl.levonk.com      → jellyseerr (5055)
-       ├─ radarr.nl.levonk.com          → radarr (7878)
-       ├─ sonarr.nl.levonk.com          → sonarr (8989)
-       ├─ lidarr.nl.levonk.com          → lidarr (8686)
-       ├─ bazarr.nl.levonk.com          → bazarr (6767)
-       ├─ prowlarr.nl.levonk.com        → prowlarr (9696)
-       ├─ kapowarr.nl.levonk.com        → kapowarr (5656)
-       ├─ whisparr.nl.levonk.com        → whisparr (6969)
-       └─ audiobooks.nl.levonk.com     → audiobookshelf (13378→80)
+       ├─ jellyfin.nl.levonk.com / media.levonk.com        → jellyfin (8096)
+       ├─ jellyseerr.nl.levonk.com / requests.levonk.com   → jellyseerr (5055)
+       ├─ radarr.nl.levonk.com / movies.levonk.com         → radarr (7878)
+       ├─ sonarr.nl.levonk.com / tv.levonk.com             → sonarr (8989)
+       ├─ lidarr.nl.levonk.com / music.levonk.com          → lidarr (8686)
+       ├─ bazarr.nl.levonk.com / subtitles.levonk.com      → bazarr (6767)
+       ├─ prowlarr.nl.levonk.com / indexers.levonk.com     → prowlarr (9696)
+       ├─ kapowarr.nl.levonk.com / comics.levonk.com       → kapowarr (5656)
+       ├─ whisparr.nl.levonk.com / adult.levonk.com        → whisparr (6969)
+       └─ audiobooks.nl.levonk.com / audiobooks.levonk.com → audiobookshelf (13378→80)
 ```
+
+### Domain Model — Specific + Generic Alias
+
+Each media service has two domains following the split-horizon DNS pattern:
+
+| Software | Specific domain | Generic alias |
+|----------|----------------|---------------|
+| jellyfin | jellyfin.nl.levonk.com | media.levonk.com |
+| jellyseerr | jellyseerr.nl.levonk.com | requests.levonk.com |
+| radarr | radarr.nl.levonk.com | movies.levonk.com |
+| sonarr | sonarr.nl.levonk.com | tv.levonk.com |
+| lidarr | lidarr.nl.levonk.com | music.levonk.com |
+| bazarr | bazarr.nl.levonk.com | subtitles.levonk.com |
+| prowlarr | prowlarr.nl.levonk.com | indexers.levonk.com |
+| kapowarr | kapowarr.nl.levonk.com | comics.levonk.com |
+| whisparr | whisparr.nl.levonk.com | adult.levonk.com |
+| audiobookshelf | audiobooks.nl.levonk.com | audiobooks.levonk.com |
+
+DNS chain:
+```
+{service}.levonk.com  →  CNAME  →  {software}.nl.levonk.com  →  CNAME  →  dtop202311.tale-grouper.ts.net
+```
+
+- **Specific domain** (`{software}.nl.levonk.com`): Identifies the software instance on the nl network. Used for administration and debugging.
+- **Generic alias** (`{service}.levonk.com`): Service-based name (not software name) for user-facing access. Enables split-horizon DNS — the generic domain can be repointed to a different instance on a different network without changing user bookmarks.
+- **Traefik**: Routes match both domains via `Host(specific) || Host(alias)`. TLS cert includes the alias as a SAN.
 
 ### Windows Docker Deployment Pattern
 
@@ -241,21 +267,21 @@ subtitles and in which languages.
 
 ## Service Inventory
 
-| Service | Image | Host Port | Container Port | Domain | Traefik | Category |
-|---------|-------|-----------|----------------|--------|---------|----------|
-| jellyfin | `jellyfin/jellyfin` | 8096 | 8096 | jellyfin.nl.levonk.com | yes | ui |
-| jellyseerr | `fallenbagel/jellyseerr` | 5055 | 5055 | jellyseerr.nl.levonk.com | yes | ui |
-| radarr | `lscr.io/linuxserver/radarr` | 7878 | 7878 | radarr.nl.levonk.com | yes | ui |
-| sonarr | `lscr.io/linuxserver/sonarr` | 8989 | 8989 | sonarr.nl.levonk.com | yes | ui |
-| lidarr | `lscr.io/linuxserver/lidarr` | 8686 | 8686 | lidarr.nl.levonk.com | yes | ui |
-| bazarr | `lscr.io/linuxserver/bazarr` | 6767 | 6767 | bazarr.nl.levonk.com | yes | ui |
-| prowlarr | `lscr.io/linuxserver/prowlarr` | 9696 | 9696 | prowlarr.nl.levonk.com | yes | ui |
-| kapowarr | `mrcas/kapowarr` | 5656 | 5656 | kapowarr.nl.levonk.com | yes | ui |
-| whisparr | `lscr.io/linuxserver/whisparr` | 6969 | 6969 | whisparr.nl.levonk.com | yes | ui |
-| audiobookshelf | `ghcr.io/advplyr/audiobookshelf` | 13378 | 80 | audiobooks.nl.levonk.com | yes | ui |
-| flaresolverr | `ghcr.io/flaresolverr/flaresolverr` | 8191 | 8191 | (internal) | no | passive |
-| recyclarr | `ghcr.io/recyclarr/recyclarr` | — | — | (cron) | no | passive |
-| unpackarr | `ghcr.io/unpackarr/unpackarr` | — | — | (sidecar) | no | passive |
+| Service | Image | Host Port | Container Port | Specific Domain | Generic Alias | Traefik | Category |
+|---------|-------|-----------|----------------|-----------------|----------------|---------|----------|
+| jellyfin | `jellyfin/jellyfin` | 8096 | 8096 | jellyfin.nl.levonk.com | media.levonk.com | yes | ui |
+| jellyseerr | `fallenbagel/jellyseerr` | 5055 | 5055 | jellyseerr.nl.levonk.com | requests.levonk.com | yes | ui |
+| radarr | `lscr.io/linuxserver/radarr` | 7878 | 7878 | radarr.nl.levonk.com | movies.levonk.com | yes | ui |
+| sonarr | `lscr.io/linuxserver/sonarr` | 8989 | 8989 | sonarr.nl.levonk.com | tv.levonk.com | yes | ui |
+| lidarr | `lscr.io/linuxserver/lidarr` | 8686 | 8686 | lidarr.nl.levonk.com | music.levonk.com | yes | ui |
+| bazarr | `lscr.io/linuxserver/bazarr` | 6767 | 6767 | bazarr.nl.levonk.com | subtitles.levonk.com | yes | ui |
+| prowlarr | `lscr.io/linuxserver/prowlarr` | 9696 | 9696 | prowlarr.nl.levonk.com | indexers.levonk.com | yes | ui |
+| kapowarr | `mrcas/kapowarr` | 5656 | 5656 | kapowarr.nl.levonk.com | comics.levonk.com | yes | ui |
+| whisparr | `lscr.io/linuxserver/whisparr` | 6969 | 6969 | whisparr.nl.levonk.com | adult.levonk.com | yes | ui |
+| audiobookshelf | `ghcr.io/advplyr/audiobookshelf` | 13378 | 80 | audiobooks.nl.levonk.com | audiobooks.levonk.com | yes | ui |
+| flaresolverr | `ghcr.io/flaresolverr/flaresolverr` | 8191 | 8191 | (internal) | — | no | passive |
+| recyclarr | `ghcr.io/recyclarr/recyclarr` | — | — | (cron) | — | no | passive |
+| unpackarr | `ghcr.io/unpackarr/unpackarr` | — | — | (sidecar) | — | no | passive |
 
 ## Storage Layout
 

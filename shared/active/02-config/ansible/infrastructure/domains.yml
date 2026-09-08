@@ -328,6 +328,20 @@ infra_domain_media_kapowarr: "kapowarr.nl.{{ infra_domain_base }}"
 infra_domain_media_whisparr: "whisparr.nl.{{ infra_domain_base }}"
 infra_domain_media_audiobookshelf: "audiobooks.nl.{{ infra_domain_base }}"
 
+# Generic aliases — service-based names (not software names) for split-horizon DNS.
+# Pattern: {service}.levonk.com → CNAME → {software}.nl.levonk.com → CNAME → Tailscale FQDN.
+# Traefik routes match both specific + alias; TLS cert includes alias as SAN.
+infra_domain_media_jellyfin_alias: "media.{{ infra_domain_base }}"
+infra_domain_media_jellyseerr_alias: "requests.{{ infra_domain_base }}"
+infra_domain_media_radarr_alias: "movies.{{ infra_domain_base }}"
+infra_domain_media_sonarr_alias: "tv.{{ infra_domain_base }}"
+infra_domain_media_lidarr_alias: "music.{{ infra_domain_base }}"
+infra_domain_media_bazarr_alias: "subtitles.{{ infra_domain_base }}"
+infra_domain_media_prowlarr_alias: "indexers.{{ infra_domain_base }}"
+infra_domain_media_kapowarr_alias: "comics.{{ infra_domain_base }}"
+infra_domain_media_whisparr_alias: "adult.{{ infra_domain_base }}"
+infra_domain_media_audiobookshelf_alias: "audiobooks.{{ infra_domain_base }}"
+
 # Container hostnames (container names on the traefik-windows-network)
 infra_hostname_media_jellyfin: "localnet-media-jellyfin"
 infra_hostname_media_jellyseerr: "localnet-media-jellyseerr"

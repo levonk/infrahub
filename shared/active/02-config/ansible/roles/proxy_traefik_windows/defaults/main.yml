@@ -98,7 +98,17 @@ proxy_traefik_windows_cert_domains: >-
       media_stack_prowlarr_domain | default(''),
       media_stack_kapowarr_domain | default(''),
       media_stack_whisparr_domain | default(''),
-      media_stack_audiobookshelf_domain | default('')
+      media_stack_audiobookshelf_domain | default(''),
+      media_stack_jellyfin_domain_alias | default(''),
+      media_stack_jellyseerr_domain_alias | default(''),
+      media_stack_radarr_domain_alias | default(''),
+      media_stack_sonarr_domain_alias | default(''),
+      media_stack_lidarr_domain_alias | default(''),
+      media_stack_bazarr_domain_alias | default(''),
+      media_stack_prowlarr_domain_alias | default(''),
+      media_stack_kapowarr_domain_alias | default(''),
+      media_stack_whisparr_domain_alias | default(''),
+      media_stack_audiobookshelf_domain_alias | default('')
     ], []))
     | select('ne', '') | list
   }}

@@ -54,6 +54,7 @@ media_stack_jellyfin_discovery_container_port: "{{ infra_port_media_jellyfin_dis
 media_stack_jellyfin_config_volume: "{{ infra_storage_media_jellyfin_config_volume | default('localnet-media-jellyfin-config-volume') }}"
 media_stack_jellyfin_cache_volume: "{{ infra_storage_media_jellyfin_cache_volume | default('localnet-media-jellyfin-cache-volume') }}"
 media_stack_jellyfin_domain: "{{ infra_domain_media_jellyfin | default('jellyfin.nl.levonk.com') }}"
+media_stack_jellyfin_domain_alias: "{{ infra_domain_media_jellyfin_alias | default('media.levonk.com') }}"
 
 # ===========================================================================
 # Jellyseerr — request management UI
@@ -65,6 +66,7 @@ media_stack_jellyseerr_host_port: "{{ infra_port_media_jellyseerr_host | default
 media_stack_jellyseerr_container_port: "{{ infra_port_media_jellyseerr_container | default('5055') }}"  # project-lint: disable=magic-int
 media_stack_jellyseerr_config_volume: "{{ infra_storage_media_jellyseerr_config_volume | default('localnet-media-jellyseerr-config-volume') }}"
 media_stack_jellyseerr_domain: "{{ infra_domain_media_jellyseerr | default('jellyseerr.nl.levonk.com') }}"
+media_stack_jellyseerr_domain_alias: "{{ infra_domain_media_jellyseerr_alias | default('requests.levonk.com') }}"
 
 # ===========================================================================
 # Radarr — movie manager
@@ -76,6 +78,7 @@ media_stack_radarr_host_port: "{{ infra_port_media_radarr_host | default('7878')
 media_stack_radarr_container_port: "{{ infra_port_media_radarr_container | default('7878') }}"  # project-lint: disable=magic-int
 media_stack_radarr_config_volume: "{{ infra_storage_media_radarr_config_volume | default('localnet-media-radarr-config-volume') }}"
 media_stack_radarr_domain: "{{ infra_domain_media_radarr | default('radarr.nl.levonk.com') }}"
+media_stack_radarr_domain_alias: "{{ infra_domain_media_radarr_alias | default('movies.levonk.com') }}"
 
 # ===========================================================================
 # Sonarr — TV show manager
@@ -87,6 +90,7 @@ media_stack_sonarr_host_port: "{{ infra_port_media_sonarr_host | default('8989')
 media_stack_sonarr_container_port: "{{ infra_port_media_sonarr_container | default('8989') }}"  # project-lint: disable=magic-int
 media_stack_sonarr_config_volume: "{{ infra_storage_media_sonarr_config_volume | default('localnet-media-sonarr-config-volume') }}"
 media_stack_sonarr_domain: "{{ infra_domain_media_sonarr | default('sonarr.nl.levonk.com') }}"
+media_stack_sonarr_domain_alias: "{{ infra_domain_media_sonarr_alias | default('tv.levonk.com') }}"
 
 # ===========================================================================
 # Lidarr — music manager
@@ -98,6 +102,7 @@ media_stack_lidarr_host_port: "{{ infra_port_media_lidarr_host | default('8686')
 media_stack_lidarr_container_port: "{{ infra_port_media_lidarr_container | default('8686') }}"  # project-lint: disable=magic-int
 media_stack_lidarr_config_volume: "{{ infra_storage_media_lidarr_config_volume | default('localnet-media-lidarr-config-volume') }}"
 media_stack_lidarr_domain: "{{ infra_domain_media_lidarr | default('lidarr.nl.levonk.com') }}"
+media_stack_lidarr_domain_alias: "{{ infra_domain_media_lidarr_alias | default('music.levonk.com') }}"
 
 # ===========================================================================
 # Bazarr — subtitle manager
@@ -109,6 +114,7 @@ media_stack_bazarr_host_port: "{{ infra_port_media_bazarr_host | default('6767')
 media_stack_bazarr_container_port: "{{ infra_port_media_bazarr_container | default('6767') }}"  # project-lint: disable=magic-int
 media_stack_bazarr_config_volume: "{{ infra_storage_media_bazarr_config_volume | default('localnet-media-bazarr-config-volume') }}"
 media_stack_bazarr_domain: "{{ infra_domain_media_bazarr | default('bazarr.nl.levonk.com') }}"
+media_stack_bazarr_domain_alias: "{{ infra_domain_media_bazarr_alias | default('subtitles.levonk.com') }}"
 
 # ===========================================================================
 # Prowlarr — indexer manager
@@ -120,6 +126,7 @@ media_stack_prowlarr_host_port: "{{ infra_port_media_prowlarr_host | default('96
 media_stack_prowlarr_container_port: "{{ infra_port_media_prowlarr_container | default('9696') }}"  # project-lint: disable=magic-int
 media_stack_prowlarr_config_volume: "{{ infra_storage_media_prowlarr_config_volume | default('localnet-media-prowlarr-config-volume') }}"
 media_stack_prowlarr_domain: "{{ infra_domain_media_prowlarr | default('prowlarr.nl.levonk.com') }}"
+media_stack_prowlarr_domain_alias: "{{ infra_domain_media_prowlarr_alias | default('indexers.levonk.com') }}"
 
 # ===========================================================================
 # Kapowarr — comic manager
@@ -131,6 +138,7 @@ media_stack_kapowarr_host_port: "{{ infra_port_media_kapowarr_host | default('56
 media_stack_kapowarr_container_port: "{{ infra_port_media_kapowarr_container | default('5656') }}"  # project-lint: disable=magic-int
 media_stack_kapowarr_config_volume: "{{ infra_storage_media_kapowarr_config_volume | default('localnet-media-kapowarr-config-volume') }}"
 media_stack_kapowarr_domain: "{{ infra_domain_media_kapowarr | default('kapowarr.nl.levonk.com') }}"
+media_stack_kapowarr_domain_alias: "{{ infra_domain_media_kapowarr_alias | default('comics.levonk.com') }}"
 
 # ===========================================================================
 # Whisparr — adult content manager
@@ -142,6 +150,7 @@ media_stack_whisparr_host_port: "{{ infra_port_media_whisparr_host | default('69
 media_stack_whisparr_container_port: "{{ infra_port_media_whisparr_container | default('6969') }}"  # project-lint: disable=magic-int
 media_stack_whisparr_config_volume: "{{ infra_storage_media_whisparr_config_volume | default('localnet-media-whisparr-config-volume') }}"
 media_stack_whisparr_domain: "{{ infra_domain_media_whisparr | default('whisparr.nl.levonk.com') }}"
+media_stack_whisparr_domain_alias: "{{ infra_domain_media_whisparr_alias | default('adult.levonk.com') }}"
 
 # ===========================================================================
 # Audiobookshelf — audiobook + podcast server
@@ -154,6 +163,7 @@ media_stack_audiobookshelf_container_port: "{{ infra_port_media_audiobookshelf_c
 media_stack_audiobookshelf_config_volume: "{{ infra_storage_media_audiobookshelf_config_volume | default('localnet-media-audiobookshelf-config-volume') }}"
 media_stack_audiobookshelf_metadata_volume: "{{ infra_storage_media_audiobookshelf_metadata_volume | default('localnet-media-audiobookshelf-metadata-volume') }}"
 media_stack_audiobookshelf_domain: "{{ infra_domain_media_audiobookshelf | default('audiobooks.nl.levonk.com') }}"
+media_stack_audiobookshelf_domain_alias: "{{ infra_domain_media_audiobookshelf_alias | default('audiobooks.levonk.com') }}"
 
 # ===========================================================================
 # Flaresolverr — Cloudflare bypass (internal, no Traefik domain)

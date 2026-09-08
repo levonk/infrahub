@@ -255,6 +255,78 @@
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
 
+      # Media Stack — generic aliases (service-based names, CNAME → nl-specific)
+      # Pattern: {service}.levonk.com → CNAME → {software}.nl.levonk.com
+      - name: "{{ infra_domain_media_jellyfin_alias | default('media.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "CNAME"
+        content: "{{ infra_domain_media_jellyfin | default('jellyfin.nl.' ~ (infra_domain_base | default('example.com'))) }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      - name: "{{ infra_domain_media_jellyseerr_alias | default('requests.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "CNAME"
+        content: "{{ infra_domain_media_jellyseerr | default('jellyseerr.nl.' ~ (infra_domain_base | default('example.com'))) }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      - name: "{{ infra_domain_media_radarr_alias | default('movies.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "CNAME"
+        content: "{{ infra_domain_media_radarr | default('radarr.nl.' ~ (infra_domain_base | default('example.com'))) }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      - name: "{{ infra_domain_media_sonarr_alias | default('tv.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "CNAME"
+        content: "{{ infra_domain_media_sonarr | default('sonarr.nl.' ~ (infra_domain_base | default('example.com'))) }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      - name: "{{ infra_domain_media_lidarr_alias | default('music.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "CNAME"
+        content: "{{ infra_domain_media_lidarr | default('lidarr.nl.' ~ (infra_domain_base | default('example.com'))) }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      - name: "{{ infra_domain_media_bazarr_alias | default('subtitles.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "CNAME"
+        content: "{{ infra_domain_media_bazarr | default('bazarr.nl.' ~ (infra_domain_base | default('example.com'))) }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      - name: "{{ infra_domain_media_prowlarr_alias | default('indexers.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "CNAME"
+        content: "{{ infra_domain_media_prowlarr | default('prowlarr.nl.' ~ (infra_domain_base | default('example.com'))) }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      - name: "{{ infra_domain_media_kapowarr_alias | default('comics.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "CNAME"
+        content: "{{ infra_domain_media_kapowarr | default('kapowarr.nl.' ~ (infra_domain_base | default('example.com'))) }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      - name: "{{ infra_domain_media_whisparr_alias | default('adult.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "CNAME"
+        content: "{{ infra_domain_media_whisparr | default('whisparr.nl.' ~ (infra_domain_base | default('example.com'))) }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      - name: "{{ infra_domain_media_audiobookshelf_alias | default('audiobooks.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "CNAME"
+        content: "{{ infra_domain_media_audiobookshelf | default('audiobooks.nl.' ~ (infra_domain_base | default('example.com'))) }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
       # no-mistakes Shared Git Gate — default domain (CNAME → nl subdomain)
       - name: "{{ infra_domain_devops_no_mistakes_default | default('no-mistakes.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
