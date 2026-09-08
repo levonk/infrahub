@@ -252,7 +252,6 @@
     - "{{ media_stack_bazarr_container_name | default('localnet-media-bazarr') }}"
     - "{{ media_stack_prowlarr_container_name | default('localnet-media-prowlarr') }}"
     - "{{ media_stack_kapowarr_container_name | default('localnet-media-kapowarr') }}"
-    - "{{ media_stack_whisparr_container_name | default('localnet-media-whisparr') }}"
     - "{{ media_stack_audiobookshelf_container_name | default('localnet-media-audiobookshelf') }}"
     - "{{ media_stack_flaresolverr_container_name | default('localnet-media-flaresolverr') }}"
     - "{{ media_stack_recyclarr_container_name | default('localnet-media-recyclarr') }}"

@@ -1511,26 +1511,6 @@ services:
     stage: "manager"
     service: "kapowarr"
 
-- name: "Whisparr"
-  container: "{{ infra_hostname_media_whisparr }}"
-  machine: "dtop202311"
-  category: "ui"
-  description: "Adult content manager — automated adult content collection management"
-  source_repo: "https://github.com/Whisparr/Whisparr"
-  domains:
-    - "infra_domain_media_whisparr"
-  ports:
-    - host: "infra_port_media_whisparr_host"
-      container: "infra_port_media_whisparr_container"
-      label: "Web"
-  traefik: true
-  network: "traefik-windows-network"
-  pipeline: "media"
-  alert_labels:
-    pipeline: "media"
-    stage: "manager"
-    service: "whisparr"
-
 - name: "Audiobookshelf"
   container: "{{ infra_hostname_media_audiobookshelf }}"
   machine: "dtop202311"
@@ -1671,8 +1651,6 @@ chains:
             role: "TV manager"
           - service: "Lidarr"
             role: "music manager"
-          - service: "Whisparr"
-            role: "adult manager"
       - service: "Prowlarr"
         role: "indexer manager + proxy"
         branches:

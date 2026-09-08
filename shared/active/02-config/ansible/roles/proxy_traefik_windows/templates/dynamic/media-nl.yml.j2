@@ -207,30 +207,21 @@ http:
             sans:
               - "{{ media_stack_kapowarr_domain_alias }}"
 
-    # Whisparr — adult content manager
-    whisparr-nl-http:
-      rule: "Host(`{{ media_stack_whisparr_domain }}`) || Host(`{{ media_stack_whisparr_domain_alias }}`)"
       entryPoints:
         - web
       middlewares:
         - redirect-to-https
-      service: whisparr-nl
 
-    whisparr-nl-https:
-      rule: "Host(`{{ media_stack_whisparr_domain }}`) || Host(`{{ media_stack_whisparr_domain_alias }}`)"
       entryPoints:
         - websecure
 {% if proxy_traefik_windows_authelia_enabled %}
       middlewares:
         - authelia
 {% endif %}
-      service: whisparr-nl
       tls:
         certResolver: letsencrypt
         domains:
-          - main: "{{ media_stack_whisparr_domain }}"
             sans:
-              - "{{ media_stack_whisparr_domain_alias }}"
 
     # Audiobookshelf — audiobook + podcast server
     audiobookshelf-nl-http:
@@ -306,10 +297,8 @@ http:
           - url: "http://{{ media_stack_kapowarr_container_name }}:{{ media_stack_kapowarr_container_port }}"
         passHostHeader: true
 
-    whisparr-nl:
       loadBalancer:
         servers:
-          - url: "http://{{ media_stack_whisparr_container_name }}:{{ media_stack_whisparr_container_port }}"
         passHostHeader: true
 
     audiobookshelf-nl:

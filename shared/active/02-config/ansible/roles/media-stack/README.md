@@ -15,7 +15,6 @@ nl region) via the SSH-tunneled Docker CLI pattern.
 | bazarr | `lscr.io/linuxserver/bazarr` | 6767 | bazarr.nl.levonk.com |
 | prowlarr | `lscr.io/linuxserver/prowlarr` | 9696 | prowlarr.nl.levonk.com |
 | kapowarr | `mrcas/kapowarr` | 5656 | kapowarr.nl.levonk.com |
-| whisparr | `lscr.io/linuxserver/whisparr` | 6969 | whisparr.nl.levonk.com |
 | audiobookshelf | `ghcr.io/advplyr/audiobookshelf` | 13378 | audiobooks.nl.levonk.com |
 | flaresolverr | `ghcr.io/flaresolverr/flaresolverr` | 8191 | (internal) |
 | recyclarr | `ghcr.io/recyclarr/recyclarr` | — | (cron) |

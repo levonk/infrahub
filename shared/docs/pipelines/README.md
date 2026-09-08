@@ -88,7 +88,6 @@ User → jellyseerr (request) → *arr (manage) → prowlarr (index) → flareso
 
 **Services:**
 - **Streaming**: jellyfin, audiobookshelf
-- **Managers**: radarr, sonarr, lidarr, bazarr, prowlarr, kapowarr, whisparr
 - **Request**: jellyseerr
 - **Supporting**: flaresolverr (CF bypass), recyclarr (profile sync), unpackarr (auto-unpack)
 

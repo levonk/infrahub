@@ -172,6 +172,11 @@
 # ---------------------------------------------------------------------------
 # 3. Clone ComfyUI + install requirements
 # ---------------------------------------------------------------------------
+- name: Check if ComfyUI repo already cloned
+  ansible.builtin.stat:
+    path: "{{ comfyui_install_dir }}/.git"
+  register: comfyui_repo_state
+
 - name: Clone ComfyUI repository
   ansible.builtin.git:
     repo: "{{ comfyui_repo }}"
@@ -180,6 +185,17 @@
     force: true
   become: true
   become_user: "{{ comfyui_run_user }}"
+  when: not comfyui_repo_state.stat.exists
+  tags: ["install"]
+
+- name: Update ComfyUI repository
+  ansible.builtin.command:
+    cmd: "git pull --ff-only origin {{ comfyui_branch }}"
+    chdir: "{{ comfyui_install_dir }}"
+  become: true
+  become_user: "{{ comfyui_run_user }}"
+  when: comfyui_repo_state.stat.exists
+  changed_when: false
   tags: ["install"]
 
 - name: Install ComfyUI requirements

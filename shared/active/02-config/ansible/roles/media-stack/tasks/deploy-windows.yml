@@ -37,8 +37,6 @@
         mount: /config
       - name: "{{ media_stack_kapowarr_config_volume }}"
         mount: /app/db
-      - name: "{{ media_stack_whisparr_config_volume }}"
-        mount: /config
       - name: "{{ media_stack_audiobookshelf_config_volume }}"
         mount: /config
       - name: "{{ media_stack_audiobookshelf_metadata_volume }}"
@@ -70,7 +68,6 @@
     - "{{ media_stack_bazarr_image }}:{{ media_stack_bazarr_image_tag }}"
     - "{{ media_stack_prowlarr_image }}:{{ media_stack_prowlarr_image_tag }}"
     - "{{ media_stack_kapowarr_image }}:{{ media_stack_kapowarr_image_tag }}"
-    - "{{ media_stack_whisparr_image }}:{{ media_stack_whisparr_image_tag }}"
     - "{{ media_stack_audiobookshelf_image }}:{{ media_stack_audiobookshelf_image_tag }}"
     - "{{ media_stack_flaresolverr_image }}:{{ media_stack_flaresolverr_image_tag }}"
     - "{{ media_stack_recyclarr_image }}:{{ media_stack_recyclarr_image_tag }}"
@@ -91,7 +88,6 @@
     {{ media_stack_bazarr_container_name }}
     {{ media_stack_prowlarr_container_name }}
     {{ media_stack_kapowarr_container_name }}
-    {{ media_stack_whisparr_container_name }}
     {{ media_stack_audiobookshelf_container_name }}
     {{ media_stack_flaresolverr_container_name }}
     {{ media_stack_recyclarr_container_name }}
@@ -167,7 +163,6 @@
   tags: ["deploy", "container", "jellyseerr"]
 
 # ============================================================================
-# Deploy *arr services (Radarr, Sonarr, Lidarr, Bazarr, Prowlarr, Whisparr)
 # All use LinuxServer.io base images with PUID/PGID and shared media volume.
 # ============================================================================
 - name: Deploy Radarr container
@@ -311,30 +306,6 @@
   delegate_to: localhost
   changed_when: true
   tags: ["deploy", "container", "kapowarr"]
-
-- name: Deploy Whisparr container
-  ansible.builtin.command: >-
-    docker run -d
-    --name {{ media_stack_whisparr_container_name }}
-    --restart unless-stopped
-    --network {{ media_stack_network_name }}
-    -p {{ media_stack_whisparr_host_port }}:{{ media_stack_whisparr_container_port }}/tcp
-    -v {{ media_stack_whisparr_config_volume }}:/config:rw
-    -v {{ media_stack_data_volume }}:/adult:rw
-    -v {{ media_stack_data_volume }}:/downloads:rw
-    -e PUID={{ media_stack_puid }}
-    -e PGID={{ media_stack_pgid }}
-    -e TZ={{ media_stack_tz }}
-    --log-driver json-file
-    --log-opt max-size={{ media_stack_log_max_size }}
-    --log-opt max-file={{ media_stack_log_max_file }}
-    --security-opt no-new-privileges:true
-    {{ media_stack_whisparr_image }}:{{ media_stack_whisparr_image_tag }}
-  environment:
-    DOCKER_HOST: "{{ media_stack_docker_host }}"
-  delegate_to: localhost
-  changed_when: true
-  tags: ["deploy", "container", "whisparr"]
 
 # ============================================================================
 # Deploy Audiobookshelf — audiobook + podcast server
@@ -506,7 +477,6 @@
         Bazarr:       https://{{ media_stack_bazarr_domain }} (port {{ media_stack_bazarr_host_port }})
         Prowlarr:     https://{{ media_stack_prowlarr_domain }} (port {{ media_stack_prowlarr_host_port }})
         Kapowarr:     https://{{ media_stack_kapowarr_domain }} (port {{ media_stack_kapowarr_host_port }})
-        Whisparr:     https://{{ media_stack_whisparr_domain }} (port {{ media_stack_whisparr_host_port }})
         Audiobookshelf: https://{{ media_stack_audiobookshelf_domain }} (port {{ media_stack_audiobookshelf_host_port }})
         Flaresolverr: internal (port {{ media_stack_flaresolverr_host_port }})
         Recyclarr:    internal (cron, no port)

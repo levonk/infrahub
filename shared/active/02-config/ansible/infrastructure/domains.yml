@@ -325,7 +325,6 @@ infra_domain_media_lidarr: "lidarr.nl.{{ infra_domain_base }}"
 infra_domain_media_bazarr: "bazarr.nl.{{ infra_domain_base }}"
 infra_domain_media_prowlarr: "prowlarr.nl.{{ infra_domain_base }}"
 infra_domain_media_kapowarr: "kapowarr.nl.{{ infra_domain_base }}"
-infra_domain_media_whisparr: "whisparr.nl.{{ infra_domain_base }}"
 infra_domain_media_audiobookshelf: "audiobooks.nl.{{ infra_domain_base }}"
 
 # Generic aliases — service-based names (not software names) for split-horizon DNS.
@@ -339,7 +338,6 @@ infra_domain_media_lidarr_alias: "music.{{ infra_domain_base }}"
 infra_domain_media_bazarr_alias: "subtitles.{{ infra_domain_base }}"
 infra_domain_media_prowlarr_alias: "indexers.{{ infra_domain_base }}"
 infra_domain_media_kapowarr_alias: "comics.{{ infra_domain_base }}"
-infra_domain_media_whisparr_alias: "adult.{{ infra_domain_base }}"
 infra_domain_media_audiobookshelf_alias: "audiobooks.{{ infra_domain_base }}"
 
 # Container hostnames (container names on the traefik-windows-network)
@@ -351,7 +349,6 @@ infra_hostname_media_lidarr: "localnet-media-lidarr"
 infra_hostname_media_bazarr: "localnet-media-bazarr"
 infra_hostname_media_prowlarr: "localnet-media-prowlarr"
 infra_hostname_media_kapowarr: "localnet-media-kapowarr"
-infra_hostname_media_whisparr: "localnet-media-whisparr"
 infra_hostname_media_audiobookshelf: "localnet-media-audiobookshelf"
 infra_hostname_media_flaresolverr: "localnet-media-flaresolverr"
 infra_hostname_media_recyclarr: "localnet-media-recyclarr"

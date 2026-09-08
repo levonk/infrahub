@@ -241,7 +241,6 @@
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
 
-      - name: "{{ infra_domain_media_whisparr | default('whisparr.nl.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
         content: "{{ ts_fqdn_windows_docker }}"
         ttl: "{{ cloudflare_dns_ttl }}"
@@ -313,9 +312,7 @@
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
 
-      - name: "{{ infra_domain_media_whisparr_alias | default('adult.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
-        content: "{{ infra_domain_media_whisparr | default('whisparr.nl.' ~ (infra_domain_base | default('example.com'))) }}"
         ttl: "{{ cloudflare_dns_ttl }}"
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"

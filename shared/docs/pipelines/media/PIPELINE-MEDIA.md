@@ -20,7 +20,6 @@ flowchart LR
             LID["lidarr\nMusic"]
             BAZ["bazarr\nSubtitles"]
             KAP["kapowarr\nComics"]
-            WHI["whisparr\nAdult"]
         end
 
         subgraph Indexers["Indexer Layer"]
@@ -51,11 +50,9 @@ flowchart LR
     JSE -- "monitor requests" --> RAD
     JSE -- "monitor requests" --> SON
     JSE -- "monitor requests" --> LID
-    JSE -- "monitor requests" --> WHI
     RAD -- "search indexers" --> PROW
     SON -- "search indexers" --> PROW
     LID -- "search indexers" --> PROW
-    WHI -- "search indexers" --> PROW
     PROW -- "proxy requests" --> FLARE
     FLARE -- "bypass CF" --> IDX
     IDX -. "RSS / API" .-> PROW
@@ -90,7 +87,6 @@ dtop202311 (Windows Docker Desktop, X86, nl region)
        ├─ bazarr.nl.levonk.com / subtitles.levonk.com      → bazarr (6767)
        ├─ prowlarr.nl.levonk.com / indexers.levonk.com     → prowlarr (9696)
        ├─ kapowarr.nl.levonk.com / comics.levonk.com       → kapowarr (5656)
-       ├─ whisparr.nl.levonk.com / adult.levonk.com        → whisparr (6969)
        └─ audiobooks.nl.levonk.com / audiobooks.levonk.com → audiobookshelf (13378→80)
 ```
 
@@ -108,7 +104,6 @@ Each media service has two domains following the split-horizon DNS pattern:
 | bazarr | bazarr.nl.levonk.com | subtitles.levonk.com |
 | prowlarr | prowlarr.nl.levonk.com | indexers.levonk.com |
 | kapowarr | kapowarr.nl.levonk.com | comics.levonk.com |
-| whisparr | whisparr.nl.levonk.com | adult.levonk.com |
 | audiobookshelf | audiobooks.nl.levonk.com | audiobooks.levonk.com |
 
 DNS chain:
@@ -147,7 +142,6 @@ other services deployed to dtop202311.
 
 This configuration deploys a self-hosted media pipeline covering the full
 lifecycle from content request to streaming. The pipeline uses the *arr
-ecosystem (Sonarr, Radarr, Lidarr, Bazarr, Prowlarr, Kapowarr, Whisparr) for
 automated media management, Jellyseerr for user requests, Jellyfin for
 streaming, and supporting services (Flaresolverr, Recyclarr, Unpackarr) for
 reliability.
@@ -157,7 +151,6 @@ reliability.
 ### Stage 1: Request Layer — Jellyseerr
 
 ```
-User → jellyseerr (request UI) → radarr / sonarr / lidarr / whisparr (monitor)
 ```
 
 **Jellyseerr** (`fallenbagel/jellyseerr`) is the user-facing request portal.
@@ -171,7 +164,6 @@ requests to the appropriate *arr service for monitoring and download.
 ### Stage 2: Media Managers — *arr Stack
 
 ```
-radarr (movies) / sonarr (TV) / lidarr (music) / whisparr (adult) / kapowarr (comics)
   → search Prowlarr indexers
   → grab releases
   → send to download client
@@ -190,7 +182,6 @@ completed files into the media library.
 | bazarr | `lscr.io/linuxserver/bazarr` | bazarr.nl.levonk.com | 6767 | Subtitles |
 | prowlarr | `lscr.io/linuxserver/prowlarr` | prowlarr.nl.levonk.com | 9696 | Indexers |
 | kapowarr | `mrcas/kapowarr` | kapowarr.nl.levonk.com | 5656 | Comics |
-| whisparr | `lscr.io/linuxserver/whisparr` | whisparr.nl.levonk.com | 6969 | Adult |
 
 All *arr services use the LinuxServer.io base images with `PUID=1000`/`PGID=1000`
 for consistent file ownership across the media library.
@@ -277,7 +268,6 @@ subtitles and in which languages.
 | bazarr | `lscr.io/linuxserver/bazarr` | 6767 | 6767 | bazarr.nl.levonk.com | subtitles.levonk.com | yes | ui |
 | prowlarr | `lscr.io/linuxserver/prowlarr` | 9696 | 9696 | prowlarr.nl.levonk.com | indexers.levonk.com | yes | ui |
 | kapowarr | `mrcas/kapowarr` | 5656 | 5656 | kapowarr.nl.levonk.com | comics.levonk.com | yes | ui |
-| whisparr | `lscr.io/linuxserver/whisparr` | 6969 | 6969 | whisparr.nl.levonk.com | adult.levonk.com | yes | ui |
 | audiobookshelf | `ghcr.io/advplyr/audiobookshelf` | 13378 | 80 | audiobooks.nl.levonk.com | audiobooks.levonk.com | yes | ui |
 | flaresolverr | `ghcr.io/flaresolverr/flaresolverr` | 8191 | 8191 | (internal) | — | no | passive |
 | recyclarr | `ghcr.io/recyclarr/recyclarr` | — | — | (cron) | — | no | passive |

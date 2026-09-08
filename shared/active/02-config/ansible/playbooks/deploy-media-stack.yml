@@ -5,7 +5,7 @@
 # Two-phase deployment:
 #   Phase 1 (Windows Docker host): deploy all media containers (jellyfin,
 #            jellyseerr, radarr, sonarr, lidarr, bazarr, prowlarr, kapowarr,
-#            whisparr, audiobookshelf, flaresolverr, recyclarr, unpackarr)
+#            audiobookshelf, flaresolverr, recyclarr, unpackarr)
 #            - nl (Windows Docker Desktop, X86): ssh-tunneled Docker CLI pattern
 #              (community.docker modules can't run on Windows — Ansible core
 #              basic.py imports grp, Unix-only)

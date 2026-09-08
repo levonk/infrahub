@@ -141,16 +141,7 @@ media_stack_kapowarr_domain: "{{ infra_domain_media_kapowarr | default('kapowarr
 media_stack_kapowarr_domain_alias: "{{ infra_domain_media_kapowarr_alias | default('comics.levonk.com') }}"
 
 # ===========================================================================
-# Whisparr — adult content manager
 # ===========================================================================
-media_stack_whisparr_container_name: "{{ infra_hostname_media_whisparr | default('localnet-media-whisparr') }}"
-media_stack_whisparr_image: "lscr.io/linuxserver/whisparr"
-media_stack_whisparr_image_tag: "latest"
-media_stack_whisparr_host_port: "{{ infra_port_media_whisparr_host | default('6969') }}"  # project-lint: disable=magic-int
-media_stack_whisparr_container_port: "{{ infra_port_media_whisparr_container | default('6969') }}"  # project-lint: disable=magic-int
-media_stack_whisparr_config_volume: "{{ infra_storage_media_whisparr_config_volume | default('localnet-media-whisparr-config-volume') }}"
-media_stack_whisparr_domain: "{{ infra_domain_media_whisparr | default('whisparr.nl.levonk.com') }}"
-media_stack_whisparr_domain_alias: "{{ infra_domain_media_whisparr_alias | default('adult.levonk.com') }}"
 
 # ===========================================================================
 # Audiobookshelf — audiobook + podcast server
