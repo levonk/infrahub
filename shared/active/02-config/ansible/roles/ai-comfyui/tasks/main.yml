@@ -230,19 +230,33 @@
     force: true
   become: true
   become_user: "{{ comfyui_run_user }}"
+  environment:
+    GIT_HTTP_LOW_SPEED_LIMIT: "1000"  # project-lint: disable=magic-int  git config value (bytes/sec threshold)
+    GIT_HTTP_LOW_SPEED_TIME: "{{ comfyui_custom_node_clone_timeout }}"
   loop: "{{ comfyui_custom_nodes }}"
+  tags: ["install", "nodes"]
+
+- name: Check for custom node requirements.txt files
+  ansible.builtin.stat:
+    path: "{{ comfyui_custom_nodes_dir }}/{{ item.name }}/requirements.txt"
+  become: true
+  become_user: "{{ comfyui_run_user }}"
+  loop: "{{ comfyui_custom_nodes }}"
+  register: comfyui_node_req_checks
   tags: ["install", "nodes"]
 
 - name: Install custom node requirements
   ansible.builtin.pip:
-    requirements: "{{ comfyui_custom_nodes_dir }}/{{ item.name }}/requirements.txt"
+    requirements: "{{ item.stat.path }}"
     state: present
     virtualenv: "{{ comfyui_venv_dir }}"
   become: true
   become_user: "{{ comfyui_run_user }}"
-  loop: "{{ comfyui_custom_nodes }}"
-  when: >-
-    lookup('ansible.builtin.stat', comfyui_custom_nodes_dir ~ '/' ~ item.name ~ '/requirements.txt', wantlist=True)[0].stat.exists
+  loop: "{{ comfyui_node_req_checks.results }}"
+  when: item.stat.exists
+  # Custom node requirements can be broken (e.g. listing stdlib modules as
+  # pip packages). Don't block the entire deployment for one bad requirement.
+  ignore_errors: true
   tags: ["install", "nodes"]
 
 # ---------------------------------------------------------------------------

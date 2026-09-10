@@ -48,7 +48,7 @@ comfyui_python_executable: "{{ comfyui_venv_dir }}/bin/python"
 
 # PyTorch wheel index URL for GB10 (ARM + Blackwell)
 # Adjust the CUDA version suffix as needed for your system
-comfyui_pytorch_index_url: "https://download.pytorch.org/whl/cu126"
+comfyui_pytorch_index_url: "https://download.pytorch.org/whl/cu130"
 
 # ---------------------------------------------------------------------------
 # ComfyUI repository
@@ -71,15 +71,18 @@ comfyui_custom_nodes:
     repo: "https://github.com/Fannovel16/comfyui_controlnet_aux.git"
   - name: "ComfyUI-IP-Adapter"
     repo: "https://github.com/cubiq/ComfyUI_IPAdapter_plus.git"
-  - name: "ComfyUI-Lora-Trainer"
-    repo: "https://github.com/ltdrdata/ComfyUI-Lora-Trainer.git"
+  - name: "ComfyUI_Wan2_1_lora_trainer"
+    repo: "https://github.com/jaimitoes/ComfyUI_Wan2_1_lora_trainer.git"
   - name: "ComfyUI-RIFE"
-    repo: "https://github.com/GreenLandisa/ComfyUI-RIFE.git"
-  - name: "ComfyUI-Real-ESRGAN"
-    repo: "https://github.com/space-nuko/ComfyUI-Real-ESRGAN.git"
+    repo: "https://github.com/er1cw00/ComfyUI-RIFE.git"
+  - name: "ComfyUI-RealESRGAN_Upscaler"
+    repo: "https://github.com/zentrocdot/ComfyUI-RealESRGAN_Upscaler.git"
 
 # Git clone depth for custom nodes (shallow clone)
 comfyui_custom_node_clone_depth: 1
+
+# Git clone timeout for custom nodes (seconds) — aborts if speed drops below 1KB/s
+comfyui_custom_node_clone_timeout: 120
 
 # ---------------------------------------------------------------------------
 # Model downloads — downloaded via get_url into models/ subdirs
