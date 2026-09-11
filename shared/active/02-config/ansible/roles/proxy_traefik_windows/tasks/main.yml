@@ -257,6 +257,9 @@
     - "{{ media_stack_kavita_container_name | default('localnet-media-kavita') }}"
     - "{{ media_stack_calibre_web_container_name | default('localnet-media-calibre-web') }}"
     - "{{ media_stack_komga_container_name | default('localnet-media-komga') }}"
+    # nordvpn is connected to traefik-windows-network so Traefik can reach
+    # qBittorrent and SABnzbd web UIs (they share nordvpn's network namespace).
+    - "{{ media_stack_vpn_gateway_container | default('nordvpn') }}"
     - "{{ media_stack_flaresolverr_container_name | default('localnet-media-flaresolverr') }}"
     - "{{ media_stack_recyclarr_container_name | default('localnet-media-recyclarr') }}"
     - "{{ media_stack_unpackarr_container_name | default('localnet-media-unpackarr') }}"

@@ -776,3 +776,13 @@ infra_port_media_calibre_web_container: "8083"
 # Komga — comic/manga server + reader
 infra_port_media_komga_host: "25600"
 infra_port_media_komga_container: "25600"
+
+# qBittorrent — torrent download client (VPN-routed via nordvpn/gluetun)
+# No host port — container shares nordvpn's network namespace.
+# Web UI accessible via Traefik → nordvpn:8080 on traefik-windows-network.
+infra_port_media_qbittorrent_container: "8080"
+
+# SABnzbd — Usenet download client (VPN-routed via nordvpn/gluetun)
+# No host port — container shares nordvpn's network namespace.
+# Web UI accessible via Traefik → nordvpn:8081 on traefik-windows-network.
+infra_port_media_sabnzbd_container: "8081"

@@ -1612,6 +1612,44 @@ services:
     stage: "library"
     service: "komga"
 
+- name: "qBittorrent"
+  container: "{{ infra_hostname_media_qbittorrent }}"
+  machine: "dtop202311"
+  category: "ui"
+  description: "Torrent download client — VPN-routed via nordvpn/gluetun (no leaks)"
+  source_repo: "https://github.com/qbittorrent/qBittorrent"
+  domains:
+    - "infra_domain_media_qbittorrent"
+  ports:
+    - container: "infra_port_media_qbittorrent_container"
+      label: "Web UI (via nordvpn)"
+  traefik: true
+  network: "container:nordvpn"
+  pipeline: "media"
+  alert_labels:
+    pipeline: "media"
+    stage: "download"
+    service: "qbittorrent"
+
+- name: "SABnzbd"
+  container: "{{ infra_hostname_media_sabnzbd }}"
+  machine: "dtop202311"
+  category: "ui"
+  description: "Usenet download client — VPN-routed via nordvpn/gluetun (no leaks)"
+  source_repo: "https://github.com/sabnzbd/sabnzbd"
+  domains:
+    - "infra_domain_media_sabnzbd"
+  ports:
+    - container: "infra_port_media_sabnzbd_container"
+      label: "Web UI (via nordvpn)"
+  traefik: true
+  network: "container:nordvpn"
+  pipeline: "media"
+  alert_labels:
+    pipeline: "media"
+    stage: "download"
+    service: "sabnzbd"
+
 - name: "Flaresolverr"
   container: "{{ infra_hostname_media_flaresolverr }}"
   machine: "dtop202311"
@@ -1736,6 +1774,10 @@ chains:
         branches:
           - service: "Flaresolverr"
             role: "Cloudflare bypass"
+      - service: "qBittorrent"
+        role: "torrent download (VPN-routed)"
+      - service: "SABnzbd"
+        role: "Usenet download (VPN-routed)"
       - service: "Unpackarr"
         role: "auto-unpack downloads"
       - service: "Bazarr"

@@ -5,8 +5,9 @@ galaxy_info:
   description: >-
     Media stack — Jellyfin + *arr media pipeline (jellyfin, jellyseerr, radarr,
     sonarr, lidarr, bazarr, prowlarr, kapowarr, audiobookshelf, romm, kavita,
-    calibre-web, komga, flaresolverr, recyclarr, unpackarr). Deployed to Windows
-    Docker Desktop (dtop202311, nl region) via SSH-tunneled Docker CLI.
+    calibre-web, komga, flaresolverr, recyclarr, unpackarr). qBittorrent and
+    SABnzbd are VPN-routed through the nordvpn (gluetun) container. Deployed to
+    Windows Docker Desktop (dtop202311, nl region) via SSH-tunneled Docker CLI.
   license: MIT
   min_ansible_version: "2.14"
   platforms:

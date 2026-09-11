@@ -20,6 +20,8 @@ nl region) via the SSH-tunneled Docker CLI pattern.
 | kavita | `lscr.io/linuxserver/kavita` | 5060 | kavita.nl.levonk.com |
 | calibre-web | `lscr.io/linuxserver/calibre-web` | 8087 | calibre-web.nl.levonk.com |
 | komga | `gotson/komga` | 25600 | komga.nl.levonk.com |
+| qbittorrent | `lscr.io/linuxserver/qbittorrent` | 8080 (VPN) | qbittorrent.nl.levonk.com |
+| sabnzbd | `lscr.io/linuxserver/sabnzbd` | 8081 (VPN) | sabnzbd.nl.levonk.com |
 | flaresolverr | `ghcr.io/flaresolverr/flaresolverr` | 8191 | (internal) |
 | recyclarr | `ghcr.io/recyclarr/recyclarr` | — | (cron) |
 | unpackarr | `ghcr.io/unpackarr/unpackarr` | — | (sidecar) |

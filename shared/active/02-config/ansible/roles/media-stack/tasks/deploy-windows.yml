@@ -59,6 +59,12 @@
         mount: /config
       - name: "{{ media_stack_komga_config_volume }}"
         mount: /config
+      - name: "{{ media_stack_qbittorrent_config_volume }}"
+        mount: /config
+      - name: "{{ media_stack_sabnzbd_config_volume }}"
+        mount: /config
+      - name: "{{ media_stack_sabnzbd_incomplete_volume }}"
+        mount: /incomplete
   tags: ["deploy", "volume"]
 
 # ============================================================================
@@ -535,6 +541,65 @@
   tags: ["deploy", "container", "komga"]
 
 # ============================================================================
+# Deploy qBittorrent — torrent download client (VPN-routed via nordvpn)
+# Uses --network container:nordvpn to share nordvpn's network namespace.
+# All torrent traffic goes through the VPN tunnel — no leaks.
+# Nordvpn must be deployed first (just ansible-deploy-vpn-nordvpn-windows).
+# ============================================================================
+- name: Deploy qBittorrent container
+  ansible.builtin.command: >-
+    docker run -d
+    --name {{ media_stack_qbittorrent_container_name }}
+    --restart unless-stopped
+    --network container:{{ media_stack_vpn_gateway_container }}
+    -v {{ media_stack_qbittorrent_config_volume }}:/config:rw
+    -v {{ media_stack_data_volume }}:/downloads:rw
+    -e TZ={{ media_stack_tz }}
+    -e PUID={{ media_stack_puid }}
+    -e PGID={{ media_stack_pgid }}
+    -e WEBUI_PORT={{ media_stack_qbittorrent_container_port }}
+    --log-driver json-file
+    --log-opt max-size={{ media_stack_log_max_size }}
+    --log-opt max-file={{ media_stack_log_max_file }}
+    --security-opt no-new-privileges:true
+    {{ media_stack_qbittorrent_image }}:{{ media_stack_qbittorrent_image_tag }}
+  environment:
+    DOCKER_HOST: "{{ media_stack_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "container", "qbittorrent"]
+
+# ============================================================================
+# Deploy SABnzbd — Usenet download client (VPN-routed via nordvpn)
+# Uses --network container:nordvpn to share nordvpn's network namespace.
+# All Usenet traffic goes through the VPN tunnel — no leaks.
+# Nordvpn must be deployed first (just ansible-deploy-vpn-nordvpn-windows).
+# ============================================================================
+- name: Deploy SABnzbd container
+  ansible.builtin.command: >-
+    docker run -d
+    --name {{ media_stack_sabnzbd_container_name }}
+    --restart unless-stopped
+    --network container:{{ media_stack_vpn_gateway_container }}
+    -v {{ media_stack_sabnzbd_config_volume }}:/config:rw
+    -v {{ media_stack_sabnzbd_incomplete_volume }}:/incomplete:rw
+    -v {{ media_stack_data_volume }}:/downloads:rw
+    -e TZ={{ media_stack_tz }}
+    -e PUID={{ media_stack_puid }}
+    -e PGID={{ media_stack_pgid }}
+    -e PORT={{ media_stack_sabnzbd_container_port }}
+    --log-driver json-file
+    --log-opt max-size={{ media_stack_log_max_size }}
+    --log-opt max-file={{ media_stack_log_max_file }}
+    --security-opt no-new-privileges:true
+    {{ media_stack_sabnzbd_image }}:{{ media_stack_sabnzbd_image_tag }}
+  environment:
+    DOCKER_HOST: "{{ media_stack_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "container", "sabnzbd"]
+
+# ============================================================================
 # Wait for health (Jellyfin + Jellyseerr + Audiobookshelf + Flaresolverr)
 # ============================================================================
 - name: Wait for Jellyfin to be healthy
@@ -599,6 +664,8 @@
         Kavita:       https://{{ media_stack_kavita_domain }} (port {{ media_stack_kavita_host_port }})
         Calibre-Web:  https://{{ media_stack_calibre_web_domain }} (port {{ media_stack_calibre_web_host_port }})
         Komga:        https://{{ media_stack_komga_domain }} (port {{ media_stack_komga_host_port }})
+        qBittorrent:  https://{{ media_stack_qbittorrent_domain }} (VPN, port {{ media_stack_qbittorrent_container_port }})
+        SABnzbd:      https://{{ media_stack_sabnzbd_domain }} (VPN, port {{ media_stack_sabnzbd_container_port }})
         Flaresolverr: internal (port {{ media_stack_flaresolverr_host_port }})
         Recyclarr:    internal (cron, no port)
         Unpackarr:    internal (sidecar, no port)

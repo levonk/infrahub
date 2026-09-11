@@ -28,6 +28,8 @@ flowchart LR
         end
 
         subgraph Download["Download / Processing"]
+            QBT["qBittorrent\nTorrents (VPN)"]
+            SAB["sabnzbd\nUsenet (VPN)"]
             UNP["unpackarr\nAuto-unpack"]
             REC["recyclarr\nProfile sync\n(cron)"]
         end
@@ -95,7 +97,9 @@ dtop202311 (Windows Docker Desktop, X86, nl region)
        ├─ romm.nl.levonk.com / games.levonk.com            → romm (8091→8080)
        ├─ kavita.nl.levonk.com / books.levonk.com          → kavita (5060→5000)
        ├─ calibre-web.nl.levonk.com / library.levonk.com  → calibre-web (8087→8083)
-       └─ komga.nl.levonk.com / comics.levonk.com          → komga (25600)
+       ├─ komga.nl.levonk.com / comics.levonk.com          → komga (25600)
+       ├─ qbittorrent.nl.levonk.com / torrents.levonk.com   → qbittorrent (8080, VPN)
+       └─ sabnzbd.nl.levonk.com / usenet.levonk.com         → sabnzbd (8081, VPN)
 ```
 
 ### Domain Model — Specific + Generic Alias
@@ -117,6 +121,8 @@ Each media service has two domains following the split-horizon DNS pattern:
 | kavita | kavita.nl.levonk.com | books.levonk.com |
 | calibre-web | calibre-web.nl.levonk.com | library.levonk.com |
 | komga | komga.nl.levonk.com | comics.levonk.com |
+| qbittorrent | qbittorrent.nl.levonk.com | torrents.levonk.com |
+| sabnzbd | sabnzbd.nl.levonk.com | usenet.levonk.com |
 
 DNS chain:
 ```
@@ -285,6 +291,8 @@ subtitles and in which languages.
 | kavita | `lscr.io/linuxserver/kavita` | 5060 | 5000 | kavita.nl.levonk.com | books.levonk.com | yes | ui |
 | calibre-web | `lscr.io/linuxserver/calibre-web` | 8087 | 8083 | calibre-web.nl.levonk.com | library.levonk.com | yes | ui |
 | komga | `gotson/komga` | 25600 | 25600 | komga.nl.levonk.com | comics.levonk.com | yes | ui |
+| qbittorrent | `lscr.io/linuxserver/qbittorrent` | — | 8080 | qbittorrent.nl.levonk.com | torrents.levonk.com | yes | ui |
+| sabnzbd | `lscr.io/linuxserver/sabnzbd` | — | 8081 | sabnzbd.nl.levonk.com | usenet.levonk.com | yes | ui |
 | flaresolverr | `ghcr.io/flaresolverr/flaresolverr` | 8191 | 8191 | (internal) | — | no | passive |
 | recyclarr | `ghcr.io/recyclarr/recyclarr` | — | — | (cron) | — | no | passive |
 | unpackarr | `ghcr.io/unpackarr/unpackarr` | — | — | (sidecar) | — | no | passive |

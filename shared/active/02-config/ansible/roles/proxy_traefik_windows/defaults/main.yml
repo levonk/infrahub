@@ -102,6 +102,8 @@ proxy_traefik_windows_cert_domains: >-
       media_stack_kavita_domain | default(''),
       media_stack_calibre_web_domain | default(''),
       media_stack_komga_domain | default(''),
+      media_stack_qbittorrent_domain | default(''),
+      media_stack_sabnzbd_domain | default(''),
       media_stack_jellyfin_domain_alias | default(''),
       media_stack_jellyseerr_domain_alias | default(''),
       media_stack_radarr_domain_alias | default(''),
@@ -114,7 +116,9 @@ proxy_traefik_windows_cert_domains: >-
       media_stack_romm_domain_alias | default(''),
       media_stack_kavita_domain_alias | default(''),
       media_stack_calibre_web_domain_alias | default(''),
-      media_stack_komga_domain_alias | default('')
+      media_stack_komga_domain_alias | default(''),
+      media_stack_qbittorrent_domain_alias | default(''),
+      media_stack_sabnzbd_domain_alias | default('')
     ], []))
     | select('ne', '') | list
   }}

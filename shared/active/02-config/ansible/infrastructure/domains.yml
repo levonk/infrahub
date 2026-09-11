@@ -330,6 +330,8 @@ infra_domain_media_romm: "romm.nl.{{ infra_domain_base }}"
 infra_domain_media_kavita: "kavita.nl.{{ infra_domain_base }}"
 infra_domain_media_calibre_web: "calibre-web.nl.{{ infra_domain_base }}"
 infra_domain_media_komga: "komga.nl.{{ infra_domain_base }}"
+infra_domain_media_qbittorrent: "qbittorrent.nl.{{ infra_domain_base }}"
+infra_domain_media_sabnzbd: "sabnzbd.nl.{{ infra_domain_base }}"
 
 # Generic aliases — service-based names (not software names) for split-horizon DNS.
 # Pattern: {service}.levonk.com → CNAME → {software}.nl.levonk.com → CNAME → Tailscale FQDN.
@@ -347,6 +349,8 @@ infra_domain_media_romm_alias: "games.{{ infra_domain_base }}"
 infra_domain_media_kavita_alias: "books.{{ infra_domain_base }}"
 infra_domain_media_calibre_web_alias: "library.{{ infra_domain_base }}"
 infra_domain_media_komga_alias: "comics.{{ infra_domain_base }}"
+infra_domain_media_qbittorrent_alias: "torrents.{{ infra_domain_base }}"
+infra_domain_media_sabnzbd_alias: "usenet.{{ infra_domain_base }}"
 
 # Container hostnames (container names on the traefik-windows-network)
 infra_hostname_media_jellyfin: "localnet-media-jellyfin"
@@ -365,3 +369,5 @@ infra_hostname_media_romm: "localnet-media-romm"
 infra_hostname_media_kavita: "localnet-media-kavita"
 infra_hostname_media_calibre_web: "localnet-media-calibre-web"
 infra_hostname_media_komga: "localnet-media-komga"
+infra_hostname_media_qbittorrent: "localnet-media-qbittorrent"
+infra_hostname_media_sabnzbd: "localnet-media-sabnzbd"

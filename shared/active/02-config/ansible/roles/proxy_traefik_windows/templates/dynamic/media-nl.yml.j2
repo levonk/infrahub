@@ -332,6 +332,56 @@ http:
             sans:
               - "{{ media_stack_komga_domain_alias }}"
 
+    # qBittorrent — torrent download client (VPN-routed, web UI via nordvpn)
+    qbittorrent-nl-http:
+      rule: "Host(`{{ media_stack_qbittorrent_domain }}`) || Host(`{{ media_stack_qbittorrent_domain_alias }}`)"
+      entryPoints:
+        - web
+      middlewares:
+        - redirect-to-https
+      service: qbittorrent-nl
+
+    qbittorrent-nl-https:
+      rule: "Host(`{{ media_stack_qbittorrent_domain }}`) || Host(`{{ media_stack_qbittorrent_domain_alias }}`)"
+      entryPoints:
+        - websecure
+{% if proxy_traefik_windows_authelia_enabled %}
+      middlewares:
+        - authelia
+{% endif %}
+      service: qbittorrent-nl
+      tls:
+        certResolver: letsencrypt
+        domains:
+          - main: "{{ media_stack_qbittorrent_domain }}"
+            sans:
+              - "{{ media_stack_qbittorrent_domain_alias }}"
+
+    # SABnzbd — Usenet download client (VPN-routed, web UI via nordvpn)
+    sabnzbd-nl-http:
+      rule: "Host(`{{ media_stack_sabnzbd_domain }}`) || Host(`{{ media_stack_sabnzbd_domain_alias }}`)"
+      entryPoints:
+        - web
+      middlewares:
+        - redirect-to-https
+      service: sabnzbd-nl
+
+    sabnzbd-nl-https:
+      rule: "Host(`{{ media_stack_sabnzbd_domain }}`) || Host(`{{ media_stack_sabnzbd_domain_alias }}`)"
+      entryPoints:
+        - websecure
+{% if proxy_traefik_windows_authelia_enabled %}
+      middlewares:
+        - authelia
+{% endif %}
+      service: sabnzbd-nl
+      tls:
+        certResolver: letsencrypt
+        domains:
+          - main: "{{ media_stack_sabnzbd_domain }}"
+            sans:
+              - "{{ media_stack_sabnzbd_domain_alias }}"
+
   services:
     jellyfin-nl:
       loadBalancer:
@@ -409,4 +459,19 @@ http:
       loadBalancer:
         servers:
           - url: "http://{{ media_stack_komga_container_name }}:{{ media_stack_komga_container_port }}"
+        passHostHeader: true
+
+    # qBittorrent + SABnzbd route to the nordvpn (gluetun) container because
+    # they share nordvpn's network namespace (--network container:nordvpn).
+    # Their web UI ports are accessible via nordvpn's IP on traefik-windows-network.
+    qbittorrent-nl:
+      loadBalancer:
+        servers:
+          - url: "http://{{ media_stack_vpn_gateway_container | default('nordvpn') }}:{{ media_stack_qbittorrent_container_port }}"
+        passHostHeader: true
+
+    sabnzbd-nl:
+      loadBalancer:
+        servers:
+          - url: "http://{{ media_stack_vpn_gateway_container | default('nordvpn') }}:{{ media_stack_sabnzbd_container_port }}"
         passHostHeader: true

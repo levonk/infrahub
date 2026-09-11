@@ -89,6 +89,7 @@ User → jellyseerr (request) → *arr (manage) → prowlarr (index) → flareso
 **Services:**
 - **Streaming**: jellyfin, audiobookshelf
 - **Library**: romm (games), kavita (ebooks), calibre-web (ebooks), komga (comics)
+- **Download**: qbittorrent (torrents, VPN-routed), sabnzbd (Usenet, VPN-routed)
 - **Request**: jellyseerr
 - **Supporting**: flaresolverr (CF bypass), recyclarr (profile sync), unpackarr (auto-unpack)
 

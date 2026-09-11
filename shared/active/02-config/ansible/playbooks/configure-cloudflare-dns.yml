@@ -380,6 +380,34 @@
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
 
+      - name: "{{ infra_domain_media_qbittorrent | default('qbittorrent.nl.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "CNAME"
+        content: "{{ ts_fqdn_windows_docker }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      - name: "{{ infra_domain_media_sabnzbd | default('sabnzbd.nl.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "CNAME"
+        content: "{{ ts_fqdn_windows_docker }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      - name: "{{ infra_domain_media_qbittorrent_alias | default('torrents.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "CNAME"
+        content: "{{ infra_domain_media_qbittorrent | default('qbittorrent.nl.' ~ (infra_domain_base | default('example.com'))) }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      - name: "{{ infra_domain_media_sabnzbd_alias | default('usenet.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "CNAME"
+        content: "{{ infra_domain_media_sabnzbd | default('sabnzbd.nl.' ~ (infra_domain_base | default('example.com'))) }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
       # no-mistakes Shared Git Gate — default domain (CNAME → nl subdomain)
       - name: "{{ infra_domain_devops_no_mistakes_default | default('no-mistakes.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
