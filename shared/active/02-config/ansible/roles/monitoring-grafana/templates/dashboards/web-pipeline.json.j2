@@ -1,0 +1,83 @@
+{% raw %}
+{
+  "dashboard": {
+    "id": null,
+    "uid": "web-pipeline",
+    "title": "Web Proxy Pipeline",
+    "tags": ["pipeline", "observability"],
+    "timezone": "browser",
+    "schemaVersion": 41,  # project-lint: disable=magic-int  grafana schema version
+    "refresh": "30s",  # project-lint: disable=magic-unitnum  dashboard refresh interval
+    "time": {
+      "from": "now-6h",  # project-lint: disable=magic-unitnum  dashboard time range
+      "to": "now"
+    },
+    "templating": {
+      "list": []
+    },
+    "panels": [
+      {
+        "id": 1,  # project-lint: disable=magic-int  grafana panel id
+        "type": "stat",
+        "title": "Web Pipeline Service Status",
+        "datasource": {"type": "prometheus", "uid": "prometheus"},
+        "targets": [
+          {"expr": "up{pipeline=\"web\"}", "legendFormat": "{{job}}"}
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},  # project-lint: disable=magic-int  grafana panel grid position
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [],
+            "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}  # project-lint: disable=magic-int  grafana threshold value
+          }
+        },
+        "options": {
+          "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+          "orientation": "horizontal"
+        }
+      },
+      {
+        "id": 2,  # project-lint: disable=magic-int  grafana panel id
+        "type": "stat",
+        "title": "Web Synthetic Probe Results",
+        "datasource": {"type": "prometheus", "uid": "prometheus"},
+        "targets": [
+          {"expr": "web_pipeline_probe_success", "legendFormat": "{{probe}}"}
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},  # project-lint: disable=magic-int  grafana panel grid position
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [],
+            "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}  # project-lint: disable=magic-int  grafana threshold value
+          }
+        },
+        "options": {
+          "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+          "orientation": "horizontal"
+        }
+      },
+      {
+        "id": 3,  # project-lint: disable=magic-int  grafana panel id
+        "type": "stat",
+        "title": "Web Pipeline Alert Count",
+        "datasource": {"type": "prometheus", "uid": "prometheus"},
+        "targets": [
+          {"expr": "count(ALERTS{pipeline=\"web\", alertstate=\"firing\"})", "legendFormat": "firing"}
+        ],
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 8},  # project-lint: disable=magic-int  grafana panel grid position
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [],
+            "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 1}]}  # project-lint: disable=magic-int  grafana threshold value
+          }
+        },
+        "options": {
+          "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+          "orientation": "horizontal"
+        }
+      }
+    ]
+  },
+  "overwrite": true
+}
+{% endraw %}

@@ -1,0 +1,346 @@
+---
+# Monitoring Stack Validation Playbook
+# Validates that the pipeline observability monitoring stack is healthy on the OCI host.
+# Checks all 7 monitoring containers are running, probes HTTP health endpoints,
+# verifies Prometheus targets/rules and Alertmanager config.
+# Read-only: does not modify any state. Collects all results and reports at the end.
+# Usage:
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/playbooks/validate-monitoring-stack.yml
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/playbooks/validate-monitoring-stack.yml --tags validate
+
+- name: "Validate Monitoring Stack"
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+
+  vars:
+    validation_results: {}
+
+  pre_tasks:
+    - name: "Load shared infrastructure defaults (ports, networks, domains, storage, modes, timing, values)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+        - modes.yml
+        - timing.yml
+        - values.yml
+      tags: ["always"]
+
+    - name: "Load client infrastructure overrides (levonk)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+      tags: ["always"]
+
+    - name: "Gather ansible_facts"
+      ansible.builtin.setup:
+        gather_subset: ["all"]
+      tags: ["always"]
+
+    - name: "Initialize validation results"
+      ansible.builtin.set_fact:
+        validation_results:
+          node_exporter_running: false
+          prometheus_running: false
+          alertmanager_running: false
+          loki_running: false
+          grafana_running: false
+          uptime_kuma_running: false
+          synthetic_probes_running: false
+          prometheus_healthy: false
+          alertmanager_healthy: false
+          loki_ready: false
+          grafana_healthy: false
+          uptime_kuma_healthy: false
+          node_exporter_metrics: false
+          prometheus_targets_active: false
+          prometheus_rules_loaded: false
+          alertmanager_config_loaded: false
+          container_errors: false
+      tags: ["always"]
+
+  tasks:
+    # -- Container status checks (docker_container_info) --
+
+    - name: "Check node_exporter container status"
+      community.docker.docker_container_info:
+        name: "{{ infra_hostname_monitoring_node_exporter }}"
+      register: node_exporter_info
+      failed_when: false
+      tags: ["validate", "monitoring", "node-exporter"]
+
+    - name: "Record node_exporter container status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'node_exporter_running': node_exporter_info.container.State.Status == 'running' if node_exporter_info.exists else false}) }}"
+      tags: ["validate", "monitoring", "node-exporter"]
+
+    - name: "Check Prometheus container status"
+      community.docker.docker_container_info:
+        name: "{{ infra_hostname_monitoring_prometheus }}"
+      register: prometheus_info
+      failed_when: false
+      tags: ["validate", "monitoring", "prometheus"]
+
+    - name: "Record Prometheus container status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'prometheus_running': prometheus_info.container.State.Status == 'running' if prometheus_info.exists else false}) }}"
+      tags: ["validate", "monitoring", "prometheus"]
+
+    - name: "Check Alertmanager container status"
+      community.docker.docker_container_info:
+        name: "{{ infra_hostname_monitoring_alertmanager }}"
+      register: alertmanager_info
+      failed_when: false
+      tags: ["validate", "monitoring", "alertmanager"]
+
+    - name: "Record Alertmanager container status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'alertmanager_running': alertmanager_info.container.State.Status == 'running' if alertmanager_info.exists else false}) }}"
+      tags: ["validate", "monitoring", "alertmanager"]
+
+    - name: "Check Loki container status"
+      community.docker.docker_container_info:
+        name: "{{ infra_hostname_monitoring_loki }}"
+      register: loki_info
+      failed_when: false
+      tags: ["validate", "monitoring", "loki"]
+
+    - name: "Record Loki container status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'loki_running': loki_info.container.State.Status == 'running' if loki_info.exists else false}) }}"
+      tags: ["validate", "monitoring", "loki"]
+
+    - name: "Check Grafana container status"
+      community.docker.docker_container_info:
+        name: "{{ infra_hostname_monitoring_grafana }}"
+      register: grafana_info
+      failed_when: false
+      tags: ["validate", "monitoring", "grafana"]
+
+    - name: "Record Grafana container status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'grafana_running': grafana_info.container.State.Status == 'running' if grafana_info.exists else false}) }}"
+      tags: ["validate", "monitoring", "grafana"]
+
+    - name: "Check Uptime Kuma container status"
+      community.docker.docker_container_info:
+        name: "{{ infra_hostname_monitoring_uptime_kuma }}"
+      register: uptime_kuma_info
+      failed_when: false
+      tags: ["validate", "monitoring", "uptime-kuma"]
+
+    - name: "Record Uptime Kuma container status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'uptime_kuma_running': uptime_kuma_info.container.State.Status == 'running' if uptime_kuma_info.exists else false}) }}"
+      tags: ["validate", "monitoring", "uptime-kuma"]
+
+    - name: "Check synthetic probes container status"
+      community.docker.docker_container_info:
+        name: "{{ monitoring_synthetic_probes_container_name | default('localnet-monitoring-synthetic-probes') }}"
+      register: synthetic_probes_info
+      failed_when: false
+      tags: ["validate", "monitoring", "probes"]
+
+    - name: "Record synthetic probes container status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'synthetic_probes_running': synthetic_probes_info.container.State.Status == 'running' if synthetic_probes_info.exists else false}) }}"
+      tags: ["validate", "monitoring", "probes"]
+
+    # -- HTTP health endpoint probes --
+
+    - name: "Probe Prometheus health endpoint"
+      ansible.builtin.uri:
+        url: "http://{{ infra_network_bind_localhost }}:{{ infra_port_monitoring_prometheus_host }}/-/healthy"
+        method: GET
+        return_content: false
+        status_code: "{{ infra_http_status_ok }}"
+      register: prometheus_health
+      failed_when: false
+      tags: ["validate", "monitoring", "prometheus"]
+
+    - name: "Record Prometheus health status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'prometheus_healthy': prometheus_health.status == (infra_http_status_ok | int)}) }}"
+      tags: ["validate", "monitoring", "prometheus"]
+
+    - name: "Probe Alertmanager health endpoint"
+      ansible.builtin.uri:
+        url: "http://{{ infra_network_bind_localhost }}:{{ infra_port_monitoring_alertmanager_host }}/-/healthy"
+        method: GET
+        return_content: false
+        status_code: "{{ infra_http_status_ok }}"
+      register: alertmanager_health
+      failed_when: false
+      tags: ["validate", "monitoring", "alertmanager"]
+
+    - name: "Record Alertmanager health status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'alertmanager_healthy': alertmanager_health.status == (infra_http_status_ok | int)}) }}"
+      tags: ["validate", "monitoring", "alertmanager"]
+
+    - name: "Probe Loki ready endpoint"
+      ansible.builtin.uri:
+        url: "http://{{ infra_network_bind_localhost }}:{{ infra_port_monitoring_loki_host }}/ready"
+        method: GET
+        return_content: false
+        status_code: "{{ infra_http_status_ok }}"
+      register: loki_ready
+      failed_when: false
+      tags: ["validate", "monitoring", "loki"]
+
+    - name: "Record Loki ready status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'loki_ready': loki_ready.status == (infra_http_status_ok | int)}) }}"
+      tags: ["validate", "monitoring", "loki"]
+
+    - name: "Probe Grafana health endpoint"
+      ansible.builtin.uri:
+        url: "http://{{ infra_network_bind_localhost }}:{{ infra_port_monitoring_grafana_host }}/api/health"
+        method: GET
+        return_content: false
+        status_code: "{{ infra_http_status_ok }}"
+      register: grafana_health
+      failed_when: false
+      tags: ["validate", "monitoring", "grafana"]
+
+    - name: "Record Grafana health status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'grafana_healthy': grafana_health.status == (infra_http_status_ok | int)}) }}"
+      tags: ["validate", "monitoring", "grafana"]
+
+    - name: "Probe Uptime Kuma health endpoint"
+      ansible.builtin.uri:
+        url: "http://{{ infra_network_bind_localhost }}:{{ infra_port_monitoring_uptime_kuma_host }}/api/health"
+        method: GET
+        return_content: false
+        status_code: "{{ infra_http_status_ok }}"
+      register: uptime_kuma_health
+      failed_when: false
+      tags: ["validate", "monitoring", "uptime-kuma"]
+
+    - name: "Record Uptime Kuma health status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'uptime_kuma_healthy': uptime_kuma_health.status == (infra_http_status_ok | int)}) }}"
+      tags: ["validate", "monitoring", "uptime-kuma"]
+
+    - name: "Probe node_exporter metrics endpoint"
+      ansible.builtin.uri:
+        url: "http://{{ infra_network_bind_localhost }}:{{ infra_port_monitoring_node_exporter_host }}/metrics"
+        method: GET
+        return_content: false
+        status_code: "{{ infra_http_status_ok }}"
+      register: node_exporter_metrics
+      failed_when: false
+      tags: ["validate", "monitoring", "node-exporter"]
+
+    - name: "Record node_exporter metrics status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'node_exporter_metrics': node_exporter_metrics.status == (infra_http_status_ok | int)}) }}"
+      tags: ["validate", "monitoring", "node-exporter"]
+
+    # -- Prometheus API checks --
+
+    - name: "Check Prometheus active targets"
+      ansible.builtin.uri:
+        url: "http://{{ infra_network_bind_localhost }}:{{ infra_port_monitoring_prometheus_host }}/api/v1/targets"
+        method: GET
+        return_content: true
+        status_code: "{{ infra_http_status_ok }}"
+      register: prometheus_targets
+      failed_when: false
+      tags: ["validate", "monitoring", "prometheus"]
+
+    - name: "Record Prometheus targets status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'prometheus_targets_active': prometheus_targets.status == (infra_http_status_ok | int) and (prometheus_targets.json.status | default('')) == 'success'}) }}"
+      tags: ["validate", "monitoring", "prometheus"]
+
+    - name: "Check Prometheus loaded alert rules"
+      ansible.builtin.uri:
+        url: "http://{{ infra_network_bind_localhost }}:{{ infra_port_monitoring_prometheus_host }}/api/v1/rules"
+        method: GET
+        return_content: true
+        status_code: "{{ infra_http_status_ok }}"
+      register: prometheus_rules
+      failed_when: false
+      tags: ["validate", "monitoring", "prometheus"]
+
+    - name: "Record Prometheus rules status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'prometheus_rules_loaded': prometheus_rules.status == (infra_http_status_ok | int) and (prometheus_rules.json.status | default('')) == 'success'}) }}"
+      tags: ["validate", "monitoring", "prometheus"]
+
+    # -- Alertmanager API checks --
+
+    - name: "Check Alertmanager config loaded"
+      ansible.builtin.uri:
+        url: "http://{{ infra_network_bind_localhost }}:{{ infra_port_monitoring_alertmanager_host }}/api/v2/status"
+        method: GET
+        return_content: true
+        status_code: "{{ infra_http_status_ok }}"
+      register: alertmanager_status
+      failed_when: false
+      tags: ["validate", "monitoring", "alertmanager"]
+
+    - name: "Record Alertmanager config status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'alertmanager_config_loaded': alertmanager_status.status == (infra_http_status_ok | int) and (alertmanager_status.json.versionInfo.version | default('')) | length > 0}) }}"
+      tags: ["validate", "monitoring", "alertmanager"]
+
+    # -- Container log error check --
+
+    - name: "Check monitoring container logs for errors"
+      ansible.builtin.shell:
+        cmd: |
+          docker logs --tail 50 {{ infra_hostname_monitoring_node_exporter }} 2>&1 | grep -i "error\|fatal\|failed" || true  # project-lint: disable=magic-int  shell command argument, not an operational value
+          docker logs --tail 50 {{ infra_hostname_monitoring_prometheus }} 2>&1 | grep -i "error\|fatal\|failed" || true  # project-lint: disable=magic-int  shell command argument, not an operational value
+          docker logs --tail 50 {{ infra_hostname_monitoring_alertmanager }} 2>&1 | grep -i "error\|fatal\|failed" || true  # project-lint: disable=magic-int  shell command argument, not an operational value
+          docker logs --tail 50 {{ infra_hostname_monitoring_loki }} 2>&1 | grep -i "error\|fatal\|failed" || true  # project-lint: disable=magic-int  shell command argument, not an operational value
+          docker logs --tail 50 {{ infra_hostname_monitoring_grafana }} 2>&1 | grep -i "error\|fatal\|failed" || true  # project-lint: disable=magic-int  shell command argument, not an operational value
+          docker logs --tail 50 {{ infra_hostname_monitoring_uptime_kuma }} 2>&1 | grep -i "error\|fatal\|failed" || true  # project-lint: disable=magic-int  shell command argument, not an operational value
+      register: container_errors
+      changed_when: false
+      failed_when: false
+      tags: ["validate", "monitoring", "logs"]
+
+    - name: "Record container error status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'container_errors': container_errors.stdout | length == 0}) }}"
+      tags: ["validate", "monitoring", "logs"]
+
+  post_tasks:
+    - name: "Display validation results"
+      ansible.builtin.debug:
+        msg: "{{ validation_results | to_nice_json }}"
+      tags: ["always"]
+
+    - name: "Display validation summary"
+      ansible.builtin.debug:
+        msg:
+          "Monitoring Stack Validation Summary:\n
+          - node_exporter Running: {{ validation_results.node_exporter_running }}\n
+          - Prometheus Running: {{ validation_results.prometheus_running }}\n
+          - Alertmanager Running: {{ validation_results.alertmanager_running }}\n
+          - Loki Running: {{ validation_results.loki_running }}\n
+          - Grafana Running: {{ validation_results.grafana_running }}\n
+          - Uptime Kuma Running: {{ validation_results.uptime_kuma_running }}\n
+          - Synthetic Probes Running: {{ validation_results.synthetic_probes_running }}\n
+          - Prometheus Healthy: {{ validation_results.prometheus_healthy }}\n
+          - Alertmanager Healthy: {{ validation_results.alertmanager_healthy }}\n
+          - Loki Ready: {{ validation_results.loki_ready }}\n
+          - Grafana Healthy: {{ validation_results.grafana_healthy }}\n
+          - Uptime Kuma Healthy: {{ validation_results.uptime_kuma_healthy }}\n
+          - node_exporter Metrics: {{ validation_results.node_exporter_metrics }}\n
+          - Prometheus Targets Active: {{ validation_results.prometheus_targets_active }}\n
+          - Prometheus Rules Loaded: {{ validation_results.prometheus_rules_loaded }}\n
+          - Alertmanager Config Loaded: {{ validation_results.alertmanager_config_loaded }}\n
+          - No Container Errors: {{ validation_results.container_errors }}"
+      tags: ["always"]

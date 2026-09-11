@@ -1,0 +1,223 @@
+{% raw %}
+{
+  "dashboard": {
+    "id": null,
+    "uid": "pipeline-overview",
+    "title": "Pipeline Overview",
+    "tags": ["pipeline", "observability"],
+    "timezone": "browser",
+    "schemaVersion": 41,  # project-lint: disable=magic-int  grafana schema version
+    "refresh": "30s",  # project-lint: disable=magic-unitnum  dashboard refresh interval
+    "time": {
+      "from": "now-6h",  # project-lint: disable=magic-unitnum  dashboard time range
+      "to": "now"
+    },
+    "templating": {
+      "list": []
+    },
+    "panels": [
+      {
+        "id": 1,  # project-lint: disable=magic-int  grafana panel id
+        "type": "stat",
+        "title": "AI Pipeline",
+        "datasource": {"type": "prometheus", "uid": "prometheus"},
+        "targets": [
+          {"expr": "up{pipeline=\"ai\"}", "legendFormat": "{{service}}"}
+        ],
+        "gridPos": {"h": 8, "w": 6, "x": 0, "y": 0},  # project-lint: disable=magic-int  grafana panel grid position
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [],
+            "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}  # project-lint: disable=magic-int  grafana threshold value
+          }
+        },
+        "options": {
+          "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+          "orientation": "horizontal"
+        }
+      },
+      {
+        "id": 2,  # project-lint: disable=magic-int  grafana panel id
+        "type": "stat",
+        "title": "DNS Pipeline",
+        "datasource": {"type": "prometheus", "uid": "prometheus"},
+        "targets": [
+          {"expr": "up{pipeline=\"dns\"}", "legendFormat": "{{service}}"}
+        ],
+        "gridPos": {"h": 8, "w": 6, "x": 6, "y": 0},  # project-lint: disable=magic-int  grafana panel grid position
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [],
+            "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}  # project-lint: disable=magic-int  grafana threshold value
+          }
+        },
+        "options": {
+          "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+          "orientation": "horizontal"
+        }
+      },
+      {
+        "id": 3,  # project-lint: disable=magic-int  grafana panel id
+        "type": "stat",
+        "title": "Web Pipeline",
+        "datasource": {"type": "prometheus", "uid": "prometheus"},
+        "targets": [
+          {"expr": "up{pipeline=\"web\"}", "legendFormat": "{{service}}"}
+        ],
+        "gridPos": {"h": 8, "w": 6, "x": 12, "y": 0},  # project-lint: disable=magic-int  grafana panel grid position
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [],
+            "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}  # project-lint: disable=magic-int  grafana threshold value
+          }
+        },
+        "options": {
+          "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+          "orientation": "horizontal"
+        }
+      },
+      {
+        "id": 4,  # project-lint: disable=magic-int  grafana panel id
+        "type": "stat",
+        "title": "VPN Pipeline",
+        "datasource": {"type": "prometheus", "uid": "prometheus"},
+        "targets": [
+          {"expr": "up{pipeline=\"vpn\"}", "legendFormat": "{{service}}"}
+        ],
+        "gridPos": {"h": 8, "w": 6, "x": 18, "y": 0},  # project-lint: disable=magic-int  grafana panel grid position
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [],
+            "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}  # project-lint: disable=magic-int  grafana threshold value
+          }
+        },
+        "options": {
+          "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+          "orientation": "horizontal"
+        }
+      },
+      {
+        "id": 5,  # project-lint: disable=magic-int  grafana panel id
+        "type": "stat",
+        "title": "Critical Alerts",
+        "datasource": {"type": "prometheus", "uid": "prometheus"},
+        "targets": [
+          {"expr": "count(ALERTS{severity=\"critical\", alertstate=\"firing\"})", "legendFormat": "critical"}
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},  # project-lint: disable=magic-int  grafana panel grid position
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [],
+            "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 1}]}  # project-lint: disable=magic-int  grafana threshold value
+          }
+        },
+        "options": {
+          "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+          "orientation": "horizontal"
+        }
+      },
+      {
+        "id": 6,  # project-lint: disable=magic-int  grafana panel id
+        "type": "stat",
+        "title": "Warning Alerts",
+        "datasource": {"type": "prometheus", "uid": "prometheus"},
+        "targets": [
+          {"expr": "count(ALERTS{severity=\"warning\", alertstate=\"firing\"})", "legendFormat": "warning"}
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},  # project-lint: disable=magic-int  grafana panel grid position
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [],
+            "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 1}]}  # project-lint: disable=magic-int  grafana threshold value
+          }
+        },
+        "options": {
+          "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+          "orientation": "horizontal"
+        }
+      },
+      {
+        "id": 7,  # project-lint: disable=magic-int  grafana panel id
+        "type": "stat",
+        "title": "AI Probe Success",
+        "datasource": {"type": "prometheus", "uid": "prometheus"},
+        "targets": [
+          {"expr": "ai_pipeline_probe_success", "legendFormat": "{{probe}}"}
+        ],
+        "gridPos": {"h": 8, "w": 6, "x": 0, "y": 16},  # project-lint: disable=magic-int  grafana panel grid position
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [],
+            "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}  # project-lint: disable=magic-int  grafana threshold value
+          }
+        },
+        "options": {
+          "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+          "orientation": "horizontal"
+        }
+      },
+      {
+        "id": 8,  # project-lint: disable=magic-int  grafana panel id
+        "type": "stat",
+        "title": "DNS Probe Success",
+        "datasource": {"type": "prometheus", "uid": "prometheus"},
+        "targets": [
+          {"expr": "dns_pipeline_probe_success", "legendFormat": "{{query}}"}
+        ],
+        "gridPos": {"h": 8, "w": 6, "x": 6, "y": 16},  # project-lint: disable=magic-int  grafana panel grid position
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [],
+            "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}  # project-lint: disable=magic-int  grafana threshold value
+          }
+        },
+        "options": {
+          "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+          "orientation": "horizontal"
+        }
+      },
+      {
+        "id": 9,  # project-lint: disable=magic-int  grafana panel id
+        "type": "stat",
+        "title": "Web Probe Success",
+        "datasource": {"type": "prometheus", "uid": "prometheus"},
+        "targets": [
+          {"expr": "web_pipeline_probe_success", "legendFormat": "{{probe}}"}
+        ],
+        "gridPos": {"h": 8, "w": 6, "x": 12, "y": 16},  # project-lint: disable=magic-int  grafana panel grid position
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [],
+            "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}  # project-lint: disable=magic-int  grafana threshold value
+          }
+        },
+        "options": {
+          "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+          "orientation": "horizontal"
+        }
+      },
+      {
+        "id": 10,  # project-lint: disable=magic-int  grafana panel id
+        "type": "stat",
+        "title": "VPN Egress Probe Success",
+        "datasource": {"type": "prometheus", "uid": "prometheus"},
+        "targets": [
+          {"expr": "vpn_egress_probe_success", "legendFormat": "{{egress}}"}
+        ],
+        "gridPos": {"h": 8, "w": 6, "x": 18, "y": 16},  # project-lint: disable=magic-int  grafana panel grid position
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [],
+            "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}  # project-lint: disable=magic-int  grafana threshold value
+          }
+        },
+        "options": {
+          "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+          "orientation": "horizontal"
+        }
+      }
+    ]
+  },
+  "overwrite": true
+}
+{% endraw %}

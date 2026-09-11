@@ -3,6 +3,7 @@
 apiVersion: 1  # project-lint: disable=magic-int  api version
 datasources:
   - name: Prometheus
+    uid: prometheus
     type: prometheus
     access: proxy
     url: "http://{{ infra_hostname_monitoring_prometheus }}:{{ infra_port_monitoring_prometheus_container }}"

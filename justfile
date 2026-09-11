@@ -43,6 +43,8 @@ PB_PROXY_WEB := ANSIBLE_ROOT + "/playbooks/deploy-proxy-web-stack.yml"
 PB_VAL_PROXY_WEB := ANSIBLE_ROOT + "/playbooks/validate-proxy-web.yml"
 PB_FWKNOP := ANSIBLE_ROOT + "/playbooks/deploy-fwknop.yml"
 PB_FWKNOP_CLIENT := ANSIBLE_ROOT + "/playbooks/deploy-fwknop-client.yml"
+PB_MONITORING := ANSIBLE_ROOT + "/playbooks/deploy-monitoring-stack.yml"
+PB_VAL_MONITORING := ANSIBLE_ROOT + "/playbooks/validate-monitoring-stack.yml"
 WINDOWS_INVENTORY := INFRAHUB_ROOT + "/levonk/active/02-config/ansible/inventories/windows-docker.yml"
 MACOS_INVENTORY := INFRAHUB_ROOT + "/levonk/active/02-config/ansible/inventories/macos-hosts.yml"
 PB_CONFIGURE_MACOS := ANSIBLE_ROOT + "/playbooks/configure-macos-host.yml"
@@ -781,6 +783,33 @@ ansible_deploy_fwknop_client_impl:
     {{_log}}
     log_start "Deploying fwknop SPA client to all hosts"
     ansible-playbook -i {{INVENTORY}} {{PB_FWKNOP_CLIENT}} --vault-password-file ~/.ansible/vault_password
+
+# Deploy Pipeline Observability Monitoring Stack on OCI cloud server
+# Deploys: node_exporter, Prometheus, Alertmanager, Loki, Grafana, Uptime Kuma, synthetic probes
+# Prerequisites: Docker engine ready, traefik-network exists, infra_* variables loaded.
+ansible-deploy-monitoring:
+    @just _devbox ansible_deploy_monitoring_impl
+
+[private]
+ansible_deploy_monitoring_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Deploying monitoring stack on OCI cloud server"
+    ansible-playbook -i {{INVENTORY}} {{PB_MONITORING}} --vault-password-file ~/.ansible/vault_password --limit cloud_servers
+
+# Validate Pipeline Observability Monitoring Stack deployment
+# Read-only checks: container status, HTTP health endpoints, Prometheus targets/rules, Alertmanager config.
+ansible-validate-monitoring:
+    @just _devbox ansible_validate_monitoring_impl
+
+[private]
+ansible_validate_monitoring_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Validating monitoring stack on OCI cloud server"
+    ansible-playbook -i {{INVENTORY}} {{PB_VAL_MONITORING}} --vault-password-file ~/.ansible/vault_password --limit cloud_servers
 
 # Run them from the levonk/ subdirectory:  cd levonk && just --list
 # Or:  just --justfile levonk/justfile levonk-deploy-exit-nodes-cno

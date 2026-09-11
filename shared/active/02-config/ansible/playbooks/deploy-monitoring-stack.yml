@@ -1,0 +1,140 @@
+---
+# Pipeline Observability Monitoring Stack Playbook
+# Deploys the full monitoring stack on cloud servers:
+# node_exporter, Prometheus, Alertmanager, Loki, Grafana, Uptime Kuma,
+# and synthetic probes.
+# All containers join the existing traefik-network and use infra_* variables
+# for ports, domains, hostnames, storage, and timing.
+# Usage:
+#   ansible-playbook -i inventories/oci.yml playbooks/deploy-monitoring-stack.yml
+#   ansible-playbook -i inventories/oci.yml playbooks/deploy-monitoring-stack.yml --check --diff
+#   ansible-playbook -i inventories/oci.yml playbooks/deploy-monitoring-stack.yml --tags prometheus
+
+- name: "Deploy Pipeline Observability Monitoring Stack"
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: "Load shared infrastructure defaults (ports, networks, domains, storage, modes, timing, values)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+        - modes.yml
+        - timing.yml
+        - values.yml
+      tags: ["always"]
+
+    - name: "Load client infrastructure overrides (levonk)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+      tags: ["always"]
+
+    - name: "Gather ansible_facts"
+      ansible.builtin.setup:
+        gather_subset: ["all"]
+      tags: ["always"]
+
+    - name: "Validate required variables are defined"
+      ansible.builtin.assert:
+        that:
+          - cloud_server_admin_user is defined
+          - cloud_server_admin_user | length > 0
+          - infra_port_monitoring_prometheus_host is defined
+          - infra_port_monitoring_prometheus_container is defined
+          - infra_port_monitoring_grafana_host is defined
+          - infra_port_monitoring_grafana_container is defined
+          - infra_port_monitoring_loki_host is defined
+          - infra_port_monitoring_loki_container is defined
+          - infra_port_monitoring_alertmanager_host is defined
+          - infra_port_monitoring_alertmanager_container is defined
+          - infra_port_monitoring_uptime_kuma_host is defined
+          - infra_port_monitoring_uptime_kuma_container is defined
+          - infra_port_monitoring_node_exporter_host is defined
+          - infra_port_monitoring_node_exporter_container is defined
+          - infra_hostname_monitoring_prometheus is defined
+          - infra_hostname_monitoring_grafana is defined
+          - infra_hostname_monitoring_loki is defined
+          - infra_hostname_monitoring_alertmanager is defined
+          - infra_hostname_monitoring_uptime_kuma is defined
+          - infra_hostname_monitoring_node_exporter is defined
+        fail_msg: >-
+          Missing required monitoring infrastructure variables.
+          Check shared/active/02-config/ansible/infrastructure/ports.yml
+          and domains.yml for infra_port_monitoring_* and infra_hostname_monitoring_*.
+        success_msg: "All required monitoring variables are defined."
+      tags: ["always", "validate"]
+
+    - name: "Verify Docker CLI is installed"
+      ansible.builtin.command:
+        cmd: "docker --version"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: docker_cli_check
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "bootstrap", "docker"]
+
+    - name: "Fail if Docker CLI is not installed"
+      ansible.builtin.fail:
+        msg: |
+          Bootstrap prerequisite failed: Docker CLI is not installed.
+          Run cloud-server-bootstrap.yml first.
+      when: docker_cli_check.rc != 0
+      tags: ["verify", "bootstrap", "docker"]
+
+    - name: "Verify Docker daemon is responsive"
+      ansible.builtin.command:
+        cmd: "docker info --format '{{ '{{' }} .ServerVersion {{ '}}' }}'"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: docker_daemon_check
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "bootstrap", "docker"]
+
+    - name: "Fail if Docker daemon is not responsive"
+      ansible.builtin.fail:
+        msg: |
+          Bootstrap prerequisite failed: Docker daemon is not running or
+          not accessible. Ensure Docker service is started.
+      when: docker_daemon_check.rc != 0
+      tags: ["verify", "bootstrap", "docker"]
+
+  roles:
+    - role: monitoring-node-exporter
+      tags: ["deploy", "monitoring", "node-exporter"]
+    - role: monitoring-prometheus
+      tags: ["deploy", "monitoring", "prometheus"]
+    - role: monitoring-alertmanager
+      tags: ["deploy", "monitoring", "alertmanager"]
+    - role: monitoring-loki
+      tags: ["deploy", "monitoring", "loki"]
+    - role: monitoring-grafana
+      tags: ["deploy", "monitoring", "grafana"]
+    - role: monitoring-uptime-kuma
+      tags: ["deploy", "monitoring", "uptime-kuma"]
+    - role: monitoring-synthetic-probes
+      tags: ["deploy", "monitoring", "probes"]
+
+  post_tasks:
+    - name: "Report monitoring stack deployment complete"
+      ansible.builtin.debug:
+        msg: |
+          Monitoring stack deployed on {{ inventory_hostname }}:
+          - node_exporter: {{ infra_port_monitoring_node_exporter_host }}
+          - Prometheus: {{ infra_port_monitoring_prometheus_host }}
+          - Alertmanager: {{ infra_port_monitoring_alertmanager_host }}
+          - Loki: {{ infra_port_monitoring_loki_host }}
+          - Grafana: {{ infra_port_monitoring_grafana_host }}
+          - Uptime Kuma: {{ infra_port_monitoring_uptime_kuma_host }}
+      tags: ["verify", "summary"]

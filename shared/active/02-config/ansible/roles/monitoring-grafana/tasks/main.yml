@@ -60,6 +60,20 @@
     mode: "{{ infra_mode_file | default('0644') }}"  # project-lint: disable=magic-int  file mode
   notify: restart monitoring-grafana
 
+- name: Render Grafana dashboard JSON files
+  ansible.builtin.template:
+    src: "dashboards/{{ item }}"
+    dest: "{{ monitoring_grafana_config_dir }}/dashboards/{{ item | regex_replace('\\.j2$', '') }}"
+    mode: "{{ infra_mode_file | default('0644') }}"  # project-lint: disable=magic-int  file mode
+  loop:
+    - "pipeline-overview.json.j2"
+    - "ai-pipeline.json.j2"
+    - "dns-pipeline.json.j2"
+    - "web-pipeline.json.j2"
+    - "vpn-egress.json.j2"
+    - "infrastructure.json.j2"
+  notify: restart monitoring-grafana
+
 # ============================================================================
 # Volume Management
 # ============================================================================
