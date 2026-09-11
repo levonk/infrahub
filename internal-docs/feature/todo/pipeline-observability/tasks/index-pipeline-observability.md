@@ -17,7 +17,7 @@
 | 01-007 | Traefik dynamic config templates | [x] Done | 01-001..006 | master |
 | 01-008 | Deploy + validation playbook + justfile | [x] Done | 01-001..007 | master |
 | 01-009 | Grafana dashboards | [x] Done | 01-004 | master |
-| 01-010 | Vault secrets handoff | [~] In-Progress | — | — |
+| 01-010 | Vault secrets handoff | [x] Done | — | — |
 
 ## Execution Order
 
@@ -25,9 +25,13 @@
 **Batch 2**: 01-007 (after batch 1)
 **Batch 3 (parallel)**: 01-008, 01-009 (after batch 2)
 
-## Notes
+## Deployment Notes
 
-- All 7 roles created (6 monitoring + node-exporter) and committed.
-- Traefik templates, playbooks, dashboards, and justfile recipes committed.
-- Story 01-010 (vault handoff) is in progress — waiting for user to add secrets.
-- Pre-existing uncommitted changes (values.yml, deploy-verdaccio.yml, npmjs/hister templates) were NOT touched.
+- Port conflicts resolved: Loki host port 3100 -> 3135, Uptime Kuma host port 3001 -> 3136
+- Alertmanager 0.34.0: removed http_config.headers (not valid), using ntfy query params for priority
+- Loki 3.7.0: upgraded from boltdb-shipper/v11 to tsdb/v13, added delete_request_store for retention
+- Grafana: moved dashboards.yml into dashboards dir to fix mount conflict
+- Email alerts disabled per user request (ntfy-only notifications)
+- All 7 containers running and healthy on oci-cloud-server
+- Prometheus scraping active targets, rules loaded
+- Alertmanager config loaded with topology-aware inhibition rules
