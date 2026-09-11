@@ -300,6 +300,7 @@
     - name: "Check monitoring container logs for errors"
       ansible.builtin.shell:
         cmd: |
+          set -o pipefail
           docker logs --tail 50 {{ infra_hostname_monitoring_node_exporter }} 2>&1 | grep -i "error\|fatal\|failed" || true  # project-lint: disable=magic-int  shell command argument, not an operational value
           docker logs --tail 50 {{ infra_hostname_monitoring_prometheus }} 2>&1 | grep -i "error\|fatal\|failed" || true  # project-lint: disable=magic-int  shell command argument, not an operational value
           docker logs --tail 50 {{ infra_hostname_monitoring_alertmanager }} 2>&1 | grep -i "error\|fatal\|failed" || true  # project-lint: disable=magic-int  shell command argument, not an operational value
