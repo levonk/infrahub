@@ -4,12 +4,16 @@
 # Per ADR-202608270001 §3 (lines 284-453) — topology-aware inhibition.
 
 global:
-  smtp_smarthost: '{{ vault_monitoring_smtp_smarthost | default("localhost:25") }}'  # project-lint: disable=magic-int  smtp port
-  smtp_from: '{{ vault_monitoring_smtp_from | default("alerts@example.com") }}'
+  resolve_timeout: 5m  # project-lint: disable=magic-unitnum  duration
+{% if vault_monitoring_smtp_smarthost | default("") | length > 0 %}
+  smtp_smarthost: '{{ vault_monitoring_smtp_smarthost }}'
+  smtp_from: '{{ vault_monitoring_smtp_from }}'
   smtp_auth_username: '{{ vault_monitoring_smtp_username | default("") }}'
   smtp_auth_password: '{{ vault_monitoring_smtp_password | default("") }}'
-  slack_api_url: '{{ vault_monitoring_slack_webhook | default("") }}'
-  resolve_timeout: 5m  # project-lint: disable=magic-unitnum  duration
+{% endif %}
+{% if vault_monitoring_slack_webhook | default("") | length > 0 %}
+  slack_api_url: '{{ vault_monitoring_slack_webhook }}'
+{% endif %}
 
 route:
   receiver: 'ntfy'
@@ -59,20 +63,24 @@ receivers:
             Priority: '3'  # project-lint: disable=magic-int  ntfy priority
             Authorization: 'Bearer {{ vault_monitoring_ntfy_token | default("") }}'
 
+{% if vault_monitoring_smtp_smarthost | default("") | length > 0 %}
   - name: 'email-critical'
     email_configs:
       - to: '{{ vault_monitoring_smtp_to | default("ops@example.com") }}'
         send_resolved: true
         subject: '{% raw %}{{ .CommonAnnotations.summary }}{% endraw %}'
         body: '{% raw %}{{ .CommonAnnotations.description }}{% endraw %}'
+{% endif %}
 
+{% if vault_monitoring_slack_webhook | default("") | length > 0 %}
   - name: 'slack-warning'
     slack_configs:
-      - api_url: '{{ vault_monitoring_slack_webhook | default("") }}'
+      - api_url: '{{ vault_monitoring_slack_webhook }}'
         channel: '#alerts-warning'
         send_resolved: true
         title: '{% raw %}{{ .CommonAnnotations.summary }}{% endraw %}'
         text: '{% raw %}{{ .CommonAnnotations.description }}{% endraw %}'
+{% endif %}
 
 # Inhibition rules from ADR §3 (lines 284-453 of adr-202608270001-pipeline-observability-strategy.md)
 inhibit_rules:
