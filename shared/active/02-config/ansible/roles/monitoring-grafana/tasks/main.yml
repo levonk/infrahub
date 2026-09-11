@@ -56,7 +56,7 @@
 - name: Render Grafana dashboards provisioning
   ansible.builtin.template:
     src: dashboards.yml.j2
-    dest: "{{ monitoring_grafana_config_dir }}/dashboards.yml"
+    dest: "{{ monitoring_grafana_config_dir }}/dashboards/dashboards.yml"
     mode: "{{ infra_mode_file | default('0644') }}"  # project-lint: disable=magic-int  file mode
   notify: restart monitoring-grafana
 
@@ -104,7 +104,6 @@
       - "{{ monitoring_grafana_host_port }}:{{ monitoring_grafana_container_port }}/tcp"
     volumes:
       - "{{ monitoring_grafana_config_dir }}/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro"
-      - "{{ monitoring_grafana_config_dir }}/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro"
       - "{{ monitoring_grafana_config_dir }}/dashboards:/etc/grafana/provisioning/dashboards:ro"
       - "{{ monitoring_grafana_volume }}:/var/lib/grafana:rw"
     env:
