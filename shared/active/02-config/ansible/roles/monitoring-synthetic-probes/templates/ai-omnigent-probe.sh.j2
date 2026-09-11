@@ -1,0 +1,40 @@
+#!/bin/sh
+set -u
+
+: "${OMNIGENT_ENDPOINT:?OMNIGENT_ENDPOINT is required}"
+: "${OMNIGENT_API_KEY:?OMNIGENT_API_KEY is required}"
+TIMEOUT="${OMNIGENT_TIMEOUT:-30}"  # project-lint: disable=magic-int  timeout
+METRICS_DIR="${METRICS_DIR:-/var/lib/node_exporter/textfile_collector/probes}"
+METRIC_FILE="${METRICS_DIR}/ai_omnigent_probe.prom"
+
+OUTFILE=$(mktemp)
+trap 'rm -f "$OUTFILE"' EXIT
+
+PAYLOAD='{"action":"probe","prompt":"Reply with exactly: OK","max_tokens":5}'  # project-lint: disable=magic-int  max tokens
+
+HTTP_CODE=$(curl -sS -m "$TIMEOUT" -o "$OUTFILE" -w '%{http_code}' \
+  -H "Authorization: Bearer $OMNIGENT_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d "$PAYLOAD" \
+  "$OMNIGENT_ENDPOINT/api/v1/sessions" 2>/dev/null) || true
+
+HTTP_CODE=${HTTP_CODE:-000}  # project-lint: disable=magic-int  default http code
+SUCCESS=0  # project-lint: disable=magic-int  success flag
+
+if [ "$HTTP_CODE" = "200" ]; then  # project-lint: disable=magic-int  http ok code
+  if jq -e '
+    (.usage.total_tokens != null) and
+    ((.response.content // "") | contains("OK"))
+  ' "$OUTFILE" >/dev/null 2>&1; then
+    SUCCESS=1  # project-lint: disable=magic-int  success flag
+  fi
+fi
+
+mkdir -p "$METRICS_DIR"
+cat > "$METRIC_FILE" <<EOF
+# HELP ai_pipeline_probe_success Synthetic AI pipeline probe result
+# TYPE ai_pipeline_probe_success gauge
+ai_pipeline_probe_success{probe="omnigent",pipeline="ai"} $SUCCESS
+EOF
+
+[ "$SUCCESS" -eq 1 ] && exit 0 || exit 1  # project-lint: disable=magic-int  exit codes

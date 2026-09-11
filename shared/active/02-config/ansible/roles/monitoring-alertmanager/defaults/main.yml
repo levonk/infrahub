@@ -1,0 +1,37 @@
+---
+# defaults file for monitoring-alertmanager
+# Alertmanager for the pipeline observability stack (per ADR-202608270001).
+# Neutral, overridable defaults. No localnet-specific paths.
+# All ports and IPs must be variables — never hardcode.
+
+# ---------------------------------------------------------------------------
+# Image & Container
+# ---------------------------------------------------------------------------
+monitoring_alertmanager_container_name: "{{ infra_hostname_monitoring_alertmanager }}"
+monitoring_alertmanager_image_name: "prom/alertmanager"
+monitoring_alertmanager_image_tag: "v0.34.0"
+
+# ---------------------------------------------------------------------------
+# Network
+# ---------------------------------------------------------------------------
+monitoring_alertmanager_network: "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"
+
+# ---------------------------------------------------------------------------
+# Ports — all variable-driven per ADR (host:container mapping)
+# ---------------------------------------------------------------------------
+monitoring_alertmanager_host_port: "{{ infra_port_monitoring_alertmanager_host }}"
+monitoring_alertmanager_container_port: "{{ infra_port_monitoring_alertmanager_container }}"
+
+# ---------------------------------------------------------------------------
+# Storage
+# ---------------------------------------------------------------------------
+monitoring_alertmanager_config_dir: "{{ infra_storage_monitoring_config_dir | default('/opt/localnet/monitoring/alertmanager') }}"
+monitoring_alertmanager_volume: "{{ infra_storage_monitoring_alertmanager_volume | default('localnet-monitoring-alertmanager-data-volume') }}"
+
+# ---------------------------------------------------------------------------
+# Healthcheck — string durations required by community.docker.docker_container
+# ---------------------------------------------------------------------------
+monitoring_alertmanager_healthcheck_interval: "{{ infra_healthcheck_interval }}"
+monitoring_alertmanager_healthcheck_timeout: "{{ infra_healthcheck_timeout }}"
+monitoring_alertmanager_healthcheck_retries: "{{ infra_healthcheck_retries }}"
+monitoring_alertmanager_healthcheck_start_period: "{{ infra_healthcheck_start_period }}"

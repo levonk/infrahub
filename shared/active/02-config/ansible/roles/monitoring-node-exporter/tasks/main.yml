@@ -1,0 +1,71 @@
+---
+# Node Exporter Deployment
+# Deploys prom/node-exporter with textfile collector for synthetic probe metrics.
+
+# ============================================================================
+# Validate required variables
+# ============================================================================
+- name: Validate required variables are defined
+  ansible.builtin.assert:
+    that:
+      - monitoring_node_exporter_container_name is defined
+      - monitoring_node_exporter_image_name is defined
+      - monitoring_node_exporter_image_tag is defined
+      - monitoring_node_exporter_host_port is defined
+      - monitoring_node_exporter_container_port is defined
+      - monitoring_node_exporter_network is defined
+      - monitoring_node_exporter_textfile_dir is defined
+    fail_msg: >-
+      Missing required variables for monitoring-node-exporter.
+      Check infrastructure vars (ports, storage, networks, domains).
+    success_msg: "All required node-exporter variables are defined."
+  tags: ["always", "validate"]
+
+# ============================================================================
+# Host directories
+# ============================================================================
+- name: Ensure textfile collector directory exists on host
+  ansible.builtin.file:
+    path: "{{ monitoring_node_exporter_textfile_dir }}"
+    state: directory
+    mode: "{{ infra_mode_dir }}"
+
+# ============================================================================
+# Image pull
+# ============================================================================
+- name: Pull node_exporter image
+  community.docker.docker_image:
+    name: "{{ monitoring_node_exporter_image_name }}:{{ monitoring_node_exporter_image_tag }}"
+    source: pull
+    state: present
+  notify: restart monitoring-node-exporter
+
+# ============================================================================
+# Container deployment
+# ============================================================================
+- name: Deploy node_exporter container
+  community.docker.docker_container:
+    name: "{{ monitoring_node_exporter_container_name }}"
+    image: "{{ monitoring_node_exporter_image_name }}:{{ monitoring_node_exporter_image_tag }}"
+    state: started
+    restart_policy: unless-stopped
+    command:
+      - "--path.rootfs=/host"
+      - "--collector.textfile.directory=/var/lib/node_exporter/textfile_collector"
+    networks:
+      - name: "{{ monitoring_node_exporter_network }}"
+    published_ports:
+      - "{{ monitoring_node_exporter_host_port }}:{{ monitoring_node_exporter_container_port }}/tcp"
+    volumes:
+      - "/proc:/host/proc:ro"
+      - "/sys:/host/sys:ro"
+      - "/:/host:ro,rslave"
+      - "{{ monitoring_node_exporter_textfile_dir }}:/var/lib/node_exporter/textfile_collector:rw"
+    env:
+      TZ: "{{ localnet_tz | default('UTC') }}"
+    log_driver: json-file
+    log_options:
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
+  notify: restart monitoring-node-exporter
+  tags: ["deploy", "monitoring", "node-exporter"]

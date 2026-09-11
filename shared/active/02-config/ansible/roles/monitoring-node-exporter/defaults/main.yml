@@ -1,0 +1,27 @@
+---
+# defaults file for monitoring-node-exporter
+# Node exporter for host metrics with textfile collector.
+# All ports and IPs must be variables — never hardcode.
+
+# ---------------------------------------------------------------------------
+# Image & Container
+# ---------------------------------------------------------------------------
+monitoring_node_exporter_container_name: "{{ infra_hostname_monitoring_node_exporter }}"
+monitoring_node_exporter_image_name: "prom/node-exporter"
+monitoring_node_exporter_image_tag: "latest"
+
+# ---------------------------------------------------------------------------
+# Ports
+# ---------------------------------------------------------------------------
+monitoring_node_exporter_host_port: "{{ infra_port_monitoring_node_exporter_host }}"
+monitoring_node_exporter_container_port: "{{ infra_port_monitoring_node_exporter_container }}"
+
+# ---------------------------------------------------------------------------
+# Network
+# ---------------------------------------------------------------------------
+monitoring_node_exporter_network: "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"
+
+# ---------------------------------------------------------------------------
+# Storage
+# ---------------------------------------------------------------------------
+monitoring_node_exporter_textfile_dir: "{{ infra_storage_monitoring_node_exporter_textfile_dir | default('/var/lib/node_exporter/textfile_collector') }}"

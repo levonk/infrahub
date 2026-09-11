@@ -1,0 +1,9 @@
+---
+# handlers file for monitoring-uptime-kuma
+
+- name: Restart monitoring-uptime-kuma
+  community.docker.docker_container:
+    name: "{{ monitoring_uptime_kuma_container_name }}"
+    state: started
+    restart: true
+  listen: restart monitoring-uptime-kuma

@@ -1,0 +1,163 @@
+---
+# Loki log aggregation + Promtail collector deployment
+# Deploys Loki and Promtail as Docker containers for the pipeline-observability stack.
+
+# ============================================================================
+# Validation
+# ============================================================================
+- name: Validate required monitoring-loki variables
+  ansible.builtin.assert:
+    that:
+      - monitoring_loki_container_name is defined
+      - monitoring_loki_image_name is defined
+      - monitoring_loki_image_tag is defined
+      - monitoring_loki_host_port is defined
+      - monitoring_loki_container_port is defined
+      - monitoring_loki_config_dir is defined
+      - monitoring_loki_volume is defined
+      - monitoring_loki_network is defined
+      - monitoring_promtail_container_name is defined
+      - monitoring_promtail_image_name is defined
+      - monitoring_promtail_image_tag is defined
+      - monitoring_promtail_config_dir is defined
+      - monitoring_promtail_volume is defined
+      - monitoring_promtail_network is defined
+      - monitoring_promtail_loki_url is defined
+    fail_msg: >-
+      Missing required monitoring-loki variables. Check infrastructure vars
+      (ports, storage, networks, domains) and inventory hostnames.
+    success_msg: "All required monitoring-loki variables are defined."
+  tags: ["always", "validate"]
+
+# ============================================================================
+# Configuration Directories
+# ============================================================================
+- name: Ensure Loki config directory exists
+  ansible.builtin.file:
+    path: "{{ monitoring_loki_config_dir }}"
+    state: directory
+    mode: "{{ infra_mode_dir | default('0755') }}"  # project-lint: disable=magic-int  file mode
+
+- name: Ensure Promtail config directory exists
+  ansible.builtin.file:
+    path: "{{ monitoring_promtail_config_dir }}"
+    state: directory
+    mode: "{{ infra_mode_dir | default('0755') }}"  # project-lint: disable=magic-int  file mode
+
+# ============================================================================
+# Configuration Rendering
+# ============================================================================
+- name: Render Loki configuration
+  ansible.builtin.template:
+    src: loki-config.yaml.j2
+    dest: "{{ monitoring_loki_config_dir }}/loki-config.yaml"
+    mode: "{{ infra_mode_file | default('0644') }}"  # project-lint: disable=magic-int  file mode
+  notify: restart monitoring-loki
+
+- name: Render Promtail configuration
+  ansible.builtin.template:
+    src: promtail.yml.j2
+    dest: "{{ monitoring_promtail_config_dir }}/promtail.yml"
+    mode: "{{ infra_mode_file | default('0644') }}"  # project-lint: disable=magic-int  file mode
+  notify: restart monitoring-promtail
+
+# ============================================================================
+# Volume Management
+# ============================================================================
+- name: Ensure Loki data volume exists
+  community.docker.docker_volume:
+    name: "{{ monitoring_loki_volume }}"
+    state: present
+
+- name: Ensure Promtail positions volume exists
+  community.docker.docker_volume:
+    name: "{{ monitoring_promtail_volume }}"
+    state: present
+
+# ============================================================================
+# Image Pull
+# ============================================================================
+- name: Pull Loki image
+  community.docker.docker_image:
+    name: "{{ monitoring_loki_image_name }}:{{ monitoring_loki_image_tag }}"
+    source: pull
+    state: present
+  notify: restart monitoring-loki
+
+- name: Pull Promtail image
+  community.docker.docker_image:
+    name: "{{ monitoring_promtail_image_name }}:{{ monitoring_promtail_image_tag }}"
+    source: pull
+    state: present
+  notify: restart monitoring-promtail
+
+# ============================================================================
+# Loki Container Deployment
+# ============================================================================
+- name: Deploy Loki container
+  community.docker.docker_container:
+    name: "{{ monitoring_loki_container_name }}"
+    image: "{{ monitoring_loki_image_name }}:{{ monitoring_loki_image_tag }}"
+    state: started
+    restart_policy: unless-stopped
+    command:
+      - "-config.file=/etc/loki/config/loki-config.yaml"
+    networks:
+      - name: "{{ monitoring_loki_network }}"
+    published_ports:
+      - "{{ monitoring_loki_host_port }}:{{ monitoring_loki_container_port }}/tcp"
+    volumes:
+      - "{{ monitoring_loki_config_dir }}/loki-config.yaml:/etc/loki/config/loki-config.yaml:ro"
+      - "{{ monitoring_loki_volume }}:/loki:rw"
+    env:
+      TZ: "{{ localnet_tz | default('UTC') }}"
+    log_driver: json-file
+    log_options:
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:{{ monitoring_loki_container_port }}/ready || exit 1"]
+      interval: "{{ monitoring_loki_healthcheck_interval }}"
+      timeout: "{{ monitoring_loki_healthcheck_timeout }}"
+      retries: "{{ monitoring_loki_healthcheck_retries }}"
+      start_period: "{{ monitoring_loki_healthcheck_start_period }}"
+  notify: restart monitoring-loki
+
+# ============================================================================
+# Promtail Container Deployment
+# ============================================================================
+- name: Deploy Promtail container
+  community.docker.docker_container:
+    name: "{{ monitoring_promtail_container_name }}"
+    image: "{{ monitoring_promtail_image_name }}:{{ monitoring_promtail_image_tag }}"
+    state: started
+    restart_policy: unless-stopped
+    command:
+      - "-config.file=/etc/promtail/config.yml"
+    networks:
+      - name: "{{ monitoring_promtail_network }}"
+    volumes:
+      - "{{ monitoring_promtail_config_dir }}/promtail.yml:/etc/promtail/config.yml:ro"
+      - "{{ monitoring_promtail_volume }}:/etc/promtail:rw"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "/var/lib/docker/containers:/var/lib/docker/containers:ro"
+    env:
+      TZ: "{{ localnet_tz | default('UTC') }}"
+    log_driver: json-file
+    log_options:
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
+  notify: restart monitoring-promtail
+
+# ============================================================================
+# Status Report
+# ============================================================================
+- name: Report monitoring-loki status
+  ansible.builtin.debug:
+    msg: |
+      monitoring-loki deployed successfully:
+      - Loki:   http://localhost:{{ monitoring_loki_host_port }}/ready (container port {{ monitoring_loki_container_port }})
+      - Promtail: pushing to {{ monitoring_promtail_loki_url }}
+      - Loki container:   {{ monitoring_loki_container_name }}
+      - Promtail container: {{ monitoring_promtail_container_name }}
+  tags: ["deploy", "monitoring", "loki"]

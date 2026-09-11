@@ -1,0 +1,45 @@
+#!/bin/sh
+set -u
+
+: "${LITELLM_ENDPOINT:?LITELLM_ENDPOINT is required}"
+: "${LITELLM_API_KEY:?LITELLM_API_KEY is required}"
+TIMEOUT="${LITELLM_TIMEOUT:-30}"  # project-lint: disable=magic-int  timeout
+METRICS_DIR="${METRICS_DIR:-/var/lib/node_exporter/textfile_collector/probes}"
+METRIC_FILE="${METRICS_DIR}/ai_litellm_probe.prom"
+
+OUTFILE=$(mktemp)
+trap 'rm -f "$OUTFILE"' EXIT
+
+PAYLOAD='{
+  "model": "gpt-4o-mini",
+  "messages": [{"role": "user", "content": "Reply with exactly: OK"}],
+  "max_tokens": 5,  # project-lint: disable=magic-int  max tokens
+  "temperature": 0  # project-lint: disable=magic-int  temperature
+}'
+
+HTTP_CODE=$(curl -sS -m "$TIMEOUT" -o "$OUTFILE" -w '%{http_code}' \
+  -H "Authorization: Bearer $LITELLM_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d "$PAYLOAD" \
+  "$LITELLM_ENDPOINT" 2>/dev/null) || true
+
+HTTP_CODE=${HTTP_CODE:-000}  # project-lint: disable=magic-int  default http code
+SUCCESS=0  # project-lint: disable=magic-int  success flag
+
+if [ "$HTTP_CODE" = "200" ]; then  # project-lint: disable=magic-int  http ok code
+  if jq -e '
+    (.usage.total_tokens != null) and
+    ((.choices[0].message.content // "") | contains("OK"))
+  ' "$OUTFILE" >/dev/null 2>&1; then
+    SUCCESS=1  # project-lint: disable=magic-int  success flag
+  fi
+fi
+
+mkdir -p "$METRICS_DIR"
+cat > "$METRIC_FILE" <<EOF
+# HELP ai_pipeline_probe_success Synthetic AI pipeline probe result
+# TYPE ai_pipeline_probe_success gauge
+ai_pipeline_probe_success{probe="litellm",pipeline="ai"} $SUCCESS
+EOF
+
+[ "$SUCCESS" -eq 1 ] && exit 0 || exit 1  # project-lint: disable=magic-int  exit codes

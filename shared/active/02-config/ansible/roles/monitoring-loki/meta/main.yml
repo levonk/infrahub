@@ -1,0 +1,23 @@
+---
+galaxy_info:
+  role_name: monitoring-loki
+  author: localnet
+  description: Loki log aggregation and Promtail collector
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+    - name: Ubuntu
+      versions:
+        - jammy
+        - noble
+  galaxy_tags:
+    - monitoring
+    - loki
+    - promtail
+    - logging
+    - docker
+
+dependencies: []

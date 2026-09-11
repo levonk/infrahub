@@ -1,0 +1,9 @@
+---
+# handlers file for monitoring-grafana
+
+- name: restart monitoring-grafana
+  community.docker.docker_container:
+    name: "{{ monitoring_grafana_container_name }}"
+    state: started
+    restart: true
+  listen: restart monitoring-grafana

@@ -1,0 +1,23 @@
+---
+galaxy_info:
+  role_name: monitoring-synthetic-probes
+  author: localnet
+  description: Synthetic probes for AI, DNS, web, and VPN pipeline validation.
+  company: levonk
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+    - name: Ubuntu
+      versions:
+        - jammy
+        - noble
+  galaxy_tags:
+    - monitoring
+    - synthetic
+    - probes
+    - docker
+
+dependencies: []

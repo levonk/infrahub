@@ -1,0 +1,141 @@
+---
+# Synthetic Probes Deployment
+# Deploys a cron container (alpine) that runs probe scripts on a schedule
+# and writes Prometheus textfile metrics for node_exporter to scrape.
+
+# ============================================================================
+# Validate required variables
+# ============================================================================
+- name: Validate required variables are defined
+  ansible.builtin.assert:
+    that:
+      - monitoring_synthetic_probes_container_name is defined
+      - monitoring_synthetic_probes_image_name is defined
+      - monitoring_synthetic_probes_image_tag is defined
+      - monitoring_synthetic_probes_network is defined
+      - monitoring_synthetic_probes_scripts_dir is defined
+      - monitoring_synthetic_probes_textfile_dir is defined
+      - monitoring_synthetic_probes_litellm_endpoint is defined
+      - monitoring_synthetic_probes_omnigent_endpoint is defined
+      - monitoring_synthetic_probes_dns_internal_domain is defined
+      - monitoring_synthetic_probes_web_proxy_url is defined
+      - monitoring_synthetic_probes_web_target_url is defined
+      - monitoring_synthetic_probes_host_public_ip is defined
+      - monitoring_synthetic_probes_nordvpn_socks5 is defined
+      - monitoring_synthetic_probes_tor_socks5_hostname is defined
+    fail_msg: >-
+      Missing required variables for monitoring-synthetic-probes.
+      Check infrastructure vars (ports, storage, networks, domains) and
+      vault for vault_litellm_synthetic_probe_key, vault_omnigent_synthetic_probe_key.
+    success_msg: "All required synthetic-probes variables are defined."
+  tags: ["always", "validate"]
+
+# ============================================================================
+# Host directories
+# ============================================================================
+- name: Ensure probe scripts directory exists on host
+  ansible.builtin.file:
+    path: "{{ monitoring_synthetic_probes_scripts_dir }}"
+    state: directory
+    mode: "{{ infra_mode_dir }}"
+
+- name: Ensure textfile collector probes directory exists on host
+  ansible.builtin.file:
+    path: "{{ monitoring_synthetic_probes_textfile_dir }}"
+    state: directory
+    mode: "{{ infra_mode_dir }}"
+
+# ============================================================================
+# Render probe scripts
+# ============================================================================
+- name: Render AI probe script (LiteLLM entry)
+  ansible.builtin.template:
+    src: ai-probe.sh.j2
+    dest: "{{ monitoring_synthetic_probes_scripts_dir }}/ai-probe.sh"
+    mode: "0755"  # project-lint: disable=magic-int  file mode
+  notify: restart monitoring-synthetic-probes
+
+- name: Render AI probe script (Omnigent entry)
+  ansible.builtin.template:
+    src: ai-omnigent-probe.sh.j2
+    dest: "{{ monitoring_synthetic_probes_scripts_dir }}/ai-omnigent-probe.sh"
+    mode: "0755"  # project-lint: disable=magic-int  file mode
+  notify: restart monitoring-synthetic-probes
+
+- name: Render DNS probe script
+  ansible.builtin.template:
+    src: dns-probe.sh.j2
+    dest: "{{ monitoring_synthetic_probes_scripts_dir }}/dns-probe.sh"
+    mode: "0755"  # project-lint: disable=magic-int  file mode
+  notify: restart monitoring-synthetic-probes
+
+- name: Render web proxy probe script
+  ansible.builtin.template:
+    src: web-probe.sh.j2
+    dest: "{{ monitoring_synthetic_probes_scripts_dir }}/web-probe.sh"
+    mode: "0755"  # project-lint: disable=magic-int  file mode
+  notify: restart monitoring-synthetic-probes
+
+- name: Render VPN/egress probe script
+  ansible.builtin.template:
+    src: vpn-probe.sh.j2
+    dest: "{{ monitoring_synthetic_probes_scripts_dir }}/vpn-probe.sh"
+    mode: "0755"  # project-lint: disable=magic-int  file mode
+  notify: restart monitoring-synthetic-probes
+
+# ============================================================================
+# Render crontab
+# ============================================================================
+- name: Render crontab
+  ansible.builtin.template:
+    src: crontab.j2
+    dest: "{{ monitoring_synthetic_probes_scripts_dir }}/crontab"
+    mode: "{{ infra_mode_file }}"
+  notify: restart monitoring-synthetic-probes
+
+# ============================================================================
+# Image pull
+# ============================================================================
+- name: Pull synthetic probes image
+  community.docker.docker_image:
+    name: "{{ monitoring_synthetic_probes_image_name }}:{{ monitoring_synthetic_probes_image_tag }}"
+    source: pull
+    state: present
+  notify: restart monitoring-synthetic-probes
+
+# ============================================================================
+# Container deployment
+# ============================================================================
+- name: Deploy synthetic probes cron container
+  community.docker.docker_container:
+    name: "{{ monitoring_synthetic_probes_container_name }}"
+    image: "{{ monitoring_synthetic_probes_image_name }}:{{ monitoring_synthetic_probes_image_tag }}"
+    state: started
+    restart_policy: unless-stopped
+    command:
+      - "/bin/sh"
+      - "-c"
+      - "apk add --no-cache curl jq bind-tools && crond -f -l 2"  # project-lint: disable=magic-int  crond log level
+    networks:
+      - name: "{{ monitoring_synthetic_probes_network }}"
+    volumes:
+      - "{{ monitoring_synthetic_probes_scripts_dir }}:/opt/probes:ro"
+      - "{{ monitoring_synthetic_probes_textfile_dir }}:/var/lib/node_exporter/textfile_collector/probes:rw"
+    env:
+      LITELLM_ENDPOINT: "{{ monitoring_synthetic_probes_litellm_endpoint }}"
+      LITELLM_API_KEY: "{{ monitoring_synthetic_probes_litellm_api_key }}"
+      OMNIGENT_ENDPOINT: "{{ monitoring_synthetic_probes_omnigent_endpoint }}"
+      OMNIGENT_API_KEY: "{{ monitoring_synthetic_probes_omnigent_api_key }}"
+      DNS_INTERNAL_DOMAIN: "{{ monitoring_synthetic_probes_dns_internal_domain }}"
+      WEB_PROXY_URL: "{{ monitoring_synthetic_probes_web_proxy_url }}"
+      WEB_TARGET_URL: "{{ monitoring_synthetic_probes_web_target_url }}"
+      HOST_PUBLIC_IP: "{{ monitoring_synthetic_probes_host_public_ip }}"
+      NORDVPN_SOCKS5: "{{ monitoring_synthetic_probes_nordvpn_socks5 }}"
+      TOR_SOCKS5_HOSTNAME: "{{ monitoring_synthetic_probes_tor_socks5_hostname }}"
+      METRICS_DIR: "/var/lib/node_exporter/textfile_collector/probes"
+    log_driver: json-file
+    log_options:
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
+  notify: restart monitoring-synthetic-probes
+  tags: ["deploy", "monitoring", "probes"]

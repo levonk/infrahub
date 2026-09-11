@@ -1,0 +1,52 @@
+---
+# defaults file for monitoring-synthetic-probes
+# Synthetic probes for AI, DNS, web, and VPN pipeline validation.
+# All ports and IPs must be variables — never hardcode.
+
+# ---------------------------------------------------------------------------
+# Image & Container
+# ---------------------------------------------------------------------------
+monitoring_synthetic_probes_container_name: "localnet-monitoring-synthetic-probes"
+monitoring_synthetic_probes_image_name: "alpine"
+monitoring_synthetic_probes_image_tag: "3.20"
+
+# ---------------------------------------------------------------------------
+# Network
+# ---------------------------------------------------------------------------
+monitoring_synthetic_probes_network: "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"
+
+# ---------------------------------------------------------------------------
+# Storage
+# ---------------------------------------------------------------------------
+monitoring_synthetic_probes_scripts_dir: "{{ infra_storage_monitoring_config_dir | default('/opt/localnet/monitoring/synthetic-probes') }}/scripts"
+monitoring_synthetic_probes_textfile_dir: "{{ infra_storage_monitoring_node_exporter_textfile_dir | default('/var/lib/node_exporter/textfile_collector') }}/probes"
+
+# ---------------------------------------------------------------------------
+# AI Pipeline — LiteLLM probe
+# ---------------------------------------------------------------------------
+monitoring_synthetic_probes_litellm_endpoint: "http://{{ infra_hostname_ai_litellm | default('localnet-ai-litellm') }}:{{ infra_port_ai_litellm_container | default(4000) }}/v1/chat/completions"  # project-lint: disable=magic-int  litellm port
+monitoring_synthetic_probes_litellm_api_key: "{{ vault_litellm_synthetic_probe_key | default('') }}"
+
+# ---------------------------------------------------------------------------
+# AI Pipeline — Omnigent probe
+# ---------------------------------------------------------------------------
+monitoring_synthetic_probes_omnigent_endpoint: "http://{{ infra_hostname_ai_omnigent | default('localnet-ai-omnigent') }}:{{ infra_port_ai_omnigent_container | default(8000) }}"  # project-lint: disable=magic-int  omnigent port
+monitoring_synthetic_probes_omnigent_api_key: "{{ vault_omnigent_synthetic_probe_key | default('') }}"
+
+# ---------------------------------------------------------------------------
+# DNS Pipeline
+# ---------------------------------------------------------------------------
+monitoring_synthetic_probes_dns_internal_domain: "{{ infra_domain_base | default('levonk.com') }}"
+
+# ---------------------------------------------------------------------------
+# Web Proxy Pipeline
+# ---------------------------------------------------------------------------
+monitoring_synthetic_probes_web_proxy_url: "http://{{ infra_hostname_proxy_mitm | default('localnet-proxy-mitm') }}:{{ infra_port_proxy_mitm_container | default(8080) }}"  # project-lint: disable=magic-int  mitm port
+monitoring_synthetic_probes_web_target_url: "http://example.com"
+
+# ---------------------------------------------------------------------------
+# VPN/Egress Pipeline
+# ---------------------------------------------------------------------------
+monitoring_synthetic_probes_host_public_ip: "{{ ansible_default_ipv4.address | default('') }}"
+monitoring_synthetic_probes_nordvpn_socks5: "{{ infra_hostname_vpn_nordvpn | default('localnet-vpn-nordvpn') }}:{{ infra_port_vpn_nordvpn_socks_container | default(1080) }}"  # project-lint: disable=magic-int  nordvpn socks port
+monitoring_synthetic_probes_tor_socks5_hostname: "{{ infra_hostname_proxy_tor | default('localnet-proxy-tor') }}:{{ infra_port_proxy_tor_socks5_container | default(9050) }}"  # project-lint: disable=magic-int  tor socks port

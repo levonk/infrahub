@@ -1,0 +1,42 @@
+---
+# defaults file for monitoring-prometheus
+# Prometheus monitoring for the pipeline-observability stack (ADR-202608270001).
+# Neutral, overridable defaults. All ports and IPs are variables — never hardcoded.
+
+# ---------------------------------------------------------------------------
+# Image & Container
+# ---------------------------------------------------------------------------
+monitoring_prometheus_container_name: "{{ infra_hostname_monitoring_prometheus }}"
+monitoring_prometheus_image_name: "prom/prometheus"
+monitoring_prometheus_image_tag: "v3.14.0"
+
+# ---------------------------------------------------------------------------
+# Network
+# ---------------------------------------------------------------------------
+monitoring_prometheus_network: "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"
+
+# ---------------------------------------------------------------------------
+# Ports — all variable-driven per ADR (host:container mapping)
+# ---------------------------------------------------------------------------
+monitoring_prometheus_host_port: "{{ infra_port_monitoring_prometheus_host }}"
+monitoring_prometheus_container_port: "{{ infra_port_monitoring_prometheus_container }}"
+
+# ---------------------------------------------------------------------------
+# Storage
+# ---------------------------------------------------------------------------
+monitoring_prometheus_config_dir: "{{ infra_storage_monitoring_config_dir | default('/opt/localnet/monitoring/prometheus') }}"
+monitoring_prometheus_volume: "{{ infra_storage_monitoring_prometheus_volume | default('localnet-monitoring-prometheus-data-volume') }}"
+
+# ---------------------------------------------------------------------------
+# Retention
+# ---------------------------------------------------------------------------
+monitoring_prometheus_retention_time: "30d"
+monitoring_prometheus_retention_size: "10GB"
+
+# ---------------------------------------------------------------------------
+# Healthcheck (Docker duration strings — require unit suffix)
+# ---------------------------------------------------------------------------
+monitoring_prometheus_healthcheck_interval: "{{ infra_healthcheck_interval }}"
+monitoring_prometheus_healthcheck_timeout: "{{ infra_healthcheck_timeout }}"
+monitoring_prometheus_healthcheck_retries: "{{ infra_healthcheck_retries }}"
+monitoring_prometheus_healthcheck_start_period: "{{ infra_healthcheck_start_period }}"

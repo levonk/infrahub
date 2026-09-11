@@ -1,0 +1,32 @@
+#!/bin/sh
+set -u
+
+TIMEOUT="${DNS_TIMEOUT:-10}"  # project-lint: disable=magic-int  timeout
+INTERNAL="${DNS_INTERNAL_DOMAIN:?DNS_INTERNAL_DOMAIN is required}"
+EXTERNAL="cloudflare.com"
+DNSSEC="dnssec-test.dnssec-tools.org"
+METRICS_DIR="${METRICS_DIR:-/var/lib/node_exporter/textfile_collector/probes}"
+METRIC_FILE="${METRICS_DIR}/dns_pipeline_probe.prom"
+
+resolve() {
+  dig +short +time="$TIMEOUT" "$1" >/dev/null 2>&1  # project-lint: disable=magic-int  positional param
+}
+
+OK_INTERNAL=0  # project-lint: disable=magic-int  initial state
+OK_EXTERNAL=0  # project-lint: disable=magic-int  initial state
+OK_DNSSEC=0  # project-lint: disable=magic-int  initial state
+
+resolve "$INTERNAL" && OK_INTERNAL=1  # project-lint: disable=magic-int  success flag
+resolve "$EXTERNAL" && OK_EXTERNAL=1  # project-lint: disable=magic-int  success flag
+resolve "$DNSSEC" && OK_DNSSEC=1  # project-lint: disable=magic-int  success flag
+
+mkdir -p "$METRICS_DIR"
+cat > "$METRIC_FILE" <<EOF
+# HELP dns_pipeline_probe_success Synthetic DNS pipeline probe result
+# TYPE dns_pipeline_probe_success gauge
+dns_pipeline_probe_success{query="internal"} $OK_INTERNAL
+dns_pipeline_probe_success{query="external"} $OK_EXTERNAL
+dns_pipeline_probe_success{query="dnssec"} $OK_DNSSEC
+EOF
+
+[ "$OK_INTERNAL" -eq 1 ] && [ "$OK_EXTERNAL" -eq 1 ] && [ "$OK_DNSSEC" -eq 1 ] && exit 0 || exit 1  # project-lint: disable=magic-int  exit codes

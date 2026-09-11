@@ -1,0 +1,122 @@
+---
+# Prometheus monitoring deployment for the pipeline-observability stack.
+# Deploys Prometheus as a Docker container (ADR-202608270001).
+
+# ============================================================================
+# Validate required variables
+# ============================================================================
+- name: Validate required Prometheus variables are defined
+  ansible.builtin.assert:
+    that:
+      - monitoring_prometheus_container_name is defined
+      - monitoring_prometheus_image_name is defined
+      - monitoring_prometheus_image_tag is defined
+      - monitoring_prometheus_host_port is defined
+      - monitoring_prometheus_container_port is defined
+      - monitoring_prometheus_config_dir is defined
+      - monitoring_prometheus_volume is defined
+      - monitoring_prometheus_network is defined
+    fail_msg: >-
+      Missing required Prometheus monitoring variables. Check inventory vars
+      and infrastructure schema for infra_hostname_monitoring_prometheus,
+      infra_port_monitoring_prometheus_host/container,
+      infra_storage_monitoring_prometheus_volume/config_dir, and
+      infra_network_proxy_traefik_network_name.
+    success_msg: "All required Prometheus monitoring variables are defined."
+  tags: ["always", "validate"]
+
+# ============================================================================
+# Configuration directories
+# ============================================================================
+- name: Ensure Prometheus config directory exists on host
+  ansible.builtin.file:
+    path: "{{ monitoring_prometheus_config_dir }}"
+    state: directory
+    mode: "{{ infra_mode_dir }}"
+
+- name: Ensure Prometheus rules subdirectory exists on host
+  ansible.builtin.file:
+    path: "{{ monitoring_prometheus_config_dir }}/rules"
+    state: directory
+    mode: "{{ infra_mode_dir }}"
+
+# ============================================================================
+# Configuration templates
+# ============================================================================
+- name: Render prometheus.yml
+  ansible.builtin.template:
+    src: prometheus.yml.j2
+    dest: "{{ monitoring_prometheus_config_dir }}/prometheus.yml"
+    mode: "{{ infra_mode_file }}"
+  notify: restart monitoring-prometheus
+
+- name: Render Prometheus alert rule files
+  ansible.builtin.template:
+    src: "rules/{{ item }}.j2"
+    dest: "{{ monitoring_prometheus_config_dir }}/rules/{{ item }}"
+    mode: "{{ infra_mode_file }}"
+  loop:
+    - ai.yml
+    - dns.yml
+    - web.yml
+    - vpn.yml
+    - infra.yml
+  notify: restart monitoring-prometheus
+
+# ============================================================================
+# Volume management
+# ============================================================================
+- name: Ensure Prometheus data volume exists
+  community.docker.docker_volume:
+    name: "{{ monitoring_prometheus_volume }}"
+    state: present
+
+# ============================================================================
+# Image pull
+# ============================================================================
+- name: Pull Prometheus image
+  community.docker.docker_image:
+    name: "{{ monitoring_prometheus_image_name }}:{{ monitoring_prometheus_image_tag }}"
+    source: pull
+    state: present
+  notify: restart monitoring-prometheus
+
+# ============================================================================
+# Container deployment
+# ============================================================================
+- name: Deploy Prometheus container
+  community.docker.docker_container:
+    name: "{{ monitoring_prometheus_container_name }}"
+    image: "{{ monitoring_prometheus_image_name }}:{{ monitoring_prometheus_image_tag }}"
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ monitoring_prometheus_network }}"
+    published_ports:
+      - "{{ monitoring_prometheus_host_port }}:{{ monitoring_prometheus_container_port }}/tcp"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.listen-address=0.0.0.0:{{ monitoring_prometheus_container_port }}"  # project-lint: disable=all  bind address
+      - "--storage.tsdb.retention.time={{ monitoring_prometheus_retention_time }}"
+      - "--storage.tsdb.retention.size={{ monitoring_prometheus_retention_size }}"
+      - "--web.enable-lifecycle"
+    volumes:
+      - "{{ monitoring_prometheus_config_dir }}/prometheus.yml:/etc/prometheus/prometheus.yml:ro"
+      - "{{ monitoring_prometheus_config_dir }}/rules:/etc/prometheus/rules:ro"
+      - "{{ monitoring_prometheus_volume }}:/prometheus:rw"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    env:
+      TZ: "{{ localnet_tz | default('UTC') }}"
+    log_driver: json-file
+    log_options:
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:{{ monitoring_prometheus_container_port }}/-/healthy || exit 1"]
+      interval: "{{ monitoring_prometheus_healthcheck_interval }}"
+      timeout: "{{ monitoring_prometheus_healthcheck_timeout }}"
+      retries: "{{ monitoring_prometheus_healthcheck_retries }}"
+      start_period: "{{ monitoring_prometheus_healthcheck_start_period }}"
+  notify: restart monitoring-prometheus
+  tags: ["deploy", "monitoring", "prometheus"]

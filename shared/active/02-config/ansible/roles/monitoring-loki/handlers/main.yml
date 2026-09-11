@@ -1,0 +1,16 @@
+---
+# handlers file for monitoring-loki
+
+- name: restart monitoring-loki
+  community.docker.docker_container:
+    name: "{{ monitoring_loki_container_name }}"
+    state: started
+    restart: true
+  listen: restart monitoring-loki
+
+- name: restart monitoring-promtail
+  community.docker.docker_container:
+    name: "{{ monitoring_promtail_container_name }}"
+    state: started
+    restart: true
+  listen: restart monitoring-promtail

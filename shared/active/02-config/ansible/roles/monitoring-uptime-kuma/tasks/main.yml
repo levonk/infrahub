@@ -1,0 +1,76 @@
+---
+# Uptime Kuma Deployment
+# Deploys Uptime Kuma as a Docker container for internal uptime monitoring.
+# Per ADR-202608270001 — Uptime Kuma probes service availability.
+
+# ============================================================================
+# Validation
+# ============================================================================
+- name: Assert required variables are defined
+  ansible.builtin.assert:
+    that:
+      - monitoring_uptime_kuma_container_name is defined
+      - monitoring_uptime_kuma_image_name is defined
+      - monitoring_uptime_kuma_image_tag is defined
+      - monitoring_uptime_kuma_host_port is defined
+      - monitoring_uptime_kuma_container_port is defined
+      - monitoring_uptime_kuma_volume is defined
+      - monitoring_uptime_kuma_network is defined
+    fail_msg: >-
+      Missing required variables for monitoring-uptime-kuma.
+      Check infrastructure schemas (ports.yml, storage.yml, domains.yml, networks.yml)
+      for infra_port_monitoring_uptime_kuma_*, infra_storage_monitoring_uptime_kuma_volume,
+      infra_hostname_monitoring_uptime_kuma, and infra_network_proxy_traefik_network_name.
+    success_msg: "All required monitoring-uptime-kuma variables are defined."
+  tags: ["always", "validate"]
+
+# ============================================================================
+# Volume Management
+# ============================================================================
+- name: Ensure Uptime Kuma data volume exists
+  community.docker.docker_volume:
+    name: "{{ monitoring_uptime_kuma_volume }}"
+    state: present
+  tags: ["deploy", "monitoring", "uptime-kuma"]
+
+# ============================================================================
+# Image Pull
+# ============================================================================
+- name: Pull Uptime Kuma image
+  community.docker.docker_image:
+    name: "{{ monitoring_uptime_kuma_image_name }}:{{ monitoring_uptime_kuma_image_tag }}"
+    source: pull
+    state: present
+  notify: restart monitoring-uptime-kuma
+  tags: ["deploy", "monitoring", "uptime-kuma"]
+
+# ============================================================================
+# Container Deployment
+# ============================================================================
+- name: Deploy Uptime Kuma container
+  community.docker.docker_container:
+    name: "{{ monitoring_uptime_kuma_container_name }}"
+    image: "{{ monitoring_uptime_kuma_image_name }}:{{ monitoring_uptime_kuma_image_tag }}"
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ monitoring_uptime_kuma_network }}"
+    published_ports:
+      - "{{ monitoring_uptime_kuma_host_port }}:{{ monitoring_uptime_kuma_container_port }}/tcp"
+    volumes:
+      - "{{ monitoring_uptime_kuma_volume }}:/app/data:rw"
+    env:
+      TZ: "{{ localnet_tz | default('UTC') }}"
+      DATA_DIR: "/app/data"
+    log_driver: json-file
+    log_options:
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:{{ monitoring_uptime_kuma_container_port }}/api/health || exit 1"]
+      interval: "{{ monitoring_uptime_kuma_healthcheck_interval }}"
+      timeout: "{{ monitoring_uptime_kuma_healthcheck_timeout }}"
+      retries: "{{ monitoring_uptime_kuma_healthcheck_retries }}"
+      start_period: "{{ monitoring_uptime_kuma_healthcheck_start_period }}"
+  notify: restart monitoring-uptime-kuma
+  tags: ["deploy", "monitoring", "uptime-kuma"]

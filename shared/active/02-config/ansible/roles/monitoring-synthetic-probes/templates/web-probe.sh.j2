@@ -1,0 +1,30 @@
+#!/bin/sh
+set -u
+
+: "${WEB_PROXY_URL:?WEB_PROXY_URL is required}"
+: "${WEB_TARGET_URL:?WEB_TARGET_URL is required}"
+TIMEOUT="${WEB_TIMEOUT:-30}"  # project-lint: disable=magic-int  timeout
+METRICS_DIR="${METRICS_DIR:-/var/lib/node_exporter/textfile_collector/probes}"
+METRIC_FILE="${METRICS_DIR}/web_pipeline_probe.prom"
+
+OUTFILE=$(mktemp)
+trap 'rm -f "$OUTFILE"' EXIT
+
+HTTP_CODE=$(curl -sS --proxy "$WEB_PROXY_URL" -m "$TIMEOUT" -o "$OUTFILE" -w '%{http_code}' \
+  "$WEB_TARGET_URL" 2>/dev/null) || true
+
+HTTP_CODE=${HTTP_CODE:-000}  # project-lint: disable=magic-int  default http code
+SUCCESS=0  # project-lint: disable=magic-int  success flag
+
+if [ "$HTTP_CODE" = "200" ] && [ -s "$OUTFILE" ]; then  # project-lint: disable=magic-int  http ok code
+  SUCCESS=1  # project-lint: disable=magic-int  success flag
+fi
+
+mkdir -p "$METRICS_DIR"
+cat > "$METRIC_FILE" <<EOF
+# HELP web_pipeline_probe_success Synthetic web proxy pipeline probe result
+# TYPE web_pipeline_probe_success gauge
+web_pipeline_probe_success{probe="mitm",pipeline="web"} $SUCCESS
+EOF
+
+[ "$SUCCESS" -eq 1 ] && exit 0 || exit 1  # project-lint: disable=magic-int  exit codes

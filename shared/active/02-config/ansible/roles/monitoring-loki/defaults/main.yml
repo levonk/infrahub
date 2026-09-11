@@ -1,0 +1,72 @@
+---
+# defaults file for monitoring-loki
+# Loki log aggregation + Promtail collector for the pipeline-observability stack.
+# All ports and IPs must be variables — never hardcode.
+
+# ---------------------------------------------------------------------------
+# Loki Image & Container
+# ---------------------------------------------------------------------------
+monitoring_loki_container_name: "{{ infra_hostname_monitoring_loki }}"
+monitoring_loki_image_name: "grafana/loki"
+monitoring_loki_image_tag: "3.7.0"
+
+# ---------------------------------------------------------------------------
+# Loki Ports
+# ---------------------------------------------------------------------------
+monitoring_loki_host_port: "{{ infra_port_monitoring_loki_host }}"
+monitoring_loki_container_port: "{{ infra_port_monitoring_loki_container }}"
+
+# ---------------------------------------------------------------------------
+# Loki Storage
+# ---------------------------------------------------------------------------
+monitoring_loki_config_dir: "{{ infra_storage_monitoring_config_dir | default('/opt/localnet/monitoring/loki') }}"
+monitoring_loki_volume: "{{ infra_storage_monitoring_loki_volume | default('localnet-monitoring-loki-data-volume') }}"
+
+# ---------------------------------------------------------------------------
+# Loki Network
+# ---------------------------------------------------------------------------
+monitoring_loki_network: "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"
+
+# ---------------------------------------------------------------------------
+# Loki Retention
+# ---------------------------------------------------------------------------
+monitoring_loki_retention_period: "720h"
+
+# ---------------------------------------------------------------------------
+# Loki Healthcheck
+# ---------------------------------------------------------------------------
+monitoring_loki_healthcheck_interval: "{{ infra_healthcheck_interval }}"
+monitoring_loki_healthcheck_timeout: "{{ infra_healthcheck_timeout }}"
+monitoring_loki_healthcheck_retries: "{{ infra_healthcheck_retries }}"
+monitoring_loki_healthcheck_start_period: "{{ infra_healthcheck_start_period }}"
+
+# ---------------------------------------------------------------------------
+# Promtail Image & Container
+# ---------------------------------------------------------------------------
+monitoring_promtail_container_name: "localnet-monitoring-promtail"
+monitoring_promtail_image_name: "grafana/promtail"
+monitoring_promtail_image_tag: "3.6.11"
+
+# ---------------------------------------------------------------------------
+# Promtail Storage
+# ---------------------------------------------------------------------------
+monitoring_promtail_config_dir: "{{ infra_storage_monitoring_config_dir | default('/opt/localnet/monitoring/promtail') }}"
+monitoring_promtail_volume: "localnet-monitoring-promtail-positions-volume"
+
+# ---------------------------------------------------------------------------
+# Promtail Network
+# ---------------------------------------------------------------------------
+monitoring_promtail_network: "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"
+
+# ---------------------------------------------------------------------------
+# Promtail Loki Push URL
+# ---------------------------------------------------------------------------
+monitoring_promtail_loki_url: "http://{{ infra_hostname_monitoring_loki }}:{{ infra_port_monitoring_loki_container }}/loki/api/v1/push"
+
+# ---------------------------------------------------------------------------
+# Promtail Healthcheck
+# ---------------------------------------------------------------------------
+monitoring_promtail_healthcheck_interval: "{{ infra_healthcheck_interval }}"
+monitoring_promtail_healthcheck_timeout: "{{ infra_healthcheck_timeout }}"
+monitoring_promtail_healthcheck_retries: "{{ infra_healthcheck_retries }}"
+monitoring_promtail_healthcheck_start_period: "{{ infra_healthcheck_start_period }}"

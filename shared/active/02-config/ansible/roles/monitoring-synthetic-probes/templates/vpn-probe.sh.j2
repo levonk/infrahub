@@ -1,0 +1,42 @@
+#!/bin/sh
+set -u
+
+: "${HOST_PUBLIC_IP:?HOST_PUBLIC_IP is required}"
+: "${NORDVPN_SOCKS5:?NORDVPN_SOCKS5 is required}"
+: "${TOR_SOCKS5_HOSTNAME:?TOR_SOCKS5_HOSTNAME is required}"
+TIMEOUT="${VPN_TIMEOUT:-30}"  # project-lint: disable=magic-int  timeout
+METRICS_DIR="${METRICS_DIR:-/var/lib/node_exporter/textfile_collector/probes}"
+METRIC_FILE="${METRICS_DIR}/vpn_egress_probe.prom"
+
+# NordVPN — exit IP must not be the host's public IP
+NORD_IP=$(curl -sS --socks5 "$NORDVPN_SOCKS5" -m "$TIMEOUT" \
+  https://api.ipify.org 2>/dev/null) || NORD_IP=""
+
+NORD_OK=0  # project-lint: disable=magic-int  initial state
+[ -n "$NORD_IP" ] && [ "$NORD_IP" != "$HOST_PUBLIC_IP" ] && NORD_OK=1  # project-lint: disable=magic-int  success flag
+
+# Tor — check.torproject.org returns JSON with IsTor: true
+TOR_JSON=$(curl -sS --socks5-hostname "$TOR_SOCKS5_HOSTNAME" -m "$TIMEOUT" \
+  https://check.torproject.org/api/ip 2>/dev/null) || TOR_JSON=""
+
+TOR_OK=0  # project-lint: disable=magic-int  initial state
+if [ -n "$TOR_JSON" ]; then
+  [ "$(echo "$TOR_JSON" | jq -r '.IsTor // false' 2>/dev/null)" = "true" ] && TOR_OK=1  # project-lint: disable=magic-int  success flag
+fi
+
+# Tailscale — optional; the container may not have tailscale installed
+TAIL_OK=0  # project-lint: disable=magic-int  initial state
+if command -v tailscale >/dev/null 2>&1; then
+  tailscale status 2>/dev/null | grep -qi 'active' && TAIL_OK=1  # project-lint: disable=magic-int  success flag
+fi
+
+mkdir -p "$METRICS_DIR"
+cat > "$METRIC_FILE" <<EOF
+# HELP vpn_egress_probe_success Synthetic VPN/egress probe result
+# TYPE vpn_egress_probe_success gauge
+vpn_egress_probe_success{egress="nordvpn"} $NORD_OK
+vpn_egress_probe_success{egress="tor"} $TOR_OK
+vpn_egress_probe_success{egress="tailscale"} $TAIL_OK
+EOF
+
+[ "$NORD_OK" -eq 1 ] && [ "$TOR_OK" -eq 1 ] && exit 0 || exit 1  # project-lint: disable=magic-int  exit codes

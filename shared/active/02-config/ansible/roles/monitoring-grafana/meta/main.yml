@@ -1,0 +1,23 @@
+---
+galaxy_info:
+  role_name: monitoring-grafana
+  author: localnet
+  description: Grafana visualization with Prometheus and Loki datasources
+  company: levonk
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+    - name: Ubuntu
+      versions:
+        - jammy
+        - noble
+  galaxy_tags:
+    - monitoring
+    - grafana
+    - observability
+    - docker
+
+dependencies: []

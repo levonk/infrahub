@@ -1,0 +1,9 @@
+---
+# handlers file for monitoring-node-exporter
+
+- name: restart monitoring-node-exporter
+  community.docker.docker_container:
+    name: "{{ monitoring_node_exporter_container_name }}"
+    state: started
+    restart: true
+  listen: restart monitoring-node-exporter

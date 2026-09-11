@@ -1,0 +1,37 @@
+---
+# defaults file for monitoring-uptime-kuma
+# Uptime Kuma — internal uptime monitoring (per ADR-202608270001).
+# Neutral, overridable defaults. No localnet-specific paths.
+# All ports and IPs must be variables — never hardcode.
+
+# ---------------------------------------------------------------------------
+# Image & Container
+# ---------------------------------------------------------------------------
+monitoring_uptime_kuma_container_name: "{{ infra_hostname_monitoring_uptime_kuma }}"
+monitoring_uptime_kuma_image_name: "louislam/uptime-kuma"
+monitoring_uptime_kuma_image_tag: "2"
+
+# ---------------------------------------------------------------------------
+# Network
+# ---------------------------------------------------------------------------
+monitoring_uptime_kuma_network: "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"
+
+# ---------------------------------------------------------------------------
+# Ports — all variable-driven per ADR (host:container mapping)
+# ---------------------------------------------------------------------------
+monitoring_uptime_kuma_host_port: "{{ infra_port_monitoring_uptime_kuma_host }}"
+monitoring_uptime_kuma_container_port: "{{ infra_port_monitoring_uptime_kuma_container }}"
+
+# ---------------------------------------------------------------------------
+# Storage
+# ---------------------------------------------------------------------------
+monitoring_uptime_kuma_volume: "{{ infra_storage_monitoring_uptime_kuma_volume | default('localnet-monitoring-uptime-kuma-data-volume') }}"
+
+# ---------------------------------------------------------------------------
+# Healthcheck — string durations required by community.docker.docker_container
+# Uptime Kuma may be slower to respond, so timeout is 10s.
+# ---------------------------------------------------------------------------
+monitoring_uptime_kuma_healthcheck_interval: "{{ infra_healthcheck_interval }}"
+monitoring_uptime_kuma_healthcheck_timeout: "10s"
+monitoring_uptime_kuma_healthcheck_retries: "{{ infra_healthcheck_retries }}"
+monitoring_uptime_kuma_healthcheck_start_period: "{{ infra_healthcheck_start_period }}"

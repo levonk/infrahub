@@ -1,0 +1,112 @@
+---
+# Grafana Deployment
+# Deploys Grafana as a Docker container for pipeline observability visualization.
+
+# ============================================================================
+# Validation
+# ============================================================================
+- name: Validate required variables are defined
+  ansible.builtin.assert:
+    that:
+      - monitoring_grafana_container_name is defined
+      - monitoring_grafana_image_name is defined
+      - monitoring_grafana_image_tag is defined
+      - monitoring_grafana_host_port is defined
+      - monitoring_grafana_container_port is defined
+      - monitoring_grafana_config_dir is defined
+      - monitoring_grafana_volume is defined
+      - monitoring_grafana_network is defined
+      - monitoring_grafana_domain is defined
+      - monitoring_grafana_admin_password is defined
+      - infra_hostname_monitoring_prometheus is defined
+      - infra_port_monitoring_prometheus_container is defined
+      - infra_hostname_monitoring_loki is defined
+      - infra_port_monitoring_loki_container is defined
+    fail_msg: >-
+      Missing required variables. Check infrastructure vars (ports, domains,
+      storage, networks) and vault for vault_grafana_admin_password.
+    success_msg: "All required grafana variables are defined."
+  tags: ["always", "validate"]
+
+# ============================================================================
+# Configuration Directory
+# ============================================================================
+- name: Ensure Grafana config directory exists on host
+  ansible.builtin.file:
+    path: "{{ monitoring_grafana_config_dir }}"
+    state: directory
+    mode: "{{ infra_mode_dir | default('0755') }}"  # project-lint: disable=magic-int  file mode
+
+- name: Ensure Grafana dashboards subdirectory exists on host
+  ansible.builtin.file:
+    path: "{{ monitoring_grafana_config_dir }}/dashboards"
+    state: directory
+    mode: "{{ infra_mode_dir | default('0755') }}"  # project-lint: disable=magic-int  file mode
+
+# ============================================================================
+# Provisioning Configuration
+# ============================================================================
+- name: Render Grafana datasources provisioning
+  ansible.builtin.template:
+    src: datasources.yml.j2
+    dest: "{{ monitoring_grafana_config_dir }}/datasources.yml"
+    mode: "{{ infra_mode_file | default('0644') }}"  # project-lint: disable=magic-int  file mode
+  notify: restart monitoring-grafana
+
+- name: Render Grafana dashboards provisioning
+  ansible.builtin.template:
+    src: dashboards.yml.j2
+    dest: "{{ monitoring_grafana_config_dir }}/dashboards.yml"
+    mode: "{{ infra_mode_file | default('0644') }}"  # project-lint: disable=magic-int  file mode
+  notify: restart monitoring-grafana
+
+# ============================================================================
+# Volume Management
+# ============================================================================
+- name: Ensure Grafana data volume exists
+  community.docker.docker_volume:
+    name: "{{ monitoring_grafana_volume }}"
+    state: present
+
+# ============================================================================
+# Container Deployment
+# ============================================================================
+- name: Pull Grafana image
+  community.docker.docker_image:
+    name: "{{ monitoring_grafana_image_name }}:{{ monitoring_grafana_image_tag }}"
+    source: pull
+    state: present
+  notify: restart monitoring-grafana
+
+- name: Deploy Grafana container
+  community.docker.docker_container:
+    name: "{{ monitoring_grafana_container_name }}"
+    image: "{{ monitoring_grafana_image_name }}:{{ monitoring_grafana_image_tag }}"
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ monitoring_grafana_network }}"
+    published_ports:
+      - "{{ monitoring_grafana_host_port }}:{{ monitoring_grafana_container_port }}/tcp"
+    volumes:
+      - "{{ monitoring_grafana_config_dir }}/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro"
+      - "{{ monitoring_grafana_config_dir }}/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro"
+      - "{{ monitoring_grafana_config_dir }}/dashboards:/etc/grafana/provisioning/dashboards:ro"
+      - "{{ monitoring_grafana_volume }}:/var/lib/grafana:rw"
+    env:
+      TZ: "{{ localnet_tz | default('UTC') }}"
+      GF_SECURITY_ADMIN_PASSWORD: "{{ monitoring_grafana_admin_password }}"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SERVER_ROOT_URL: "https://{{ monitoring_grafana_domain }}"
+    log_driver: json-file
+    log_options:
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:{{ monitoring_grafana_container_port }}/api/health || exit 1"]
+      interval: "{{ monitoring_grafana_healthcheck_interval }}"
+      timeout: "{{ monitoring_grafana_healthcheck_timeout }}"
+      retries: "{{ monitoring_grafana_healthcheck_retries }}"
+      start_period: "{{ monitoring_grafana_healthcheck_start_period }}"
+  notify: restart monitoring-grafana
+  tags: ["deploy", "monitoring", "grafana"]

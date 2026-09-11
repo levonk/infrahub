@@ -1,0 +1,105 @@
+---
+# Alertmanager Deployment
+# Deploys Alertmanager as a Docker container for the pipeline observability stack.
+# Per ADR-202608270001 — topology-aware inhibition rules for the AI/DNS/web pipelines.
+
+# ============================================================================
+# Validation
+# ============================================================================
+- name: Validate required Alertmanager variables
+  ansible.builtin.assert:
+    that:
+      - monitoring_alertmanager_container_name is defined
+      - monitoring_alertmanager_image_name is defined
+      - monitoring_alertmanager_image_tag is defined
+      - monitoring_alertmanager_host_port is defined
+      - monitoring_alertmanager_container_port is defined
+      - monitoring_alertmanager_config_dir is defined
+      - monitoring_alertmanager_volume is defined
+      - monitoring_alertmanager_network is defined
+    fail_msg: >-
+      Missing required Alertmanager monitoring variables. Check inventory vars
+      and infrastructure schema for infra_hostname_monitoring_alertmanager,
+      infra_port_monitoring_alertmanager_host/container,
+      infra_storage_monitoring_alertmanager_volume,
+      infra_storage_monitoring_config_dir,
+      infra_network_proxy_traefik_network_name.
+    success_msg: "All required Alertmanager variables are defined."
+  tags: ["always", "validate"]
+
+# ============================================================================
+# Configuration
+# ============================================================================
+- name: Ensure Alertmanager config directory exists on host
+  ansible.builtin.file:
+    path: "{{ monitoring_alertmanager_config_dir }}"
+    state: directory
+    mode: "{{ infra_mode_dir | default('0755') }}"  # project-lint: disable=magic-int  file mode
+
+- name: Render alertmanager.yml
+  ansible.builtin.template:
+    src: alertmanager.yml.j2
+    dest: "{{ monitoring_alertmanager_config_dir }}/alertmanager.yml"
+    mode: "{{ infra_mode_file | default('0644') }}"  # project-lint: disable=magic-int  file mode
+  notify: restart monitoring-alertmanager
+
+# ============================================================================
+# Volume Management
+# ============================================================================
+- name: Ensure Alertmanager data volume exists
+  community.docker.docker_volume:
+    name: "{{ monitoring_alertmanager_volume }}"
+    state: present
+
+# ============================================================================
+# Container Deployment
+# ============================================================================
+- name: Pull Alertmanager image
+  community.docker.docker_image:
+    name: "{{ monitoring_alertmanager_image_name }}:{{ monitoring_alertmanager_image_tag }}"
+    source: pull
+    state: present
+  notify: restart monitoring-alertmanager
+
+- name: Deploy Alertmanager container
+  community.docker.docker_container:
+    name: "{{ monitoring_alertmanager_container_name }}"
+    image: "{{ monitoring_alertmanager_image_name }}:{{ monitoring_alertmanager_image_tag }}"
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ monitoring_alertmanager_network }}"
+    published_ports:
+      - "{{ monitoring_alertmanager_host_port }}:{{ monitoring_alertmanager_container_port }}/tcp"
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+      - "--storage.path=/alertmanager"
+      - "--web.listen-address=0.0.0.0:{{ monitoring_alertmanager_container_port }}"  # project-lint: disable=all  bind address
+    volumes:
+      - "{{ monitoring_alertmanager_config_dir }}/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro"
+      - "{{ monitoring_alertmanager_volume }}:/alertmanager:rw"
+    env:
+      TZ: "{{ localnet_tz | default('UTC') }}"
+    log_driver: json-file
+    log_options:
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:{{ monitoring_alertmanager_container_port }}/-/healthy || exit 1"]
+      interval: "{{ monitoring_alertmanager_healthcheck_interval }}"
+      timeout: "{{ monitoring_alertmanager_healthcheck_timeout }}"
+      retries: "{{ monitoring_alertmanager_healthcheck_retries }}"
+      start_period: "{{ monitoring_alertmanager_healthcheck_start_period }}"
+  notify: restart monitoring-alertmanager
+
+# ============================================================================
+# Status Report
+# ============================================================================
+- name: Report Alertmanager status
+  ansible.builtin.debug:
+    msg: |
+      Alertmanager deployed successfully:
+      - Web:    http://localhost:{{ monitoring_alertmanager_host_port }}
+      - Health: http://localhost:{{ monitoring_alertmanager_host_port }}/-/healthy
+      - Container: {{ monitoring_alertmanager_container_name }}
+  tags: ["deploy", "monitoring", "alertmanager"]

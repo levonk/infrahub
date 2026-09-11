@@ -1,0 +1,46 @@
+---
+# defaults file for monitoring-grafana
+# Neutral, overridable defaults. No localnet-specific paths.
+# All ports and IPs must be variables — never hardcode.
+
+# ---------------------------------------------------------------------------
+# Image & Container
+# ---------------------------------------------------------------------------
+monitoring_grafana_container_name: "{{ infra_hostname_monitoring_grafana }}"
+monitoring_grafana_image_name: "grafana/grafana"
+monitoring_grafana_image_tag: "latest"
+
+# ---------------------------------------------------------------------------
+# Network
+# ---------------------------------------------------------------------------
+monitoring_grafana_network: "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"
+
+# ---------------------------------------------------------------------------
+# Ports — all variable-driven per ADR (host:container mapping)
+# ---------------------------------------------------------------------------
+monitoring_grafana_host_port: "{{ infra_port_monitoring_grafana_host }}"
+monitoring_grafana_container_port: "{{ infra_port_monitoring_grafana_container }}"
+
+# ---------------------------------------------------------------------------
+# Storage
+# ---------------------------------------------------------------------------
+monitoring_grafana_config_dir: "{{ infra_storage_monitoring_config_dir | default('/opt/localnet/monitoring/grafana') }}"
+monitoring_grafana_volume: "{{ infra_storage_monitoring_grafana_volume | default('localnet-monitoring-grafana-data-volume') }}"
+
+# ---------------------------------------------------------------------------
+# Domain
+# ---------------------------------------------------------------------------
+monitoring_grafana_domain: "{{ infra_domain_monitoring_grafana }}"
+
+# ---------------------------------------------------------------------------
+# Secrets
+# ---------------------------------------------------------------------------
+monitoring_grafana_admin_password: "{{ vault_grafana_admin_password | default('change-me') }}"
+
+# ---------------------------------------------------------------------------
+# Healthcheck
+# ---------------------------------------------------------------------------
+monitoring_grafana_healthcheck_interval: "{{ infra_healthcheck_interval }}"
+monitoring_grafana_healthcheck_timeout: "{{ infra_healthcheck_timeout }}"
+monitoring_grafana_healthcheck_retries: "{{ infra_healthcheck_retries }}"
+monitoring_grafana_healthcheck_start_period: "{{ infra_healthcheck_start_period }}"
