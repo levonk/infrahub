@@ -47,6 +47,6 @@ monitoring_synthetic_probes_web_target_url: "http://example.com"
 # ---------------------------------------------------------------------------
 # VPN/Egress Pipeline
 # ---------------------------------------------------------------------------
-monitoring_synthetic_probes_host_public_ip: "{{ ansible_default_ipv4.address | default('') }}"
+monitoring_synthetic_probes_host_public_ip: "{{ ansible_facts['default_ipv4']['address'] | default('') }}"
 monitoring_synthetic_probes_nordvpn_socks5: "{{ infra_hostname_vpn_nordvpn | default('localnet-vpn-nordvpn') }}:{{ infra_port_vpn_nordvpn_socks_container | default(1080) }}"  # project-lint: disable=magic-int  nordvpn socks port
 monitoring_synthetic_probes_tor_socks5_hostname: "{{ infra_hostname_proxy_tor | default('localnet-proxy-tor') }}:{{ infra_port_proxy_tor_socks5_container | default(9050) }}"  # project-lint: disable=magic-int  tor socks port
