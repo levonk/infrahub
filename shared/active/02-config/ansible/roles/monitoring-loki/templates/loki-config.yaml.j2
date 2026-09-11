@@ -35,18 +35,17 @@ limits_config:
 schema_config:
   configs:
     - from: 2020-10-24  # project-lint: disable=magic-int  schema date
-      store: boltdb-shipper
+      store: tsdb
       object_store: filesystem
-      schema: v11
+      schema: v13
       index:
         prefix: index_
         period: 24h  # project-lint: disable=magic-unitnum  duration
 
 storage_config:
-  boltdb_shipper:
+  tsdb_shipper:
     active_index_directory: /loki/index
     cache_location: /loki/index_cache
-    shared_store: filesystem
   filesystem:
     directory: /loki/chunks
 
