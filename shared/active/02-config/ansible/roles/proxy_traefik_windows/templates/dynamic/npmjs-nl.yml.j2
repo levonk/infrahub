@@ -6,8 +6,15 @@
 # runs on this machine, so routing is local (container name + port).
 #
 # Security: Web UI is behind Authelia SSO (forwarded to OCI via Tailscale).
-# npm CLI endpoints (/-/) bypass Authelia — npm CLI authenticates via
-# htpasswd tokens directly.
+# npm CLI endpoints bypass Authelia — npm CLI authenticates via htpasswd
+# tokens directly. Traefik still terminates TLS and applies security
+# headers, rate limiting, and access logging for all traffic.
+#
+# Routing strategy: The web UI router matches ONLY the root path (/) with
+# high priority and applies Authelia. The npm CLI router matches ALL
+# other paths with lower priority, bypassing Authelia. npm CLI never
+# fetches the root path — it uses /-/ping for connectivity checks and
+# /<package> for metadata.
 
 http:
   routers:
@@ -20,26 +27,29 @@ http:
         - redirect-to-https
       service: verdaccio-nl
 
-    # HTTPS — npm CLI endpoints (bypass Authelia, use htpasswd tokens)
-    # Priority higher than the web UI router so /-/ paths match this one first
-    verdaccio-nl-npm-cli:
-      rule: "Host(`{{ proxy_traefik_windows_verdaccio_domain }}`) && PathPrefix(`/-/`)"
-      entryPoints:
-        - websecure
-      priority: 100  # project-lint: disable=magic-int  nftables chain priority, not a standalone magic number
-      service: verdaccio-nl
-      tls:
-        certResolver: letsencrypt
-
-    # HTTPS — Web UI behind Authelia SSO
-    verdaccio-nl-https:
-      rule: "Host(`{{ proxy_traefik_windows_verdaccio_domain }}`)"
+    # HTTPS — Web UI (root path only) behind Authelia SSO
+    # Highest priority so / matches this router, not the catch-all below
+    verdaccio-nl-web-ui:
+      rule: "Host(`{{ proxy_traefik_windows_verdaccio_domain }}`) && Path(`/`)"
       entryPoints:
         - websecure
 {% if proxy_traefik_windows_authelia_enabled %}
       middlewares:
         - authelia
 {% endif %}
+      priority: 200  # project-lint: disable=magic-int  higher than npm-cli catch-all
+      service: verdaccio-nl
+      tls:
+        certResolver: letsencrypt
+
+    # HTTPS — npm CLI (all other paths, bypass Authelia)
+    # Lower priority than the web UI router. Matches /-/*, /<package>,
+    # /@scope/<pkg>, /<pkg>/-/<tgz> — everything except the root /.
+    verdaccio-nl-npm-cli:
+      rule: "Host(`{{ proxy_traefik_windows_verdaccio_domain }}`)"
+      entryPoints:
+        - websecure
+      priority: 100  # project-lint: disable=magic-int  lower than web-ui root match
       service: verdaccio-nl
       tls:
         certResolver: letsencrypt

@@ -5,8 +5,16 @@
 # SAME-MACHINE ROUTING: Verdaccio runs on the OCI cloud server (cno),
 # same machine as Traefik. Routes to the container via the traefik-network.
 #
-# Security: Web UI is behind Authelia SSO. npm CLI endpoints (/-/) bypass
-# Authelia — npm CLI authenticates via htpasswd tokens directly.
+# Security: Web UI is behind Authelia SSO. npm CLI endpoints bypass
+# Authelia — npm CLI authenticates via htpasswd tokens directly. Traefik
+# still terminates TLS and applies security headers, rate limiting, and
+# access logging for all traffic.
+#
+# Routing strategy: The web UI router matches ONLY the root path (/) with
+# high priority and applies Authelia. The npm CLI router matches ALL
+# other paths with lower priority, bypassing Authelia. npm CLI never
+# fetches the root path — it uses /-/ping for connectivity checks and
+# /<package> for metadata.
 
 http:
   routers:
@@ -19,24 +27,27 @@ http:
         - redirect-to-https
       service: verdaccio-cno
 
-    # HTTPS — npm CLI endpoints (bypass Authelia, use htpasswd tokens)
-    # Priority higher than the web UI router so /-/ paths match this one first
-    verdaccio-cno-npm-cli:
-      rule: "Host(`{{ verdaccio_domain_cno }}`) && PathPrefix(`/-/`)"
-      entryPoints:
-        - websecure
-      priority: 100  # project-lint: disable=magic-int  nftables chain priority, not a standalone magic number
-      service: verdaccio-cno
-      tls:
-        certResolver: letsencrypt
-
-    # HTTPS — Web UI behind Authelia SSO
-    verdaccio-cno-https:
-      rule: "Host(`{{ verdaccio_domain_cno }}`)"
+    # HTTPS — Web UI (root path only) behind Authelia SSO
+    # Highest priority so / matches this router, not the catch-all below
+    verdaccio-cno-web-ui:
+      rule: "Host(`{{ verdaccio_domain_cno }}`) && Path(`/`)"
       entryPoints:
         - websecure
       middlewares:
         - authelia
+      priority: 200  # project-lint: disable=magic-int  higher than npm-cli catch-all
+      service: verdaccio-cno
+      tls:
+        certResolver: letsencrypt
+
+    # HTTPS — npm CLI (all other paths, bypass Authelia)
+    # Lower priority than the web UI router. Matches /-/*, /<package>,
+    # /@scope/<pkg>, /<pkg>/-/<tgz> — everything except the root /.
+    verdaccio-cno-npm-cli:
+      rule: "Host(`{{ verdaccio_domain_cno }}`)"
+      entryPoints:
+        - websecure
+      priority: 100  # project-lint: disable=magic-int  lower than web-ui root match
       service: verdaccio-cno
       tls:
         certResolver: letsencrypt

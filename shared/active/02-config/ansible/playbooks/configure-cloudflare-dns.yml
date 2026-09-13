@@ -647,6 +647,14 @@
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
 
+      # Main Grafana monitoring dashboards (SSO-protected)
+      - name: "{{ infra_domain_monitoring_grafana | default('grafana.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "CNAME"
+        content: "{{ ts_fqdn }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
       # n8n Grafana dashboards (SSO-protected)
       - name: "{{ infra_domain_ai_n8n_grafana | default('n8n-grafana.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
