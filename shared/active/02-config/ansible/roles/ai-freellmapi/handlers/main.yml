@@ -1,0 +1,8 @@
+---
+# FreeLLMAPI handlers
+
+- name: restart ai-freellmapi
+  community.docker.docker_container:
+    name: "{{ ai_freellmapi_container_name }}"
+    state: started
+    restart: true

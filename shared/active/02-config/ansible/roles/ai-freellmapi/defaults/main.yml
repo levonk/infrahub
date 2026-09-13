@@ -1,0 +1,47 @@
+---
+# FreeLLMAPI default variables
+# FreeLLMAPI is a free-tier LLM aggregator: aggregates 34+ providers behind a
+# single OpenAI-compatible /v1 endpoint with automatic fallover.
+# Domain: freellmapi.<base>
+
+# Container configuration
+ai_freellmapi_container_name: "{{ infra_hostname_ai_freellmapi | default('localnet-ai-freellmapi') }}"
+ai_freellmapi_image_name: "ghcr.io/tashfeenahmed/freellmapi"
+ai_freellmapi_image_tag: "latest"
+
+# Port configuration (reference infrastructure variables)
+ai_freellmapi_host_port: "{{ infra_port_ai_freellmapi_host }}"
+ai_freellmapi_container_port: "{{ infra_port_ai_freellmapi_container }}"
+
+# Network configuration (traefik-network for Traefik routing)
+ai_freellmapi_network_name: "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"
+
+# Domain for Traefik routing
+ai_freellmapi_domain: "{{ infra_domain_ai_freellmapi | default('freellmapi.' ~ (infra_domain_base | default('example.com'))) }}"
+
+# Volume (SQLite database with encrypted provider keys)
+ai_freellmapi_volume_name: "{{ infra_storage_ai_freellmapi_volume | default('localnet-ai-freellmapi-data-volume') }}"
+
+# Healthcheck — MUST use string with unit suffix, NOT bare integers
+ai_freellmapi_healthcheck_interval: "30s"
+ai_freellmapi_healthcheck_timeout: "5s"
+ai_freellmapi_healthcheck_retries: 3
+ai_freellmapi_healthcheck_start_period: "15s"
+
+# Container logging
+ai_freellmapi_log_max_size: "10m"
+ai_freellmapi_log_max_file: 5
+
+# Health verification wait_for
+ai_freellmapi_wait_delay: 10
+ai_freellmapi_wait_timeout: 120
+ai_freellmapi_localhost: "127.0.0.1"
+
+# Secrets (reference vault with safe default)
+ai_freellmapi_encryption_key: "{{ vault_ai_freellmapi_encryption_key | default('') }}"
+
+# Trust Traefik as a single reverse proxy hop (for X-Forwarded-For/Proto)
+ai_freellmapi_trust_proxy: "1"
+
+# Verify health after deploy
+ai_freellmapi_verify_health: true

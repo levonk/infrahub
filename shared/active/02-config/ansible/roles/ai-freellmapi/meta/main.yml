@@ -1,0 +1,12 @@
+---
+galaxy_info:
+  role_name: ai_freellmapi
+  author: localnet
+  description: Deploy FreeLLMAPI — free-tier LLM aggregator with OpenAI-compatible /v1 endpoint
+  license: MIT
+  min_ansible_version: "2.9"
+  platforms:
+    - name: EL
+      versions:
+        - "8"
+        - "9"

@@ -1,0 +1,89 @@
+---
+# FreeLLMAPI Deployment
+# Deploys FreeLLMAPI — a free-tier LLM aggregator that aggregates 34+ providers
+# behind a single OpenAI-compatible /v1 endpoint with automatic fallover.
+
+- name: Validate required variables are defined
+  ansible.builtin.assert:
+    that:
+      - ai_freellmapi_container_name is defined
+      - ai_freellmapi_image_name is defined
+      - ai_freellmapi_host_port is defined
+      - ai_freellmapi_container_port is defined
+      - ai_freellmapi_encryption_key is defined
+    fail_msg: >-
+      Missing required FreeLLMAPI variables. Check infrastructure files
+      (ports.yml, domains.yml, storage.yml) and vault for
+      vault_ai_freellmapi_encryption_key.
+    success_msg: "All required FreeLLMAPI variables are defined."
+  tags: ["always", "validate"]
+
+# 1. Volume
+- name: Ensure FreeLLMAPI data volume exists
+  community.docker.docker_volume:
+    name: "{{ ai_freellmapi_volume_name }}"
+    state: present
+
+# 2. Image pull — MUST use source: pull, NEVER source: build
+- name: Pull FreeLLMAPI image
+  community.docker.docker_image:
+    name: "{{ ai_freellmapi_image_name }}:{{ ai_freellmapi_image_tag }}"
+    source: pull
+    state: present
+  notify: restart ai-freellmapi
+
+# 3. Container — MUST use community.docker.docker_container, NEVER docker compose
+- name: Deploy FreeLLMAPI container
+  community.docker.docker_container:
+    name: "{{ ai_freellmapi_container_name }}"
+    image: "{{ ai_freellmapi_image_name }}:{{ ai_freellmapi_image_tag }}"
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ ai_freellmapi_network_name }}"
+    published_ports:
+      - "{{ ai_freellmapi_host_port }}:{{ ai_freellmapi_container_port }}/tcp"
+    volumes:
+      - "{{ ai_freellmapi_volume_name }}:/app/server/data:rw"
+    env:
+      NODE_ENV: "production"
+      PORT: "{{ ai_freellmapi_container_port }}"
+      ENCRYPTION_KEY: "{{ ai_freellmapi_encryption_key }}"
+      TRUST_PROXY: "{{ ai_freellmapi_trust_proxy }}"
+      TZ: "{{ localnet_tz | default('UTC') }}"
+    log_driver: json-file
+    log_options:
+      max-size: "{{ ai_freellmapi_log_max_size }}"
+      max-file: "{{ ai_freellmapi_log_max_file }}"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://{{ ai_freellmapi_localhost }}:{{ ai_freellmapi_container_port }}/api/ping').then((res) => { if (!res.ok) process.exit(1); }).catch(() => process.exit(1));\""]  # project-lint: disable=magic-int  Node.js exit code in healthcheck command, not an operational value
+      interval: "{{ ai_freellmapi_healthcheck_interval }}"
+      timeout: "{{ ai_freellmapi_healthcheck_timeout }}"
+      retries: "{{ ai_freellmapi_healthcheck_retries }}"
+      start_period: "{{ ai_freellmapi_healthcheck_start_period }}"
+  notify: restart ai-freellmapi
+
+# 4. Wait for health
+- name: Wait for FreeLLMAPI to be healthy
+  ansible.builtin.wait_for:
+    host: "{{ ai_freellmapi_localhost }}"
+    port: "{{ ai_freellmapi_host_port }}"
+    delay: "{{ ai_freellmapi_wait_delay }}"
+    timeout: "{{ ai_freellmapi_wait_timeout }}"
+  when: ai_freellmapi_verify_health | default(true) | bool
+
+# 5. Status report
+- name: Get FreeLLMAPI container status
+  community.docker.docker_container_info:
+    name: "{{ ai_freellmapi_container_name }}"
+  register: ai_freellmapi_container_info
+  ignore_errors: true
+
+- name: Report FreeLLMAPI status
+  ansible.builtin.debug:
+    msg: |
+      FreeLLMAPI deployed:
+        - URL: https://{{ ai_freellmapi_domain }}
+        - Container: {{ ai_freellmapi_container_name }}
+        - Status: {{ ai_freellmapi_container_info.container.State.Status | default('unknown') }}
+  tags: ["always", "info"]

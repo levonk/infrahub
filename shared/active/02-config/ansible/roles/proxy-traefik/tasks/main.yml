@@ -235,6 +235,18 @@
   notify: reload traefik
   when: ai_buzz_enabled | default(false) | bool
 
+- name: Deploy FreeLLMAPI dynamic configuration template
+  ansible.builtin.template:
+    src: dynamic/freellmapi.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/freellmapi.yml"
+    owner: root
+    group: root
+    mode: "{{ infra_mode_file }}"
+  become: true
+  notify: reload traefik
+  when: ai_freellmapi_enabled | default(false) | bool
+  tags: ["deploy", "traefik", "freellmapi"]
+
 - name: Deploy AI InterFace (aiif / Omnigent) dynamic configuration template
   ansible.builtin.template:
     src: dynamic/aiif.yml.j2

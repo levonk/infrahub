@@ -127,6 +127,19 @@
       tags: ["deploy", "omniroute"]
 
     # ===========================================================================
+    # Stage 4: FreeLLMAPI (Free-tier LLM aggregator)
+    # Aggregates 34+ free-tier LLM providers behind a single OpenAI-compatible
+    # /v1 endpoint with automatic fallover and per-key rate tracking.
+    # Domain: freellmapi.<base>
+    # Coexists with LiteLLM (different purpose: free-tier aggregation vs
+    # enterprise gateway with spend tracking).
+    # ===========================================================================
+    - name: "Deploy freellmapi via role"
+      ansible.builtin.include_role:
+        name: ai-freellmapi
+      tags: ["deploy", "freellmapi"]
+
+    # ===========================================================================
     # Verification — read-only container status checks
     # ===========================================================================
     - name: "Verify litellm container is running"
@@ -169,6 +182,16 @@
       ignore_errors: true
       tags: ["verify", "omniroute"]
 
+    - name: "Verify freellmapi container is running"
+      ansible.builtin.command:
+        cmd: "docker inspect --format='{% raw %}{{.State.Status}}{% endraw %}' {{ ai_freellmapi_container_name }}"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: freellmapi_status
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "freellmapi"]
+
     - name: "Display container status summary"
       ansible.builtin.debug:
         msg: |
@@ -177,6 +200,7 @@
             litellm-postgres: {{ litellm_postgres_status.stdout | default('NOT FOUND') }}
             headroom:         {{ headroom_status.stdout | default('NOT FOUND') }}
             omniroute:        {{ omniroute_status.stdout | default('NOT FOUND') }}
+            freellmapi:       {{ freellmapi_status.stdout | default('NOT FOUND') }}
       tags: ["verify", "summary"]
 
   post_tasks:
@@ -196,6 +220,8 @@
           - Headroom: context compression (proxy-chain {{ infra_network_ai_subnet_ip_13 }})
           - OmniRoute: provider fanout (airoute.<base>, proxy-chain {{ infra_network_ai_subnet_ip_14 }})
             - Tier-based fallback, 9-factor auto-combo scoring, free-tier draining
+          - FreeLLMAPI: free-tier LLM aggregator (freellmapi.<base>, traefik-network)
+            - 34+ free-tier providers, automatic fallover, per-key rate tracking  # project-lint: disable=magic-int  provider count in description, not an operational value
           ----------------------------------------
           Pipeline Flow:
           Omnigent -> Pi -> LiteLLM (aigate) -> Headroom -> OmniRoute (airoute) -> Forge -> Iron-Proxy -> NordVPN
@@ -205,5 +231,7 @@
           - LiteLLM API: https://aigate.<base>/v1 (or http://localhost:4000)  # project-lint: disable=magic-int  XML config value, not an operational value
           - OmniRoute Dashboard: https://airoute.<base>
           - OmniRoute API: https://airoute.<base>/v1 (or http://localhost:{{ infra_port_vpn_netbird_management_host }})
+          - FreeLLMAPI Dashboard: https://freellmapi.<base>
+          - FreeLLMAPI API: https://freellmapi.<base>/v1 (or http://localhost:{{ infra_port_ai_freellmapi_host }})
           ========================================
       tags: ["always", "summary"]

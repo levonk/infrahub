@@ -98,6 +98,28 @@ services:
       label: "Redis"
   network: "proxy-chain-network"
 
+- name: "FreeLLMAPI"
+  container: "{{ infra_hostname_ai_freellmapi }}"
+  machine: "oci-cloud-server"
+  category: "ai"
+  description: "Free-tier LLM aggregator — OpenAI-compatible /v1 endpoint with automatic fallover across 34+ providers"  # project-lint: disable=magic-int  provider count in description, not an operational value
+  source_repo: "https://github.com/tashfeenahmed/freellmapi"
+  domains:
+    - "infra_domain_ai_freellmapi"
+  ports:
+    - host: "infra_port_ai_freellmapi_host"
+      container: "infra_port_ai_freellmapi_container"
+      label: "Web/API"
+  traefik: true
+  health_endpoint: "/api/ping"
+  pipeline: "ai"
+  pipeline_stage: "gateway"
+  alert_labels:
+    pipeline: "ai"
+    stage: "gateway"
+    service: "freellmapi"
+  network: "traefik-network"
+
 - name: "OmniRoute"
   container: "{{ infra_hostname_omniroute }}"
   machine: "oci-cloud-server"
