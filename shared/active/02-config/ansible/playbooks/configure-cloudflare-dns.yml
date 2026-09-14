@@ -732,5 +732,14 @@
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
 
+      # Local Watch Party — synchronized movie watching with friends
+      # Web UI behind Traefik + Authelia SSO on the OCI cloud server.
+      - name: "{{ infra_domain_media_watch_party | default('watch.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "CNAME"
+        content: "{{ ts_fqdn }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
   roles:
     - cloudflare-dns

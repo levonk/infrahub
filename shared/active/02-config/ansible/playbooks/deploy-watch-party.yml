@@ -13,8 +13,12 @@
 #   3. Traefik + Authelia deployed: just ansible-deploy-infra
 #   4. Watch Party image built and pushed: just docker-build-push localnet-media-watch-party
 #   5. Vault secrets set: vault_media_watch_party_turn_password
-#   6. DNS record for watch.<base> pointing to the OCI public IP
-#   7. Firewall open for HTTP/HTTPS + coturn ports (3487 tcp/udp, 49000-49050 udp)
+#   6. DNS CNAME configured: just ansible-deploy-dns (configure-cloudflare-dns.yml)
+#
+# Note: coturn external firewall ports (3487 tcp/udp, 49000-49050 udp) are
+# NOT opened by this playbook. coturn currently works on Tailscale only.
+# To enable external WebRTC voice chat later, add firewall rules for those
+# ports via the proxy-firewall role.
 #
 # Usage:
 #   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
