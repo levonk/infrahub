@@ -574,3 +574,50 @@ docker save <image> | gzip > /tmp/image.tar.gz
 scp /tmp/image.tar.gz 'dtop202311.tale-grouper.ts.net:C:/Users/ansible/image.tar.gz'
 ssh dtop202311.tale-grouper.ts.net 'docker load -i C:/Users/ansible/image.tar.gz'
 ```
+
+### Traefik Dynamic Config: Domain Variables Must Be in proxy-traefik Defaults
+
+When adding a new Traefik dynamic config template (e.g., `watch-party.yml.j2`) to the `proxy-traefik` role, the domain/container variables it references (e.g., `media_watch_party_domain`, `media_watch_party_container_name`) must be defined in `proxy-traefik/defaults/main.yml`, NOT just in the service role's defaults.
+
+**Why?** The `cloud-server-infra.yml` playbook includes the `proxy-traefik` role but does NOT include individual service roles. If the template references a variable only defined in the service role's defaults, it will fail with `'<varname>' is undefined` when running `cloud-server-infra.yml --tags "<service>"`.
+
+**Pattern to follow** (see `media_watch_party_*` in `proxy-traefik/defaults/main.yml`):
+```yaml
+# In proxy-traefik/defaults/main.yml:
+media_watch_party_domain: "{{ infra_domain_media_watch_party | default('watch.' ~ (infra_domain_base | default('example.com'))) }}"
+media_watch_party_container_name: "{{ infra_hostname_media_watch_party | default('localnet-media-watch-party') }}"
+media_watch_party_container_port: "{{ infra_port_media_watch_party_container | default('3001') }}"
+```
+
+### project-lint Magic-Number Suppression
+
+The pre-commit hook flags magic numbers (IPs, ports, HTTP status codes) in YAML files. To suppress:
+
+1. **Inline comment** (preferred for role defaults): `media_watch_party_localhost: "127.0.0.1"  # project-lint: disable=magic-ipv4  reason`
+2. **Jinja default with infra var** (preferred for playbooks): `{{ infra_network_bind_localhost | default('127.0.0.1') }}` — but the literal in `default()` is still detected, so use `{{ infra_network_bind_localhost }}` (no default) when the infra var is loaded in pre_tasks.
+3. **Note**: Inline `# project-lint: disable=...` comments on the same line work in role defaults files but may not work in playbook files with deeper indentation. For playbooks, prefer referencing infra vars without defaults.
+
+### Non-HTTP Services (coturn, WebRTC) — Direct Port Exposure
+
+Services that use non-HTTP protocols (UDP relay, STUN/TURN) cannot be routed through Traefik. They must be deployed with direct port exposure via `published_ports` in the Docker container.
+
+**Pattern** (see `media-coturn` role):
+- Container publishes UDP/TCP ports directly to the host
+- Firewall rules are NOT added by the deploy playbook — they're added separately when external access is needed
+- For Tailscale-only access, no firewall rules are needed (Tailscale traffic bypasses the host firewall)
+- To enable external access later, add firewall rules via the `proxy-firewall` role
+
+### DNS Records: Add to configure-cloudflare-dns.yml, Not Manually
+
+DNS records for new services must be added to the `cloudflare_dns_records` list in `configure-cloudflare-dns.yml`, following the existing CNAME-to-Tailscale-FQDN pattern:
+
+```yaml
+- name: "{{ infra_domain_media_watch_party | default('watch.' ~ (infra_domain_base | default('example.com'))) }}"
+  type: "CNAME"
+  content: "{{ ts_fqdn }}"
+  ttl: "{{ cloudflare_dns_ttl }}"
+  proxied: "{{ cloudflare_dns_proxied }}"
+  state: "{{ cloudflare_dns_state }}"
+```
+
+**Note**: The `configure-cloudflare-dns.yml` playbook runs on `localhost` (not `cloud_servers`), and processes records in order. A failure on one record (e.g., pre-existing `search.levonk.com` 400 error) will abort before reaching later records. To deploy a single record, override `cloudflare_dns_records` via `--extra-vars`.
