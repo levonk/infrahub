@@ -124,6 +124,11 @@ wazuh_domain: "{{ infra_domain_security_wazuh }}"
 n8n_domain: "{{ infra_domain_ai_n8n }}"
 n8n_grafana_domain: "{{ infra_domain_ai_n8n_grafana }}"
 
+# Local Watch Party — domain + container naming for Traefik dynamic config
+media_watch_party_domain: "{{ infra_domain_media_watch_party | default('watch.' ~ (infra_domain_base | default('example.com'))) }}"
+media_watch_party_container_name: "{{ infra_hostname_media_watch_party | default('localnet-media-watch-party') }}"
+media_watch_party_container_port: "{{ infra_port_media_watch_party_container | default('3001') }}"  # project-lint: disable=magic-int  fallback default matches shared ports.yml
+
 # ---------------------------------------------------------------------------
 # AI Gateway Integration Flags (enable Traefik dynamic config for each service)
 # ---------------------------------------------------------------------------

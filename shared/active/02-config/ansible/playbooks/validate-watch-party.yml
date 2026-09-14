@@ -44,7 +44,7 @@
         coturn_container: "{{ infra_hostname_media_coturn | default('localnet-media-coturn') }}"
         watch_party_host_port_val: "{{ infra_port_media_watch_party_host | default('3137') }}"  # project-lint: disable=magic-int  fallback default matches shared ports.yml
         watch_party_domain_val: "{{ infra_domain_media_watch_party | default('watch.levonk.com') }}"
-        watch_party_localhost_val: "{{ media_watch_party_localhost }}"  # project-lint: disable=magic-ipv4  localhost from role defaults
+        watch_party_localhost_val: "{{ infra_network_bind_localhost }}"  # project-lint: disable=magic-ipv4  localhost from infra vars
         http_status_ok: "{{ infra_http_status_ok | default(200) }}"  # project-lint: disable=magic-int  HTTP 200 from infra vars
         http_status_redirect: "{{ infra_http_status_redirect | default(302) }}"  # project-lint: disable=magic-int  HTTP 302 from infra vars
         http_status_unauthorized: "{{ infra_http_status_unauthorized | default(401) }}"  # project-lint: disable=magic-int  HTTP 401 from infra vars
