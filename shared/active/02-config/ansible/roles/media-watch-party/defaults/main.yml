@@ -1,0 +1,54 @@
+---
+# Local Watch Party default variables
+# Synchronized movie watching with friends — self-hosted web app with
+# real-time playback sync, dual-language subtitles, and WebRTC voice chat.
+# Domain: watch.<base>
+
+# Container configuration
+media_watch_party_container_name: "{{ infra_hostname_media_watch_party | default('localnet-media-watch-party') }}"
+media_watch_party_image_name: "{{ local_registry | default('100.90.22.85:5000') }}/localnet-media-watch-party"  # project-lint: disable=magic-ipport  local registry fallback when local_registry var not set
+media_watch_party_image_tag: "latest"
+
+# Port configuration (reference infrastructure variables)
+media_watch_party_host_port: "{{ infra_port_media_watch_party_host | default('3137') }}"  # project-lint: disable=magic-int  fallback default matches shared ports.yml
+media_watch_party_container_port: "{{ infra_port_media_watch_party_container | default('3001') }}"  # project-lint: disable=magic-int  fallback default matches shared ports.yml
+
+# Network configuration (traefik-network for Traefik routing)
+media_watch_party_network_name: "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"
+
+# Domain for Traefik routing
+media_watch_party_domain: "{{ infra_domain_media_watch_party | default('watch.' ~ (infra_domain_base | default('example.com'))) }}"
+
+# Volumes (uploads + HLS cache)
+media_watch_party_uploads_volume: "{{ infra_storage_media_watch_party_uploads_volume | default('localnet-media-watch-party-uploads-volume') }}"
+media_watch_party_hls_cache_volume: "{{ infra_storage_media_watch_party_hls_cache_volume | default('localnet-media-watch-party-hls-cache-volume') }}"
+
+# Healthcheck — MUST use string with unit suffix, NOT bare integers
+media_watch_party_healthcheck_interval: "30s"
+media_watch_party_healthcheck_timeout: "5s"
+media_watch_party_healthcheck_retries: 3
+media_watch_party_healthcheck_start_period: "15s"
+
+# Container logging
+media_watch_party_log_max_size: "10m"
+media_watch_party_log_max_file: 5
+
+# Health verification wait_for
+media_watch_party_wait_delay: 10
+media_watch_party_wait_timeout: 120
+media_watch_party_localhost: "127.0.0.1"  # project-lint: disable=magic-ipv4  localhost bind address for health checks
+
+# WebRTC ICE servers (JSON array of RTCIceServer objects)
+# Includes coturn STUN+TURN for voice chat NAT traversal
+media_watch_party_turn_username: "watchparty"
+media_watch_party_turn_credential: "{{ vault_media_watch_party_turn_password | default('') }}"
+media_watch_party_turn_host: "{{ media_watch_party_domain }}"
+media_watch_party_turn_port: "{{ infra_port_media_coturn_stun_turn_host | default('3487') }}"  # project-lint: disable=magic-int  fallback default matches shared ports.yml
+media_watch_party_ice_servers: >-
+  [
+    {"urls":"stun:{{ media_watch_party_turn_host }}:{{ media_watch_party_turn_port }}"},
+    {"urls":"turn:{{ media_watch_party_turn_host }}:{{ media_watch_party_turn_port }}?transport=udp","username":"{{ media_watch_party_turn_username }}","credential":"{{ media_watch_party_turn_credential }}"}
+  ]
+
+# Verify health after deploy
+media_watch_party_verify_health: true

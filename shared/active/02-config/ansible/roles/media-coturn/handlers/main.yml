@@ -1,0 +1,8 @@
+---
+# media-coturn handlers
+
+- name: restart media-coturn
+  community.docker.docker_container:
+    name: "{{ media_coturn_container_name }}"
+    state: started
+    restart: true

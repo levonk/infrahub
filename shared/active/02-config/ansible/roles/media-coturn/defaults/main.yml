@@ -1,0 +1,47 @@
+---
+# coturn default variables
+# STUN/TURN server for WebRTC voice chat (Local Watch Party).
+# Upstream image: coturn/coturn:4.17.2-alpine (multi-arch arm64+amd64).
+# NOT routed through Traefik — direct port exposure (UDP relay incompatible).
+
+# Container configuration
+media_coturn_container_name: "{{ infra_hostname_media_coturn | default('localnet-media-coturn') }}"
+media_coturn_image_name: "coturn/coturn"
+media_coturn_image_tag: "4.17.2-alpine"
+
+# Port configuration (reference infrastructure variables)
+# Port 3478 is taken by NetBird, so coturn uses 3487 on the host
+media_coturn_stun_turn_host_port: "{{ infra_port_media_coturn_stun_turn_host | default('3487') }}"  # project-lint: disable=magic-int  fallback default matches shared ports.yml
+media_coturn_stun_turn_container_port: "{{ infra_port_media_coturn_stun_turn_container | default('3478') }}"  # project-lint: disable=magic-int  fallback default matches shared ports.yml
+media_coturn_relay_min_port: "{{ infra_port_media_coturn_relay_min_container | default('49000') }}"  # project-lint: disable=magic-int  fallback default matches shared ports.yml
+media_coturn_relay_max_port: "{{ infra_port_media_coturn_relay_max_container | default('49050') }}"  # project-lint: disable=magic-int  fallback default matches shared ports.yml
+
+# Network configuration — coturn needs host network for UDP relay
+# Using published_ports instead of network_mode: host for consistency
+media_coturn_network_name: "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"
+
+# Realm (uses the watch-party domain)
+media_coturn_realm: "{{ infra_domain_media_watch_party | default('watch.' ~ (infra_domain_base | default('example.com'))) }}"
+
+# Authentication
+media_coturn_username: "watchparty"
+media_coturn_password: "{{ vault_media_watch_party_turn_password | default('') }}"
+
+# External IP detection — set to the host's public IP or leave empty for auto-detect
+media_coturn_external_ip: ""
+
+# Bind address
+media_coturn_bind_address: "0.0.0.0"  # project-lint: disable=magic-ipv4  bind-all address for coturn TURN server
+
+# Healthcheck
+media_coturn_healthcheck_interval: "30s"
+media_coturn_healthcheck_timeout: "5s"
+media_coturn_healthcheck_retries: 3
+media_coturn_healthcheck_start_period: "10s"
+
+# Container logging
+media_coturn_log_max_size: "10m"
+media_coturn_log_max_file: 5
+
+# Verify health after deploy
+media_coturn_verify_health: true

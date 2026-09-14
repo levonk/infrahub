@@ -1719,6 +1719,58 @@ services:
     service: "unpackarr"
 
 # ===========================================================================
+# Local Watch Party + coturn (cno region = oci-cloud-server, ARM64)
+# Synchronized movie watching with friends — self-hosted web app with
+# real-time playback sync, dual-language subtitles, and WebRTC voice chat.
+# Both services run on the OCI cloud server. Watch Party is behind Traefik
+# with Authelia SSO; coturn is directly exposed (UDP relay incompatible with
+# HTTP reverse proxies).
+# ===========================================================================
+
+- name: "Local Watch Party"
+  container: "{{ infra_hostname_media_watch_party }}"
+  machine: "oci-cloud-server"
+  category: "ui"
+  description: "Synchronized movie watching with friends — playback sync, subtitles, voice chat"
+  source_repo: "https://github.com/smSamani/Local-Watch-Party"
+  domains:
+    - "infra_domain_media_watch_party"
+  ports:
+    - host: "infra_port_media_watch_party_host"
+      container: "infra_port_media_watch_party_container"
+      label: "Web UI + Socket.IO"
+  traefik: true
+  network: "traefik-network"
+  health_endpoint: "/api/health"
+  pipeline: "none"
+  pipeline_stage: "standalone"
+  alert_labels:
+    pipeline: "none"
+    stage: "standalone"
+    service: "watch-party"
+
+- name: "coturn (Watch Party)"
+  container: "{{ infra_hostname_media_coturn }}"
+  machine: "oci-cloud-server"
+  category: "proxy"
+  description: "STUN/TURN server for WebRTC voice chat relay (Local Watch Party)"
+  source_repo: "https://github.com/coturn/coturn"
+  ports:
+    - host: "infra_port_media_coturn_stun_turn_host"
+      container: "infra_port_media_coturn_stun_turn_container"
+      label: "STUN/TURN (TCP+UDP)"
+    - host: "infra_port_media_coturn_relay_min_host"
+      container: "infra_port_media_coturn_relay_min_container"
+      label: "TURN relay range (UDP)"
+  traefik: false
+  pipeline: "none"
+  pipeline_stage: "standalone"
+  alert_labels:
+    pipeline: "none"
+    stage: "standalone"
+    service: "coturn"
+
+# ===========================================================================
 # Service Chains
 # Data-driven request-flow topology for proxy/cache chains.
 # The generate_service_catalog.py script renders each chain as a Mermaid

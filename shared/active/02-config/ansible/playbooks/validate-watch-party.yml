@@ -1,0 +1,124 @@
+---
+# Validate Local Watch Party + coturn deployment on OCI (cno)
+# Location: shared/active/02-config/ansible/playbooks/validate-watch-party.yml
+#
+# Read-only, idempotent post-deployment checks. Run after deploy-watch-party.yml.
+#
+# Usage:
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
+#     shared/active/02-config/ansible/playbooks/validate-watch-party.yml \
+#     --vault-password-file ~/.ansible/vault_password
+
+- name: "Validate Local Watch Party + coturn deployment on OCI (cno)"
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: "Load shared infrastructure defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+        - modes.yml
+        - timing.yml
+      tags: ["always"]
+
+    - name: "Load client infrastructure overrides (levonk)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+      tags: ["always"]
+
+  tasks:
+    - name: "Set validation variables"
+      ansible.builtin.set_fact:
+        watch_party_container: "{{ infra_hostname_media_watch_party | default('localnet-media-watch-party') }}"
+        coturn_container: "{{ infra_hostname_media_coturn | default('localnet-media-coturn') }}"
+        watch_party_host_port_val: "{{ infra_port_media_watch_party_host | default('3137') }}"  # project-lint: disable=magic-int  fallback default matches shared ports.yml
+        watch_party_domain_val: "{{ infra_domain_media_watch_party | default('watch.levonk.com') }}"
+        watch_party_localhost_val: "{{ media_watch_party_localhost }}"  # project-lint: disable=magic-ipv4  localhost from role defaults
+        http_status_ok: "{{ infra_http_status_ok | default(200) }}"  # project-lint: disable=magic-int  HTTP 200 from infra vars
+        http_status_redirect: "{{ infra_http_status_redirect | default(302) }}"  # project-lint: disable=magic-int  HTTP 302 from infra vars
+        http_status_unauthorized: "{{ infra_http_status_unauthorized | default(401) }}"  # project-lint: disable=magic-int  HTTP 401 from infra vars
+      tags: ["always"]
+
+    - name: "Get Watch Party container status"
+      community.docker.docker_container_info:
+        name: "{{ watch_party_container }}"
+      register: watch_party_container_info
+      ignore_errors: true
+
+    - name: "Get coturn container status"
+      community.docker.docker_container_info:
+        name: "{{ coturn_container }}"
+      register: coturn_container_info
+      ignore_errors: true
+
+    - name: "Check Watch Party health endpoint"
+      ansible.builtin.uri:
+        url: "http://{{ watch_party_localhost_val }}:{{ watch_party_host_port_val }}/api/health"
+        return_content: true
+        status_code: "{{ http_status_ok }}"
+      register: watch_party_health
+      ignore_errors: true
+
+    - name: "Check Watch Party config endpoint"
+      ansible.builtin.uri:
+        url: "http://{{ watch_party_localhost_val }}:{{ watch_party_host_port_val }}/api/config"
+        return_content: true
+        status_code: "{{ http_status_ok }}"
+      register: watch_party_config
+      ignore_errors: true
+
+    - name: "Check Watch Party HTTPS endpoint via Traefik"
+      ansible.builtin.uri:
+        url: "https://{{ watch_party_domain_val }}/api/health"
+        return_content: true
+        status_code: ["{{ http_status_ok }}", "{{ http_status_redirect }}", "{{ http_status_unauthorized }}"]
+        validate_certs: true
+      register: watch_party_https
+      ignore_errors: true
+      delegate_to: localhost
+      become: false
+
+    - name: "Display validation results"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Watch Party + coturn Validation Results
+          ========================================
+
+          Watch Party Container:
+            - Name: {{ watch_party_container }}
+            - Status: {{ watch_party_container_info.container.State.Status | default('NOT FOUND') }}
+            - Health: {{ watch_party_container_info.container.State.Health.Status | default('unknown') }}
+
+          coturn Container:
+            - Name: {{ coturn_container }}
+            - Status: {{ coturn_container_info.container.State.Status | default('NOT FOUND') }}
+
+          Watch Party Health (local):
+            - Endpoint: http://{{ watch_party_localhost_val }}:{{ watch_party_host_port_val }}/api/health
+            - HTTP Status: {{ watch_party_health.status | default('FAILED') }}
+            - Response: {{ watch_party_health.json | default('no response') }}
+
+          Watch Party Config (local):
+            - Endpoint: http://{{ watch_party_localhost_val }}:{{ watch_party_host_port_val }}/api/config
+            - HTTP Status: {{ watch_party_config.status | default('FAILED') }}
+            - ICE Servers: {{ (watch_party_config.json.iceServers | length) | default(infra_count_zero | default(0)) }}  # project-lint: disable=magic-int  default count when no response
+
+          Watch Party HTTPS (via Traefik):
+            - URL: https://{{ watch_party_domain_val }}/api/health
+            - HTTP Status: {{ watch_party_https.status | default('FAILED') }}
+            - Authelia: {{ 'active (401/302 = redirect to SSO)' if watch_party_https.status in [http_status_redirect | int, http_status_unauthorized | int] else 'check needed' }}  # project-lint: disable=magic-int  HTTP status codes from infra vars
+
+          ========================================
+      tags: ["always", "info"]

@@ -1,0 +1,95 @@
+---
+# Local Watch Party Deployment
+# Deploys Local Watch Party — synchronized movie watching with friends.
+# Locally-built image (multi-stage: node:20-alpine + ffmpeg).
+
+- name: Validate required variables are defined
+  ansible.builtin.assert:
+    that:
+      - media_watch_party_container_name is defined
+      - media_watch_party_image_name is defined
+      - media_watch_party_host_port is defined
+      - media_watch_party_container_port is defined
+      - media_watch_party_turn_credential is defined
+      - media_watch_party_turn_credential | length > 0
+    fail_msg: >-
+      Missing required Local Watch Party variables. Check infrastructure files
+      (ports.yml, domains.yml, storage.yml) and vault for
+      vault_media_watch_party_turn_password.
+    success_msg: "All required Local Watch Party variables are defined."
+  tags: ["always", "validate"]
+
+# 1. Volumes
+- name: Ensure Watch Party uploads volume exists
+  community.docker.docker_volume:
+    name: "{{ media_watch_party_uploads_volume }}"
+    state: present
+
+- name: Ensure Watch Party HLS cache volume exists
+  community.docker.docker_volume:
+    name: "{{ media_watch_party_hls_cache_volume }}"
+    state: present
+
+# 2. Image pull — MUST use source: pull, NEVER source: build
+- name: Pull Watch Party image
+  community.docker.docker_image:
+    name: "{{ media_watch_party_image_name }}:{{ media_watch_party_image_tag }}"
+    source: pull
+    state: present
+  notify: restart media-watch-party
+
+# 3. Container — MUST use community.docker.docker_container, NEVER docker compose
+- name: Deploy Watch Party container
+  community.docker.docker_container:
+    name: "{{ media_watch_party_container_name }}"
+    image: "{{ media_watch_party_image_name }}:{{ media_watch_party_image_tag }}"
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ media_watch_party_network_name }}"
+    published_ports:
+      - "{{ media_watch_party_localhost }}:{{ media_watch_party_host_port }}:{{ media_watch_party_container_port }}/tcp"
+    volumes:
+      - "{{ media_watch_party_uploads_volume }}:/app/uploads:rw"
+      - "{{ media_watch_party_hls_cache_volume }}:/app/hls-cache:rw"
+    env:
+      NODE_ENV: "production"
+      PORT: "{{ media_watch_party_container_port }}"
+      ICE_SERVERS: "{{ media_watch_party_ice_servers }}"
+      TZ: "{{ localnet_tz | default('UTC') }}"
+    log_driver: json-file
+    log_options:
+      max-size: "{{ media_watch_party_log_max_size }}"
+      max-file: "{{ media_watch_party_log_max_file }}"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://{{ media_watch_party_localhost }}:{{ media_watch_party_container_port }}/api/health || exit 1"]  # project-lint: disable=magic-ipv4  healthcheck runs inside container, localhost is correct
+      interval: "{{ media_watch_party_healthcheck_interval }}"
+      timeout: "{{ media_watch_party_healthcheck_timeout }}"
+      retries: "{{ media_watch_party_healthcheck_retries }}"
+      start_period: "{{ media_watch_party_healthcheck_start_period }}"
+  notify: restart media-watch-party
+
+# 4. Wait for health
+- name: Wait for Watch Party to be healthy
+  ansible.builtin.wait_for:
+    host: "{{ media_watch_party_localhost }}"
+    port: "{{ media_watch_party_host_port }}"
+    delay: "{{ media_watch_party_wait_delay }}"
+    timeout: "{{ media_watch_party_wait_timeout }}"
+  when: media_watch_party_verify_health | default(true) | bool
+
+# 5. Status report
+- name: Get Watch Party container status
+  community.docker.docker_container_info:
+    name: "{{ media_watch_party_container_name }}"
+  register: media_watch_party_container_info
+  ignore_errors: true
+
+- name: Report Watch Party status
+  ansible.builtin.debug:
+    msg: |
+      Local Watch Party deployed:
+        - URL: https://{{ media_watch_party_domain }}
+        - Container: {{ media_watch_party_container_name }}
+        - Status: {{ media_watch_party_container_info.container.State.Status | default('unknown') }}
+  tags: ["always", "info"]

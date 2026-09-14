@@ -1,0 +1,26 @@
+# Reference docker-compose for Local Watch Party
+# NOT used for deployment — Ansible roles manage containers via community.docker
+# This file documents the intended topology for human reading.
+#
+# Copyright (C) Soroush Mohammadi Samani (smSamani)
+# Licensed under PolyForm Noncommercial License 1.0.0
+
+services:
+  watch-party:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.watch-party
+    ports:
+      - "${WATCH_PARTY_HOST_PORT}:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - ICE_SERVERS=${ICE_SERVERS:-[]}
+    volumes:
+      - watch-party-uploads:/app/uploads
+      - watch-party-hls-cache:/app/hls-cache
+    restart: unless-stopped
+
+volumes:
+  watch-party-uploads:
+  watch-party-hls-cache:

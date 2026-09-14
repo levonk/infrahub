@@ -375,3 +375,15 @@ infra_hostname_media_calibre_web: "localnet-media-calibre-web"
 infra_hostname_media_komga: "localnet-media-komga"
 infra_hostname_media_qbittorrent: "localnet-media-qbittorrent"
 infra_hostname_media_sabnzbd: "localnet-media-sabnzbd"
+
+# ---------------------------------------------------------------------------
+# Local Watch Party — synchronized movie watching with friends
+# Public domain via Traefik with Authelia SSO. Web UI + Socket.IO on same port.
+# ---------------------------------------------------------------------------
+infra_domain_media_watch_party: "watch.{{ infra_domain_base }}"
+infra_hostname_media_watch_party: "localnet-media-watch-party"
+
+# coturn — STUN/TURN server for WebRTC voice chat
+# No Traefik domain — direct port exposure. Uses the watch-party domain for
+# the TURN realm and client ICE server config.
+infra_hostname_media_coturn: "localnet-media-coturn"

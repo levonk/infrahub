@@ -1,0 +1,99 @@
+---
+# coturn Deployment
+# Deploys coturn STUN/TURN server for WebRTC voice chat (Local Watch Party).
+# Upstream image: coturn/coturn:4.17.2-alpine.
+# NOT routed through Traefik — direct port exposure (UDP relay incompatible).
+
+- name: Validate required variables are defined
+  ansible.builtin.assert:
+    that:
+      - media_coturn_container_name is defined
+      - media_coturn_image_name is defined
+      - media_coturn_stun_turn_host_port is defined
+      - media_coturn_stun_turn_container_port is defined
+      - media_coturn_password is defined
+      - media_coturn_password | length > 0
+    fail_msg: >-
+      Missing required coturn variables. Check infrastructure files
+      (ports.yml) and vault for vault_media_watch_party_turn_password.
+    success_msg: "All required coturn variables are defined."
+  tags: ["always", "validate"]
+
+# 1. Config directory
+- name: Ensure coturn config directory exists
+  ansible.builtin.file:
+    path: "{{ infra_storage_media_coturn_config_dir | default('/opt/localnet/config/coturn') }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "{{ infra_mode_dir | default('0755') }}"  # project-lint: disable=magic-int  standard directory mode from infra vars
+  become: true
+
+# 2. Config file
+- name: Deploy coturn turnserver.conf
+  ansible.builtin.template:
+    src: turnserver.conf.j2
+    dest: "{{ infra_storage_media_coturn_config_dir | default('/opt/localnet/config/coturn') }}/turnserver.conf"
+    owner: root
+    group: root
+    mode: "{{ infra_mode_file | default('0644') }}"  # project-lint: disable=magic-int  standard file mode from infra vars
+  become: true
+  notify: restart media-coturn
+
+# 3. Image pull — MUST use source: pull, NEVER source: build
+- name: Pull coturn image
+  community.docker.docker_image:
+    name: "{{ media_coturn_image_name }}:{{ media_coturn_image_tag }}"
+    source: pull
+    state: present
+  notify: restart media-coturn
+
+# 4. Container — MUST use community.docker.docker_container, NEVER docker compose
+# coturn needs both TCP and UDP for STUN/TURN control, plus UDP relay port range.
+- name: Deploy coturn container
+  community.docker.docker_container:
+    name: "{{ media_coturn_container_name }}"
+    image: "{{ media_coturn_image_name }}:{{ media_coturn_image_tag }}"
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ media_coturn_network_name }}"
+    published_ports:
+      # STUN/TURN control — TCP + UDP
+      - "{{ media_coturn_stun_turn_host_port }}:{{ media_coturn_stun_turn_container_port }}/tcp"
+      - "{{ media_coturn_stun_turn_host_port }}:{{ media_coturn_stun_turn_container_port }}/udp"
+      # TURN relay port range — UDP only
+      - "{{ media_coturn_relay_min_port }}-{{ media_coturn_relay_max_port }}:{{ media_coturn_relay_min_port }}-{{ media_coturn_relay_max_port }}/udp"
+    volumes:
+      - "{{ infra_storage_media_coturn_config_dir | default('/opt/localnet/config/coturn') }}/turnserver.conf:/etc/coturn/turnserver.conf:ro"
+    command:
+      - "-c"
+      - "/etc/coturn/turnserver.conf"
+    log_driver: json-file
+    log_options:
+      max-size: "{{ media_coturn_log_max_size }}"
+      max-file: "{{ media_coturn_log_max_file }}"
+    healthcheck:
+      test: ["CMD-SHELL", "turnadmin -l 2>/dev/null || true"]
+      interval: "{{ media_coturn_healthcheck_interval }}"
+      timeout: "{{ media_coturn_healthcheck_timeout }}"
+      retries: "{{ media_coturn_healthcheck_retries }}"
+      start_period: "{{ media_coturn_healthcheck_start_period }}"
+  notify: restart media-coturn
+
+# 5. Status report
+- name: Get coturn container status
+  community.docker.docker_container_info:
+    name: "{{ media_coturn_container_name }}"
+  register: media_coturn_container_info
+  ignore_errors: true
+
+- name: Report coturn status
+  ansible.builtin.debug:
+    msg: |
+      coturn deployed:
+        - STUN/TURN: {{ media_coturn_realm }}:{{ media_coturn_stun_turn_host_port }}
+        - Relay range: {{ media_coturn_relay_min_port }}-{{ media_coturn_relay_max_port }}/udp
+        - Container: {{ media_coturn_container_name }}
+        - Status: {{ media_coturn_container_info.container.State.Status | default('unknown') }}
+  tags: ["always", "info"]

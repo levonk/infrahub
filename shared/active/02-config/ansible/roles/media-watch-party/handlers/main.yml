@@ -1,0 +1,8 @@
+---
+# media-watch-party handlers
+
+- name: restart media-watch-party
+  community.docker.docker_container:
+    name: "{{ media_watch_party_container_name }}"
+    state: started
+    restart: true

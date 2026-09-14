@@ -389,3 +389,15 @@ infra_storage_media_komga_config_volume: "localnet-media-komga-config-volume"
 infra_storage_media_qbittorrent_config_volume: "localnet-media-qbittorrent-config-volume"
 infra_storage_media_sabnzbd_config_volume: "localnet-media-sabnzbd-config-volume"
 infra_storage_media_sabnzbd_incomplete_volume: "localnet-media-sabnzbd-incomplete-volume"
+
+# ---------------------------------------------------------------------------
+# Local Watch Party — uploaded movies + HLS transcoding cache
+# Uploads are persistent (user-uploaded video files).
+# HLS cache is persistent to avoid re-transcoding on restart.
+# ---------------------------------------------------------------------------
+infra_storage_media_watch_party_uploads_volume: "localnet-media-watch-party-uploads-volume"
+infra_storage_media_watch_party_hls_cache_volume: "localnet-media-watch-party-hls-cache-volume"
+infra_storage_media_watch_party_config_dir: "{{ infra_storage_config_dir }}/watch-party"
+
+# coturn — minimal storage (config file only, no persistent data)
+infra_storage_media_coturn_config_dir: "{{ infra_storage_config_dir }}/coturn"

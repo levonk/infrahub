@@ -131,6 +131,12 @@ ai_omniroute_enabled: false
 ai_litellm_enabled: false
 
 # ---------------------------------------------------------------------------
+# Local Watch Party Integration Flag
+# Enable Traefik dynamic config for the watch-party service (watch.<base>)
+# ---------------------------------------------------------------------------
+media_watch_party_enabled: false
+
+# ---------------------------------------------------------------------------
 # Tailscale/NetBird Bypass Configuration
 # ---------------------------------------------------------------------------
 cloud_server_tailscale_subnet: "100.64.0.0/10"

@@ -1,0 +1,43 @@
+# Multi-stage Dockerfile for Local Watch Party
+# Stage 1: Build the React frontend with Vite
+# Stage 2: Runtime with Node.js + ffmpeg for HLS transcoding
+#
+# Copyright (C) Soroush Mohammadi Samani (smSamani)
+# Licensed under PolyForm Noncommercial License 1.0.0
+# Attribution must remain with every copy and modified version.
+
+# ---------------------------------------------------------------------------
+# Stage 1: Build frontend
+# ---------------------------------------------------------------------------
+FROM 100.90.22.85:5000/node:24.20-alpine AS builder
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci
+
+COPY index.html ./
+COPY src/ ./src/
+COPY design/ ./design/
+
+RUN npm run build
+
+# ---------------------------------------------------------------------------
+# Stage 2: Runtime
+# ---------------------------------------------------------------------------
+FROM 100.90.22.85:5000/node:24.20-alpine AS runtime
+
+# ffmpeg is required for HLS on-demand transcoding (MKV → HLS segments)
+RUN apk add --no-cache ffmpeg
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci --omit=dev
+
+COPY server/ ./server/
+COPY --from=builder /app/dist ./dist
+
+EXPOSE 3001
+
+CMD ["npm", "start"]

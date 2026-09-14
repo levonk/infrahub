@@ -790,3 +790,25 @@ infra_port_media_qbittorrent_container: "8080"
 # No host port — container shares nordvpn's network namespace.
 # Web UI accessible via Traefik → nordvpn:8081 on traefik-windows-network.
 infra_port_media_sabnzbd_container: "8081"
+
+# ---------------------------------------------------------------------------
+# Local Watch Party — synchronized movie watching with friends
+# Locally-built image (multi-stage: node:20-alpine + ffmpeg).
+# Web UI exposed via Traefik at watch.{base_domain} with Authelia SSO.
+# ---------------------------------------------------------------------------
+infra_port_media_watch_party_host: "3137"
+infra_port_media_watch_party_container: "3001"
+
+# ---------------------------------------------------------------------------
+# coturn — STUN/TURN server for WebRTC voice chat (Local Watch Party)
+# Upstream image: coturn/coturn:4.17.2-alpine (multi-arch arm64+amd64).
+# NOT routed through Traefik — direct port exposure (UDP relay incompatible).
+# Port 3478 is taken by NetBird, so coturn uses 3487 on the host.
+# Relay port range: 49000-49050 UDP (50 ports, sufficient for 5-10 users).
+# ---------------------------------------------------------------------------
+infra_port_media_coturn_stun_turn_host: "3487"
+infra_port_media_coturn_stun_turn_container: "3478"
+infra_port_media_coturn_relay_min_host: "49000"
+infra_port_media_coturn_relay_max_host: "49050"
+infra_port_media_coturn_relay_min_container: "49000"
+infra_port_media_coturn_relay_max_container: "49050"

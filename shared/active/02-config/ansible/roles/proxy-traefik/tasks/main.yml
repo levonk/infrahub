@@ -525,6 +525,22 @@
   tags: ["deploy", "traefik", "comfyui"]
 
 # ---------------------------------------------------------------------------
+# Local Watch Party — synchronized movie watching with friends
+# Web UI + Socket.IO behind Authelia SSO. No built-in auth in the app.
+# ---------------------------------------------------------------------------
+- name: Deploy Watch Party dynamic configuration template
+  ansible.builtin.template:
+    src: dynamic/watch-party.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/watch-party.yml"
+    owner: root
+    group: root
+    mode: "{{ infra_mode_file }}"
+  become: true
+  notify: reload traefik
+  when: media_watch_party_enabled | default(false) | bool
+  tags: ["deploy", "traefik", "watch-party"]
+
+# ---------------------------------------------------------------------------
 # Status Report
 # ---------------------------------------------------------------------------
 - name: Report Traefik status

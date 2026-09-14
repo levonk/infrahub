@@ -45,6 +45,8 @@ PB_FWKNOP := ANSIBLE_ROOT + "/playbooks/deploy-fwknop.yml"
 PB_FWKNOP_CLIENT := ANSIBLE_ROOT + "/playbooks/deploy-fwknop-client.yml"
 PB_MONITORING := ANSIBLE_ROOT + "/playbooks/deploy-monitoring-stack.yml"
 PB_VAL_MONITORING := ANSIBLE_ROOT + "/playbooks/validate-monitoring-stack.yml"
+PB_WATCH_PARTY := ANSIBLE_ROOT + "/playbooks/deploy-watch-party.yml"
+PB_VAL_WATCH_PARTY := ANSIBLE_ROOT + "/playbooks/validate-watch-party.yml"
 WINDOWS_INVENTORY := INFRAHUB_ROOT + "/levonk/active/02-config/ansible/inventories/windows-docker.yml"
 MACOS_INVENTORY := INFRAHUB_ROOT + "/levonk/active/02-config/ansible/inventories/macos-hosts.yml"
 PB_CONFIGURE_MACOS := ANSIBLE_ROOT + "/playbooks/configure-macos-host.yml"
@@ -692,6 +694,31 @@ ansible_deploy_media_stack_impl:
     {{_log}}
     log_start "Deploying Media Stack on Windows Docker host"
     ansible-playbook -i {{WINDOWS_INVENTORY}} {{PB_MEDIA_STACK}} --vault-password-file ~/.ansible/vault_password
+
+# Deploy Local Watch Party + coturn on OCI cloud server
+# Prerequisites: Traefik + Authelia deployed, watch-party image built, vault secret set.
+ansible-deploy-watch-party:
+    @just _devbox ansible_deploy_watch_party_impl
+
+[private]
+ansible_deploy_watch_party_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Deploying Local Watch Party + coturn on OCI"
+    ansible-playbook -i {{INVENTORY}} {{PB_WATCH_PARTY}} --vault-password-file ~/.ansible/vault_password
+
+# Validate Local Watch Party + coturn deployment on OCI
+ansible-validate-watch-party:
+    @just _devbox ansible_validate_watch_party_impl
+
+[private]
+ansible_validate_watch_party_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Validating Local Watch Party + coturn on OCI"
+    ansible-playbook -i {{INVENTORY}} {{PB_VAL_WATCH_PARTY}} --vault-password-file ~/.ansible/vault_password
 
 # Deploy Web Proxy Chain (MITM → Privoxy → Varnish → Gost) on Windows Docker host
 # Prerequisites: DNS chain deployed (Tor proxy at 172.26.255.70:9050), Gost image built.
