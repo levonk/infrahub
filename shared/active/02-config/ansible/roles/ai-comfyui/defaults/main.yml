@@ -93,17 +93,22 @@ comfyui_custom_node_clone_timeout: 120
 comfyui_download_models: true
 # FLUX.1 Schnell (Apache 2.0) — text-to-image diffusion model
 # https://huggingface.co/black-forest-labs/FLUX.1-schnell
+# The original black-forest-labs repo is gated (requires HF license acceptance).
+# We use the ungated unsloth mirror (unmodified weights) for the UNET and VAE:
+#   https://huggingface.co/unsloth/FLUX.1-schnell
+# CLIP text encoders are from comfyanonymous (public, packaged for ComfyUI):
+#   https://huggingface.co/comfyanonymous/flux_text_encoders
 # Separate files (not all-in-one checkpoint) for flexible loading:
 #   - UNET (diffusion model): flux1-schnell.safetensors (~23.8 GB)
 #   - VAE: ae.safetensors (~320 MB)
-#   - CLIP text encoders (packaged for ComfyUI by comfyanonymous):
+#   - CLIP text encoders:
 #       clip_l.safetensors (~250 MB)
 #       t5xxl_fp8_e4m3fn.safetensors (~5 GB)
 # Total disk: ~29.4 GB
 comfyui_model_downloads:
-  - url: "https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/flux1-schnell.safetensors"
+  - url: "https://huggingface.co/unsloth/FLUX.1-schnell/resolve/main/flux1-schnell.safetensors"
     dest: "{{ comfyui_models_dir }}/diffusion_models/flux1-schnell.safetensors"
-  - url: "https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/ae.safetensors"
+  - url: "https://huggingface.co/unsloth/FLUX.1-schnell/resolve/main/ae.safetensors"
     dest: "{{ comfyui_models_dir }}/vae/ae.safetensors"
   - url: "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors"
     dest: "{{ comfyui_models_dir }}/clip/clip_l.safetensors"
