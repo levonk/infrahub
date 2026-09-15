@@ -91,18 +91,28 @@ comfyui_custom_node_clone_timeout: 120
 # are already present or downloaded manually via huggingface-cli)
 # ---------------------------------------------------------------------------
 comfyui_download_models: true
-comfyui_model_downloads: []
-  # Models are large and change frequently. The default is an empty list.
-  # Populate with specific model URLs when ready, e.g.:
-  # - url: "https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_base_1.0.safetensors"
-  #   dest: "{{ comfyui_models_dir }}/checkpoints/sd_xl_base_1.0.safetensors"
-  # - url: "https://huggingface.co/stabilityai/sdxl-vae/resolve/main/sdxl_vae.safetensors"
-  #   dest: "{{ comfyui_models_dir }}/vae/sdxl_vae.safetensors"
-  # - url: "https://huggingface.co/ai-forever/Real-ESRGAN/resolve/main/RealESRGAN_x4plus.pth"
-  #   dest: "{{ comfyui_models_dir }}/upscale_models/RealESRGAN_x4plus.pth"
+# FLUX.1 Schnell (Apache 2.0) — text-to-image diffusion model
+# https://huggingface.co/black-forest-labs/FLUX.1-schnell
+# Separate files (not all-in-one checkpoint) for flexible loading:
+#   - UNET (diffusion model): flux1-schnell.safetensors (~23.8 GB)
+#   - VAE: ae.safetensors (~320 MB)
+#   - CLIP text encoders (packaged for ComfyUI by comfyanonymous):
+#       clip_l.safetensors (~250 MB)
+#       t5xxl_fp8_e4m3fn.safetensors (~5 GB)
+# Total disk: ~29.4 GB
+comfyui_model_downloads:
+  - url: "https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/flux1-schnell.safetensors"
+    dest: "{{ comfyui_models_dir }}/diffusion_models/flux1-schnell.safetensors"
+  - url: "https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/ae.safetensors"
+    dest: "{{ comfyui_models_dir }}/vae/ae.safetensors"
+  - url: "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors"
+    dest: "{{ comfyui_models_dir }}/clip/clip_l.safetensors"
+  - url: "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp8_e4m3fn.safetensors"
+    dest: "{{ comfyui_models_dir }}/clip/t5xxl_fp8_e4m3fn.safetensors"
 
 # Download timeout for large model checkpoints (seconds)
-comfyui_model_download_timeout: 600
+# FLUX.1 Schnell UNET is ~23.8 GB; allow up to 2 hours for slow connections
+comfyui_model_download_timeout: 7200
 
 # ---------------------------------------------------------------------------
 # User / Group (service runs as the ansible user, not root)
