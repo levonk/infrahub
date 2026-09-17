@@ -121,10 +121,10 @@
       max-file: "{{ proxy_authelia_log_max_file }}"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U {{ proxy_authelia_postgres_user }}"]
-      interval: "{{ infra_timeout_short }}"
+      interval: "{{ infra_healthcheck_interval_short }}"
       timeout: "{{ infra_timeout_healthcheck_short }}"
       retries: "{{ infra_retry_default }}"
-      start_period: "{{ infra_timeout_short }}"
+      start_period: "{{ infra_healthcheck_interval_short }}"
   become: true
   when: proxy_authelia_postgres_enabled | bool
   notify: restart proxy-authelia-postgres
@@ -166,7 +166,7 @@
       max-file: "{{ proxy_authelia_log_max_file }}"
     healthcheck:
       test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
-      interval: "{{ infra_timeout_short }}"
+      interval: "{{ infra_healthcheck_interval_short }}"
       timeout: "{{ infra_timeout_healthcheck_short }}"
       retries: "{{ infra_retry_short }}"
       start_period: "{{ infra_timeout_healthcheck_short }}"
@@ -197,10 +197,10 @@
       max-file: "{{ proxy_authelia_log_max_file }}"
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:{{ proxy_authelia_web_container_port }}/api/health"]
-      interval: "{{ infra_timeout_default }}"
+      interval: "{{ infra_healthcheck_interval }}"
       timeout: "{{ infra_timeout_healthcheck_short }}"
       retries: "{{ infra_retry_short }}"
-      start_period: "{{ infra_timeout_short }}"
+      start_period: "{{ infra_healthcheck_interval_short }}"
   become: true
   when: proxy_authelia_enabled | bool
 
@@ -225,7 +225,7 @@
     url: "http://{{ infra_network_bind_localhost }}:{{ proxy_authelia_web_host_port }}/api/health"
     status_code: "{{ infra_http_status_ok }}"
   register: authelia_health
-  until: authelia_health.status == {{ infra_http_status_ok }}
+  until: authelia_health.status == (infra_http_status_ok | int)
   retries: "{{ infra_retry_long }}"
   delay: "{{ infra_delay_default }}"
   when:

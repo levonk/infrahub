@@ -11,3 +11,13 @@ users:
     groups:
       - admins
       - users
+{% for user in proxy_authelia_users %}
+  {{ user.username }}:
+    displayname: "{{ user.displayname | default(user.username) }}"
+    password: "{{ user.password }}"
+    email: {{ user.email | quote }}
+    groups:
+{% for group in user.groups %}
+      - {{ group }}
+{% endfor %}
+{% endfor %}

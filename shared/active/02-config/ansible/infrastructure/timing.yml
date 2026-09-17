@@ -234,6 +234,15 @@ infra_schema_version_adguard: "28"
 infra_timeout_cert_expiry_hours: "8760"
 infra_timeout_dns_ttl: "300"
 infra_timeout_retry: "30"
+# Duration strings (Go-style, e.g. Authelia regulation/OTLP lifespans)
+infra_timeout_minute: "1m"
+infra_timeout_hour: "1h"
+infra_timeout_hour_and_half: "90m"
+infra_timeout_regulation_find: "2m"
+infra_timeout_regulation_ban: "10m"
+infra_timeout_refresh_interval: "5m"
+# TOTP period is an integer (seconds), not a duration string
+infra_timeout_totp_period: "30"
 
 # ---------------------------------------------------------------------------
 # Missing size/proxy/ops fallbacks — referenced by role defaults
@@ -242,3 +251,5 @@ infra_size_large: "10000"
 infra_size_proxy_firewall_rate_interval: "1m"
 infra_proxy_iron_proxy_cert_cache_size: "10000"
 infra_ops_nsec: "0"
+# Argon2 memory in MiB (integer — infra_size_64m is the Docker-format "64m" string)
+infra_size_argon2_memory_mib: "64"

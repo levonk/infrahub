@@ -7,8 +7,8 @@ theme: {{ proxy_authelia_theme }}
 server:
   address: "tcp://{{ infra_network_bind_all }}:{{ proxy_authelia_web_container_port }}"
   buffers:
-    read: "{{ infra_buffer_size_default }}"
-    write: "{{ infra_buffer_size_default }}"
+    read: {{ infra_buffer_size_default }}
+    write: {{ infra_buffer_size_default }}
   endpoints:
     enable_pprof: false
     enable_expvars: false
@@ -24,8 +24,8 @@ totp:
   disable: false
   issuer: authelia.com
   algorithm: sha1
-  period: "{{ infra_healthcheck_interval }}"
-  skew: 1
+  period: {{ infra_timeout_totp_period }}
+  skew: 1  # project-lint: disable=magic-int  TOTP allowed skew steps, not a standalone magic number
   secret_size: 32  # project-lint: disable=magic-int  memory/buffer size constant, not a standalone magic number
 
 duo_api:
@@ -38,16 +38,16 @@ identity_validation:
 authentication_backend:
   password_reset:
     disable: false
-  refresh_interval: "{{ infra_timeout_minute_long }}"
+  refresh_interval: "{{ infra_timeout_refresh_interval }}"
   file:
     path: /config/users_database.yml
     password:
       algorithm: argon2id
-      iterations: 1
+      iterations: 1  # project-lint: disable=magic-int  argon2id iteration count, not a standalone magic number
       key_length: 32  # project-lint: disable=magic-int  secret length validation check, not an operational value
       salt_length: 16  # project-lint: disable=magic-int  secret length validation check, not an operational value
-      parallelism: "{{ infra_worker_count_medium }}"
-      memory: "{{ infra_size_64m }}"
+      parallelism: {{ infra_worker_count_medium }}
+      memory: {{ infra_size_argon2_memory_mib }}
 
 access_control:
   default_policy: {{ proxy_authelia_default_policy }}
@@ -55,6 +55,12 @@ access_control:
 {% for rule in proxy_authelia_rules %}
     - domain: {{ rule.domain | quote }}
       policy: {{ rule.policy }}
+{% if rule.subject is defined %}
+      subject:
+{% for subject in rule.subject %}
+        - {{ subject | quote }}
+{% endfor %}
+{% endif %}
 {% endfor %}
 
 session:
@@ -76,9 +82,9 @@ session:
 {% endif %}
 
 regulation:
-  max_retries: 3
-  find_time: "{{ infra_timeout_minute }}"
-  ban_time: "{{ infra_timeout_minute_extended }}"
+  max_retries: 3  # project-lint: disable=magic-int  failed-login retry budget, not a standalone magic number
+  find_time: "{{ infra_timeout_regulation_find }}"
+  ban_time: "{{ infra_timeout_regulation_ban }}"
 
 storage:
   encryption_key: {{ proxy_authelia_storage_encryption_key | default('default_encryption_key_change_in_production_at_least_20_chars') }}
@@ -125,13 +131,13 @@ identity_providers:
         key: |
 {{ proxy_authelia_oidc_jwks_private_key | indent(10, true) }}  # project-lint: disable=magic-int  Authelia config value, not a standalone magic number
     enable_client_debug_messages: false
-    minimum_parameter_entropy: "{{ infra_password_min_entropy }}"
+    minimum_parameter_entropy: {{ infra_password_min_entropy }}
     enforce_pkce: 'public_clients_only'
     lifespans:
       access_token: "{{ infra_timeout_hour }}"
       authorize_code: "{{ infra_timeout_minute }}"
       id_token: "{{ infra_timeout_hour }}"
-      refresh_token: "{{ infra_timeout_hour_half }}"
+      refresh_token: "{{ infra_timeout_hour_and_half }}"
     clients:
 {% for client in proxy_authelia_oidc_clients %}
       - client_id: '{{ client.client_id }}'

@@ -51,6 +51,10 @@ proxy_authelia_admin_password: "{{ vault_authelia_admin_password | default(infra
 proxy_authelia_admin_display_name: "Administrator"
 proxy_authelia_admin_email: "admin@example.com"
 
+# Additional users rendered into users_database.yml.
+# Each entry: { username, displayname, password (argon2 hash, from vault), email, groups: [...] }
+proxy_authelia_users: []
+
 # Access Control — default one_factor, allow localhost for testing
 proxy_authelia_default_policy: "one_factor"
 proxy_authelia_rules:
