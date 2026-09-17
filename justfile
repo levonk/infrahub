@@ -47,6 +47,7 @@ PB_MONITORING := ANSIBLE_ROOT + "/playbooks/deploy-monitoring-stack.yml"
 PB_VAL_MONITORING := ANSIBLE_ROOT + "/playbooks/validate-monitoring-stack.yml"
 PB_WATCH_PARTY := ANSIBLE_ROOT + "/playbooks/deploy-watch-party.yml"
 PB_VAL_WATCH_PARTY := ANSIBLE_ROOT + "/playbooks/validate-watch-party.yml"
+PB_VAL_AUTHELIA := ANSIBLE_ROOT + "/playbooks/validate-authelia.yml"
 WINDOWS_INVENTORY := INFRAHUB_ROOT + "/levonk/active/02-config/ansible/inventories/windows-docker.yml"
 MACOS_INVENTORY := INFRAHUB_ROOT + "/levonk/active/02-config/ansible/inventories/macos-hosts.yml"
 PB_CONFIGURE_MACOS := ANSIBLE_ROOT + "/playbooks/configure-macos-host.yml"
@@ -719,6 +720,31 @@ ansible_validate_watch_party_impl:
     {{_log}}
     log_start "Validating Local Watch Party + coturn on OCI"
     ansible-playbook -i {{INVENTORY}} {{PB_VAL_WATCH_PARTY}} --vault-password-file ~/.ansible/vault_password
+
+# Deploy Authelia SSO on OCI cloud server (runs the authelia-tagged tasks of cloud-server-infra.yml)
+# Prerequisites: Docker engine running, infra vars loaded by playbook pre_tasks.
+ansible-deploy-authelia:
+    @just _devbox ansible_deploy_authelia_impl
+
+[private]
+ansible_deploy_authelia_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Deploying Authelia SSO on OCI"
+    ansible-playbook -i {{INVENTORY}} {{PB_INFRA}} --tags authelia --vault-password-file ~/.ansible/vault_password
+
+# Validate Authelia SSO deployment on OCI
+ansible-validate-authelia:
+    @just _devbox ansible_validate_authelia_impl
+
+[private]
+ansible_validate_authelia_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Validating Authelia SSO on OCI"
+    ansible-playbook -i {{INVENTORY}} {{PB_VAL_AUTHELIA}} --vault-password-file ~/.ansible/vault_password
 
 # Deploy Web Proxy Chain (MITM → Privoxy → Varnish → Gost) on Windows Docker host
 # Prerequisites: DNS chain deployed (Tor proxy at 172.26.255.70:9050), Gost image built.

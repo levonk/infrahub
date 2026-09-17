@@ -1,0 +1,161 @@
+---
+# Validate Authelia SSO deployment on OCI (cno)
+# Location: shared/active/02-config/ansible/playbooks/validate-authelia.yml
+#
+# Read-only, idempotent post-deployment checks. Run after deploying the
+# proxy-authelia role (cloud-server-infra.yml --tags authelia).
+#
+# Usage:
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
+#     shared/active/02-config/ansible/playbooks/validate-authelia.yml \
+#     --vault-password-file ~/.ansible/vault_password
+
+- name: "Validate Authelia SSO deployment on OCI (cno)"
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: "Load shared infrastructure defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+        - modes.yml
+        - timing.yml
+      tags: ["always"]
+
+    - name: "Load client infrastructure overrides (levonk)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+      tags: ["always"]
+
+  tasks:
+    - name: "Set validation variables"
+      ansible.builtin.set_fact:
+        authelia_container: "{{ proxy_authelia_container_name | default('proxy-authelia') }}"
+        authelia_postgres_container: "proxy-authelia-postgres"
+        authelia_redis_container: "proxy-authelia-redis"
+        authelia_host_port_val: "{{ infra_port_sso_authelia_web_host }}"
+        authelia_data_dir_val: "{{ cloud_server_authelia_data_dir | default(infra_value_proxy_authelia_data_dir) }}"
+        authelia_domain_val: "{{ infra_domain_sso_authelia }}"
+        watch_party_domain_val: "{{ infra_domain_media_watch_party | default('watch.levonk.com') }}"
+        authelia_localhost_val: "{{ infra_network_bind_localhost }}"  # project-lint: disable=magic-ipv4  localhost from infra vars
+        http_status_ok: "{{ infra_http_status_ok | default(200) }}"  # project-lint: disable=magic-int  HTTP 200 from infra vars
+        http_status_redirect: "{{ infra_http_status_redirect | default(302) }}"  # project-lint: disable=magic-int  HTTP 302 from infra vars
+        http_status_unauthorized: "{{ infra_http_status_unauthorized | default(401) }}"  # project-lint: disable=magic-int  HTTP 401 from infra vars
+      tags: ["always"]
+
+    - name: "Get Authelia container status"
+      community.docker.docker_container_info:
+        name: "{{ authelia_container }}"
+      register: authelia_container_info
+      ignore_errors: true
+
+    - name: "Get Authelia PostgreSQL container status"
+      community.docker.docker_container_info:
+        name: "{{ authelia_postgres_container }}"
+      register: authelia_postgres_info
+      ignore_errors: true
+
+    - name: "Get Authelia Redis container status"
+      community.docker.docker_container_info:
+        name: "{{ authelia_redis_container }}"
+      register: authelia_redis_info
+      ignore_errors: true
+
+    - name: "Check Authelia health endpoint"
+      ansible.builtin.uri:
+        url: "http://{{ authelia_localhost_val }}:{{ authelia_host_port_val }}/api/health"
+        return_content: true
+        status_code: "{{ http_status_ok }}"
+      register: authelia_health
+      ignore_errors: true
+
+    - name: "Read deployed users database"
+      ansible.builtin.slurp:
+        path: "{{ authelia_data_dir_val }}/config/users_database.yml"
+      register: users_db_slurp
+      ignore_errors: true
+
+    - name: "Parse deployed users database"
+      ansible.builtin.set_fact:
+        users_db: "{{ users_db_slurp.content | b64decode | from_yaml }}"
+      when: users_db_slurp.content is defined
+      ignore_errors: true
+
+    - name: "Read deployed Authelia configuration"
+      ansible.builtin.slurp:
+        path: "{{ authelia_data_dir_val }}/config/configuration.yml"
+      register: authelia_cfg_slurp
+      ignore_errors: true
+
+    - name: "Parse deployed Authelia configuration"
+      ansible.builtin.set_fact:
+        authelia_cfg: "{{ authelia_cfg_slurp.content | b64decode | from_yaml }}"
+      when: authelia_cfg_slurp.content is defined
+      ignore_errors: true
+
+    - name: "Extract watch.levonk.com ACL rule"
+      ansible.builtin.set_fact:
+        watch_acl_rules: "{{ authelia_cfg.access_control.rules | default([]) | selectattr('domain', 'equalto', watch_party_domain_val) | list }}"
+      when: authelia_cfg is defined
+      ignore_errors: true
+
+    - name: "Check auth.levonk.com portal"
+      ansible.builtin.uri:
+        url: "https://{{ authelia_domain_val }}/api/health"
+        status_code: "{{ http_status_ok }}"
+        validate_certs: true
+      register: authelia_portal
+      ignore_errors: true
+      delegate_to: localhost
+      become: false
+
+    - name: "Check watch.levonk.com redirects to SSO"
+      ansible.builtin.uri:
+        url: "https://{{ watch_party_domain_val }}/api/health"
+        status_code: ["{{ http_status_ok }}", "{{ http_status_redirect }}", "{{ http_status_unauthorized }}"]
+        validate_certs: true
+      register: watch_party_https
+      ignore_errors: true
+      delegate_to: localhost
+      become: false
+
+    - name: "Display validation results"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Authelia SSO Validation Results
+          ========================================
+
+          Containers:
+            - {{ authelia_container }}: {{ authelia_container_info.container.State.Status | default('NOT FOUND') }} (health: {{ authelia_container_info.container.State.Health.Status | default('unknown') }})
+            - {{ authelia_postgres_container }}: {{ authelia_postgres_info.container.State.Status | default('NOT FOUND') }}
+            - {{ authelia_redis_container }}: {{ authelia_redis_info.container.State.Status | default('NOT FOUND') }}
+
+          Authelia Health (local):
+            - Endpoint: http://{{ authelia_localhost_val }}:{{ authelia_host_port_val }}/api/health
+            - HTTP Status: {{ authelia_health.status | default('FAILED') }}
+
+          Users Database:
+            - Users: {{ users_db.users | default({}) | list | join(', ') if users_db is defined else 'unreadable' }}
+            - dawnafterdark groups: {{ users_db.users.dawnafterdark.groups | default('NOT FOUND') if users_db is defined else 'unreadable' }}
+
+          ACL (watch.levonk.com):
+            - Rule: {{ watch_acl_rules | default('not found') }}
+
+          External Endpoints:
+            - https://{{ authelia_domain_val }}/api/health: {{ authelia_portal.status | default('FAILED') }}
+            - https://{{ watch_party_domain_val }}/api/health: {{ watch_party_https.status | default('FAILED') }} ({{ 'SSO active' if watch_party_https.status in [http_status_redirect | int, http_status_unauthorized | int] else 'check needed' }})  # project-lint: disable=magic-int  HTTP status codes from infra vars
+
+          ========================================
+      tags: ["always", "info"]
