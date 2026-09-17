@@ -203,7 +203,7 @@
 
     - name: "Verify Traefik container is running"
       ansible.builtin.command:
-        cmd: "docker inspect --format='{{ '{{' }} .State.Status {{ '}}' }}' proxy-traefik"
+        cmd: "docker inspect --format='{{ '{{' }} .State.Status {{ '}}' }}' {{ proxy_traefik_container_name }}"
       become: true
       become_user: "{{ cloud_server_admin_user }}"
       register: traefik_container_check
@@ -213,7 +213,7 @@
 
     - name: "Warn if Traefik container is not running"
       ansible.builtin.debug:
-        msg: "WARNING: Traefik container (proxy-traefik) is not running."
+        msg: "WARNING: Traefik container ({{ proxy_traefik_container_name }}) is not running."
       when: traefik_container_check.rc != 0 or traefik_container_check.stdout != "running"
       tags: ["verify", "proxy", "traefik", "containers"]
 
@@ -315,7 +315,7 @@
 
     - name: "HTTP probe — Traefik ping endpoint"
       ansible.builtin.uri:
-        url: "http://{{ infra_network_bind_localhost }}:{{ proxy_traefik_api_port }}/ping"
+        url: "http://{{ infra_network_bind_localhost }}:{{ proxy_traefik_dashboard_port }}/ping"
         status_code: "{{ infra_http_status_ok }}"
       register: traefik_ping
       ignore_errors: true
@@ -385,9 +385,9 @@
           signal={{ netbird_control_signal_host_port }}
           relay={{ netbird_control_relay_host_port }}
           - CoreDNS: {{ dns_coredns_host_port }}/udp+tcp
-          - Traefik: http={{ proxy_traefik_http_host_port }}
-          https={{ proxy_traefik_https_host_port }}
-          api={{ proxy_traefik_api_port }}
+          - Traefik: http={{ proxy_traefik_http_port }}
+          https={{ proxy_traefik_https_port }}
+          api={{ proxy_traefik_dashboard_port }}
           - iron-proxy: dns={{ proxy_iron_proxy_dns_host_port }}
           http={{ proxy_iron_proxy_http_host_port }}
           https={{ proxy_iron_proxy_https_host_port }}
