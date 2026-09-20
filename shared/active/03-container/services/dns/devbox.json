@@ -22,9 +22,6 @@
     "yamllint"
   ],
   "shell": {
-    "init_hook": [
-      "just bootstrap-internal"
-    ],
     "scripts": {
       "bootstrap": "just bootstrap",
       "prime": "just prime",

@@ -1,5 +1,5 @@
 {
-  "_bug_note": "devbox >=0.14 ignores a top-level 'scripts' key — scripts must live under 'shell.scripts', otherwise 'devbox run <script>' silently falls back to the arbitrary-command path and fails with '<name>: command not found' (exit 127). Verified on devbox 0.18.0. See ADR-20260131001.",
+  "_bug_note": "devbox >=0.14 ignores a top-level 'scripts' key \u2014 scripts must live under 'shell.scripts', otherwise 'devbox run <script>' silently falls back to the arbitrary-command path and fails with '<name>: command not found' (exit 127). Verified on devbox 0.18.0. See ADR-20260131001.",
   "packages": {
     "jq": "",
     "just": "",
@@ -18,9 +18,6 @@
     "XDG_RUNTIME_DIR": "/run/user/1000"
   },
   "shell": {
-    "init_hook": [
-      "just bootstrap-internal"
-    ],
     "scripts": {
       "bootstrap": "just bootstrap",
       "clean": "just clean",
