@@ -1,0 +1,247 @@
+---
+# Deploy ACRM to Windows Docker Desktop (nl region)
+# Location: shared/active/02-config/ansible/playbooks/deploy-acrm.yml
+#
+# ACRM — context-aware communication intelligence platform. Next.js 16 web app
+# + dedicated Postgres on dtop202311 (Windows Docker Desktop). Two domains:
+#   acrm.nl.{{ infra_domain_base }}     — dashboard, Authelia-gated via Traefik
+#   acrm-api.nl.{{ infra_domain_base }} — v1 API, x-acrm-api-key auth (no SSO)
+#
+# Three-phase deployment:
+#   Phase 0 (localhost): Cloudflare DNS — acrm.nl + acrm-api.nl CNAMEs → the
+#            Windows Docker host's Tailscale FQDN (cloudflare-dns role with an
+#            inline two-record list; the canonical configure-cloudflare-dns.yml
+#            already carries these records, this phase is self-contained).
+#   Phase 1 (Windows Docker host): deploy ACRM Postgres + web containers
+#            - nl (Windows Docker Desktop, X86): ssh-tunneled Docker CLI pattern
+#              (community.docker modules can't run on Windows — Ansible core
+#              basic.py imports grp, Unix-only)
+#   Phase 2 (Windows Docker host): re-run proxy_traefik_windows role with
+#            proxy_traefik_windows_acrm_enabled to deploy the acrm-nl.yml
+#            dynamic config template (dashboard behind Authelia; the API
+#            subdomain is unauthenticated at the edge — the app enforces
+#            x-acrm-api-key).
+#
+# First-deploy prerequisites:
+#   1. Vault keys present: vault_acrm_api_key + vault_acrm_postgres_password
+#      in levonk/.../group_vars/infrahub-levonk-all.vault.yml (user handoff —
+#      an empty ACRM_API_KEY leaves the v1 API open, so the role asserts both
+#      are non-empty)
+#   2. Image pushed: 100.90.22.85:5000/localnet-ai-acrm-web:latest
+#      (built via the acrm repo's just recipe — story 01-001)
+#   3. SSH to ansible@dtop202311.tale-grouper.ts.net works from the controller
+#      (SSH config entry with IdentityFile + IdentitiesOnly)
+#
+# Usage:
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/windows-docker.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-acrm.yml \
+#     --vault-password-file ~/.ansible/vault_password
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/windows-docker.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-acrm.yml \
+#     --check --diff --vault-password-file ~/.ansible/vault_password
+
+- name: "Phase Zero — Configure Cloudflare DNS for ACRM (nl)"
+  hosts: localhost
+  gather_facts: false
+  become: false
+  vars_files:
+    - "{{ playbook_dir }}/../infrastructure/domains.yml"
+    - "{{ playbook_dir }}/../infrastructure/timing.yml"
+    - "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/domains.yml"
+    - "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/inventories/group_vars/infrahub-levonk-all.vault.yml"
+  vars:
+    cloudflare_api_token: "{{ vault_cloudflare_api_token | default('') }}"
+    cloudflare_zone_id: "{{ vault_cloudflare_zone_id | default('') }}"
+    cloudflare_dns_state: "present"
+    cloudflare_dns_ttl: "{{ infra_dns_ttl | int }}"
+    cloudflare_dns_proxied: false
+    cloudflare_dns_verify: true
+    cloudflare_dns_verify_propagation: false
+    cloudflare_dns_validate_ip: true
+    cloudflare_dns_allow_private_ip: false
+    # Tailscale FQDN for the Windows Docker host — defined in the client
+    # infrastructure/domains.yml (dtop202311.tale-grouper.ts.net)
+    ts_fqdn_windows_docker: "{{ infra_tailscale_fqdn_windows_docker | default(infra_tailscale_tailnet | default('example.ts.net')) }}"
+    cloudflare_dns_records:
+      # ACRM dashboard — nl (Windows Docker Desktop, Authelia-gated)
+      - name: "{{ infra_domain_ai_acrm | default('acrm.nl.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "CNAME"
+        content: "{{ ts_fqdn_windows_docker }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      # ACRM API subdomain — no Authelia (app enforces x-acrm-api-key)
+      - name: "{{ infra_domain_ai_acrm_api | default('acrm-api.nl.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "CNAME"
+        content: "{{ ts_fqdn_windows_docker }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+  roles:
+    - cloudflare-dns
+  tags: ["dns"]
+
+- name: "Phase One — Deploy ACRM Postgres + web containers on Windows Docker host (nl)"
+  hosts: windows_docker_hosts
+  gather_facts: true
+  become: false
+  vars:
+    ai_acrm_enabled: true
+
+  pre_tasks:
+    - name: "Load shared infrastructure port defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/ports.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure storage defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/storage.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure domain defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/domains.yml"
+      tags: ["always"]
+
+    - name: "Load client infrastructure domain overrides"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/domains.yml"
+      tags: ["always"]
+
+    - name: "Load client infrastructure storage overrides"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/storage.yml"
+      tags: ["always"]
+
+    - name: "Load client infrastructure port overrides"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/ports.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure timing defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/timing.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure mode defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/modes.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure network defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/networks.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure app defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/apps.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure fallback values"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/values.yml"
+      tags: ["always"]
+
+    - name: "Validate required variables"
+      ansible.builtin.assert:
+        that:
+          - ai_acrm_enabled is defined
+          - infra_port_ai_acrm_host is defined
+          - infra_domain_ai_acrm is defined
+        fail_msg: >-
+          Missing required variables. Check infrastructure files
+          (ports.yml, domains.yml, storage.yml) and client overrides.
+        success_msg: "All required acrm variables are defined."
+      tags: ["always", "validate"]
+
+  roles:
+    - role: ai-acrm
+      tags: ["deploy", "acrm"]
+
+
+- name: "Phase Two — Deploy Traefik dynamic config for ACRM on Windows"
+  hosts: windows_docker_hosts
+  become: false
+  gather_facts: true
+  vars:
+    ai_acrm_enabled: true
+    proxy_traefik_windows_acrm_enabled: true
+
+  pre_tasks:
+    - name: "Load shared infrastructure port defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/ports.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure storage defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/storage.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure domain defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/domains.yml"
+      tags: ["always"]
+
+    - name: "Load client infrastructure domain overrides"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/domains.yml"
+      tags: ["always"]
+
+    - name: "Load client infrastructure storage overrides"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/storage.yml"
+      tags: ["always"]
+
+    - name: "Load client infrastructure port overrides"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/ports.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure timing defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/timing.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure mode defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/modes.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure network defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/networks.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure app defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/apps.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure fallback values"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/values.yml"
+      tags: ["always"]
+
+    - name: "Load ai-acrm role defaults (for container name + port vars)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../roles/ai-acrm/defaults/main.yml"
+      tags: ["always"]
+
+    - name: "Load search-hister role defaults (required by proxy_traefik_windows hister template)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../roles/search-hister/defaults/main.yml"
+      tags: ["always"]
+
+    - name: "Load vault secrets (Cloudflare API token for ACME)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/inventories/group_vars/infrahub-levonk-all.vault.yml"
+      tags: ["always"]
+      no_log: true
+
+  roles:
+    - role: proxy_traefik_windows
+      tags: ["deploy", "traefik-windows", "acrm"]
