@@ -1,11 +1,11 @@
 # Infrahub Service Catalog (Shared Defaults)
 
-> **Auto-generated** from `infrastructure/*.yml` (shared defaults only) — last updated: 2026-09-13 18:42
+> **Auto-generated** from `infrastructure/*.yml` (shared defaults only) — last updated: 2026-09-19 17:55
 > Regenerate with: `just generate-service-catalog-shared`
 > Source: `shared/active/02-config/ansible/infrastructure/services.yml`
 > Note: This catalog shows **default ports and suggested hostnames** only. Client-specific deployment details (custom domains, deployed machines, client port overrides) are not included. See `levonk/SERVICES.md` for the deployed client catalog.
 
-**104 services** (shared defaults — no deployment info)
+**106 services** (shared defaults — no deployment info)
 
 ## Table of Contents
 
@@ -152,6 +152,8 @@ flowchart TD
 
 | Service | Container | Suggested Hostname | Port(s) (default) | Network | Storage | Monitoring | Category | Source |
 |---------|-----------|--------------------|-------------------|---------|---------|------------|----------|--------|
+| ACRM Postgres | `localnet-acrm-postgres` | — | `5440`→`5432` (PostgreSQL) | acrm-network | `localnet-acrm-postgres-data-volume` (volume) | — | Passive (Databases / Caches / Queues) | [postgres/postgres](https://github.com/postgres/postgres) |
+| ACRM Web | `localnet-acrm-web` | `infra_domain_ai_acrm` (suggested)<br>`infra_domain_ai_acrm_api` (suggested) | `4538`→`3000` (Web/API) | traefik-windows-network | — | health: `/`<br>labels: `pipeline=none, service=acrm, stage=api` | API (HTTP Services) | [levonk/acrm](https://github.com/levonk/acrm) |
 | agentmemory | `agentmemory` | `infra_domain_ai_agentmemory` (suggested) | `3111`→`3111` (REST/MCP) | — | `/opt/localnet/data/agentmemory`<br>`/opt/localnet/services/agentmemory/config` | — | UI (Web Apps) | [rohitg00/agentmemory](https://github.com/rohitg00/agentmemory) |
 | AI Dashboard | `ai-dashboard` | `infra_domain_ai_dashboard_web` (suggested) | `3000`→`3000` (Web) | — | — | — | UI (Web Apps) | [levonk/ai-dashboard](https://github.com/levonk/ai-dashboard) |
 | Alertmanager | `localnet-monitoring-alertmanager` | `infra_domain_monitoring_alertmanager` (suggested) | `9093`→`9093` (Web UI) | traefik-network | — | — | Console / Dashboard | [prometheus/alertmanager](https://github.com/prometheus/alertmanager) |
@@ -297,6 +299,7 @@ flowchart TD
 
 | Service | Container | Suggested Hostname | Port(s) (default) | Network | Storage | Monitoring | Source |
 |---------|-----------|--------------------|-------------------|---------|---------|------------|--------|
+| ACRM Web | `localnet-acrm-web` | `infra_domain_ai_acrm` (suggested)<br>`infra_domain_ai_acrm_api` (suggested) | `4538`→`3000` (Web/API) | traefik-windows-network | — | health: `/`<br>labels: `pipeline=none, service=acrm, stage=api` | [levonk/acrm](https://github.com/levonk/acrm) |
 | Omnigent | `omnigent` | `infra_domain_ai_omnigent` (suggested) | `8000`→`8000` (Web/API) | — | — | — | [omnigent-ai/omnigent](https://github.com/omnigent-ai/omnigent) |
 | OmniRoute | `omniroute` | `infra_domain_ai_omniroute` (suggested) | `20128`→`20128` (API) | — | — | — | [diegosouzapw/OmniRoute](https://github.com/diegosouzapw/OmniRoute) |
 | Pi | `pi` | — | `8090`→`8090` (RPC) | proxy-chain-network | — | — | [earendil-works/pi](https://github.com/earendil-works/pi) |
@@ -317,6 +320,7 @@ flowchart TD
 
 | Service | Container | Suggested Hostname | Port(s) (default) | Network | Storage | Monitoring | Source |
 |---------|-----------|--------------------|-------------------|---------|---------|------------|--------|
+| ACRM Postgres | `localnet-acrm-postgres` | — | `5440`→`5432` (PostgreSQL) | acrm-network | `localnet-acrm-postgres-data-volume` (volume) | — | [postgres/postgres](https://github.com/postgres/postgres) |
 | Authelia Postgres | `authelia-postgres` | — | `5432`→`5432` (PostgreSQL) | authelia-network | — | — | [docker-library/postgres](https://github.com/docker-library/postgres) |
 | Flaresolverr | `localnet-media-flaresolverr` | — | `8191`→`8191` (API) | traefik-windows-network | — | pipeline: `media`<br>labels: `pipeline=media, service=flaresolverr, stage=indexer` | [FlareSolverr/FlareSolverr](https://github.com/FlareSolverr/FlareSolverr) |
 | Langfuse ClickHouse | `langfuse-clickhouse` | — | `8123` (HTTP)<br>`9000` (TCP) | langfuse-network | — | — | [ClickHouse/ClickHouse](https://github.com/ClickHouse/ClickHouse) |

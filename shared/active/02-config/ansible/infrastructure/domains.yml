@@ -288,6 +288,19 @@ infra_domain_tools_stirling_pdf: "stirling.nl.{{ infra_domain_base }}"
 infra_hostname_tools_stirling_pdf: "localnet-tools-stirling-pdf"
 
 # ---------------------------------------------------------------------------
+# ACRM (nl region — X86, dtop202311)
+# Context-aware communication intelligence platform (Next.js 16 + Postgres).
+# Image built from the private acrm repo and pushed to the local registry.
+# Two domains (stirling-style auth split):
+#   acrm.nl.{{ infra_domain_base }}     — dashboard, Authelia-gated
+#   acrm-api.nl.{{ infra_domain_base }} — v1 API, x-acrm-api-key auth (no SSO)
+# ---------------------------------------------------------------------------
+infra_domain_ai_acrm: "acrm.nl.{{ infra_domain_base }}"
+infra_domain_ai_acrm_api: "acrm-api.nl.{{ infra_domain_base }}"
+infra_hostname_acrm_web: "localnet-acrm-web"
+infra_hostname_acrm_postgres: "localnet-acrm-postgres"
+
+# ---------------------------------------------------------------------------
 # Fallback hostnames — generic (non-suffixed) aliases for roles that reference
 # the service without a region suffix. Map to the nl (primary) variant.
 # ---------------------------------------------------------------------------

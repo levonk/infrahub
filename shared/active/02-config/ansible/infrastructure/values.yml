@@ -20,6 +20,17 @@
 # --- agentmemory ---
 infra_value_agentmemory_domain: ""
 
+# --- ai-acrm ---
+infra_value_acrm_api_key: "change-me"
+infra_value_acrm_container_name_postgres: "localnet-acrm-postgres"
+infra_value_acrm_container_name_web: "localnet-acrm-web"
+infra_value_acrm_docker_host_windows: ""
+infra_value_acrm_domain: ""
+infra_value_acrm_domain_api: ""
+infra_value_acrm_postgres_password: "change-me"
+infra_value_acrm_postgres_volume_name: "localnet-acrm-postgres-data-volume"
+infra_value_acrm_tz: "UTC"
+
 # --- ai-buzz ---
 infra_value_ai_buzz_container_name: "localnet-ai-buzz"
 infra_value_ai_buzz_domain: ""

@@ -689,6 +689,51 @@ services:
     stage: "tools"
     service: "stirling-pdf"
 
+# ---------------------------------------------------------------------------
+# ACRM (Context-aware communication intelligence — nl region, dtop202311)
+# Next.js 16 web app + dedicated Postgres on acrm-network. Image built from
+# the private acrm repo and pushed to the local registry. Two domains:
+# acrm.nl (dashboard, Authelia-gated) and acrm-api.nl (x-acrm-api-key, no SSO).
+# ---------------------------------------------------------------------------
+
+- name: "ACRM Web"
+  container: "{{ infra_hostname_acrm_web }}"
+  machine: "dtop202311"
+  category: "api"
+  description: "Context-aware communication intelligence platform (web + v1 API)"
+  source_repo: "https://github.com/levonk/acrm"
+  domains:
+    - "infra_domain_ai_acrm"
+    - "infra_domain_ai_acrm_api"
+  ports:
+    - host: "infra_port_ai_acrm_host"
+      container: "infra_port_ai_acrm_container"
+      label: "Web/API"
+  traefik: true
+  network: "traefik-windows-network"
+  notes: "Also joined to acrm-network for postgres access"
+  health_endpoint: "/"
+  metrics_path: null
+  pipeline: "none"
+  alert_labels:
+    pipeline: "none"
+    stage: "api"
+    service: "acrm"
+
+- name: "ACRM Postgres"
+  container: "{{ infra_hostname_acrm_postgres }}"
+  machine: "dtop202311"
+  category: "passive"
+  description: "PostgreSQL database for ACRM (graph, messages, typing events)"
+  source_repo: "https://github.com/postgres/postgres"
+  ports:
+    - host: "infra_port_ai_acrm_postgres_host"
+      container: "infra_port_ai_acrm_postgres_container"
+      label: "PostgreSQL"
+  network: "acrm-network"
+  storage:
+    - "localnet-acrm-postgres-data-volume (pgdata — /var/lib/postgresql/data)"
+
 # ===========================================================================
 # Dashboards / Start Pages
 # ===========================================================================

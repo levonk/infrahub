@@ -579,6 +579,20 @@ infra_port_tools_stirling_pdf_host: "4531"
 infra_port_tools_stirling_pdf_container: "8080"
 
 # ---------------------------------------------------------------------------
+# ACRM (Context-aware communication intelligence — Next.js 16 + Postgres)
+# Used by: ai-acrm role on windows_docker_hosts (nl region, dtop202311)
+# Web UI exposed via Traefik at acrm.nl.{{ infra_domain_base }} (Authelia);
+# API at acrm-api.nl.{{ infra_domain_base }} (x-acrm-api-key, no SSO).
+# Host port 4538 follows the nl-region range (directory-empire=4530,
+# stirling=4531, control-center=4537). Postgres host port 5440 follows the
+# per-service postgres convention (n8n=5438, qm=5437, db fallback=5439).
+# ---------------------------------------------------------------------------
+infra_port_ai_acrm_host: "4538"
+infra_port_ai_acrm_container: "3000"
+infra_port_ai_acrm_postgres_host: "5440"
+infra_port_ai_acrm_postgres_container: "5432"
+
+# ---------------------------------------------------------------------------
 # Fallback ports — referenced by role defaults but not yet allocated to specific deployments
 # ---------------------------------------------------------------------------
 # agentmemory (persistent memory for AI agents — fallback aliases)
