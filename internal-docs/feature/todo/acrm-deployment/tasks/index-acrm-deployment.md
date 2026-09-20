@@ -11,8 +11,8 @@
 | 01-001 | ACRM monorepo Dockerfile + build/push recipe (acrm repo) | 01 | [x] Done | true | — | 05-001 (deploy only) | `feature/current/acrm-deployment/story-01-001-acrm-dockerfile` |
 | 02-001 | Shared + levonk infra vars, services.yml, catalogs | 02 | [x] Done | true | — | 03-001, 04-001, 05-001 | `feature/current/acrm-deployment/story-02-001-infra-vars-catalog` |
 | 03-001 | `ai-acrm` Ansible role (Windows deploy + postgres + migrations) | 03 | [x] Done | false | 02-001 | 04-001, 05-001 | `feature/current/acrm-deployment/story-03-001-acrm-role` |
-| 04-001 | Traefik (Windows) dynamic config + DNS records | 04 | [~] In-Progress | false | 02-001, 03-001 | 05-001 | `feature/current/acrm-deployment/story-04-001-traefik-dns` |
-| 05-001 | deploy-acrm.yml playbook + just/devbox recipes | 05 | [ ] Todo | false | 03-001, 04-001 | — | `feature/current/acrm-deployment/story-05-001-playbook-justfile` |
+| 04-001 | Traefik (Windows) dynamic config + DNS records | 04 | [x] Done | false | 02-001, 03-001 | 05-001 | `feature/current/acrm-deployment/story-04-001-traefik-dns` |
+| 05-001 | deploy-acrm.yml playbook + just/devbox recipes | 05 | [~] In-Progress | false | 03-001, 04-001 | — | `feature/current/acrm-deployment/story-05-001-playbook-justfile` |
 
 ## Notes
 
