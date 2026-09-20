@@ -48,6 +48,7 @@ PB_VAL_MONITORING := ANSIBLE_ROOT + "/playbooks/validate-monitoring-stack.yml"
 PB_WATCH_PARTY := ANSIBLE_ROOT + "/playbooks/deploy-watch-party.yml"
 PB_VAL_WATCH_PARTY := ANSIBLE_ROOT + "/playbooks/validate-watch-party.yml"
 PB_VAL_AUTHELIA := ANSIBLE_ROOT + "/playbooks/validate-authelia.yml"
+PB_ACRM := ANSIBLE_ROOT + "/playbooks/deploy-acrm.yml"
 WINDOWS_INVENTORY := INFRAHUB_ROOT + "/levonk/active/02-config/ansible/inventories/windows-docker.yml"
 MACOS_INVENTORY := INFRAHUB_ROOT + "/levonk/active/02-config/ansible/inventories/macos-hosts.yml"
 PB_CONFIGURE_MACOS := ANSIBLE_ROOT + "/playbooks/configure-macos-host.yml"
@@ -695,6 +696,32 @@ ansible_deploy_media_stack_impl:
     {{_log}}
     log_start "Deploying Media Stack on Windows Docker host"
     ansible-playbook -i {{WINDOWS_INVENTORY}} {{PB_MEDIA_STACK}} --vault-password-file ~/.ansible/vault_password
+
+# Deploy ACRM (Postgres + web) on Windows Docker host (nl region)
+# Prerequisites: vault keys (vault_acrm_api_key, vault_acrm_postgres_password),
+# localnet-ai-acrm-web image pushed to the local registry, SSH to the Windows host.
+ansible-deploy-acrm:
+    @just _devbox ansible_deploy_acrm_impl
+
+[private]
+ansible_deploy_acrm_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Deploying ACRM on Windows Docker host"
+    ansible-playbook -i {{WINDOWS_INVENTORY}} {{PB_ACRM}} --vault-password-file ~/.ansible/vault_password
+
+# Dry-run ACRM deployment (--check --diff; limited fidelity — role tasks are shell/command)
+ansible-deploy-acrm-check:
+    @just _devbox ansible_deploy_acrm_check_impl
+
+[private]
+ansible_deploy_acrm_check_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Checking ACRM deployment on Windows Docker host (--check --diff)"
+    ansible-playbook -i {{WINDOWS_INVENTORY}} {{PB_ACRM}} --check --diff --vault-password-file ~/.ansible/vault_password
 
 # Deploy Local Watch Party + coturn on OCI cloud server
 # Prerequisites: Traefik + Authelia deployed, watch-party image built, vault secret set.
