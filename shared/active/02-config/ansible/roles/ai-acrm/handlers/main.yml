@@ -1,0 +1,20 @@
+---
+# ACRM handlers — restart via docker CLI over the ssh tunnel
+# (delegate_to: localhost + DOCKER_HOST env; never state: restarted, which
+# would require community.docker on the Windows target).
+
+- name: restart acrm-web
+  ansible.builtin.command: "docker restart {{ ai_acrm_container_name_web }}"
+  environment:
+    DOCKER_HOST: "{{ ai_acrm_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["restart"]
+
+- name: restart acrm-postgres
+  ansible.builtin.command: "docker restart {{ ai_acrm_container_name_postgres }}"
+  environment:
+    DOCKER_HOST: "{{ ai_acrm_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["restart"]

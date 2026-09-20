@@ -1,0 +1,90 @@
+---
+# ACRM — Context-aware communication intelligence platform (nl region only)
+# Next.js 16 web app + dedicated Postgres on Windows Docker Desktop (dtop202311).
+# Image is built from the private acrm repo (~/p/gh/levonk/acrm, root Dockerfile)
+# and pushed to the local registry; this role consumes only the registry image.
+# Domains: acrm.nl.{{ infra_domain_base }} (dashboard, Authelia-gated via Traefik)
+#          acrm-api.nl.{{ infra_domain_base }} (v1 API, x-acrm-api-key, no SSO)
+
+# Service toggles
+ai_acrm_enabled: true
+ai_acrm_verify_health: true
+ai_acrm_run_migrations: true
+
+# Container names (reference infrastructure variables)
+ai_acrm_container_name_web: "{{ infra_hostname_acrm_web | default(infra_value_acrm_container_name_web) }}"
+ai_acrm_container_name_postgres: "{{ infra_hostname_acrm_postgres | default(infra_value_acrm_container_name_postgres) }}"
+
+# Images
+# Web: local registry image built by the acrm repo's just recipe (linux/amd64).
+# Postgres: public upstream image (pull uses a credsStore-free DOCKER_CONFIG to
+# avoid the macOS keychain modal — see tools-stirling-pdf).
+ai_acrm_web_image: "{{ local_registry | default(infra_registry) }}/localnet-ai-acrm-web"
+ai_acrm_web_image_tag: "latest"
+ai_acrm_postgres_image: "postgres:17-alpine"
+
+# Ports (reference infrastructure variables — required, asserted in tasks/main.yml)
+ai_acrm_host_port: "{{ infra_port_ai_acrm_host }}"
+ai_acrm_container_port: "{{ infra_port_ai_acrm_container }}"
+ai_acrm_postgres_host_port: "{{ infra_port_ai_acrm_postgres_host }}"
+ai_acrm_postgres_container_port: "{{ infra_port_ai_acrm_postgres_container }}"
+
+# Networks — dedicated bridge for web <-> postgres; web also joins
+# traefik-windows-network so Traefik routes to it by container name.
+ai_acrm_network_name: "{{ infra_network_ai_acrm_network_name | default('acrm-network') }}"
+ai_acrm_traefik_network_name: "{{ proxy_traefik_windows_network_name | default('traefik-windows-network') }}"
+
+# Domains (reference infrastructure variables)
+ai_acrm_domain: "{{ infra_domain_ai_acrm | default('acrm.nl.' ~ (infra_domain_base | default(infra_value_acrm_domain))) }}"
+ai_acrm_domain_api: "{{ infra_domain_ai_acrm_api | default('acrm-api.nl.' ~ (infra_domain_base | default(infra_value_acrm_domain_api))) }}"
+
+# Volumes
+ai_acrm_postgres_volume: "{{ infra_storage_acrm_postgres_data_volume | default(infra_value_acrm_postgres_volume_name) }}"
+
+# Postgres credentials — password comes from the vault (user handoff required).
+# POSTGRES_USER/POSTGRES_DB initialize the database on first container start.
+ai_acrm_postgres_user: "acrm"
+ai_acrm_postgres_db: "acrm"
+ai_acrm_postgres_password: "{{ vault_acrm_postgres_password | default('') }}"
+
+# API key — required by x-acrm-api-key header on the api domain. Empty means
+# the API is OPEN (app treats unset key as no auth) — the role asserts non-empty.
+ai_acrm_api_key: "{{ vault_acrm_api_key | default('') }}"
+
+# Container-to-container DSN: postgres container name + CONTAINER port on
+# acrm-network — never the published host port (5440 is tailnet debugging only).
+ai_acrm_database_url: "postgresql://{{ ai_acrm_postgres_user }}:{{ ai_acrm_postgres_password }}@{{ ai_acrm_container_name_postgres }}:{{ ai_acrm_postgres_container_port }}/{{ ai_acrm_postgres_db }}"
+
+# Docker host for Windows deployment (ssh-tunneled)
+# community.docker modules can't run on Windows (Ansible core basic.py imports
+# grp, Unix-only). We delegate_to: localhost and connect to the Windows Docker
+# daemon via ssh://. Requires SSH config entry for the Windows host.
+ai_acrm_docker_host: "ssh://ansible@{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.' ~ (infra_tailscale_tailnet | default(infra_value_acrm_docker_host_windows))) }}"
+
+# In-image path of the deployed web app. The acrm root Dockerfile runs
+# `pnpm --filter=web --prod deploy /prod/web`, then the runner stage does
+# `WORKDIR /app` + `COPY --from=deploy /prod/web ./` — so the deploy output
+# (package.json, node_modules, drizzle.config.ts, src/db/migrations) lands
+# directly at /app, NOT /app/apps/active/web.
+ai_acrm_web_app_dir: "/app"
+
+# Optional comma-separated extra safety-latch keywords (app: ACRM_SAFETY_KEYWORDS).
+# Leave empty to omit the env var entirely.
+ai_acrm_safety_keywords: "{{ acrm_safety_keywords | default('') }}"
+
+# Timezone
+ai_acrm_tz: "{{ localnet_tz | default(infra_value_acrm_tz) }}"
+
+# Healthchecks — MUST use strings with unit suffix, NOT bare integers
+ai_acrm_healthcheck_interval: "30s"
+ai_acrm_healthcheck_timeout: "10s"
+ai_acrm_healthcheck_retries: 3
+ai_acrm_healthcheck_start_period: "30s"
+ai_acrm_postgres_healthcheck_interval: "10s"
+ai_acrm_postgres_healthcheck_timeout: "5s"
+ai_acrm_postgres_healthcheck_retries: 10
+ai_acrm_postgres_healthcheck_start_period: "10s"
+
+# Logging
+ai_acrm_log_max_size: "10m"
+ai_acrm_log_max_file: "5"
