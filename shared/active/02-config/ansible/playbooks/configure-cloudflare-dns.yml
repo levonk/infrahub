@@ -190,6 +190,22 @@
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
 
+      # ACRM dashboard — nl (Windows Docker Desktop, Authelia-gated)
+      - name: "{{ infra_domain_ai_acrm | default('acrm.nl.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "CNAME"
+        content: "{{ ts_fqdn_windows_docker }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      # ACRM API subdomain — no Authelia (app enforces x-acrm-api-key)
+      - name: "{{ infra_domain_ai_acrm_api | default('acrm-api.nl.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "CNAME"
+        content: "{{ ts_fqdn_windows_docker }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
       # Media Stack — nl (Windows Docker Desktop)
       # All media services run on dtop202311 behind Traefik.
       # See shared/docs/pipelines/media/PIPELINE-MEDIA.md for the full pipeline.
