@@ -37,13 +37,15 @@ _devbox target *args:
     #!/usr/bin/env bash
     {{_log}}
     if [ "${DEVBOX_SHELL_ENABLED:-0}" = "1" ]; then
-        exec just "{{target}}" {{args}}
+        exec just --justfile "{{justfile()}}" "{{target}}" {{args}}
     elif command -v devbox >/dev/null 2>&1; then
-        exec devbox run -- just "{{target}}" {{args}}
+        # devbox run resets cwd to the devbox project root, so the inner just
+        # must be pointed at THIS justfile explicitly or it finds the wrong one.
+        exec devbox run -- just --justfile "{{justfile()}}" "{{target}}" {{args}}
     else
         log_error "devbox not found in PATH."
         log_warn "Running doctor to diagnose environment issues..."
-        just doctor 2>/dev/null || true
+        just --justfile "{{justfile()}}" doctor 2>/dev/null || true
         exit 1
     fi
 

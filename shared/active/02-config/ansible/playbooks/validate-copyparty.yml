@@ -155,7 +155,7 @@
 
     - name: "Record local endpoint status"
       ansible.builtin.set_fact:
-        validation_results: "{{ validation_results | combine({'local_http_ok': copyparty_local.status | default(-1)  # project-lint: disable=magic-int  sentinel for missing status == (infra_http_status_ok | int)}) }}"
+        validation_results: "{{ validation_results | combine({'local_http_ok': copyparty_local.status | default(infra_size_unlimited) == (infra_http_status_ok | int)}) }}"
       tags: ["validate", "copyparty"]
 
     # =========================================================================
@@ -177,7 +177,7 @@
 
     - name: "Record public root status"
       ansible.builtin.set_fact:
-        validation_results: "{{ validation_results | combine({'public_root_ok': copyparty_public_root.status | default(-1)  # project-lint: disable=magic-int  sentinel for missing status == (infra_http_status_ok | int)}) }}"
+        validation_results: "{{ validation_results | combine({'public_root_ok': copyparty_public_root.status | default(infra_size_unlimited) == (infra_http_status_ok | int)}) }}"
       tags: ["validate", "copyparty", "cloudflared"]
 
     - name: "Check /uploads/ drop-box semantics via tunnel"
@@ -198,7 +198,7 @@
         # Anonymous GET on a write-only volume returns a text/plain body with
         # "perms: ['write']" instead of a listing — that body IS the proof of
         # drop-box semantics (upload allowed, contents not visible).
-        validation_results: "{{ validation_results | combine({'uploads_dropbox_ok': (copyparty_uploads.status | default(-1)  # project-lint: disable=magic-int  sentinel for missing status == (infra_http_status_ok | int)) and ('write' in (copyparty_uploads.content | default('')))}) }}"
+        validation_results: "{{ validation_results | combine({'uploads_dropbox_ok': (copyparty_uploads.status | default(infra_size_unlimited) == (infra_http_status_ok | int)) and ('write' in (copyparty_uploads.content | default('')))}) }}"
       tags: ["validate", "copyparty", "cloudflared"]
 
     - name: "Check /public/ anonymous read share via tunnel"
@@ -216,7 +216,7 @@
 
     - name: "Record /public/ share status"
       ansible.builtin.set_fact:
-        validation_results: "{{ validation_results | combine({'public_share_ok': copyparty_public_share.status | default(-1)  # project-lint: disable=magic-int  sentinel for missing status == (infra_http_status_ok | int)}) }}"
+        validation_results: "{{ validation_results | combine({'public_share_ok': copyparty_public_share.status | default(infra_size_unlimited) == (infra_http_status_ok | int)}) }}"
       tags: ["validate", "copyparty", "cloudflared"]
 
   post_tasks:
