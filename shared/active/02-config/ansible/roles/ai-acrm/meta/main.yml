@@ -1,0 +1,17 @@
+---
+galaxy_info:
+  role_name: ai_acrm
+  author: localnet
+  description: Deploy ACRM web app and dedicated Postgres on Windows Docker Desktop (nl region)
+  license: MIT
+  min_ansible_version: "2.9"
+  platforms:
+    - name: Windows
+      versions:
+        - "all"
+  galaxy_tags:
+    - ai
+    - nextjs
+    - postgres
+    - web
+dependencies: []

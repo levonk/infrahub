@@ -1,0 +1,52 @@
+---
+# ACRM — Deployment Tasks
+# Deploys localnet-acrm-postgres + localnet-acrm-web on Windows Docker Desktop
+# (dtop202311, nl region). nl-only role — structured with a group_names
+# dispatch (search-hister pattern) so a future cno path can slot in.
+#
+# Uses the ssh-tunneled Docker CLI pattern (DOCKER_HOST: ssh:// +
+# delegate_to: localhost) because community.docker modules can't run on
+# Windows (Ansible core basic.py imports grp, Unix-only).
+
+# 1. Validate required variables — empty ACRM_API_KEY leaves the v1 API open
+#    (the app treats an unset key as no-auth), so both vault secrets are
+#    asserted non-empty.
+- name: Validate required variables are defined
+  ansible.builtin.assert:
+    that:
+      - ai_acrm_container_name_web is defined
+      - ai_acrm_container_name_postgres is defined
+      - ai_acrm_web_image is defined
+      - ai_acrm_web_image_tag is defined
+      - ai_acrm_postgres_image is defined
+      - ai_acrm_host_port is defined
+      - ai_acrm_container_port is defined
+      - ai_acrm_postgres_host_port is defined
+      - ai_acrm_postgres_container_port is defined
+      - ai_acrm_network_name is defined
+      - ai_acrm_traefik_network_name is defined
+      - ai_acrm_postgres_volume is defined
+      - ai_acrm_docker_host is defined
+      - ai_acrm_domain is defined
+      - ai_acrm_domain_api is defined
+      - ai_acrm_postgres_password is defined
+      - ai_acrm_postgres_password | length > 0
+      - ai_acrm_api_key is defined
+      - ai_acrm_api_key | length > 0
+    fail_msg: >-
+      Missing required ai_acrm variables, or vault_acrm_postgres_password /
+      vault_acrm_api_key is empty (an empty ACRM_API_KEY leaves the API open).
+      Check infrastructure files (ports.yml, domains.yml, networks.yml,
+      storage.yml, values.yml) and add vault_acrm_api_key +
+      vault_acrm_postgres_password to the client vault via the vault handoff
+      documented in the role README.
+    success_msg: "All required ai_acrm variables are defined."
+  tags: ["always", "validate"]
+
+# 2. Dispatch to Windows deployment (nl region)
+- name: Deploy ACRM on Windows Docker host
+  ansible.builtin.include_tasks: deploy-windows.yml
+  when:
+    - ai_acrm_enabled | bool
+    - "'windows_docker_hosts' in group_names"
+  tags: ["deploy"]

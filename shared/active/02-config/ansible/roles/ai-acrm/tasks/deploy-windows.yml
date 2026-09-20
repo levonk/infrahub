@@ -1,0 +1,244 @@
+---
+# ACRM Windows (nl) deployment — ssh-tunneled Docker CLI pattern
+# Target: Windows Docker Desktop (dtop202311, X86).
+#
+# community.docker modules can't run on Windows (Ansible core basic.py imports
+# grp, Unix-only). We use ansible.builtin.shell with DOCKER_HOST: ssh:// and
+# delegate_to: localhost, matching the artifact-verdaccio / search-hister
+# pattern.
+#
+# Layout: localnet-acrm-postgres + localnet-acrm-web share the dedicated
+# acrm-network bridge; the web container also joins traefik-windows-network
+# so Traefik can route acrm.nl / acrm-api.nl to it by container name.
+# Postgres publishes a host port for tailnet debugging only — the app always
+# reaches it via container name + container port on acrm-network.
+
+# ============================================================================
+# Network Management — dedicated bridge for web <-> postgres
+# ============================================================================
+- name: Ensure acrm network exists
+  ansible.builtin.shell: "docker network inspect {{ ai_acrm_network_name }} 2>/dev/null || docker network create {{ ai_acrm_network_name }}"
+  environment:
+    DOCKER_HOST: "{{ ai_acrm_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "network"]
+
+# ============================================================================
+# Volume Management — inspect-or-create. The postgres entrypoint fixes
+# /var/lib/postgresql/data ownership itself; no localnet-volume-init needed.
+# ============================================================================
+- name: Ensure acrm postgres data volume exists
+  ansible.builtin.shell: "docker volume inspect {{ ai_acrm_postgres_volume }} 2>/dev/null || docker volume create {{ ai_acrm_postgres_volume }}"
+  environment:
+    DOCKER_HOST: "{{ ai_acrm_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "volume"]
+
+# ============================================================================
+# Pull Images
+# DOCKER_CONFIG points at ~/.docker-no-creds (a dir containing just `{}`) so
+# public/registry pulls don't trigger the macOS keychain unlock modal — the
+# local registry is plain HTTP over the tailnet and needs no credentials.
+# ============================================================================
+- name: Pull acrm postgres image
+  ansible.builtin.command: "docker pull {{ ai_acrm_postgres_image }}"
+  environment:
+    DOCKER_HOST: "{{ ai_acrm_docker_host }}"
+    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "pull"]
+
+- name: Pull acrm web image
+  ansible.builtin.command: "docker pull {{ ai_acrm_web_image }}:{{ ai_acrm_web_image_tag }}"
+  environment:
+    DOCKER_HOST: "{{ ai_acrm_docker_host }}"
+    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "pull"]
+
+# ============================================================================
+# Postgres Deployment
+# ============================================================================
+- name: Stop existing acrm postgres container
+  ansible.builtin.shell: "docker rm -f {{ ai_acrm_container_name_postgres }} 2>/dev/null || true"
+  environment:
+    DOCKER_HOST: "{{ ai_acrm_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "container"]
+
+- name: Deploy acrm postgres container
+  ansible.builtin.shell: >-
+    docker run -d
+    --name {{ ai_acrm_container_name_postgres }}
+    --restart unless-stopped
+    --network {{ ai_acrm_network_name }}
+    -p "{{ ai_acrm_postgres_host_port }}:{{ ai_acrm_postgres_container_port }}/tcp"
+    -v {{ ai_acrm_postgres_volume }}:/var/lib/postgresql/data:rw
+    -e "POSTGRES_USER={{ ai_acrm_postgres_user }}"
+    -e "POSTGRES_PASSWORD={{ ai_acrm_postgres_password }}"
+    -e "POSTGRES_DB={{ ai_acrm_postgres_db }}"
+    -e "TZ={{ ai_acrm_tz }}"
+    --log-driver json-file
+    --log-opt max-size={{ ai_acrm_log_max_size }}
+    --log-opt max-file={{ ai_acrm_log_max_file }}
+    --health-cmd "pg_isready -U {{ ai_acrm_postgres_user }} -d {{ ai_acrm_postgres_db }} || exit 1"
+    --health-interval {{ ai_acrm_postgres_healthcheck_interval }}
+    --health-timeout {{ ai_acrm_postgres_healthcheck_timeout }}
+    --health-retries {{ ai_acrm_postgres_healthcheck_retries }}
+    --health-start-period {{ ai_acrm_postgres_healthcheck_start_period }}
+    --security-opt no-new-privileges:true
+    {{ ai_acrm_postgres_image }}
+  environment:
+    DOCKER_HOST: "{{ ai_acrm_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  no_log: true
+  tags: ["deploy", "container"]
+
+# ============================================================================
+# Wait for postgres — functional gate, migrations need a healthy database
+# ============================================================================
+- name: Wait for acrm postgres to be healthy
+  ansible.builtin.command: >-
+    docker inspect --format '{% raw %}{{.State.Health.Status}}{% endraw %}' {{ ai_acrm_container_name_postgres }}
+  environment:
+    DOCKER_HOST: "{{ ai_acrm_docker_host }}"
+  delegate_to: localhost
+  register: ai_acrm_postgres_health
+  until: ai_acrm_postgres_health.stdout == "healthy"
+  retries: "{{ infra_retry_extended }}"
+  delay: "{{ infra_delay_default }}"
+  changed_when: false
+  tags: ["deploy", "container"]
+
+# ============================================================================
+# Database migrations — one-off container on acrm-network.
+#
+# The web image's runner stage does NOT contain pnpm (it is installed only in
+# the Dockerfile's `base` stage), so `pnpm run db:migrate` cannot run. Instead
+# we invoke drizzle-kit directly — it is a production dependency of the web
+# package, so pnpm deploy links it at node_modules/.bin (the same direct-.bin
+# pattern the image's own CMD uses for `next start`). drizzle.config.ts and
+# src/db/migrations ship in the deploy output at ai_acrm_web_app_dir.
+# drizzle-kit migrate is idempotent (tracks applied migrations in the
+# drizzle.__drizzle_migrations journal table — a no-op when up to date).
+# ============================================================================
+- name: Run acrm database migrations (drizzle-kit)
+  ansible.builtin.command: >-
+    docker run --rm
+    --network {{ ai_acrm_network_name }}
+    -e "DATABASE_URL={{ ai_acrm_database_url }}"
+    {{ ai_acrm_web_image }}:{{ ai_acrm_web_image_tag }}
+    sh -c 'cd {{ ai_acrm_web_app_dir }} && ./node_modules/.bin/drizzle-kit migrate'
+  environment:
+    DOCKER_HOST: "{{ ai_acrm_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  no_log: true
+  when: ai_acrm_run_migrations | bool
+  tags: ["deploy", "migrate"]
+
+# ============================================================================
+# Web Deployment
+# ============================================================================
+- name: Stop existing acrm web container
+  ansible.builtin.shell: "docker rm -f {{ ai_acrm_container_name_web }} 2>/dev/null || true"
+  environment:
+    DOCKER_HOST: "{{ ai_acrm_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "container"]
+
+- name: Deploy acrm web container
+  ansible.builtin.shell: >-
+    docker run -d
+    --name {{ ai_acrm_container_name_web }}
+    --restart unless-stopped
+    --network {{ ai_acrm_network_name }}
+    -p "{{ ai_acrm_host_port }}:{{ ai_acrm_container_port }}/tcp"
+    -e "PORT={{ ai_acrm_container_port }}"
+    -e "DATABASE_URL={{ ai_acrm_database_url }}"
+    -e "ACRM_API_KEY={{ ai_acrm_api_key }}"
+    {% if ai_acrm_safety_keywords | length > 0 %}-e "ACRM_SAFETY_KEYWORDS={{ ai_acrm_safety_keywords }}"{% endif %}
+    -e "TZ={{ ai_acrm_tz }}"
+    --log-driver json-file
+    --log-opt max-size={{ ai_acrm_log_max_size }}
+    --log-opt max-file={{ ai_acrm_log_max_file }}
+    --health-cmd "wget -qO- http://{{ infra_network_bind_localhost }}:{{ ai_acrm_container_port }}/ || exit 1"
+    --health-interval {{ ai_acrm_healthcheck_interval }}
+    --health-timeout {{ ai_acrm_healthcheck_timeout }}
+    --health-retries {{ ai_acrm_healthcheck_retries }}
+    --health-start-period {{ ai_acrm_healthcheck_start_period }}
+    --security-opt no-new-privileges:true
+    {{ ai_acrm_web_image }}:{{ ai_acrm_web_image_tag }}
+  environment:
+    DOCKER_HOST: "{{ ai_acrm_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  no_log: true
+  tags: ["deploy", "container"]
+
+# ============================================================================
+# Traefik reachability — join traefik-windows-network so Traefik resolves
+# the container by name (acrm.nl / acrm-api.nl routers, story 04-001).
+# `|| true` keeps it idempotent when already connected.
+# ============================================================================
+- name: Connect acrm web container to traefik-windows network
+  ansible.builtin.shell: "docker network connect {{ ai_acrm_traefik_network_name }} {{ ai_acrm_container_name_web }} 2>/dev/null || true"
+  environment:
+    DOCKER_HOST: "{{ ai_acrm_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "network"]
+
+# ============================================================================
+# Wait for health
+# ============================================================================
+- name: Wait for acrm web to be healthy
+  ansible.builtin.command: >-
+    docker inspect --format '{% raw %}{{.State.Health.Status}}{% endraw %}' {{ ai_acrm_container_name_web }}
+  environment:
+    DOCKER_HOST: "{{ ai_acrm_docker_host }}"
+  delegate_to: localhost
+  register: ai_acrm_web_health
+  until: ai_acrm_web_health.stdout == "healthy"
+  retries: "{{ infra_retry_extended }}"
+  delay: "{{ infra_delay_default }}"
+  changed_when: false
+  ignore_errors: true
+  when: ai_acrm_verify_health | bool
+  tags: ["deploy", "container"]
+
+# ============================================================================
+# Status Report
+# ============================================================================
+- name: Get acrm container status
+  ansible.builtin.command: >-
+    docker inspect --format '{% raw %}{{.Name}}={{.State.Status}} health={{.State.Health.Status}}{% endraw %}'
+    {{ ai_acrm_container_name_postgres }} {{ ai_acrm_container_name_web }}
+  environment:
+    DOCKER_HOST: "{{ ai_acrm_docker_host }}"
+  delegate_to: localhost
+  register: ai_acrm_status
+  changed_when: false
+  ignore_errors: true
+  tags: ["always", "info"]
+
+- name: Report acrm status
+  ansible.builtin.debug:
+    msg: |
+      ACRM deployed:
+        - Dashboard URL: https://{{ ai_acrm_domain }} (Authelia-gated via Traefik)
+        - API URL: https://{{ ai_acrm_domain_api }} (x-acrm-api-key, no SSO)
+        - Web container: {{ ai_acrm_container_name_web }} ({{ ai_acrm_web_image }}:{{ ai_acrm_web_image_tag }})
+        - Postgres container: {{ ai_acrm_container_name_postgres }} ({{ ai_acrm_postgres_image }})
+        - Web port: {{ ai_acrm_host_port }}:{{ ai_acrm_container_port }}/tcp
+        - Postgres port: {{ ai_acrm_postgres_host_port }}:{{ ai_acrm_postgres_container_port }}/tcp (tailnet debugging only)
+        - Networks: {{ ai_acrm_network_name }}, {{ ai_acrm_traefik_network_name }} (web only)
+        - Status: {{ ai_acrm_status.stdout_lines | default(['unknown']) | join(', ') }}
+  tags: ["always", "info"]
