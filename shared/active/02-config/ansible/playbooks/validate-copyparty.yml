@@ -1,0 +1,241 @@
+---
+# Validate copyparty File Sharing Server deployment on OCI (cno)
+# Location: shared/active/02-config/ansible/playbooks/validate-copyparty.yml
+#
+# Read-only, idempotent post-deployment checks. Run after deploy-copyparty.yml.
+# copyparty is exposed publicly via a Cloudflare Tunnel (cloudflared) — NOT
+# Traefik — so this validates the full chain:
+#   DNS (files.levonk.com) → Cloudflare edge → cloudflared → copyparty:3923
+#
+# Checks:
+#   1. copyparty container is running and healthy
+#   2. cloudflared container is running (public ingress path)
+#   3. copyparty data volume exists
+#   4. copyparty.conf is deployed on the host
+#   5. Local HTTP probe on the host port (anonymous greeting)
+#   6. Public HTTPS root via the tunnel
+#   7. /uploads/ drop-box semantics (anonymous write-only, no listing)
+#   8. /public/ anonymous read share
+#
+# Usage:
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
+#     shared/active/02-config/ansible/playbooks/validate-copyparty.yml \
+#     --vault-password-file ~/.ansible/vault_password
+#   just levonk-validate-copyparty   # from levonk/justfile
+
+- name: "Validate copyparty File Sharing Server on OCI (cno)"
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+  vars:
+    validation_results: {}
+
+  pre_tasks:
+    - name: "Load shared infrastructure defaults (ports, networks, domains, storage, modes, timing)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+        - modes.yml
+        - timing.yml
+      tags: ["always"]
+
+    - name: "Load client infrastructure overrides (levonk)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+      tags: ["always"]
+
+    - name: "Load storage-copyparty role defaults (container name, ports, volumes)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../roles/storage-copyparty/defaults/main.yml"
+      tags: ["always"]
+
+    - name: "Load proxy-cloudflared role defaults (tunnel container name)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../roles/proxy-cloudflared/defaults/main.yml"
+      tags: ["always"]
+
+    - name: "Initialize validation results"
+      ansible.builtin.set_fact:
+        validation_results:
+          container_running: false
+          container_healthy: false
+          tunnel_running: false
+          data_volume_present: false
+          config_present: false
+          local_http_ok: false
+          public_root_ok: false
+          uploads_dropbox_ok: false
+          public_share_ok: false
+      tags: ["always"]
+
+  tasks:
+    # =========================================================================
+    # copyparty container
+    # =========================================================================
+    - name: "Check copyparty container status"
+      community.docker.docker_container_info:
+        name: "{{ copyparty_container_name }}"
+      register: copyparty_info
+      failed_when: false
+      tags: ["validate", "copyparty"]
+
+    - name: "Record copyparty container running status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'container_running': copyparty_info.container.State.Status == 'running' if (copyparty_info.exists | default(false)) else false}) }}"
+      tags: ["validate", "copyparty"]
+
+    - name: "Record copyparty container health status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'container_healthy': (copyparty_info.container.State.Health.Status | default('none')) == 'healthy' if (copyparty_info.exists | default(false)) else false}) }}"
+      tags: ["validate", "copyparty"]
+
+    # =========================================================================
+    # cloudflared tunnel container (public ingress path)
+    # =========================================================================
+    - name: "Check cloudflared container status"
+      community.docker.docker_container_info:
+        name: "{{ cloudflared_container_name }}"
+      register: cloudflared_info
+      failed_when: false
+      tags: ["validate", "copyparty", "cloudflared"]
+
+    - name: "Record cloudflared container running status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'tunnel_running': cloudflared_info.container.State.Status == 'running' if (cloudflared_info.exists | default(false)) else false}) }}"
+      tags: ["validate", "copyparty", "cloudflared"]
+
+    # =========================================================================
+    # Data volume + deployed config
+    # =========================================================================
+    - name: "Check copyparty data volume exists"
+      community.docker.docker_volume_info:
+        name: "{{ copyparty_data_volume }}"
+      register: copyparty_volume_info
+      failed_when: false
+      tags: ["validate", "copyparty"]
+
+    - name: "Record copyparty data volume status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'data_volume_present': (copyparty_volume_info.exists | default(false)) or (copyparty_volume_info.volume.Name | default('') | length > 0)}) }}"
+      tags: ["validate", "copyparty"]
+
+    - name: "Check copyparty.conf is deployed"
+      ansible.builtin.stat:
+        path: "{{ copyparty_config_dir }}/copyparty.conf"
+      register: copyparty_conf_stat
+      failed_when: false
+      tags: ["validate", "copyparty"]
+
+    - name: "Record copyparty.conf status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'config_present': copyparty_conf_stat.stat.exists | default(false)}) }}"
+      tags: ["validate", "copyparty"]
+
+    # =========================================================================
+    # Local HTTP probe (host port → container)
+    # =========================================================================
+    - name: "Check copyparty local endpoint"
+      ansible.builtin.uri:
+        url: "http://{{ infra_network_bind_localhost }}:{{ copyparty_host_port }}/"
+        method: GET
+        return_content: false
+        status_code: ["{{ infra_http_status_ok | int }}"]
+      register: copyparty_local
+      failed_when: false
+      tags: ["validate", "copyparty"]
+
+    - name: "Record local endpoint status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'local_http_ok': copyparty_local.status | default(-1)  # project-lint: disable=magic-int  sentinel for missing status == (infra_http_status_ok | int)}) }}"
+      tags: ["validate", "copyparty"]
+
+    # =========================================================================
+    # Public HTTPS probes via Cloudflare Tunnel — run from the control machine
+    # so the check covers DNS + edge + tunnel + service end-to-end.
+    # =========================================================================
+    - name: "Check public root via Cloudflare Tunnel"
+      ansible.builtin.uri:
+        url: "https://{{ copyparty_domain }}/"
+        method: GET
+        return_content: false
+        status_code: ["{{ infra_http_status_ok | int }}"]
+        validate_certs: true
+      delegate_to: localhost
+      become: false
+      register: copyparty_public_root
+      failed_when: false
+      tags: ["validate", "copyparty", "cloudflared"]
+
+    - name: "Record public root status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'public_root_ok': copyparty_public_root.status | default(-1)  # project-lint: disable=magic-int  sentinel for missing status == (infra_http_status_ok | int)}) }}"
+      tags: ["validate", "copyparty", "cloudflared"]
+
+    - name: "Check /uploads/ drop-box semantics via tunnel"
+      ansible.builtin.uri:
+        url: "https://{{ copyparty_domain }}/uploads/"
+        method: GET
+        return_content: true
+        status_code: ["{{ infra_http_status_ok | int }}"]
+        validate_certs: true
+      delegate_to: localhost
+      become: false
+      register: copyparty_uploads
+      failed_when: false
+      tags: ["validate", "copyparty", "cloudflared"]
+
+    - name: "Record /uploads/ drop-box status"
+      ansible.builtin.set_fact:
+        # Anonymous GET on a write-only volume returns a text/plain body with
+        # "perms: ['write']" instead of a listing — that body IS the proof of
+        # drop-box semantics (upload allowed, contents not visible).
+        validation_results: "{{ validation_results | combine({'uploads_dropbox_ok': (copyparty_uploads.status | default(-1)  # project-lint: disable=magic-int  sentinel for missing status == (infra_http_status_ok | int)) and ('write' in (copyparty_uploads.content | default('')))}) }}"
+      tags: ["validate", "copyparty", "cloudflared"]
+
+    - name: "Check /public/ anonymous read share via tunnel"
+      ansible.builtin.uri:
+        url: "https://{{ copyparty_domain }}/public/"
+        method: GET
+        return_content: false
+        status_code: ["{{ infra_http_status_ok | int }}"]
+        validate_certs: true
+      delegate_to: localhost
+      become: false
+      register: copyparty_public_share
+      failed_when: false
+      tags: ["validate", "copyparty", "cloudflared"]
+
+    - name: "Record /public/ share status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'public_share_ok': copyparty_public_share.status | default(-1)  # project-lint: disable=magic-int  sentinel for missing status == (infra_http_status_ok | int)}) }}"
+      tags: ["validate", "copyparty", "cloudflared"]
+
+  post_tasks:
+    - name: "Display validation results (JSON)"
+      ansible.builtin.debug:
+        msg: "{{ validation_results | to_nice_json }}"
+      tags: ["always"]
+
+    - name: "Display validation summary"
+      ansible.builtin.debug:
+        msg:
+          "copyparty Validation Summary:\n
+          - Container Running:        {{ validation_results.container_running }}\n
+          - Container Healthy:        {{ validation_results.container_healthy }}\n
+          - cloudflared Running:      {{ validation_results.tunnel_running }}\n
+          - Data Volume Present:      {{ validation_results.data_volume_present }}\n
+          - Config Deployed:          {{ validation_results.config_present }}\n
+          - Local HTTP (:{{ copyparty_host_port }}):   {{ validation_results.local_http_ok }}\n
+          - Public Root ({{ copyparty_domain }}): {{ validation_results.public_root_ok }}\n
+          - /uploads/ Drop-box OK:    {{ validation_results.uploads_dropbox_ok }}\n
+          - /public/ Share OK:        {{ validation_results.public_share_ok }}"
+      tags: ["always"]

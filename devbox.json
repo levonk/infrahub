@@ -153,6 +153,7 @@
     "ansible-deploy-croc-relay": "just ansible-deploy-croc-relay-internal",
     "ansible-deploy-paperclip": "just --justfile levonk/justfile levonk-deploy-paperclip",
     "ansible-validate-paperclip": "just --justfile levonk/justfile levonk-validate-paperclip",
+    "ansible-validate-copyparty": "just --justfile levonk/justfile levonk-validate-copyparty",
     "ansible-deploy-windows-exit-nodes": "just ansible-deploy-windows-exit-nodes-internal",
     "ansible-bootstrap-windows-docker": "just ansible-bootstrap-windows-docker-internal",
     "ansible-deploy-local-registry": "just ansible-deploy-local-registry-internal",
