@@ -55,7 +55,11 @@ if [[ -n "$file_violations" ]]; then
     echo "$file_violations" >&2
     echo "" >&2
     echo "Fix by replacing hardcoded values with {{ variable }} references." >&2
-    echo "For exceptions, add: # project-lint: disable=<magic-rule>  <reason>" >&2
+    echo "For exceptions, append a YAML comment at the END of the line, outside all quotes:" >&2
+    echo "    key: \"{{ expr }}\"  # project-lint: disable=<magic-rule> — <reason>" >&2
+    echo "NEVER place the marker inside \"...\" quotes, '{{ }}', or '{% %}' —" >&2
+    echo "'#' is literal text there and corrupts the file for Ansible/Jinja." >&2
+    echo "Where Jinja is evaluated, '{# project-lint: disable=<magic-rule> #}' also works." >&2
 fi
 
 exit 0
