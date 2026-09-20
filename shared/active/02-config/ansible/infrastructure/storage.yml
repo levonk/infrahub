@@ -321,6 +321,16 @@ infra_storage_stirling_pdf_custom_files_volume: "localnet-stirling-pdf-custom-fi
 infra_storage_stirling_pdf_logs_volume: "localnet-stirling-pdf-logs-volume"
 
 # ---------------------------------------------------------------------------
+# ACRM Storage (nl region — dtop202311)
+# Context-aware communication intelligence platform. Postgres data volume
+# holds the ACRM database (graph, messages, typing events). The web
+# container is stateless (no volume). First nl-region postgres — the
+# official image's entrypoint fixes /var/lib/postgresql/data ownership
+# itself, so no volume-init chown pass is needed.
+# ---------------------------------------------------------------------------
+infra_storage_acrm_postgres_data_volume: "localnet-acrm-postgres-data-volume"
+
+# ---------------------------------------------------------------------------
 # Wazuh Security Stack — missing volume definitions
 # ---------------------------------------------------------------------------
 infra_storage_wazuh_indexer_config_volume: "localnet-wazuh-indexer-config-volume"

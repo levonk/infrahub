@@ -245,6 +245,16 @@ infra_network_ip_n8n_traefik: "172.31.0.20"
 infra_network_ip_n8n_grafana_traefik: "172.31.0.21"
 
 # ---------------------------------------------------------------------------
+# ACRM (nl region — dtop202311, Windows Docker Desktop)
+# Used by: ai-acrm role (deploy-acrm.yml playbook)
+# Dedicated bridge network created on-demand on the Windows Docker daemon —
+# web + postgres share it for service discovery; the web container also joins
+# traefik-windows-network for Traefik routing. No subnet allocation (Docker
+# Desktop assigns it; no static container IPs needed).
+# ---------------------------------------------------------------------------
+infra_network_ai_acrm_network_name: "acrm-network"
+
+# ---------------------------------------------------------------------------
 # Fallback network values — referenced by role defaults but not yet allocated
 # to specific deployments.
 # These are last-resort defaults used inside `default()` expressions in role
