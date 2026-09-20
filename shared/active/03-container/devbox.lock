@@ -1,9 +1,21 @@
 {
   "lockfile_version": "1",
   "packages": {
+    "git-imerge": {
+      "resolved": "github:NixOS/nixpkgs/fdc7b8f7b30fdbedec91b71ed82f36e1637483ed?narHash=sha256-a%2B%2BtZ1RQsDb1I0NHrFwdGuRlR5TORvCEUksM459wKUA%3D#git-imerge",
+      "source": "nixpkg"
+    },
+    "git-secrets": {
+      "resolved": "github:NixOS/nixpkgs/fdc7b8f7b30fdbedec91b71ed82f36e1637483ed?narHash=sha256-a%2B%2BtZ1RQsDb1I0NHrFwdGuRlR5TORvCEUksM459wKUA%3D#git-secrets",
+      "source": "nixpkg"
+    },
     "github:NixOS/nixpkgs/nixpkgs-unstable": {
       "last_modified": "2026-03-23T13:48:00Z",
       "resolved": "github:NixOS/nixpkgs/fdc7b8f7b30fdbedec91b71ed82f36e1637483ed?lastModified=1774273680&narHash=sha256-a%2B%2BtZ1RQsDb1I0NHrFwdGuRlR5TORvCEUksM459wKUA%3D"
+    },
+    "github:kunchenguid/treehouse": {
+      "last_modified": "2026-09-18T11:58:21Z",
+      "resolved": "github:kunchenguid/treehouse/99f4db2bbeececc1e6f136a88f79002e5a707174?lastModified=1789732701"
     },
     "github:levonk/tkr#tkr": {
       "last_modified": "2026-03-22T17:31:58Z",
@@ -49,7 +61,7 @@
       }
     },
     "nodejs": {
-      "plugin_version": "0.0.2",
+      "plugin_version": "0.0.4",
       "resolved": "github:NixOS/nixpkgs/fdc7b8f7b30fdbedec91b71ed82f36e1637483ed?narHash=sha256-a%2B%2BtZ1RQsDb1I0NHrFwdGuRlR5TORvCEUksM459wKUA%3D#nodejs",
       "source": "nixpkg"
     },

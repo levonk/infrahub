@@ -26,23 +26,23 @@
       "just bootstrap-internal"
     ],
     "scripts": {
-      "bootstrap": "just bootstrap-internal",
-      "prime": "just prime-internal",
-      "doctor": "just doctor-internal",
-      "clean": "just clean-internal",
-      "build": "just build-internal",
-      "lint": "just lint-internal",
-      "test": "just test-internal",
-      "dev": "just dev-internal",
-      "up": "just up-internal",
-      "down": "just down-internal",
-      "restart": "just restart-internal",
-      "status": "just status-internal",
-      "logs": "just logs-internal",
-      "logs-follow": "just logs-follow-internal",
-      "health-check": "just health-check-internal",
-      "shell-nexus": "just shell-nexus-internal",
-      "shell-verdaccio": "just shell-verdaccio-internal"
+      "bootstrap": "just bootstrap",
+      "prime": "just prime",
+      "doctor": "just doctor",
+      "clean": "just clean",
+      "build": "just build",
+      "lint": "just lint",
+      "test": "just test",
+      "dev": "just dev",
+      "up": "just up",
+      "down": "just down",
+      "restart": "just restart",
+      "status": "just status",
+      "logs": "just logs",
+      "logs-follow": "just logs-follow",
+      "health-check": "just health-check",
+      "shell-nexus": "just shell-nexus",
+      "shell-verdaccio": "just shell-verdaccio"
     }
   }
 }
