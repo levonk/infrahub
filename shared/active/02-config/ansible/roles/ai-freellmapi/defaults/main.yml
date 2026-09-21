@@ -45,3 +45,38 @@ ai_freellmapi_trust_proxy: "1"
 
 # Verify health after deploy
 ai_freellmapi_verify_health: true
+
+# --- Declarative provisioning ----------------------------------------------
+# When admin email+password are set, the role provisions the first dashboard
+# account over a loopback request inside the container (docker exec →
+# 127.0.0.1 → the upstream setup code is skipped by design for local callers).
+# Idempotent: /api/auth/status reports needsSetup=false once an account
+# exists. Leave empty to keep the manual browser setup flow.
+ai_freellmapi_setup_enabled: true
+ai_freellmapi_admin_email: "{{ vault_ai_freellmapi_admin_email | default('') }}"
+ai_freellmapi_admin_password: "{{ vault_ai_freellmapi_admin_password | default('') }}"
+
+# Optional freellmapi.co Premium license key — activated via POST
+# /api/premium/key (validates against the license service, then switches the
+# install to the live catalog feed). Re-activated only when absent or the
+# stored key's mask no longer matches (rotation).
+ai_freellmapi_license_key: "{{ vault_ai_freellmapi_license_key | default('') }}"
+
+# Optional declarative startup config — rendered to FREEAPI_CONFIG_JSON and
+# applied idempotently by the server on every boot. Shape (upstream docs):
+#   keys:            [{platform, key, label, enabled}, ...]
+#   customProviders: [{baseUrl, apiKey, label, models}, ...]
+#   models:          [{platform, modelId, ...}, ...]
+#   fallback:        [{platform, modelId, priority, enabled}, ...]
+#   routing:         {strategy: priority|balanced|smartest|fastest|reliable|custom}
+# NOTE: the JSON is stored in the container env, visible via `docker inspect`
+# to host root — the same exposure class as ENCRYPTION_KEY.
+ai_freellmapi_declarative_config: "{{ vault_ai_freellmapi_config | default({}) }}"
+
+# Provision retry tuning — the API may still be booting when the exec runs
+ai_freellmapi_provision_retries: 6
+ai_freellmapi_provision_delay: 10
+
+# Set false to surface provision output while debugging (secrets stay in the
+# Docker exec API env channel, but disable anyway when inspecting failures).
+ai_freellmapi_provision_no_log: true

@@ -51,6 +51,7 @@
       ENCRYPTION_KEY: "{{ ai_freellmapi_encryption_key }}"
       TRUST_PROXY: "{{ ai_freellmapi_trust_proxy }}"
       TZ: "{{ localnet_tz | default('UTC') }}"
+      FREEAPI_CONFIG_JSON: "{{ ai_freellmapi_declarative_config | to_json if ai_freellmapi_declarative_config | length > 0 else omit }}"
     log_driver: json-file
     log_options:
       max-size: "{{ ai_freellmapi_log_max_size }}"
@@ -72,7 +73,43 @@
     timeout: "{{ ai_freellmapi_wait_timeout }}"
   when: ai_freellmapi_verify_health | default(true) | bool
 
-# 5. Status report
+# 5. Declarative provisioning — first dashboard account + premium license.
+# Runs node inside the container: the exec'd request is a genuine loopback
+# peer, so upstream's setup-code gate is skipped by design (it exists to stop
+# remote claim-grabs, not local callers). Secrets travel via the Docker exec
+# API env channel — never argv, never the host process list. Idempotent:
+# needsSetup=false once an account exists; the license step re-activates only
+# when the stored key's mask differs from the vault key.
+- name: Provision FreeLLMAPI account and license
+  community.docker.docker_container_exec:
+    container: "{{ ai_freellmapi_container_name }}"
+    argv:
+      - node
+      - -e
+      - "{{ lookup('ansible.builtin.file', role_path ~ '/files/freellmapi-provision.js') }}"
+    env:
+      FL_PORT: "{{ ai_freellmapi_container_port }}"
+      FL_EMAIL: "{{ ai_freellmapi_admin_email }}"
+      FL_PASSWORD: "{{ ai_freellmapi_admin_password }}"
+      FL_LICENSE: "{{ ai_freellmapi_license_key }}"
+  register: ai_freellmapi_provision
+  retries: "{{ ai_freellmapi_provision_retries }}"
+  delay: "{{ ai_freellmapi_provision_delay }}"
+  until: ai_freellmapi_provision.rc == 0
+  changed_when: >-
+    'done' in [
+      (ai_freellmapi_provision.stdout | default('{}') | from_json).setup | default(''),
+      (ai_freellmapi_provision.stdout | default('{}') | from_json).license | default('')
+    ]
+  no_log: "{{ ai_freellmapi_provision_no_log | bool }}"
+  when:
+    - not ansible_check_mode
+    - ai_freellmapi_setup_enabled | bool
+    - ai_freellmapi_admin_email | length > 0
+    - ai_freellmapi_admin_password | length > 0
+  tags: ["provision"]
+
+# 6. Status report
 - name: Get FreeLLMAPI container status
   community.docker.docker_container_info:
     name: "{{ ai_freellmapi_container_name }}"
@@ -86,4 +123,5 @@
         - URL: https://{{ ai_freellmapi_domain }}
         - Container: {{ ai_freellmapi_container_name }}
         - Status: {{ ai_freellmapi_container_info.container.State.Status | default('unknown') }}
+        - Provisioning: {{ ai_freellmapi_provision.stdout | default('skipped') }}
   tags: ["always", "info"]

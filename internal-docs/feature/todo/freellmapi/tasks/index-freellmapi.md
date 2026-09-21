@@ -14,6 +14,7 @@
 | 01-005 | Create Traefik dynamic config + register in Traefik role | [x] Done | 6 |
 | 01-006 | Add to AI pipeline playbook | [x] Done | 8 |
 | 01-007 | Regenerate service catalogs + lint check | [x] Done | 2g |
+| 01-008 | Declarative provisioning: vault-driven account, license, provider config | [~] In-Progress | 5 |
 
 ## Status Legend
 
