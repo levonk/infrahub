@@ -7,7 +7,7 @@
   become: true
   vars:
     # Use a dummy auth key for dry-run tests; real runs require a valid key.
-    vpn_tailscale_auth_key: "tskey-auth-dummy-test"
+    vpn_tailscale_auth_key: "dummy-auth-key-for-tests"
     vpn_tailscale_verify_connection: false
   roles:
     - role: vpn-tailscale
