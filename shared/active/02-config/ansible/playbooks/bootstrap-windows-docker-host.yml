@@ -63,14 +63,14 @@
     # WSL2 — required for Docker Desktop on Windows
     # ---------------------------------------------------------------------------
     - name: "Check if WSL2 is enabled"
-      ansible.builtin.shell:
+      ansible.windows.win_shell:
         cmd: "wsl --status 2>$null; if ($LASTEXITCODE -ne 0) { Write-Output 'WSL_NOT_INSTALLED' } else { Write-Output 'WSL_INSTALLED' }"
       register: wsl_status
       changed_when: false
       tags: ["wsl", "check"]
 
     - name: "Enable WSL2 (no default distro — Docker Desktop provides its own)"
-      ansible.builtin.shell:
+      ansible.windows.win_shell:
         cmd: "wsl --install --no-distribution"
       register: wsl_install
       changed_when: wsl_install.rc == 0
@@ -88,14 +88,14 @@
     # Docker Desktop
     # ---------------------------------------------------------------------------
     - name: "Check if Docker Desktop is installed"
-      ansible.builtin.shell:
+      ansible.windows.win_shell:
         cmd: "if (Get-Command docker -ErrorAction SilentlyContinue) { Write-Output 'INSTALLED' } else { Write-Output 'NOT_INSTALLED' }"
       register: docker_check
       changed_when: false
       tags: ["docker", "check"]
 
     - name: "Install Docker Desktop via winget"
-      ansible.builtin.shell:
+      ansible.windows.win_shell:
         cmd: "winget install Docker.DockerDesktop --silent --accept-package-agreements --accept-source-agreements"
       register: docker_install
       changed_when: docker_install.rc == 0
@@ -110,7 +110,7 @@
       tags: ["docker", "reboot"]
 
     - name: "Start Docker Desktop"
-      ansible.builtin.shell:
+      ansible.windows.win_shell:
         cmd: |
           $dockerPath = "C:\Program Files\Docker\Docker\Docker Desktop.exe"
           if (Test-Path $dockerPath) {
@@ -129,7 +129,7 @@
       tags: ["docker", "start"]
 
     - name: "Wait for Docker daemon to be ready"
-      ansible.builtin.shell:
+      ansible.windows.win_shell:
         cmd: |
           $maxAttempts = 60  # project-lint: disable=magic-int  Windows/PowerShell config value, not a standalone magic number
           $attempt = 0  # project-lint: disable=magic-int  loop counter init, not a config value
@@ -158,14 +158,14 @@
     # Git
     # ---------------------------------------------------------------------------
     - name: "Check if Git is installed"
-      ansible.builtin.shell:
+      ansible.windows.win_shell:
         cmd: "if (Get-Command git -ErrorAction SilentlyContinue) { Write-Output 'INSTALLED' } else { Write-Output 'NOT_INSTALLED' }"
       register: git_check
       changed_when: false
       tags: ["git", "check"]
 
     - name: "Install Git via winget"
-      ansible.builtin.shell:
+      ansible.windows.win_shell:
         cmd: "winget install Git.Git --silent --accept-package-agreements --accept-source-agreements"
       register: git_install
       changed_when: git_install.rc == 0
@@ -176,14 +176,14 @@
     # Tailscale
     # ---------------------------------------------------------------------------
     - name: "Check if Tailscale is installed"
-      ansible.builtin.shell:
+      ansible.windows.win_shell:
         cmd: "if (Get-Command tailscale -ErrorAction SilentlyContinue) { Write-Output 'INSTALLED' } else { Write-Output 'NOT_INSTALLED' }"
       register: tailscale_check
       changed_when: false
       tags: ["tailscale", "check"]
 
     - name: "Install Tailscale via winget"
-      ansible.builtin.shell:
+      ansible.windows.win_shell:
         cmd: "winget install Tailscale.Tailscale --silent --accept-package-agreements --accept-source-agreements"
       register: tailscale_install
       changed_when: tailscale_install.rc == 0
@@ -191,7 +191,7 @@
       tags: ["tailscale", "install"]
 
     - name: "Check if Tailscale is already connected"
-      ansible.builtin.shell:
+      ansible.windows.win_shell:
         cmd: |
           $ts = & "C:\Program Files\Tailscale\tailscale.exe" status 2>$null
           if ($LASTEXITCODE -eq 0 -and $ts -notmatch "Logged out") {
@@ -205,7 +205,7 @@
       tags: ["tailscale", "check"]
 
     - name: "Join Tailscale network with auth key"
-      ansible.builtin.shell:
+      ansible.windows.win_shell:
         cmd: |
           $authKey = "{{ vpn_tailscale_auth_key }}"
           & "C:\Program Files\Tailscale\tailscale.exe" up --authkey $authKey --hostname {{ windows_tailscale_hostname }} --accept-routes --accept-dns
@@ -219,7 +219,7 @@
       tags: ["tailscale", "configure"]
 
     - name: "Report Tailscale status"
-      ansible.builtin.shell:
+      ansible.windows.win_shell:
         cmd: '& "C:\Program Files\Tailscale\tailscale.exe" status'
       register: tailscale_final_status
       changed_when: false
@@ -234,7 +234,7 @@
     # docker-users group — ansible user needs Docker access
     # ---------------------------------------------------------------------------
     - name: "Check if ansible user is in docker-users group"
-      ansible.builtin.shell:
+      ansible.windows.win_shell:
         cmd: |
           $members = Get-LocalGroupMember -Group "docker-users" -ErrorAction SilentlyContinue
           if ($members -and ($members.Name -contains "$env:COMPUTERNAME\{{ ansible_user }}")) {
@@ -248,7 +248,7 @@
       tags: ["docker-users", "check"]
 
     - name: "Add ansible user to docker-users group"
-      ansible.builtin.shell:
+      ansible.windows.win_shell:
         cmd: "Add-LocalGroupMember -Group 'docker-users' -Member '{{ ansible_user }}'"
       register: docker_users_add
       changed_when: docker_users_add.rc == 0
@@ -268,7 +268,7 @@
     # Tailscale encrypts the transport — no TLS needed on the registry itself.
     # ---------------------------------------------------------------------------
     - name: "Check current Docker daemon config"
-      ansible.builtin.shell:
+      ansible.windows.win_shell:
         cmd: |
           $configPath = "$env:USERPROFILE\.docker\daemon.json"
           if (Test-Path $configPath) {
@@ -281,7 +281,7 @@
       tags: ["registry", "configure"]
 
     - name: "Configure Docker Desktop insecure-registries for local registry"
-      ansible.builtin.shell: |
+      ansible.windows.win_shell: |
         $configPath = "$env:USERPROFILE\.docker\daemon.json"
         $registryUrl = "{{ windows_registry_url }}"
 
@@ -308,7 +308,7 @@
       tags: ["registry", "configure"]
 
     - name: "Restart Docker Desktop to apply registry config"
-      ansible.builtin.shell: |
+      ansible.windows.win_shell: |
         Stop-Process -Name "Docker Desktop" -Force -ErrorAction SilentlyContinue
         Stop-Process -Name "com.docker.backend" -Force -ErrorAction SilentlyContinue
         Start-Sleep -Seconds 5  # project-lint: disable=magic-int  Windows/PowerShell config value, not a standalone magic number
@@ -322,7 +322,7 @@
       tags: ["registry", "restart"]
 
     - name: "Wait for Docker Desktop to be ready after restart"
-      ansible.builtin.shell: |
+      ansible.windows.win_shell: |
         $maxAttempts = 60  # project-lint: disable=magic-int  Windows/PowerShell config value, not a standalone magic number
         $attempt = 0  # project-lint: disable=magic-int  loop counter init, not a config value
         while ($attempt -lt $maxAttempts) {
@@ -346,7 +346,7 @@
 
   post_tasks:
     - name: "Verify Docker is accessible via named pipe"
-      ansible.builtin.shell:
+      ansible.windows.win_shell:
         cmd: "docker info --format '{{ '{{' }}.ServerVersion{{ '}}' }}'"
       register: docker_version_check
       changed_when: false
