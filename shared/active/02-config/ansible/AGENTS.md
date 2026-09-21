@@ -518,11 +518,11 @@ role for the pattern.
 
 ### Insecure Registry Configuration
 
-Docker Desktop on Windows does **not** read `~/.docker/daemon.json` for daemon configuration. The `daemon.json` in the user's `.docker` directory is for the Docker CLI, not for the daemon. To configure insecure registries:
+Docker Desktop **does** honor `C:\Users\<user>\.docker\daemon.json` for engine configuration — verified: writing `insecure-registries` there and restarting Docker Desktop makes `docker info` report the registry. Three gotchas:
 
-1. Open Docker Desktop → Settings → Docker Engine → add `"insecure-registries": ["100.90.22.85:5000"]`
-2. Apply & Restart from the UI
-3. Docker Desktop cannot be restarted via SSH — it requires an interactive desktop session
+1. **Profile**: it must be the *interactive Docker Desktop user's* profile (`micro` on dtop202311), not the `ansible` service account's. `$env:USERPROFILE` in an SSH/WinRM session resolves to the connecting account — write to the explicit interactive-user path.
+2. **Encoding**: `ConvertTo-Json | Set-Content -Encoding UTF8` under Windows PowerShell 5.x emits a **UTF-8 BOM**, and the Docker engine fails to parse a BOM'd `daemon.json`. Write with `[IO.File]::WriteAllText` (or `utf8NoBOM` on PS7+).
+3. **Restart**: Docker Desktop cannot be (re)started via SSH — `Start-Process` over SSH lands in session 0 and the app exits with code 1 before initializing. Launch requires the interactive session (user clicks the icon; a `/it` scheduled task can launch trivial GUI apps into session 1 but was not sufficient for Docker Desktop).
 
 ### proxy_traefik_windows Role Dependencies
 
@@ -564,6 +564,12 @@ chmod 600 ~/.docker-no-creds/config.json
 **Why not remove `credsStore` globally?** The default `~/.docker/config.json` uses `osxkeychain` for private registry auth (Docker Hub, ghcr.io, etc.). Removing it would break `docker login` flows. The `DOCKER_CONFIG` override is surgical — it only applies to the Ansible-managed pull tasks, leaving interactive `docker pull`/`docker login` unaffected.
 
 **Why not set `DOCKER_CONFIG` on non-pull tasks?** `docker run` with a missing image will auto-pull, but in these roles `docker pull` is always a separate preceding task. If a role ever uses `docker run` without a preceding `docker pull`, add `DOCKER_CONFIG` to that task too.
+
+**Caveat — DOCKER_CONFIG does not fully prevent keychain calls**: observed `docker-credential-osxkeychain get` spawned (and hanging) even with `DOCKER_CONFIG` pointed at a credential-free config — likely the OrbStack docker shim or a daemon-side credential lookup. The modal can also be a SecurityAgent **ACL authorization** prompt ("wants to access keychain item"), not just an unlock prompt, and it can pend while the keychain is unlocked. If delegated pulls hang, check for a pending GUI prompt (`pgrep -f SecurityAgent`, `ps aux | grep docker-credential`) before assuming a network issue — clicking "Always Allow" permanently resolves it.
+
+### `ansible.builtin.shell` dispatches to Python on Windows hosts — use `win_shell`
+
+On `dtop202311`, `ansible.builtin.shell` tasks dispatch to `ansible_python_interpreter` (`C:\Program Files\Python312\python.exe`) even with `ansible_shell_type: powershell` — and that Python path does not exist on the host, so every `shell` task fails. Use `ansible.windows.win_shell` (or `raw`) for all Windows-targeted tasks; `bootstrap-windows-docker-host.yml` was converted to `win_shell` for this reason. Related: the interpreter var must be set at **host level** in the inventory — group-level `vars:` in the same inventory file lose to `group_vars/all.yml` (`/usr/bin/python3`). Note the stale `Python312` path means *any* Python-dispatched module against this host will still fail; delegated-localhost Docker CLI and `win_*` modules are unaffected.
 
 ### Image Transfer to Windows Docker Hosts
 

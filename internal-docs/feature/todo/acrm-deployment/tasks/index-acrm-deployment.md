@@ -45,11 +45,35 @@
 
 ## Deployment Verification (post-deploy checklist)
 
-- Containers: `localnet-acrm-web`, `localnet-acrm-postgres` — healthy on
+All items verified — deployment complete (play recap `ok=119 changed=35
+failed=0`, Traefik healthy, all 12 managed-domain certs valid):
+
+- [x] Containers: `localnet-acrm-web`, `localnet-acrm-postgres` — healthy on
   dtop202311 (`docker inspect` via `DOCKER_HOST: ssh://…`)
-- `https://acrm.nl.levonk.com` → Authelia challenge, then dashboard
-- `https://acrm-api.nl.levonk.com/api/v1/suggest` → 401 without
-  `x-acrm-api-key`, non-401 with it
-- Postgres: `\dt` shows drizzle-migrated tables (`graph_nodes`,
-  `graph_edges`, `messages`, `typing_events`, `edit_versions`)
-- `dig +short acrm-api.nl.levonk.com` → `dtop202311.tale-grouper.ts.net`
+- [x] `https://acrm.nl.levonk.com` → 302 to `auth.levonk.com` (Authelia
+  challenge), `authelia_session` cookie set
+- [x] `https://acrm-api.nl.levonk.com` → reaches app directly (no Authelia
+  redirect); POST `/api/v1/message` → 401 `{"error":"Unauthorized"}` without
+  `x-acrm-api-key`, 200 with it — full vertical slice returned
+  `messageId` + `graphNodeId` + `safetyLatch` evaluation
+- [x] Postgres `\dt`: `graph_nodes`, `graph_edges`, `messages`,
+  `typing_events`, `edit_versions` all present (drizzle migrations ran)
+- [x] `acrm-nl.yml` present in traefik-windows dynamic config volume;
+  both `acrm.nl` and `acrm-api.nl` certs valid (Let's Encrypt, cert
+  validation task passed)
+- [x] `dig +short acrm-api.nl.levonk.com` → `dtop202311.tale-grouper.ts.net`
+
+### Deploy-time incidents resolved
+
+- Cloudflare 400 on record create: `cloudflare_dns_ttl` string→int fix in
+  `cloudflare-dns` role (`create_record.yml`/`update_record.yml`)
+- Windows daemon lacked `insecure-registries`: bootstrap task wrote to the
+  wrong profile (`ansible` acct vs interactive `micro`) and emitted a
+  UTF-8 BOM — both fixed (`ac0086a3`, `d20e291c`); Docker Desktop relaunch
+  requires the interactive session (user handoff)
+- macOS keychain SecurityAgent ACL prompt blocked all `docker pull`s
+  (incl. `DOCKER_CONFIG`-clean ones) until user clicked "Always Allow"
+- Transient SSH timeout during traefik seed-exec; idempotent retry succeeded
+- Stale `ansible_python_interpreter` (`C:\Program Files\Python312`) moved to
+  host level; path still nonexistent — any Python-dispatched module will
+  fail, `win_shell`/delegated tasks unaffected
