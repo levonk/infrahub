@@ -132,7 +132,7 @@
       ansible.builtin.shell:
         cmd: |
           $maxAttempts = 60  # project-lint: disable=magic-int  Windows/PowerShell config value, not a standalone magic number
-          $attempt = 0
+          $attempt = 0  # project-lint: disable=magic-int  loop counter init, not a config value
           while ($attempt -lt $maxAttempts) {
               $attempt++
               $result = docker info 2>$null
@@ -298,7 +298,9 @@
           $config.'insecure-registries' += $registryUrl
         }
 
-        $config | ConvertTo-Json -Depth 10 | Set-Content $configPath -Encoding UTF8  # project-lint: disable=magic-int  Windows/PowerShell config value, not a standalone magic number
+        # Write UTF-8 without BOM: Set-Content -Encoding UTF8 emits a BOM under
+        # Windows PowerShell 5.x and dockerd refuses to start on a BOM-marked daemon.json.
+        [System.IO.File]::WriteAllText($configPath, ($config | ConvertTo-Json -Depth 10), [System.Text.UTF8Encoding]::new($false))  # project-lint: disable=magic-int  Windows/PowerShell config value, not a standalone magic number
         Write-Output "Configured insecure-registry: $registryUrl"
       register: docker_config_update
       changed_when: "'Configured insecure-registry' in docker_config_update.stdout"
@@ -322,7 +324,7 @@
     - name: "Wait for Docker Desktop to be ready after restart"
       ansible.builtin.shell: |
         $maxAttempts = 60  # project-lint: disable=magic-int  Windows/PowerShell config value, not a standalone magic number
-        $attempt = 0
+        $attempt = 0  # project-lint: disable=magic-int  loop counter init, not a config value
         while ($attempt -lt $maxAttempts) {
             $attempt++
             $result = docker info 2>$null
