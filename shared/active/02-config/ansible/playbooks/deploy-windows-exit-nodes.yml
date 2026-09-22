@@ -17,7 +17,7 @@
 #   PLATFORM=linux/amd64 scripts/build-and-push-images.sh localnet-proxy-tor
 #
 # Usage:
-#   just ansible-deploy-windows-exit-nodes
+#   just --justfile levonk/justfile levonk-deploy-exit-nodes-nl
 #   or:
 #   ansible-playbook -i levonk/active/02-config/ansible/inventories/windows-docker.yml \
 #     shared/active/02-config/ansible/playbooks/deploy-windows-exit-nodes.yml \

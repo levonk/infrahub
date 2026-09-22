@@ -230,7 +230,7 @@ just ansible-test
 
 # Deploy playbooks to OCI
 just ansible-deploy-bootstrap
-just ansible-deploy-vpn
+devbox run levonk-deploy-exit-nodes-cno
 just ansible-deploy-infra
 just ansible-deploy-vms
 just ansible-deploy-site

@@ -604,15 +604,15 @@ fix-configs_impl:
     log_end "Config files created"
 
 # Remove all containers, volumes, and networks, then restart services
-clean-full:
-    @just _devbox clean-full_impl
+clean-all:
+    @just _devbox clean-all_impl
 
 [private]
-clean-full_impl:
+clean-all_impl:
     #!/usr/bin/env bash
     set -euo pipefail
     {{_log}}
-    just log-start "clean-full"
+    just log-start "clean-all"
     log_start "Cleaning up Docker resources and restarting"
     log_info "Stopping and removing all containers..."
     ({{DC_LOCAL}} --profile all down -v --remove-orphans 2>&1 | tee -a {{LOG_FILE}}; exit ${PIPESTATUS[0]}) || true
@@ -626,7 +626,7 @@ clean-full_impl:
     @sleep 2
     log_end "Cleanup complete, starting services..."
     just up 2>&1 | tee -a {{LOG_FILE}}
-    @just log-end "clean-full" "SUCCESS"
+    @just log-end "clean-all" "SUCCESS"
 
 # Show running containers
 ps:
