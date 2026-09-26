@@ -58,6 +58,7 @@
         sudo = ./modules/security/sudo.nix;
         fleet = ./modules/fleet/default.nix;
         networking = ./modules/networking/default.nix;
+        maintenance = ./modules/maintenance/default.nix;
 
         # Convenience: all shared modules as a list
         all = [
@@ -71,6 +72,7 @@
           ./modules/security/sudo.nix
           ./modules/fleet/default.nix
           ./modules/networking/default.nix
+          ./modules/maintenance/default.nix
         ];
       };
 
