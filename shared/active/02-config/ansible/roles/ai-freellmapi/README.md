@@ -21,14 +21,15 @@ See `defaults/main.yml` for the full list.
 ### Optional Vault Secrets (declarative provisioning)
 
 - `vault_ai_freellmapi_admin_email` / `vault_ai_freellmapi_admin_password` —
-  when both are set, the role creates the first dashboard account
-  automatically (see Declarative Provisioning below). Leave unset to keep the
-  manual browser setup flow.
+  when both are set, they are merged into `FREEAPI_CONFIG_JSON` as the native
+  `admin` field and the server creates the first dashboard account during
+  boot (see Declarative Provisioning below). Leave unset to keep the manual
+  browser setup flow.
 - `vault_ai_freellmapi_license_key` — freellmapi.co Premium license key.
-  Activated via `POST /api/premium/key`, which validates against the license
-  service and switches the install to the live catalog feed. Re-activated only
-  when absent or the stored key's mask differs (rotation). Requires the
-  account credentials above.
+  Merged into `FREEAPI_CONFIG_JSON` as the native `license` field; the server
+  validates it against the license service and activates detached at boot
+  (unreachable license service never delays startup). An identical stored key
+  short-circuits; a changed key re-activates (rotation).
 - `vault_ai_freellmapi_config` — dict rendered to `FREEAPI_CONFIG_JSON` and
   applied idempotently by the server on every boot (provider keys, custom
   providers, model overrides, fallback chain, routing strategy). Shape:
@@ -44,27 +45,25 @@ See `defaults/main.yml` for the full list.
 
 ## Declarative Provisioning
 
-The role runs `files/freellmapi-provision.js` inside the container via
-`community.docker.docker_container_exec` when admin credentials are set. The
-script:
+Since upstream **v0.12.0** (PR
+[tashfeenahmed/freellmapi#1291](https://github.com/tashfeenahmed/freellmapi/pull/1291)),
+`admin` and `license` are first-class `FREEAPI_CONFIG_JSON` fields. The role
+merges the vault credentials into the config JSON (`ai_freellmapi_config_effective`),
+which the server applies inside the boot-time config pass — before
+`app.listen()` and before the `userCount() === 0` check that mints a setup
+code. Consequences:
 
-1. `GET /api/auth/status` — skips setup when `needsSetup` is false (idempotent)
-2. `POST /api/auth/setup` — creates the first account. The exec'd request is a
-   genuine loopback peer (`127.0.0.1` inside the container's netns), so the
-   upstream setup-code gate — which checks the socket peer address, not
-   `X-Forwarded-For` — is skipped by design, exactly like a browser on the
-   same machine.
-3. `POST /api/premium/key` — activates the Premium license using the session
-   token from setup/login, only when absent or rotated.
+- A configured admin **closes the unauthenticated setup window entirely** — no
+  setup code is minted and `/api/auth/setup` answers 409 from the first
+  request.
+- Once any user exists, the `admin` block degrades to a warning — config can
+  never take over a claimed install. It only matters on a fresh/empty data
+  volume (deterministic rebuilds).
+- `license` activates detached, so an unreachable license service never
+  delays boot; the live catalog sync is kicked after activation.
 
-Secrets reach the script through the Docker exec API `env` channel — never
-argv, never the host process list. The task is `no_log` by default; set
-`ai_freellmapi_provision_no_log: false` to debug failures.
-
-Note: `/api/auth/setup` and `/api/premium/key` are internal dashboard routes,
-not a documented public API. They are stable (test-covered upstream), but a
-future release could change the request shape — pin
-`ai_freellmapi_image_tag` to eliminate that risk.
+The image tag is pinned (`v0.12.0`) because these fields only exist on
+upstream >= v0.12.0.
 
 ## Health Check
 
