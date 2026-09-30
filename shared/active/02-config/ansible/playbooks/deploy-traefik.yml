@@ -15,14 +15,26 @@
         gather_subset: ["all"]
       tags: ["always"]
 
-    - name: "Load shared infrastructure domains"
+    - name: "Load shared infrastructure defaults (ports, networks, domains, storage)"
       ansible.builtin.include_vars:
-        file: "{{ playbook_dir }}/../infrastructure/domains.yml"
+        file: "{{ playbook_dir }}/../infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+        - modes.yml
+        - timing.yml
       tags: ["always"]
 
-    - name: "Load client infrastructure domain overrides"
+    - name: "Load client infrastructure overrides (levonk)"
       ansible.builtin.include_vars:
-        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/domains.yml"
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
       tags: ["always"]
 
     - name: "Validate required Traefik variables are defined"

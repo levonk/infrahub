@@ -541,6 +541,23 @@
   tags: ["deploy", "traefik", "watch-party"]
 
 # ---------------------------------------------------------------------------
+# copyparty — file sharing server
+# Web UI + uploads/downloads. copyparty built-in auth (anonymous share
+# links) — no Authelia middleware.
+# ---------------------------------------------------------------------------
+- name: Deploy copyparty dynamic configuration template
+  ansible.builtin.template:
+    src: dynamic/copyparty.yml.j2
+    dest: "{{ proxy_traefik_data_dir }}/config/dynamic/copyparty.yml"
+    owner: root
+    group: root
+    mode: "{{ infra_mode_file }}"
+  become: true
+  notify: reload traefik
+  when: copyparty_enabled | default(false) | bool
+  tags: ["deploy", "traefik", "copyparty"]
+
+# ---------------------------------------------------------------------------
 # Status Report
 # ---------------------------------------------------------------------------
 - name: Report Traefik status

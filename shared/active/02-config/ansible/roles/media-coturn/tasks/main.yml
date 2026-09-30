@@ -19,7 +19,34 @@
     success_msg: "All required coturn variables are defined."
   tags: ["always", "validate"]
 
-# 1. Config directory
+# 1. Resolve public IP for external-ip — without it the TURN server advertises
+# its container/private IP in relay candidates and public WebRTC fails silently.
+- name: Auto-detect public IP for coturn external-ip
+  ansible.builtin.uri:
+    url: "{{ media_coturn_external_ip_detect_url }}"
+    return_content: true
+    timeout: "{{ infra_timeout_http_short | default(15) }}"  # project-lint: disable=magic-int  HTTP timeout fallback, not an operational value
+  register: media_coturn_public_ip_result
+  when: media_coturn_external_ip | length == 0
+
+- name: Fail if public IP could not be detected
+  ansible.builtin.fail:
+    msg: >-
+      Could not auto-detect the host's public IP via
+      {{ media_coturn_external_ip_detect_url }}. Set media_coturn_external_ip
+      explicitly and re-run.
+  when:
+    - media_coturn_external_ip | length == 0
+    - media_coturn_public_ip_result.status | default(0) != 200  # project-lint: disable=magic-int  HTTP status check, not an operational value
+
+- name: Set coturn external-ip from detected public IP
+  ansible.builtin.set_fact:
+    media_coturn_external_ip: "{{ media_coturn_public_ip_result.content | trim }}"
+  when:
+    - media_coturn_external_ip | length == 0
+    - media_coturn_public_ip_result.status | default(0) == 200  # project-lint: disable=magic-int  HTTP status check, not an operational value
+
+# 2. Config directory
 - name: Ensure coturn config directory exists
   ansible.builtin.file:
     path: "{{ infra_storage_media_coturn_config_dir | default('/opt/localnet/config/coturn') }}"
@@ -29,7 +56,7 @@
     mode: "{{ infra_mode_dir | default('0755') }}"  # project-lint: disable=magic-int  standard directory mode from infra vars
   become: true
 
-# 2. Config file
+# 3. Config file
 - name: Deploy coturn turnserver.conf
   ansible.builtin.template:
     src: turnserver.conf.j2
@@ -40,7 +67,7 @@
   become: true
   notify: restart media-coturn
 
-# 3. Image pull — MUST use source: pull, NEVER source: build
+# 4. Image pull — MUST use source: pull, NEVER source: build
 - name: Pull coturn image
   community.docker.docker_image:
     name: "{{ media_coturn_image_name }}:{{ media_coturn_image_tag }}"
@@ -48,7 +75,7 @@
     state: present
   notify: restart media-coturn
 
-# 4. Container — MUST use community.docker.docker_container, NEVER docker compose
+# 5. Container — MUST use community.docker.docker_container, NEVER docker compose
 # coturn needs both TCP and UDP for STUN/TURN control, plus UDP relay port range.
 - name: Deploy coturn container
   community.docker.docker_container:
@@ -81,7 +108,7 @@
       start_period: "{{ media_coturn_healthcheck_start_period }}"
   notify: restart media-coturn
 
-# 5. Status report
+# 6. Status report
 - name: Get coturn container status
   community.docker.docker_container_info:
     name: "{{ media_coturn_container_name }}"

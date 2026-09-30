@@ -27,8 +27,11 @@ media_coturn_realm: "{{ infra_domain_media_watch_party | default('watch.' ~ (inf
 media_coturn_username: "watchparty"
 media_coturn_password: "{{ vault_media_watch_party_turn_password | default('') }}"
 
-# External IP detection — set to the host's public IP or leave empty for auto-detect
+# External IP — TURN relay must advertise the host's PUBLIC IP to clients.
+# Leave empty to auto-detect at deploy time by querying the egress-IP echo
+# service below from the target host. Set explicitly to skip detection.
 media_coturn_external_ip: ""
+media_coturn_external_ip_detect_url: "https://checkip.amazonaws.com"
 
 # Bind address
 media_coturn_bind_address: "0.0.0.0"  # project-lint: disable=magic-ipv4  bind-all address for coturn TURN server

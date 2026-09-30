@@ -78,6 +78,14 @@
       register: watch_party_config
       ignore_errors: true
 
+    - name: "Check public firewall ports (watch party + Authelia are public)"
+      ansible.builtin.command:
+        cmd: "firewall-cmd --list-ports --zone={{ proxy_firewall_firewalld_default_zone | default('public') }}"
+      register: watch_party_firewalld_ports
+      changed_when: false
+      ignore_errors: true
+      when: cloud_server_firewall_type | default('') == 'firewalld'
+
     - name: "Check Watch Party HTTPS endpoint via Traefik"
       ansible.builtin.uri:
         url: "https://{{ watch_party_domain_val }}/api/health"
@@ -109,6 +117,10 @@
             - Endpoint: http://{{ watch_party_localhost_val }}:{{ watch_party_host_port_val }}/api/health
             - HTTP Status: {{ watch_party_health.status | default('FAILED') }}
             - Response: {{ watch_party_health.json | default('no response') }}
+
+          Public Firewall Ports (firewalld public zone):
+            - {{ watch_party_firewalld_ports.stdout | default('check skipped/failed') }}
+            - Expected: {{ infra_port_proxy_http_host | default('80') }}/tcp {{ infra_port_proxy_https_host | default('443') }}/tcp {{ infra_port_media_coturn_stun_turn_host | default('3487') }}/tcp {{ infra_port_media_coturn_stun_turn_host | default('3487') }}/udp {{ infra_port_media_coturn_relay_min_host | default('49000') }}-{{ infra_port_media_coturn_relay_max_host | default('49050') }}/udp  # project-lint: disable=magic-int  fallback literals in display message
 
           Watch Party Config (local):
             - Endpoint: http://{{ watch_party_localhost_val }}:{{ watch_party_host_port_val }}/api/config

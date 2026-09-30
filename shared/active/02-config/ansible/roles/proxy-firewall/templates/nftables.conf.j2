@@ -7,7 +7,7 @@ flush ruleset
 
 table inet filter {
     chain input {
-        type filter hook input priority 0; policy drop;
+        type filter hook input priority 0; policy drop;  # project-lint: disable=magic-int  nftables chain priority, config syntax
 
         # Allow loopback
         iif "lo" accept
@@ -29,6 +29,16 @@ table inet filter {
 {% if proxy_firewall_mosh_port | length > 0 %}
         udp dport {{ proxy_firewall_mosh_port }} ct state new accept
 {% endif %}
+
+        # Allow public TCP ports (0.0.0.0/0 — public-facing services)
+{% for port in proxy_firewall_public_tcp_ports | default([]) %}
+        tcp dport {{ port }} ct state new accept
+{% endfor %}
+
+        # Allow public UDP ports (0.0.0.0/0 — e.g., STUN/TURN relay ranges)
+{% for port in proxy_firewall_public_udp_ports | default([]) %}
+        udp dport {{ port }} ct state new accept
+{% endfor %}
 
         # Allow VPN subnets
 {% for subnet in proxy_firewall_vpn_subnets %}
@@ -55,7 +65,7 @@ table inet filter {
     }
 
     chain forward {
-        type filter hook forward priority 0; policy {{ 'accept' if proxy_firewall_enable_forwarding | bool else 'drop' }};
+        type filter hook forward priority 0; policy {{ 'accept' if proxy_firewall_enable_forwarding | bool else 'drop' }};  # project-lint: disable=magic-int  nftables chain priority, config syntax
 
 {% if proxy_firewall_enable_forwarding | bool %}
         # Allow established and related
@@ -69,7 +79,7 @@ table inet filter {
     }
 
     chain output {
-        type filter hook output priority 0; policy accept;
+        type filter hook output priority 0; policy accept;  # project-lint: disable=magic-int  nftables chain priority, config syntax
     }
 }
 

@@ -132,6 +132,11 @@ media_watch_party_domain: "{{ infra_domain_media_watch_party | default('watch.' 
 media_watch_party_container_name: "{{ infra_hostname_media_watch_party | default('localnet-media-watch-party') }}"
 media_watch_party_container_port: "{{ infra_port_media_watch_party_container | default('3001') }}"  # project-lint: disable=magic-int  fallback default matches shared ports.yml
 
+# copyparty — domain + container naming for Traefik dynamic config
+copyparty_domain: "{{ infra_domain_storage_copyparty | default('files.' ~ (infra_domain_base | default('example.com'))) }}"
+copyparty_container_name: "copyparty"
+copyparty_container_port: "{{ infra_port_storage_copyparty_container | default('3923') }}"  # project-lint: disable=magic-int  fallback default matches shared ports.yml
+
 # ---------------------------------------------------------------------------
 # AI Gateway Integration Flags (enable Traefik dynamic config for each service)
 # ---------------------------------------------------------------------------
@@ -143,6 +148,12 @@ ai_litellm_enabled: false
 # Enable Traefik dynamic config for the watch-party service (watch.<base>)
 # ---------------------------------------------------------------------------
 media_watch_party_enabled: false
+
+# ---------------------------------------------------------------------------
+# copyparty Integration Flag
+# Enable Traefik dynamic config for the copyparty service (files.<base>)
+# ---------------------------------------------------------------------------
+copyparty_enabled: false
 
 # ---------------------------------------------------------------------------
 # Tailscale/NetBird Bypass Configuration

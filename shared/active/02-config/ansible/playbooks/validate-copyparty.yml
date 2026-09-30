@@ -3,17 +3,17 @@
 # Location: shared/active/02-config/ansible/playbooks/validate-copyparty.yml
 #
 # Read-only, idempotent post-deployment checks. Run after deploy-copyparty.yml.
-# copyparty is exposed publicly via a Cloudflare Tunnel (cloudflared) — NOT
-# Traefik — so this validates the full chain:
-#   DNS (files.levonk.com) → Cloudflare edge → cloudflared → copyparty:3923
+# copyparty is exposed publicly via Traefik — this validates the full chain:
+#   DNS (files.levonk.com → oci.mach.<base> public IP) → Traefik → copyparty:3923
+# (The cloudflared tunnel remains as a dormant rollback path.)
 #
 # Checks:
 #   1. copyparty container is running and healthy
-#   2. cloudflared container is running (public ingress path)
+#   2. cloudflared container is running (dormant rollback path)
 #   3. copyparty data volume exists
 #   4. copyparty.conf is deployed on the host
 #   5. Local HTTP probe on the host port (anonymous greeting)
-#   6. Public HTTPS root via the tunnel
+#   6. Public HTTPS root via Traefik
 #   7. /uploads/ drop-box semantics (anonymous write-only, no listing)
 #   8. /public/ anonymous read share
 #
@@ -99,7 +99,7 @@
       tags: ["validate", "copyparty"]
 
     # =========================================================================
-    # cloudflared tunnel container (public ingress path)
+    # cloudflared tunnel container (dormant rollback path)
     # =========================================================================
     - name: "Check cloudflared container status"
       community.docker.docker_container_info:
@@ -159,10 +159,10 @@
       tags: ["validate", "copyparty"]
 
     # =========================================================================
-    # Public HTTPS probes via Cloudflare Tunnel — run from the control machine
-    # so the check covers DNS + edge + tunnel + service end-to-end.
+    # Public HTTPS probes via Traefik — run from the control machine
+    # so the check covers DNS + edge + Traefik + service end-to-end.
     # =========================================================================
-    - name: "Check public root via Cloudflare Tunnel"
+    - name: "Check public root via Traefik"
       ansible.builtin.uri:
         url: "https://{{ copyparty_domain }}/"
         method: GET
@@ -180,7 +180,7 @@
         validation_results: "{{ validation_results | combine({'public_root_ok': copyparty_public_root.status | default(infra_size_unlimited) == (infra_http_status_ok | int)}) }}"
       tags: ["validate", "copyparty", "cloudflared"]
 
-    - name: "Check /uploads/ drop-box semantics via tunnel"
+    - name: "Check /uploads/ drop-box semantics"
       ansible.builtin.uri:
         url: "https://{{ copyparty_domain }}/uploads/"
         method: GET
@@ -201,7 +201,7 @@
         validation_results: "{{ validation_results | combine({'uploads_dropbox_ok': (copyparty_uploads.status | default(infra_size_unlimited) == (infra_http_status_ok | int)) and ('write' in (copyparty_uploads.content | default('')))}) }}"
       tags: ["validate", "copyparty", "cloudflared"]
 
-    - name: "Check /public/ anonymous read share via tunnel"
+    - name: "Check /public/ anonymous read share"
       ansible.builtin.uri:
         url: "https://{{ copyparty_domain }}/public/"
         method: GET
@@ -231,7 +231,7 @@
           "copyparty Validation Summary:\n
           - Container Running:        {{ validation_results.container_running }}\n
           - Container Healthy:        {{ validation_results.container_healthy }}\n
-          - cloudflared Running:      {{ validation_results.tunnel_running }}\n
+          - cloudflared Running (rollback): {{ validation_results.tunnel_running }}\n
           - Data Volume Present:      {{ validation_results.data_volume_present }}\n
           - Config Deployed:          {{ validation_results.config_present }}\n
           - Local HTTP (:{{ copyparty_host_port }}):   {{ validation_results.local_http_ok }}\n

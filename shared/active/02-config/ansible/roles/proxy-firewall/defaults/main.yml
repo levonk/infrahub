@@ -26,6 +26,16 @@ proxy_firewall_tailscale_subnet: "{{ cloud_server_tailscale_subnet | default(inf
 proxy_firewall_netbird_subnet: "{{ cloud_server_netbird_subnet | default(infra_network_private_class_a) }}"
 
 # ---------------------------------------------------------------------------
+# Public Ports
+# ---------------------------------------------------------------------------
+# TCP/UDP ports allowed inbound from ANY source (public zone, 0.0.0.0/0).
+# Empty by default — hosts opt in via cloud_server_firewall_public_*_ports.
+# Ranges use "-" syntax (e.g., "49000-49050").
+# Example use: public Traefik edge for off-tailnet services (watch party).
+proxy_firewall_public_tcp_ports: "{{ cloud_server_firewall_public_tcp_ports | default([]) }}"
+proxy_firewall_public_udp_ports: "{{ cloud_server_firewall_public_udp_ports | default([]) }}"
+
+# ---------------------------------------------------------------------------
 # Rate Limiting
 # ---------------------------------------------------------------------------
 proxy_firewall_rate_limit_ssh: "{{ cloud_server_firewall_rate_limit_ssh | default(true) }}"

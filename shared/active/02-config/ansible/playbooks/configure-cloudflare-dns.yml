@@ -34,6 +34,13 @@
     # Defined in client infrastructure/domains.yml
     ts_fqdn: "{{ infra_tailscale_fqdn_cloud_server | default(infra_tailscale_tailnet | default('example.ts.net')) }}"
 
+    # Public DDNS FQDN for the cloud server ({hostname}.mach.{base}, A record
+    # maintained by the cloudflare-ddns container → host's public IP).
+    # Used ONLY for services that must be reachable off the tailnet
+    # (watch.levonk.com + its Authelia prereq). Falls back to ts_fqdn so a
+    # client without a mach record stays tailnet-only rather than broken.
+    public_fqdn: "{{ infra_domain_mach_cloud_server | default(ts_fqdn) }}"
+
     # Tailscale FQDN for the Windows Docker host
     # Croc relay is a TCP service that runs directly on this host, not behind Traefik.
     ts_fqdn_windows_docker: "{{ infra_tailscale_fqdn_windows_docker | default(infra_tailscale_tailnet | default('example.ts.net')) }}"
@@ -449,9 +456,11 @@
         state: "{{ cloudflare_dns_state }}"
 
       # Authelia SSO (authentication provider for all services)
+      # PUBLIC: required for public access to watch.levonk.com — the SSO
+      # portal must be reachable off-tailnet for login redirects.
       - name: "{{ infra_domain_sso_authelia | default('auth.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
-        content: "{{ ts_fqdn }}"
+        content: "{{ public_fqdn }}"
         ttl: "{{ cloudflare_dns_ttl }}"
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
@@ -750,9 +759,26 @@
 
       # Local Watch Party — synchronized movie watching with friends
       # Web UI behind Traefik + Authelia SSO on the OCI cloud server.
+      # PUBLIC: CNAMEs to the DDNS public-IP record, not the Tailscale FQDN —
+      # friends are not on the tailnet. Requires public 443 on the host
+      # firewall + OCI security list (see deploy-watch-party.yml).
       - name: "{{ infra_domain_media_watch_party | default('watch.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
-        content: "{{ ts_fqdn }}"
+        content: "{{ public_fqdn }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      # copyparty — file sharing server
+      # Web UI behind Traefik on the OCI cloud server; copyparty built-in
+      # auth (no Authelia — anonymous share links must stay reachable).
+      # PUBLIC: CNAMEs to the DDNS public-IP record. Deliberately NOT proxied
+      # and NOT via cloudflared — Cloudflare's ~100MB request-body cap breaks
+      # large uploads. Requires public 443 on the host firewall + OCI
+      # security list (see deploy-copyparty.yml).
+      - name: "{{ infra_domain_storage_copyparty | default('files.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "CNAME"
+        content: "{{ public_fqdn }}"
         ttl: "{{ cloudflare_dns_ttl }}"
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"

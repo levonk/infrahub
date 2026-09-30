@@ -1,15 +1,19 @@
 ---
 # copyparty Deployment Playbook
 # Deploys copyparty (single-binary file sharing server) on the OCI cloud server.
-# copyparty is exposed publicly via a Cloudflare Tunnel (cloudflared), NOT
-# through Traefik. This means no inbound ports are opened on the host — the
-# tunnel makes an outbound connection to Cloudflare's edge.
+# copyparty is exposed publicly through Traefik at files.<base> (443) —
+# deliberately NOT via Cloudflare Tunnel/proxy, since Cloudflare's ~100MB
+# request-body cap breaks large uploads.
 #
 # copyparty uses built-in basic auth (NOT Authelia — copyparty handles
-# authentication internally).
+# authentication internally; anonymous share links must stay reachable).
 #
 # Stack: copyparty (web UI + file server) — no database, no Redis.
-# Domain: files.levonk.com (CNAME → Cloudflare Tunnel)
+# Domain: files.levonk.com (CNAME → oci.mach.<base> DDNS record — public IP)
+# DNS is managed by configure-cloudflare-dns.yml; the Traefik router is
+# deployed by the proxy-traefik role when copyparty_enabled is true.
+#
+# Requires public 443 on the host firewall + OCI VCN security list.
 #
 # Usage:
 #   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
@@ -18,39 +22,6 @@
 #   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
 #     shared/active/02-config/ansible/playbooks/deploy-copyparty.yml \
 #     --check --diff --vault-password-file ~/.ansible/vault_password
-
-- name: "Configure Cloudflare DNS for copyparty (tunnel CNAME)"
-  hosts: localhost
-  gather_facts: false
-  become: false
-  vars_files:
-    - "{{ playbook_dir }}/../infrastructure/domains.yml"
-    - "{{ playbook_dir }}/../infrastructure/timing.yml"
-    - "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/domains.yml"
-    - "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/inventories/group_vars/infrahub-levonk-all.vault.yml"
-  vars:
-    cloudflare_api_token: "{{ vault_cloudflare_api_token | default('') }}"
-    cloudflare_zone_id: "{{ vault_cloudflare_zone_id | default('') }}"
-    cloudflare_dns_state: "present"
-    cloudflare_dns_ttl: 1  # project-lint: disable=magic-int  Cloudflare proxied records require TTL=1 (auto)
-    cloudflare_dns_proxied: true  # Cloudflare Tunnel CNAMEs must be proxied (orange cloud)
-    cloudflare_dns_verify: true
-    cloudflare_dns_verify_propagation: false
-    cloudflare_dns_validate_ip: true
-    cloudflare_dns_allow_private_ip: false
-    # The tunnel CNAME is derived from the tunnel ID embedded in the token.
-    # cloudflared tunnels use <tunnel-id>.cfargotunnel.com as the CNAME target.
-    tunnel_cname: "{{ vault_cloudflare_tunnel_token | regex_replace('.*\"t\":\"([^\"]+)\".*', '\\1') }}.cfargotunnel.com"
-    cloudflare_dns_records:
-      - name: "{{ infra_domain_storage_copyparty | default('files.' ~ (infra_domain_base | default('example.com'))) }}"
-        type: "CNAME"
-        content: "{{ tunnel_cname }}"
-        ttl: "{{ cloudflare_dns_ttl }}"
-        proxied: "{{ cloudflare_dns_proxied }}"
-        state: "{{ cloudflare_dns_state }}"
-  roles:
-    - cloudflare-dns
-  tags: ["dns"]
 
 - name: "Deploy copyparty File Sharing Server"
   hosts: cloud_servers
@@ -112,7 +83,10 @@
       tags: ["deploy", "copyparty"]
       when: copyparty_enabled | default(true) | bool
 
-# Note: copyparty is exposed via Cloudflare Tunnel (cloudflared), not Traefik.
-# The tunnel ingress config is managed by the proxy-cloudflared role in
-# deploy-cloudflared-tunnel.yml. No Traefik dynamic config is needed.
+# Note: copyparty is exposed via Traefik at files.<base>:443. The dynamic
+# router lives in proxy-traefik/templates/dynamic/copyparty.yml.j2 and is
+# deployed by the proxy-traefik role when copyparty_enabled is true.
+# The dormant cloudflared tunnel rule (deploy-cloudflared-tunnel.yml) is
+# retained as a rollback path — repointing the files.<base> CNAME to the
+# tunnel restores the old route with no other changes.
 

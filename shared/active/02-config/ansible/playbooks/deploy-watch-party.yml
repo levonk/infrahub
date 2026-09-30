@@ -15,10 +15,13 @@
 #   5. Vault secrets set: vault_media_watch_party_turn_password
 #   6. DNS CNAME configured: just ansible-deploy-dns (configure-cloudflare-dns.yml)
 #
-# Note: coturn external firewall ports (3487 tcp/udp, 49000-49050 udp) are
-# NOT opened by this playbook. coturn currently works on Tailscale only.
-# To enable external WebRTC voice chat later, add firewall rules for those
-# ports via the proxy-firewall role.
+# Public exposure: this playbook runs proxy-firewall which opens the public
+# host-firewall ports declared in cloud_server_firewall_public_*_ports
+# (80/443 Traefik edge + 3487 tcp/udp + 49000-49050/udp coturn relay).
+# watch.levonk.com and auth.levonk.com CNAME to the oci.mach.<base> DDNS
+# record (public IP) — see configure-cloudflare-dns.yml.
+# The OCI VCN security list is NOT managed by Ansible — matching ingress
+# rules for those ports must exist in the OCI console.
 #
 # Usage:
 #   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
@@ -59,6 +62,11 @@
       tags: ["always"]
 
   roles:
+    # Open public host-firewall ports BEFORE the services start so coturn's
+    # TURN relay and the Traefik edge are reachable once containers come up.
+    - role: proxy-firewall
+      tags: ["deploy", "firewall"]
+
     - role: media-coturn
       tags: ["deploy", "coturn"]
 

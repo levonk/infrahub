@@ -123,6 +123,26 @@
     - proxy_firewall_vpn_subnets | length > 0
   changed_when: true
 
+- name: Allow public TCP ports via ufw
+  ansible.builtin.command:
+    cmd: "ufw allow {{ item }}/tcp"
+  become: true
+  loop: "{{ proxy_firewall_public_tcp_ports }}"
+  when:
+    - proxy_firewall_type == 'ufw'
+    - proxy_firewall_public_tcp_ports | length > 0
+  changed_when: true
+
+- name: Allow public UDP ports via ufw
+  ansible.builtin.command:
+    cmd: "ufw allow {{ item }}/udp"
+  become: true
+  loop: "{{ proxy_firewall_public_udp_ports }}"
+  when:
+    - proxy_firewall_type == 'ufw'
+    - proxy_firewall_public_udp_ports | length > 0
+  changed_when: true
+
 - name: Enable ufw
   ansible.builtin.command:
     cmd: ufw --force enable
@@ -195,10 +215,10 @@
     - proxy_firewall_type == 'firewalld'
     - proxy_firewall_mosh_port | length > 0
 
-- name: Allow VPN subnets via firewalld rich rules
+- name: Remove stale VPN subnet bindings from default zone
   ansible.posix.firewalld:
     source: "{{ item }}"
-    state: enabled
+    state: disabled
     permanent: true
     immediate: true
     zone: "{{ proxy_firewall_firewalld_default_zone }}"
@@ -207,6 +227,50 @@
   when:
     - proxy_firewall_type == 'firewalld'
     - proxy_firewall_vpn_subnets | length > 0
+    - proxy_firewall_firewalld_default_zone != 'trusted'
+
+# VPN subnets must bind to the trusted zone — binding them to the default
+# (public) zone makes tailnet traffic subject to public-zone deny rules,
+# which firewalld evaluates BEFORE allow rules (e.g. the fwknop port-22
+# drop would override the tailnet SSH accept).
+- name: Allow VPN subnets via firewalld source bindings (trusted zone)
+  ansible.posix.firewalld:
+    source: "{{ item }}"
+    state: enabled
+    permanent: true
+    immediate: true
+    zone: trusted
+  become: true
+  loop: "{{ proxy_firewall_vpn_subnets }}"
+  when:
+    - proxy_firewall_type == 'firewalld'
+    - proxy_firewall_vpn_subnets | length > 0
+
+- name: Allow public TCP ports via firewalld
+  ansible.posix.firewalld:
+    port: "{{ item }}/tcp"
+    zone: "{{ proxy_firewall_firewalld_default_zone }}"
+    state: enabled
+    permanent: true
+    immediate: true
+  become: true
+  loop: "{{ proxy_firewall_public_tcp_ports }}"
+  when:
+    - proxy_firewall_type == 'firewalld'
+    - proxy_firewall_public_tcp_ports | length > 0
+
+- name: Allow public UDP ports via firewalld
+  ansible.posix.firewalld:
+    port: "{{ item }}/udp"
+    zone: "{{ proxy_firewall_firewalld_default_zone }}"
+    state: enabled
+    permanent: true
+    immediate: true
+  become: true
+  loop: "{{ proxy_firewall_public_udp_ports }}"
+  when:
+    - proxy_firewall_type == 'firewalld'
+    - proxy_firewall_public_udp_ports | length > 0
 
 # ---------------------------------------------------------------------------
 # Lockout Prevention — temporary allow current management IP
@@ -261,7 +325,7 @@
 - name: Enable IP forwarding
   ansible.posix.sysctl:
     name: net.ipv4.ip_forward
-    value: "1"
+    value: "1"  # project-lint: disable=magic-int  sysctl on/off value
     state: present
     sysctl_set: true
     reload: true
@@ -271,7 +335,7 @@
 - name: Enable IPv6 forwarding
   ansible.posix.sysctl:
     name: net.ipv6.conf.all.forwarding
-    value: "1"
+    value: "1"  # project-lint: disable=magic-int  sysctl on/off value
     state: present
     sysctl_set: true
     reload: true
@@ -296,7 +360,7 @@
     - proxy_firewall_type == 'nftables'
   changed_when: true
   async: "{{ proxy_firewall_prevent_lockout_timeout | int + 10 }}"  # project-lint: disable=magic-int  async timeout offset, not a standalone magic number
-  poll: 0
+  poll: 0  # project-lint: disable=magic-int  fire-and-forget async polling
 
 - name: Schedule removal of temporary allow rule (ufw)
   ansible.builtin.command:
@@ -310,7 +374,7 @@
     - proxy_firewall_type == 'ufw'
   changed_when: true
   async: "{{ proxy_firewall_prevent_lockout_timeout | int + 10 }}"  # project-lint: disable=magic-int  async timeout offset, not a standalone magic number
-  poll: 0
+  poll: 0  # project-lint: disable=magic-int  fire-and-forget async polling
 
 - name: Schedule removal of temporary allow rule (firewalld)
   ansible.builtin.command:
@@ -324,7 +388,7 @@
     - proxy_firewall_type == 'firewalld'
   changed_when: true
   async: "{{ proxy_firewall_prevent_lockout_timeout | int + 10 }}"  # project-lint: disable=magic-int  async timeout offset, not a standalone magic number
-  poll: 0
+  poll: 0  # project-lint: disable=magic-int  fire-and-forget async polling
 
 # ---------------------------------------------------------------------------
 # Verification
