@@ -17,7 +17,7 @@
 # (172.29.0.19) so LiteLLM resolves `langfuse-web:{{ infra_port_monitoring_grafana_host }}` without egressing
 # through Traefik.
 #
-# This playbook uses Ansible roles with community.docker modules — NEVER docker compose.
+# This playbook uses Ansible roles with community.docker modules - NEVER docker compose.
 #
 # Usage:
 #   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
@@ -94,7 +94,7 @@
 
   tasks:
     # ===========================================================================
-    # Stage 1: LiteLLM (AI Gateway — entry point)
+    # Stage 1: LiteLLM (AI Gateway - entry point)
     # Provides: auth, virtual keys, spend tracking, PII guardrail, Langfuse logging
     # Domain: aigate.<base>
     # ===========================================================================
@@ -115,24 +115,16 @@
       tags: ["deploy", "headroom"]
 
     # ===========================================================================
-    # Stage 3: OmniRoute (AI Gateway — provider fanout)
-    # Tier-based fallback, 9-factor auto-combo scoring, free-tier draining
-    # Domain: airoute.<base>
-    # Upstream from: Headroom
-    # Downstream to: Forge (then Iron-Proxy, NordVPN)
-    # ===========================================================================
-    - name: "Deploy omniroute via role"
-      ansible.builtin.include_role:
-        name: omniroute
-      tags: ["deploy", "omniroute"]
-
-    # ===========================================================================
-    # Stage 4: FreeLLMAPI (Free-tier LLM aggregator)
+    # Stage 3: FreeLLMAPI (Free-tier LLM aggregator)
     # Aggregates 34+ free-tier LLM providers behind a single OpenAI-compatible
     # /v1 endpoint with automatic fallover and per-key rate tracking.
     # Domain: freellmapi.<base>
     # Coexists with LiteLLM (different purpose: free-tier aggregation vs
     # enterprise gateway with spend tracking).
+    # Deployed BEFORE OmniRoute: it is OmniRoute's free-tier leaf provider on
+    # the proxy-chain network, and the omniroute role reads its auto-minted
+    # unified API key from the running container during the managed-config
+    # push - the same dependency ordering as Langfuse before LiteLLM.
     # ===========================================================================
     - name: "Deploy freellmapi via role"
       ansible.builtin.include_role:
@@ -140,7 +132,23 @@
       tags: ["deploy", "freellmapi"]
 
     # ===========================================================================
-    # Verification — read-only container status checks
+    # Stage 4: OmniRoute (AI Gateway - provider fanout)
+    # Tier-based fallback, 9-factor auto-combo scoring, free-tier draining
+    # Domain: airoute.<base>
+    # Upstream from: Headroom
+    # Downstream to: Forge (then Iron-Proxy, NordVPN) for direct providers and
+    # to FreeLLMAPI (proxy-chain {{ infra_network_ip_ai_freellmapi }}) for the
+    # free-tier leaf.
+    # Managed config wires the freellmapi provider node + connection +
+    # `auto` entry in kckinaicombo via /api/settings/import-json.
+    # ===========================================================================
+    - name: "Deploy omniroute via role"
+      ansible.builtin.include_role:
+        name: omniroute
+      tags: ["deploy", "omniroute"]
+
+    # ===========================================================================
+    # Verification - read-only container status checks
     # ===========================================================================
     - name: "Verify litellm container is running"
       ansible.builtin.command:
@@ -172,16 +180,6 @@
       ignore_errors: true
       tags: ["verify", "headroom"]
 
-    - name: "Verify omniroute container is running"
-      ansible.builtin.command:
-        cmd: "docker inspect --format='{% raw %}{{.State.Status}}{% endraw %}' {{ ai_omniroute_container_name }}"
-      become: true
-      become_user: "{{ cloud_server_admin_user }}"
-      register: omniroute_status
-      changed_when: false
-      ignore_errors: true
-      tags: ["verify", "omniroute"]
-
     - name: "Verify freellmapi container is running"
       ansible.builtin.command:
         cmd: "docker inspect --format='{% raw %}{{.State.Status}}{% endraw %}' {{ infra_hostname_ai_freellmapi }}"
@@ -192,6 +190,16 @@
       ignore_errors: true
       tags: ["verify", "freellmapi"]
 
+    - name: "Verify omniroute container is running"
+      ansible.builtin.command:
+        cmd: "docker inspect --format='{% raw %}{{.State.Status}}{% endraw %}' {{ ai_omniroute_container_name }}"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      register: omniroute_status
+      changed_when: false
+      ignore_errors: true
+      tags: ["verify", "omniroute"]
+
     - name: "Display container status summary"
       ansible.builtin.debug:
         msg: |
@@ -199,8 +207,8 @@
             litellm:          {{ litellm_status.stdout | default('NOT FOUND') }}
             litellm-postgres: {{ litellm_postgres_status.stdout | default('NOT FOUND') }}
             headroom:         {{ headroom_status.stdout | default('NOT FOUND') }}
-            omniroute:        {{ omniroute_status.stdout | default('NOT FOUND') }}
             freellmapi:       {{ freellmapi_status.stdout | default('NOT FOUND') }}
+            omniroute:        {{ omniroute_status.stdout | default('NOT FOUND') }}
       tags: ["verify", "summary"]
 
   post_tasks:
@@ -218,10 +226,12 @@
             - Auth, virtual keys, spend tracking, PII guardrail (Presidio), Langfuse logging
             - Postgres database for keys/spend/teams
           - Headroom: context compression (proxy-chain {{ infra_network_ai_subnet_ip_13 }})
-          - OmniRoute: provider fanout (airoute.<base>, proxy-chain {{ infra_network_ai_subnet_ip_14 }})
-            - Tier-based fallback, 9-factor auto-combo scoring, free-tier draining
           - FreeLLMAPI: free-tier LLM aggregator (freellmapi.<base>, traefik-network)
             - 34+ free-tier providers, automatic fallover, per-key rate tracking  # project-lint: disable=magic-int  provider count in description, not an operational value
+            - OmniRoute's free-tier leaf provider (proxy-chain {{ infra_network_ip_ai_freellmapi }})
+          - OmniRoute: provider fanout (airoute.<base>, proxy-chain {{ infra_network_ai_subnet_ip_14 }})
+            - Tier-based fallback, 9-factor auto-combo scoring, free-tier draining
+            - Managed config: kckinai + freellmapi providers, freellmapi/auto in kckinaicombo
           ----------------------------------------
           Pipeline Flow:
           Omnigent -> Pi -> LiteLLM (aigate) -> Headroom -> OmniRoute (airoute) -> Forge -> Iron-Proxy -> NordVPN

@@ -55,7 +55,7 @@ ai_omniroute_domain: "{{ infra_domain_ai_omniroute | default('airoute.' ~ (infra
 # Managed Configuration (partial JSON upsert via /api/settings/import-json)
 # ---------------------------------------------------------------------------
 # When true, Ansible pushes a partial config (kckinai provider + combo) after
-# deploy. Uses INSERT OR REPLACE — only entities in the template are reconciled;
+# deploy. Uses INSERT OR REPLACE - only entities in the template are reconciled;
 # UI changes to other providers/combos/settings are preserved.
 # Set to false on hosts where you want full UI control.
 ai_omniroute_managed_config_enabled: true
@@ -68,4 +68,28 @@ ai_omniroute_managed_combo_id: "c8e982e7-824c-4c73-b33a-bd846001a026"
 # kckinai vLLM endpoint (Tailscale-accessible)
 ai_omniroute_managed_kckinai_base_url: "http://{{ infra_tailscale_fqdn_inference_host | default('kckinai.' ~ (infra_tailscale_tailnet | default(infra_value_ai_omniroute_managed_kckinai_base_url))) }}:8002/v1"
 ai_omniroute_managed_kckinai_model: "codgician/Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-GPTQ-int4"
+
+# ---------------------------------------------------------------------------
+# FreeLLMAPI leaf provider (free-tier aggregator on the proxy-chain network)
+# The pipeline playbook stages ai-freellmapi BEFORE omniroute so the tasks can
+# read the auto-minted unified API key from the running container's SQLite —
+# no vault secret needed, and dashboard key rotation is picked up on the next
+# run. Set to false on hosts without FreeLLMAPI.
+# ---------------------------------------------------------------------------
+ai_omniroute_freellmapi_enabled: true
+ai_omniroute_freellmapi_container_name: "{{ infra_hostname_ai_freellmapi | default('localnet-ai-freellmapi') }}"
+ai_omniroute_freellmapi_db_path: "/app/server/data/freeapi.db"
+
+# Stable IDs for the freellmapi provider node + connection (must not change between runs)
+ai_omniroute_managed_freellmapi_node_id: "150b4f1d-e7ca-4315-a34a-65a795dabb39"
+ai_omniroute_managed_freellmapi_connection_id: "d0647c84-c266-4664-8640-34b4524b571e"
+
+# Chain-network IP (literal, so the connection matches the NO_PROXY
+# 172.29.0.0/16 range - a hostname would egress through iron-proxy).
+ai_omniroute_managed_freellmapi_base_url: "http://{{ infra_network_ip_ai_freellmapi | default('172.29.0.20') }}:{{ infra_port_ai_freellmapi_container | default('3001') }}/v1"  # project-lint: disable=all  fallback literals; client networks.yml/ports.yml override
+ai_omniroute_managed_freellmapi_model: "auto"
+ai_omniroute_managed_freellmapi_weight: 12
+
+# Populated at runtime by the key-read task (not a default - leave empty)
+ai_omniroute_freellmapi_api_key: ""
 

@@ -83,7 +83,29 @@ The role performs the following tasks:
    - Security options (no-new-privileges, read-only filesystem)
    - Healthcheck
 5. **Health Verification**: Waits for the service to become healthy
-6. **Status Report**: Reports deployment status and access URLs
+6. **Managed Configuration**: Pushes a partial config (provider nodes,
+   connections, `kckinaicombo`) via `/api/settings/import-json`. Uses
+   INSERT OR REPLACE - only entities in `managed-config.json.j2` are
+   reconciled; UI changes to other entities are preserved. Disable with
+   `ai_omniroute_managed_config_enabled: false`.
+7. **Status Report**: Reports deployment status and access URLs
+
+### FreeLLMAPI wiring
+
+When `ai_omniroute_freellmapi_enabled` is true (default), the role also:
+
+1. Asserts the `ai-freellmapi` container is running (the pipeline playbook
+   stages it before this role).
+2. Reads the auto-minted unified API key from the FreeLLMAPI container's
+   SQLite (`/app/server/data/freeapi.db`, read-only `docker exec`). No vault
+   secret is needed; a dashboard key rotation is picked up on the next run.
+3. Adds a `freellmapi` openai-compatible provider node + connection pointing
+   at `http://{{ infra_network_ip_ai_freellmapi }}:{{ infra_port_ai_freellmapi_container }}/v1`
+   (chain-network IP - matches the NO_PROXY `172.29.0.0/16` range, so no
+   iron-proxy egress), plus a `freellmapi/auto` model entry in
+   `kckinaicombo` (weight `ai_omniroute_managed_freellmapi_weight`, default 12).
+
+Set `ai_omniroute_freellmapi_enabled: false` on hosts without FreeLLMAPI.
 
 ## Handlers
 

@@ -5,7 +5,7 @@
       "provider": "{{ ai_omniroute_managed_kckinai_node_id }}",
       "authType": "apikey",
       "name": "kckinai-vllm",
-      "priority": 1,
+      "priority": 1,  {# project-lint: disable=magic-int  JSON config field, not an operational value #}
       "isActive": true,
       "apiKey": "dummy",
       "providerSpecificData": {
@@ -18,9 +18,30 @@
         "apiKeyHealth": {}
       },
       "rateLimitProtection": false,
-      "consecutiveUseCount": 0,
-      "backoffLevel": 0
-    }
+      "consecutiveUseCount": 0,  {# project-lint: disable=magic-int  JSON config field, not an operational value #}
+      "backoffLevel": 0  {# project-lint: disable=magic-int  JSON config field, not an operational value #}
+    }{% if ai_omniroute_freellmapi_enabled | bool %},
+    {
+      "id": "{{ ai_omniroute_managed_freellmapi_connection_id }}",
+      "provider": "{{ ai_omniroute_managed_freellmapi_node_id }}",
+      "authType": "apikey",
+      "name": "freellmapi",
+      "priority": 1,  {# project-lint: disable=magic-int  JSON config field, not an operational value #}
+      "isActive": true,
+      "apiKey": "{{ ai_omniroute_freellmapi_api_key }}",
+      "providerSpecificData": {
+        "baseUrl": "{{ ai_omniroute_managed_freellmapi_base_url }}",
+        "apiType": "chat",
+        "chatPath": "/chat/completions",
+        "modelsPath": "/models",
+        "prefix": "freellmapi",
+        "nodeName": "freellmapi",
+        "apiKeyHealth": {}
+      },
+      "rateLimitProtection": false,
+      "consecutiveUseCount": 0,  {# project-lint: disable=magic-int  JSON config field, not an operational value #}
+      "backoffLevel": 0  {# project-lint: disable=magic-int  JSON config field, not an operational value #}
+    }{% endif %}
   ],
   "providerNodes": [
     {
@@ -33,7 +54,18 @@
       "chatPath": "/chat/completions",
       "modelsPath": "/models",
       "customHeaders": null
-    }
+    }{% if ai_omniroute_freellmapi_enabled | bool %},
+    {
+      "id": "{{ ai_omniroute_managed_freellmapi_node_id }}",
+      "type": "openai-compatible",
+      "name": "freellmapi",
+      "prefix": "freellmapi",
+      "apiType": "chat",
+      "baseUrl": "{{ ai_omniroute_managed_freellmapi_base_url }}",
+      "chatPath": "/chat/completions",
+      "modelsPath": "/models",
+      "customHeaders": null
+    }{% endif %}
   ],
   "combos": [
     {
@@ -46,78 +78,87 @@
           "model": "{{ ai_omniroute_managed_kckinai_node_id }}/{{ ai_omniroute_managed_kckinai_model }}",
           "providerId": "{{ ai_omniroute_managed_kckinai_node_id }}",
           "connectionId": "{{ ai_omniroute_managed_kckinai_connection_id }}",
-          "weight": 14,  # project-lint: disable=magic-int  JSON config field, not an operational value
+          "weight": 14,  {# project-lint: disable=magic-int  JSON config field, not an operational value #}
           "label": "kckinai-vllm"
         },
         {
           "id": "kckinaicombo-model-2-agy-gemini-3-5-flash-medium",
           "kind": "model",
-          "model": "agy/gemini-3.5-flash-medium",  # project-lint: disable=magic-dotted  version number, not an operational magic number
+          "model": "agy/gemini-3.5-flash-medium",  {# project-lint: disable=magic-dotted  version number, not an operational magic number #}
           "providerId": "agy",
-          "weight": 14  # project-lint: disable=magic-int  JSON config field, not an operational value
+          "weight": 14  {# project-lint: disable=magic-int  JSON config field, not an operational value #}
         },
         {
-          "id": "kckinaicombo-model-3-kr-claude-sonnet-4-5",  # project-lint: disable=magic-int  model ID string, not an operational value
+          "id": "kckinaicombo-model-3-kr-claude-sonnet-4-5",  {# project-lint: disable=magic-int  model ID string, not an operational value #}
           "kind": "model",
-          "model": "kr/claude-sonnet-4.5",  # project-lint: disable=magic-dotted  version number, not an operational magic number
+          "model": "kr/claude-sonnet-4.5",  {# project-lint: disable=magic-dotted  version number, not an operational magic number #}
           "providerId": "kr",
-          "weight": 12  # project-lint: disable=magic-int  JSON config field, not an operational value
+          "weight": 12  {# project-lint: disable=magic-int  JSON config field, not an operational value #}
         },
         {
           "id": "kckinaicombo-model-4-if-kimi-k2-thinking",
           "kind": "model",
           "model": "if/kimi-k2-thinking",
           "providerId": "if",
-          "weight": 12  # project-lint: disable=magic-int  JSON config field, not an operational value
+          "weight": 12  {# project-lint: disable=magic-int  JSON config field, not an operational value #}
         },
         {
           "id": "kckinaicombo-model-5-if-qwen3-coder-plus",
           "kind": "model",
           "model": "if/qwen3-coder-plus",
           "providerId": "if",
-          "weight": 12  # project-lint: disable=magic-int  JSON config field, not an operational value
+          "weight": 12  {# project-lint: disable=magic-int  JSON config field, not an operational value #}
         },
         {
-          "id": "kckinaicombo-model-6-if-deepseek-v3-2",
+          "id": "kckinaicombo-model-6-if-deepseek-v3-2",  {# project-lint: disable=magic-int  JSON config field, not an operational value #}
           "kind": "model",
           "model": "if/deepseek-v3.2",
           "providerId": "if",
-          "weight": 12  # project-lint: disable=magic-int  JSON config field, not an operational value
+          "weight": 12  {# project-lint: disable=magic-int  JSON config field, not an operational value #}
         },
         {
-          "id": "kckinaicombo-model-7-nvidia-llama-3-3-70b-instruct",
+          "id": "kckinaicombo-model-7-nvidia-llama-3-3-70b-instruct",  {# project-lint: disable=magic-int  JSON config field, not an operational value #}
           "kind": "model",
-          "model": "nvidia/llama-3.3-70b-instruct",  # project-lint: disable=magic-dotted  version number, not an operational magic number
+          "model": "nvidia/llama-3.3-70b-instruct",  {# project-lint: disable=magic-dotted  version number, not an operational magic number #}
           "providerId": "nvidia",
-          "weight": 12  # project-lint: disable=magic-int  JSON config field, not an operational value
+          "weight": 12  {# project-lint: disable=magic-int  JSON config field, not an operational value #}
         },
         {
-          "id": "kckinaicombo-model-8-groq-llama-3-3-70b-versatile",
+          "id": "kckinaicombo-model-8-groq-llama-3-3-70b-versatile",  {# project-lint: disable=magic-int  JSON config field, not an operational value #}
           "kind": "model",
-          "model": "groq/llama-3.3-70b-versatile",  # project-lint: disable=magic-dotted  version number, not an operational magic number
+          "model": "groq/llama-3.3-70b-versatile",  {# project-lint: disable=magic-dotted  version number, not an operational magic number #}
           "providerId": "groq",
-          "weight": 12  # project-lint: disable=magic-int  JSON config field, not an operational value
-        }
+          "weight": 12  {# project-lint: disable=magic-int  JSON config field, not an operational value #}
+        }{% if ai_omniroute_freellmapi_enabled | bool %},
+        {
+          "id": "kckinaicombo-model-9-freellmapi-auto",
+          "kind": "model",
+          "model": "{{ ai_omniroute_managed_freellmapi_node_id }}/{{ ai_omniroute_managed_freellmapi_model }}",
+          "providerId": "{{ ai_omniroute_managed_freellmapi_node_id }}",
+          "connectionId": "{{ ai_omniroute_managed_freellmapi_connection_id }}",
+          "weight": {{ ai_omniroute_managed_freellmapi_weight }},
+          "label": "freellmapi"
+        }{% endif %}
       ],
       "strategy": "weighted",
       "config": {
-        "maxRetries": 3,
-        "retryDelayMs": 500,  # project-lint: disable=magic-int  JSON config field, not an operational value
-        "handoffThreshold": 0.85,  # project-lint: disable=magic-dotted  version number, not an operational magic number
+        "maxRetries": 3,  {# project-lint: disable=magic-int  JSON config field, not an operational value #}
+        "retryDelayMs": 500,  {# project-lint: disable=magic-int  JSON config field, not an operational value #}
+        "handoffThreshold": 0.85,  {# project-lint: disable=magic-dotted  version number, not an operational magic number #}
         "handoffModel": "",
-        "maxMessagesForSummary": 30,  # project-lint: disable=magic-int  JSON config field, not an operational value
+        "maxMessagesForSummary": 30,  {# project-lint: disable=magic-int  JSON config field, not an operational value #}
         "trackMetrics": true,
         "reasoningTokenBufferEnabled": true,
         "zeroLatencyOptimizationsEnabled": false
       },
       "isHidden": false,
-      "sortOrder": 1,
-      "version": 2
+      "sortOrder": 1,  {# project-lint: disable=magic-int  JSON config field, not an operational value #}
+      "version": 2  {# project-lint: disable=magic-int  JSON config field, not an operational value #}
     }
   ],
   "_meta": {
     "managedBy": "ansible",
     "scope": "partial-upsert",
-    "note": "Only kckinai provider + kckinaicombo are managed. UI changes to other entities are preserved."
+    "note": "Only kckinai + freellmapi providers and kckinaicombo are managed. UI changes to other entities are preserved."
   }
 }

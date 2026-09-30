@@ -24,6 +24,18 @@
     name: "{{ ai_freellmapi_volume_name }}"
     state: present
 
+# 1b. Proxy-chain network — FreeLLMAPI is OmniRoute's free-tier leaf provider
+# on this network. The omniroute role also ensures it; whichever role runs
+# first creates it with the shared IPAM so the static IP below is routable.
+- name: Ensure proxy-chain Docker network exists
+  community.docker.docker_network:
+    name: "{{ ai_freellmapi_chain_network_name }}"
+    state: present
+    driver: bridge
+    ipam_config:
+      - subnet: "{{ infra_network_ai_proxy_chain_subnet }}"
+        gateway: "{{ infra_network_ai_proxy_chain_gateway }}"
+
 # 2. Image pull — MUST use source: pull, NEVER source: build
 - name: Pull FreeLLMAPI image
   community.docker.docker_image:
@@ -41,6 +53,8 @@
     restart_policy: unless-stopped
     networks:
       - name: "{{ ai_freellmapi_network_name }}"
+      - name: "{{ ai_freellmapi_chain_network_name }}"
+        ipv4_address: "{{ ai_freellmapi_chain_network_ip }}"
     published_ports:
       - "{{ ai_freellmapi_host_port }}:{{ ai_freellmapi_container_port }}/tcp"
     volumes:
@@ -50,6 +64,7 @@
       PORT: "{{ ai_freellmapi_container_port }}"
       ENCRYPTION_KEY: "{{ ai_freellmapi_encryption_key }}"
       TRUST_PROXY: "{{ ai_freellmapi_trust_proxy }}"
+      PROXY_URL: "{{ ai_freellmapi_proxy_url if ai_freellmapi_proxy_url | length > 0 else omit }}"
       TZ: "{{ localnet_tz | default('UTC') }}"
       FREEAPI_CONFIG_JSON: "{{ ai_freellmapi_config_effective | to_json if ai_freellmapi_config_effective | length > 0 else omit }}"
     log_driver: json-file

@@ -15,8 +15,13 @@ ai_freellmapi_image_tag: "v0.12.0"
 ai_freellmapi_host_port: "{{ infra_port_ai_freellmapi_host }}"
 ai_freellmapi_container_port: "{{ infra_port_ai_freellmapi_container }}"
 
-# Network configuration (traefik-network for Traefik routing)
+# Network configuration
+# - traefik-network: public dashboard routing via Traefik + Authelia
+# - proxy-chain-network: pipeline-internal network — OmniRoute reaches
+#   FreeLLMAPI here as its free-tier leaf provider (infra_network_ip_ai_freellmapi)
 ai_freellmapi_network_name: "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"
+ai_freellmapi_chain_network_name: "{{ infra_network_ai_proxy_chain_network_name | default('proxy-chain-network') }}"
+ai_freellmapi_chain_network_ip: "{{ infra_network_ip_ai_freellmapi }}"
 
 # Domain for Traefik routing
 ai_freellmapi_domain: "{{ infra_domain_ai_freellmapi | default('freellmapi.' ~ (infra_domain_base | default('example.com'))) }}"
@@ -44,6 +49,12 @@ ai_freellmapi_encryption_key: "{{ vault_ai_freellmapi_encryption_key | default('
 
 # Trust Traefik as a single reverse proxy hop (for X-Forwarded-For/Proto)
 ai_freellmapi_trust_proxy: "1"
+
+# Optional upstream proxy for provider egress (upstream env: PROXY_URL).
+# Empty = direct egress to the 34+ providers. Routing through iron-proxy
+# requires allowlisting every provider domain first (default-deny) — the
+# catalog self-updates, so the domain set is dynamic. Deferred for now.
+ai_freellmapi_proxy_url: ""
 
 # Verify health after deploy
 ai_freellmapi_verify_health: true

@@ -97,7 +97,7 @@
       test: ["CMD", "/usr/local/bin/healthcheck-omniroute.sh"]
       interval: "{{ infra_healthcheck_interval }}"
       timeout: "{{ infra_timeout_short }}"
-      retries: 3
+      retries: 3  # project-lint: disable=magic-int  healthcheck retry count, not an operational value
       start_period: "{{ infra_healthcheck_start_period }}"
     labels:
       traefik.enable: "true"
@@ -125,10 +125,56 @@
 
 # ---------------------------------------------------------------------------
 # Managed Configuration (partial JSON upsert)
-# Pushes kckinai provider + kckinaicombo via the import-json API.
-# Uses INSERT OR REPLACE — only entities in the template are reconciled.
+# Pushes kckinai + freellmapi providers and kckinaicombo via the import-json
+# API. Uses INSERT OR REPLACE - only entities in the template are reconciled.
 # UI changes to other providers/combos/settings are preserved.
 # ---------------------------------------------------------------------------
+
+# FreeLLMAPI unified key - read the auto-minted key from the leaf provider's
+# SQLite (read-only). No vault secret needed; a dashboard key rotation is
+# picked up on the next run. Requires ai-freellmapi deployed (the pipeline
+# playbook stages it before this role).
+- name: Check FreeLLMAPI container is running
+  community.docker.docker_container_info:
+    name: "{{ ai_omniroute_freellmapi_container_name }}"
+  register: ai_omniroute_freellmapi_info
+  when: ai_omniroute_managed_config_enabled | bool and ai_omniroute_freellmapi_enabled | bool
+
+- name: Fail if FreeLLMAPI is not running
+  ansible.builtin.fail:
+    msg: >-
+      FreeLLMAPI container '{{ ai_omniroute_freellmapi_container_name }}' is not
+      running. The deploy-ai-gateway-pipeline playbook stages ai-freellmapi
+      before omniroute - run it first, or set ai_omniroute_freellmapi_enabled:
+      false to deploy without the free-tier leaf provider.
+  when:
+    - ai_omniroute_managed_config_enabled | bool
+    - ai_omniroute_freellmapi_enabled | bool
+    - ai_omniroute_freellmapi_info.container.State.Running | default(false) | bool == false
+
+- name: Read FreeLLMAPI unified API key (read-only SQLite)
+  ansible.builtin.shell:
+    cmd: >-
+      docker exec {{ ai_omniroute_freellmapi_container_name }} node -e
+      'const D=require("better-sqlite3");const db=new D("{{ ai_omniroute_freellmapi_db_path }}",{readonly:true});const r=db.prepare("SELECT value FROM settings WHERE key=?").get("unified_api_key");if(!r){process.exit(2);}console.log(r.value);db.close();'  # project-lint: disable=magic-int  node exit code for missing-key sentinel
+  register: ai_omniroute_freellmapi_key_result
+  changed_when: false
+  no_log: true
+  when: ai_omniroute_managed_config_enabled | bool and ai_omniroute_freellmapi_enabled | bool
+
+- name: Store FreeLLMAPI API key for the managed connection
+  ansible.builtin.set_fact:
+    ai_omniroute_freellmapi_api_key: "{{ ai_omniroute_freellmapi_key_result.stdout | trim }}"
+  no_log: true
+  when: ai_omniroute_managed_config_enabled | bool and ai_omniroute_freellmapi_enabled | bool
+
+- name: Validate FreeLLMAPI key format
+  ansible.builtin.assert:
+    that:
+      - ai_omniroute_freellmapi_api_key is match('^freellmapi-')
+    fail_msg: "Unexpected unified API key format read from FreeLLMAPI."
+  when: ai_omniroute_managed_config_enabled | bool and ai_omniroute_freellmapi_enabled | bool
+
 - name: Render managed OmniRoute config
   ansible.builtin.template:
     src: managed-config.json.j2
@@ -150,7 +196,7 @@
       -d "{\"username\":\"admin\",\"password\":\"{{ ai_omniroute_admin_password }}\"}" \
       http://localhost:{{ ai_omniroute_host_port }}/api/auth/login)
     if [ "$HTTP_CODE" != "{{ infra_http_status_ok }}" ]; then
-      echo "Login failed with HTTP $HTTP_CODE" >&2
+      echo "Login failed with HTTP $HTTP_CODE" >&2  # project-lint: disable=magic-int  stderr file descriptor, not an operational value
       exit 1
     fi
     # Push the partial config (INSERT OR REPLACE upsert)
@@ -161,7 +207,7 @@
       http://localhost:{{ ai_omniroute_host_port }}/api/settings/import-json)
     cat /tmp/omniroute-import-response.txt
     if [ "$HTTP_CODE" != "{{ infra_http_status_ok }}" ]; then
-      echo "Import failed with HTTP $HTTP_CODE" >&2
+      echo "Import failed with HTTP $HTTP_CODE" >&2  # project-lint: disable=magic-int  stderr file descriptor, not an operational value
       exit 1
     fi
   args:
