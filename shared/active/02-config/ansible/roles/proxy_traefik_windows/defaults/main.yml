@@ -26,7 +26,13 @@ proxy_traefik_windows_temp_dir: "/tmp/traefik-windows-config"
 proxy_traefik_windows_network_name: "traefik-windows-network"
 proxy_traefik_windows_http_port: "80"
 proxy_traefik_windows_https_port: "443"
+# Dashboard/API: Traefik's insecure API listens on the container-internal
+# `traefik` entrypoint (port 8080). The host publishes it on 8882, so the
+# mapping is 8882(host):8080(container). Container-to-container callers
+# (e.g. trala) must use the container port.
 proxy_traefik_windows_dashboard_port: "8882"
+proxy_traefik_windows_dashboard_host_port: "{{ infra_port_proxy_dashboard_host | default('8882') }}"  # project-lint: disable=magic-int
+proxy_traefik_windows_dashboard_container_port: "{{ infra_port_proxy_dashboard_container | default('8080') }}"  # project-lint: disable=magic-int
 
 # ---------------------------------------------------------------------------
 # Volume Configuration

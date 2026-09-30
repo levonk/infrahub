@@ -575,7 +575,7 @@
     --network {{ proxy_traefik_windows_network_name }}
     -p {{ proxy_traefik_windows_http_port }}:{{ proxy_traefik_windows_http_port }}/tcp
     -p {{ proxy_traefik_windows_https_port }}:{{ proxy_traefik_windows_https_port }}/tcp
-    -p {{ proxy_traefik_windows_dashboard_port }}:{{ proxy_traefik_windows_dashboard_port }}/tcp
+    -p {{ proxy_traefik_windows_dashboard_host_port }}:{{ proxy_traefik_windows_dashboard_container_port }}/tcp
     -v {{ proxy_traefik_windows_config_volume }}:/etc/traefik:ro
     -v {{ proxy_traefik_windows_letsencrypt_volume }}:/letsencrypt:rw
     -v {{ proxy_traefik_windows_logs_volume }}:/var/log/traefik:rw
@@ -689,7 +689,7 @@
     --network {{ proxy_traefik_windows_network_name }}
     -p {{ proxy_traefik_windows_trala_host_port }}:{{ proxy_traefik_windows_trala_container_port }}/tcp
     -v {{ proxy_traefik_windows_trala_container_name }}-config:/config:rw
-    -e TRAEFIK_API_HOST=http://{{ proxy_traefik_windows_container_name }}:{{ infra_port_proxy_dashboard_host }}
+    -e TRAEFIK_API_HOST=http://{{ proxy_traefik_windows_container_name }}:{{ proxy_traefik_windows_dashboard_container_port }}
     -e TZ=UTC
     --log-driver json-file
     --log-opt max-size={{ proxy_traefik_windows_log_max_size }}
