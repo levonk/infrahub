@@ -3,33 +3,39 @@
 # Location: shared/active/02-config/ansible/playbooks/deploy-worldmonitor.yml
 #
 # Two-phase deployment:
-#   Phase 1 (on control machine / localhost): clone repo, build images, push to registry
-#   Phase 2 (on Windows Docker host): pull images from registry, deploy containers
+#   Phase 1 (on control machine / localhost): clone repo, build images, push to
+#     registry, export all three images to a tar archive
+#   Phase 2 (on Windows Docker host): load images from the archive and deploy
+#     containers via DOCKER_HOST=ssh:// (delegate_to: localhost pattern, same
+#     as vpn-*-windows / dns roles — no Python needed on Windows)
 #
 # No source code or building happens on the Windows machine.
-# The Windows machine only pulls pre-built images and runs containers.
+# The Windows machine only receives pre-built images and runs containers.
 #
-# Registry: runs on the cloud server (deploy-local-registry.yml playbook).
-#   Images are pushed there from the build machine and pulled by Windows
-#   over Tailscale. HTTP only — Tailscale encrypts the transport.
+# Images are transferred via docker save/load over the SSH docker connection
+# rather than a registry pull — the Windows daemon therefore does NOT need
+# insecure-registries configured (and no Docker Desktop restart is needed).
+# Registry pushes are tagged "never" (skipped by default; run --tags push to
+# mirror images to the registry for future multi-host pulls).
 #
 # Prerequisites:
-#   1. Local registry deployed: just ansible-deploy-local-registry
-#   2. Docker running on the control machine (for building images)
-#   3. Bootstrap playbook run on Windows: just ansible-bootstrap-windows-docker
-#   4. Docker Desktop on Windows configured to trust the registry
-#      (handled by bootstrap playbook — insecure-registries setting)
+#   1. Docker running on the control machine (for building images)
+#   2. Bootstrap playbook run on Windows: just ansible-bootstrap-windows-docker
+#   3. SSH config entry for the Windows host (provides user + key for ssh://)
 #
 # Usage (example with levonk client inventory):
 #   ansible-playbook -i <client>/active/02-config/ansible/inventories/windows-docker.yml \
 #     shared/active/02-config/ansible/playbooks/deploy-worldmonitor.yml \
 #     --vault-password-file ~/.ansible/vault_password
 
-- name: "Phase 1 — Build and push WorldMonitor images"
+- name: "Phase 1 — Build and push WorldMonitor images"  # project-lint: disable=magic-int  phase number in task name
   hosts: localhost
   gather_facts: true
   connection: local
   become: false
+
+  vars:
+    wm_images_archive: "/tmp/worldmonitor-images.tar"
 
   pre_tasks:
     - name: "Load shared infrastructure port defaults"
@@ -40,6 +46,56 @@
     - name: "Load shared infrastructure storage defaults"
       ansible.builtin.include_vars:
         file: "{{ playbook_dir }}/../infrastructure/storage.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure domain defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/domains.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure network defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/networks.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure timing defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/timing.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure mode defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/modes.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure app defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/apps.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure fallback values"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/values.yml"
+      tags: ["always"]
+
+    - name: "Load client infrastructure domain overrides"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/domains.yml"
+      tags: ["always"]
+
+    - name: "Load client infrastructure storage overrides"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/storage.yml"
+      tags: ["always"]
+
+    - name: "Load client infrastructure port overrides"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/ports.yml"
+      tags: ["always"]
+
+    - name: "Load client windows_docker_hosts group vars (localhost is not in that group)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/inventories/group_vars/windows_docker_hosts.yml"
       tags: ["always"]
 
     - name: "Validate required variables"
@@ -74,6 +130,7 @@
         dest: "/tmp/worldmonitor-build"
         version: "{{ worldmonitor_repo_branch }}"
         force: true
+        depth: 1  # project-lint: disable=magic-int  shallow clone depth
       tags: ["build"]
 
     - name: "Build WorldMonitor app image"
@@ -97,34 +154,60 @@
       changed_when: true
       tags: ["build"]
 
+    - name: "Export WorldMonitor images to transfer archive"
+      ansible.builtin.command:
+        cmd: >-
+          docker save -o {{ wm_images_archive }}
+          {{ worldmonitor_registry_url }}/worldmonitor:latest
+          {{ worldmonitor_registry_url }}/worldmonitor-ais-relay:latest
+          {{ worldmonitor_registry_url }}/worldmonitor-redis-rest:latest
+      changed_when: true
+      tags: ["push", "export"]
+
+    # Registry pushes are excluded from the normal run (tagged "never") —
+    # the registry link hangs for minutes before failing and Phase 2 loads
+    # images from the archive above anyway. Run with --tags push to mirror
+    # the images into the registry for multi-host pulls.
     - name: "Push WorldMonitor app image to registry"
       ansible.builtin.command:
         cmd: "docker push {{ worldmonitor_registry_url }}/worldmonitor:latest"
       changed_when: true
-      tags: ["push"]
+      failed_when: false
+      tags: ["push", "never"]
 
     - name: "Push AIS relay image to registry"
       ansible.builtin.command:
         cmd: "docker push {{ worldmonitor_registry_url }}/worldmonitor-ais-relay:latest"
       changed_when: true
-      tags: ["push"]
+      failed_when: false
+      tags: ["push", "never"]
 
     - name: "Push Redis REST proxy image to registry"
       ansible.builtin.command:
         cmd: "docker push {{ worldmonitor_registry_url }}/worldmonitor-redis-rest:latest"
       changed_when: true
-      tags: ["push"]
+      failed_when: false
+      tags: ["push", "never"]
 
-    - name: "Report build and push complete"
+    - name: "Report build and export complete"
       ansible.builtin.debug:
-        msg: "Images built and pushed to {{ worldmonitor_registry_url }}"
+        msg: "Images built and exported to {{ wm_images_archive }} (registry push skipped; run --tags push to mirror to {{ worldmonitor_registry_url }})"
       tags: ["summary"]
 
 
-- name: "Phase 2 — Deploy WorldMonitor containers on Windows"
+- name: "Phase 2 — Deploy WorldMonitor containers on Windows"  # project-lint: disable=magic-int  phase number in task name
   hosts: windows_docker_hosts
   gather_facts: true
   become: false
+
+  vars:
+    # community.docker can't run on Windows (grp import), so modules run on the
+    # controller and reach the Windows Docker daemon over SSH — the same
+    # delegate_to: localhost + DOCKER_HOST: ssh:// pattern used by the
+    # vpn-*-windows and dns roles. SSH user/key come from ~/.ssh/config.
+    # No Python is needed on the Windows host.
+    wm_docker_host: "ssh://ansible@{{ ansible_host }}"
+    wm_images_archive: "/tmp/worldmonitor-images.tar"
 
   pre_tasks:
     - name: "Load shared infrastructure port defaults"
@@ -135,6 +218,51 @@
     - name: "Load shared infrastructure storage defaults"
       ansible.builtin.include_vars:
         file: "{{ playbook_dir }}/../infrastructure/storage.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure domain defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/domains.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure network defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/networks.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure timing defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/timing.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure mode defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/modes.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure app defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/apps.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure fallback values"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/values.yml"
+      tags: ["always"]
+
+    - name: "Load client infrastructure domain overrides"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/domains.yml"
+      tags: ["always"]
+
+    - name: "Load client infrastructure storage overrides"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/storage.yml"
+      tags: ["always"]
+
+    - name: "Load client infrastructure port overrides"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/ports.yml"
       tags: ["always"]
 
     - name: "Validate required WorldMonitor variables are defined"
@@ -148,6 +276,8 @@
           - worldmonitor_redis_token | length > 0
           - worldmonitor_relay_shared_secret is defined
           - worldmonitor_relay_shared_secret | length > 0
+          - worldmonitor_session_secret is defined
+          - worldmonitor_session_secret | length >= 32  # project-lint: disable=magic-int  minimum secret length requirement
           - docker_host is defined
         fail_msg: >-
           Missing required WorldMonitor variables. Check the client's
@@ -157,7 +287,9 @@
 
     - name: "Check Docker is accessible on Windows host"
       community.docker.docker_host_info:
-        docker_host: "{{ docker_host }}"
+        docker_host: "{{ wm_docker_host }}"
+        use_ssh_client: true
+      delegate_to: localhost
       register: docker_host_info_result
       ignore_errors: true
       tags: ["always", "verify", "docker"]
@@ -165,41 +297,33 @@
     - name: "Fail if Docker is not accessible"
       ansible.builtin.fail:
         msg: >-
-          Docker is not accessible at {{ docker_host }}.
-          Ensure Docker Desktop is running and the ansible user is in the docker-users group.
+          Docker is not accessible at {{ wm_docker_host }}.
+          Ensure Docker Desktop is running on {{ inventory_hostname }} and the
+          controller can SSH to it (check ~/.ssh/config for {{ ansible_host }}).
           Run: just ansible-bootstrap-windows-docker
       when: docker_host_info_result is failed
       tags: ["always", "verify", "docker"]
 
     - name: "Report Docker daemon info"
       ansible.builtin.debug:
-        msg: "Docker daemon: {{ docker_host_info_result.docker.ServerVersion }} ({{ docker_host_info_result.docker.OperatingSystem }})"
+        msg: "Docker daemon: {{ docker_host_info_result.host_info.ServerVersion }} ({{ docker_host_info_result.host_info.OperatingSystem }})"
       tags: ["always", "verify", "docker"]
 
   tasks:
     # ---------------------------------------------------------------------------
-    # Pull images from registry (no building on Windows)
+    # Load images onto the Windows daemon (no building on Windows)
+    # The archive was exported by Phase 1 and is streamed over the SSH docker
+    # connection — no registry pull, so insecure-registries is not required.
     # ---------------------------------------------------------------------------
-    - name: "Pull WorldMonitor app image from registry"
+    - name: "Load WorldMonitor images into Windows Docker daemon"
       community.docker.docker_image:
         name: "{{ worldmonitor_registry_url }}/worldmonitor:latest"
-        docker_host: "{{ docker_host }}"
-        source: pull
-      tags: ["deploy", "pull"]
-
-    - name: "Pull AIS relay image from registry"
-      community.docker.docker_image:
-        name: "{{ worldmonitor_registry_url }}/worldmonitor-ais-relay:latest"
-        docker_host: "{{ docker_host }}"
-        source: pull
-      tags: ["deploy", "pull"]
-
-    - name: "Pull Redis REST proxy image from registry"
-      community.docker.docker_image:
-        name: "{{ worldmonitor_registry_url }}/worldmonitor-redis-rest:latest"
-        docker_host: "{{ docker_host }}"
-        source: pull
-      tags: ["deploy", "pull"]
+        docker_host: "{{ wm_docker_host }}"
+        use_ssh_client: true
+        source: load
+        load_path: "{{ wm_images_archive }}"
+      delegate_to: localhost
+      tags: ["deploy", "load"]
 
     # ---------------------------------------------------------------------------
     # Create Docker network
@@ -207,8 +331,10 @@
     - name: "Create WorldMonitor Docker network"
       community.docker.docker_network:
         name: "{{ worldmonitor_network_name }}"
-        docker_host: "{{ docker_host }}"
+        docker_host: "{{ wm_docker_host }}"
+        use_ssh_client: true
         state: present
+      delegate_to: localhost
       tags: ["network", "deploy"]
 
     # ---------------------------------------------------------------------------
@@ -220,7 +346,8 @@
         image: "docker.io/redis:7-alpine"
         state: started
         restart_policy: unless-stopped
-        docker_host: "{{ docker_host }}"
+        docker_host: "{{ wm_docker_host }}"
+        use_ssh_client: true
         networks:
           - name: "{{ worldmonitor_network_name }}"
         command: >-
@@ -230,6 +357,7 @@
           --maxmemory-policy allkeys-lru
         volumes:
           - "{{ infra_storage_worldmonitor_redis_data_volume }}:/data"
+      delegate_to: localhost
       tags: ["deploy", "redis"]
 
     - name: "Deploy Redis REST proxy container"
@@ -238,14 +366,16 @@
         image: "{{ worldmonitor_registry_url }}/worldmonitor-redis-rest:latest"
         state: started
         restart_policy: unless-stopped
-        docker_host: "{{ docker_host }}"
+        docker_host: "{{ wm_docker_host }}"
+        use_ssh_client: true
         networks:
           - name: "{{ worldmonitor_network_name }}"
         ports:
           - "{{ infra_network_bind_localhost }}:{{ worldmonitor_redis_rest_host_port }}:{{ worldmonitor_redis_rest_container_port }}"
         env:
           SRH_TOKEN: "{{ worldmonitor_redis_token }}"
-          SRH_CONNECTION_STRING: "redis://:{{ worldmonitor_redis_password }}@redis:{{ infra_port_db_redis_host }}"
+          SRH_CONNECTION_STRING: "redis://:{{ worldmonitor_redis_password }}@worldmonitor-redis:{{ infra_port_db_redis_container }}"
+      delegate_to: localhost
       tags: ["deploy", "redis-rest"]
 
     - name: "Deploy AIS relay container"
@@ -254,13 +384,15 @@
         image: "{{ worldmonitor_registry_url }}/worldmonitor-ais-relay:latest"
         state: started
         restart_policy: unless-stopped
-        docker_host: "{{ docker_host }}"
+        docker_host: "{{ wm_docker_host }}"
+        use_ssh_client: true
         networks:
           - name: "{{ worldmonitor_network_name }}"
         env:
           AISSTREAM_API_KEY: "{{ worldmonitor_aisstream_api_key }}"
           PORT: "{{ worldmonitor_ais_relay_container_port }}"
           RELAY_SHARED_SECRET: "{{ worldmonitor_relay_shared_secret }}"
+      delegate_to: localhost
       tags: ["deploy", "ais-relay"]
 
     - name: "Deploy WorldMonitor app container"
@@ -269,18 +401,21 @@
         image: "{{ worldmonitor_registry_url }}/worldmonitor:latest"
         state: started
         restart_policy: unless-stopped
-        docker_host: "{{ docker_host }}"
+        docker_host: "{{ wm_docker_host }}"
+        use_ssh_client: true
         networks:
           - name: "{{ worldmonitor_network_name }}"
         ports:
           - "{{ worldmonitor_app_host_port }}:{{ worldmonitor_app_container_port }}"
         env:
-          UPSTASH_REDIS_REST_URL: "http://redis-rest:{{ worldmonitor_redis_rest_container_port }}"
+          UPSTASH_REDIS_REST_URL: "http://worldmonitor-redis-rest:{{ worldmonitor_redis_rest_container_port }}"
           UPSTASH_REDIS_REST_TOKEN: "{{ worldmonitor_redis_token }}"
+          WM_SESSION_SECRET: "{{ worldmonitor_session_secret }}"
           LOCAL_API_PORT: "{{ infra_port_omnigent_local_api_host }}"
           LOCAL_API_MODE: "docker"
           LOCAL_API_CLOUD_FALLBACK: "false"
-          WS_RELAY_URL: "http://ais-relay:{{ worldmonitor_ais_relay_container_port }}"
+          WS_RELAY_URL: "http://worldmonitor-ais-relay:{{ worldmonitor_ais_relay_container_port }}"
+          RELAY_SHARED_SECRET: "{{ worldmonitor_relay_shared_secret }}"
           LLM_API_URL: "{{ worldmonitor_llm_api_url }}"
           LLM_API_KEY: "{{ worldmonitor_llm_api_key }}"
           LLM_MODEL: "{{ worldmonitor_llm_model }}"
@@ -297,6 +432,7 @@
           CLOUDFLARE_API_TOKEN: "{{ worldmonitor_cloudflare_api_token }}"
           AVIATIONSTACK_API: "{{ worldmonitor_aviationstack_api }}"
           TRAVELPAYOUTS_API_TOKEN: "{{ worldmonitor_travelpayouts_api_token }}"
+      delegate_to: localhost
       tags: ["deploy", "app"]
 
   post_tasks:
@@ -308,7 +444,9 @@
     - name: "Verify all WorldMonitor containers are running"
       community.docker.docker_container_info:
         name: "{{ item }}"
-        docker_host: "{{ docker_host }}"
+        docker_host: "{{ wm_docker_host }}"
+        use_ssh_client: true
+      delegate_to: localhost
       loop:
         - "worldmonitor"
         - "worldmonitor-redis"
