@@ -607,9 +607,13 @@ infra_port_dashboard_alt_host: "8086"
 infra_port_dashboard_grafana_alt_host: "3002"
 infra_port_dashboard_portainer_host: "9002"
 
-# Databases (generic fallbacks)
+# Databases (generic fallbacks + shared db-postgres role)
+# infra_port_db_postgres_* backs the shared db-postgres role (one instance
+# per docker host). First consumer: media-stack on dtop202311.
 infra_port_db_postgres_host: "5439"
+infra_port_db_postgres_container: "5432"
 infra_port_db_redis_host: "6380"
+infra_port_db_redis_container: "6379"
 
 # DNS (alt/forward/prometheus + dnscrypt alt tiers)
 infra_port_dns_alt_host: "5355"
@@ -782,6 +786,9 @@ infra_port_media_flaresolverr_container: "8191"
 # RomM — game/ROM library manager
 infra_port_media_romm_host: "8091"
 infra_port_media_romm_container: "8080"
+
+# RomM uses the shared db-postgres instance (ROMM_DB_DRIVER=postgresql) —
+# the old dedicated MariaDB sidecar is gone; its volume may be dropped manually.
 
 # Kavita — ebook/manga/comic reader
 infra_port_media_kavita_host: "5060"

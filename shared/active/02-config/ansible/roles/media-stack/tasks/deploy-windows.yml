@@ -68,6 +68,23 @@
   tags: ["deploy", "volume"]
 
 # ============================================================================
+# Shared PostgreSQL — deployed + provisioned via the db-postgres role before
+# any app containers. Databases are created empty (fresh setup, no sqlite
+# migration); apps create their schemas on first start.
+# ============================================================================
+- name: Deploy shared postgres and provision media databases
+  ansible.builtin.include_role:
+    name: db-postgres
+  vars:
+    db_postgres_docker_host: "{{ media_stack_docker_host }}"
+    db_postgres_networks:
+      - "{{ media_stack_network_name }}"
+    db_postgres_users: "{{ media_stack_postgres_users }}"
+    db_postgres_databases: "{{ media_stack_postgres_databases }}"
+  when: media_stack_postgres_enabled | bool
+  tags: ["deploy", "postgres"]
+
+# ============================================================================
 # Pull Images
 # ============================================================================
 - name: Pull media stack images
@@ -110,6 +127,13 @@
     {{ media_stack_flaresolverr_container_name }}
     {{ media_stack_recyclarr_container_name }}
     {{ media_stack_unpackarr_container_name }}
+    {{ media_stack_romm_db_container_name }}
+    {{ media_stack_romm_container_name }}
+    {{ media_stack_kavita_container_name }}
+    {{ media_stack_calibre_web_container_name }}
+    {{ media_stack_komga_container_name }}
+    {{ media_stack_qbittorrent_container_name }}
+    {{ media_stack_sabnzbd_container_name }}
     2>/dev/null || true
   environment:
     DOCKER_HOST: "{{ media_stack_docker_host }}"
@@ -167,7 +191,7 @@
     --log-driver json-file
     --log-opt max-size={{ media_stack_log_max_size }}
     --log-opt max-file={{ media_stack_log_max_file }}
-    --health-cmd "curl -sf http://{{ media_stack_healthcheck_host }}:{{ media_stack_jellyseerr_container_port }}/api/v1/status || exit 1"
+    --health-cmd "wget -q -O /dev/null http://{{ media_stack_healthcheck_host }}:{{ media_stack_jellyseerr_container_port }}/api/v1/status || exit 1"
     --health-interval {{ media_stack_healthcheck_interval }}
     --health-timeout {{ media_stack_healthcheck_timeout }}
     --health-retries {{ media_stack_healthcheck_retries }}
@@ -196,6 +220,14 @@
     -e PUID={{ media_stack_puid }}
     -e PGID={{ media_stack_pgid }}
     -e TZ={{ media_stack_tz }}
+    {% if media_stack_postgres_enabled | bool %}
+    -e RADARR__POSTGRES__HOST={{ media_stack_postgres_container_name }}
+    -e RADARR__POSTGRES__PORT={{ media_stack_postgres_container_port }}
+    -e RADARR__POSTGRES__USER=radarr
+    -e RADARR__POSTGRES__PASSWORD={{ media_stack_postgres_password_radarr }}
+    -e RADARR__POSTGRES__MAINDB=radarr_main
+    -e RADARR__POSTGRES__LOGDB=radarr_log
+    {% endif %}
     --log-driver json-file
     --log-opt max-size={{ media_stack_log_max_size }}
     --log-opt max-file={{ media_stack_log_max_file }}
@@ -205,6 +237,7 @@
     DOCKER_HOST: "{{ media_stack_docker_host }}"
   delegate_to: localhost
   changed_when: true
+  no_log: "{{ media_stack_postgres_enabled | bool }}"
   tags: ["deploy", "container", "radarr"]
 
 - name: Deploy Sonarr container
@@ -220,6 +253,14 @@
     -e PUID={{ media_stack_puid }}
     -e PGID={{ media_stack_pgid }}
     -e TZ={{ media_stack_tz }}
+    {% if media_stack_postgres_enabled | bool %}
+    -e SONARR__POSTGRES__HOST={{ media_stack_postgres_container_name }}
+    -e SONARR__POSTGRES__PORT={{ media_stack_postgres_container_port }}
+    -e SONARR__POSTGRES__USER=sonarr
+    -e SONARR__POSTGRES__PASSWORD={{ media_stack_postgres_password_sonarr }}
+    -e SONARR__POSTGRES__MAINDB=sonarr_main
+    -e SONARR__POSTGRES__LOGDB=sonarr_log
+    {% endif %}
     --log-driver json-file
     --log-opt max-size={{ media_stack_log_max_size }}
     --log-opt max-file={{ media_stack_log_max_file }}
@@ -229,6 +270,7 @@
     DOCKER_HOST: "{{ media_stack_docker_host }}"
   delegate_to: localhost
   changed_when: true
+  no_log: "{{ media_stack_postgres_enabled | bool }}"
   tags: ["deploy", "container", "sonarr"]
 
 - name: Deploy Lidarr container
@@ -244,6 +286,14 @@
     -e PUID={{ media_stack_puid }}
     -e PGID={{ media_stack_pgid }}
     -e TZ={{ media_stack_tz }}
+    {% if media_stack_postgres_enabled | bool %}
+    -e LIDARR__POSTGRES__HOST={{ media_stack_postgres_container_name }}
+    -e LIDARR__POSTGRES__PORT={{ media_stack_postgres_container_port }}
+    -e LIDARR__POSTGRES__USER=lidarr
+    -e LIDARR__POSTGRES__PASSWORD={{ media_stack_postgres_password_lidarr }}
+    -e LIDARR__POSTGRES__MAINDB=lidarr_main
+    -e LIDARR__POSTGRES__LOGDB=lidarr_log
+    {% endif %}
     --log-driver json-file
     --log-opt max-size={{ media_stack_log_max_size }}
     --log-opt max-file={{ media_stack_log_max_file }}
@@ -253,6 +303,7 @@
     DOCKER_HOST: "{{ media_stack_docker_host }}"
   delegate_to: localhost
   changed_when: true
+  no_log: "{{ media_stack_postgres_enabled | bool }}"
   tags: ["deploy", "container", "lidarr"]
 
 - name: Deploy Bazarr container
@@ -268,6 +319,14 @@
     -e PUID={{ media_stack_puid }}
     -e PGID={{ media_stack_pgid }}
     -e TZ={{ media_stack_tz }}
+    {% if media_stack_postgres_enabled | bool %}
+    -e POSTGRES_ENABLED=true
+    -e POSTGRES_HOST={{ media_stack_postgres_container_name }}
+    -e POSTGRES_PORT={{ media_stack_postgres_container_port }}
+    -e POSTGRES_DATABASE=bazarr
+    -e POSTGRES_USERNAME=bazarr
+    -e POSTGRES_PASSWORD={{ media_stack_postgres_password_bazarr }}
+    {% endif %}
     --log-driver json-file
     --log-opt max-size={{ media_stack_log_max_size }}
     --log-opt max-file={{ media_stack_log_max_file }}
@@ -277,6 +336,7 @@
     DOCKER_HOST: "{{ media_stack_docker_host }}"
   delegate_to: localhost
   changed_when: true
+  no_log: "{{ media_stack_postgres_enabled | bool }}"
   tags: ["deploy", "container", "bazarr"]
 
 - name: Deploy Prowlarr container
@@ -290,6 +350,14 @@
     -e PUID={{ media_stack_puid }}
     -e PGID={{ media_stack_pgid }}
     -e TZ={{ media_stack_tz }}
+    {% if media_stack_postgres_enabled | bool %}
+    -e PROWLARR__POSTGRES__HOST={{ media_stack_postgres_container_name }}
+    -e PROWLARR__POSTGRES__PORT={{ media_stack_postgres_container_port }}
+    -e PROWLARR__POSTGRES__USER=prowlarr
+    -e PROWLARR__POSTGRES__PASSWORD={{ media_stack_postgres_password_prowlarr }}
+    -e PROWLARR__POSTGRES__MAINDB=prowlarr_main
+    -e PROWLARR__POSTGRES__LOGDB=prowlarr_log
+    {% endif %}
     --log-driver json-file
     --log-opt max-size={{ media_stack_log_max_size }}
     --log-opt max-file={{ media_stack_log_max_file }}
@@ -299,6 +367,7 @@
     DOCKER_HOST: "{{ media_stack_docker_host }}"
   delegate_to: localhost
   changed_when: true
+  no_log: "{{ media_stack_postgres_enabled | bool }}"
   tags: ["deploy", "container", "prowlarr"]
 
 - name: Deploy Kapowarr container
@@ -347,7 +416,7 @@
     --log-driver json-file
     --log-opt max-size={{ media_stack_log_max_size }}
     --log-opt max-file={{ media_stack_log_max_file }}
-    --health-cmd "curl -sf http://{{ media_stack_healthcheck_host }}:{{ media_stack_audiobookshelf_container_port }}/ping || exit 1"
+    --health-cmd "wget -q -O /dev/null http://{{ media_stack_healthcheck_host }}:{{ media_stack_audiobookshelf_container_port }}/ping || exit 1"
     --health-interval {{ media_stack_healthcheck_interval }}
     --health-timeout {{ media_stack_healthcheck_timeout }}
     --health-retries {{ media_stack_healthcheck_retries }}
@@ -436,8 +505,16 @@
   tags: ["deploy", "container", "unpackarr"]
 
 # ============================================================================
-# Deploy RomM — game/ROM library manager
+# Deploy RomM — game/ROM library manager (shared postgres via db-postgres).
+# RomM 5.x has no sqlite mode — it is skipped entirely when the shared
+# postgres instance is disabled.
 # ============================================================================
+- name: Skip RomM when shared postgres is disabled
+  ansible.builtin.debug:
+    msg: "RomM requires an external database — skipping because media_stack_postgres_enabled is false."
+  when: not (media_stack_postgres_enabled | bool)
+  tags: ["deploy", "container", "romm"]
+
 - name: Deploy RomM container
   ansible.builtin.command: >-
     docker run -d
@@ -450,7 +527,13 @@
     -v {{ media_stack_romm_assets_volume }}:/romm/assets:rw
     -v {{ media_stack_data_volume }}:/romm/library:rw
     -e TZ={{ media_stack_tz }}
-    -e ROMM_DB_DRIVER=sqlite
+    -e ROMM_DB_DRIVER=postgresql
+    -e DB_HOST={{ media_stack_postgres_container_name }}
+    -e DB_PORT={{ media_stack_postgres_container_port }}
+    -e DB_NAME=romm
+    -e DB_USER=romm
+    -e DB_PASSWD={{ media_stack_postgres_password_romm }}
+    -e ROMM_AUTH_SECRET_KEY={{ media_stack_romm_auth_secret }}
     -e ROMM_PORT={{ media_stack_romm_container_port }}
     --log-driver json-file
     --log-opt max-size={{ media_stack_log_max_size }}
@@ -461,6 +544,8 @@
     DOCKER_HOST: "{{ media_stack_docker_host }}"
   delegate_to: localhost
   changed_when: true
+  no_log: true
+  when: media_stack_postgres_enabled | bool
   tags: ["deploy", "container", "romm"]
 
 # ============================================================================

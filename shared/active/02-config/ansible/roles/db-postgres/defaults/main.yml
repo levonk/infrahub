@@ -1,0 +1,57 @@
+---
+# Shared PostgreSQL — Default Variables
+# One postgres container per docker host, consumed by multiple stacks via
+# container name on a shared docker network. Replaces the per-service
+# postgres sidecar convention for stacks that opt in.
+#
+# Consumers supply db_postgres_docker_host, db_postgres_networks,
+# db_postgres_users, and db_postgres_databases via include_role vars.
+
+db_postgres_enabled: true
+
+# Docker endpoint for the ssh-tunneled Docker CLI pattern. Consumers pass
+# their own docker host (e.g. media_stack_docker_host); the infra_value_*
+# fallback is intentionally empty so standalone use fails validation fast.
+db_postgres_docker_host: "{{ infra_value_db_postgres_docker_host | default('') }}"
+
+db_postgres_container_name: "{{ infra_hostname_db_postgres | default('localnet-db-postgres') }}"
+db_postgres_image: "postgres"
+db_postgres_image_tag: "17-alpine"
+db_postgres_volume: "{{ infra_storage_db_postgres_volume | default('localnet-db-postgres-data-volume') }}"
+
+# Networks the container joins. First entry is the primary network passed to
+# docker run; remaining entries are attached via docker network connect.
+db_postgres_networks: []
+
+# Host port publishing — for tailnet admin/debugging only. Consumers always
+# reach postgres via container name + container port on the shared network.
+db_postgres_publish_port: true
+db_postgres_host_port: "{{ infra_port_db_postgres_host | default('5439') }}"  # project-lint: disable=magic-int  fallback port
+db_postgres_container_port: "{{ infra_port_db_postgres_container | default('5432') }}"  # project-lint: disable=magic-int  fallback container port
+
+# Superuser. postgres image trusts local unix-socket connections, so
+# provisioning via docker exec needs no password on the wire.
+db_postgres_admin_user: "postgres"
+db_postgres_admin_password: "{{ vault_db_postgres_admin_password | default('') }}"
+
+db_postgres_tz: "{{ localnet_tz | default('UTC') }}"
+
+# Provisioning inputs (additive — the role never drops users/databases).
+#   db_postgres_users:     [{name: "radarr", password: "<vault ref>"}]
+#   db_postgres_databases: [{name: "radarr_main", owner: "radarr"}]
+db_postgres_users: []
+db_postgres_databases: []
+
+# Logging
+db_postgres_log_max_size: "10m"
+db_postgres_log_max_file: "5"
+
+# Healthcheck
+db_postgres_healthcheck_interval: "10s"
+db_postgres_healthcheck_timeout: "5s"
+db_postgres_healthcheck_retries: 10
+db_postgres_healthcheck_start_period: "10s"
+
+# Health verification (Ansible retry loop)
+db_postgres_health_verify_retries: 30
+db_postgres_health_verify_delay: 10

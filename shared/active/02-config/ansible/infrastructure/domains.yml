@@ -400,3 +400,10 @@ infra_hostname_media_watch_party: "localnet-media-watch-party"
 # No Traefik domain — direct port exposure. Uses the watch-party domain for
 # the TURN realm and client ICE server config.
 infra_hostname_media_coturn: "localnet-media-coturn"
+
+# ---------------------------------------------------------------------------
+# Shared database services — single postgres instance per docker host,
+# consumed by multiple stacks via container name on shared docker networks.
+# Backed by the db-postgres role; first consumer: media-stack on dtop202311.
+# ---------------------------------------------------------------------------
+infra_hostname_db_postgres: "localnet-db-postgres"

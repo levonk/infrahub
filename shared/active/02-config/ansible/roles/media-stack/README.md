@@ -20,6 +20,7 @@ nl region) via the SSH-tunneled Docker CLI pattern.
 | kavita | `lscr.io/linuxserver/kavita` | 5060 | kavita.nl.levonk.com |
 | calibre-web | `lscr.io/linuxserver/calibre-web` | 8087 | calibre-web.nl.levonk.com |
 | komga | `gotson/komga` | 25600 | komga.nl.levonk.com |
+| postgres | `postgres:17-alpine` | 5439 | (shared, via db-postgres role) |
 | qbittorrent | `lscr.io/linuxserver/qbittorrent` | 8080 (VPN) | qbittorrent.nl.levonk.com |
 | sabnzbd | `lscr.io/linuxserver/sabnzbd` | 8081 (VPN) | sabnzbd.nl.levonk.com |
 | flaresolverr | `ghcr.io/flaresolverr/flaresolverr` | 8191 | (internal) |
@@ -37,5 +38,27 @@ just ansible-deploy-media-stack
 All containers run on dtop202311 (Windows Docker Desktop) behind Traefik.
 The SSH-tunneled Docker CLI pattern is used because `community.docker` modules
 cannot run on Windows (Ansible core `basic.py` imports `grp`, Unix-only).
+
+## Database
+
+A single shared PostgreSQL container (`localnet-db-postgres`, deployed by the
+`db-postgres` role) serves all DB-capable services — no per-service sidecars:
+
+| Service | Databases | Config mechanism |
+|---------|-----------|------------------|
+| radarr | `radarr_main`, `radarr_log` | `RADARR__POSTGRES__*` env vars |
+| sonarr | `sonarr_main`, `sonarr_log` | `SONARR__POSTGRES__*` env vars |
+| lidarr | `lidarr_main`, `lidarr_log` | `LIDARR__POSTGRES__*` env vars |
+| prowlarr | `prowlarr_main`, `prowlarr_log` | `PROWLARR__POSTGRES__*` env vars |
+| bazarr | `bazarr` | `POSTGRES_*` env vars |
+| romm | `romm` | `ROMM_DB_DRIVER=postgresql` |
+
+All other services use embedded sqlite. Consumers connect by container name
+on `traefik-windows-network`; the host port (5439) is published for tailnet
+debugging only. Passwords come from `vault_media_postgres_*` vault vars;
+the superuser password is `vault_db_postgres_admin_password`.
+
+Set `media_stack_postgres_enabled: false` to fall back to embedded sqlite
+(RomM is skipped in that mode — it has no sqlite backend).
 
 See `shared/docs/pipelines/media/PIPELINE-MEDIA.md` for the full pipeline documentation.

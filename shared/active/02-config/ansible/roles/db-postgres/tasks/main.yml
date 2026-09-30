@@ -1,0 +1,51 @@
+---
+# db-postgres — Shared PostgreSQL instance per docker host.
+#
+# Uses the ssh-tunneled Docker CLI pattern (DOCKER_HOST + delegate_to:
+# localhost) so the same tasks work for Windows Docker Desktop and any
+# reachable remote dockerd — community.docker modules can't run on Windows
+# (Ansible core basic.py imports grp, Unix-only).
+#
+# Consumers include this role with their docker host, networks, and the
+# users/databases they need. Provisioning is additive and idempotent —
+# multiple stacks may include the role against the same instance.
+
+# 1. Validate required variables
+- name: Validate required variables are defined
+  ansible.builtin.assert:
+    that:
+      - db_postgres_docker_host is defined
+      - db_postgres_docker_host | length > 0
+      - db_postgres_container_name is defined
+      - db_postgres_volume is defined
+      - db_postgres_networks | length > 0
+      - db_postgres_admin_password | length > 0
+    fail_msg: >-
+      Missing required db_postgres variables. Consumers must set
+      db_postgres_docker_host and db_postgres_networks;
+      vault_db_postgres_admin_password must be in the vault.
+    success_msg: "All required db_postgres variables are defined."
+  when: db_postgres_enabled | bool
+  tags: ["always", "validate"]
+
+- name: Validate postgres user passwords are non-empty
+  ansible.builtin.assert:
+    that:
+      - item.password | length > 0
+    fail_msg: >-
+      ERROR: password for postgres user '{{ item.name }}' is empty.
+      Check the vault_media_postgres_* / vault vars for this consumer.
+  loop: "{{ db_postgres_users }}"
+  when: db_postgres_enabled | bool
+  tags: ["always", "validate"]
+
+# 2. Dispatch on enabled state
+- name: Deploy shared postgres
+  ansible.builtin.include_tasks: deploy.yml
+  when: db_postgres_enabled | bool
+  tags: ["deploy"]
+
+- name: Undeploy shared postgres
+  ansible.builtin.include_tasks: undeploy.yml
+  when: not (db_postgres_enabled | bool)
+  tags: ["undeploy"]

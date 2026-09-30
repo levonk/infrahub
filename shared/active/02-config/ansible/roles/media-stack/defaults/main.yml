@@ -171,14 +171,14 @@ media_stack_flaresolverr_config_volume: "{{ infra_storage_media_flaresolverr_con
 # ===========================================================================
 media_stack_recyclarr_container_name: "{{ infra_hostname_media_recyclarr | default('localnet-media-recyclarr') }}"
 media_stack_recyclarr_image: "ghcr.io/recyclarr/recyclarr"
-media_stack_recyclarr_image_tag: "latest"
+media_stack_recyclarr_image_tag: "8"
 media_stack_recyclarr_config_volume: "{{ infra_storage_media_recyclarr_config_volume | default('localnet-media-recyclarr-config-volume') }}"
 
 # ===========================================================================
 # Unpackarr — auto-unpack (sidecar, no port, no Traefik domain)
 # ===========================================================================
 media_stack_unpackarr_container_name: "{{ infra_hostname_media_unpackarr | default('localnet-media-unpackarr') }}"
-media_stack_unpackarr_image: "ghcr.io/unpackarr/unpackarr"
+media_stack_unpackarr_image: "ghcr.io/unpackerr/unpackerr"
 media_stack_unpackarr_image_tag: "latest"
 media_stack_unpackarr_config_volume: "{{ infra_storage_media_unpackarr_config_volume | default('localnet-media-unpackarr-config-volume') }}"
 
@@ -195,6 +195,57 @@ media_stack_romm_resources_volume: "{{ infra_storage_media_romm_resources_volume
 media_stack_romm_assets_volume: "{{ infra_storage_media_romm_assets_volume | default('localnet-media-romm-assets-volume') }}"
 media_stack_romm_domain: "{{ infra_domain_media_romm | default('romm.nl.levonk.com') }}"
 media_stack_romm_domain_alias: "{{ infra_domain_media_romm_alias | default('games.levonk.com') }}"
+
+# RomM auth secret — JWT signing key (openssl rand -hex 32)
+media_stack_romm_auth_secret: "{{ vault_media_romm_auth_secret | default('') }}"
+
+# Legacy — the old dedicated MariaDB sidecar is removed on deploy; this var
+# is kept only so the rm -f cleanup keeps working on existing deployments.
+media_stack_romm_db_container_name: "{{ infra_hostname_media_romm_db | default('localnet-media-romm-db') }}"
+
+# ===========================================================================
+# Shared PostgreSQL — provisioned via the db-postgres role (fresh DBs, no
+# migration). One instance per docker host replaces per-service DB sidecars.
+# Radarr/Sonarr/Lidarr/Prowlarr each need a main + log database; Bazarr and
+# RomM need one each. Consumers reach it by container name on
+# traefik-windows-network — no host port needed by apps.
+# ===========================================================================
+media_stack_postgres_enabled: true
+media_stack_postgres_container_name: "{{ infra_hostname_db_postgres | default('localnet-db-postgres') }}"
+media_stack_postgres_container_port: "{{ infra_port_db_postgres_container | default('5432') }}"  # project-lint: disable=magic-int  fallback container port
+
+media_stack_postgres_password_radarr: "{{ vault_media_postgres_radarr_password | default('') }}"
+media_stack_postgres_password_sonarr: "{{ vault_media_postgres_sonarr_password | default('') }}"
+media_stack_postgres_password_lidarr: "{{ vault_media_postgres_lidarr_password | default('') }}"
+media_stack_postgres_password_prowlarr: "{{ vault_media_postgres_prowlarr_password | default('') }}"
+media_stack_postgres_password_bazarr: "{{ vault_media_postgres_bazarr_password | default('') }}"
+media_stack_postgres_password_romm: "{{ vault_media_postgres_romm_password | default('') }}"
+
+media_stack_postgres_users:
+  - name: "radarr"
+    password: "{{ media_stack_postgres_password_radarr }}"
+  - name: "sonarr"
+    password: "{{ media_stack_postgres_password_sonarr }}"
+  - name: "lidarr"
+    password: "{{ media_stack_postgres_password_lidarr }}"
+  - name: "prowlarr"
+    password: "{{ media_stack_postgres_password_prowlarr }}"
+  - name: "bazarr"
+    password: "{{ media_stack_postgres_password_bazarr }}"
+  - name: "romm"
+    password: "{{ media_stack_postgres_password_romm }}"
+
+media_stack_postgres_databases:
+  - { name: "radarr_main", owner: "radarr" }
+  - { name: "radarr_log", owner: "radarr" }
+  - { name: "sonarr_main", owner: "sonarr" }
+  - { name: "sonarr_log", owner: "sonarr" }
+  - { name: "lidarr_main", owner: "lidarr" }
+  - { name: "lidarr_log", owner: "lidarr" }
+  - { name: "prowlarr_main", owner: "prowlarr" }
+  - { name: "prowlarr_log", owner: "prowlarr" }
+  - { name: "bazarr", owner: "bazarr" }
+  - { name: "romm", owner: "romm" }
 
 # ===========================================================================
 # Kavita — ebook/manga/comic reader

@@ -411,3 +411,8 @@ infra_storage_media_watch_party_config_dir: "{{ infra_storage_config_dir }}/watc
 
 # coturn — minimal storage (config file only, no persistent data)
 infra_storage_media_coturn_config_dir: "{{ infra_storage_config_dir }}/coturn"
+
+# ---------------------------------------------------------------------------
+# Shared database services — db-postgres role data volume
+# ---------------------------------------------------------------------------
+infra_storage_db_postgres_volume: "localnet-db-postgres-data-volume"

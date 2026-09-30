@@ -1,0 +1,214 @@
+---
+# db-postgres — deploy + provision via ssh-tunneled Docker CLI.
+#
+# The container is shared infra, so this role does NOT rm/recreate on every
+# run (that would drop every consumer's connections). It creates the
+# container when absent, starts it when stopped, and attaches any missing
+# networks. Image upgrades require a manual recreate or the undeploy path.
+
+# ============================================================================
+# Volume — inspect-or-create. The postgres entrypoint fixes
+# /var/lib/postgresql/data ownership itself; no localnet-volume-init needed.
+# ============================================================================
+- name: Ensure postgres data volume exists
+  ansible.builtin.shell: >-
+    docker volume inspect {{ db_postgres_volume }} 2>/dev/null
+    || docker volume create {{ db_postgres_volume }}
+  environment:
+    DOCKER_HOST: "{{ db_postgres_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "volume"]
+
+# ============================================================================
+# Networks — inspect-or-create each requested network
+# ============================================================================
+- name: Ensure postgres networks exist
+  ansible.builtin.shell: >-
+    docker network inspect {{ item }} 2>/dev/null
+    || docker network create {{ item }}
+  environment:
+    DOCKER_HOST: "{{ db_postgres_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  loop: "{{ db_postgres_networks }}"
+  tags: ["deploy", "network"]
+
+# ============================================================================
+# Pull image
+# ============================================================================
+- name: Pull postgres image
+  ansible.builtin.command: "docker pull {{ db_postgres_image }}:{{ db_postgres_image_tag }}"
+  environment:
+    DOCKER_HOST: "{{ db_postgres_docker_host }}"
+    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "pull"]
+
+# ============================================================================
+# Container — create only when absent (shared instance; never force-recreate)
+# ============================================================================
+- name: Check if postgres container exists
+  ansible.builtin.command: >-
+    docker inspect --format '{% raw %}{{.State.Running}}{% endraw %}' {{ db_postgres_container_name }}
+  environment:
+    DOCKER_HOST: "{{ db_postgres_docker_host }}"
+  delegate_to: localhost
+  register: db_postgres_existing
+  changed_when: false
+  failed_when: false
+  tags: ["deploy", "container"]
+
+- name: Deploy postgres container
+  ansible.builtin.shell: >-
+    docker run -d
+    --name {{ db_postgres_container_name }}
+    --restart unless-stopped
+    --network {{ db_postgres_networks[0] }}
+    {% if db_postgres_publish_port | bool %}
+    -p {{ db_postgres_host_port }}:{{ db_postgres_container_port }}/tcp
+    {% endif %}
+    -v {{ db_postgres_volume }}:/var/lib/postgresql/data:rw
+    -e POSTGRES_USER={{ db_postgres_admin_user }}
+    -e POSTGRES_PASSWORD={{ db_postgres_admin_password }}
+    -e TZ={{ db_postgres_tz }}
+    --log-driver json-file
+    --log-opt max-size={{ db_postgres_log_max_size }}
+    --log-opt max-file={{ db_postgres_log_max_file }}
+    --health-cmd "pg_isready -U {{ db_postgres_admin_user }} || exit 1"
+    --health-interval {{ db_postgres_healthcheck_interval }}
+    --health-timeout {{ db_postgres_healthcheck_timeout }}
+    --health-retries {{ db_postgres_healthcheck_retries }}
+    --health-start-period {{ db_postgres_healthcheck_start_period }}
+    --security-opt no-new-privileges:true
+    {{ db_postgres_image }}:{{ db_postgres_image_tag }}
+  environment:
+    DOCKER_HOST: "{{ db_postgres_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  no_log: true
+  when:
+    - db_postgres_existing.rc is defined
+    - db_postgres_existing.rc != 0
+  tags: ["deploy", "container"]
+
+- name: Start postgres container if stopped
+  ansible.builtin.command: "docker start {{ db_postgres_container_name }}"
+  environment:
+    DOCKER_HOST: "{{ db_postgres_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  when:
+    - db_postgres_existing.rc is defined
+    - db_postgres_existing.rc == 0
+    - db_postgres_existing.stdout != "true"
+  tags: ["deploy", "container"]
+
+- name: Attach additional networks to postgres
+  ansible.builtin.shell: >-
+    docker network connect {{ item }} {{ db_postgres_container_name }} 2>/dev/null || true
+  environment:
+    DOCKER_HOST: "{{ db_postgres_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  loop: "{{ db_postgres_networks[1:] }}"
+  tags: ["deploy", "network"]
+
+# ============================================================================
+# Wait for postgres — functional gate, consumers need a healthy database
+# ============================================================================
+- name: Wait for postgres to be healthy
+  ansible.builtin.command: >-
+    docker inspect --format '{% raw %}{{.State.Health.Status}}{% endraw %}' {{ db_postgres_container_name }}
+  environment:
+    DOCKER_HOST: "{{ db_postgres_docker_host }}"
+  delegate_to: localhost
+  register: db_postgres_health
+  until: db_postgres_health.stdout == "healthy"
+  retries: "{{ db_postgres_health_verify_retries }}"
+  delay: "{{ db_postgres_health_verify_delay }}"
+  changed_when: false
+  tags: ["deploy", "container"]
+
+# ============================================================================
+# Provision users — additive. Existing users get their password re-synced so
+# vault rotation propagates without a recreate.
+# ============================================================================
+- name: Check which postgres users exist
+  ansible.builtin.command: >-
+    docker exec {{ db_postgres_container_name }}
+    psql -U {{ db_postgres_admin_user }} -d postgres -tAc
+    "SELECT rolname FROM pg_roles WHERE rolname='{{ item.name }}'"
+  environment:
+    DOCKER_HOST: "{{ db_postgres_docker_host }}"
+  delegate_to: localhost
+  register: db_postgres_user_check
+  changed_when: false
+  loop: "{{ db_postgres_users }}"
+  tags: ["deploy", "provision"]
+
+- name: Create missing postgres users
+  ansible.builtin.command: >-
+    docker exec {{ db_postgres_container_name }}
+    psql -U {{ db_postgres_admin_user }} -d postgres -c
+    "CREATE USER \"{{ item.item.name }}\" WITH PASSWORD '{{ item.item.password }}'"
+  environment:
+    DOCKER_HOST: "{{ db_postgres_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  no_log: true
+  loop: "{{ db_postgres_user_check.results | default([]) }}"
+  when: item.stdout | trim == ''
+  tags: ["deploy", "provision"]
+
+- name: Re-sync passwords for existing postgres users
+  ansible.builtin.command: >-
+    docker exec {{ db_postgres_container_name }}
+    psql -U {{ db_postgres_admin_user }} -d postgres -c
+    "ALTER USER \"{{ item.item.name }}\" WITH PASSWORD '{{ item.item.password }}'"
+  environment:
+    DOCKER_HOST: "{{ db_postgres_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  no_log: true
+  loop: "{{ db_postgres_user_check.results | default([]) }}"
+  when: item.stdout | trim != ''
+  tags: ["deploy", "provision"]
+
+# ============================================================================
+# Provision databases — additive only, never drops.
+# ============================================================================
+- name: Check which postgres databases exist
+  ansible.builtin.command: >-
+    docker exec {{ db_postgres_container_name }}
+    psql -U {{ db_postgres_admin_user }} -d postgres -tAc
+    "SELECT datname FROM pg_database WHERE datname='{{ item.name }}'"
+  environment:
+    DOCKER_HOST: "{{ db_postgres_docker_host }}"
+  delegate_to: localhost
+  register: db_postgres_db_check
+  changed_when: false
+  loop: "{{ db_postgres_databases }}"
+  tags: ["deploy", "provision"]
+
+- name: Create missing postgres databases
+  ansible.builtin.command: >-
+    docker exec {{ db_postgres_container_name }}
+    psql -U {{ db_postgres_admin_user }} -d postgres -c
+    "CREATE DATABASE \"{{ item.item.name }}\" OWNER \"{{ item.item.owner }}\""
+  environment:
+    DOCKER_HOST: "{{ db_postgres_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  loop: "{{ db_postgres_db_check.results | default([]) }}"
+  when: item.stdout | trim == ''
+  tags: ["deploy", "provision"]
+
+- name: Report postgres status
+  ansible.builtin.debug:
+    msg: >-
+      Shared postgres '{{ db_postgres_container_name }}' ready on
+      {{ db_postgres_networks | join(', ') }} —
+      {{ db_postgres_users | length }} users, {{ db_postgres_databases | length }} databases provisioned.
+  tags: ["always", "info"]

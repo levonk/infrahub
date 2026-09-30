@@ -1,0 +1,20 @@
+---
+galaxy_info:
+  role_name: db_postgres
+  author: localnet
+  description: Shared PostgreSQL instance per docker host, consumed by multiple stacks (media-stack, ai-*) instead of per-service DB sidecars
+  license: MIT
+  min_ansible_version: "2.9"
+  platforms:
+    - name: Windows
+      versions:
+        - "all"
+    - name: EL
+      versions:
+        - "8"
+        - "9"
+  galaxy_tags:
+    - database
+    - postgres
+    - shared
+dependencies: []

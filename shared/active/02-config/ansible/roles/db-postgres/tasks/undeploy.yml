@@ -1,0 +1,20 @@
+---
+# db-postgres — undeploy (remove the shared container).
+# The data volume is preserved; drop it manually if a full teardown is wanted.
+#
+# WARNING: this removes the instance shared by every consumer — only run via
+# a playbook that sets db_postgres_enabled: false deliberately.
+
+- name: Stop and remove shared postgres container
+  ansible.builtin.shell: >-
+    docker rm -f {{ db_postgres_container_name }} 2>/dev/null || true
+  environment:
+    DOCKER_HOST: "{{ db_postgres_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["undeploy", "container"]
+
+- name: Report shared postgres undeployed
+  ansible.builtin.debug:
+    msg: "Shared postgres container removed. Data volume {{ db_postgres_volume }} preserved."
+  tags: ["undeploy", "info"]
