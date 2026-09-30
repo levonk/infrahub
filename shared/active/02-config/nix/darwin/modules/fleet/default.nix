@@ -42,6 +42,12 @@ let
   vscode-insiders = pkgs.vscode.override { isInsiders = true; };
 in
 {
+  imports = [
+    # Keeps OrbStack's /Library/PrivilegedHelperTools helper in sync as
+    # root so OrbStack never pops an SMJobBless admin-password dialog.
+    ./orbstack-privhelper.nix
+  ];
+
   options.infra.fleet = {
     containerRuntime = lib.mkOption {
       type = lib.types.enum [ "orbstack" "apple-container" ];
