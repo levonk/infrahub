@@ -202,7 +202,7 @@ proxy_traefik_windows_control_center_container_port: "{{ infra_port_dashboard_co
 # Hister Search Engine Integration (nl — self-hosted search engine)
 # ---------------------------------------------------------------------------
 proxy_traefik_windows_hister_enabled: true
-proxy_traefik_windows_hister_domain: "{{ search_hister_domain | default(infra_value_proxy_traefik_windows_hister_domain) }}"
+proxy_traefik_windows_hister_domain: "{{ infra_domain_search_hister | default(search_hister_domain | default(infra_value_proxy_traefik_windows_hister_domain)) }}"
 proxy_traefik_windows_hister_container_name: "{{ search_hister_container_name | default(infra_value_proxy_traefik_windows_hister_container_name) }}"
 proxy_traefik_windows_hister_container_port: "{{ search_hister_container_port | default(infra_port_proxy_https_alt_host) }}"
 
