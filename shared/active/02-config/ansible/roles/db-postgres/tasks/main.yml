@@ -36,6 +36,8 @@
       ERROR: password for postgres user '{{ item.name }}' is empty.
       Check the vault_media_postgres_* / vault vars for this consumer.
   loop: "{{ db_postgres_users }}"
+  loop_control:
+    label: "{{ item.name }}"
   when: db_postgres_enabled | bool
   tags: ["always", "validate"]
 

@@ -146,6 +146,8 @@
   register: db_postgres_user_check
   changed_when: false
   loop: "{{ db_postgres_users }}"
+  loop_control:
+    label: "{{ item.name }}"
   tags: ["deploy", "provision"]
 
 - name: Create missing postgres users
