@@ -74,6 +74,9 @@ session:
       domain: {{ proxy_authelia_session_domain | default(ansible_host | default('localhost') + '.local') }}
       same_site: lax
       authelia_url: {{ proxy_authelia_url | default('https://oci.local:{{ infra_port_proxy_authelia_host }}') }}
+{% if proxy_authelia_default_redirection_url | default('') | length > 0 %}
+      default_redirection_url: {{ proxy_authelia_default_redirection_url }}
+{% endif %}
 {% if proxy_authelia_session_redis_enabled | bool %}
   redis:
     host: proxy-authelia-redis

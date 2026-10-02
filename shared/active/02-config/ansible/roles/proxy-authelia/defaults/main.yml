@@ -31,6 +31,10 @@ proxy_authelia_session_expiration: "1h"
 proxy_authelia_session_inactivity: "5m"
 proxy_authelia_session_redis_enabled: true
 
+# Where users land after logging into the portal without an rd= target.
+# Empty string disables the option (Authelia keeps the user on the portal).
+proxy_authelia_default_redirection_url: ""
+
 # Storage backend (PostgreSQL for production)
 proxy_authelia_storage_backend: "postgres"
 
