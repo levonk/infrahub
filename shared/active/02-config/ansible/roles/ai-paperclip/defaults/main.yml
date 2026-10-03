@@ -22,6 +22,11 @@ ai_paperclip_container_port: "{{ infra_port_ai_paperclip_container | default(inf
 # Domain for Traefik routing
 ai_paperclip_domain: "{{ infra_domain_ai_paperclip | default('paperclip.' ~ (infra_domain_base | default(infra_network_ip_ai_papercldomain))) }}"
 
+# Hostname allowlist — enforced in authenticated/private deployment mode.
+# Rendered into PAPERCLIP_ALLOWED_HOSTNAMES (comma-separated).
+ai_paperclip_allowed_hostnames:
+  - "{{ ai_paperclip_domain }}"
+
 # Network configuration
 ai_paperclip_traefik_network_name: "{{ infra_network_proxy_traefik_network_name | default(infra_network_ip_ai_papercltraefik_network_name) }}"
 ai_paperclip_traefik_network_ip: "{{ infra_network_ip_paperclip_traefik | default(infra_network_ip_ai_papercltraefik_network) }}"

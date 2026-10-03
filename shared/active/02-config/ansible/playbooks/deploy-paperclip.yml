@@ -19,9 +19,13 @@
   vars_files:
     - "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/inventories/group_vars/infrahub-levonk-all.vault.yml"
   pre_tasks:
-    - name: "Load shared infrastructure defaults (domains)"
+    - name: "Load shared infrastructure defaults (domains, modes, timing)"
       ansible.builtin.include_vars:
-        file: "{{ playbook_dir }}/../infrastructure/domains.yml"
+        file: "{{ playbook_dir }}/../infrastructure/{{ item }}"
+      loop:
+        - domains.yml
+        - modes.yml
+        - timing.yml
       tags: ["always", "dns"]
     - name: "Load client infrastructure overrides (levonk domains)"
       ansible.builtin.include_vars:
@@ -31,7 +35,7 @@
     cloudflare_api_token: "{{ vault_cloudflare_api_token | default('') }}"
     cloudflare_zone_id: "{{ vault_cloudflare_zone_id | default('') }}"
     cloudflare_dns_state: "present"
-    cloudflare_dns_ttl: "{{ infra_dns_ttl }}"
+    cloudflare_dns_ttl: "{{ infra_dns_ttl | int }}"
     cloudflare_dns_proxied: false
     cloudflare_dns_verify: true
     cloudflare_dns_verify_propagation: false
@@ -57,7 +61,7 @@
   # Vault auto-loads via infrahub-levonk-all.vault parent group in the inventory
 
   pre_tasks:
-    - name: "Load shared infrastructure defaults (ports, networks, domains, storage)"
+    - name: "Load shared infrastructure defaults (ports, networks, domains, storage, modes, timing)"
       ansible.builtin.include_vars:
         file: "{{ playbook_dir }}/../infrastructure/{{ item }}"
       loop:
@@ -65,6 +69,8 @@
         - networks.yml
         - domains.yml
         - storage.yml
+        - modes.yml
+        - timing.yml
       tags: ["always"]
 
     - name: "Load client infrastructure overrides (levonk)"

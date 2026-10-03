@@ -82,10 +82,10 @@
       max-file: "{{ ai_paperclip_log_max_file }}"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U {{ ai_paperclip_postgres_user }} -d {{ ai_paperclip_postgres_db }}"]
-      interval: "{{ infra_timeout_short }}"
+      interval: "{{ infra_healthcheck_interval_short }}"
       timeout: "{{ infra_timeout_healthcheck_short }}"
       retries: "{{ infra_retry_long }}"
-      start_period: "{{ infra_timeout_short }}"
+      start_period: "{{ infra_healthcheck_start_period }}"
     security_opts:
       - no-new-privileges:true
   notify: restart paperclip-postgres
@@ -121,6 +121,7 @@
       DATABASE_URL: "postgresql://{{ ai_paperclip_postgres_user }}:{{ ai_paperclip_postgres_password }}@{{ ai_paperclip_postgres_container_name }}:{{ ai_paperclip_postgres_container_port }}/{{ ai_paperclip_postgres_db }}"
       PAPERCLIP_DEPLOYMENT_MODE: "authenticated"
       PAPERCLIP_BIND: "lan"
+      PAPERCLIP_ALLOWED_HOSTNAMES: "{{ ai_paperclip_allowed_hostnames | join(',') }}"
       BETTER_AUTH_SECRET: "{{ vault_paperclip_better_auth_secret | default('changeme') }}"
       TZ: "{{ ai_paperclip_tz }}"
     log_driver: json-file
@@ -155,6 +156,7 @@
         - URL: https://{{ ai_paperclip_domain }} (Authelia-protected)
         - Container: {{ ai_paperclip_container_name }}
         - Postgres: {{ ai_paperclip_postgres_container_name }}
+        - Allowed hostnames: {{ ai_paperclip_allowed_hostnames | join(', ') }}
         - Health: {{ ai_paperclip_health_endpoint }}
         - Image: {{ ai_paperclip_image }}:{{ ai_paperclip_image_tag }}
   tags: ["info"]
