@@ -30,6 +30,7 @@ let
   # trust prompt blocks `brew bundle` until `brew trust` is run per-user.
   thirdPartyTaps = [
     "deskflow/tap"
+    "stablyai/orca"
   ];
 in {
   homebrew = {
@@ -96,6 +97,10 @@ in {
       "visual-studio-code"
       "windsurf"
       "devin-cli"
+      # Orca ADE for parallel coding agents — tap-only cask, not in nixpkgs.
+      # Fully-qualified name required: bare "orca" collides with the disabled
+      # plotly/orca cask in homebrew/cask.
+      "stablyai/orca/orca"
 
       # Terminal / KVM / URL routing
       "iterm2"
