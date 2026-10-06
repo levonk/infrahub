@@ -79,6 +79,72 @@
         icon: mdi-file-send
         description: File transfer relay
 
+{% if proxy_traefik_windows_media_stack_enabled | bool %}
+- Media:
+    - Jellyfin:
+        href: https://{{ infra_domain_media_jellyfin }}
+        icon: jellyfin.svg
+        description: Media server (movies, TV, music)
+    - Jellyseerr:
+        href: https://{{ infra_domain_media_jellyseerr }}
+        icon: jellyseerr.svg
+        description: Media request portal
+    - Audiobookshelf:
+        href: https://{{ infra_domain_media_audiobookshelf }}
+        icon: audiobookshelf.svg
+        description: Audiobook & podcast server
+    - Kavita:
+        href: https://{{ infra_domain_media_kavita }}
+        icon: kavita.svg
+        description: Book & comic reader
+    - Komga:
+        href: https://{{ infra_domain_media_komga }}
+        icon: komga.svg
+        description: Comic & manga server
+    - Calibre-Web:
+        href: https://{{ infra_domain_media_calibre_web }}
+        icon: calibre-web.svg
+        description: Ebook library web UI
+    - RomM:
+        href: https://{{ infra_domain_media_romm }}
+        icon: romm.svg
+        description: ROM/game library manager
+
+- Media Automation:
+    - Radarr:
+        href: https://{{ infra_domain_media_radarr }}
+        icon: radarr.svg
+        description: Movie collection manager
+    - Sonarr:
+        href: https://{{ infra_domain_media_sonarr }}
+        icon: sonarr.svg
+        description: TV series collection manager
+    - Lidarr:
+        href: https://{{ infra_domain_media_lidarr }}
+        icon: lidarr.svg
+        description: Music collection manager
+    - Bazarr:
+        href: https://{{ infra_domain_media_bazarr }}
+        icon: bazarr.svg
+        description: Subtitle manager
+    - Prowlarr:
+        href: https://{{ infra_domain_media_prowlarr }}
+        icon: prowlarr.svg
+        description: Indexer manager
+    - Kapowarr:
+        href: https://{{ infra_domain_media_kapowarr }}
+        icon: mdi-bookshelf
+        description: Comic collection manager
+    - qBittorrent:
+        href: https://{{ infra_domain_media_qbittorrent }}
+        icon: qbittorrent.svg
+        description: Torrent client (via VPN gateway)
+    - SABnzbd:
+        href: https://{{ infra_domain_media_sabnzbd }}
+        icon: sabnzbd.svg
+        description: Usenet downloader (via VPN gateway)
+{% endif %}
+
 - Security:
     - Authelia SSO:
         href: https://{{ infra_domain_sso_authelia }}

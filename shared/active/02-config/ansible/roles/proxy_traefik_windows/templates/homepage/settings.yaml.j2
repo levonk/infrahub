@@ -18,6 +18,12 @@ layout:
     icon: mdi-robot-outline
   Search & Tools:
     icon: mdi-tools
+{% if proxy_traefik_windows_media_stack_enabled | bool %}
+  Media:
+    icon: mdi-play-circle
+  Media Automation:
+    icon: mdi-download-multiple
+{% endif %}
   Security:
     icon: mdi-shield-check
   Infrastructure:
