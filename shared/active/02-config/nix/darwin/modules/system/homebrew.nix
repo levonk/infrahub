@@ -107,8 +107,9 @@ in {
       "deskflow"
       "finicky"
 
-      # Containers (Docker Desktop — not available in nixpkgs)
-      "docker-desktop"
+      # Containers — OrbStack is the fleet runtime (nix pkg via fleet
+      # module's infra.fleet.containerRuntime). Docker Desktop intentionally
+      # removed: redundant with OrbStack and can't brew-upgrade in place.
 
       # Notes / productivity
       "obsidian"
