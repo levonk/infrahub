@@ -1,0 +1,53 @@
+---
+# defaults file for common-chromium-policy
+# Cross-platform Chromium-based browser enterprise policy distribution.
+#
+# Disables the built-in password manager, password leak/breach monitoring,
+# and form autofill (addresses, credit cards) in Chromium-based browsers,
+# so Bitwarden is the only credential manager. Mirrors the intent of the
+# common-firefox-policy role for Chromium-family browsers.
+#
+# macOS uses /Library/Managed Preferences/<bundle-id>.plist (enforced for
+# all users, requires root). Linux uses /etc/opt/<browser>/policies/managed/
+# JSON. Windows uses HKLM\SOFTWARE\Policies registry keys.
+
+# Whether to enable Chromium policy distribution.
+chromium_policy_enabled: true
+
+# macOS — managed-preferences plist deployed per installed browser.
+# Each entry: bundle_id (plist filename) + app bundle path to stat.
+chromium_policy_macos_apps:
+  - { bundle_id: "com.google.Chrome", app: "/Applications/Google Chrome.app" }
+  - { bundle_id: "com.microsoft.Edge", app: "/Applications/Microsoft Edge.app" }
+  - { bundle_id: "com.brave.Browser", app: "/Applications/Brave Browser.app" }
+  - { bundle_id: "org.chromium.Chromium", app: "/Applications/Chromium.app" }
+  - { bundle_id: "company.thebrowser.Browser", app: "/Applications/Arc.app" }
+  - { bundle_id: "com.vivaldi.Vivaldi", app: "/Applications/Vivaldi.app" }
+  - { bundle_id: "com.operasoftware.Opera", app: "/Applications/Opera.app" }
+
+# Linux — managed policy directories. A policy JSON is dropped into each
+# dir that exists (browser installed). Created only when the parent
+# /etc/opt/<browser> or /etc/<browser> exists, unless the browser binary
+# is on PATH.
+chromium_policy_linux_dirs:
+  - "/etc/opt/chrome/policies/managed"
+  - "/etc/chromium/policies/managed"
+  - "/etc/opt/edge/policies/managed"
+  - "/etc/opt/brave.com/brave/policies/managed"
+
+# Windows — registry policy hives. Keys are written unconditionally on
+# Windows hosts; policies for browsers that are not installed are ignored.
+chromium_policy_windows_keys:
+  - "HKLM:\\SOFTWARE\\Policies\\Google\\Chrome"
+  - "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Edge"
+  - "HKLM:\\SOFTWARE\\Policies\\Chromium"
+  - "HKLM:\\SOFTWARE\\Policies\\BraveSoftware\\Brave"
+
+# Policy values shared across platforms (scalar -> value map).
+# PasswordMonitorAllowed is Edge-specific; harmless when ignored elsewhere.
+chromium_policy_values:
+  PasswordManagerEnabled: false
+  PasswordLeakDetectionEnabled: false
+  PasswordMonitorAllowed: false
+  AutofillAddressEnabled: false
+  AutofillCreditCardEnabled: false

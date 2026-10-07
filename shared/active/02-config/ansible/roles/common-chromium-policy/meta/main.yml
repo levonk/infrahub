@@ -1,0 +1,25 @@
+---
+galaxy_info:
+  role_name: common_chromium_policy
+  author: levonk
+  description: >
+    Distributes Chromium-family enterprise policies that disable the
+    built-in password manager, password leak/breach monitoring
+    (PasswordLeakDetectionEnabled, PasswordMonitorAllowed), and form
+    autofill, so Bitwarden is the only credential manager.
+    macOS: /Library/Managed Preferences plists. Linux: /etc/opt managed
+    policy JSON. Windows: HKLM policy registry keys.
+  license: proprietary
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Debian
+      versions: ["bookworm"]
+    - name: Ubuntu
+      versions: ["focal", "jammy", "noble"]
+    - name: EL
+      versions: ["8", "9"]
+    - name: MacOSX
+      versions: ["all"]
+    - name: Windows
+      versions: ["all"]
+dependencies: []

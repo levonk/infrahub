@@ -577,6 +577,16 @@
       tags: ["firefox-policy", "hardening"]
 
     # ---------------------------------------------------------------------------
+    # Chromium-family enterprise policy — disable built-in password manager,
+    # leak/breach monitoring, and form autofill so Bitwarden is the only
+    # credential manager. Requires root for /Library/Managed Preferences.
+    # ---------------------------------------------------------------------------
+    - name: "Distribute Chromium managed-preferences policies"
+      ansible.builtin.include_role:
+        name: common-chromium-policy
+      tags: ["chromium-policy", "hardening"]
+
+    # ---------------------------------------------------------------------------
     # Xcode — install via mas (Mac App Store CLI)
     # Requires: mas in PATH (nix-darwin fleet module), Apple ID signed in to
     # App Store. Skipped if Xcode already at target version. Run selectively:

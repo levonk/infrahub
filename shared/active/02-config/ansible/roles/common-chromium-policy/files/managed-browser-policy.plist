@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Disable the built-in password manager: no save prompts, no autofill,
+	     no password suggestions/generation. Bitwarden (extension) is the
+	     credential manager. -->
+	<key>PasswordManagerEnabled</key>
+	<false/>
+	<!-- Disable password leak detection warnings (Chrome). -->
+	<key>PasswordLeakDetectionEnabled</key>
+	<false/>
+	<!-- Disable Password Monitor breach/weak-password recommendations (Edge).
+	     Ignored by other Chromium browsers. -->
+	<key>PasswordMonitorAllowed</key>
+	<false/>
+	<!-- Disable form autofill, matching the Firefox enterprise policy. -->
+	<key>AutofillAddressEnabled</key>
+	<false/>
+	<key>AutofillCreditCardEnabled</key>
+	<false/>
+</dict>
+</plist>

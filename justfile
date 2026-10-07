@@ -1060,6 +1060,22 @@ ansible_deploy_firefox_policy_macos_impl:
       --vault-password-file ~/.ansible/vault_password \
       --tags firefox-policy
 
+# Deploy all browser enterprise policy (Firefox + Chromium-family) to macOS
+# hosts — force-install Bitwarden, disable native password managers, disable
+# form autofill. Requires root for distribution dirs + Managed Preferences.
+ansible-deploy-browser-policy-macos:
+    @just _devbox ansible_deploy_browser_policy_macos_impl
+
+[private]
+ansible_deploy_browser_policy_macos_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Deploying browser enterprise policies to macOS hosts"
+    ansible-playbook -i {{MACOS_INVENTORY}} {{PB_CONFIGURE_MACOS}} \
+      --vault-password-file ~/.ansible/vault_password \
+      --tags firefox-policy,chromium-policy
+
 # Deploy Firefox enterprise policy to OCI cloud server (Linux)
 ansible-deploy-firefox-policy-oci:
     @just _devbox ansible_deploy_firefox_policy_oci_impl

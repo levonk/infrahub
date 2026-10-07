@@ -1,0 +1,165 @@
+---
+# tasks file for common-chromium-policy
+# Cross-platform Chromium-based browser enterprise policy distribution.
+#
+# Disables the built-in password manager, password leak/breach monitoring,
+# and form autofill in Chromium-family browsers so Bitwarden is the only
+# credential manager:
+#   - PasswordManagerEnabled = false (save prompts, autofill, suggestions)
+#   - PasswordLeakDetectionEnabled = false (Chrome breach warnings)
+#   - PasswordMonitorAllowed = false (Edge Password Monitor recommendations)
+#   - AutofillAddressEnabled / AutofillCreditCardEnabled = false
+#
+# macOS uses /Library/Managed Preferences/<bundle-id>.plist — enforced for
+# all users and requires root, which is why this is an Ansible role rather
+# than a user-level chezmoi sync. Linux uses managed-policy JSON under
+# /etc/opt/<browser>/policies/managed/. Windows uses HKLM policy keys.
+
+# ---------------------------------------------------------------------------
+# Guard — skip entirely if disabled
+# ---------------------------------------------------------------------------
+- name: "CHROMIUM-POLICY | Check if Chromium policy distribution is enabled"
+  ansible.builtin.set_fact:
+    _chromium_policy_skip: "{{ not (chromium_policy_enabled | bool) }}"
+  tags: ["always"]
+
+- name: "CHROMIUM-POLICY | Report skip status"
+  ansible.builtin.debug:
+    msg: "Chromium policy distribution: {{ 'skipped (disabled)' if _chromium_policy_skip else 'enabled' }}"
+  tags: ["always"]
+
+# ---------------------------------------------------------------------------
+# Linux — /etc/opt/chrome/policies/managed, /etc/opt/edge/..., etc.
+# Deploys only into policy dirs whose parent exists (browser installed) or
+# when a browser binary is on PATH.
+# ---------------------------------------------------------------------------
+- name: "CHROMIUM-POLICY | Linux block"
+  when:
+    - not _chromium_policy_skip
+    - ansible_facts['os_family'] != "Windows"
+    - ansible_facts['os_family'] != "Darwin"
+  block:
+    - name: "CHROMIUM-POLICY | Find existing policy parent dirs (Linux)"
+      ansible.builtin.stat:
+        path: "{{ item | dirname | dirname }}"
+      loop: "{{ chromium_policy_linux_dirs }}"
+      register: _chromium_policy_linux_parent_stats
+      changed_when: false
+      tags: ["chromium-policy", "discover"]
+
+    - name: "CHROMIUM-POLICY | Build list of valid Linux policy dirs"
+      ansible.builtin.set_fact:
+        _chromium_policy_linux_valid_dirs: >-
+          {{
+            _chromium_policy_linux_parent_stats.results
+            | selectattr('stat.exists', 'equalto', true)
+            | map(attribute='item')
+            | list
+          }}
+      tags: ["chromium-policy", "discover"]
+
+    - name: "CHROMIUM-POLICY | Deploy managed policy JSON (Linux)"
+      ansible.builtin.copy:
+        src: "managed-browser-policy.json"
+        dest: "{{ item }}/password-manager-disabled.json"
+        owner: root
+        group: root
+        mode: "{{ infra_mode_file }}"
+        backup: true
+      loop: "{{ _chromium_policy_linux_valid_dirs }}"
+      become: true
+      tags: ["chromium-policy", "deploy"]
+
+    - name: "CHROMIUM-POLICY | Report Linux deployment"
+      ansible.builtin.debug:
+        msg: >-
+          Deployed managed policy to {{ _chromium_policy_linux_valid_dirs | length }} dir(s):
+          {{ _chromium_policy_linux_valid_dirs | join(', ') if _chromium_policy_linux_valid_dirs else '(none — no Chromium-based browser found)' }}
+      tags: ["chromium-policy", "report"]
+
+# ---------------------------------------------------------------------------
+# macOS — /Library/Managed Preferences/<bundle-id>.plist
+# Managed preferences are enforced for all users; the file is only written
+# for browsers that are actually installed.
+# ---------------------------------------------------------------------------
+- name: "CHROMIUM-POLICY | macOS block"
+  when:
+    - not _chromium_policy_skip
+    - ansible_facts['os_family'] == "Darwin"
+  block:
+    - name: "CHROMIUM-POLICY | Find installed Chromium browsers (macOS)"
+      ansible.builtin.stat:
+        path: "{{ item.app }}"
+      loop: "{{ chromium_policy_macos_apps }}"
+      register: _chromium_policy_macos_app_stats
+      changed_when: false
+      tags: ["chromium-policy", "discover"]
+
+    - name: "CHROMIUM-POLICY | Build list of installed browser bundle IDs"
+      ansible.builtin.set_fact:
+        _chromium_policy_macos_installed: >-
+          {{
+            _chromium_policy_macos_app_stats.results
+            | selectattr('stat.exists', 'equalto', true)
+            | map(attribute='item')
+            | list
+          }}
+      tags: ["chromium-policy", "discover"]
+
+    - name: "CHROMIUM-POLICY | Ensure /Library/Managed Preferences exists"
+      ansible.builtin.file:
+        path: "/Library/Managed Preferences"
+        state: directory
+        owner: root
+        group: wheel
+        mode: "{{ infra_mode_dir }}"
+      when: _chromium_policy_macos_installed
+      become: true
+      tags: ["chromium-policy", "deploy"]
+
+    - name: "CHROMIUM-POLICY | Deploy managed-preferences plist per browser (macOS)"
+      ansible.builtin.copy:
+        src: "managed-browser-policy.plist"
+        dest: "/Library/Managed Preferences/{{ item.bundle_id }}.plist"
+        owner: root
+        group: wheel
+        mode: "{{ infra_mode_file }}"
+        backup: true
+      loop: "{{ _chromium_policy_macos_installed }}"
+      become: true
+      tags: ["chromium-policy", "deploy"]
+
+    - name: "CHROMIUM-POLICY | Report macOS deployment"
+      ansible.builtin.debug:
+        msg: >-
+          Deployed managed-preferences plist to {{ _chromium_policy_macos_installed | length }} browser(s):
+          {{ _chromium_policy_macos_installed | map(attribute='bundle_id') | join(', ') if _chromium_policy_macos_installed else '(none — no Chromium-based browser found)' }}
+      tags: ["chromium-policy", "report"]
+
+# ---------------------------------------------------------------------------
+# Windows — HKLM\SOFTWARE\Policies\{Google\Chrome, Microsoft\Edge, ...}
+# Keys are written unconditionally; policies for uninstalled browsers are
+# ignored by the OS.
+# ---------------------------------------------------------------------------
+- name: "CHROMIUM-POLICY | Windows block"
+  when:
+    - not _chromium_policy_skip
+    - ansible_facts['os_family'] == "Windows"
+  block:
+    - name: "CHROMIUM-POLICY | Set Chromium policy registry values (Windows)"
+      ansible.windows.win_regedit:
+        path: "{{ item.0 }}"
+        name: "{{ item.1.key }}"
+        data: "{{ item.1.value | int }}"
+        type: dword
+      loop: "{{ chromium_policy_windows_keys | product(chromium_policy_values | dict2items) | list }}"
+      become: true
+      become_method: ansible.builtin.runas
+      tags: ["chromium-policy", "deploy"]
+
+    - name: "CHROMIUM-POLICY | Report Windows deployment"
+      ansible.builtin.debug:
+        msg: >-
+          Wrote {{ chromium_policy_values | dict2items | length }} policy value(s) to
+          {{ chromium_policy_windows_keys | length }} registry hive(s).
+      tags: ["chromium-policy", "report"]
