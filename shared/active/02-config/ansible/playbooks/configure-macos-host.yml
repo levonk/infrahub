@@ -41,6 +41,19 @@
         file: "{{ playbook_dir }}/../infrastructure/apps.yml"
       tags: ["always"]
 
+    # modes.yml + timing.yml are shared-only (no client overrides exist in
+    # levonk/active/02-config/ansible/infrastructure/) — see AGENTS.md
+    # lessons learned: include_vars must load all infrastructure files.
+    - name: "Load shared infrastructure modes (infra_mode_*)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/modes.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure timing defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/timing.yml"
+      tags: ["always"]
+
     # ---------------------------------------------------------------------------
     # Verify and repair bootstrap state
     #
