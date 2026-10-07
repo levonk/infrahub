@@ -93,7 +93,18 @@
           }}
       tags: ["firefox-policy", "discover"]
 
-    - name: "FIREFOX-POLICY | Create distribution dirs and deploy policies.json (Linux)"
+    - name: "FIREFOX-POLICY | Create distribution dirs (Linux)"
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "{{ infra_mode_dir }}"
+      loop: "{{ _firefox_policy_linux_valid_dirs }}"
+      become: true
+      tags: ["firefox-policy", "deploy"]
+
+    - name: "FIREFOX-POLICY | Deploy policies.json (Linux)"
       ansible.builtin.copy:
         src: "{{ firefox_policy_source }}"
         dest: "{{ item }}/policies.json"
@@ -139,7 +150,18 @@
           }}
       tags: ["firefox-policy", "discover"]
 
-    - name: "FIREFOX-POLICY | Create distribution dirs and deploy policies.json (macOS)"
+    - name: "FIREFOX-POLICY | Create distribution dirs (macOS)"
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: wheel
+        mode: "{{ infra_mode_dir }}"
+      loop: "{{ _firefox_policy_macos_valid_dirs }}"
+      become: true
+      tags: ["firefox-policy", "deploy"]
+
+    - name: "FIREFOX-POLICY | Deploy policies.json (macOS)"
       ansible.builtin.copy:
         src: "{{ firefox_policy_source }}"
         dest: "{{ item }}/policies.json"
@@ -185,7 +207,16 @@
           }}
       tags: ["firefox-policy", "discover"]
 
-    - name: "FIREFOX-POLICY | Create distribution dirs and deploy policies.json (Windows)"
+    - name: "FIREFOX-POLICY | Create distribution dirs (Windows)"
+      ansible.windows.win_file:
+        path: "{{ item }}"
+        state: directory
+      loop: "{{ _firefox_policy_windows_valid_dirs }}"
+      become: true
+      become_method: ansible.builtin.runas
+      tags: ["firefox-policy", "deploy"]
+
+    - name: "FIREFOX-POLICY | Deploy policies.json (Windows)"
       ansible.windows.win_copy:
         src: "{{ firefox_policy_source }}"
         dest: "{{ item }}\\policies.json"

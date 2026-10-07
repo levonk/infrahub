@@ -58,6 +58,17 @@
           }}
       tags: ["chromium-policy", "discover"]
 
+    - name: "CHROMIUM-POLICY | Create managed policy dirs (Linux)"
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "{{ infra_mode_dir }}"
+      loop: "{{ _chromium_policy_linux_valid_dirs }}"
+      become: true
+      tags: ["chromium-policy", "deploy"]
+
     - name: "CHROMIUM-POLICY | Deploy managed policy JSON (Linux)"
       ansible.builtin.copy:
         src: "managed-browser-policy.json"
