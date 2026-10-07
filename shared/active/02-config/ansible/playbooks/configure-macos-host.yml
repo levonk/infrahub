@@ -27,6 +27,8 @@
     # 5 dirname steps: playbooks -> ansible -> 02-config -> active -> shared -> infrahub root
     infrahub_root: "{{ playbook_dir | dirname | dirname | dirname | dirname | dirname }}"
     macos_infrahub_git_key_file: "{{ macos_auser_home }}/.ssh/{{ ansible_ssh_private_key_file | basename }}"
+    # Minimum macOS major version that ships Apple Container (ARM only)
+    macos_apple_container_min_major: "26"  # project-lint: disable=magic-int  macOS version number, not an operational value
 
   pre_tasks:
     - name: "Gather ansible_facts"
@@ -160,7 +162,7 @@
       ansible.builtin.set_fact:
         infra_app_container_runtime: >-
           {{ 'apple-container'
-             if (ansible_facts['distribution_version'] is version('26', '>=') and ansible_facts['architecture'] == 'arm64')  # project-lint: disable=magic-int  version number, not an operational magic number
+             if (ansible_facts['distribution_version'] is version(macos_apple_container_min_major, '>=') and ansible_facts['architecture'] == 'arm64')
              else 'orbstack' }}
       when: infra_app_container_runtime is not defined or infra_app_container_runtime == "auto"
       tags: ["always"]
