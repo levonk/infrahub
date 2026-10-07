@@ -68,10 +68,22 @@
       no_log: true
       tags: ["always", "bootstrap-verify"]
 
+    # dseditgroup edits to the admin group require interactive admin
+    # credentials on macOS 15+ even when running as root — only attempt the
+    # edit when auser is genuinely missing from the group (normally created
+    # with -admin by sysadminctl above, so this is a no-op in practice).
+    - name: "Check auser admin group membership"
+      ansible.builtin.command: dseditgroup -o checkmember -m {{ macos_auser }} admin
+      register: auser_admin_check
+      changed_when: false
+      failed_when: false
+      tags: ["always", "bootstrap-verify"]
+
     - name: "Ensure auser is in admin group"
       ansible.builtin.command: dseditgroup -o edit -a {{ macos_auser }} -t user admin
       become: true
       changed_when: false
+      when: auser_admin_check.rc != 0
       tags: ["always", "bootstrap-verify"]
 
     - name: "Check auser passwordless sudo"
