@@ -25,6 +25,8 @@
   gather_facts: true
   vars_files:
     - "{{ playbook_dir }}/../infrastructure/ports.yml"
+    - "{{ playbook_dir }}/../infrastructure/modes.yml"
+    - "{{ playbook_dir }}/../infrastructure/networks.yml"
     - "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/ports.yml"
     - "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/inventories/group_vars/infrahub-levonk-all.vault.yml"
 
