@@ -28,6 +28,9 @@ fwknop_client_key_map:
   lzkmbp2018:
     spa_key: "{{ vault_fwknop_spa_key_lzkmbp2018 | default('') }}"
     hmac_key: "{{ vault_fwknop_hmac_key_lzkmbp2018 | default('') }}"
+  lzkmm2026:
+    spa_key: "{{ vault_fwknop_spa_key_lzkmm2026 | default('') }}"
+    hmac_key: "{{ vault_fwknop_hmac_key_lzkmm2026 | default('') }}"
   oci-cloud-server:
     spa_key: "{{ vault_fwknop_spa_key_oci_cloud_server | default('') }}"
     hmac_key: "{{ vault_fwknop_hmac_key_oci_cloud_server | default('') }}"

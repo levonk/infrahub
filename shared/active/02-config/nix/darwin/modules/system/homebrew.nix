@@ -105,7 +105,9 @@ in {
       # Terminal / KVM / URL routing
       "iterm2"
       "deskflow"
-      "finicky"
+      # finicky intentionally excluded: it self-updates via Sparkle, so the
+      # installed app runs ahead of the cask and `brew bundle` fails trying
+      # to adopt the newer /Applications/Finicky.app. Left self-managed.
 
       # Containers — OrbStack is the fleet runtime (nix pkg via fleet
       # module's infra.fleet.containerRuntime). Docker Desktop intentionally

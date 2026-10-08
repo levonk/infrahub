@@ -40,6 +40,28 @@ let
   # with a separate config path. The nixpkgs `vscode` derivation accepts an
   # `isInsiders` argument that switches the source URL and binary name.
   vscode-insiders = pkgs.vscode.override { isInsiders = true; };
+
+  # orbstack 2.1.3 (nixpkgs-26.05-darwin) ships
+  # xbin/docker-credential-osxkeychain as a symlink to docker-tools, but
+  # docker-tools does not implement that argv0 — it exits with
+  # "unsupported argv0". The package globs xbin/* into $out/bin, so the
+  # broken shim lands in /run/current-system/sw/bin and shadows OrbStack's
+  # own working helper (/usr/local/bin is later in PATH). Since
+  # ~/.docker/config.json sets credsStore=osxkeychain, every `docker pull`
+  # calls the broken shim and fails.
+  #
+  # Drop the shim instead of repointing it at nixpkgs' standalone
+  # docker-credential-helpers: that binary has a different code-signing
+  # identity than the helper that wrote the existing keychain items, so
+  # every `get` triggers a GUI SecurityAgent approval prompt — which hangs
+  # headless callers (Ansible) indefinitely. With the shim removed, PATH
+  # resolution falls through to /usr/local/bin/docker-credential-osxkeychain
+  # (OrbStack-installed, already trusted by the stored items' ACLs).
+  orbstack-credfix = pkgs.orbstack.overrideAttrs (old: {
+    postInstall = (old.postInstall or "") + ''
+      rm -f "$out/bin/docker-credential-osxkeychain"
+    '';
+  });
 in
 {
   imports = [
@@ -168,7 +190,7 @@ in
         rtk
       ]
       ++ lib.optional (pkgs.stdenv.hostPlatform.isLinux) fwknop
-      ++ lib.optional (cfg.containerRuntime == "orbstack") orbstack
+      ++ lib.optional (cfg.containerRuntime == "orbstack") orbstack-credfix
       ++ lib.optional (cfg.containerRuntime == "apple-container") container
       # treehouse (git worktree pool manager) — provided via a flake overlay
       # in client flakes that declare the treehouse input. Guarded so shared

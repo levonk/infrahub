@@ -23,7 +23,25 @@
   vars:
     macos_auser_home: "/Users/{{ macos_auser }}"
     macos_infrahub_repo_dir: "{{ macos_auser_home }}/.local/share/infrahub"
+    # Clients override these in their macos_hosts group_vars — they are
+    # resolved via default() at the use sites, NOT in play vars, because
+    # play-level vars outrank group_vars and would mask the override:
+    #   macos_darwin_flake_repo_subdir   — repo subdir of the flake defining
+    #     darwinConfigurations.<host> (default shared module library;
+    #     levonk → "levonk/active/02-config/nix/darwin")
+    #   macos_darwin_shared_repo_subdir  — repo subdir of the shared module-
+    #     library flake (default shared; deployed beside the host flake only
+    #     when it differs from the host flake)
+    #   macos_darwin_override_inputs     — flake inputs repointed at the
+    #     deployed shared-library dir via --override-input (default [];
+    #     client flakes declare shared-darwin as an absolute path: input
+    #     that only resolves on the control machine)
+    # brew isn't on the SSH PATH — resolve arch-aware absolute path
+    macos_brew_bin: "{{ '/opt/homebrew/bin/brew' if ansible_facts['architecture'] == 'arm64' else '/usr/local/bin/brew' }}"
+    macos_brew_dir: "{{ macos_brew_bin | dirname }}"
     macos_nix_worktree_dir: "{{ macos_auser_home }}/.local/share/infrahub-darwin"
+    macos_nix_shared_worktree_dir: "{{ macos_auser_home }}/.local/share/infrahub-darwin-shared"
+    macos_nix_flake_dir: "{{ macos_auser_home }}/.local/share/nix-flake"
     # 5 dirname steps: playbooks -> ansible -> 02-config -> active -> shared -> infrahub root
     infrahub_root: "{{ playbook_dir | dirname | dirname | dirname | dirname | dirname }}"
     macos_infrahub_git_key_file: "{{ macos_auser_home }}/.ssh/{{ ansible_ssh_private_key_file | basename }}"
@@ -140,14 +158,37 @@
       failed_when: false
       tags: ["always", "bootstrap-verify"]
 
-    - name: "Install Nix if missing (multi-user daemon, flakes enabled)"
+    - name: "Install Nix if missing (multi-user daemon)"
+      # Same patched-tarball approach as bootstrap-macos-host.yml: the fstab
+      # write (vifs) fails on macOS 26+ where the fstab path is SIP-blocked;
+      # mounting is handled by the org.nixos.darwin-store LaunchDaemon.
       ansible.builtin.shell:
         cmd: |
-          sh <(curl -L https://nixos.org/nix/install) --daemon --yes \
-            --daemon-user-count 4 \  # project-lint: disable=magic-int  Docker daemon user count, not a standalone magic number
-            --nix-extra-conf 'experimental-features = nix-command flakes'
-      when: nix_check.rc != 0
+          set -e
+          workdir=$(mktemp -d)
+          cd "$workdir"
+          case "$(uname -m)" in
+            arm64)  nixsys="aarch64-darwin" ;;
+            x86_64) nixsys="x86_64-darwin" ;;
+            *)      echo "unsupported arch: $(uname -m)" >&2; exit 1 ;;  # project-lint: disable=magic-int  stderr fd
+          esac
+          curl -sSfL -o nix.tar.xz \
+            "https://releases.nixos.org/nix/nix-{{ macos_nix_version }}/nix-{{ macos_nix_version }}-${nixsys}.tar.xz"
+          tar -xJf nix.tar.xz
+          cd "nix-{{ macos_nix_version }}-${nixsys}"
+          sed -i '' 's|add_nix_vol_fstab_line "$volume_uuid" /usr/sbin/vifs|:|' create-darwin-volume.sh
+          ./install --daemon --yes --daemon-user-count 4  # project-lint: disable=magic-int  builder user count, not an operational magic number
+      when:
+        - nix_check.rc != 0
+        - macos_nix_flavor == "vanilla"
       become: true
+      tags: ["always", "bootstrap-verify"]
+
+    - name: "Check if Tailscale CLI is installed"
+      ansible.builtin.command: command -v tailscale
+      register: tailscale_bin_check
+      changed_when: false
+      failed_when: false
       tags: ["always", "bootstrap-verify"]
 
     - name: "Check if Tailscale is connected"
@@ -155,6 +196,7 @@
       register: tailscale_check
       changed_when: false
       failed_when: false
+      when: tailscale_bin_check.rc == 0
       tags: ["always", "bootstrap-verify"]
 
     - name: "Join Tailscale if not connected"
@@ -165,6 +207,8 @@
         --accept-routes
         --accept-dns
       when:
+        - tailscale_bin_check.rc == 0
+        - tailscale_check is defined
         - tailscale_check.rc != 0 or "Logged out" in tailscale_check.stdout
         - vpn_tailscale_auth_key is defined
         - vpn_tailscale_auth_key | length > 0
@@ -224,6 +268,20 @@
     # ---------------------------------------------------------------------------
     # Nix configuration — nix.conf + x86_64 channel pinning
     # ---------------------------------------------------------------------------
+    # Only vanilla Nix has its nix.conf managed here — on Determinate Nix
+    # hosts (macos_nix_flavor=determinate) determinate-nixd owns
+    # /etc/nix/nix.conf; overwriting it breaks the daemon. Extra settings
+    # go to /etc/nix/nix.custom.conf via the shared nix-darwin module.
+    # nix-darwin owns /etc/nix/nix.conf after first activation (it becomes a
+    # symlink into /etc/static). Only write the bootstrap config while it's
+    # still a regular file — overwriting the managed symlink would conflict
+    # with activation's unexpected-files check.
+    - name: "Check whether /etc/nix/nix.conf is managed by nix-darwin"
+      ansible.builtin.stat:
+        path: /etc/nix/nix.conf
+      register: nix_conf_state
+      tags: ["nix", "configure"]
+
     - name: "Ensure nix.conf has flakes + nix-command + optimisation enabled"
       ansible.builtin.copy:
         dest: /etc/nix/nix.conf
@@ -237,12 +295,16 @@
         owner: root
         group: wheel
       become: true
+      when:
+        - macos_nix_flavor == "vanilla"
+        - not (nix_conf_state.stat.islnk | default(false))
       tags: ["nix", "configure"]
 
     - name: "Restart nix-daemon to pick up config"
       ansible.builtin.command: launchctl kickstart -k system/org.nixos.nix-daemon
       become: true
       changed_when: false
+      when: macos_nix_flavor == "vanilla"
       tags: ["nix", "configure"]
 
     # ponytail: nixpkgs 26.11 dropped x86_64-darwin; pin 26.05-darwin for x86_64 only
@@ -267,9 +329,31 @@
       tags: ["nix", "configure"]
 
     # ---------------------------------------------------------------------------
+    # Homebrew — must be installed BEFORE nix-darwin activation: the homebrew
+    # module aborts activation when /opt/homebrew/bin/brew is absent.
+    # ---------------------------------------------------------------------------
+    - name: "Check if Homebrew is installed"
+      ansible.builtin.command: "{{ macos_brew_bin }} --version"
+      register: brew_check
+      changed_when: false
+      failed_when: false
+      tags: ["brew", "check"]
+
+    - name: "Install Homebrew"
+      ansible.builtin.shell:
+        cmd: |
+          NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"  # project-lint: disable=magic-int  env var flag, not an operational value
+      when: brew_check.rc != 0
+      tags: ["brew", "install"]
+
+    # ---------------------------------------------------------------------------
     # Deploy the nix-darwin flake to the target
     # Clean control repo: try a full git clone from origin; if auth fails, fall
     # back to copying the local darwin directory. Dirty repo: copy local changes.
+    # For client flakes (macos_darwin_flake_repo_subdir != the shared module
+    # library), the shared library tree is deployed to a second worktree and
+    # referenced via --override-input so the client flake's absolute path:
+    # inputs resolve on the target.
     # ---------------------------------------------------------------------------
     - name: "Clone infrahub from origin if control repo is clean"
       when: infrahub_git_status.stdout | length == 0
@@ -284,41 +368,66 @@
           register: infrahub_clone
           tags: ["nix-darwin", "deploy"]
 
-        - name: "Set flake path from clone"
+        - name: "Set flake paths from clone"
           ansible.builtin.set_fact:
-            macos_darwin_flake_dir: "{{ macos_infrahub_repo_dir }}/shared/active/02-config/nix/darwin"
+            macos_darwin_flake_dir: "{{ macos_infrahub_repo_dir }}/{{ macos_darwin_flake_repo_subdir | default('shared/active/02-config/nix/darwin') }}"
+            macos_darwin_shared_dir: "{{ macos_infrahub_repo_dir }}/{{ macos_darwin_shared_repo_subdir | default('shared/active/02-config/nix/darwin') }}"
           tags: ["nix-darwin", "deploy"]
       rescue:
         # ponytail: target may not have a GitHub-deploying private key; copying the
         # local darwin tree is the same as a clone when the control repo is clean.
         - name: "Fallback — copy local nix-darwin flake"
           ansible.posix.synchronize:
-            src: "{{ infrahub_root }}/shared/active/02-config/nix/darwin/"
+            src: "{{ infrahub_root }}/{{ macos_darwin_flake_repo_subdir | default('shared/active/02-config/nix/darwin') }}/"
             dest: "{{ macos_nix_worktree_dir }}"
           tags: ["nix-darwin", "deploy"]
 
-        - name: "Set flake path from local copy"
+        - name: "Set flake paths from local copy"
           ansible.builtin.set_fact:
             macos_darwin_flake_dir: "{{ macos_nix_worktree_dir }}"
+            macos_darwin_shared_dir: "{{ macos_nix_shared_worktree_dir }}"
           tags: ["nix-darwin", "deploy"]
 
     - name: "Copy local nix-darwin flake if control repo is dirty"
       ansible.posix.synchronize:
-        src: "{{ infrahub_root }}/shared/active/02-config/nix/darwin/"
+        src: "{{ infrahub_root }}/{{ macos_darwin_flake_repo_subdir | default('shared/active/02-config/nix/darwin') }}/"
         dest: "{{ macos_nix_worktree_dir }}"
       when: infrahub_git_status.stdout | length > 0
       tags: ["nix-darwin", "deploy"]
 
-    - name: "Set flake path from dirty local copy"
+    - name: "Set flake paths from dirty local copy"
       ansible.builtin.set_fact:
         macos_darwin_flake_dir: "{{ macos_nix_worktree_dir }}"
+        macos_darwin_shared_dir: "{{ macos_nix_shared_worktree_dir }}"
       when: infrahub_git_status.stdout | length > 0
+      tags: ["nix-darwin", "deploy"]
+
+    # The shared module library only needs its own worktree when the host
+    # flake is a different tree that consumes it via --override-input.
+    - name: "Copy shared nix-darwin module library for client flake"
+      ansible.posix.synchronize:
+        src: "{{ infrahub_root }}/{{ macos_darwin_shared_repo_subdir | default('shared/active/02-config/nix/darwin') }}/"
+        dest: "{{ macos_nix_shared_worktree_dir }}"
+      when:
+        - macos_darwin_shared_dir is defined
+        - macos_darwin_shared_dir == macos_nix_shared_worktree_dir
+        - macos_darwin_flake_repo_subdir | default('shared/active/02-config/nix/darwin') != macos_darwin_shared_repo_subdir | default('shared/active/02-config/nix/darwin')
+      tags: ["nix-darwin", "deploy"]
+
+    - name: "Build --override-input args for flake inputs pointed at the shared library"
+      ansible.builtin.set_fact:
+        macos_darwin_override_args: >-
+          {{ (macos_darwin_override_inputs | default([]))
+             | map('regex_replace', '^(.*)$', '--override-input \1 path:' + macos_darwin_shared_dir)
+             | join(' ') }}
+      when: macos_darwin_shared_dir is defined
       tags: ["nix-darwin", "deploy"]
 
     - name: "Apply nix-darwin configuration"
       ansible.builtin.command: >
         /nix/var/nix/profiles/default/bin/nix run nix-darwin -- switch
         --flake {{ macos_darwin_flake_dir }}#{{ inventory_hostname }}
+        {{ macos_darwin_override_args | default('') }}
       become: true
       changed_when: true
       register: nix_darwin_switch
@@ -357,11 +466,29 @@
       tags: ["nix-darwin", "verify"]
 
     - name: "Restart activate-system daemon if generation is not active"
-      ansible.builtin.command: |
-        launchctl bootout system/org.nixos.activate-system 2>/dev/null || true
-        sleep 2  # project-lint: disable=magic-int  brief pause before re-bootstrap
-        launchctl bootstrap system /Library/LaunchDaemons/org.nixos.activate-system.plist
-        sleep 5  # project-lint: disable=magic-int  wait for daemon to update /run/current-system
+      ansible.builtin.shell:
+        cmd: |
+          launchctl bootout system/org.nixos.activate-system 2>/dev/null || true
+          sleep 2  # project-lint: disable=magic-int  brief pause before re-bootstrap
+          if [ -f /Library/LaunchDaemons/org.nixos.activate-system.plist ]; then
+            launchctl bootstrap system /Library/LaunchDaemons/org.nixos.activate-system.plist
+            sleep 5  # project-lint: disable=magic-int  wait for daemon to update /run/current-system
+          else
+            # First-generation activation — the activate-system plist only
+            # lands in /Library/LaunchDaemons once activation runs, so run
+            # the built system's activate script directly. Activation
+            # refuses to overwrite /etc files it doesn't manage yet (the
+            # nix.conf we pre-wrote for flakes, and the installer's bashrc/
+            # zshrc hooks) — park them as *.before-nix-darwin per the
+            # documented first-activation procedure; nix-darwin writes
+            # managed copies.
+            for f in /etc/nix/nix.conf /etc/nix/nix.custom.conf /etc/bashrc /etc/zshrc; do
+              if [ -f "$f" ]; then
+                mv -f "$f" "$f.before-nix-darwin"
+              fi
+            done
+            "$(readlink -f /nix/var/nix/profiles/system)/activate"
+          fi
       become: true
       when: >
         nix_darwin_active_target.stdout | default('') != nix_darwin_profile_target.stdout | default('')
@@ -403,35 +530,17 @@
           by a Homebrew bundle failure during activation — the system packages
           are correct, but some casks may not have installed. Check switch output:
           {{ nix_darwin_switch.stderr_lines[-3:] | default('no stderr') }}  # project-lint: disable=magic-int  stderr line count, not an operational value
-      when: >
-        nix_darwin_switch.rc | default(0) != 0  # project-lint: disable=magic-int  exit code comparison, not an operational value
-        and
-        nix_darwin_active_target_after.stdout | default(nix_darwin_active_target.stdout | default('')) == nix_darwin_profile_target.stdout | default('')
+      when: nix_darwin_switch.rc | default(0) != 0 and nix_darwin_active_target_after.stdout | default(nix_darwin_active_target.stdout | default('')) == nix_darwin_profile_target.stdout | default('')  # project-lint: disable=magic-int  exit code comparison, not an operational value
       tags: ["nix-darwin", "verify"]
-
-      tags: ["nix-darwin", "apply"]
 
     # ---------------------------------------------------------------------------
     # Homebrew — for cask apps not in nixpkgs
     # ---------------------------------------------------------------------------
-    - name: "Check if Homebrew is installed"
-      ansible.builtin.command: brew --version
-      register: brew_check
-      changed_when: false
-      failed_when: false
-      tags: ["brew", "check"]
-
-    - name: "Install Homebrew"
-      ansible.builtin.shell:
-        cmd: |
-          NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"  # project-lint: disable=magic-int  env var flag, not an operational value
-      when: brew_check.rc != 0
-      tags: ["brew", "install"]
-
     - name: "Report Homebrew version"
-      ansible.builtin.command: brew --version
+      ansible.builtin.command: "{{ macos_brew_bin }} --version"
       register: brew_version
       changed_when: false
+      failed_when: false
       tags: ["brew", "verify"]
 
     - name: "Show Homebrew version"
@@ -443,9 +552,17 @@
     # Nix flake — install CLI + GUI apps
     # The flake is in shared/active/02-config/nix/flake.nix
     # ---------------------------------------------------------------------------
+    - name: "Ensure nix flake dir exists on target"
+      ansible.builtin.file:
+        path: "{{ macos_nix_flake_dir }}"
+        state: directory
+        owner: "{{ macos_auser }}"
+        mode: "{{ infra_mode_dir }}"
+      tags: ["nix", "flake"]
+
     - name: "Copy nix flake to target host"
       ansible.builtin.copy:
-        src: "{{ playbook_dir }}/../nix/flake.nix"
+        src: "{{ infrahub_root }}/shared/active/02-config/nix/flake.nix"
         dest: "{{ macos_nix_flake_dir }}/flake.nix"
         mode: "{{ infra_mode_file }}"
       tags: ["nix", "flake"]
@@ -488,6 +605,7 @@
       community.general.homebrew_cask:
         name: "{{ item }}"
         state: present
+        path: "{{ macos_brew_dir }}"
         install_options: "appdir=/Applications"
       loop: "{{ macos_brew_casks }}"
       tags: ["brew", "casks"]
@@ -637,9 +755,9 @@
           Nix: darwin-rebuild applied
           Homebrew: {{ brew_version.stdout_lines[0] | default('check failed') }}
           Nix apps: installed via flake (CLI in profile, GUI symlinked to /Applications)
-          Brew casks: {{ macos_brew_casks | join(', ') }}
-          Container runtime: {{ infra_app_container_runtime }}
-          Docker CLI: {{ docker_check.stdout if docker_check.rc == 0 else 'NOT available' }}
+          Brew casks: {{ macos_brew_casks | default([]) | join(', ') }}
+          Container runtime: {{ infra_app_container_runtime | default('auto') }}
+          Docker CLI: {{ docker_check.stdout if (docker_check is defined and docker_check.rc == 0) else 'NOT available' }}
           Xcode: run `just ansible-install-xcode` or `--tags xcode` to install
           ========================================
       tags: ["always", "summary"]

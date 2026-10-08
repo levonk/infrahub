@@ -23,7 +23,7 @@
     src: iron-proxy-profile.yml.j2
     dest: "{{ sandbox_cli_proxy_config_dir }}/{{ profile.name }}/iron-proxy.yml"
     owner: root
-    group: root
+    group: "{{ sandbox_cli_proxy_root_group }}"
     mode: "{{ infra_mode_file }}"
   become: true
   notify: restart sandbox-cli-proxy
@@ -147,6 +147,6 @@
     dest: "{{ sandbox_cli_proxy_ca_dir }}/ca/ca.crt"
     remote_src: true
     owner: root
-    group: root
+    group: "{{ sandbox_cli_proxy_root_group }}"
     mode: "{{ infra_mode_file }}"
   become: true

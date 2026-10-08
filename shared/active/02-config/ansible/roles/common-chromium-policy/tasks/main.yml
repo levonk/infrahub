@@ -124,7 +124,7 @@
         owner: root
         group: wheel
         mode: "{{ infra_mode_dir }}"
-      when: _chromium_policy_macos_installed
+      when: _chromium_policy_macos_installed | length > 0
       become: true
       tags: ["chromium-policy", "deploy"]
 

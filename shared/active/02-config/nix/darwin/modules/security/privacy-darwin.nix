@@ -18,12 +18,27 @@
 # SubmitDiagInfo is system-level (diagnostics submission affects the whole machine);
 # the rest are user-level (per-user app preferences).
 # Upgrade path: if nix-darwin adds named options upstream, move keys back to system.defaults.<name>.
-{ pkgs, lib, ... }:
+{ pkgs, lib, config, ... }:
 let
   isDarwin = pkgs.stdenv.isDarwin;
+  # Sandboxed apps store prefs inside ~/Library/Containers — writing those
+  # domains via `defaults` requires Full Disk Access, which headless SSH
+  # sessions lack on macOS 26+. Gate them so headless deploys can disable.
+  containerized = config.infra.security.userContainerDefaults;
 in
 {
-  system.defaults = lib.mkIf isDarwin {
+  options.infra.security.userContainerDefaults = lib.mkOption {
+    type = lib.types.bool;
+    default = true;
+    description = ''
+      Write preference domains for sandboxed apps (Safari, Maps, Health,
+      iMessage, Photos). Their ~/Library/Containers plist paths require
+      Full Disk Access on macOS 26+, so activation over SSH fails — set to
+      false on headless-deployed hosts.
+    '';
+  };
+
+  config.system.defaults = lib.mkIf isDarwin {
     # System-level privacy: diagnostics submission (affects whole machine)
     CustomSystemPreferences."com.apple.SubmitDiagInfo" = {
       AutoSubmit = false;
@@ -40,15 +55,15 @@ in
         EnableAnalytics = false;
       };
 
+      "com.apple.Spotlight" = {
+        SuggestionsEnabled = false;
+      };
+    } // lib.optionalAttrs containerized {
       # Safari and Spotlight suggestions / tracking
       "com.apple.Safari" = {
         SendDoNotTrackHTTPHeader = true;
         UniversalSearchEnabled = false;
         SuppressSearchSuggestions = true;
-      };
-
-      "com.apple.Spotlight" = {
-        SuggestionsEnabled = false;
       };
 
       # App-level usage analytics (keep apps functional, just reduce telemetry)
