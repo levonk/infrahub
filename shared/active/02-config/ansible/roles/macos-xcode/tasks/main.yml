@@ -178,15 +178,34 @@
       or macos_xcode_installed_version != macos_xcode_resolved_version
   tags: ["mas", "check"]
 
-# Check if mas is installed (nix-darwin fleet module provides it)
+# Check if mas is installed (nix-darwin fleet module provides it). Ansible's
+# command module execs argv directly — no login shell, so /etc/paths and
+# nix-darwin's /etc/zshenv PATH additions never run. Resolve the binary from
+# known install locations first.
 - name: Check if mas is available
-  ansible.builtin.command: which {{ macos_xcode_mas_path }}
+  ansible.builtin.shell: |
+    for p in "{{ macos_xcode_mas_path }}" \
+             /run/current-system/sw/bin/mas \
+             /nix/var/nix/profiles/default/bin/mas \
+             /opt/homebrew/bin/mas \
+             /usr/local/bin/mas; do
+      if [ -x "$p" ]; then echo "$p"; exit 0; fi
+    done
+    command -v mas 2>/dev/null || true
   register: macos_xcode_mas_check
   changed_when: false
   failed_when: false
   when:
     - macos_xcode_installed_version is not defined
       or macos_xcode_installed_version != macos_xcode_resolved_version
+  tags: ["mas", "check"]
+
+- name: Resolve mas binary path
+  ansible.builtin.set_fact:
+    macos_xcode_mas_path: "{{ macos_xcode_mas_check.stdout_lines[0] | default('mas') }}"
+  when:
+    - macos_xcode_mas_check.rc is defined
+    - macos_xcode_mas_check.rc == 0
   tags: ["mas", "check"]
 
 - name: Record mas availability
@@ -226,7 +245,7 @@
     # Find first signed-in user (MobileMeAccounts defaults has AccountDSID)
     for U in $CHECK_LIST; do
       if sudo -u "$U" defaults read MobileMeAccounts 2>/dev/null | grep -q "AccountDSID"; then
-        APPLE_ID=$(sudo -u "$U" defaults read MobileMeAccounts 2>/dev/null | grep 'AccountDescription' | head -1 | sed 's/.*= "\(.*\)";/\1/')
+        APPLE_ID=$(sudo -u "$U" defaults read MobileMeAccounts 2>/dev/null | grep 'AccountDescription' | head -1 | sed 's/.*= "\(.*\)";/\1/')  # project-lint: disable=magic-int  first match only
         echo "${U}:${APPLE_ID}"
         exit 0
       fi
@@ -274,6 +293,7 @@
     macos_xcode_mas_apple_id: "{{ macos_xcode_mas_account_override.stdout | default('') | trim }}"
   when:
     - macos_xcode_mas_account_override is defined
+    - macos_xcode_mas_account_override.rc is defined
     - macos_xcode_mas_account_override.rc == 0
   tags: ["mas", "check"]
 

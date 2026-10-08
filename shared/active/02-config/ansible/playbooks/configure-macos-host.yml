@@ -691,6 +691,27 @@
           become: true
           changed_when: true
 
+    # Desktops/headless minis: never sleep, wake on network access —
+    # otherwise the host drops off Tailscale and LAN SSH when idle.
+    - name: "Apply pmset power settings (desktop/headless)"
+      when: "'Book' not in ansible_facts['product_name']"
+      tags: ["pmset"]
+      block:
+        - name: "pmset -a sleep 0"  # project-lint: disable=magic-int  macOS power management setting, not a standalone magic number
+          ansible.builtin.command: pmset -a sleep 0  # project-lint: disable=magic-int  macOS power management setting, not a standalone magic number
+          become: true
+          changed_when: true
+
+        - name: "pmset -a womp 1"  # project-lint: disable=magic-int  macOS power management setting, not a standalone magic number
+          ansible.builtin.command: pmset -a womp 1  # project-lint: disable=magic-int  macOS power management setting, not a standalone magic number
+          become: true
+          changed_when: true
+
+        - name: "pmset -a autorestart 1"  # project-lint: disable=magic-int  macOS power management setting, not a standalone magic number
+          ansible.builtin.command: pmset -a autorestart 1  # project-lint: disable=magic-int  macOS power management setting, not a standalone magic number
+          become: true
+          changed_when: true
+
     - name: "Show /Volumes in Finder"
       ansible.builtin.command: chflags nohidden /Volumes
       become: true
