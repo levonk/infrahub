@@ -346,6 +346,22 @@
       when: brew_check.rc != 0
       tags: ["brew", "install"]
 
+    # The brew installer creates /opt/homebrew owned by the installing user
+    # (auser) with 755 dirs — group admins (e.g. micro, who runs `brew bundle`
+    # during nix-darwin activation) then can't write Caskroom/caches. Normalize
+    # to group-writable admin.
+    - name: "Normalize Homebrew dir permissions for admin group"
+      ansible.builtin.shell:
+        cmd: |
+          BREW_DIR="{{ macos_brew_dir | dirname }}"
+          chgrp -R admin "$BREW_DIR"
+          find "$BREW_DIR" -type d -exec chmod g+w {} +
+          chmod -R g+w "$BREW_DIR"
+      become: true
+      changed_when: true
+      when: brew_check.rc == 0 or brew_check.changed
+      tags: ["brew", "install"]
+
     # ---------------------------------------------------------------------------
     # Deploy the nix-darwin flake to the target
     # Clean control repo: try a full git clone from origin; if auth fails, fall
@@ -566,6 +582,17 @@
         dest: "{{ macos_nix_flake_dir }}/flake.nix"
         mode: "{{ infra_mode_file }}"
       tags: ["nix", "flake"]
+
+    # `nix profile install` is a no-op when the attr is already installed —
+    # it reports "already added" and never re-evaluates. Remove first so the
+    # package set actually converges with the synced flake.
+    - name: "Reinstall host apps via nix flake (CLI + GUI packages)"
+      ansible.builtin.command: >
+        /nix/var/nix/profiles/default/bin/nix profile remove host-apps
+      register: nix_profile_remove
+      changed_when: true
+      failed_when: nix_profile_remove.rc != 0 and 'does not exist' not in (nix_profile_remove.stderr | default('')) and 'not installed' not in (nix_profile_remove.stderr | default(''))
+      tags: ["nix", "apps"]
 
     - name: "Install host apps via nix flake (CLI + GUI packages)"
       ansible.builtin.command: >

@@ -23,7 +23,6 @@ infra_app_nix_cli_packages:
 
 infra_app_nix_gui_packages:
   - cmux
-  - firefox-devedition-bin
   - raycast
   - orbstack      # Container runtime for x86 Macs (Apple Container needs macOS 26) — moved from casks (FR-5)
   - rustdesk      # Remote desktop GUI app — moved from casks (FR-5)

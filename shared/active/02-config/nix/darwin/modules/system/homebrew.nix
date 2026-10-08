@@ -88,8 +88,11 @@ in {
     # Excludes apps already in environment.systemPackages via nix:
     #   discord, bitwarden-desktop, orbstack (in fleet module)
     casks = [
-      # Browsers (firefox stable — Dev Edition is in nix; this is NOT a duplicate)
+      # Browsers. Dev Edition moved back to cask: the nixpkgs-darwin wrapper
+      # sets MOZ_APP_LAUNCHER/MOZ_LEGACY_PROFILES which breaks profile
+      # creation on GUI launch ("no such profile exists") — upstream issue.
       "firefox"
+      "firefox@developer-edition"
       "google-chrome"
       "microsoft-edge"
 

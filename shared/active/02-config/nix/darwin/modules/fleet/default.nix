@@ -131,7 +131,6 @@ in
         zsh
         tailscale
         netbird
-        firefox-devedition
         brave
         raycast
         espanso-stable
