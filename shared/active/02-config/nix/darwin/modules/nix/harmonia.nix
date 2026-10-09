@@ -7,9 +7,10 @@
 # Unlike the containerized Harmonia on dtop202311/oci-cloud-server, this
 # runs natively (no OrbStack/Docker) and reads /nix/store directly.
 #
-# The signing key is stored in the vault and deployed via Ansible to
-# /etc/nix/harmonia.secret (readable only by root). The public key is
-# distributed to clients via the cache-lan.nix module.
+# The signing key is stored in the vault (vault_nix_harmonia_sign_key) and
+# deployed by the nix-harmonia Ansible role (tasks/deploy-darwin.yml, run
+# from configure-macos-host.yml) to /etc/nix/harmonia.secret (root-only).
+# The public key is distributed to clients via the cache-lan.nix module.
 #
 # See: shared/active/08-docs/adr/adr-20260708001-nix-cache-chain-regional-parallel-racing.md
 { config, pkgs, lib, ... }:

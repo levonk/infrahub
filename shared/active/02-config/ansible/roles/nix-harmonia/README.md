@@ -1,10 +1,12 @@
 # nix-harmonia
 
-Ansible role that deploys [Harmonia](https://github.com/nix-community/harmonia) — a Nix binary cache server that serves the local `/nix/store` over HTTP — as a Docker container on a Windows Docker Desktop host.
+Ansible role that deploys [Harmonia](https://github.com/nix-community/harmonia) — a Nix binary cache server that serves the local `/nix/store` over HTTP — as a Docker container on Linux/Windows hosts, and deploys the signing key for the native launchd daemon on macOS hosts.
 
 | Host | OS | Arch | Network | Access |
 |------|----|------|---------|--------|
+| oci-cloud-server (`cloud_servers`) | Linux | ARM64 | joins `traefik-network` | `127.0.0.1` only (local, not exposed externally) |
 | dtop202311 (`windows_docker_hosts`) | Windows | X86 | joins `traefik-windows-network` | `127.0.0.1` only (local, not exposed externally) |
+| macOS fleet (`macos_hosts`) | macOS | any | — | `127.0.0.1` only (launchd daemon, no container) |
 
 Harmonia reads `/nix/store` read-only and serves it over HTTP on `127.0.0.1` only. This implements ADR-20260708001: Harmonia on every Nix machine, enabling local binary cache lookups so Nix builds on the host can substitute from the local store without hitting upstream caches.
 
@@ -20,6 +22,12 @@ The container mounts three volumes:
 
 The port is bound to `127.0.0.1` only so the cache is reachable from the host but not exposed externally.
 
+### macOS (`deploy-darwin.yml`)
+
+On macOS there is no container — Harmonia runs as a native launchd daemon (`org.nix-community.harmonia`) managed by nix-darwin (`services.harmonia-darwin` in `shared/active/02-config/nix/darwin/modules/nix/harmonia.nix`). The darwin path deploys only the signing key to `/etc/nix/harmonia.secret` (`0600 root:wheel`), bootstraps the daemon if the plist exists but the service isn't loaded, kickstarts it when the key changed or the endpoint is unhealthy, and verifies `/nix-cache-info`.
+
+`configure-macos-host.yml` includes this role *before* nix-darwin activation so the key is already in place when the daemon is first started. Hosts without `services.harmonia-darwin` (no plist) get the key file only — it is picked up if the module is enabled later.
+
 ## Key variables
 
 | Variable | Default | Source |
@@ -34,6 +42,7 @@ The port is bound to `127.0.0.1` only so the cache is reachable from the host bu
 | `nix_harmonia_data_volume` | `localnet-harmonia-data-volume` | `infra_storage_nix_harmonia_data_volume` |
 | `nix_harmonia_network_name` | `traefik-windows-network` | — |
 | `nix_harmonia_docker_host_windows` | `ssh://ansible@dtop202311.<tailnet>` | `infra_tailscale_fqdn_windows_docker` |
+| `nix_harmonia_darwin_sign_key_path` | `/etc/nix/harmonia.secret` | matches `services.harmonia-darwin.signKeyPath` |
 
 All ports and volume names reference `infra_*` infrastructure variables — no hardcoding.
 

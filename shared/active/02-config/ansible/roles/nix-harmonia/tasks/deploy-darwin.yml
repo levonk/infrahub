@@ -1,0 +1,129 @@
+---
+# nix-harmonia macOS (darwin) deployment — signing key only, no container.
+#
+# On macOS, Harmonia runs as a native launchd daemon managed by nix-darwin
+# (services.harmonia-darwin → shared/active/02-config/nix/darwin/modules/
+# nix/harmonia.nix), bound to 127.0.0.1:{{ nix_harmonia_host_port }}. There
+# is no Docker container — Ansible's only job here is to deploy the signing
+# key the daemon reads at startup ({{ nix_harmonia_darwin_sign_key_path }})
+# and restart the daemon if it was running or crash-looping without it.
+#
+# In configure-macos-host.yml this role runs BEFORE nix-darwin activation,
+# so the key is already in place when the daemon is first bootstrapped.
+
+# ============================================================================
+# Signing key
+# ============================================================================
+- name: "Warn when Harmonia signing key is not in the vault"
+  ansible.builtin.debug:
+    msg: >-
+      vault_nix_harmonia_sign_key is not defined — skipping macOS Harmonia
+      signing-key deployment. If the host's nix-darwin config enables
+      services.harmonia-darwin, the launchd daemon will fail to start and
+      nix will warn that the local cache is unreachable. Add the key via
+      the vault handoff workflow in the root AGENTS.md.
+  when: not (vault_nix_harmonia_sign_key is defined and vault_nix_harmonia_sign_key | length > 0)
+  tags: ["deploy", "config"]
+
+# Unlike the containerized deployment (0644 for userns-remap), this file is
+# read by a root launchd daemon — 0600 root:wheel is correct.
+- name: "Deploy Harmonia signing key to {{ nix_harmonia_darwin_sign_key_path }}"
+  ansible.builtin.copy:
+    dest: "{{ nix_harmonia_darwin_sign_key_path }}"
+    content: "{{ vault_nix_harmonia_sign_key }}"
+    owner: root
+    group: wheel
+    mode: "{{ infra_mode_secret | default('0600') }}"  # project-lint: disable=magic-int  fallback only when modes.yml is not loaded
+  become: true
+  no_log: true
+  register: nix_harmonia_darwin_key
+  when: vault_nix_harmonia_sign_key is defined and vault_nix_harmonia_sign_key | length > 0
+  tags: ["deploy", "config"]
+
+# ============================================================================
+# Daemon state
+# The plist only exists after nix-darwin activation has run with
+# services.harmonia-darwin.enable = true. If it is absent, the key is still
+# deployed above and the daemon will pick it up when first activated.
+# ============================================================================
+- name: "Check if Harmonia launchd plist exists"
+  ansible.builtin.stat:
+    path: "{{ nix_harmonia_darwin_launchd_plist }}"
+  register: nix_harmonia_darwin_plist
+  tags: ["deploy", "verify"]
+
+- name: "Check if Harmonia launchd daemon is loaded"
+  ansible.builtin.command: "launchctl print {{ nix_harmonia_darwin_launchd_service }}"
+  become: true
+  register: nix_harmonia_darwin_daemon
+  changed_when: false
+  failed_when: false
+  when: nix_harmonia_darwin_plist.stat.exists
+  tags: ["deploy", "verify"]
+
+- name: "Bootstrap Harmonia launchd daemon if not loaded"
+  ansible.builtin.command: "launchctl bootstrap system {{ nix_harmonia_darwin_launchd_plist }}"
+  become: true
+  register: nix_harmonia_darwin_bootstrap
+  when:
+    - nix_harmonia_darwin_plist.stat.exists
+    - vault_nix_harmonia_sign_key is defined and vault_nix_harmonia_sign_key | length > 0
+    - (nix_harmonia_darwin_daemon.rc | default(1)) != 0  # project-lint: disable=magic-int  launchctl exit code, not an operational value
+  tags: ["deploy", "service"]
+
+# ============================================================================
+# Restart if needed — the daemon reads the key only at startup, so a changed
+# key or an unhealthy (e.g. crash-looping on a missing key) daemon both
+# require a kickstart.
+# ============================================================================
+- name: "Probe Harmonia nix-cache-info endpoint"
+  ansible.builtin.uri:
+    url: "http://{{ infra_network_bind_localhost }}:{{ nix_harmonia_host_port }}/nix-cache-info"
+    status_code: ["{{ infra_http_status_ok }}"]
+  register: nix_harmonia_darwin_probe
+  changed_when: false
+  failed_when: false
+  when:
+    - nix_harmonia_darwin_plist.stat.exists
+    - (nix_harmonia_darwin_daemon.rc | default(1)) == 0 or (nix_harmonia_darwin_bootstrap is defined and nix_harmonia_darwin_bootstrap is changed)  # project-lint: disable=magic-int  launchctl exit code, not an operational value
+  tags: ["deploy", "verify"]
+
+- name: "Restart Harmonia daemon to pick up signing key"
+  ansible.builtin.command: "launchctl kickstart -k {{ nix_harmonia_darwin_launchd_service }}"
+  become: true
+  when:
+    - nix_harmonia_darwin_plist.stat.exists
+    - vault_nix_harmonia_sign_key is defined and vault_nix_harmonia_sign_key | length > 0
+    - (nix_harmonia_darwin_daemon.rc | default(1)) == 0  # project-lint: disable=magic-int  launchctl exit code, not an operational value
+    - nix_harmonia_darwin_key.changed or nix_harmonia_darwin_probe.failed | default(false)
+  tags: ["deploy", "service"]
+
+# ============================================================================
+# Verify — only when the daemon is expected to be up. Hosts without
+# services.harmonia-darwin (no plist) are skipped: the deployed key is picked
+# up if the module is enabled later.
+# ============================================================================
+- name: "Verify Harmonia serves nix-cache-info"
+  ansible.builtin.uri:
+    url: "http://{{ infra_network_bind_localhost }}:{{ nix_harmonia_host_port }}/nix-cache-info"
+    status_code: ["{{ infra_http_status_ok }}"]
+    return_content: true
+  register: nix_harmonia_darwin_info
+  until: nix_harmonia_darwin_info.status == (infra_http_status_ok | int)
+  retries: "{{ infra_healthcheck_retries }}"
+  delay: "{{ infra_delay_short }}"
+  when:
+    - nix_harmonia_darwin_plist.stat.exists
+    - vault_nix_harmonia_sign_key is defined and vault_nix_harmonia_sign_key | length > 0
+    - (nix_harmonia_darwin_daemon.rc | default(1)) == 0 or (nix_harmonia_darwin_bootstrap is defined and nix_harmonia_darwin_bootstrap is changed)  # project-lint: disable=magic-int  launchctl exit code, not an operational value
+  tags: ["deploy", "verify"]
+
+- name: "Report Harmonia (darwin) status"
+  ansible.builtin.debug:
+    msg: |
+      nix-harmonia (darwin):
+        - Signing key: {{ nix_harmonia_darwin_sign_key_path }} ({{ 'updated' if nix_harmonia_darwin_key.changed else 'unchanged' }})
+        - URL: http://{{ infra_network_bind_localhost }}:{{ nix_harmonia_host_port }} (local access only, launchd daemon)
+        - nix-cache-info: {{ nix_harmonia_darwin_info.content | default('not verified — daemon plist absent or key missing') | replace('\n', ' | ') }}
+  when: vault_nix_harmonia_sign_key is defined and vault_nix_harmonia_sign_key | length > 0
+  tags: ["always", "info"]

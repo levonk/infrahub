@@ -1,7 +1,9 @@
 ---
-# nix-harmonia — local Nix binary cache server (dual-deployment)
-# nl  (dtop202311, Windows Docker Desktop, X86) — nix-sidecar Docker volumes
-# cno (oci-cloud-server, Linux ARM64) — bind mounts /nix/store from host
+# nix-harmonia — local Nix binary cache server
+# nl     (dtop202311, Windows Docker Desktop, X86) — nix-sidecar Docker volumes
+# cno    (oci-cloud-server, Linux ARM64) — bind mounts /nix/store from host
+# darwin (macos_hosts) — native launchd daemon managed by nix-darwin;
+#          Ansible deploys only the signing key (/etc/nix/harmonia.secret)
 #
 # Harmonia serves the local /nix/store over HTTP on 127.0.0.1 only (local
 # access, not exposed externally).
@@ -9,6 +11,7 @@
 # The deployment target is selected by inventory group membership:
 #   - cloud_servers        → deploy-linux.yml   (cno instance)
 #   - windows_docker_hosts → deploy-windows.yml (nl instance)
+#   - macos_hosts          → deploy-darwin.yml  (signing key only)
 #
 # Per AGENTS.md, community.docker modules can't run on Windows (Ansible core
 # basic.py imports grp, Unix-only). The Windows path uses ansible.builtin.shell
@@ -53,4 +56,12 @@
   when:
     - nix_harmonia_enabled | bool
     - "'windows_docker_hosts' in group_names"
+  tags: ["deploy"]
+
+# 4. Dispatch macOS (darwin) deployment for macos_hosts
+- name: Dispatch macOS (darwin) deployment for macos_hosts
+  ansible.builtin.include_tasks: deploy-darwin.yml
+  when:
+    - nix_harmonia_enabled | bool
+    - "'macos_hosts' in group_names"
   tags: ["deploy"]

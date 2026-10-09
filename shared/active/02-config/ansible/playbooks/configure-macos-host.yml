@@ -72,6 +72,18 @@
         file: "{{ playbook_dir }}/../infrastructure/timing.yml"
       tags: ["always"]
 
+    # ports.yml + networks.yml are needed by the nix-harmonia role
+    # (nix_harmonia_host_port, infra_network_bind_localhost).
+    - name: "Load shared infrastructure port defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/ports.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure network defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/networks.yml"
+      tags: ["always"]
+
     # ---------------------------------------------------------------------------
     # Verify and repair bootstrap state
     #
@@ -327,6 +339,18 @@
         - ansible_facts['distribution'] == "MacOSX"
         - ansible_facts['architecture'] == "x86_64"
       tags: ["nix", "configure"]
+
+    # ---------------------------------------------------------------------------
+    # Harmonia signing key — when the host's nix-darwin config enables
+    # services.harmonia-darwin, the launchd daemon reads
+    # /etc/nix/harmonia.secret at startup. Deploy the key BEFORE activation
+    # so the daemon starts cleanly on first run; the role also kickstarts
+    # the daemon on hosts where it is already crash-looping without the key.
+    # ---------------------------------------------------------------------------
+    - name: "Deploy Harmonia signing key (nix-harmonia role, darwin dispatch)"
+      ansible.builtin.include_role:
+        name: nix-harmonia
+      tags: ["nix", "harmonia"]
 
     # ---------------------------------------------------------------------------
     # Homebrew — must be installed BEFORE nix-darwin activation: the homebrew
