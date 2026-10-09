@@ -62,6 +62,14 @@ let
       rm -f "$out/bin/docker-credential-osxkeychain"
     '';
   });
+
+  # nono (nolabs-ai) — skip cargo tests. Upstream v0.74 has a session-file
+  # test that writes to $TMPDIR in a way the nix build sandbox rejects
+  # (Errno 22 on write). The other ~1954 tests pass; this is a
+  # sandbox-semantics artifact, not a runtime defect.
+  nono-nocheck = pkgs.nono.overrideAttrs (old: {
+    doCheck = false;
+  });
 in
 {
   imports = [
@@ -132,7 +140,8 @@ in
     #   openshell — NVIDIA OpenShell sandboxed runtime for AI agents
     #   nono      — kernel-enforced sandbox for agent/MCP workloads
     #               (nixpkgs homepage lists the old always-further org;
-    #               upstream is now nolabs-ai/nono — same repo, renamed)
+    #               upstream is now nolabs-ai/nono — same repo, renamed;
+    #               nono-nocheck disables a sandbox-hostile unit test)
     #
     # CLI tools migrated from imperative `nix profile install`:
     #   cargo, coreutils, delta, difftastic, eza, gh, git-lfs, nodejs, pnpm
@@ -159,7 +168,7 @@ in
         colima
         podman
         openshell
-        nono
+        nono-nocheck
 
         # --- CLI tools (migrated from nix profile) ---
         cargo
