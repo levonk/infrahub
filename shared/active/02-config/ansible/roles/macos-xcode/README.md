@@ -26,7 +26,7 @@ Xcode installs to `/Applications/` and is available to **all users** on the Mac 
    - Apple ID / App Store sign-in for the GUI user (manual, GUI only — the script opens System Settings → Apple ID automatically)
 2. **Phase 2 — Ansible** (control Mac, unattended):
    - nix-darwin apply (installs `mas` and other fleet tools)
-   - `mas` installs Xcode as the GUI user (unattended, ~12GB download)
+   - `mas` installs Xcode as the GUI user (unattended on Tahoe+; on Sequoia one GUI click on the "last compatible version" dialog — see below)
    - License accept + `xcode-select` (as root, unattended)
 
 ### Multi-user sign-in check
@@ -73,6 +73,21 @@ The role auto-detects the target Xcode version based on the host's macOS version
 For macOS Tahoe (26.x) and later, the role queries the iTunes Search API (`https://itunes.apple.com/lookup?id=497799835`) to get the latest Xcode version and its `minimumOsVersion`. If the host's macOS version meets the minimum requirement, the API version is used. If the API is unreachable or the latest version requires a newer macOS than the host has, it falls back to `macos_xcode_version_tahoe_fallback`.
 
 Sequoia hosts always use the hardcoded `26.3` — the latest Xcode in the App Store requires Tahoe, so a dynamic lookup would always reject Sequoia.
+
+### Sequoia hosts: the App Store "last compatible version" dialog
+
+`mas install <app_id>` cannot pin a version — the App Store API always requests the **latest** build. On a macOS 15.x host, the latest Xcode requires macOS 26.6+, so the App Store daemon intercepts the request and shows a GUI dialog:
+
+> Download an older version of Xcode? The current version requires macOS 26.6 or later, but you can download the last compatible version.
+
+This is expected behavior, not an error — **click "Download"** and the App Store installs Xcode 26.3, exactly the version the role resolved. Nothing incompatible is installed either way; the dialog is the gate.
+
+Implications:
+
+- **The install is not fully unattended on Sequoia hosts.** The `mas` process (and the Ansible task driving it) blocks until someone clicks the dialog on the GUI session. On Tahoe+ hosts no dialog appears — the latest build is compatible.
+- **Cancel is safe but means no Xcode.** `mas` returns an error, the role records it and continues; the dialog reappears on the next run.
+- **The dialog can also appear outside Ansible runs** — App Store auto-update hits the same compat gate periodically when Xcode is installed.
+- After install, `xcodebuild -version` reports 26.3, matching `macos_xcode_resolved_version`, so subsequent runs skip the install path.
 
 Disable the dynamic lookup with:
 
@@ -143,3 +158,4 @@ ansible-playbook -i levonk/active/02-config/ansible/inventories/macos-hosts.yml 
 - **Xcode is large (~12GB).** The download may take a long time depending on network speed.
 - **Idempotent.** If Xcode is already installed at the target version, the role skips all install tasks.
 - **Intel Macs are capped at Xcode 26.3.** macOS Tahoe (26.x) does not support Intel, so Xcode 26.3 is the terminal version for x86_64-darwin.
+- **Sequoia installs need one GUI click.** `mas` cannot request a pinned version, so the App Store shows a "download the last compatible version" dialog that blocks until clicked — click Download to get 26.3. See the Version Selection section for details.
