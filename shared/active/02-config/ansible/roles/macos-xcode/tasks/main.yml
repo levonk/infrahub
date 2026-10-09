@@ -416,6 +416,13 @@
 
 # ---------------------------------------------------------------------------
 # 5. Post-install — accept license and select Xcode
+#
+# These run whenever Xcode is present, not only on version change: a host
+# with Xcode already at the target version can still have an unaccepted
+# license (e.g. Xcode installed/updated outside this role). An unaccepted
+# license gates Apple's dev-tool shims (/usr/bin/python3 included) behind
+# an interactive "Press enter to display the license" prompt, which hangs
+# headless SSH — including Ansible's own fact gathering.
 # ---------------------------------------------------------------------------
 - name: Re-check Xcode version after install
   ansible.builtin.command: xcodebuild -version
@@ -427,23 +434,55 @@
       or macos_xcode_installed_version != macos_xcode_resolved_version
   tags: ["xcode", "post-install"]
 
+- name: Compute effective installed Xcode version
+  ansible.builtin.set_fact:
+    macos_xcode_effective_version: >-
+      {{ macos_xcode_installed_version | default(
+           (macos_xcode_post_install_check.stdout_lines[0] | default('')).split(' ')[1] | default('')) }}
+  when:
+    - macos_xcode_installed_version is defined
+      or (macos_xcode_post_install_check is defined and macos_xcode_post_install_check.rc == 0)
+  tags: ["xcode", "post-install"]
+
+# xcodebuild -license check prompts interactively when the license is
+# unaccepted — probe the acceptance plist instead (non-interactive).
+- name: Check whether the Xcode license has been accepted
+  ansible.builtin.command: defaults read /Library/Preferences/com.apple.dt.Xcode IDEXcodeVersionForAgreedToGMLicense
+  register: macos_xcode_license_check
+  changed_when: false
+  failed_when: false
+  when:
+    - macos_xcode_effective_version is defined
+    - macos_xcode_effective_version | length > 0
+  tags: ["xcode", "license"]
+
 - name: Accept Xcode license
   ansible.builtin.command: xcodebuild -license accept
   become: true
   when:
     - macos_xcode_accept_license | bool
-    - macos_xcode_post_install_check is defined
-    - macos_xcode_post_install_check.rc == 0
+    - macos_xcode_license_check is defined
+    - macos_xcode_license_check.rc != 0 or macos_xcode_license_check.stdout | trim != macos_xcode_effective_version
   changed_when: true
   tags: ["xcode", "license"]
+
+- name: Check active developer directory
+  ansible.builtin.command: xcode-select -p
+  register: macos_xcode_devdir_check
+  changed_when: false
+  failed_when: false
+  when:
+    - macos_xcode_effective_version is defined
+    - macos_xcode_effective_version | length > 0
+  tags: ["xcode", "select"]
 
 - name: Select Xcode as active developer directory
   ansible.builtin.command: xcode-select -s /Applications/Xcode.app/Contents/Developer
   become: true
   when:
     - macos_xcode_select_xcode | bool
-    - macos_xcode_post_install_check is defined
-    - macos_xcode_post_install_check.rc == 0
+    - macos_xcode_devdir_check is defined
+    - macos_xcode_devdir_check.rc != 0 or macos_xcode_devdir_check.stdout | trim != "/Applications/Xcode.app/Contents/Developer"
   changed_when: true
   tags: ["xcode", "select"]
 
