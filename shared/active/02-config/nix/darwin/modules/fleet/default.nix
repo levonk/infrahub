@@ -101,7 +101,9 @@ in
     };
 
     # Fleet apps — all from nixpkgs (FR-5: prefer Nix packages over casks)
-    # orbstack and rustdesk moved from Homebrew casks to Nix packages.
+    # orbstack moved from a Homebrew cask to a Nix package. rustdesk tried
+    # the same move but nixpkgs marks darwin as badPlatforms, so it remains
+    # a cask in the homebrew module.
     #
     # Deduplication rule (ADR-202607070001 supplement): any package listed
     # here must NOT also appear in homebrew.brews or homebrew.casks.
@@ -118,6 +120,19 @@ in
     # Communication: discord, zoom-us.
     # Security: bitwarden-desktop (password manager).
     # Editor: vscode-insiders (pre-release VS Code, see override above).
+    # Remote desktop: rustdesk is a Homebrew cask — nixpkgs marks darwin
+    # as badPlatforms (the Flutter/Rust source build doesn't support
+    # macOS). Client prefs (ID/relay server endpoints) are set per-client,
+    # e.g. levonk's modules/rustdesk-client.nix.
+    #
+    # Container / agent-sandbox tooling (all CLI):
+    #   colima    — container runtimes on macOS via Lima (docker-compat VM)
+    #   podman    — podman-remote client; `podman machine` helpers
+    #               (gvproxy/vfkit/krunkit) are wrapped into the derivation
+    #   openshell — NVIDIA OpenShell sandboxed runtime for AI agents
+    #   nono      — kernel-enforced sandbox for agent/MCP workloads
+    #               (nixpkgs homepage lists the old always-further org;
+    #               upstream is now nolabs-ai/nono — same repo, renamed)
     #
     # CLI tools migrated from imperative `nix profile install`:
     #   cargo, coreutils, delta, difftastic, eza, gh, git-lfs, nodejs, pnpm
@@ -139,6 +154,12 @@ in
         zoom-us
         bitwarden-desktop
         stirling-pdf-desktop
+
+        # --- Container / agent-sandbox tooling ---
+        colima
+        podman
+        openshell
+        nono
 
         # --- CLI tools (migrated from nix profile) ---
         cargo

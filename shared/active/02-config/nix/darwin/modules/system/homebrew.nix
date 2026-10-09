@@ -8,8 +8,9 @@
 #   - If a package is in environment.systemPackages, it must NOT be in
 #     homebrew.brews or homebrew.casks.
 #   - GUI apps available in nixpkgs (raycast, brave, espanso, cmux, discord,
-#     bitwarden-desktop, orbstack, firefox-devedition-bin, vscode-insiders,
-#     rustdesk) are in the fleet module, NOT here.
+#     bitwarden-desktop, orbstack, firefox-devedition-bin, vscode-insiders)
+#     are in the fleet module, NOT here. rustdesk is listed in nixpkgs but
+#     marks darwin as badPlatforms, so it stays a cask below.
 #   - Casks listed here are apps NOT available in nixpkgs or that are better
 #     managed as casks (e.g., Docker Desktop requires cask-only install).
 #   - firefox (stable) and visual-studio-code (stable) are kept as casks
@@ -105,9 +106,12 @@ in {
       # plotly/orca cask in homebrew/cask.
       "stablyai/orca/orca"
 
-      # Terminal / KVM / URL routing
+      # Terminal / KVM / remote desktop / URL routing
       "iterm2"
       "deskflow"
+      # nixpkgs rustdesk marks darwin as badPlatforms — cask is the only
+      # viable install path (it was previously a cask for the same reason).
+      "rustdesk"
       # finicky intentionally excluded: it self-updates via Sparkle, so the
       # installed app runs ahead of the cask and `brew bundle` fails trying
       # to adopt the newer /Applications/Finicky.app. Left self-managed.
