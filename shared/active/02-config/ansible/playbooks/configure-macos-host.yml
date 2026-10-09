@@ -350,6 +350,11 @@
     - name: "Deploy Harmonia signing key (nix-harmonia role, darwin dispatch)"
       ansible.builtin.include_role:
         name: nix-harmonia
+        # include_role does NOT propagate tags to role tasks (unlike
+        # include_tasks) — apply: ensures --tags nix/--tags harmonia select
+        # the dispatch + deploy-darwin tasks inside the role.
+        apply:
+          tags: ["nix", "harmonia"]
       tags: ["nix", "harmonia"]
 
     # ---------------------------------------------------------------------------
