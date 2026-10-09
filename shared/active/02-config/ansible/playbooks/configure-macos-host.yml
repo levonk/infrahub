@@ -320,10 +320,28 @@
       tags: ["nix", "configure"]
 
     # ponytail: nixpkgs 26.11 dropped x86_64-darwin; pin 26.05-darwin for x86_64 only
-    - name: "Pin nixpkgs to 26.05-darwin for x86_64-darwin"  # project-lint: disable=magic-dotted  version number, not an operational magic number
-      ansible.builtin.command: |
-        /nix/var/nix/profiles/default/bin/nix-channel --add https://nixos.org/channels/nixpkgs-26.05-darwin nixpkgs  # project-lint: disable=magic-dotted  version number, not an operational magic number
-        /nix/var/nix/profiles/default/bin/nix-channel --update
+    # NOTE: "# project-lint:" pragmas must be real YAML comments on the same
+    # line as the flagged token. Inside block scalars (|, >) they are literal
+    # text — the command module then passes them to argv and the command
+    # fails ("unexpected argument '#'"). Use argv lists instead.
+    - name: "Pin nixpkgs to 26.05-darwin channel for x86_64-darwin"  # project-lint: disable=magic-dotted  version number, not an operational magic number
+      ansible.builtin.command:
+        argv:
+          - /nix/var/nix/profiles/default/bin/nix-channel
+          - --add
+          - https://nixos.org/channels/nixpkgs-26.05-darwin  # project-lint: disable=magic-dotted  version number, not an operational magic number
+          - nixpkgs
+      changed_when: true
+      when:
+        - ansible_facts['distribution'] == "MacOSX"
+        - ansible_facts['architecture'] == "x86_64"
+      tags: ["nix", "configure"]
+
+    - name: "Update nix channels for x86_64-darwin"
+      ansible.builtin.command:
+        argv:
+          - /nix/var/nix/profiles/default/bin/nix-channel
+          - --update
       changed_when: true
       when:
         - ansible_facts['distribution'] == "MacOSX"
@@ -331,9 +349,13 @@
       tags: ["nix", "configure"]
 
     - name: "Set nixpkgs flake registry to 26.05-darwin for x86_64-darwin"  # project-lint: disable=magic-dotted  version number, not an operational magic number
-      ansible.builtin.command: >
-        /nix/var/nix/profiles/default/bin/nix registry add nixpkgs
-        github:NixOS/nixpkgs/nixpkgs-26.05-darwin  # project-lint: disable=magic-dotted  version number, not an operational magic number
+      ansible.builtin.command:
+        argv:
+          - /nix/var/nix/profiles/default/bin/nix
+          - registry
+          - add
+          - nixpkgs
+          - github:NixOS/nixpkgs/nixpkgs-26.05-darwin  # project-lint: disable=magic-dotted  version number, not an operational magic number
       changed_when: true
       when:
         - ansible_facts['distribution'] == "MacOSX"
