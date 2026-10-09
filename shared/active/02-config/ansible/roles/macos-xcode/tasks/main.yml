@@ -172,14 +172,14 @@
 # ---------------------------------------------------------------------------
 
 # Initialize state — errors list and sign-in flag
+# Always runs: later tasks reference these vars unconditionally, so
+# initializing them only when versions match leaves them undefined on
+# up-to-date hosts (skipped facts carry no defaults).
 - name: Initialize xcode role state
   ansible.builtin.set_fact:
     macos_xcode_errors: []
     macos_xcode_mas_signed_in: false
     macos_xcode_mas_available: false
-  when:
-    - macos_xcode_installed_version is not defined
-      or macos_xcode_installed_version != macos_xcode_resolved_version
   tags: ["mas", "check"]
 
 # Check if mas is installed (nix-darwin fleet module provides it). Ansible's

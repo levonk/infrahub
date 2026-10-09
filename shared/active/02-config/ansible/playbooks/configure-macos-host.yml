@@ -41,7 +41,6 @@
     macos_brew_dir: "{{ macos_brew_bin | dirname }}"
     macos_nix_worktree_dir: "{{ macos_auser_home }}/.local/share/infrahub-darwin"
     macos_nix_shared_worktree_dir: "{{ macos_auser_home }}/.local/share/infrahub-darwin-shared"
-    macos_nix_flake_dir: "{{ macos_auser_home }}/.local/share/nix-flake"
     # 5 dirname steps: playbooks -> ansible -> 02-config -> active -> shared -> infrahub root
     infrahub_root: "{{ playbook_dir | dirname | dirname | dirname | dirname | dirname }}"
     macos_infrahub_git_key_file: "{{ macos_auser_home }}/.ssh/{{ ansible_ssh_private_key_file | basename }}"
@@ -637,55 +636,20 @@
       tags: ["brew", "verify"]
 
     # ---------------------------------------------------------------------------
-    # Nix flake — install CLI + GUI apps
-    # The flake is in shared/active/02-config/nix/flake.nix
+    # Legacy nix profile cleanup — fleet apps are nix-darwin
+    # environment.systemPackages (shared fleet module). The old imperative
+    # `nix profile install <standalone flake>#host-apps` + symlink-apps path
+    # is retired: the standalone flake's `cmux` is not a nixpkgs attr (the
+    # custom derivation lives in the darwin fleet module), so eval fails
+    # outright. Remove the legacy profile entry if it still exists.
     # ---------------------------------------------------------------------------
-    - name: "Ensure nix flake dir exists on target"
-      ansible.builtin.file:
-        path: "{{ macos_nix_flake_dir }}"
-        state: directory
-        owner: "{{ macos_auser }}"
-        mode: "{{ infra_mode_dir }}"
-      tags: ["nix", "flake"]
-
-    - name: "Copy nix flake to target host"
-      ansible.builtin.copy:
-        src: "{{ infrahub_root }}/shared/active/02-config/nix/flake.nix"
-        dest: "{{ macos_nix_flake_dir }}/flake.nix"
-        mode: "{{ infra_mode_file }}"
-      tags: ["nix", "flake"]
-
-    # `nix profile install` is a no-op when the attr is already installed —
-    # it reports "already added" and never re-evaluates. Remove first so the
-    # package set actually converges with the synced flake.
-    - name: "Reinstall host apps via nix flake (CLI + GUI packages)"
+    - name: "Remove legacy host-apps from nix profile (superseded by nix-darwin)"
       ansible.builtin.command: >
         /nix/var/nix/profiles/default/bin/nix profile remove host-apps
       register: nix_profile_remove
       changed_when: true
       failed_when: nix_profile_remove.rc != 0 and 'does not exist' not in (nix_profile_remove.stderr | default('')) and 'not installed' not in (nix_profile_remove.stderr | default(''))
       tags: ["nix", "apps"]
-
-    - name: "Install host apps via nix flake (CLI + GUI packages)"
-      ansible.builtin.command: >
-        /nix/var/nix/profiles/default/bin/nix profile install
-        {{ macos_nix_flake_dir }}#host-apps
-      register: nix_profile_install
-      changed_when: "'installed' in nix_profile_install.stdout or 'built' in nix_profile_install.stdout"
-      tags: ["nix", "apps"]
-
-    - name: "Symlink GUI .app bundles to /Applications"
-      ansible.builtin.command: >
-        /nix/var/nix/profiles/default/bin/nix run
-        {{ macos_nix_flake_dir }}#symlink-apps
-      register: nix_symlink
-      changed_when: "'Done.' in nix_symlink.stdout"
-      tags: ["nix", "apps", "symlink"]
-
-    - name: "Report symlinked apps"
-      ansible.builtin.debug:
-        msg: "{{ nix_symlink.stdout }}"
-      tags: ["nix", "apps", "symlink"]
 
     # ---------------------------------------------------------------------------
     # Homebrew casks — apps not in nixpkgs
@@ -874,7 +838,7 @@
           ========================================
           Nix: darwin-rebuild applied
           Homebrew: {{ brew_version.stdout_lines[0] | default('check failed') }}
-          Nix apps: installed via flake (CLI in profile, GUI symlinked to /Applications)
+          Nix apps: installed via nix-darwin environment.systemPackages
           Brew casks: {{ macos_brew_casks | default([]) | join(', ') }}
           Container runtime: {{ infra_app_container_runtime | default('auto') }}
           Docker CLI: {{ docker_check.stdout if (docker_check is defined and docker_check.rc == 0) else 'NOT available' }}
