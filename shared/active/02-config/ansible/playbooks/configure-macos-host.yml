@@ -324,6 +324,27 @@
     # line as the flagged token. Inside block scalars (|, >) they are literal
     # text — the command module then passes them to argv and the command
     # fails ("unexpected argument '#'"). Use argv lists instead.
+    #
+    # Root-run nix commands (sudo without -H) write the fetcher-cache SQLite
+    # into the SSH user's ~/.cache/nix owned by root — subsequent non-root
+    # nix calls fail with "attempt to write a readonly database". Repair
+    # ownership before the channel tasks.
+    - name: "Stat ~/.cache/nix"
+      ansible.builtin.stat:
+        path: "{{ ansible_env.HOME }}/.cache/nix"
+      register: macos_nix_cache_dir
+      tags: ["nix", "configure"]
+
+    - name: "Repair ~/.cache/nix ownership for the ansible user"
+      ansible.builtin.file:
+        path: "{{ ansible_env.HOME }}/.cache/nix"
+        owner: "{{ ansible_user }}"
+        group: staff
+        recurse: true
+      become: true
+      when: macos_nix_cache_dir.stat.exists
+      tags: ["nix", "configure"]
+
     - name: "Pin nixpkgs to 26.05-darwin channel for x86_64-darwin"  # project-lint: disable=magic-dotted  version number, not an operational magic number
       ansible.builtin.command:
         argv:
