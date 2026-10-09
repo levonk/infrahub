@@ -141,7 +141,10 @@ in {
   # and Homebrew 4.x's interactive tap-trust requirement.
   system.activationScripts.brew-trust-taps.text = let
     primaryUser = config.system.primaryUser or "root";
-    trustCommands = map (tap: "  /usr/bin/sudo -u ${primaryUser} -H brew trust ${tap} 2>/dev/null || true") thirdPartyTaps;
+    # Absolute brew path — /opt/homebrew/bin is not on the activation PATH
+    # on Apple Silicon, so a bare `brew` silently no-ops via `|| true`.
+    brewBin = if pkgs.stdenv.hostPlatform.isAarch64 then "/opt/homebrew/bin/brew" else "/usr/local/bin/brew";
+    trustCommands = map (tap: "  /usr/bin/sudo -u ${primaryUser} -H ${brewBin} trust ${tap} 2>/dev/null || true") thirdPartyTaps;
   in ''
     # Trust third-party Homebrew taps before brew bundle runs.
     # Homebrew 4.x requires explicit `brew trust` for non-homebrew/* taps.
