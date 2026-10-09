@@ -11,9 +11,10 @@
 # ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
-# Nix-managed packages (installed via shared/active/02-config/nix/flake.nix)
-# The flake outputs host-apps (buildEnv) and symlink-apps (script).
-# CLI tools go into the nix profile; GUI .app bundles are symlinked to /Applications.
+# Nix-managed packages — LEGACY, currently unused. Fleet apps install via
+# nix-darwin environment.systemPackages in the shared fleet module
+# (shared/active/02-config/nix/darwin/modules/fleet/). These vars predate
+# the nix-darwin migration; the standalone flake.nix consumer was removed.
 # ---------------------------------------------------------------------------
 infra_app_nix_cli_packages:
   - git
