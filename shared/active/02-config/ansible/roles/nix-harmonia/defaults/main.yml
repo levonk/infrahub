@@ -45,6 +45,13 @@ nix_harmonia_windows_temp_dir: "/tmp/nix-harmonia-config-{{ inventory_hostname }
 # When empty, Harmonia runs in read-only mode (serves but doesn't sign)
 nix_harmonia_sign_key_path: "/data/signing-key"
 
+# macOS (darwin): native launchd daemon managed by nix-darwin, no container.
+# The key path must match services.harmonia-darwin.signKeyPath in the
+# nix-darwin module (shared/active/02-config/nix/darwin/modules/nix/harmonia.nix).
+nix_harmonia_darwin_sign_key_path: "/etc/nix/harmonia.secret"
+nix_harmonia_darwin_launchd_service: "system/org.nix-community.harmonia"
+nix_harmonia_darwin_launchd_plist: "/Library/LaunchDaemons/org.nix-community.harmonia.plist"
+
 # Entrypoint override — the image's default entrypoint (harmonia wrapper) calls
 # `nix store --serve` which is not available in Nix 2.34+. We use harmonia-cache
 # (the actual Rust binary) directly with CONFIG_FILE env var.

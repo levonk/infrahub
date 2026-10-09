@@ -13,7 +13,7 @@
     path: "{{ sandbox_cli_proxy_config_dir }}"
     state: directory
     owner: root
-    group: root
+    group: "{{ sandbox_cli_proxy_root_group }}"
     mode: "{{ infra_mode_dir }}"
   become: true
 
@@ -22,7 +22,7 @@
     path: "{{ sandbox_cli_proxy_ca_dir }}"
     state: directory
     owner: root
-    group: root
+    group: "{{ sandbox_cli_proxy_root_group }}"
     mode: "{{ infra_mode_dir }}"
   become: true
 
@@ -31,7 +31,7 @@
     path: "{{ sandbox_cli_proxy_config_dir }}/{{ item.name }}"
     state: directory
     owner: root
-    group: root
+    group: "{{ sandbox_cli_proxy_root_group }}"
     mode: "{{ infra_mode_dir }}"
   become: true
   loop: "{{ sandbox_cli_proxy_profiles }}"
@@ -55,7 +55,7 @@
     src: sandbox-env.j2
     dest: "{{ sandbox_cli_proxy_env_file }}"
     owner: root
-    group: root
+    group: "{{ sandbox_cli_proxy_root_group }}"
     mode: "{{ infra_mode_file }}"
   become: false
   when: sandbox_cli_proxy_enabled | bool

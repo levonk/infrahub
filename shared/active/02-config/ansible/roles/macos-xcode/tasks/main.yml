@@ -67,6 +67,10 @@
     return_content: true
     timeout: "{{ macos_xcode_lookup_timeout }}"
   register: macos_xcode_itunes_response
+  retries: 3  # project-lint: disable=magic-int  http retry count, not an operational value
+  delay: 5  # project-lint: disable=magic-int  http retry delay seconds, not an operational value
+  until: macos_xcode_itunes_response is not failed
+  failed_when: false
   when:
     - macos_xcode_target_version | length == 0
     - ansible_facts['distribution_version'] is version('26', '>=')  # project-lint: disable=magic-int  version number, not an operational magic number
@@ -178,15 +182,34 @@
       or macos_xcode_installed_version != macos_xcode_resolved_version
   tags: ["mas", "check"]
 
-# Check if mas is installed (nix-darwin fleet module provides it)
+# Check if mas is installed (nix-darwin fleet module provides it). Ansible's
+# command module execs argv directly — no login shell, so /etc/paths and
+# nix-darwin's /etc/zshenv PATH additions never run. Resolve the binary from
+# known install locations first.
 - name: Check if mas is available
-  ansible.builtin.command: which {{ macos_xcode_mas_path }}
+  ansible.builtin.shell: |
+    for p in "{{ macos_xcode_mas_path }}" \
+             /run/current-system/sw/bin/mas \
+             /nix/var/nix/profiles/default/bin/mas \
+             /opt/homebrew/bin/mas \
+             /usr/local/bin/mas; do
+      if [ -x "$p" ]; then echo "$p"; exit 0; fi
+    done
+    command -v mas 2>/dev/null || true
   register: macos_xcode_mas_check
   changed_when: false
   failed_when: false
   when:
     - macos_xcode_installed_version is not defined
       or macos_xcode_installed_version != macos_xcode_resolved_version
+  tags: ["mas", "check"]
+
+- name: Resolve mas binary path
+  ansible.builtin.set_fact:
+    macos_xcode_mas_path: "{{ macos_xcode_mas_check.stdout_lines[0] | default('mas') }}"
+  when:
+    - macos_xcode_mas_check.rc is defined
+    - macos_xcode_mas_check.rc == 0
   tags: ["mas", "check"]
 
 - name: Record mas availability
@@ -215,23 +238,33 @@
     set -euo pipefail
     AUSER="{{ ansible_user | default('auser') }}"
     GUI_USER=$(stat -f%Su /dev/console 2>/dev/null || echo "")
+    INVENTORY_USER="{{ macos_gui_user | default('') }}"
     ALL_USERS=$(dscl . -list /Users UniqueID 2>/dev/null | awk '$2 >= 501 {print $1}')  # project-lint: disable=magic-int  macOS user management UID filter, not an operational value
 
-    # Build check list: auser first, GUI user second, then all others
+    # Build check list: inventory override first, auser second, console GUI
+    # user third, then all other human users.
     CHECK_LIST=""
-    for U in $ALL_USERS; do [[ "$U" == "$AUSER" ]] && CHECK_LIST="$U"; done
-    for U in $ALL_USERS; do [[ "$U" != "$AUSER" && "$U" == "$GUI_USER" ]] && CHECK_LIST="$CHECK_LIST $U"; done
-    for U in $ALL_USERS; do [[ "$U" != "$AUSER" && "$U" != "$GUI_USER" ]] && CHECK_LIST="$CHECK_LIST $U"; done
+    for U in $INVENTORY_USER $AUSER $GUI_USER $ALL_USERS; do
+      [ -n "$U" ] && [[ " $CHECK_LIST " != *" $U "* ]] && CHECK_LIST="$CHECK_LIST $U"
+    done
+    CHECK_LIST=${CHECK_LIST# }
 
     # Find first signed-in user (MobileMeAccounts defaults has AccountDSID)
     for U in $CHECK_LIST; do
       if sudo -u "$U" defaults read MobileMeAccounts 2>/dev/null | grep -q "AccountDSID"; then
-        APPLE_ID=$(sudo -u "$U" defaults read MobileMeAccounts 2>/dev/null | grep 'AccountDescription' | head -1 | sed 's/.*= "\(.*\)";/\1/')
+        APPLE_ID=$(sudo -u "$U" defaults read MobileMeAccounts 2>/dev/null | grep 'AccountDescription' | head -1 | sed 's/.*= "\(.*\)";/\1/')  # project-lint: disable=magic-int  first match only
         echo "${U}:${APPLE_ID}"
         exit 0
       fi
     done
-    # None found
+    # macOS 15+ moved App Store sign-in to accountd — MobileMeAccounts no
+    # longer reflects it. Fall back to the inventory GUI user or console
+    # user and let mas itself verify at install time.
+    FALLBACK="${INVENTORY_USER:-$GUI_USER}"
+    if [ -n "$FALLBACK" ]; then
+      echo "${FALLBACK}:unverified"
+      exit 0
+    fi
     exit 1
   args:
     executable: /bin/bash
@@ -247,9 +280,11 @@
   ansible.builtin.set_fact:
     macos_xcode_mas_user: "{{ macos_xcode_user_detect.stdout.split(':')[0] | trim }}"
     macos_xcode_mas_apple_id: "{{ macos_xcode_user_detect.stdout.split(':')[1] | default('') | trim }}"
-    macos_xcode_mas_signed_in: true
+    macos_xcode_mas_signed_in: "{{ macos_xcode_user_detect.stdout.split(':')[1] | default('') | trim != 'unverified' }}"
+    macos_xcode_mas_unverified: "{{ macos_xcode_user_detect.stdout.split(':')[1] | default('') | trim == 'unverified' }}"
   when:
     - macos_xcode_user_detect is defined
+    - macos_xcode_user_detect.rc is defined
     - macos_xcode_user_detect.rc == 0
     - macos_xcode_mas_user | length == 0
   tags: ["mas", "check"]
@@ -274,7 +309,21 @@
     macos_xcode_mas_apple_id: "{{ macos_xcode_mas_account_override.stdout | default('') | trim }}"
   when:
     - macos_xcode_mas_account_override is defined
+    - macos_xcode_mas_account_override.rc is defined
     - macos_xcode_mas_account_override.rc == 0
+  tags: ["mas", "check"]
+
+# mas 2.x+ removed `mas account` — an unverifiable override user still gets an
+# install attempt; mas itself reports a clean "not signed in" error.
+- name: Mark override user unverified when mas account is unavailable
+  ansible.builtin.set_fact:
+    macos_xcode_mas_unverified: true
+  when:
+    - macos_xcode_mas_account_override is defined
+    - macos_xcode_mas_account_override.rc is defined
+    - macos_xcode_mas_account_override.rc != 0
+    - macos_xcode_mas_user | length > 0
+    - not macos_xcode_mas_signed_in
   tags: ["mas", "check"]
 
 # Report results
@@ -297,6 +346,7 @@
   when:
     - macos_xcode_mas_available
     - not macos_xcode_mas_signed_in
+    - not macos_xcode_mas_unverified | default(false)
     - macos_xcode_installed_version is not defined
       or macos_xcode_installed_version != macos_xcode_resolved_version
   tags: ["mas", "info"]
@@ -307,6 +357,7 @@
   when:
     - macos_xcode_mas_available
     - not macos_xcode_mas_signed_in
+    - not macos_xcode_mas_unverified | default(false)
     - macos_xcode_installed_version is not defined
       or macos_xcode_installed_version != macos_xcode_resolved_version
   tags: ["mas", "check"]
@@ -322,18 +373,39 @@
   changed_when: false
   failed_when: false
   when:
-    - macos_xcode_mas_signed_in
+    - macos_xcode_mas_signed_in or macos_xcode_mas_unverified | default(false)
   tags: ["mas", "install"]
 
+# mas has no sign-in status command since mas 2.x and MobileMeAccounts no
+# longer exposes it on macOS 15+ — attempt the install and let mas decide.
 - name: Install Xcode via mas
   ansible.builtin.command: "{{ macos_xcode_mas_path }} install {{ macos_xcode_mas_app_id }}"
   register: macos_xcode_mas_install
   become: true
   become_user: "{{ macos_xcode_mas_user }}"
+  failed_when: false
   when:
-    - macos_xcode_mas_signed_in
+    - macos_xcode_mas_signed_in or macos_xcode_mas_unverified | default(false)
     - macos_xcode_mas_app_id not in (macos_xcode_mas_list.stdout | default(''))
-  changed_when: true
+  changed_when: macos_xcode_mas_install.rc | default(1) == 0  # project-lint: disable=magic-int  exit code comparison
+  tags: ["mas", "install"]
+
+- name: Classify mas install failure
+  ansible.builtin.set_fact:
+    macos_xcode_errors: >-
+      {{ macos_xcode_errors +
+         ['mas install failed — the App Store session may not be signed in (mas: ' +
+          (macos_xcode_mas_install.stderr | default(macos_xcode_mas_install.msg) | trim) +
+          '). Sign in via System Settings → Apple ID, then re-run: just ansible-install-xcode']
+         if ('sign in' in (macos_xcode_mas_install.stderr | default('') | lower)
+             or 'not signed in' in (macos_xcode_mas_install.stderr | default('') | lower)
+             or 'not signed in' in (macos_xcode_mas_install.msg | default('') | lower))
+         else
+         ['mas install failed: ' + (macos_xcode_mas_install.stderr | default(macos_xcode_mas_install.msg) | trim)] }}
+  when:
+    - macos_xcode_mas_install is defined
+    - macos_xcode_mas_install.rc is defined
+    - macos_xcode_mas_install.rc != 0
   tags: ["mas", "install"]
 
 - name: Report mas install result

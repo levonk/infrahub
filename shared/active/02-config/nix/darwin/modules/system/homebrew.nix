@@ -88,8 +88,11 @@ in {
     # Excludes apps already in environment.systemPackages via nix:
     #   discord, bitwarden-desktop, orbstack (in fleet module)
     casks = [
-      # Browsers (firefox stable — Dev Edition is in nix; this is NOT a duplicate)
+      # Browsers. Dev Edition moved back to cask: the nixpkgs-darwin wrapper
+      # sets MOZ_APP_LAUNCHER/MOZ_LEGACY_PROFILES which breaks profile
+      # creation on GUI launch ("no such profile exists") — upstream issue.
       "firefox"
+      "firefox@developer-edition"
       "google-chrome"
       "microsoft-edge"
 
@@ -105,7 +108,9 @@ in {
       # Terminal / KVM / URL routing
       "iterm2"
       "deskflow"
-      "finicky"
+      # finicky intentionally excluded: it self-updates via Sparkle, so the
+      # installed app runs ahead of the cask and `brew bundle` fails trying
+      # to adopt the newer /Applications/Finicky.app. Left self-managed.
 
       # Containers — OrbStack is the fleet runtime (nix pkg via fleet
       # module's infra.fleet.containerRuntime). Docker Desktop intentionally

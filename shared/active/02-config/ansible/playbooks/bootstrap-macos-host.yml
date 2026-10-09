@@ -19,13 +19,47 @@
 
 - name: "Bootstrap macOS Host — Create auser, SSH, Nix, Tailscale, Netbird"
   hosts: macos_hosts
-  gather_facts: true
+  # Facts are gathered in pre_tasks AFTER the CLT check — /usr/bin/python3 on
+  # a fresh Mac is a stub that errors out until Command Line Tools exist, so
+  # every Python module (including setup) fails until CLT is installed.
+  gather_facts: false
   become: false  # macOS uses sudo per-task, not persistent become
 
   pre_tasks:
+    # /usr/bin/python3 on a fresh Mac is a stub that prints an xcode-select
+    # error and exits non-zero — Ansible's setup module then fails with
+    # "No start of json char found". Install Command Line Tools headless via
+    # softwareupdate. Uses raw (no Python required on the target).
+    - name: "Install Xcode Command Line Tools if missing (required for Python)"
+      ansible.builtin.raw: |
+        if xcode-select -p >/dev/null 2>&1; then
+          echo "CLT already installed"
+          exit 0
+        fi
+        touch /tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress
+        label=$(softwareupdate -l 2>/dev/null | grep -i "Command Line Tools" | sed -n 's/^.*Label: \(.*\)$/\1/p' | head -1)  # project-lint: disable=magic-int  first match only
+        if [ -z "$label" ]; then
+          label=$(softwareupdate -l 2>/dev/null | grep -i "Command Line Tools" | sed -n 's/^.*\* \(.*\)$/\1/p' | head -1)  # project-lint: disable=magic-int  first match only
+        fi
+        if [ -z "$label" ]; then
+          rm -f /tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress
+          echo "ERROR: no Command Line Tools update found" >&2  # project-lint: disable=magic-int  stderr fd
+          exit 1
+        fi
+        softwareupdate -i "$label" --agree-to-license --verbose 2>&1 | tail -5  # project-lint: disable=magic-int  show install tail
+        rm -f /tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress
+        xcode-select -p
+      become: true
+      tags: ["clt", "bootstrap"]
+
     - name: "Gather ansible_facts"
       ansible.builtin.setup:
         gather_subset: ["all"]
+      tags: ["always"]
+
+    - name: "Load shared infrastructure modes (infra_mode_*)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/modes.yml"
       tags: ["always"]
 
     - name: "Validate required variables"
@@ -76,10 +110,22 @@
       no_log: true
       tags: ["auser", "create"]
 
+    # dseditgroup edits to the admin group require interactive admin
+    # credentials on macOS 15+ even when running as root — only attempt the
+    # edit when auser is genuinely missing from the group (normally created
+    # with -admin by sysadminctl, so this is a no-op in practice).
+    - name: "Check auser admin group membership"
+      ansible.builtin.command: dseditgroup -o checkmember -m {{ macos_auser }} admin
+      register: auser_admin_check
+      changed_when: false
+      failed_when: false
+      tags: ["auser", "check"]
+
     - name: "Ensure auser is in admin group"
       ansible.builtin.command: dseditgroup -o edit -a {{ macos_auser }} -t user admin
       become: true
       changed_when: false
+      when: auser_admin_check.rc != 0
       tags: ["auser", "configure"]
 
     # ---------------------------------------------------------------------------
@@ -99,6 +145,20 @@
         validate: "visudo -cf %s"
       become: true
       tags: ["auser", "sudoers"]
+
+    # The manual bootstrap script's `sudo mkdir -p /Users/auser/.ssh`
+    # creates /Users/auser root-owned when sysadminctl doesn't materialize
+    # the home directory — auser then can't write its own home and every
+    # Ansible run fails at "Failed to create temporary directory".
+    - name: "Ensure auser home directory exists and is owned by auser"
+      ansible.builtin.file:
+        path: "/Users/{{ macos_auser }}"
+        state: directory
+        owner: "{{ macos_auser }}"
+        group: "staff"
+        mode: "{{ infra_mode_dir }}"
+      become: true
+      tags: ["auser", "configure"]
 
     - name: "Create .ssh directory for auser"
       ansible.builtin.file:
@@ -153,13 +213,55 @@
       failed_when: false
       tags: ["nix", "check"]
 
-    - name: "Install Nix (multi-user daemon, flakes enabled)"
+    # The upstream Nix daemon installer writes an /etc/fstab entry for the
+    # APFS "Nix Store" volume via `vifs`, but the fstab path is SIP-blocked
+    # on macOS 26+ ("Operation not permitted" even as root). The install
+    # below patches that call out — mounting is handled by the
+    # org.nixos.darwin-store LaunchDaemon the installer creates.
+    - name: "Install Nix (vanilla multi-user daemon)"
+      # Fetches the release tarball directly so create-darwin-volume.sh can
+      # be patched before running install: the fstab write (vifs) fails on
+      # macOS 26+ where the fstab path is SIP-blocked. The patch is safe —
+      # mounting is handled by the org.nixos.darwin-store LaunchDaemon the
+      # installer creates; fstab only carried mount options.
       ansible.builtin.shell:
         cmd: |
-          sh <(curl -L https://nixos.org/nix/install) --daemon --yes \
-            --daemon-user-count 4 \  # project-lint: disable=magic-int  Docker daemon user count, not a standalone magic number
-            --nix-extra-conf 'experimental-features = nix-command flakes'
-      when: nix_check.rc != 0
+          set -e
+          workdir=$(mktemp -d)
+          cd "$workdir"
+          case "$(uname -m)" in
+            arm64)  nixsys="aarch64-darwin" ;;
+            x86_64) nixsys="x86_64-darwin" ;;
+            *)      echo "unsupported arch: $(uname -m)" >&2; exit 1 ;;  # project-lint: disable=magic-int  stderr fd
+          esac
+          curl -sSfL -o nix.tar.xz \
+            "https://releases.nixos.org/nix/nix-{{ macos_nix_version }}/nix-{{ macos_nix_version }}-${nixsys}.tar.xz"
+          tar -xJf nix.tar.xz
+          cd "nix-{{ macos_nix_version }}-${nixsys}"
+          sed -i '' 's|add_nix_vol_fstab_line "$volume_uuid" /usr/sbin/vifs|:|' create-darwin-volume.sh
+          ./install --daemon --yes --daemon-user-count 4  # project-lint: disable=magic-int  builder user count, not an operational magic number
+      when:
+        - nix_check.rc != 0
+        - macos_nix_flavor == "vanilla"
+      become: true
+      tags: ["nix", "install"]
+
+    # The Determinate shell installer (nix-installer) still registers the
+    # /nix mount via /etc/fstab, which is SIP-blocked on macOS 26+
+    # ("Operation not permitted" renaming fstab.tmp). The macOS-native
+    # Determinate.pkg mounts the store via a LaunchDaemon and works
+    # headless via `installer -pkg`.
+    - name: "Install Nix (Determinate pkg — launchd-mounted store)"
+      ansible.builtin.shell:
+        cmd: >
+          curl --proto '=https' --tlsv1.2 -sSfL
+          -o /tmp/determinate-nix.pkg
+          https://install.determinate.systems/determinate-pkg/stable/Universal &&
+          installer -pkg /tmp/determinate-nix.pkg -target / &&
+          rm -f /tmp/determinate-nix.pkg
+      when:
+        - nix_check.rc != 0
+        - macos_nix_flavor == "determinate"
       become: true
       tags: ["nix", "install"]
 
@@ -267,8 +369,8 @@
           ========================================
           Nix: {{ nix_version.stdout | default('check failed') }}
           System config: run `just ansible-configure-macos` to apply
-          Tailscale: {{ 'connected' if tailscale_final_status.rc == 0 else 'NOT connected' }}
-          Netbird: {{ 'connected' if (netbird_enabled | bool and netbird_final_status.rc == 0) else ('skipped (no setup key)' if not (netbird_enabled | bool) else 'NOT connected') }}
+          Tailscale: {{ 'connected' if (tailscale_final_status is defined and tailscale_final_status.rc == 0) else 'NOT connected' }}
+          Netbird: {{ 'connected' if (netbird_enabled is defined and netbird_enabled | bool and netbird_final_status is defined and netbird_final_status.rc == 0) else ('skipped (no setup key)' if not (netbird_enabled is defined and netbird_enabled | bool) else 'NOT connected') }}
           SSH: enabled (Remote Login)
           ========================================
       tags: ["always", "summary"]

@@ -28,6 +28,8 @@
         - networks.yml
         - domains.yml
         - storage.yml
+        - modes.yml
+        - timing.yml
       tags: ["always"]
 
     - name: "Load client infrastructure overrides (levonk)"

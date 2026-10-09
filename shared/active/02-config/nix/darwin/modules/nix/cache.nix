@@ -14,7 +14,7 @@
 # environment.etc, which Determinate Nix includes via `!include`.
 #
 # See: shared/active/08-docs/adr/adr-20260708001-nix-cache-chain-regional-parallel-racing.md
-{ pkgs, ... }: {
+{ pkgs, config, lib, ... }: {
   # nix.settings is kept for documentation and non-Determinate hosts.
   # On Determinate Nix hosts, the environment.etc below is what actually
   # reaches the active Nix config.
@@ -34,7 +34,12 @@
   # Determinate Nix: write substituters to nix.custom.conf (included by
   # Determinate's /etc/nix/nix.conf via `!include nix.custom.conf`).
   # This is the mechanism that actually reaches the active Nix config.
-  environment.etc."nix/nix.custom.conf".text = ''
+  # Only when nix.enable = false (Determinate hosts): on vanilla Nix hosts
+  # the activation precheck flags any existing nix.custom.conf as
+  # "custom settings" and aborts — vanilla hosts already get these
+  # settings via nix.settings → /etc/nix/nix.conf.
+  environment.etc."nix/nix.custom.conf" = lib.mkIf (!config.nix.enable) {
+    text = ''
     # Managed by nix-darwin — DO NOT EDIT MANUALLY
     # This file is included by Determinate Nix's /etc/nix/nix.conf via:
     #   !include nix.custom.conf
@@ -60,4 +65,5 @@
     substituters = https://cache.nixos.org?priority=80
     trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
   '';
+  };
 }

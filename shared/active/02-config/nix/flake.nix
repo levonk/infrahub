@@ -47,9 +47,10 @@
             netbird
           ];
           # GUI apps — .app bundles symlinked to /Applications by symlink-apps
+          # (firefox-devedition is a brew cask — the nixpkgs-darwin wrapper
+          # breaks profile creation on launch)
           guiApps = with pkgs; [
             cmux
-            firefox-devedition-bin
             raycast
           ];
         in {
