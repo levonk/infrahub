@@ -433,6 +433,25 @@
       when: brew_check.rc == 0 or brew_check.changed
       tags: ["brew", "install"]
 
+    # Group-writable dirs fix writes, but /opt/homebrew/.git stays owned by
+    # the installing user (auser). git's safe.directory check then refuses
+    # to read the repo as other admin users (micro) — `brew update` reports
+    # "No remote 'origin' in /opt/homebrew" and skips self-updates.
+    # Must use /usr/bin/git (Apple CLT/Xcode git): its system config is
+    # /etc/gitconfig and it is what brew invokes. A bare `git` may resolve
+    # to the nix-store git, whose sysconfdir is inside the store path.
+    - name: "Allow all admin users to read Homebrew's git metadata"
+      ansible.builtin.shell:
+        cmd: |
+          BREW_DIR="{{ macos_brew_dir | dirname }}"
+          if ! /usr/bin/git config --system --get-all safe.directory 2>/dev/null | grep -qxF "$BREW_DIR"; then
+            /usr/bin/git config --system --add safe.directory "$BREW_DIR"
+          fi
+      become: true
+      changed_when: true
+      when: brew_check.rc == 0 or brew_check.changed
+      tags: ["brew", "install"]
+
     # ---------------------------------------------------------------------------
     # Deploy the nix-darwin flake to the target
     # Clean control repo: try a full git clone from origin; if auth fails, fall
@@ -739,18 +758,25 @@
           become: true
           changed_when: true
 
-        - name: "pmset -a displaysleep 4"  # project-lint: disable=magic-int  macOS power management setting, not a standalone magic number
-          ansible.builtin.command: pmset -a displaysleep 4  # project-lint: disable=magic-int  macOS power management setting, not a standalone magic number
-          become: true
-          changed_when: true
-
-        - name: "pmset -c sleep 0"  # project-lint: disable=magic-int  macOS power management setting, not a standalone magic number
-          ansible.builtin.command: pmset -c sleep 0  # project-lint: disable=magic-int  macOS power management setting, not a standalone magic number
+        # sleep must be set before displaysleep: pmset rejects any
+        # displaysleep timeout >= the system sleep timeout for that profile.
+        - name: "pmset -c sleep 90"  # project-lint: disable=magic-int  macOS power management setting, not a standalone magic number
+          ansible.builtin.command: pmset -c sleep 90  # project-lint: disable=magic-int  macOS power management setting, not a standalone magic number
           become: true
           changed_when: true
 
         - name: "pmset -b sleep 5"  # project-lint: disable=magic-int  shell command argument, not an operational value
           ansible.builtin.command: pmset -b sleep 5  # project-lint: disable=magic-int  shell command argument, not an operational value
+          become: true
+          changed_when: true
+
+        - name: "pmset -c displaysleep 35"  # project-lint: disable=magic-int  macOS power management setting, not a standalone magic number
+          ansible.builtin.command: pmset -c displaysleep 35  # project-lint: disable=magic-int  macOS power management setting, not a standalone magic number
+          become: true
+          changed_when: true
+
+        - name: "pmset -b displaysleep 4"  # project-lint: disable=magic-int  macOS power management setting, not a standalone magic number
+          ansible.builtin.command: pmset -b displaysleep 4  # project-lint: disable=magic-int  macOS power management setting, not a standalone magic number
           become: true
           changed_when: true
 
