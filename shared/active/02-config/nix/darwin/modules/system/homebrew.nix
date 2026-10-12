@@ -7,10 +7,12 @@
 # Deduplication rules (ADR-202607070001 supplement):
 #   - If a package is in environment.systemPackages, it must NOT be in
 #     homebrew.brews or homebrew.casks.
-#   - GUI apps available in nixpkgs (raycast, brave, espanso, cmux, discord,
+#   - GUI apps available in nixpkgs (raycast, brave, espanso, cmux,
 #     bitwarden-desktop, orbstack, firefox-devedition-bin, vscode-insiders)
 #     are in the fleet module, NOT here. rustdesk is listed in nixpkgs but
-#     marks darwin as badPlatforms, so it stays a cask below.
+#     marks darwin as badPlatforms, so it stays a cask below. discord is
+#     also listed in nixpkgs but its darwin derivation breaks the app's
+#     sealed-resources signature (see below), so it is a cask too.
 #   - Casks listed here are apps NOT available in nixpkgs or that are better
 #     managed as casks (e.g., Docker Desktop requires cask-only install).
 #   - firefox (stable) and visual-studio-code (stable) are kept as casks
@@ -87,8 +89,15 @@ in {
 
     # GUI apps managed by Homebrew casks.
     # Excludes apps already in environment.systemPackages via nix:
-    #   discord, bitwarden-desktop, orbstack (in fleet module)
+    #   bitwarden-desktop, orbstack (in fleet module)
     casks = [
+      # Communication. discord moved back to cask: the nixpkgs darwin
+      # derivation stages host-update modules into
+      # Contents/Resources/modules/ post-signature, invalidating the
+      # sealed-resources seal. macOS 26 Gatekeeper reports the app as
+      # "damaged and can't be opened". The cask installs Discord's
+      # official signed+notarized dmg.
+      "discord"
       # Browsers. Dev Edition moved back to cask: the nixpkgs-darwin wrapper
       # sets MOZ_APP_LAUNCHER/MOZ_LEGACY_PROFILES which breaks profile
       # creation on GUI launch ("no such profile exists") — upstream issue.
@@ -99,7 +108,9 @@ in {
 
       # Development tools (vscode stable — Insiders is in nix; NOT a duplicate)
       "visual-studio-code"
-      "windsurf"
+      # Windsurf was renamed to devin-desktop after the Cognition
+      # acquisition; brew resolves the old token via a rename shim today.
+      "devin-desktop"
       "devin-cli"
       # Orca ADE for parallel coding agents — tap-only cask, not in nixpkgs.
       # Fully-qualified name required: bare "orca" collides with the disabled

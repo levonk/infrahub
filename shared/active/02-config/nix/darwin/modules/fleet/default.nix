@@ -125,7 +125,12 @@ in
     # System Settings → Privacy & Security → Accessibility.
     #
     # Browsers: firefox-devedition-bin (Firefox Developer Edition), brave.
-    # Communication: discord, zoom-us.
+    # Communication: zoom-us. discord moved to a Homebrew cask: the
+    # nixpkgs darwin derivation extracts host-update modules (krisp,
+    # spellcheck, rpc, ...) into Contents/Resources/modules/ AFTER the
+    # Developer ID signature was applied, which breaks the sealed
+    # resources seal. Gatekeeper on macOS 26 rejects the app outright —
+    # "Discord is damaged and can't be opened."
     # Security: bitwarden-desktop (password manager).
     # Editor: vscode-insiders (pre-release VS Code, see override above).
     # Remote desktop: rustdesk is a Homebrew cask — nixpkgs marks darwin
@@ -159,7 +164,6 @@ in
         raycast
         espanso-stable
         vscode-insiders
-        discord
         zoom-us
         bitwarden-desktop
         stirling-pdf-desktop
