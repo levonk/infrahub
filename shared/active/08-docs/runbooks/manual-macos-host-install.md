@@ -133,10 +133,28 @@ The bootstrap playbook (`bootstrap-macos-host.yml`) will:
 - Install GUI apps via Nix flake: cmux, Firefox Developer Edition, Raycast
 - Symlink GUI .app bundles to /Applications (so they appear in Spotlight/Launchpad)
 - Install Homebrew casks: OrbStack (container runtime), RustDesk
+- Install RustDesk launchd service/agent + self-hosted server config, then
+  open the System Settings privacy panes for the one-time TCC grants —
+  see [RustDesk permissions](#rustdesk-permissions-one-time-manual-grants)
 - Join Tailscale with the auth key from vault
 - Join Netbird with the setup key from vault (if configured)
 
 ---
+
+## RustDesk permissions (one-time manual grants)
+
+The `rustdesk-client` role in `configure-macos-host.yml` automates the whole
+first-run wizard except three privacy toggles that Apple forbids scripts
+from setting (SIP-protected TCC; only an MDM PPPC profile can pre-grant):
+
+1. **Privacy & Security → Screen & System Audio Recording** — enable RustDesk
+2. **Privacy & Security → Accessibility** — enable RustDesk
+3. **Privacy & Security → Input Monitoring** — enable RustDesk
+
+The role launches RustDesk and opens these panes automatically at the end
+of `just ansible-configure-macos` — flip the toggles, then set
+`rustdesk_client_macos_permissions_granted: true` in the inventory so
+re-runs skip the pane handoff.
 
 ## If the machine is already on Tailscale
 

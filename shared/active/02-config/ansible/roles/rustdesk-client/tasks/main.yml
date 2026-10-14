@@ -1,11 +1,11 @@
 ---
 # RustDesk Client — Installation and Configuration
-# Installs the RustDesk client on Linux hosts and configures it to use
-# a self-hosted RustDesk server (hbbs/hbbr).
+# Installs the RustDesk client and configures it to use a self-hosted
+# RustDesk server (hbbs/hbbr). Dispatches on OS:
 #
-# Supports Debian/Ubuntu (.deb) and EL/RHEL-family (.rpm) distributions.
-# The RustDesk client runs as a systemd service (rustdesk) for unattended
-# access, with the config stored in /root/.config/rustdesk/RustDesk2.toml.
+#   Linux  — .deb/.rpm package, systemd service, root config
+#   macOS  — Homebrew cask, launchd Daemon/Agent, per-user + root config,
+#            TCC privacy-pane handoff for the one-time human grants
 
 # ============================================================================
 # Validate required variables
@@ -24,100 +24,29 @@
   tags: ["always", "validate"]
 
 # ============================================================================
-# Install RustDesk package
+# OS dispatch
 # ============================================================================
-- name: Detect package architecture
-  ansible.builtin.command: dpkg --print-architecture
-  register: rustdesk_client_dpkg_arch
-  changed_when: false
-  when: ansible_os_family == "Debian"
-  tags: ["install"]
+- name: Include macOS tasks
+  ansible.builtin.include_tasks: darwin.yml
+  when:
+    - rustdesk_client_enabled | bool
+    - ansible_facts['distribution'] == "MacOSX"
+  tags: ["rustdesk"]
 
-- name: Set RustDesk deb architecture mapping
-  ansible.builtin.set_fact:
-    rustdesk_client_deb_arch: >-
-      {{
-        {
-          'arm64': 'aarch64',
-          'amd64': 'x86_64'
-        }[rustdesk_client_dpkg_arch.stdout] | default('x86_64')
-      }}
-  when: ansible_os_family == "Debian"
-  tags: ["install"]
+- name: Include Linux tasks
+  ansible.builtin.include_tasks: linux.yml
+  when:
+    - rustdesk_client_enabled | bool
+    - ansible_facts['os_family'] in ["Debian", "RedHat"]
+  tags: ["rustdesk"]
 
-- name: Download RustDesk .deb package (Debian/Ubuntu)
-  ansible.builtin.get_url:
-    url: "https://github.com/rustdesk/rustdesk/releases/download/{{ rustdesk_client_version }}/rustdesk-{{ rustdesk_client_version }}-{{ rustdesk_client_deb_arch }}.deb"
-    dest: "/tmp/rustdesk-{{ rustdesk_client_version }}.deb"
-    mode: "0644"
-  when: ansible_os_family == "Debian"
-  tags: ["install"]
-
-- name: Install RustDesk .deb package (Debian/Ubuntu)
-  ansible.builtin.apt:
-    deb: "/tmp/rustdesk-{{ rustdesk_client_version }}.deb"
-    state: present
-  when: ansible_os_family == "Debian"
-  tags: ["install"]
-
-- name: Download RustDesk .rpm package (EL/RHEL)
-  ansible.builtin.get_url:
-    url: "https://github.com/rustdesk/rustdesk/releases/download/{{ rustdesk_client_version }}/rustdesk-{{ rustdesk_client_version }}-{{ ansible_architecture }}.rpm"
-    dest: "/tmp/rustdesk-{{ rustdesk_client_version }}.rpm"
-    mode: "0644"
-  when: ansible_os_family == "RedHat"
-  tags: ["install"]
-
-- name: Install RustDesk .rpm package (EL/RHEL)
-  ansible.builtin.yum:
-    name: "/tmp/rustdesk-{{ rustdesk_client_version }}.rpm"
-    state: present
-    disable_gpg_check: true
-  when: ansible_os_family == "RedHat"
-  tags: ["install"]
-
-# ============================================================================
-# Configure RustDesk client
-# ============================================================================
-- name: Ensure RustDesk config directory exists
-  ansible.builtin.file:
-    path: "{{ rustdesk_client_config_dir }}"
-    state: directory
-    mode: "0700"
-    owner: root
-    group: root
-  tags: ["config"]
-
-- name: Render RustDesk client configuration
-  ansible.builtin.template:
-    src: RustDesk2.toml.j2
-    dest: "{{ rustdesk_client_config_dir }}/{{ rustdesk_client_config_file }}"
-    mode: "0600"
-    owner: root
-    group: root
-  notify: restart rustdesk service
-  tags: ["config"]
-
-# ============================================================================
-# Enable and start RustDesk service
-# ============================================================================
-- name: Ensure RustDesk service is enabled and started
-  ansible.builtin.systemd:
-    name: rustdesk
-    state: started
-    enabled: true
-    daemon_reload: true
-  tags: ["service"]
-
-# ============================================================================
-# Status Report
-# ============================================================================
-- name: Report RustDesk client status
+- name: Warn on unsupported platform
   ansible.builtin.debug:
-    msg: |
-      RustDesk client configured:
-        - ID Server:    {{ rustdesk_client_id_server }}
-        - Relay Server: {{ rustdesk_client_relay_server }}
-        - Config:       {{ rustdesk_client_config_dir }}/{{ rustdesk_client_config_file }}
-        - Service:      rustdesk (enabled, started)
-  tags: ["always", "info"]
+    msg: >-
+      rustdesk-client: unsupported platform
+      (distribution={{ ansible_facts['distribution'] | default('?') }},
+      os_family={{ ansible_facts['os_family'] | default('?') }}). Nothing was done.
+  when: >-
+    ansible_facts['distribution'] != "MacOSX"
+    and ansible_facts['os_family'] not in ["Debian", "RedHat"]
+  tags: ["always"]
