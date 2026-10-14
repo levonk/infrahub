@@ -49,6 +49,7 @@ PB_WATCH_PARTY := ANSIBLE_ROOT + "/playbooks/deploy-watch-party.yml"
 PB_VAL_WATCH_PARTY := ANSIBLE_ROOT + "/playbooks/validate-watch-party.yml"
 PB_VAL_AUTHELIA := ANSIBLE_ROOT + "/playbooks/validate-authelia.yml"
 PB_ACRM := ANSIBLE_ROOT + "/playbooks/deploy-acrm.yml"
+PB_TREG := ANSIBLE_ROOT + "/playbooks/deploy-treg.yml"
 WINDOWS_INVENTORY := INFRAHUB_ROOT + "/levonk/active/02-config/ansible/inventories/windows-docker.yml"
 MACOS_INVENTORY := INFRAHUB_ROOT + "/levonk/active/02-config/ansible/inventories/macos-hosts.yml"
 PB_CONFIGURE_MACOS := ANSIBLE_ROOT + "/playbooks/configure-macos-host.yml"
@@ -722,6 +723,32 @@ ansible_deploy_acrm_check_impl:
     {{_log}}
     log_start "Checking ACRM deployment on Windows Docker host (--check --diff)"
     ansible-playbook -i {{WINDOWS_INVENTORY}} {{PB_ACRM}} --check --diff --vault-password-file ~/.ansible/vault_password
+
+# Deploy treg Tool Registry (treg-postgres + localnet-ai-treg) + Traefik routing on OCI
+# Prerequisites: image pushed (just docker-build-push localnet-ai-treg), vault secrets set
+# (vault_treg_secret_key, vault_treg_session_secret, vault_treg_admin_token, vault_treg_postgres_password)
+ansible-deploy-treg:
+    @just _devbox ansible_deploy_treg_impl
+
+[private]
+ansible_deploy_treg_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Deploying treg Tool Registry on OCI (cno)"
+    ansible-playbook -i {{INVENTORY}} {{PB_TREG}} --vault-password-file ~/.ansible/vault_password
+
+# Dry-run treg deployment (--check --diff)
+ansible-deploy-treg-check:
+    @just _devbox ansible_deploy_treg_check_impl
+
+[private]
+ansible_deploy_treg_check_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Checking treg deployment on OCI (--check --diff)"
+    ansible-playbook -i {{INVENTORY}} {{PB_TREG}} --check --diff --vault-password-file ~/.ansible/vault_password
 
 # Deploy Local Watch Party + coturn on OCI cloud server
 # Prerequisites: Traefik + Authelia deployed, watch-party image built, vault secret set.

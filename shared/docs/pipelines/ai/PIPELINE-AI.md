@@ -71,7 +71,6 @@ flowchart LR
         NORD["NordVPN\nVPN tunnel\n(Phase 3)"]
         DASH["AI Dashboard Proxy 1/2 + DB\nAnalytics collectors\n(Phase 4)"]
         PRIV["Privacy Orchestrator\nStandalone PII service\n(Phase 5)"]
-        TREGPHASE["treg Tool Registry\n(Phase 6 — tool call\nkey management)"]
     end
 ```
 
@@ -85,6 +84,14 @@ Agent requests (LLM calls and treg tool calls) currently egress through Iron-Pro
 This is a topology decision, not a pipeline architecture decision. See `shared/docs/pipelines/web/complete-web-proxy-chain.md` for the web proxy chain details.
 
 ## Recent Changes
+
+**2026-10-14**: treg Tool Registry implemented for oci-cloud-server (Phase 6 delivered)
+- Added **ai-treg** Ansible role (`roles/ai-treg/`) + `deploy-treg.yml` playbook + `just ansible-deploy-treg` recipe
+- Locally-built multi-arch image `localnet-ai-treg` — treg ships as the `tools-registry[server]` PyPI package (no upstream Docker image); multi-stage Dockerfile at `services/ai-services/treg/docker/Dockerfile.treg`
+- Stack: `localnet-ai-treg` + `treg-postgres` (postgres:15-alpine) on `traefik-network`, port 18790
+- Domain: https://treg.cno.levonk.com — Traefik split routing: web UI behind Authelia SSO; API/proxy paths (`/call/`, `/mcp/`, `/api/`, `/meta`, `/llms.txt`, `/install.sh`, `/docs`) public with `X-Treg-Token` auth
+- Auth: admin token only (`vault_treg_admin_token`); OAuth/email OTP disabled; platform providers + overflow mode off
+- PostgreSQL backup via `restoredrill_databases`; service catalog + SERVICES.md updated; DNS CNAME → `oci.tale-grouper.ts.net`
 
 **2026-09-03**: Expanded pipeline to include development environment, agent memory, and tool call path
 - Added **herdr** (https://github.com/herdrdev/herdr) as the terminal runtime in the dev container — always-running server for coding agents, survives laptop close/lid drop
@@ -202,13 +209,15 @@ Revisit the **AI Dashboard Proxy 1/2 collectors + shared DB** for deeper per-sta
 
 Revisit the standalone **Privacy Orchestrator** (ai-privacy-proxy) if LiteLLM's Presidio PII masking proves insufficient. The standalone service offers Candle ML-based detection across 22+ PII categories with multiple transformation modes.
 
-### Phase 6 (Future) — treg Tool Registry
+### Phase 6 — treg Tool Registry
 
-Add **treg** (https://github.com/superdesigndev/treg) behind Iron-Proxy for non-LLM tool call key management. treg is "OpenRouter for tools" — a tool registry and credential relay that manages tool API keys (Stripe, GitHub, SEO/enrichment APIs), team key-sharing, CLI credential injection, and skill/bundle registration. Iron-Proxy's allowlist expands to permit treg as an egress destination. treg manages tool keys; Iron-Proxy remains the egress firewall. LLM provider keys continue to flow through LiteLLM + OmniRoute.
+**treg** (https://github.com/superdesigndev/treg) runs on the OCI cloud server for non-LLM tool call key management. treg is "OpenRouter for tools" — a tool registry and credential relay that manages tool API keys (Stripe, GitHub, SEO/enrichment APIs), team key-sharing, CLI credential injection, and skill/bundle registration. Iron-Proxy's allowlist expands to permit treg as an egress destination. treg manages tool keys; Iron-Proxy remains the egress firewall. LLM provider keys continue to flow through LiteLLM + OmniRoute.
 
 **Architecture**: Iron-Proxy sits in front of treg. Iron-Proxy holds treg's `X-Treg-Token` (agent never sees it). treg holds all tool API keys and injects them server-side. Iron-Proxy's default-deny ensures the agent can only reach treg, not upstreams directly. This is CB4A Model A — two layers of credential brokering, each protecting the next.
 
 **treg interfaces**: HTTP relay proxy (`/call/{upstream_url}`), MCP server (`/mcp/`), REST API (`/docs`), CLI (`treg call`, `treg run`, `treg shell`). The HTTP relay is the interface Iron-Proxy gates. The CLI/shell features (`treg run`, `treg shell`) run locally and cannot be gated by Iron-Proxy — agents must use only the HTTP relay interface for tool calls that go through the pipeline.
+
+**Deployment (implemented 2026-10-14)**: Ansible role `ai-treg` (`shared/active/02-config/ansible/roles/ai-treg/`), playbook `playbooks/deploy-treg.yml`, just recipe `just ansible-deploy-treg`. Locally-built multi-arch image `localnet-ai-treg` (no upstream image — treg ships as the `tools-registry[server]` PyPI package; Dockerfile at `shared/active/03-container/services/ai-services/treg/docker/Dockerfile.treg`). Runs on oci-cloud-server (cno): `localnet-ai-treg` container + `treg-postgres` (postgres:15-alpine) on `traefik-network`, port 18790. Public URL `https://treg.cno.levonk.com` — Traefik splits traffic: web UI (`/app`, `/`) behind Authelia SSO; API/proxy paths (`/call/`, `/mcp/`, `/api/`, `/meta`, `/llms.txt`, `/install.sh`, `/docs`) public with `X-Treg-Token` auth. Auth mode: admin token only (no OAuth/email OTP); tier-4 platform providers and overflow mode disabled. PostgreSQL backed up via `restoredrill_databases` in `cloud_servers.yml`. Vault secrets: `vault_treg_secret_key`, `vault_treg_session_secret`, `vault_treg_admin_token`, `vault_treg_postgres_password`.
 
 ## Pipeline Architecture
 
@@ -344,7 +353,7 @@ Pi → treg /call/{upstream_url} → Iron-Proxy → Internet (real upstream API)
 
 **treg vs iron-proxy**: iron-proxy is the egress firewall (security). treg is the tool registry (productivity). They are complementary: iron-proxy as the egress firewall ensures nothing bypasses the proxy layer; treg as the tool registry manages which tools are available and injects their credentials. See the 2ndbrain note "Local Self-Hosted exe.dev From Devbox and Justfile.md" for the full feature matrix comparing treg, iron-proxy, Conduct, agentgateway, Infisical agent-vault, and keys-on-the-wire.
 
-**Status**: DEFERRED — Phase 6. No Ansible role exists yet. treg is documented as a future evolution. For the MVP, agents that need tool calls must use credentials directly (or through Iron-Proxy's secret injection).
+**Status**: IMPLEMENTED — Phase 6 delivered 2026-10-14. Ansible role `ai-treg`, playbook `deploy-treg.yml` (`just ansible-deploy-treg`), locally-built image `localnet-ai-treg`, domain `https://treg.cno.levonk.com` (web UI behind Authelia SSO; `/call/`, `/mcp/`, `/api/`, `/meta` paths public with `X-Treg-Token` auth). Postgres sidecar `treg-postgres` backed up via restoredrill. See the "Phase 6 — treg Tool Registry" section for deployment details.
 
 ### Request Origin
 

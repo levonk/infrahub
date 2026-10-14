@@ -24,7 +24,7 @@ http:
     # HTTPS — API/proxy paths (public, X-Treg-Token auth)
     # Higher priority so these match before the web UI catch-all
     treg-api-https:
-      rule: "Host(`{{ treg_domain }}`) && PathPrefix(`/call/`) || PathPrefix(`/mcp/`) || PathPrefix(`/meta`) || PathPrefix(`/api/`) || PathPrefix(`/llms.txt`) || PathPrefix(`/install.sh`) || PathPrefix(`/docs`) || PathPrefix(`/openapi.json`) || PathPrefix(`/redoc`)"
+      rule: "Host(`{{ treg_domain }}`) && (PathPrefix(`/call/`) || PathPrefix(`/mcp/`) || PathPrefix(`/meta`) || PathPrefix(`/api/`) || PathPrefix(`/llms.txt`) || PathPrefix(`/install.sh`) || PathPrefix(`/docs`) || PathPrefix(`/openapi.json`) || PathPrefix(`/redoc`))"
       entryPoints:
         - websecure
       priority: 100  # project-lint: disable=magic-int  Traefik router priority, not a standalone magic number

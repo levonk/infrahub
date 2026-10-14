@@ -25,6 +25,39 @@
 #     shared/active/02-config/ansible/playbooks/deploy-treg.yml \
 #     --check --diff --vault-password-file ~/.ansible/vault_password
 
+- name: "Configure Cloudflare DNS for treg"
+  hosts: localhost
+  gather_facts: false
+  become: false
+  vars_files:
+    - "{{ playbook_dir }}/../infrastructure/domains.yml"
+    - "{{ playbook_dir }}/../infrastructure/timing.yml"
+    - "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/domains.yml"
+    - "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/inventories/group_vars/infrahub-levonk-all.vault.yml"
+  vars:
+    cloudflare_api_token: "{{ vault_cloudflare_api_token | default('') }}"
+    cloudflare_zone_id: "{{ vault_cloudflare_zone_id | default('') }}"
+    cloudflare_dns_state: "present"
+    cloudflare_dns_ttl: "{{ infra_dns_ttl | int }}"
+    cloudflare_dns_proxied: false
+    cloudflare_dns_verify: true
+    cloudflare_dns_verify_propagation: false
+    cloudflare_dns_validate_ip: true
+    cloudflare_dns_allow_private_ip: false
+    ts_fqdn: "{{ infra_tailscale_fqdn_cloud_server | default(infra_tailscale_tailnet | default('example.ts.net')) }}"
+    cloudflare_dns_records:
+      # treg Tool Registry (cno region) — web UI behind Authelia, API/proxy
+      # paths public with X-Treg-Token auth
+      - name: "{{ infra_domain_ai_treg | default('treg.cno.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "CNAME"
+        content: "{{ ts_fqdn }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+  roles:
+    - cloudflare-dns
+  tags: ["dns"]
+
 - name: "Deploy treg Tool Registry on OCI (cno)"
   hosts: cloud_servers
   become: true
@@ -53,6 +86,61 @@
         - storage.yml
       tags: ["always"]
 
+  vars:
+    treg_enabled: true
+
   roles:
     - role: ai-treg
       tags: ["deploy", "treg"]
+
+- name: "Deploy Traefik routing for treg"
+  hosts: cloud_servers
+  become: true
+  gather_facts: false
+
+  pre_tasks:
+    - name: "Load shared infrastructure defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+        - modes.yml
+      tags: ["always"]
+
+    - name: "Load client infrastructure overrides (levonk)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+      tags: ["always"]
+
+    - name: "Load proxy-traefik role defaults (for domain variable mappings)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../roles/proxy-traefik/defaults/main.yml"
+      tags: ["always"]
+
+  tasks:
+    - name: "Deploy treg Traefik dynamic configuration"
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/../roles/proxy-traefik/templates/dynamic/treg-cno.yml.j2"
+        dest: "{{ proxy_traefik_data_dir | default('/opt/traefik') }}/config/dynamic/treg-cno.yml"
+        owner: root
+        group: root
+        mode: "{{ infra_mode_file }}"
+      notify: reload traefik
+      tags: ["traefik", "routing"]
+      when: treg_enabled | default(true) | bool
+
+  handlers:
+    - name: reload traefik
+      community.docker.docker_container:
+        name: "{{ proxy_traefik_container_name | default('traefik') }}"
+        state: started
+        restart: true
+      when: treg_enabled | default(true) | bool

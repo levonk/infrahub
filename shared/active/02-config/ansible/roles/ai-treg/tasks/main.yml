@@ -54,6 +54,8 @@
       TZ: "{{ treg_tz }}"
     volumes:
       - "{{ treg_postgres_volume }}:/var/lib/postgresql/data:rw"
+    security_opts:
+      - no-new-privileges:true
     log_driver: json-file
     log_options:
       max-size: "{{ treg_log_max_size }}"
@@ -66,14 +68,18 @@
       start_period: "30s"
   when: treg_postgres_enabled | bool
   notify: restart treg-postgres
+  no_log: true
 
-# 5. Wait for PostgreSQL to be ready
+# 5. Wait for PostgreSQL to be healthy (docker_container_info health loop —
+# the container name is only resolvable inside the Docker network, so a
+# host-side wait_for on the name cannot work)
 - name: Wait for treg PostgreSQL to be healthy
-  ansible.builtin.wait_for:
-    host: "{{ treg_postgres_container_name }}"
-    port: "{{ treg_postgres_port }}"
-    delay: 10
-    timeout: 120
+  community.docker.docker_container_info:
+    name: "{{ treg_postgres_container_name }}"
+  register: treg_pg_info
+  until: treg_pg_info.container.State.Health.Status == "healthy"
+  retries: "{{ infra_retry_extended | default(30) }}"
+  delay: "{{ infra_delay_short | default(2) }}"
   when: treg_postgres_enabled | bool
 
 # 6. Pull treg image — MUST use source: pull, NEVER source: build
@@ -95,6 +101,8 @@
       - name: "{{ treg_network_name }}"
     ports:
       - "{{ treg_host_port }}:{{ treg_container_port }}/tcp"
+    volumes:
+      - "{{ treg_data_volume }}:/data:rw"
     env:
       PORT: "{{ treg_container_port }}"
       TREG_DATABASE_URL: "postgresql+asyncpg://{{ treg_postgres_user }}:{{ treg_postgres_password }}@{{ treg_postgres_container_name }}:{{ treg_postgres_port }}/{{ treg_postgres_database }}"
@@ -110,6 +118,8 @@
       TREG_PLATFORM_PROVIDERS: "{{ treg_platform_providers }}"
       TREG_OVERFLOW_MODE: "{{ treg_overflow_mode }}"
       TZ: "{{ treg_tz }}"
+    security_opts:
+      - no-new-privileges:true
     log_driver: json-file
     log_options:
       max-size: "{{ treg_log_max_size }}"
@@ -121,6 +131,7 @@
       retries: "{{ treg_healthcheck_retries }}"
       start_period: "{{ treg_healthcheck_start_period }}"
   notify: restart treg
+  no_log: true
 
 # 8. Wait for treg to be healthy
 - name: Wait for treg to be healthy
