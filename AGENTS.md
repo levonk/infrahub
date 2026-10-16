@@ -30,19 +30,15 @@ This is the standard location for Ansible vault passwords in this project.
 
 ### Vault Edits (Agent → User Handoff)
 
-**CRITICAL**: When the agent needs a secret added/changed in the vault, the agent MUST NOT attempt to edit the vault file directly. Instead, the agent MUST provide the user with a single **copyable** `docker run` command that opens an interactive `ansible-vault edit` session with the correct paths pre-filled.
+**CRITICAL**: When the agent needs a secret added/changed in the vault, the agent MUST NOT attempt to edit the vault file directly. Instead, the agent MUST provide the user with a single **copyable** `scripts/edit-vault.sh` command that opens an interactive `ansible-vault edit` session with the correct paths pre-filled.
 
-**Why a Docker container?** The vault file is encrypted on disk and `ansible-vault edit` requires an interactive TTY with `ansible-vault` installed. A Docker container guarantees the tool is available, the vault password file is mounted read-only, and the vault file is mounted read-write — without requiring the user to install anything or remember paths.
+**Why a container?** The vault file is encrypted on disk and `ansible-vault edit` requires an interactive TTY with `ansible-vault` installed. A container guarantees the tool is available, the vault password file is mounted read-only, and the vault file is mounted read-write — without requiring the user to install anything or remember paths. `scripts/edit-vault.sh` auto-detects `docker`, `podman`, or Apple `container` (override via `CONTAINER_RUNTIME`).
 
-**Template** (agent fills in `<SECRET_NAME>` and `<SECRET_VALUE>` in the instructions, the user runs the command):
+**Template** (agent fills in `<SECRET_NAME>` and `<SECRET_VALUE>` in the instructions, the user runs the command from the infrahub repo root):
 
 ```bash
-docker run --rm -it \
-  -v "$HOME/.ansible/vault_password:/vault_password:ro" \
-  -v "$HOME/p/gh/levonk/infrahub/levonk/active/02-config/ansible/inventories/group_vars:/vault-dir" \
-  -e EDITOR=vi \
-  alpine/ansible:latest \
-  ansible-vault edit /vault-dir/infrahub-levonk-all.vault.yml --vault-password-file /vault_password
+scripts/edit-vault.sh            # edit the default levonk vault
+# or: scripts/edit-vault.sh edit <vault-file>
 ```
 
 > **Why mount the directory, not the file?** `ansible-vault edit` writes to a temp file then atomically replaces the original via `os.remove()` + rename. Docker file bind mounts can't be removed from inside the container (`Errno 16: Resource busy`). Mounting the directory lets the atomic replace work normally.
@@ -51,7 +47,7 @@ docker run --rm -it \
 1. Generate the secret value (e.g., `openssl rand -hex 32`)
 2. Provide the user with:
    - The exact YAML line(s) to add (e.g., `vault_langfuse_postgres_password: "abc123..."`)
-   - The copyable `docker run` command above (paths already filled in)
+   - The copyable `edit-vault.sh` command above (vault path already filled in)
 3. Tell the user: "Run this command, add the line(s) I listed, save and exit"
 4. Wait for the user to confirm before proceeding with deployment
 
