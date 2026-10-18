@@ -1,0 +1,24 @@
+# {{ ansible_managed }}
+# Sunshine configuration — managed by Ansible role media-sunshine
+# Docs: https://docs.lizardbyte.dev/projects/sunshine/latest/md_docs_2configuration.html
+
+# Display name shown in Moonlight's host list
+sunshine_name = {{ media_sunshine_name }}
+
+# Base GameStream HTTP port; the rest of the port family is an offset from it
+port = {{ media_sunshine_port_http }}
+
+# Network — UPnP stays disabled; firewall rules are managed by this role
+address_family = ipv4
+upnp = disabled
+
+# Web UI access control — 'lan' only permits RFC1918 origins; Tailscale's
+# CGNAT range (100.64.0.0/10) is NOT RFC1918, so the default 'lan' would
+# refuse the Web UI over Tailscale. 'wan' permits it (HTTPS + basic auth).
+origin_web_ui_allowed = {{ media_sunshine_origin_web_ui_allowed }}
+
+# Optional tuning (upstream defaults are sensible — uncomment to override):
+# encoder = nvenc                # nvenc|quicksync|amdvce|software
+# address_family = both          # enable IPv6 too
+# external_ip = <tailscale-ip>   # if auto-detect picks the wrong interface
+# min_log_level = info

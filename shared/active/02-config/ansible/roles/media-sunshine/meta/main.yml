@@ -1,0 +1,24 @@
+---
+galaxy_info:
+  role_name: media_sunshine
+  author: levonk
+  description: >-
+    Sunshine (LizardByte) GameStream host — native Windows install via winget
+    on windows_docker_hosts (dtop202311). Streams the real Windows desktop to
+    Moonlight clients over Tailscale. Renders sunshine.conf
+    (origin_web_ui_allowed=wan for Tailscale-routed Web UI), sets vault-managed
+    Web UI credentials, ensures Windows Firewall rules for the GameStream port
+    family, and keeps the SunshineService running. NOT a container.
+  license: MIT
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Windows
+      versions: ["all"]
+  galaxy_tags:
+    - media
+    - sunshine
+    - moonlight
+    - gamestream
+    - streaming
+    - windows
+dependencies: []

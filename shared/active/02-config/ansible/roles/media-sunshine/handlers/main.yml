@@ -1,0 +1,8 @@
+---
+# handlers file for media-sunshine
+
+- name: "Restart Sunshine service"
+  ansible.windows.win_service:
+    name: "{{ media_sunshine_service_name }}"
+    state: restarted
+  listen: restart sunshine service
