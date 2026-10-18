@@ -1,0 +1,147 @@
+---
+# tasks file for media-sunshine
+# Sunshine (LizardByte) — native Windows GameStream host on windows_docker_hosts.
+#
+# community.docker modules CANNOT run on Windows targets (Ansible core basic.py
+# imports grp, which is Unix-only) — and this is a native install anyway.
+# All tasks use ansible.windows PowerShell modules + winget.
+
+# ---------------------------------------------------------------------------
+# Validate required variables
+# ---------------------------------------------------------------------------
+- name: "SUNSHINE | Validate required variables"
+  ansible.builtin.assert:
+    that:
+      - media_sunshine_enabled is defined
+      - media_sunshine_winget_id is defined
+      - media_sunshine_exe is defined
+      - media_sunshine_config_dir is defined
+      - media_sunshine_config_file is defined
+      - media_sunshine_service_name is defined
+      - media_sunshine_port_http is defined
+      - media_sunshine_port_webui is defined
+      - media_sunshine_firewall_rules is defined
+    fail_msg: "Missing required media_sunshine_* variables — check role defaults and infrastructure/ports.yml."
+    success_msg: "All required media_sunshine_* variables are defined."
+  tags: ["always", "validate"]
+
+- name: "SUNSHINE | Skip role when disabled"
+  ansible.builtin.meta: end_role
+  when: not (media_sunshine_enabled | bool)
+
+# ---------------------------------------------------------------------------
+# Install — winget (idempotent: check exe path first, install only if missing)
+# Mirrors bootstrap-windows-docker-host.yml INSTALLED/NOT_INSTALLED pattern.
+# ---------------------------------------------------------------------------
+- name: "SUNSHINE | Check if Sunshine is installed"
+  ansible.windows.win_shell:
+    cmd: "if (Test-Path '{{ media_sunshine_exe }}') { Write-Output 'INSTALLED' } else { Write-Output 'NOT_INSTALLED' }"
+  register: sunshine_check
+  changed_when: false
+  tags: ["sunshine", "check"]
+
+- name: "SUNSHINE | Install Sunshine via winget"
+  ansible.windows.win_shell:
+    cmd: "winget install {{ media_sunshine_winget_id }} --silent --accept-package-agreements --accept-source-agreements"
+  register: sunshine_install
+  changed_when: sunshine_install.rc == 0
+  when: "'NOT_INSTALLED' in sunshine_check.stdout"
+  tags: ["sunshine", "install"]
+
+# ---------------------------------------------------------------------------
+# Configuration — sunshine.conf in the MSI config dir
+# ---------------------------------------------------------------------------
+- name: "SUNSHINE | Ensure config directory exists"
+  ansible.windows.win_file:
+    path: "{{ media_sunshine_config_dir }}"
+    state: directory
+  tags: ["sunshine", "configure"]
+
+- name: "SUNSHINE | Render sunshine.conf"
+  ansible.windows.win_template:
+    src: sunshine.conf.j2
+    dest: "{{ media_sunshine_config_file }}"
+  notify: restart sunshine service
+  tags: ["sunshine", "configure"]
+
+# ---------------------------------------------------------------------------
+# Web UI credentials — headless provisioning via `sunshine --creds <user> <pass>`
+# (persists into sunshine_state.json). Skipped when vault vars are unset —
+# see README for the scripts/edit-vault.sh handoff.
+# ---------------------------------------------------------------------------
+- name: "SUNSHINE | Set Web UI credentials"
+  ansible.windows.win_shell:
+    cmd: '& "{{ media_sunshine_exe }}" --creds "{{ media_sunshine_web_username }}" "{{ media_sunshine_web_password }}"'
+  register: sunshine_creds
+  changed_when: sunshine_creds.rc == 0
+  when:
+    - media_sunshine_web_username | length > 0
+    - media_sunshine_web_password | length > 0
+  no_log: true
+  tags: ["sunshine", "credentials"]
+
+- name: "SUNSHINE | Note when Web UI credentials are not vault-provisioned"
+  ansible.builtin.debug:
+    msg: >-
+      vault_sunshine_web_username / vault_sunshine_web_password are unset —
+      skipping `sunshine --creds`. First-run Web UI prompts to create an admin
+      account; to vault-manage credentials, add the vault vars via
+      scripts/edit-vault.sh and re-run this role.
+  when:
+    - media_sunshine_web_username | length == 0 or media_sunshine_web_password | length == 0
+  tags: ["sunshine", "credentials"]
+
+# ---------------------------------------------------------------------------
+# Windows Firewall — ensure allow rules exist for the GameStream port family.
+# The MSI creates its own rules via scripts/add-firewall-rule.bat; these tasks
+# verify coverage for the exact infra_port_stream_sunshine_* set (idempotent:
+# Get-NetFirewallRule check → New-NetFirewallRule only when missing).
+# ---------------------------------------------------------------------------
+- name: "SUNSHINE | Ensure Windows Firewall allow rules"
+  ansible.windows.win_shell:
+    cmd: |
+      $name = "{{ item.name }}"
+      if (-not (Get-NetFirewallRule -DisplayName $name -ErrorAction SilentlyContinue)) {
+        New-NetFirewallRule -DisplayName $name -Direction Inbound -Action Allow -Protocol {{ item.proto }} -LocalPort {{ item.port }} | Out-Null
+        Write-Output "CREATED"
+      } else {
+        Write-Output "EXISTS"
+      }
+  register: sunshine_fw_rule
+  changed_when: "'CREATED' in sunshine_fw_rule.stdout"
+  loop: "{{ media_sunshine_firewall_rules }}"
+  tags: ["sunshine", "firewall"]
+
+# ---------------------------------------------------------------------------
+# Service — SunshineService (tools\sunshinesvc.exe, display name
+# "Sunshine Service") must be present and running.
+# ---------------------------------------------------------------------------
+- name: "SUNSHINE | Ensure SunshineService is present and running"
+  ansible.windows.win_service:
+    name: "{{ media_sunshine_service_name }}"
+    state: started
+    start_mode: auto
+  tags: ["sunshine", "service"]
+
+# ---------------------------------------------------------------------------
+# Status report + pairing instructions
+# ---------------------------------------------------------------------------
+- name: "SUNSHINE | Report status and pairing instructions"
+  ansible.builtin.debug:
+    msg: |
+      ========================================
+      Sunshine GameStream host — {{ inventory_hostname }}
+      ========================================
+      Service:   {{ media_sunshine_service_name }} (running, auto-start)
+      Config:    {{ media_sunshine_config_file }}
+      Web UI:    https://{{ ansible_host | default(inventory_hostname) }}:{{ media_sunshine_port_webui }}
+                 (self-signed cert — accept the warning;
+                  {{ 'vault-managed credentials' if (media_sunshine_web_username | length > 0) else 'create admin account on first visit' }})
+
+      Moonlight pairing:
+        1. On the client: Add Host Manually → {{ ansible_host | default(inventory_hostname) }}
+           (mDNS auto-discovery does NOT cross Tailscale — manual FQDN add required)
+        2. Moonlight shows a PIN — enter it in the Web UI "PIN" tab,
+           or POST it to https://{{ ansible_host | default(inventory_hostname) }}:{{ media_sunshine_port_webui }}/api/pin
+      ========================================
+  tags: ["sunshine", "summary"]
