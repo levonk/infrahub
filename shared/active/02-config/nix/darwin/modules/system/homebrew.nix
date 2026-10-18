@@ -123,6 +123,13 @@ in {
       # nixpkgs rustdesk marks darwin as badPlatforms — cask is the only
       # viable install path (it was previously a cask for the same reason).
       "rustdesk"
+      # Moonlight game-streaming client (for the Sunshine host on
+      # dtop202311). nixpkgs moonlight-qt does build on darwin, but only on
+      # aarch64 — nixpkgs 26.11 dropped x86_64-darwin, so the fleet's Intel
+      # Macs could never get it from the nix path and the two arches would
+      # diverge. The cask ships the vendor's signed universal DMG — one
+      # artifact for both arches.
+      "moonlight"
       # finicky intentionally excluded: it self-updates via Sparkle, so the
       # installed app runs ahead of the cask and `brew bundle` fails trying
       # to adopt the newer /Applications/Finicky.app. Left self-managed.
