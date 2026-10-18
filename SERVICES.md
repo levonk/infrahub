@@ -1,11 +1,11 @@
 # Infrahub Service Catalog (Shared Defaults)
 
-> **Auto-generated** from `infrastructure/*.yml` (shared defaults only) — last updated: 2026-09-19 17:55
+> **Auto-generated** from `infrastructure/*.yml` (shared defaults only) — last updated: 2026-10-18 03:37
 > Regenerate with: `just generate-service-catalog-shared`
 > Source: `shared/active/02-config/ansible/infrastructure/services.yml`
 > Note: This catalog shows **default ports and suggested hostnames** only. Client-specific deployment details (custom domains, deployed machines, client port overrides) are not included. See `levonk/SERVICES.md` for the deployed client catalog.
 
-**106 services** (shared defaults — no deployment info)
+**108 services** (shared defaults — no deployment info)
 
 ## Table of Contents
 
@@ -51,7 +51,7 @@ flowchart TD
 
     %% Machine color coding
     classDef machine_oci_AI_Pipeline fill:#4A90D9,color:#fff,stroke:#333,stroke-width:1px
-    class OmniRoute,LiteLLM,Forge,iron_proxy,Headroom,Privacy_Orchestrator machine_oci_AI_Pipeline
+    class LiteLLM,iron_proxy,OmniRoute,Privacy_Orchestrator,Headroom,Forge machine_oci_AI_Pipeline
 ```
 
 ### Nix Cache Chain (nl)
@@ -75,7 +75,7 @@ flowchart TD
 
     %% Machine color coding
     classDef machine_dtop_Nix_Cache_Chain__nl_ fill:#50C878,color:#fff,stroke:#333,stroke-width:1px
-    class Nix_Harmonia__nl_,Nix_ncro__nl_,Nix_ncps__nl_ machine_dtop_Nix_Cache_Chain__nl_
+    class Nix_ncro__nl_,Nix_ncps__nl_,Nix_Harmonia__nl_ machine_dtop_Nix_Cache_Chain__nl_
 ```
 
 ### Nix Cache Chain (cno)
@@ -99,7 +99,7 @@ flowchart TD
 
     %% Machine color coding
     classDef machine_oci_Nix_Cache_Chain__cno_ fill:#4A90D9,color:#fff,stroke:#333,stroke-width:1px
-    class Nix_Harmonia__cno_,Nix_ncps__cno_,Nix_ncro__cno_ machine_oci_Nix_Cache_Chain__cno_
+    class Nix_ncps__cno_,Nix_Harmonia__cno_,Nix_ncro__cno_ machine_oci_Nix_Cache_Chain__cno_
 ```
 
 ### Media Pipeline
@@ -145,7 +145,7 @@ flowchart TD
 
     %% Machine color coding
     classDef machine_dtop_Media_Pipeline fill:#50C878,color:#fff,stroke:#333,stroke-width:1px
-    class Prowlarr,RomM,SABnzbd,Jellyseerr,Bazarr,Calibre_Web,Lidarr,qBittorrent,Jellyfin,Audiobookshelf,Kavita,Unpackarr,Komga,Flaresolverr,Sonarr,Radarr machine_dtop_Media_Pipeline
+    class Jellyfin,Bazarr,RomM,Sonarr,Radarr,Prowlarr,Lidarr,qBittorrent,Calibre_Web,Komga,Kavita,Flaresolverr,SABnzbd,Audiobookshelf,Jellyseerr,Unpackarr machine_dtop_Media_Pipeline
 ```
 
 ## All Services (Alphabetical)
@@ -205,6 +205,7 @@ flowchart TD
 | Local Watch Party | `localnet-media-watch-party` | `infra_domain_media_watch_party` (suggested) | `3137`→`3001` (Web UI + Socket.IO) | traefik-network | — | health: `/api/health`<br>labels: `pipeline=none, service=watch-party, stage=standalone` | UI (Web Apps) | [smSamani/Local-Watch-Party](https://github.com/smSamani/Local-Watch-Party) |
 | Loki | `localnet-monitoring-loki` | — | `3135`→`3100` (API) | traefik-network | — | — | Passive (Databases / Caches / Queues) | [grafana/loki](https://github.com/grafana/loki) |
 | MITM Proxy | `mitmproxy` | — | `3128`→`3128` (HTTP Proxy) | localnet-network | — | — | Proxy Chain (Internal) | [mitmproxy/mitmproxy](https://github.com/mitmproxy/mitmproxy) |
+| Moonlight | `—` | — | — | — | — | — | tools | [moonlight-stream/moonlight-qt](https://github.com/moonlight-stream/moonlight-qt) |
 | n8n | `localnet-n8n` | `infra_domain_ai_n8n` (suggested) | `3106`→`5678` (Web UI) | n8n-network | `localnet-n8n-data-volume` (volume) | — | UI (Web Apps) | [n8n-io/n8n](https://github.com/n8n-io/n8n) |
 | n8n Grafana | `localnet-n8n-grafana` | `infra_domain_ai_n8n_grafana` (suggested) | `3108`→`3000` (Web UI) | n8n-network | `localnet-n8n-grafana-data-volume` (volume) | — | Console / Dashboard | [n8n-io/n8n-observability](https://github.com/n8n-io/n8n-observability) |
 | n8n Postgres | `localnet-n8n-postgres` | — | `5438`→`5432` (PostgreSQL) | n8n-network | `localnet-n8n-postgres-data-volume` (volume) | — | Passive (Databases / Caches / Queues) | [postgres/postgres](https://github.com/postgres/postgres) |
@@ -241,6 +242,7 @@ flowchart TD
 | SearXNG | `searxng` | `infra_domain_proxy_search` (suggested) | `8080`→`8080` (Web) | — | — | — | UI (Web Apps) | [searxng/searxng](https://github.com/searxng/searxng) |
 | Sonarr | `localnet-media-sonarr` | `infra_domain_media_sonarr` (suggested) | `8989`→`8989` (Web) | traefik-windows-network | — | pipeline: `media`<br>labels: `pipeline=media, service=sonarr, stage=manager` | UI (Web Apps) | [Sonarr/Sonarr](https://github.com/Sonarr/Sonarr) |
 | Stirling-PDF | `localnet-tools-stirling-pdf` | `infra_domain_tools_stirling_pdf` (suggested) | `4531`→`8080` (Web) | traefik-windows-network | — | health: `/api/v1/info/status`<br>labels: `pipeline=none, service=stirling-pdf, stage=tools` | tools | [Stirling-Tools/Stirling-PDF](https://github.com/Stirling-Tools/Stirling-PDF) |
+| Sunshine | `—` | — | `47990` (Web UI (HTTPS, Tailscale-only))<br>`47984` (GameStream HTTPS (TCP))<br>`47989` (GameStream HTTP (TCP))<br>`48010` (RTSP (TCP+UDP))<br>`47998` (Video (UDP))<br>`47999` (Control (UDP))<br>`48000` (Audio (UDP)) | — | — | pipeline: `media`<br>labels: `pipeline=media, service=sunshine, stage=streaming` | UI (Web Apps) | [LizardByte/Sunshine](https://github.com/LizardByte/Sunshine) |
 | Tailscale | `tailscale` | — | `41641`→`41641` (WireGuard) | — | — | — | VPN / Mesh Networking | [tailscale/tailscale](https://github.com/tailscale/tailscale) |
 | Tor Exit Node (cno) | `tor` | — | `9001`→`9001` (ORPort)<br>`9030`→`9030` (DirPort)<br>`9050`→`9050` (SOCKS) | tor-network | — | — | VPN / Mesh Networking | [torproject/tor](https://github.com/torproject/tor) |
 | Tor Exit Node (nl) | `tor-exit` | — | `9011`→`9001` (ORPort)<br>`9031`→`9030` (DirPort)<br>`9051`→`9050` (SOCKS) | tor-network | — | — | VPN / Mesh Networking | [torproject/tor](https://github.com/torproject/tor) |
@@ -249,7 +251,7 @@ flowchart TD
 | Traefik | `traefik` | `infra_domain_traefik_dashboard` (suggested) | `80`→`80` (HTTP)<br>`443`→`443` (HTTPS) | traefik-network | — | metrics: `/metrics`<br>health: `/api/rawdata`<br>labels: `pipeline=infra, service=traefik, stage=ingress` | Console / Dashboard | [traefik/traefik](https://github.com/traefik/traefik) |
 | TraLa | `trala` | `infra_domain_dashboard_trala` (suggested) | `8085`→`8080` (Web) | — | — | — | Infrastructure | [dannybouwers/trala](https://github.com/dannybouwers/trala) |
 | treg Tool Registry (cno) | `localnet-ai-treg` | `infra_domain_ai_treg` (suggested) | `18790`→`18790` (Web/API) | traefik-network | — | health: `/meta`<br>labels: `pipeline=none, service=treg, stage=standalone` | ai | [superdesigndev/treg](https://github.com/superdesigndev/treg) |
-| Unpackarr | `localnet-media-unpackarr` | — | — | traefik-windows-network | — | pipeline: `media`<br>labels: `pipeline=media, service=unpackarr, stage=support` | Passive (Databases / Caches / Queues) | [davidnewhall/unpackarr](https://github.com/davidnewhall/unpackarr) |
+| Unpackarr | `localnet-media-unpackarr` | — | — | traefik-windows-network | — | pipeline: `media`<br>labels: `pipeline=media, service=unpackarr, stage=support` | Passive (Databases / Caches / Queues) | [Unpackerr/unpackerr](https://github.com/Unpackerr/unpackerr) |
 | Uptime Kuma | `localnet-monitoring-uptime-kuma` | `infra_domain_monitoring_uptime_kuma` (suggested) | `3136`→`3001` (Web UI) | traefik-network | — | — | Console / Dashboard | [louislam/uptime-kuma](https://github.com/louislam/uptime-kuma) |
 | Varnish Cache | `varnish` | — | `6081`→`6081` (HTTP) | localnet-network | — | — | Proxy Chain (Internal) | [varnishcache/varnish-cache](https://github.com/varnishcache/varnish-cache) |
 | Verdaccio NPM Registry (cno) | `localnet-artifact-verdaccio` | `infra_domain_artifact_verdaccio_cno` (suggested) | `4873`→`4873` (Web/API) | traefik-network | — | — | Infrastructure | [verdaccio/verdaccio](https://github.com/verdaccio/verdaccio) |
@@ -293,6 +295,7 @@ flowchart TD
 | SABnzbd | `localnet-media-sabnzbd` | `infra_domain_media_sabnzbd` (suggested) | `8081` (Web UI (via nordvpn)) | container:nordvpn | — | pipeline: `media`<br>labels: `pipeline=media, service=sabnzbd, stage=download` | [sabnzbd/sabnzbd](https://github.com/sabnzbd/sabnzbd) |
 | SearXNG | `searxng` | `infra_domain_proxy_search` (suggested) | `8080`→`8080` (Web) | — | — | — | [searxng/searxng](https://github.com/searxng/searxng) |
 | Sonarr | `localnet-media-sonarr` | `infra_domain_media_sonarr` (suggested) | `8989`→`8989` (Web) | traefik-windows-network | — | pipeline: `media`<br>labels: `pipeline=media, service=sonarr, stage=manager` | [Sonarr/Sonarr](https://github.com/Sonarr/Sonarr) |
+| Sunshine | `—` | — | `47990` (Web UI (HTTPS, Tailscale-only))<br>`47984` (GameStream HTTPS (TCP))<br>`47989` (GameStream HTTP (TCP))<br>`48010` (RTSP (TCP+UDP))<br>`47998` (Video (UDP))<br>`47999` (Control (UDP))<br>`48000` (Audio (UDP)) | — | — | pipeline: `media`<br>labels: `pipeline=media, service=sunshine, stage=streaming` | [LizardByte/Sunshine](https://github.com/LizardByte/Sunshine) |
 | WorldMonitor | `worldmonitor-app` | — | `3000`→`8080` (Web) | worldmonitor-net | — | — | [koala73/worldmonitor](https://github.com/koala73/worldmonitor) |
 
 ### 🔌 API (HTTP Services)
@@ -338,7 +341,7 @@ flowchart TD
 | QM Postgres | `qm-levonk-pg` | — | `5437`→`5432` (PostgreSQL) | qm-levonk | `localnet-qm-postgres-data-volume` (volume) | — | [docker-library/postgres](https://github.com/docker-library/postgres) |
 | Recyclarr | `localnet-media-recyclarr` | — | — | traefik-windows-network | — | pipeline: `media`<br>labels: `pipeline=media, service=recyclarr, stage=support` | [recyclarr/recyclarr](https://github.com/recyclarr/recyclarr) |
 | RustFS | `localnet-rustfs` | `infra_domain_storage_rustfs` (suggested)<br>`infra_domain_storage_rustfs_console` (suggested) | `9000`→`9000` (S3 API)<br>`9001`→`9001` (Console) | — | `localnet-rustfs-data-volume` (volume) | — | [rustfs/rustfs](https://github.com/rustfs/rustfs) |
-| Unpackarr | `localnet-media-unpackarr` | — | — | traefik-windows-network | — | pipeline: `media`<br>labels: `pipeline=media, service=unpackarr, stage=support` | [davidnewhall/unpackarr](https://github.com/davidnewhall/unpackarr) |
+| Unpackarr | `localnet-media-unpackarr` | — | — | traefik-windows-network | — | pipeline: `media`<br>labels: `pipeline=media, service=unpackarr, stage=support` | [Unpackerr/unpackerr](https://github.com/Unpackerr/unpackerr) |
 | WorldMonitor Redis | `worldmonitor-redis` | — | `8079`→`80` (Redis REST) | worldmonitor-net | `worldmonitor-redis-data` (volume) | — | [redis/redis](https://github.com/redis/redis) |
 
 ### 🔗 Proxy Chain (Internal)
