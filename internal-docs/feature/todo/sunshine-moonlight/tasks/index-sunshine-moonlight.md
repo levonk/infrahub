@@ -8,9 +8,10 @@
 
 | ID | Title | Status | Depends | Branch |
 |----|-------|--------|---------|--------|
-| 01-001 | Sunshine on Windows — shared ports, `media-sunshine` role, deploy+validate playbooks, services.yml entries, devbox.json scripts | [ ] Todo | — | story worktree |
-| 01-002 | Moonlight on macOS fleet — homebrew cask, levonk darwin module, `media-moonlight-client` role, deploy playbook, levonk justfile recipe | [ ] Todo | — | story worktree |
-| 01-003 | Vault secrets handoff (vault_sunshine_web_username/password) | [ ] Todo | — | user handoff |
+| 01-001 | Sunshine on Windows — shared ports, `media-sunshine` role, deploy+validate playbooks, services.yml entries, devbox.json scripts | [x] Done | — | merged |
+| 01-002 | Moonlight on macOS fleet — homebrew cask, levonk darwin module, `media-moonlight-client` role, deploy playbook, levonk justfile recipe | [x] Done | — | merged |
+| 01-003 | Vault secrets handoff (vault_sunshine_web_username/password) | [~] In-Progress | — | user handoff |
+| 01-004 | Deploy + verify (dtop202311 Sunshine, macos_hosts Moonlight) | [!] Blocked | 01-001..003 | needs SSH key + vault pw on lzkmm2026 |
 
 ## Execution Order
 
