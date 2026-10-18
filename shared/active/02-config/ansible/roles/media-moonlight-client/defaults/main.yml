@@ -1,0 +1,74 @@
+---
+# Moonlight client (media-moonlight-client) — Default Variables
+#
+# Installs the Moonlight game-streaming client (moonlight-qt) on macOS and
+# optionally automates pairing against a Sunshine host.
+# Research: internal-docs/research/service/moonlight-qt/moonlight-macos.md
+
+# Whether to install and configure the Moonlight client
+media_moonlight_client_enabled: true
+
+# ---------------------------------------------------------------------------
+# macOS (Darwin)
+#
+# Unlike RustDesk there is no launchd/daemon/TCC machinery: Moonlight is a
+# pure client — it sends input out and decodes the incoming stream, so it
+# needs no Accessibility / Screen Recording / Input Monitoring /
+# Microphone grants. The only first-launch prompt is "Local Network"
+# (mDNS/LAN access, macOS 14+/15+), which is a one-time human click and is
+# NOT a TCC grant (it lives in com.apple.networkextension.plist).
+# ---------------------------------------------------------------------------
+
+# App bundle path (Homebrew cask "moonlight" installs to /Applications)
+media_moonlight_macos_app_path: "/Applications/Moonlight.app"
+media_moonlight_macos_app_bin: "{{ media_moonlight_macos_app_path }}/Contents/MacOS/Moonlight"
+
+# CLI symlink installed by the cask's `binary` stanza — lives in the brew
+# prefix bin dir (/opt/homebrew/bin on arm64, /usr/local/bin on x86_64)
+media_moonlight_macos_cli_bin: "{{ macos_brew_dir | default('/opt/homebrew/bin' if ansible_facts['architecture'] == 'arm64' else '/usr/local/bin') }}/moonlight"
+
+# GUI user that pairing applies to. Pairing state is per-user QSettings
+# (~/Library/Preferences/com.moonlight-stream.Moonlight.plist), and every
+# moonlight CLI subcommand needs a GUI session — pair/verify MUST run as
+# the console user (e.g. micro), not the headless auser account.
+# Empty = auto-detect from /dev/console. Honours the fleet-wide
+# macos_gui_user inventory var.
+media_moonlight_macos_gui_user: "{{ macos_gui_user | default('') }}"
+
+# ---------------------------------------------------------------------------
+# Optional automated pairing (semi-hands-off)
+#
+# Gated on ALL of:
+#   - media_moonlight_pair_enabled: true
+#   - media_moonlight_pair_host non-empty (Sunshine host — the levonk
+#     Windows desktop's Tailscale FQDN by default; keep hostnames in vars,
+#     never hardcoded in tasks)
+#   - media_sunshine_web_username + media_sunshine_web_password non-empty
+#     (default to the vault_sunshine_web_* vars; empty → the flow is
+#     skipped and manual pairing is documented in the final report)
+#   - a resolved GUI user at the console
+#
+# Flow: register a role-generated 4-digit PIN with Sunshine's /api/pin
+# (Basic auth = web-UI admin creds; non-browser clients are CSRF-exempt),
+# then run `moonlight pair --pin <pin> <host>` as the GUI user. Both
+# documented /api/pin shapes are handled:
+#   old (≤ v2026.516.x):  POST {"pin","name"}
+#   new (≥ v2026.906.x):  GET /api/pin → POST {"pairing_id","pin","name"}
+# ---------------------------------------------------------------------------
+media_moonlight_pair_enabled: false
+media_moonlight_pair_host: "dtop202311.tale-grouper.ts.net"
+
+# Sunshine web UI admin credentials — default to the vault vars; leave
+# empty to disable automated pairing entirely (manual pairing steps are
+# printed in the role's report).
+media_sunshine_web_username: "{{ vault_sunshine_web_username | default('') }}"
+media_sunshine_web_password: "{{ vault_sunshine_web_password | default('') }}"
+
+# Seconds between launching `moonlight pair` and probing Sunshine's
+# pending-pairing list (new API shape needs the request in-flight first)
+media_moonlight_pair_settle_seconds: 5
+
+# Retries/delay for the post-pair `moonlight list` verification — the pair
+# exchange is async, so allow slack before declaring failure
+media_moonlight_pair_verify_retries: 3
+media_moonlight_pair_verify_delay: 5
