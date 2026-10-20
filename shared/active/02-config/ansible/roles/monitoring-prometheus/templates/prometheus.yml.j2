@@ -108,6 +108,50 @@ scrape_configs:
           stage: 'monitoring'
           service: 'loki'
 
+  # AI gateway — LiteLLM exposes native Prometheus metrics
+  - job_name: 'litellm'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets:
+          - '{{ infra_hostname_litellm }}:{{ infra_port_ai_litellm_container }}'
+        labels:
+          pipeline: 'ai'
+          stage: 'gateway'
+          service: 'litellm'
+
+  # Buzz relay — exposes Prometheus metrics on BUZZ_METRICS_PORT
+  - job_name: 'buzz'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets:
+          - '{{ infra_hostname_buzz }}:{{ infra_port_ai_buzz_metrics_container }}'
+        labels:
+          pipeline: 'ai'
+          stage: 'relay'
+          service: 'buzz'
+
+  # Grafana self-metrics
+  - job_name: 'grafana'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets:
+          - '{{ infra_hostname_monitoring_grafana }}:{{ infra_port_monitoring_grafana_container }}'
+        labels:
+          pipeline: 'infra'
+          stage: 'monitoring'
+          service: 'grafana'
+
+  # Alertmanager self-metrics
+  - job_name: 'alertmanager'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets:
+          - '{{ infra_hostname_monitoring_alertmanager }}:{{ infra_port_monitoring_alertmanager_container }}'
+        labels:
+          pipeline: 'infra'
+          stage: 'monitoring'
+          service: 'alertmanager'
+
   # Docker service discovery for any container with label prometheus.io/scrape=true
   - job_name: 'docker'
     docker_sd_configs:

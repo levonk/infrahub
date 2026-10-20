@@ -6,7 +6,7 @@ groups:
   - name: web_pipeline_alerts
     rules:
       - alert: MITMDown
-        expr: up{job="mitm"} == 0
+        expr: service_probe_success{pipeline="web",service="mitm"} == 0
         for: 1m  # project-lint: disable=magic-unitnum  duration
         labels:
           pipeline: 'web'
@@ -18,7 +18,7 @@ groups:
           description: 'MITM interception proxy is not responding to Prometheus scrapes.'
 
       - alert: PrivoxyDown
-        expr: up{job="privoxy"} == 0
+        expr: service_probe_success{pipeline="web",service="privoxy"} == 0
         for: 1m  # project-lint: disable=magic-unitnum  duration
         labels:
           pipeline: 'web'
@@ -30,7 +30,7 @@ groups:
           description: 'Privoxy filtering proxy is not responding to Prometheus scrapes.'
 
       - alert: VarnishDown
-        expr: up{job="varnish"} == 0
+        expr: service_probe_success{pipeline="web",service="varnish"} == 0
         for: 1m  # project-lint: disable=magic-unitnum  duration
         labels:
           pipeline: 'web'
@@ -42,7 +42,7 @@ groups:
           description: 'Varnish cache is not responding to Prometheus scrapes.'
 
       - alert: GostDown
-        expr: up{job="gost"} == 0
+        expr: service_probe_success{pipeline="web",service="gost"} == 0
         for: 1m  # project-lint: disable=magic-unitnum  duration
         labels:
           pipeline: 'web'
@@ -54,7 +54,7 @@ groups:
           description: 'Gost egress proxy is not responding to Prometheus scrapes.'
 
       - alert: TorWebDown
-        expr: up{job="tor-web"} == 0
+        expr: service_probe_success{pipeline="web",service="tor-web"} == 0
         for: 1m  # project-lint: disable=magic-unitnum  duration
         labels:
           pipeline: 'web'

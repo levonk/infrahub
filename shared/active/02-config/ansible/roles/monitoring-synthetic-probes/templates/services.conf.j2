@@ -1,0 +1,8 @@
+# Per-service liveness probe definitions — rendered by Ansible (monitoring-synthetic-probes)
+# Format: service|pipeline|stage|type|target|expect
+#   type   = http | tcp
+#   target = http: full URL | tcp: host:port
+#   expect = "200" exact status | "any" any HTTP response (ignored for tcp)
+{% for check in monitoring_synthetic_probes_service_checks %}
+{{ check.service }}|{{ check.pipeline }}|{{ check.stage }}|{{ check.type }}|{{ check.target }}|{{ check.expect | default('any') }}
+{% endfor %}

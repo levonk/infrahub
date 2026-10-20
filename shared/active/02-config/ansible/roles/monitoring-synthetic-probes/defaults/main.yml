@@ -8,7 +8,7 @@
 # ---------------------------------------------------------------------------
 monitoring_synthetic_probes_container_name: "localnet-monitoring-synthetic-probes"
 monitoring_synthetic_probes_image_name: "alpine"
-monitoring_synthetic_probes_image_tag: "3.20"
+monitoring_synthetic_probes_image_tag: "3.24"
 
 # ---------------------------------------------------------------------------
 # Network
@@ -50,3 +50,52 @@ monitoring_synthetic_probes_web_target_url: "http://example.com"
 monitoring_synthetic_probes_host_public_ip: "{{ ansible_facts['default_ipv4']['address'] | default('') }}"
 monitoring_synthetic_probes_nordvpn_socks5: "{{ infra_hostname_vpn_nordvpn | default('localnet-vpn-nordvpn') }}:{{ infra_port_vpn_nordvpn_socks_container | default(1080) }}"  # project-lint: disable=magic-int  nordvpn socks port
 monitoring_synthetic_probes_tor_socks5_hostname: "{{ infra_hostname_proxy_tor | default('localnet-proxy-tor') }}:{{ infra_port_proxy_tor_socks5_container | default(9050) }}"  # project-lint: disable=magic-int  tor socks port
+
+# ---------------------------------------------------------------------------
+# Per-service liveness probes (generic HTTP/TCP checks)
+# Emits service_probe_success{pipeline,stage,service} and
+# service_probe_duration_seconds{pipeline,stage,service} via textfile collector.
+#
+# type: http (curl; expect "200" = exact status, "any" = any HTTP response)
+#       tcp  (nc connect test; expect is ignored)
+# host.docker.internal = OCI host-published ports (host-gateway, see tasks).
+# infra_tailscale_fqdn_windows_docker = Windows Docker host (dtop202311) via tailnet.
+# ---------------------------------------------------------------------------
+monitoring_synthetic_probes_probe_timeout: "15"
+
+monitoring_synthetic_probes_service_checks:
+  # ── AI pipeline chain (OCI host-published ports) ──
+  - { service: "omnigent",   pipeline: "ai", stage: "agent",         type: "http", target: "http://host.docker.internal:{{ infra_port_ai_omnigent_host }}/",                   expect: "any" }
+  - { service: "pi",         pipeline: "ai", stage: "agent",         type: "http", target: "http://host.docker.internal:{{ infra_port_ai_pi_host }}/",                         expect: "any" }
+  - { service: "litellm",    pipeline: "ai", stage: "gateway",       type: "http", target: "http://host.docker.internal:{{ infra_port_ai_litellm_host }}/health",              expect: "200" }  # project-lint: disable=magic-int  http ok status
+  - { service: "headroom",   pipeline: "ai", stage: "compression",   type: "http", target: "http://host.docker.internal:{{ infra_port_ai_headroom_host }}/",                   expect: "any" }
+  - { service: "omniroute",  pipeline: "ai", stage: "routing",       type: "http", target: "http://host.docker.internal:{{ infra_port_ai_omniroute_host }}/",                  expect: "any" }
+  - { service: "forge",      pipeline: "ai", stage: "forge",         type: "http", target: "http://host.docker.internal:{{ infra_port_ai_forge_host }}/",                      expect: "any" }
+  - { service: "iron-proxy", pipeline: "ai", stage: "iron-proxy",    type: "tcp",  target: "host.docker.internal:{{ infra_port_proxy_iron_proxy_http_host }}" }
+  - { service: "nordvpn",    pipeline: "ai", stage: "egress",        type: "tcp",  target: "host.docker.internal:{{ infra_port_vpn_nordvpn_socks_host }}" }
+  # ── AI pipeline request-origin peers ──
+  - { service: "paperclip",  pipeline: "ai", stage: "orchestration", type: "http", target: "http://host.docker.internal:{{ infra_port_ai_paperclip_host }}/health",            expect: "any" }
+  - { service: "buzz",       pipeline: "ai", stage: "relay",         type: "http", target: "http://host.docker.internal:{{ infra_port_ai_buzz_health_host }}/_liveness",       expect: "200" }  # project-lint: disable=magic-int  http ok status
+  # ── DNS pipeline ──
+  - { service: "adguard",    pipeline: "dns", stage: "filter",       type: "http", target: "http://host.docker.internal:{{ infra_port_dns_adguard_web_host }}/",               expect: "any" }
+  - { service: "dnscrypt",   pipeline: "dns", stage: "proxy",        type: "tcp",  target: "host.docker.internal:{{ infra_port_dns_dnscrypt_plaintext_host }}" }
+  - { service: "tor-dns",    pipeline: "dns", stage: "proxy",        type: "tcp",  target: "host.docker.internal:{{ infra_port_proxy_tor_socks5_host }}" }
+  # ── Web proxy pipeline ──
+  - { service: "mitm",       pipeline: "web", stage: "interception", type: "tcp",  target: "host.docker.internal:{{ infra_port_proxy_mitm_adblock_host }}" }
+  - { service: "privoxy",    pipeline: "web", stage: "filtering",    type: "tcp",  target: "host.docker.internal:{{ infra_port_proxy_privoxy_host }}" }
+  - { service: "varnish",    pipeline: "web", stage: "cache",        type: "http", target: "http://host.docker.internal:{{ infra_port_proxy_varnish_http_host }}/",            expect: "any" }
+  - { service: "gost",       pipeline: "web", stage: "egress",       type: "tcp",  target: "host.docker.internal:{{ infra_port_proxy_gost_socks5_host }}" }
+  - { service: "tor-web",    pipeline: "web", stage: "egress",       type: "tcp",  target: "host.docker.internal:{{ infra_port_proxy_tor_socks5_host }}" }
+  # ── VPN/egress pipeline ──
+  - { service: "nordvpn",    pipeline: "vpn", stage: "egress-nordvpn", type: "tcp", target: "host.docker.internal:{{ infra_port_vpn_nordvpn_socks_host }}" }
+  - { service: "tor-egress", pipeline: "vpn", stage: "egress-tor",   type: "tcp",  target: "host.docker.internal:{{ infra_port_proxy_tor_socks5_host }}" }
+  # ── Media pipeline (Windows Docker host — direct host ports via tailnet) ──
+  - { service: "radarr",      pipeline: "media", stage: "manager",   type: "http", target: "http://{{ infra_tailscale_fqdn_windows_docker }}:{{ infra_port_media_radarr_host }}/ping",      expect: "200" }  # project-lint: disable=magic-int  http ok status
+  - { service: "sonarr",      pipeline: "media", stage: "manager",   type: "http", target: "http://{{ infra_tailscale_fqdn_windows_docker }}:{{ infra_port_media_sonarr_host }}/ping",      expect: "200" }  # project-lint: disable=magic-int  http ok status
+  - { service: "jellyfin",    pipeline: "media", stage: "streaming", type: "http", target: "http://{{ infra_tailscale_fqdn_windows_docker }}:{{ infra_port_media_jellyfin_host }}/health",  expect: "200" }  # project-lint: disable=magic-int  http ok status
+  # qBittorrent shares nordvpn's netns (no host port) — probed via Traefik domain.
+  - { service: "qbittorrent", pipeline: "media", stage: "download",  type: "http", target: "https://{{ infra_domain_media_qbittorrent }}/",                                   expect: "any" }
+  # ── Apps ──
+  - { service: "jobops",      pipeline: "apps", stage: "standalone", type: "http", target: "http://{{ infra_tailscale_fqdn_windows_docker }}:{{ infra_port_career_jobops_host }}/",       expect: "any" }
+  # ── Infra self-monitoring (Uptime Kuma has no /metrics endpoint) ──
+  - { service: "uptime-kuma", pipeline: "infra", stage: "monitoring", type: "http", target: "http://host.docker.internal:{{ infra_port_monitoring_uptime_kuma_host }}/",      expect: "any" }

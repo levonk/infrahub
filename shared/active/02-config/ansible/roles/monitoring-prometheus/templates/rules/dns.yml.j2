@@ -6,7 +6,7 @@ groups:
   - name: dns_pipeline_alerts
     rules:
       - alert: AdGuardDown
-        expr: up{job="adguard"} == 0
+        expr: service_probe_success{pipeline="dns",service="adguard"} == 0
         for: 1m  # project-lint: disable=magic-unitnum  duration
         labels:
           pipeline: 'dns'
@@ -42,7 +42,7 @@ groups:
           description: 'CoreDNS resolver is not responding to Prometheus scrapes.'
 
       - alert: DNSCryptDown
-        expr: up{job="dnscrypt"} == 0
+        expr: service_probe_success{pipeline="dns",service="dnscrypt"} == 0
         for: 1m  # project-lint: disable=magic-unitnum  duration
         labels:
           pipeline: 'dns'
@@ -54,7 +54,7 @@ groups:
           description: 'DNSCrypt proxy is not responding to Prometheus scrapes.'
 
       - alert: TorDNSDown
-        expr: up{job="tor-dns"} == 0
+        expr: service_probe_success{pipeline="dns",service="tor-dns"} == 0
         for: 1m  # project-lint: disable=magic-unitnum  duration
         labels:
           pipeline: 'dns'

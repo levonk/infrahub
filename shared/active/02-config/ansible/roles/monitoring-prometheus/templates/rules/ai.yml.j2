@@ -6,7 +6,7 @@ groups:
   - name: ai_pipeline_alerts
     rules:
       - alert: OmnigentDown
-        expr: up{job="omnigent"} == 0
+        expr: service_probe_success{pipeline="ai",service="omnigent"} == 0
         for: 1m  # project-lint: disable=magic-unitnum  duration
         labels:
           pipeline: 'ai'
@@ -18,7 +18,7 @@ groups:
           description: 'Omnigent (AI pipeline entry point) is not responding to Prometheus scrapes.'
 
       - alert: PiDown
-        expr: up{job="pi"} == 0
+        expr: service_probe_success{pipeline="ai",service="pi"} == 0
         for: 1m  # project-lint: disable=magic-unitnum  duration
         labels:
           pipeline: 'ai'
@@ -42,7 +42,7 @@ groups:
           description: 'LiteLLM gateway is not responding; all AI traffic stops here.'
 
       - alert: HeadroomDown
-        expr: up{job="headroom"} == 0
+        expr: service_probe_success{pipeline="ai",service="headroom"} == 0
         for: 1m  # project-lint: disable=magic-unitnum  duration
         labels:
           pipeline: 'ai'
@@ -54,7 +54,7 @@ groups:
           description: 'Headroom compression service is not responding to Prometheus scrapes.'
 
       - alert: OmniRouteDown
-        expr: up{job="omniroute"} == 0
+        expr: service_probe_success{pipeline="ai",service="omniroute"} == 0
         for: 1m  # project-lint: disable=magic-unitnum  duration
         labels:
           pipeline: 'ai'
@@ -66,7 +66,7 @@ groups:
           description: 'OmniRoute routing service is not responding to Prometheus scrapes.'
 
       - alert: ForgeDown
-        expr: up{job="forge"} == 0
+        expr: service_probe_success{pipeline="ai",service="forge"} == 0
         for: 1m  # project-lint: disable=magic-unitnum  duration
         labels:
           pipeline: 'ai'
@@ -78,7 +78,7 @@ groups:
           description: 'Forge service is not responding to Prometheus scrapes.'
 
       - alert: IronProxyDown
-        expr: up{job="iron-proxy"} == 0
+        expr: service_probe_success{pipeline="ai",service="iron-proxy"} == 0
         for: 1m  # project-lint: disable=magic-unitnum  duration
         labels:
           pipeline: 'ai'
@@ -90,7 +90,7 @@ groups:
           description: 'Iron-Proxy service is not responding to Prometheus scrapes.'
 
       - alert: NordVPNEgressDown
-        expr: up{job="nordvpn", pipeline="ai"} == 0
+        expr: service_probe_success{pipeline="ai",service="nordvpn"} == 0
         for: 1m  # project-lint: disable=magic-unitnum  duration
         labels:
           pipeline: 'ai'

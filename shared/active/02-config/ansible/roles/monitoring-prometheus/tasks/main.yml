@@ -60,6 +60,8 @@
     - dns.yml
     - web.yml
     - vpn.yml
+    - media.yml
+    - apps.yml
     - infra.yml
   notify: restart monitoring-prometheus
 

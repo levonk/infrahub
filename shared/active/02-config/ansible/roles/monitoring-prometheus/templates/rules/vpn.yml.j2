@@ -6,7 +6,7 @@ groups:
   - name: vpn_pipeline_alerts
     rules:
       - alert: NordVPNDown
-        expr: up{job="nordvpn", pipeline="vpn"} == 0
+        expr: service_probe_success{pipeline="vpn",service="nordvpn"} == 0
         for: 1m  # project-lint: disable=magic-unitnum  duration
         labels:
           pipeline: 'vpn'
@@ -30,7 +30,7 @@ groups:
           description: 'WireGuard egress is not responding to Prometheus scrapes.'
 
       - alert: TorEgressDown
-        expr: up{job="tor-egress"} == 0
+        expr: service_probe_success{pipeline="vpn",service="tor-egress"} == 0
         for: 1m  # project-lint: disable=magic-unitnum  duration
         labels:
           pipeline: 'vpn'

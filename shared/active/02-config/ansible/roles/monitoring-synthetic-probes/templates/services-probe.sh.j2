@@ -1,0 +1,55 @@
+#!/bin/sh
+# Generic per-service liveness probe.
+# Reads services.conf (service|pipeline|stage|type|target|expect) and emits
+# service_probe_success + service_probe_duration_seconds textfile metrics.
+set -u
+
+CONF="${SERVICES_CONF:-/opt/probes/services.conf}"
+TIMEOUT="${SERVICE_PROBE_TIMEOUT:-{{ monitoring_synthetic_probes_probe_timeout }}}"
+METRICS_DIR="${METRICS_DIR:-/var/lib/node_exporter/textfile_collector/probes}"
+METRIC_FILE="${METRICS_DIR}/service_probe.prom"
+
+mkdir -p "$METRICS_DIR"
+OUTFILE=$(mktemp)
+trap 'rm -f "$OUTFILE"' EXIT
+
+{
+  echo "# HELP service_probe_success Per-service HTTP/TCP liveness probe (1=up, 0=down)"  # project-lint: disable=magic-int  metric doc text
+  echo "# TYPE service_probe_success gauge"
+  echo "# HELP service_probe_duration_seconds Service probe round-trip time in seconds"
+  echo "# TYPE service_probe_duration_seconds gauge"
+
+  while IFS='|' read -r svc pipeline stage ptype target expect; do
+    case "$svc" in ''|\#*) continue ;; esac
+
+    SUCCESS=0  # project-lint: disable=magic-int  success flag
+    DURATION=0  # project-lint: disable=magic-int  default duration
+
+    if [ "$ptype" = "tcp" ]; then
+      HOST="${target%%:*}"
+      PORT="${target##*:}"
+      START=$(date +%s)
+      if nc -w "$TIMEOUT" "$HOST" "$PORT" </dev/null >/dev/null 2>&1; then
+        SUCCESS=1  # project-lint: disable=magic-int  success flag
+      fi
+      DURATION=$(( $(date +%s) - START ))
+    else
+      RESULT=$(curl -sk -m "$TIMEOUT" -o /dev/null -w '%{http_code} %{time_total}' "$target" 2>/dev/null) || true
+      HTTP_CODE="${RESULT%% *}"
+      DURATION="${RESULT##* }"
+      HTTP_CODE="${HTTP_CODE:-000}"  # project-lint: disable=magic-int  default http code
+      DURATION="${DURATION:-0}"  # project-lint: disable=magic-int  default duration
+      if [ "$expect" = "200" ]; then  # project-lint: disable=magic-int  http ok code
+        [ "$HTTP_CODE" = "200" ] && SUCCESS=1  # project-lint: disable=magic-int  http ok code + success flag
+      else
+        [ -n "$HTTP_CODE" ] && [ "$HTTP_CODE" != "000" ] && SUCCESS=1  # project-lint: disable=magic-int  success flag
+      fi
+    fi
+
+    echo "service_probe_success{service=\"$svc\",pipeline=\"$pipeline\",stage=\"$stage\"} $SUCCESS"
+    echo "service_probe_duration_seconds{service=\"$svc\",pipeline=\"$pipeline\",stage=\"$stage\"} $DURATION"
+  done < "$CONF"
+} > "$OUTFILE"
+
+mv "$OUTFILE" "$METRIC_FILE"
+trap - EXIT
