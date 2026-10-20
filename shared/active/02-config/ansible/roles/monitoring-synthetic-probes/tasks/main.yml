@@ -23,6 +23,7 @@
       - monitoring_synthetic_probes_host_public_ip is defined
       - monitoring_synthetic_probes_nordvpn_socks5 is defined
       - monitoring_synthetic_probes_tor_socks5_hostname is defined
+      - monitoring_synthetic_probes_service_checks is defined
     fail_msg: >-
       Missing required variables for monitoring-synthetic-probes.
       Check infrastructure vars (ports, storage, networks, domains) and
@@ -83,6 +84,20 @@
     mode: "0755"  # project-lint: disable=magic-int  file mode
   notify: restart monitoring-synthetic-probes
 
+- name: Render generic per-service probe script
+  ansible.builtin.template:
+    src: services-probe.sh.j2
+    dest: "{{ monitoring_synthetic_probes_scripts_dir }}/services-probe.sh"
+    mode: "0755"  # project-lint: disable=magic-int  file mode
+  notify: restart monitoring-synthetic-probes
+
+- name: Render per-service probe definitions
+  ansible.builtin.template:
+    src: services.conf.j2
+    dest: "{{ monitoring_synthetic_probes_scripts_dir }}/services.conf"
+    mode: "{{ infra_mode_file }}"
+  notify: restart monitoring-synthetic-probes
+
 # ============================================================================
 # Render crontab
 # ============================================================================
@@ -121,7 +136,11 @@
     volumes:
       - "{{ monitoring_synthetic_probes_scripts_dir }}:/opt/probes:ro"
       - "{{ monitoring_synthetic_probes_textfile_dir }}:/var/lib/node_exporter/textfile_collector/probes:rw"
+    etc_hosts:
+      host.docker.internal: "host-gateway"
     env:
+      SERVICES_CONF: "/opt/probes/services.conf"
+      SERVICE_PROBE_TIMEOUT: "{{ monitoring_synthetic_probes_probe_timeout }}"
       LITELLM_ENDPOINT: "{{ monitoring_synthetic_probes_litellm_endpoint }}"
       LITELLM_API_KEY: "{{ monitoring_synthetic_probes_litellm_api_key }}"
       OMNIGENT_ENDPOINT: "{{ monitoring_synthetic_probes_omnigent_endpoint }}"

@@ -38,6 +38,7 @@
   loop: "{{ db_postgres_users }}"
   loop_control:
     label: "{{ item.name }}"
+  no_log: true
   when: db_postgres_enabled | bool
   tags: ["always", "validate"]
 

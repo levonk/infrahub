@@ -832,6 +832,13 @@ services:
       container: "infra_port_career_jobops_container"
       label: "Web"
   traefik: true
+  health_endpoint: "/"
+  pipeline: "apps"
+  pipeline_stage: "standalone"
+  alert_labels:
+    pipeline: "apps"
+    stage: "standalone"
+    service: "jobops"
   notes: "Traefik routes cross-machine via Tailscale FQDN (dtop202311.<tailnet>)"
 
 - name: "RustFS"
@@ -1252,6 +1259,55 @@ services:
     pipeline: "none"
     stage: "remote-desktop"
     service: "rustdesk-hbbr"
+
+- name: "Buzz Relay"
+  container: "{{ infra_hostname_buzz }}"
+  machine: "oci-cloud-server"
+  category: "ai"
+  description: "Buzz Nostr relay — message hub for buzz clients and buzz-agent containers (AI pipeline request-origin peer)"
+  source_repo: "https://github.com/block/buzz"
+  domains:
+    - "infra_domain_buzz"
+  ports:
+    - host: "infra_port_ai_buzz_host"
+      container: "infra_port_ai_buzz_container"
+      label: "WebSocket Relay"
+    - host: "infra_port_ai_buzz_health_host"
+      container: "infra_port_ai_buzz_health_container"
+      label: "Health"
+    - host: "infra_port_ai_buzz_metrics_host"
+      container: "infra_port_ai_buzz_metrics_container"
+      label: "Metrics"
+  traefik: true
+  health_endpoint: "/_liveness"
+  metrics_path: "/metrics"
+  pipeline: "ai"
+  pipeline_stage: "relay"
+  alert_labels:
+    pipeline: "ai"
+    stage: "relay"
+    service: "buzz"
+
+- name: "Paperclip"
+  container: "{{ infra_hostname_paperclip }}"
+  machine: "oci-cloud-server"
+  category: "ai"
+  description: "Paperclip agent orchestration platform — Node.js server + React UI for orchestrating AI agent teams (AI pipeline request-origin peer)"
+  source_repo: "https://github.com/paperclipai/paperclip"
+  domains:
+    - "infra_domain_ai_paperclip"
+  ports:
+    - host: "infra_port_ai_paperclip_host"
+      container: "infra_port_ai_paperclip_container"
+      label: "Web/API"
+  traefik: true
+  health_endpoint: "/health"
+  pipeline: "ai"
+  pipeline_stage: "orchestration"
+  alert_labels:
+    pipeline: "ai"
+    stage: "orchestration"
+    service: "paperclip"
 
 # ===========================================================================
 # Buzz Agent Runtime Containers

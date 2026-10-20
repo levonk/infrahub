@@ -8,7 +8,7 @@
 # ---------------------------------------------------------------------------
 monitoring_loki_container_name: "{{ infra_hostname_monitoring_loki }}"
 monitoring_loki_image_name: "grafana/loki"
-monitoring_loki_image_tag: "3.7.0"
+monitoring_loki_image_tag: "3.7.8"
 
 # ---------------------------------------------------------------------------
 # Loki Ports

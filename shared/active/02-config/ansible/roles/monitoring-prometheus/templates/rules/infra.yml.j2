@@ -90,7 +90,7 @@ groups:
           description: 'Alertmanager is not responding to Prometheus scrapes.'
 
       - alert: UptimeKumaDown
-        expr: up{job="uptime-kuma"} == 0
+        expr: service_probe_success{pipeline="infra",service="uptime-kuma"} == 0
         for: 1m  # project-lint: disable=magic-unitnum  duration
         labels:
           pipeline: 'infra'
