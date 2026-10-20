@@ -112,33 +112,38 @@
 # ============================================================================
 # Stop existing containers (idempotent re-deploy)
 # ============================================================================
+# Per-container loop — a single batched `docker rm -f` over the ssh-tunneled
+# docker CLI intermittently drops later names (transient daemon errors are
+# masked by `|| true`), leaving stragglers that break `docker run` redeploys
+# with "name already in use". Independent removals keep that from cascading.
 - name: Stop existing media stack containers
-  ansible.builtin.shell: >-
-    docker rm -f
-    {{ media_stack_jellyfin_container_name }}
-    {{ media_stack_jellyseerr_container_name }}
-    {{ media_stack_radarr_container_name }}
-    {{ media_stack_sonarr_container_name }}
-    {{ media_stack_lidarr_container_name }}
-    {{ media_stack_bazarr_container_name }}
-    {{ media_stack_prowlarr_container_name }}
-    {{ media_stack_kapowarr_container_name }}
-    {{ media_stack_audiobookshelf_container_name }}
-    {{ media_stack_flaresolverr_container_name }}
-    {{ media_stack_recyclarr_container_name }}
-    {{ media_stack_unpackarr_container_name }}
-    {{ media_stack_romm_db_container_name }}
-    {{ media_stack_romm_container_name }}
-    {{ media_stack_kavita_container_name }}
-    {{ media_stack_calibre_web_container_name }}
-    {{ media_stack_komga_container_name }}
-    {{ media_stack_qbittorrent_container_name }}
-    {{ media_stack_sabnzbd_container_name }}
-    2>/dev/null || true
+  ansible.builtin.command: "docker rm -f {{ item }}"
   environment:
     DOCKER_HOST: "{{ media_stack_docker_host }}"
+    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
   delegate_to: localhost
   changed_when: false
+  failed_when: false
+  loop:
+    - "{{ media_stack_jellyfin_container_name }}"
+    - "{{ media_stack_jellyseerr_container_name }}"
+    - "{{ media_stack_radarr_container_name }}"
+    - "{{ media_stack_sonarr_container_name }}"
+    - "{{ media_stack_lidarr_container_name }}"
+    - "{{ media_stack_bazarr_container_name }}"
+    - "{{ media_stack_prowlarr_container_name }}"
+    - "{{ media_stack_kapowarr_container_name }}"
+    - "{{ media_stack_audiobookshelf_container_name }}"
+    - "{{ media_stack_flaresolverr_container_name }}"
+    - "{{ media_stack_recyclarr_container_name }}"
+    - "{{ media_stack_unpackarr_container_name }}"
+    - "{{ media_stack_romm_db_container_name }}"
+    - "{{ media_stack_romm_container_name }}"
+    - "{{ media_stack_kavita_container_name }}"
+    - "{{ media_stack_calibre_web_container_name }}"
+    - "{{ media_stack_komga_container_name }}"
+    - "{{ media_stack_qbittorrent_container_name }}"
+    - "{{ media_stack_sabnzbd_container_name }}"
   tags: ["deploy", "container"]
 
 # ============================================================================
