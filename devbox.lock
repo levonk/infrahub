@@ -649,20 +649,6 @@
         }
       }
     },
-    "packer": {
-      "resolved": "github:NixOS/nixpkgs/f9d8b65950353691ab56561e7c73d2e1063d810b#packer",
-      "source": "nixpkg",
-      "systems": {
-        "x86_64-darwin": {
-          "outputs": [
-            {
-              "path": "/nix/store/fgpi40xgzcq56bqg78mq0mynczidwzdm-packer-1.15.3",
-              "default": true
-            }
-          ]
-        }
-      }
-    },
     "podlet": {
       "resolved": "github:NixOS/nixpkgs/f9d8b65950353691ab56561e7c73d2e1063d810b#podlet",
       "source": "nixpkg",

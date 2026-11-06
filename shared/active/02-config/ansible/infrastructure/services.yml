@@ -86,6 +86,8 @@ services:
       container: "infra_port_ai_litellm_postgres_container"
       label: "PostgreSQL"
   network: "proxy-chain-network"
+  pipeline: "ai"
+  pipeline_stage: "datastore"
 
 - name: "LiteLLM Redis"
   container: "{{ infra_hostname_litellm_redis }}"
@@ -97,6 +99,8 @@ services:
     - container: "infra_port_ai_litellm_redis_container"
       label: "Redis"
   network: "proxy-chain-network"
+  pipeline: "ai"
+  pipeline_stage: "datastore"
 
 - name: "FreeLLMAPI"
   container: "{{ infra_hostname_ai_freellmapi }}"
@@ -133,6 +137,13 @@ services:
       container: "infra_port_ai_omniroute_container"
       label: "API"
   traefik: true
+  health_endpoint: "/api/health"
+  pipeline: "ai"
+  pipeline_stage: "routing"
+  alert_labels:
+    pipeline: "ai"
+    stage: "routing"
+    service: "omniroute"
 
 - name: "Headroom"
   container: "{{ infra_hostname_headroom }}"
@@ -147,6 +158,13 @@ services:
       container: "infra_port_ai_headroom_container"
       label: "API"
   traefik: true
+  health_endpoint: "/health"
+  pipeline: "ai"
+  pipeline_stage: "compression"
+  alert_labels:
+    pipeline: "ai"
+    stage: "compression"
+    service: "headroom"
 
 - name: "Forge"
   container: "{{ infra_hostname_forge }}"
@@ -159,6 +177,13 @@ services:
       container: "infra_port_ai_forge_container"
       label: "API"
   network: "forge-network"
+  health_endpoint: "/health"
+  pipeline: "ai"
+  pipeline_stage: "forge"
+  alert_labels:
+    pipeline: "ai"
+    stage: "forge"
+    service: "forge"
 
 - name: "iron-proxy"
   container: "{{ infra_hostname_iron_proxy }}"
@@ -172,6 +197,12 @@ services:
     - host: "infra_port_proxy_iron_proxy_https_host"
       label: "HTTPS"
   network: "proxy-chain-network"
+  pipeline: "ai"
+  pipeline_stage: "iron-proxy"
+  alert_labels:
+    pipeline: "ai"
+    stage: "iron-proxy"
+    service: "iron-proxy"
 
 - name: "Privacy Orchestrator"
   container: "{{ infra_hostname_privacy_orchestrator }}"
@@ -184,6 +215,13 @@ services:
       container: "infra_port_ai_privacy_orchestrator_container"
       label: "API"
   network: "proxy-chain-network"
+  health_endpoint: "/health"
+  pipeline: "ai"
+  pipeline_stage: "privacy"
+  alert_labels:
+    pipeline: "ai"
+    stage: "privacy"
+    service: "privacy-orchestrator"
 
 # Web Proxy Chain Services (see shared/docs/pipelines/web/complete-web-proxy-chain.mmd)
 - name: "MITM Proxy"
@@ -197,6 +235,12 @@ services:
       container: "infra_port_proxy_mitm_adblock_container"
       label: "HTTP Proxy"
   network: "localnet-network"
+  pipeline: "web"
+  pipeline_stage: "interception"
+  alert_labels:
+    pipeline: "web"
+    stage: "interception"
+    service: "mitm"
 
 - name: "Privoxy"
   container: "privoxy"
@@ -209,6 +253,12 @@ services:
       container: "infra_port_proxy_privoxy_container"
       label: "HTTP Proxy"
   network: "localnet-network"
+  pipeline: "web"
+  pipeline_stage: "filtering"
+  alert_labels:
+    pipeline: "web"
+    stage: "filtering"
+    service: "privoxy"
 
 - name: "Varnish Cache"
   container: "varnish"
@@ -221,6 +271,12 @@ services:
       container: "infra_port_proxy_varnish_http_container"
       label: "HTTP"
   network: "localnet-network"
+  pipeline: "web"
+  pipeline_stage: "cache"
+  alert_labels:
+    pipeline: "web"
+    stage: "cache"
+    service: "varnish"
 
 - name: "Gost Egress"
   container: "localnet-proxy-gost"
@@ -233,6 +289,12 @@ services:
       container: "infra_port_proxy_gost_socks5_container"
       label: "SOCKS5"
   network: "localnet-network"
+  pipeline: "web"
+  pipeline_stage: "egress"
+  alert_labels:
+    pipeline: "web"
+    stage: "egress"
+    service: "gost"
 
 - name: "AI Dashboard"
   container: "{{ infra_hostname_ai_dashboard }}"
@@ -247,6 +309,8 @@ services:
       container: "infra_port_ai_dashboard_container"
       label: "Web"
   traefik: true
+  pipeline: "ai"
+  pipeline_stage: "observability"
 
 - name: "Omnigent"
   container: "{{ infra_hostname_omnigent }}"
@@ -261,6 +325,13 @@ services:
       container: "infra_port_ai_omnigent_container"
       label: "Web/API"
   traefik: true
+  health_endpoint: "/health"
+  pipeline: "ai"
+  pipeline_stage: "agent"
+  alert_labels:
+    pipeline: "ai"
+    stage: "agent"
+    service: "omnigent"
 
 - name: "Omnigent Postgres"
   container: "{{ infra_hostname_omnigent_postgres }}"
@@ -273,6 +344,8 @@ services:
       container: "infra_port_ai_omnigent_postgres_container"
       label: "PostgreSQL"
   network: "proxy-chain-network"
+  pipeline: "ai"
+  pipeline_stage: "datastore"
 
 - name: "Pi"
   container: "{{ infra_hostname_pi }}"
@@ -285,6 +358,12 @@ services:
       container: "infra_port_ai_pi_container"
       label: "RPC"
   network: "proxy-chain-network"
+  pipeline: "ai"
+  pipeline_stage: "agent"
+  alert_labels:
+    pipeline: "ai"
+    stage: "agent"
+    service: "pi"
 
 - name: "agentmemory"
   container: "{{ infra_hostname_agentmemory }}"
@@ -299,11 +378,15 @@ services:
       container: "infra_port_ai_agentmemory_container"
       label: "REST/MCP"
   traefik: true
+  pipeline: "ai"
+  pipeline_stage: "memory"
 
 - name: "Langfuse Web"
   container: "{{ infra_hostname_langfuse_web }}"
   machine: "oci-cloud-server"
   category: "ui"
+  pipeline: "ai"
+  pipeline_stage: "observability"
   description: "LLM observability & tracing platform — web UI"
   source_repo: "https://github.com/langfuse/langfuse"
   domains:
@@ -315,6 +398,8 @@ services:
   traefik: true
 
 - name: "Langfuse Worker"
+  pipeline: "ai"
+  pipeline_stage: "observability"
   container: "{{ infra_hostname_langfuse_worker }}"
   machine: "oci-cloud-server"
   category: "passive"
@@ -326,6 +411,8 @@ services:
   network: "langfuse-network"
 
 - name: "Langfuse Postgres"
+  pipeline: "ai"
+  pipeline_stage: "observability"
   container: "{{ infra_hostname_langfuse_postgres }}"
   machine: "oci-cloud-server"
   category: "passive"
@@ -338,6 +425,8 @@ services:
   network: "langfuse-network"
 
 - name: "Langfuse ClickHouse"
+  pipeline: "ai"
+  pipeline_stage: "observability"
   container: "{{ infra_hostname_langfuse_clickhouse }}"
   machine: "oci-cloud-server"
   category: "passive"
@@ -351,6 +440,8 @@ services:
   network: "langfuse-network"
 
 - name: "Langfuse Redis"
+  pipeline: "ai"
+  pipeline_stage: "observability"
   container: "{{ infra_hostname_langfuse_redis }}"
   machine: "oci-cloud-server"
   category: "passive"
@@ -362,6 +453,8 @@ services:
   network: "langfuse-network"
 
 - name: "Langfuse MinIO"
+  pipeline: "ai"
+  pipeline_stage: "observability"
   container: "{{ infra_hostname_langfuse_minio }}"
   machine: "oci-cloud-server"
   category: "passive"
@@ -480,6 +573,17 @@ services:
       container: "infra_port_vpn_nordvpn_http_container"
       label: "HTTP Proxy"
   network: "vpn-network"
+  pipeline: "vpn"
+  pipeline_stage: "egress"
+  probe:
+    # SOCKS port is the most meaningful liveness signal for gluetun
+    type: "tcp"
+    target: "{{ infra_hostname_vpn_nordvpn }}:{{ infra_port_vpn_nordvpn_socks_container }}"
+    service: "nordvpn"
+  alert_labels:
+    pipeline: "vpn"
+    stage: "egress"
+    service: "nordvpn"
 
 - name: "Tailscale"
   container: "tailscale"
@@ -491,6 +595,12 @@ services:
     - host: "infra_port_vpn_tailscale"
       container: "infra_port_vpn_tailscale"
       label: "WireGuard"
+  pipeline: "vpn"
+  pipeline_stage: "mesh"
+  # tailscaled is UDP-only — liveness is covered by the tailscale-mesh
+  # extra probe (SSH over the tailnet interface), not a port probe.
+  probe:
+    skip: true
 
 - name: "Tor Exit Node (cno)"
   container: "{{ infra_hostname_vpn_tor }}"
@@ -509,6 +619,16 @@ services:
       container: "infra_port_proxy_tor_socks5_container"
       label: "SOCKS"
   network: "tor-network"
+  pipeline: "vpn"
+  pipeline_stage: "egress"
+  probe:
+    type: "tcp"
+    target: "{{ infra_hostname_vpn_tor }}:{{ infra_port_proxy_tor_socks5_container }}"
+    service: "tor-exit"
+  alert_labels:
+    pipeline: "vpn"
+    stage: "egress"
+    service: "tor-exit"
 
 - name: "VPN Tailscale Exit (cno)"
   container: "{{ infra_hostname_vpn_tailscale_nordvpn }}"
@@ -517,6 +637,8 @@ services:
   description: "Tailscale exit node routing through NordVPN on OCI (cno)"
   source_repo: "https://github.com/tailscale/tailscale"
   network: "vpn-network"
+  probe:
+    skip: true  # tailscaled — no listening TCP port to probe
 
 - name: "Tor Tailscale Exit (cno)"
   container: "{{ infra_hostname_vpn_tailscale_tor }}"
@@ -525,6 +647,8 @@ services:
   description: "Tailscale exit node routing through Tor on OCI (cno)"
   source_repo: "https://github.com/torproject/tor"
   network: "tor-network"
+  probe:
+    skip: true  # tailscaled — no listening TCP port to probe
 
 - name: "NordVPN Exit Node (nl)"
   container: "nordvpn"
@@ -569,6 +693,8 @@ services:
   description: "Tailscale exit node routing through NordVPN on Windows Docker Desktop (nl)"
   source_repo: "https://github.com/tailscale/tailscale"
   network: "vpn-network"
+  probe:
+    skip: true  # tailscaled — no listening TCP port to probe
 
 - name: "Tor Tailscale Exit (nl)"
   container: "{{ infra_hostname_vpn_tailscale_tor }}"
@@ -577,6 +703,8 @@ services:
   description: "Tailscale exit node routing through Tor on Windows Docker Desktop (nl)"
   source_repo: "https://github.com/torproject/tor"
   network: "tor-network"
+  probe:
+    skip: true  # tailscaled — no listening TCP port to probe
 
 # ---------------------------------------------------------------------------
 # Host-Level Exit Nodes (plain egress via host's own internet, no Tor/VPN)
@@ -590,6 +718,8 @@ services:
   category: "vpn"
   description: "Host-level Tailscale exit node — plain egress via OCI's internet (no Tor/VPN container)"
   source_repo: "https://github.com/tailscale/tailscale"
+  probe:
+    skip: true  # host-level construct — covered by the host-egress extra probe
 
 - name: "Host Exit Node (nl)"
   container: "—"
@@ -597,31 +727,44 @@ services:
   category: "vpn"
   description: "Host-level Tailscale exit node — plain egress via Windows host's internet (no Tor/VPN container)"
   source_repo: "https://github.com/tailscale/tailscale"
+  probe:
+    skip: true  # host-level construct — no published endpoint
 
 # Client-specific host exit nodes (e.g. laptops) are defined in
 # levonk/active/02-config/ansible/infrastructure/services.yml, not here.
 
 # ===========================================================================
-# DNS
+# DNS (deployed by roles/dns/tasks/deploy-linux.yml)
+# Chain: AdGuard -> dnsdist -> CoreDNS -> {unbound-*, dnscrypt-*, tor-proxy}
 # ===========================================================================
 
-- name: "CoreDNS"
-  container: "coredns"
+- name: "AdGuard"
+  container: "{{ infra_hostname_dns_adguard }}"
   machine: "oci-cloud-server"
   category: "dns"
-  description: "Primary DNS resolver (local zones, Tailscale MagicDNS forwarding)"
-  source_repo: "https://github.com/coredns/coredns"
+  description: "DNS filter / front-end entry point of the DNS chain"
+  source_repo: "https://github.com/AdguardTeam/AdGuardHome"
   ports:
-    - host: "infra_port_dns_coredns_main_host"
-      container: "infra_port_dns_coredns_main_container"
+    - host: "infra_port_dns_adguard_host"
+      container: "infra_port_dns_adguard_container"
       label: "DNS"
-    - host: "infra_port_dns_coredns_main_metrics_host"
-      container: "infra_port_dns_coredns_main_metrics_host"
-      label: "Metrics"
+    - host: "infra_port_dns_adguard_web_host"
+      container: "infra_port_dns_adguard_web_container"
+      label: "Web UI"
   network: "localnet-network"
+  pipeline: "dns"
+  pipeline_stage: "filter"
+  probe:
+    type: "dns"
+    target: "{{ infra_hostname_dns_adguard }}:{{ infra_port_dns_adguard_container }}"
+    service: "adguard"
+  alert_labels:
+    pipeline: "dns"
+    stage: "filter"
+    service: "adguard"
 
 - name: "dnsdist"
-  container: "dnsdist"
+  container: "localnet-dns-dnsdist"
   machine: "oci-cloud-server"
   category: "dns"
   description: "DNS load balancer / router"
@@ -634,6 +777,171 @@ services:
       container: "infra_port_dns_dnsdist_metrics_container"
       label: "Metrics"
   network: "localnet-network"
+  pipeline: "dns"
+  pipeline_stage: "router"
+  probe:
+    type: "dns"
+    target: "localnet-dns-dnsdist:{{ infra_port_dns_dnsdist_main_container }}"
+    service: "dnsdist"
+  alert_labels:
+    pipeline: "dns"
+    stage: "router"
+    service: "dnsdist"
+
+- name: "CoreDNS"
+  container: "localnet-dns-coredns"
+  machine: "oci-cloud-server"
+  category: "dns"
+  description: "Primary DNS resolver (local zones, Tailscale MagicDNS forwarding)"
+  source_repo: "https://github.com/coredns/coredns"
+  ports:
+    - host: "infra_port_dns_coredns_main_host"
+      container: "infra_port_dns_coredns_main_container"
+      label: "DNS"
+    - host: "infra_port_dns_coredns_main_metrics_host"
+      container: "infra_port_dns_coredns_main_metrics_host"
+      label: "Metrics"
+  network: "localnet-network"
+  pipeline: "dns"
+  pipeline_stage: "resolver"
+  probe:
+    type: "dns"
+    target: "localnet-dns-coredns:{{ infra_port_dns_coredns_main_container }}"
+    service: "coredns"
+  alert_labels:
+    pipeline: "dns"
+    stage: "resolver"
+    service: "coredns"
+
+- name: "Unbound Validator"
+  container: "localnet-dns-unbound-validator"
+  machine: "oci-cloud-server"
+  category: "dns"
+  description: "Unbound recursive resolver with DNSSEC validation"
+  source_repo: "https://github.com/NLnetLabs/unbound"
+  ports:
+    - host: "infra_port_dns_unbound_validator_host"
+      container: "infra_port_dns_unbound_validator_container"
+      label: "DNS"
+  network: "localnet-network"
+  pipeline: "dns"
+  pipeline_stage: "resolver"
+  probe:
+    type: "dns"
+    target: "localnet-dns-unbound-validator:{{ infra_port_dns_unbound_validator_container }}"
+    service: "unbound-validator"
+
+- name: "Unbound Tor"
+  container: "localnet-dns-unbound-tor"
+  machine: "oci-cloud-server"
+  category: "dns"
+  description: "Unbound recursive resolver routing lookups over Tor"
+  source_repo: "https://github.com/NLnetLabs/unbound"
+  ports:
+    - host: "infra_port_dns_unbound_tor_host"
+      container: "infra_port_dns_unbound_tor_container"
+      label: "DNS"
+  network: "localnet-network"
+  pipeline: "dns"
+  pipeline_stage: "anonymity"
+  probe:
+    type: "dns"
+    target: "localnet-dns-unbound-tor:{{ infra_port_dns_unbound_tor_container }}"
+    service: "unbound-tor"
+
+- name: "Unbound Root"
+  container: "localnet-dns-unbound-root"
+  machine: "oci-cloud-server"
+  category: "dns"
+  description: "Unbound recursive resolver (root-hints fallback path)"
+  source_repo: "https://github.com/NLnetLabs/unbound"
+  ports:
+    - host: "infra_port_dns_unbound_root_host"
+      container: "infra_port_dns_unbound_root_container"
+      label: "DNS"
+  network: "localnet-network"
+  pipeline: "dns"
+  pipeline_stage: "resolver"
+  probe:
+    type: "dns"
+    target: "localnet-dns-unbound-root:{{ infra_port_dns_unbound_root_container }}"
+    service: "unbound-root"
+
+- name: "dnscrypt-plaintext"
+  container: "localnet-dns-dnscrypt-plaintext"
+  machine: "oci-cloud-server"
+  category: "dns"
+  description: "DNSCrypt proxy — plaintext/upstream tier"
+  source_repo: "https://github.com/DNSCrypt/dnscrypt-proxy"
+  ports:
+    - host: "infra_port_dns_dnscrypt_plaintext_host"
+      container: "infra_port_dns_dnscrypt_plaintext_container"
+      label: "DNS"
+  network: "localnet-network"
+  pipeline: "dns"
+  pipeline_stage: "anonymity"
+  probe:
+    type: "dns"
+    target: "localnet-dns-dnscrypt-plaintext:{{ infra_port_dns_dnscrypt_plaintext_container }}"
+    service: "dnscrypt-plaintext"
+
+- name: "dnscrypt-odoh"
+  container: "localnet-dns-dnscrypt-odoh"
+  machine: "oci-cloud-server"
+  category: "dns"
+  description: "DNSCrypt proxy — Oblivious DoH tier"
+  source_repo: "https://github.com/DNSCrypt/dnscrypt-proxy"
+  ports:
+    - host: "infra_port_dns_dnscrypt_odoh_host"
+      container: "infra_port_dns_dnscrypt_odoh_container"
+      label: "DNS"
+  network: "localnet-network"
+  pipeline: "dns"
+  pipeline_stage: "anonymity"
+  probe:
+    type: "dns"
+    target: "localnet-dns-dnscrypt-odoh:{{ infra_port_dns_dnscrypt_odoh_container }}"
+    service: "dnscrypt-odoh"
+
+- name: "dnscrypt-anon"
+  container: "localnet-dns-dnscrypt-anon"
+  machine: "oci-cloud-server"
+  category: "dns"
+  description: "DNSCrypt proxy — anonymized relay tier"
+  source_repo: "https://github.com/DNSCrypt/dnscrypt-proxy"
+  ports:
+    - host: "infra_port_dns_dnscrypt_anon_host"
+      container: "infra_port_dns_dnscrypt_anon_container"
+      label: "DNS"
+  network: "localnet-network"
+  pipeline: "dns"
+  pipeline_stage: "anonymity"
+  probe:
+    type: "dns"
+    target: "localnet-dns-dnscrypt-anon:{{ infra_port_dns_dnscrypt_anon_container }}"
+    service: "dnscrypt-anon"
+
+- name: "Tor Proxy (DNS chain)"
+  container: "{{ infra_hostname_proxy_tor }}"
+  machine: "oci-cloud-server"
+  category: "dns"
+  description: "Tor SOCKS proxy shared by the DNS chain and the web proxy chain"
+  source_repo: "https://github.com/torproject/tor"
+  ports:
+    - host: "infra_port_proxy_tor_socks5_host"
+      container: "infra_port_proxy_tor_socks5_container"
+      label: "SOCKS5"
+  network: "localnet-network"
+  pipeline: "dns"
+  pipeline_stage: "anonymity"
+  probe:
+    type: "tcp"
+    target: "{{ infra_hostname_proxy_tor }}:{{ infra_port_proxy_tor_socks5_container }}"
+    service: "tor-proxy"
+  alert_labels:
+    pipeline: "dns"
+    stage: "anonymity"
+    service: "tor-proxy"
 
 # ===========================================================================
 # Search
@@ -789,6 +1097,10 @@ services:
   description: "QEMU VM on OCI for AI agent isolation (Debian bookworm, ARM64)"
   source_repo: "https://www.qemu.org/"
   ports: []
+  probe:
+    type: "tcp"
+    target: "{{ infra_network_kvm_isolation_vm_ip | default('') }}:22"
+    service: "isolation-vm"
   notes: "IP: 192.168.100.147, no exposed ports — accessed via SSH through OCI"
 
 # ===========================================================================
@@ -948,6 +1260,10 @@ services:
   domains:
     - "infra_domain_inference_host"
   ports: []
+  probe:
+    type: "tcp"
+    target: "{{ infra_tailscale_ip_inference_host | default('') }}:22"
+    service: "kckinai-host"
   notes: "Tailscale FQDN: {{ infra_tailscale_fqdn_inference_host | default(infra_tailscale_tailnet) }}, DDNS: client-specific"
 
 # ---------------------------------------------------------------------------
@@ -1207,6 +1523,8 @@ services:
     - host: "infra_port_security_fwknop_spa_host"
       container: "infra_port_security_fwknop_spa_container"
       label: "SPA (UDP)"
+  probe:
+    skip: true  # UDP Single-Packet-Authorization — no TCP/HTTP endpoint to probe
 
 # ===========================================================================
 # Remote Desktop
@@ -1265,6 +1583,8 @@ services:
   description: "Buzz agent runtime containers (buzz-acp + devin-cli) — one per agent, internal buzz-network only"
   source_repo: "https://github.com/block/buzz"
   network: "buzz-network"
+  probe:
+    skip: true  # dynamic per-agent container set — no fixed endpoint
 
 # ===========================================================================
 # Monitoring Stack (per ADR-202608270001)
@@ -1374,11 +1694,11 @@ services:
   traefik: true
   network: "traefik-network"
   health_endpoint: "/meta"
-  pipeline: "none"
-  pipeline_stage: "standalone"
+  pipeline: "ai"
+  pipeline_stage: "tools"
   alert_labels:
-    pipeline: "none"
-    stage: "standalone"
+    pipeline: "ai"
+    stage: "tools"
     service: "treg"
 
 # ---------------------------------------------------------------------------
@@ -1692,6 +2012,10 @@ services:
       label: "Web UI (via nordvpn)"
   traefik: true
   network: "container:nordvpn"
+  probe:
+    type: "http"
+    url: "https://{{ infra_domain_media_qbittorrent }}"
+    service: "qbittorrent"
   pipeline: "media"
   alert_labels:
     pipeline: "media"
@@ -1711,6 +2035,10 @@ services:
       label: "Web UI (via nordvpn)"
   traefik: true
   network: "container:nordvpn"
+  probe:
+    type: "http"
+    url: "https://{{ infra_domain_media_sabnzbd }}"
+    service: "sabnzbd"
   pipeline: "media"
   alert_labels:
     pipeline: "media"
@@ -1744,6 +2072,8 @@ services:
   traefik: false
   network: "traefik-windows-network"
   pipeline: "media"
+  probe:
+    skip: true  # batch/cron container — no listening endpoint
   alert_labels:
     pipeline: "media"
     stage: "support"
@@ -1758,6 +2088,8 @@ services:
   traefik: false
   network: "traefik-windows-network"
   pipeline: "media"
+  probe:
+    skip: true  # batch container — no listening endpoint
   alert_labels:
     pipeline: "media"
     stage: "support"
@@ -1834,21 +2166,34 @@ services:
 # ===========================================================================
 
 chains:
+  # Source of truth for AI topology: shared/docs/pipelines/ai/PIPELINE-AI.md
+  # Implemented chain: Omnigent -> Pi -> LiteLLM -> Headroom -> OmniRoute
+  #   -> Iron-Proxy -> Internet (NordVPN optional egress, treg tool-call branch)
+  # Forge / Privacy Orchestrator are deployed Phase-2/5 support nodes, NOT
+  # in the request chain. Langfuse is a parallel observability sink.
   - name: "AI Pipeline"
-    description: "Request flow for AI inference — gateway → proxy chain → upstream providers"
+    description: "Request flow for AI inference — agent → gateway → compression → routing → egress (per PIPELINE-AI.md)"
     flow:
+      - service: "Omnigent"
+        role: "agent orchestrator"
+        branches:
+          - service: "Pi"
+            role: "coding harness (RPC)"
+      - service: "Pi"
+        role: "request origin"
+        branches:
+          - service: "treg Tool Registry (cno)"
+            role: "tool calls (credential relay)"
       - service: "LiteLLM"
-        role: "gateway (auth, virtual keys, spend)"
-      - service: "Privacy Orchestrator"
-        role: "PII guardrail"
-      - service: "Forge"
-        role: "load balancer"
+        role: "gateway (auth, keys, PII, spend)"
       - service: "Headroom"
         role: "context compression"
-      - service: "iron-proxy"
-        role: "egress proxy"
       - service: "OmniRoute"
-        role: "upstream router"
+        role: "upstream router (4-tier fallback)"
+      - service: "iron-proxy"
+        role: "egress firewall (MITM TLS inspection)"
+      - upstream: "https://providers (OpenAI/Anthropic/Google/…)"
+        role: "direct egress (NordVPN optional)"
 
   - name: "Nix Cache Chain (nl)"
     description: "Nix binary cache proxy chain (nl region) — client → cache → racer → upstreams"

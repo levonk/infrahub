@@ -5,8 +5,20 @@
 groups:
   - name: vpn_pipeline_alerts
     rules:
+      - alert: TailscaleDown
+        expr: probe_success{service="tailscale-mesh"} == 0
+        for: 2m  # project-lint: disable=magic-unitnum  duration
+        labels:
+          pipeline: 'vpn'
+          stage: 'mesh'
+          service: 'tailscale'
+          severity: 'critical'
+        annotations:
+          summary: 'Tailscale mesh is down'
+          description: 'Tailscale on the cloud server is unreachable; all cross-cluster traffic fails.'
+
       - alert: NordVPNDown
-        expr: up{job="nordvpn", pipeline="vpn"} == 0
+        expr: probe_success{service="nordvpn"} == 0
         for: 1m  # project-lint: disable=magic-unitnum  duration
         labels:
           pipeline: 'vpn'
@@ -15,33 +27,33 @@ groups:
           severity: 'critical'
         annotations:
           summary: 'NordVPN is down'
-          description: 'NordVPN egress is not responding to Prometheus scrapes.'
-
-      - alert: WireGuardDown
-        expr: up{job="wireguard"} == 0
-        for: 1m  # project-lint: disable=magic-unitnum  duration
-        labels:
-          pipeline: 'vpn'
-          stage: 'egress'
-          service: 'wireguard'
-          severity: 'critical'
-        annotations:
-          summary: 'WireGuard is down'
-          description: 'WireGuard egress is not responding to Prometheus scrapes.'
+          description: 'NordVPN egress is not responding to blackbox probes.'
 
       - alert: TorEgressDown
-        expr: up{job="tor-egress"} == 0
+        expr: probe_success{service="tor-exit"} == 0
         for: 1m  # project-lint: disable=magic-unitnum  duration
         labels:
           pipeline: 'vpn'
           stage: 'egress'
-          service: 'tor'
+          service: 'tor-exit'
           severity: 'critical'
         annotations:
           summary: 'Tor egress is down'
-          description: 'Tor egress is not responding to Prometheus scrapes.'
+          description: 'Tor exit node is not responding to blackbox probes.'
 
-      - alert: VPNSyntheticProbeFailed
+      - alert: HostEgressDown
+        expr: probe_success{service="host-egress"} == 0
+        for: 2m  # project-lint: disable=magic-unitnum  duration
+        labels:
+          pipeline: 'vpn'
+          stage: 'egress-host'
+          service: 'host-direct'
+          severity: 'critical'
+        annotations:
+          summary: 'Host internet egress is down'
+          description: 'The cloud server cannot reach the internet directly.'
+
+      - alert: VPNEgressSyntheticProbeFailed
         expr: vpn_egress_probe_success == 0
         for: 2m  # project-lint: disable=magic-unitnum  duration
         labels:

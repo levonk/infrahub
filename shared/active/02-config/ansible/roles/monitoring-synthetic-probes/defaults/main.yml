@@ -11,42 +11,57 @@ monitoring_synthetic_probes_image_name: "alpine"
 monitoring_synthetic_probes_image_tag: "3.20"
 
 # ---------------------------------------------------------------------------
-# Network
+# Networks — the probe container must reach every pipeline hop:
+#   traefik-network   — litellm, omnigent
+#   localnet-network  — mitmproxy (web chain), tor-proxy, dnsdist/adguard
+#   vpn-network       — nordvpn SOCKS5
 # ---------------------------------------------------------------------------
-monitoring_synthetic_probes_network: "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"
+monitoring_synthetic_probes_networks:
+  - "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"
+  - "{{ infra_network_dns_localnet_network_name | default('localnet-network') }}"
+  - "{{ infra_network_vpn_nordvpn_network_name | default('vpn-network') }}"
 
 # ---------------------------------------------------------------------------
 # Storage
 # ---------------------------------------------------------------------------
 monitoring_synthetic_probes_scripts_dir: "{{ infra_storage_monitoring_config_dir | default('/opt/localnet/monitoring/synthetic-probes') }}/scripts"
-monitoring_synthetic_probes_textfile_dir: "{{ infra_storage_monitoring_node_exporter_textfile_dir | default('/var/lib/node_exporter/textfile_collector') }}/probes"
+# Probes write directly into node_exporter's textfile collector dir — the
+# collector does NOT recurse into subdirectories.
+monitoring_synthetic_probes_textfile_dir: "{{ infra_storage_monitoring_node_exporter_textfile_dir | default('/var/lib/node_exporter/textfile') }}"
 
 # ---------------------------------------------------------------------------
 # AI Pipeline — LiteLLM probe
 # ---------------------------------------------------------------------------
-monitoring_synthetic_probes_litellm_endpoint: "http://{{ infra_hostname_ai_litellm | default('localnet-ai-litellm') }}:{{ infra_port_ai_litellm_container | default(4000) }}/v1/chat/completions"  # project-lint: disable=magic-int  litellm port
+monitoring_synthetic_probes_litellm_endpoint: "http://{{ infra_hostname_litellm | default('litellm') }}:{{ infra_port_ai_litellm_container | default(4000) }}/v1/chat/completions"  # project-lint: disable=magic-int  litellm port
 monitoring_synthetic_probes_litellm_api_key: "{{ vault_litellm_synthetic_probe_key | default('') }}"
 
 # ---------------------------------------------------------------------------
 # AI Pipeline — Omnigent probe
 # ---------------------------------------------------------------------------
-monitoring_synthetic_probes_omnigent_endpoint: "http://{{ infra_hostname_ai_omnigent | default('localnet-ai-omnigent') }}:{{ infra_port_ai_omnigent_container | default(8000) }}"  # project-lint: disable=magic-int  omnigent port
+monitoring_synthetic_probes_omnigent_endpoint: "http://{{ infra_hostname_omnigent | default('omnigent') }}:{{ infra_port_ai_omnigent_container | default(8000) }}"  # project-lint: disable=magic-int  omnigent port
 monitoring_synthetic_probes_omnigent_api_key: "{{ vault_omnigent_synthetic_probe_key | default('') }}"
 
 # ---------------------------------------------------------------------------
 # DNS Pipeline
 # ---------------------------------------------------------------------------
 monitoring_synthetic_probes_dns_internal_domain: "{{ infra_domain_base | default('levonk.com') }}"
+# DNS chain entry point (AdGuard) — the probe must query the chain, not the
+# container's default Docker resolver.
+monitoring_synthetic_probes_dns_server: "{{ infra_hostname_dns_adguard | default('localnet-dns-adguard') }}:{{ infra_port_dns_adguard_container | default('5354') }}"  # project-lint: disable=magic-int  dns port
 
 # ---------------------------------------------------------------------------
-# Web Proxy Pipeline
+# Web Proxy Pipeline — entry point is mitmproxy's explicit-proxy listener
+# (adblock listener, on localnet-network at a fixed container IP).
 # ---------------------------------------------------------------------------
-monitoring_synthetic_probes_web_proxy_url: "http://{{ infra_hostname_proxy_mitm | default('localnet-proxy-mitm') }}:{{ infra_port_proxy_mitm_container | default(8080) }}"  # project-lint: disable=magic-int  mitm port
+monitoring_synthetic_probes_web_proxy_url: "http://{{ infra_network_ip_proxy_mitm | default('mitmproxy') }}:{{ infra_port_proxy_mitm_adblock_container | default(3128) }}"  # project-lint: disable=magic-int  mitm port
 monitoring_synthetic_probes_web_target_url: "http://example.com"
 
 # ---------------------------------------------------------------------------
 # VPN/Egress Pipeline
 # ---------------------------------------------------------------------------
 monitoring_synthetic_probes_host_public_ip: "{{ ansible_facts['default_ipv4']['address'] | default('') }}"
-monitoring_synthetic_probes_nordvpn_socks5: "{{ infra_hostname_vpn_nordvpn | default('localnet-vpn-nordvpn') }}:{{ infra_port_vpn_nordvpn_socks_container | default(1080) }}"  # project-lint: disable=magic-int  nordvpn socks port
+monitoring_synthetic_probes_nordvpn_socks5: "{{ infra_hostname_vpn_nordvpn | default('nordvpn') }}:{{ infra_port_vpn_nordvpn_socks_container | default(1080) }}"  # project-lint: disable=magic-int  nordvpn socks port
 monitoring_synthetic_probes_tor_socks5_hostname: "{{ infra_hostname_proxy_tor | default('localnet-proxy-tor') }}:{{ infra_port_proxy_tor_socks5_container | default(9050) }}"  # project-lint: disable=magic-int  tor socks port
+# Tailscale check: TCP connect to the cloud server's tailnet address (the
+# probe container has no tailscaled — port-22 reachability is the signal).
+monitoring_synthetic_probes_tailscale_ip: "{{ infra_tailscale_ip_cloud_server | default('') }}"
