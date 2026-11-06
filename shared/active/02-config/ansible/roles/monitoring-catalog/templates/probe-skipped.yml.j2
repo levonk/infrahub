@@ -1,0 +1,35 @@
+{# Services with no probeable endpoint — emits YAML list of names. #}
+{% set ns = namespace(probes=[], skipped=[]) %}
+{% for svc in services | default([]) %}
+{%   set p = svc.probe | default({}) %}
+{%   if p.skip | default(false) %}
+{%     set _ = ns.skipped.append(svc.name) %}
+{%   else %}
+{%     set ports = svc.ports | default([]) %}
+{%     set machine = svc.machine | default('oci-cloud-server') %}
+{%     set hostvar = (ports | selectattr('host', 'defined') | map(attribute='host') | list | first) | default('') %}
+{%     set contvar = (ports | selectattr('container', 'defined') | map(attribute='container') | list | first) | default('') %}
+{%     set hport = lookup('vars', hostvar, default='') if hostvar else '' %}
+{%     set cport = lookup('vars', contvar, default='') if contvar else '' %}
+{%     set container = svc.container | default('') %}
+{%     set target = p.target | default('') %}
+{%     if p.url | default('') %}
+{%       set target = 'x' %}
+{%     endif %}
+{%     if not target %}
+{%       if machine == 'oci-cloud-server' %}
+{%         if hport %}
+{%           set target = 'x' %}
+{%         elif cport and container and '*' not in container %}
+{%           set target = 'x' %}
+{%         endif %}
+{%       elif machine in ['dtop202311', 'kckinai'] and hport %}
+{%         set target = 'x' %}
+{%       endif %}
+{%     endif %}
+{%     if not target %}
+{%       set _ = ns.skipped.append(svc.name) %}
+{%     endif %}
+{%   endif %}
+{% endfor %}
+{{ ns.skipped | to_nice_yaml }}

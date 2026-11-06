@@ -1,0 +1,111 @@
+---
+# blackbox_exporter Deployment
+# Probes HTTP/TCP/DNS/ICMP endpoints on behalf of Prometheus so services
+# without a native /metrics endpoint still get probe_success metrics.
+# Joins service networks (when they exist) for container-name reachability,
+# plus host.docker.internal for host-published port probing.
+
+# ============================================================================
+# Validate required variables
+# ============================================================================
+- name: Validate required variables are defined
+  ansible.builtin.assert:
+    that:
+      - monitoring_blackbox_container_name is defined
+      - monitoring_blackbox_image_name is defined
+      - monitoring_blackbox_image_tag is defined
+      - monitoring_blackbox_network is defined
+      - monitoring_blackbox_config_dir is defined
+      - monitoring_blackbox_container_port is defined
+    fail_msg: >-
+      Missing required variables for monitoring-blackbox.
+      Check infrastructure vars (ports, domains, storage, networks).
+    success_msg: "All required blackbox variables are defined."
+  tags: ["always", "validate"]
+
+# ============================================================================
+# Config directory + rendered blackbox.yml
+# ============================================================================
+- name: Ensure blackbox config directory exists on host
+  ansible.builtin.file:
+    path: "{{ monitoring_blackbox_config_dir }}"
+    state: directory
+    mode: "{{ infra_mode_dir }}"
+
+- name: Render blackbox.yml
+  ansible.builtin.template:
+    src: blackbox.yml.j2
+    dest: "{{ monitoring_blackbox_config_dir }}/blackbox.yml"
+    mode: "{{ infra_mode_file }}"
+  notify: restart monitoring-blackbox
+
+# ============================================================================
+# Discover which optional service networks exist on this host
+# ============================================================================
+- name: Check each candidate service network
+  community.docker.docker_network_info:
+    name: "{{ item }}"
+  loop: "{{ monitoring_blackbox_extra_networks }}"
+  register: _blackbox_network_probe
+  failed_when: false
+  tags: ["deploy", "monitoring", "blackbox"]
+
+- name: Compute networks to attach (primary + existing service networks)
+  ansible.builtin.set_fact:
+    monitoring_blackbox_attached_networks: >-
+      {{ [monitoring_blackbox_network]
+         + (_blackbox_network_probe.results
+            | selectattr('network', 'defined')
+            | map(attribute='network.Name')
+            | list) }}
+  tags: ["deploy", "monitoring", "blackbox"]
+
+# ============================================================================
+# Image pull
+# ============================================================================
+- name: Pull blackbox exporter image
+  community.docker.docker_image:
+    name: "{{ monitoring_blackbox_image_name }}:{{ monitoring_blackbox_image_tag }}"
+    source: pull
+    state: present
+  notify: restart monitoring-blackbox
+
+# ============================================================================
+# Container deployment
+# ============================================================================
+- name: Deploy blackbox exporter container
+  community.docker.docker_container:
+    name: "{{ monitoring_blackbox_container_name }}"
+    image: "{{ monitoring_blackbox_image_name }}:{{ monitoring_blackbox_image_tag }}"
+    state: started
+    restart_policy: unless-stopped
+    command:
+      - "--config.file=/etc/blackbox_exporter/blackbox.yml"
+    capabilities:
+      - NET_RAW
+    networks: "{{ monitoring_blackbox_attached_networks }}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    published_ports:
+      - "{{ monitoring_blackbox_host_port }}:{{ monitoring_blackbox_container_port }}/tcp"
+    volumes:
+      - "{{ monitoring_blackbox_config_dir }}/blackbox.yml:/etc/blackbox_exporter/blackbox.yml:ro"
+    env:
+      TZ: "{{ localnet_tz | default('UTC') }}"
+    log_driver: json-file
+    log_options:
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:{{ monitoring_blackbox_container_port }}/-/healthy || exit 1"]
+      interval: "{{ infra_healthcheck_interval }}"
+      timeout: "{{ infra_healthcheck_timeout }}"
+      retries: "{{ infra_healthcheck_retries }}"
+      start_period: "{{ infra_healthcheck_start_period }}"
+  notify: restart monitoring-blackbox
+  tags: ["deploy", "monitoring", "blackbox"]
+
+- name: Report attached networks
+  ansible.builtin.debug:
+    msg: "blackbox attached to: {{ monitoring_blackbox_attached_networks | join(', ') }}"
+  tags: ["verify", "summary"]
