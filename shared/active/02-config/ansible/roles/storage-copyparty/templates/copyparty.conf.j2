@@ -16,9 +16,13 @@
   css-browser: /public/.res/catppuccin-mocha.css  # custom theme served from /w/public/.res/
   themes: 11  # project-lint: disable=magic-int  copyparty config: add theme slot 10 for catppuccin
   theme: 10  # project-lint: disable=magic-int  copyparty config: default to catppuccin theme
+  lo: /cfg/logs/copyparty-%Y-%m%d.txt  # persistent request log (downloads/uploads/deletes/moves); new file per restart/date — plaintext so lines flush immediately
+  flo: 2  # project-lint: disable=magic-int  copyparty logfile format: plaintext, no ANSI colors
+  log-date: "[%Y-%m-%d]"  # include the date in each log line (default is time-only)
 
 [accounts]
   admin: {{ copyparty_admin_password }}
+  dawnafterdark: {{ copyparty_dawn_password }}
 
 [/public]
   /w/public
@@ -35,4 +39,10 @@
 [/family]
   /w/family
   accs:
+    rwmda: admin  # admin full access
+
+[/dawn]
+  /w/dawn
+  accs:
+    rw: dawnafterdark  # read + write only (no delete/move/admin)
     rwmda: admin  # admin full access
