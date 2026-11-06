@@ -5,19 +5,19 @@
 # Chain topology source of truth: shared/docs/pipelines/ai/PIPELINE-AI.md
 # Implemented chain: Omnigent -> Pi -> LiteLLM -> Headroom -> OmniRoute
 #                    -> Iron-Proxy -> Internet (NordVPN when egress chained)
-# Deployed-but-deferred pipeline services (Forge, Privacy Orchestrator) are
+# Deployed-but-deferred pipeline services (Privacy Orchestrator) are
 # monitored as support nodes, not chain members.
 #
 # Signal sources:
-#   up{job=...}        — native /metrics scrapes (litellm)
-#   probe_success{...} — blackbox probes (everything else)
-#   *_probe_success    — synthetic probe textfile metrics (node_exporter)
+#   up{job=...}                 — native /metrics scrapes (litellm)
+#   service_probe_success{...}  — per-service synthetic probes (textfile)
+#   ai_pipeline_probe_*         — end-to-end synthetic probe textfile metrics
 
 groups:
   - name: ai_pipeline_alerts
     rules:
       - alert: OmnigentDown
-        expr: probe_success{service="omnigent"} == 0
+        expr: service_probe_success{pipeline="ai",service="omnigent"} == 0
         for: 1m  # project-lint: disable=magic-unitnum  duration
         labels:
           pipeline: 'ai'
@@ -25,11 +25,11 @@ groups:
           service: 'omnigent'
           severity: 'critical'
         annotations:
-          summary: 'Omnigent is down'
-          description: 'Omnigent (AI pipeline entry point) is not responding to blackbox probes.'
+          summary: 'Omnigent container is down'
+          description: 'Omnigent (AI pipeline entry point) is not responding to Prometheus scrapes.'
 
       - alert: PiDown
-        expr: probe_success{service="pi"} == 0
+        expr: service_probe_success{pipeline="ai",service="pi"} == 0
         for: 1m  # project-lint: disable=magic-unitnum  duration
         labels:
           pipeline: 'ai'
@@ -38,10 +38,10 @@ groups:
           severity: 'critical'
         annotations:
           summary: 'Pi agent is down'
-          description: 'Pi agent (coding harness) is not responding to blackbox probes.'
+          description: 'Pi agent is not responding to Prometheus scrapes.'
 
       - alert: LiteLLMDown
-        expr: (up{job="litellm"} == 0) or (probe_success{service="litellm"} == 0)
+        expr: (up{job="litellm"} == 0) or (service_probe_success{pipeline="ai",service="litellm"} == 0)
         for: 1m  # project-lint: disable=magic-unitnum  duration
         labels:
           pipeline: 'ai'
@@ -53,7 +53,7 @@ groups:
           description: 'LiteLLM gateway is not responding; all AI traffic stops here.'
 
       - alert: HeadroomDown
-        expr: probe_success{service="headroom"} == 0
+        expr: service_probe_success{pipeline="ai",service="headroom"} == 0
         for: 1m  # project-lint: disable=magic-unitnum  duration
         labels:
           pipeline: 'ai'
@@ -62,10 +62,10 @@ groups:
           severity: 'critical'
         annotations:
           summary: 'Headroom compression is down'
-          description: 'Headroom compression service is not responding to blackbox probes.'
+          description: 'Headroom compression service is not responding to Prometheus scrapes.'
 
       - alert: OmniRouteDown
-        expr: probe_success{service="omniroute"} == 0
+        expr: service_probe_success{pipeline="ai",service="omniroute"} == 0
         for: 1m  # project-lint: disable=magic-unitnum  duration
         labels:
           pipeline: 'ai'
@@ -74,10 +74,22 @@ groups:
           severity: 'critical'
         annotations:
           summary: 'OmniRoute routing is down'
-          description: 'OmniRoute routing service is not responding to blackbox probes.'
+          description: 'OmniRoute routing service is not responding to Prometheus scrapes.'
+
+      - alert: ForgeDown
+        expr: service_probe_success{pipeline="ai",service="forge"} == 0
+        for: 1m  # project-lint: disable=magic-unitnum  duration
+        labels:
+          pipeline: 'ai'
+          stage: 'forge'
+          service: 'forge'
+          severity: 'critical'
+        annotations:
+          summary: 'Forge is down'
+          description: 'Forge service is not responding to Prometheus scrapes.'
 
       - alert: IronProxyDown
-        expr: probe_success{service="iron-proxy"} == 0
+        expr: service_probe_success{pipeline="ai",service="iron-proxy"} == 0
         for: 1m  # project-lint: disable=magic-unitnum  duration
         labels:
           pipeline: 'ai'
@@ -86,10 +98,10 @@ groups:
           severity: 'critical'
         annotations:
           summary: 'Iron-Proxy is down'
-          description: 'Iron-Proxy egress firewall is not responding to blackbox probes.'
+          description: 'Iron-Proxy service is not responding to Prometheus scrapes.'
 
       - alert: NordVPNEgressDown
-        expr: probe_success{service="nordvpn"} == 0
+        expr: service_probe_success{pipeline="ai",service="nordvpn"} == 0
         for: 1m  # project-lint: disable=magic-unitnum  duration
         labels:
           pipeline: 'ai'
@@ -101,20 +113,8 @@ groups:
           description: 'AI pipeline cannot reach the internet via the NordVPN exit node.'
 
       # ── Deployed support services (not chain members per PIPELINE-AI.md) ──
-      - alert: ForgeDown
-        expr: probe_success{service="forge"} == 0
-        for: 1m  # project-lint: disable=magic-unitnum  duration
-        labels:
-          pipeline: 'ai'
-          stage: 'forge'
-          service: 'forge'
-          severity: 'warning'
-        annotations:
-          summary: 'Forge is down'
-          description: 'Forge tool-call repair service (Phase 2, deployed early) is not responding.'
-
       - alert: PrivacyOrchestratorDown
-        expr: probe_success{service="privacy-orchestrator"} == 0
+        expr: service_probe_success{pipeline="ai",service="privacy-orchestrator"} == 0
         for: 1m  # project-lint: disable=magic-unitnum  duration
         labels:
           pipeline: 'ai'
@@ -127,28 +127,16 @@ groups:
 
       # ── Synthetic probes (ADR §4.1) ──
       - alert: AIPipelineSyntheticProbeFailed
-        expr: ai_pipeline_probe_success{probe="omnigent"} == 0
+        expr: ai_pipeline_probe_success == 0
         for: 2m  # project-lint: disable=magic-unitnum  duration
         labels:
           pipeline: 'ai'
           stage: 'synthetic-probe'
-          service: 'omnigent-probe'
+          service: 'ai-probe'
           severity: 'critical'
         annotations:
-          summary: 'AI pipeline end-to-end probe failed (Omnigent entry)'
-          description: 'Full chain broken: Omnigent -> Pi -> LiteLLM -> Headroom -> OmniRoute -> Iron-Proxy -> egress.'
-
-      - alert: AIPipelineGatewayProbeFailed
-        expr: ai_pipeline_probe_success{probe="litellm"} == 0
-        for: 2m  # project-lint: disable=magic-unitnum  duration
-        labels:
-          pipeline: 'ai'
-          stage: 'synthetic-probe'
-          service: 'litellm-probe'
-          severity: 'critical'
-        annotations:
-          summary: 'AI pipeline gateway probe failed (LiteLLM entry)'
-          description: 'Gateway-to-egress chain broken: LiteLLM -> Headroom -> OmniRoute -> Iron-Proxy -> egress.'
+          summary: 'AI pipeline end-to-end probe failed'
+          description: 'The AI pipeline synthetic probe did not return a valid OpenAI-compatible response.'
 
       - alert: AIPipelineProbeUnconfigured
         expr: ai_pipeline_probe_configured == 0

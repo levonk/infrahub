@@ -2,7 +2,11 @@
 galaxy_info:
   role_name: rustdesk_client
   author: infrahub
-  description: Installs and configures the RustDesk client on Linux hosts to use a self-hosted RustDesk server
+  description: >
+    Installs and configures the RustDesk client to use a self-hosted
+    RustDesk server. On Linux uses .deb/.rpm + systemd; on macOS uses the
+    Homebrew cask + launchd Daemon/Agent, then opens the System Settings
+    privacy panes for the one-time TCC grants.
   company: levonk
   license: MIT
   min_ansible_version: "2.9"
@@ -17,10 +21,13 @@ galaxy_info:
     - name: EL
       versions:
         - "9"
+    - name: MacOSX
+      versions:
+        - all
 
   galaxy_tags:
     - rustdesk
-    - remote-desktop
+    - remotedesktop
     - client
 
 dependencies: []

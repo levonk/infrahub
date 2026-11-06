@@ -8,7 +8,7 @@
 # ---------------------------------------------------------------------------
 monitoring_prometheus_container_name: "{{ infra_hostname_monitoring_prometheus }}"
 monitoring_prometheus_image_name: "prom/prometheus"
-monitoring_prometheus_image_tag: "v3.14.0"
+monitoring_prometheus_image_tag: "v3.15.0"
 
 # ---------------------------------------------------------------------------
 # Network

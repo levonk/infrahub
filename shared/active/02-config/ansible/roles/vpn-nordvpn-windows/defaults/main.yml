@@ -22,9 +22,9 @@ vpn_nordvpn_windows_tailscale_image: "tailscale/tailscale:latest"
 # Docker networks are local to each host — same names as OCI (cno) since
 # they are on separate Docker daemons. Subnets differ to avoid confusion.
 # ---------------------------------------------------------------------------
-vpn_nordvpn_windows_network_name: "{{ infra_network_vpn_nordvpn_windows_network_name | default(infra_network_vpn_nordvpn_windows_network_name) }}"
-vpn_nordvpn_windows_network_subnet: "{{ infra_network_vpn_nordvpn_windows_subnet | default(infra_network_vpn_nordvpn_windows_network_subnet) }}"
-vpn_nordvpn_windows_network_gateway: "{{ infra_network_vpn_nordvpn_windows_gateway | default(infra_network_vpn_nordvpn_windows_network_gateway) }}"
+vpn_nordvpn_windows_network_name: "{{ infra_network_vpn_nordvpn_windows_network_name | default('vpn-network') }}"
+vpn_nordvpn_windows_network_subnet: "{{ infra_network_vpn_nordvpn_windows_subnet | default('172.40.0.0/16') }}"  # project-lint: disable=magic-cidr  fallback matches networks.yml when vars not loaded
+vpn_nordvpn_windows_network_gateway: "{{ infra_network_vpn_nordvpn_windows_gateway | default('172.40.0.1') }}"  # project-lint: disable=all  fallback matches networks.yml when vars not loaded
 
 # ---------------------------------------------------------------------------
 # Port configuration (ALL ports as variables — offset from OCI to avoid

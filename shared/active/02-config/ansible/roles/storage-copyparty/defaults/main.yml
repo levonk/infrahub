@@ -34,6 +34,7 @@ copyparty_config_dir: "{{ infra_storage_copyparty_config_dir | default('/opt/loc
 # Secrets
 # ---------------------------------------------------------------------------
 copyparty_admin_password: "{{ vault_copyparty_admin_password | default('') }}"
+copyparty_dawn_password: "{{ vault_copyparty_dawn_password | default('') }}"
 
 # ---------------------------------------------------------------------------
 # Health Check Configuration (durations are STRINGS with unit suffixes)

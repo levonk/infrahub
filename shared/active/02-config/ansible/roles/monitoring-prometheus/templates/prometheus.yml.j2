@@ -79,6 +79,17 @@ scrape_configs:
           stage: 'gateway'
           service: 'litellm'
 
+  # Buzz relay — exposes Prometheus metrics on BUZZ_METRICS_PORT
+  - job_name: 'buzz'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets:
+          - '{{ infra_hostname_buzz }}:{{ infra_port_ai_buzz_metrics_container }}'
+        labels:
+          pipeline: 'ai'
+          stage: 'relay'
+          service: 'buzz'
+
   # DNS pipeline — on localnet-network (Prometheus is attached to it)
   - job_name: 'coredns'
     metrics_path: '/metrics'
@@ -121,15 +132,8 @@ scrape_configs:
           stage: 'monitoring'
           service: 'alertmanager'
 
-  - job_name: 'uptime-kuma'
-    metrics_path: '/metrics'
-    static_configs:
-      - targets:
-          - '{{ infra_hostname_monitoring_uptime_kuma }}:{{ infra_port_monitoring_uptime_kuma_container }}'
-        labels:
-          pipeline: 'infra'
-          stage: 'monitoring'
-          service: 'uptime-kuma'
+  # NOTE: no uptime-kuma job — Uptime Kuma has no /metrics endpoint;
+  # it is covered by the synthetic service probe (service_probe_success).
 
   - job_name: 'blackbox'
     metrics_path: '/metrics'

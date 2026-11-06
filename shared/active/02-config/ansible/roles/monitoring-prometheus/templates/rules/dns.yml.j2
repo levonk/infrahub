@@ -6,12 +6,17 @@
 #   -> {unbound-validator, unbound-tor, unbound-root,
 #       dnscrypt-plaintext, dnscrypt-odoh, dnscrypt-anon, tor-proxy}
 #   -> upstream resolvers
+#
+# Signal sources:
+#   up{job=...}                 — native /metrics scrapes (dnsdist, coredns)
+#   service_probe_success{...}  — per-service synthetic probes (textfile)
+#   probe_success{...}          — blackbox probes (monitoring-catalog targets)
 
 groups:
   - name: dns_pipeline_alerts
     rules:
       - alert: AdGuardDown
-        expr: probe_success{service="adguard"} == 0
+        expr: service_probe_success{pipeline="dns",service="adguard"} == 0
         for: 1m  # project-lint: disable=magic-unitnum  duration
         labels:
           pipeline: 'dns'
@@ -20,10 +25,10 @@ groups:
           severity: 'critical'
         annotations:
           summary: 'AdGuard is down'
-          description: 'AdGuard DNS filter is not responding to blackbox probes.'
+          description: 'AdGuard DNS filter is not responding to Prometheus scrapes.'
 
       - alert: DnsdistDown
-        expr: (up{job="dnsdist"} == 0) or (probe_success{service="dnsdist"} == 0)
+        expr: up{job="dnsdist"} == 0
         for: 1m  # project-lint: disable=magic-unitnum  duration
         labels:
           pipeline: 'dns'
@@ -32,10 +37,10 @@ groups:
           severity: 'critical'
         annotations:
           summary: 'dnsdist is down'
-          description: 'dnsdist DNS router is not responding to scrapes/probes.'
+          description: 'dnsdist DNS router is not responding to Prometheus scrapes.'
 
       - alert: CoreDNSDown
-        expr: (up{job="coredns"} == 0) or (probe_success{service="coredns"} == 0)
+        expr: up{job="coredns"} == 0
         for: 1m  # project-lint: disable=magic-unitnum  duration
         labels:
           pipeline: 'dns'
@@ -44,7 +49,7 @@ groups:
           severity: 'critical'
         annotations:
           summary: 'CoreDNS is down'
-          description: 'CoreDNS resolver is not responding to scrapes/probes.'
+          description: 'CoreDNS resolver is not responding to Prometheus scrapes.'
 
       - alert: UnboundDown
         expr: probe_success{service=~"unbound-validator|unbound-tor|unbound-root"} == 0
@@ -58,27 +63,28 @@ groups:
           description: 'One of the Unbound resolvers (validator/tor/root) is not responding.'
 
       - alert: DNSCryptDown
-        expr: probe_success{service=~"dnscrypt-plaintext|dnscrypt-odoh|dnscrypt-anon"} == 0
-        for: 2m  # project-lint: disable=magic-unitnum  duration
-        labels:
-          pipeline: 'dns'
-          stage: 'anonymity'
-          severity: 'warning'
-        annotations:
-          summary: 'A DNSCrypt resolver is down'
-          description: 'One of the DNSCrypt proxies (plaintext/odoh/anon) is not responding.'
-
-      - alert: TorDNSDown
-        expr: probe_success{service="tor-proxy"} == 0
+        expr: service_probe_success{pipeline="dns",service="dnscrypt"} == 0
         for: 1m  # project-lint: disable=magic-unitnum  duration
         labels:
           pipeline: 'dns'
-          stage: 'anonymity'
-          service: 'tor-proxy'
+          stage: 'proxy'
+          service: 'dnscrypt'
           severity: 'critical'
         annotations:
-          summary: 'Tor DNS proxy is down'
-          description: 'The DNS-chain Tor proxy is not responding to blackbox probes.'
+          summary: 'DNSCrypt is down'
+          description: 'DNSCrypt proxy is not responding to Prometheus scrapes.'
+
+      - alert: TorDNSDown
+        expr: service_probe_success{pipeline="dns",service="tor-dns"} == 0
+        for: 1m  # project-lint: disable=magic-unitnum  duration
+        labels:
+          pipeline: 'dns'
+          stage: 'proxy'
+          service: 'tor-dns'
+          severity: 'critical'
+        annotations:
+          summary: 'Tor DNS is down'
+          description: 'Tor DNS proxy is not responding to Prometheus scrapes.'
 
       - alert: DNSPipelineSyntheticProbeFailed
         expr: dns_pipeline_probe_success == 0

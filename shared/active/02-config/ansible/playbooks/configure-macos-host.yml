@@ -842,6 +842,23 @@
       tags: ["chromium-policy", "hardening"]
 
     # ---------------------------------------------------------------------------
+    # RustDesk — remote desktop client. Installs the cask if missing,
+    # deploys the launchd Daemon/Agent and the self-hosted server config,
+    # then opens the System Settings privacy panes for the one-time TCC
+    # grants (Accessibility, Screen Recording, Input Monitoring — these are
+    # SIP-protected and cannot be granted without MDM). After granting once,
+    # set rustdesk_client_macos_permissions_granted: true in the inventory.
+    # ---------------------------------------------------------------------------
+    - name: "RustDesk client — service, config, TCC handoff"
+      ansible.builtin.include_role:
+        name: rustdesk-client
+        # include_role does NOT propagate tags to role tasks — apply:
+        # ensures --tags rustdesk selects the tasks inside the role.
+        apply:
+          tags: ["rustdesk"]
+      tags: ["rustdesk"]
+
+    # ---------------------------------------------------------------------------
     # Xcode — install via mas (Mac App Store CLI)
     # Requires: mas in PATH (nix-darwin fleet module), Apple ID signed in to
     # App Store. Skipped if Xcode already at target version. Run selectively:

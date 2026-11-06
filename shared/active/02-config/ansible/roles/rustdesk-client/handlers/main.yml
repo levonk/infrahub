@@ -1,6 +1,21 @@
 ---
 # Handlers for RustDesk client
+# Both handlers share the "rustdesk restart" topic; the `when` picks the
+# right implementation per-OS.
 - name: restart rustdesk service
+  listen: rustdesk restart
   ansible.builtin.systemd:
     name: rustdesk
     state: restarted
+  when: ansible_facts['distribution'] != "MacOSX"
+
+- name: restart rustdesk launchd jobs
+  listen: rustdesk restart
+  ansible.builtin.shell: |
+    launchctl bootout system/{{ rustdesk_client_macos_daemon_label }} 2>/dev/null || true
+    launchctl bootstrap system {{ rustdesk_client_macos_daemon_plist }}
+    if [ -n "{{ rustdesk_macos_gui_uid | default('') }}" ]; then
+      launchctl kickstart -k gui/{{ rustdesk_macos_gui_uid | default('') }}/{{ rustdesk_client_macos_agent_label }} 2>/dev/null || true
+    fi
+  become: true
+  when: ansible_facts['distribution'] == "MacOSX"
