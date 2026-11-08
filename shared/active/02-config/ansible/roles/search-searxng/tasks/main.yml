@@ -83,6 +83,35 @@
     search_searxng_container_networks: "{{ search_searxng_container_networks + [{'name': search_searxng_vpn_network}] }}"
   when: search_searxng_proxy_enabled | bool
 
+# docker_container does not reliably recreate on config drift, so detect
+# drift explicitly and remove the stale container before redeploying.
+- name: Inspect existing SearXNG container
+  community.docker.docker_container_info:
+    name: "{{ search_searxng_container_name }}"
+  register: search_searxng_existing
+  become: true
+  when: search_searxng_enabled | bool
+
+- name: Determine if SearXNG container needs recreation
+  ansible.builtin.set_fact:
+    search_searxng_needs_recreate: >-
+      {{ search_searxng_existing.container is not defined
+         or search_searxng_existing.container.Config.Image != (search_searxng_image ~ ':' ~ search_searxng_image_tag)
+         or ('HTTP_PROXY=' in (search_searxng_existing.container.Config.Env | default([]) | join('\n'))) != (search_searxng_proxy_enabled | bool)
+         or (search_searxng_existing.container.NetworkSettings.Networks.keys() | list | sort)
+            != (search_searxng_container_networks | map(attribute='name') | sort) }}
+  when: search_searxng_enabled | bool
+
+- name: Remove drifted SearXNG container
+  community.docker.docker_container:
+    name: "{{ search_searxng_container_name }}"
+    state: absent
+    force_kill: true
+  become: true
+  when:
+    - search_searxng_enabled | bool
+    - search_searxng_needs_recreate | bool
+
 - name: Deploy SearXNG container
   community.docker.docker_container:
     name: "{{ search_searxng_container_name }}"
