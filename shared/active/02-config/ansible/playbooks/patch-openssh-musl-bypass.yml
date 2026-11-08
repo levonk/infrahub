@@ -203,13 +203,23 @@
       tags: ["patch-musl-ssh", "containers"]
 
     - name: "PATCH-MUSL-SSH | Detect sshd process in each container"
+      # NOTE: bare `docker top` — `-o/-eo` format opts fail on newer Docker
+      # daemons ("Couldn't find PID field in ps output"), which would make
+      # this scan silently skip every container.
       ansible.builtin.command:
-        cmd: "docker top {{ item }} -eo comm"
+        cmd: "docker top {{ item }}"
       register: musl_patch_container_procs
       changed_when: false
       failed_when: false
       loop: "{{ musl_patch_containers.stdout_lines }}"
       when: musl_patch_containers.rc == 0
+      tags: ["patch-musl-ssh", "containers"]
+
+    - name: "PATCH-MUSL-SSH | Flag containers whose process table is unreadable"
+      ansible.builtin.set_fact:
+        musl_patch_unverified_containers: "{{ musl_patch_unverified_containers | default([]) + [item.item] }}"
+      loop: "{{ musl_patch_container_procs.results | default([]) }}"
+      when: item.rc != 0
       tags: ["patch-musl-ssh", "containers"]
 
     - name: "PATCH-MUSL-SSH | Collect containers running sshd"
@@ -218,7 +228,7 @@
       loop: "{{ musl_patch_container_procs.results | default([]) }}"
       when:
         - item.rc == 0
-        - item.stdout_lines | select('search', '^sshd$') | list | length > 0
+        - item.stdout is search('(^|[ /])sshd( |$)')
       tags: ["patch-musl-ssh", "containers"]
 
     - name: "PATCH-MUSL-SSH | Report containers running sshd"
@@ -235,6 +245,14 @@
       failed_when: false
       loop: "{{ musl_patch_sshd_containers | default([]) }}"
       tags: ["patch-musl-ssh", "containers"]
+
+    - name: "PATCH-MUSL-SSH | Warn about containers with unreadable procs"
+      ansible.builtin.debug:
+        msg: >-
+          docker top failed — cannot confirm sshd absence, inspect manually:
+          {{ musl_patch_unverified_containers | join(', ') }}
+      when: musl_patch_unverified_containers | default([]) | length > 0
+      tags: ["patch-musl-ssh", "containers", "verify"]
 
     - name: "PATCH-MUSL-SSH | Collect musl-based sshd containers"
       ansible.builtin.set_fact:
