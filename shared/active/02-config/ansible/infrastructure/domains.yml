@@ -113,6 +113,10 @@ infra_tailscale_fqdn_windows_docker: "{{ infra_tailscale_tailnet }}"
 # Tailscale IP for the Windows Docker host (for A records — direct tailnet access)
 # Overridden in client infrastructure/domains.yml with the actual Tailscale IP.
 infra_tailscale_ip_windows_docker: ""
+# Tailscale IP for the OCI cloud server (for A records — direct tailnet access).
+# Used where CNAME→*.ts.net is unreliable: MagicDNS intermittently NXDOMAINs
+# tailnet names reached by chasing a CNAME across zones.
+infra_tailscale_ip_cloud_server: ""
 
 # ---------------------------------------------------------------------------
 # Service Hostnames (container names)
