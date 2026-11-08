@@ -133,6 +133,8 @@
       "ansible-validate-vpn": "just --justfile levonk/justfile levonk-validate-vpn",
       "ansible-validate-infra": "just --justfile levonk/justfile levonk-validate-infra",
       "ansible-validate-vms": "just --justfile levonk/justfile levonk-validate-vms",
+      "ansible-patch-openssh": "just ansible-patch-openssh",
+      "ansible-patch-openssh-oci": "just ansible-patch-openssh-oci",
       "packer-build": "just packer-build",
       "packer-validate": "just packer-validate",
       "packer-init": "just packer-init"
