@@ -103,6 +103,30 @@
         security_gaps: "{{ security_gaps + ['PasswordAuthentication not set to no'] if ssh_password_auth_check.stdout is defined and not (ssh_password_auth_check.stdout is search('no')) else security_gaps }}"
       tags: ["audit", "ssh"]
 
+    - name: "Check musl-libc exposure to OpenSSH auth bypass (OpenSSH <10.6p2)"
+      ansible.builtin.shell:
+        cmd: |
+          set -o pipefail
+          if command -v apk >/dev/null 2>&1; then
+            pa=$(sshd -T 2>/dev/null | awk '/^passwordauthentication/{print $2}')
+            ver=$(sshd -V 2>&1 | grep -oE 'OpenSSH_[0-9.]+' || true)
+            echo "musl passwordauth=${pa:-unknown} ${ver:-unknown}"
+          else
+            echo "not-musl"
+          fi
+      register: musl_libc_check
+      changed_when: false
+      failed_when: false
+      tags: ["audit", "ssh", "musl"]
+      args:
+        executable: /bin/bash
+
+    - name: "Record musl sshd exposure"
+      ansible.builtin.set_fact:
+        security_gaps: "{{ security_gaps + ['musl-libc host with sshd password auth enabled — vulnerable to musl crypt() bypass (patch to OpenSSH 10.6p2)'] if musl_libc_check.stdout is search('passwordauth=yes') else security_gaps }}"
+        security_warnings: "{{ security_warnings + ['musl-libc host running sshd — verify openssh >=10.6p2 installed'] if musl_libc_check.stdout is search('^musl') and not (musl_libc_check.stdout is search('passwordauth=yes')) else security_warnings }}"
+      tags: ["audit", "ssh", "musl"]
+
     - name: "Check SSH key types (should only allow ed25519)"
       ansible.builtin.command:
         cmd: "grep -E '^HostKey /etc/ssh/ssh_host_' /etc/ssh/sshd_config"
