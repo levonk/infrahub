@@ -52,6 +52,10 @@
     nix_harmonia_enabled: true
     nix_ncps_enabled: true
     nix_ncro_enabled: true
+    # This playbook doesn't load media-stack role vars; its group_vars
+    # enable the Traefik routes but the template needs media_stack_*
+    # vars. Re-enable via the media stack's own deploy playbook.
+    proxy_traefik_windows_media_stack_enabled: false
 
   pre_tasks:
     - name: "Load shared infrastructure port defaults"
@@ -67,6 +71,26 @@
     - name: "Load shared infrastructure domain defaults"
       ansible.builtin.include_vars:
         file: "{{ playbook_dir }}/../infrastructure/domains.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure modes defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/modes.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure network defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/networks.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure values defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/values.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure timing defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/timing.yml"
       tags: ["always"]
 
     - name: "Load client infrastructure domain overrides"
@@ -89,8 +113,15 @@
       tags: ["always", "validate"]
 
   roles:
-    # Deploy in order: Harmonia first (serves /nix/store), then ncro (races
-    # upstreams), then ncps (front door, depends on ncro).
+    # Traefik first — it creates the traefik-windows-network that the nix
+    # containers join, and renders the nixcache-nl routing rule
+    # (proxy_traefik_windows_nix_ncps_enabled defaults to true).
+    - role: proxy_traefik_windows
+      tags: ["deploy", "traefik-windows"]
+      when: nix_ncps_enabled | default(true) | bool
+
+    # Then deploy in order: Harmonia (serves /nix/store), ncro (races
+    # upstreams), ncps (front door, depends on ncro).
     - role: nix-harmonia
       tags: ["deploy", "harmonia"]
       when: nix_harmonia_enabled | default(true) | bool
@@ -101,12 +132,6 @@
 
     - role: nix-ncps
       tags: ["deploy", "ncps"]
-      when: nix_ncps_enabled | default(true) | bool
-
-    # Re-deploy Traefik Windows dynamic config to pick up the nixcache-nl
-    # routing rule (proxy_traefik_windows_nix_ncps_enabled defaults to true).
-    - role: proxy_traefik_windows
-      tags: ["deploy", "traefik-windows"]
       when: nix_ncps_enabled | default(true) | bool
 
 
@@ -136,6 +161,26 @@
     - name: "Load shared infrastructure domain defaults"
       ansible.builtin.include_vars:
         file: "{{ playbook_dir }}/../infrastructure/domains.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure modes defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/modes.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure network defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/networks.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure values defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/values.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure timing defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/timing.yml"
       tags: ["always"]
 
     - name: "Load client infrastructure domain overrides"
@@ -208,6 +253,21 @@
         file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/domains.yml"
       tags: ["always"]
 
+    - name: "Load shared infrastructure modes defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/modes.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure values defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/values.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure timing defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/timing.yml"
+      tags: ["always"]
+
     # The proxy-traefik nix-cache template references nix_ncps_domain_cno,
     # nix_ncps_container_name_cno, nix_ncps_container_port, etc. These are
     # defined in the nix-ncps role defaults. Load them here so the template
@@ -243,6 +303,26 @@
     - name: "Load shared infrastructure domain defaults"
       ansible.builtin.include_vars:
         file: "{{ playbook_dir }}/../infrastructure/domains.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure modes defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/modes.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure network defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/networks.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure values defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/values.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure timing defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/timing.yml"
       tags: ["always"]
 
     - name: "Load client infrastructure domain overrides"
