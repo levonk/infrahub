@@ -14,7 +14,9 @@ FROM 100.90.22.85:5000/node:24.20-alpine AS builder
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci
+# npm install (not ci): package-lock.json is gitignored in this repo, so
+# no lockfile exists for npm ci to consume.
+RUN npm install
 
 COPY index.html ./
 COPY src/ ./src/
@@ -33,7 +35,7 @@ RUN apk add --no-cache ffmpeg
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci --omit=dev
+RUN npm install --omit=dev
 
 COPY server/ ./server/
 COPY --from=builder /app/dist ./dist
