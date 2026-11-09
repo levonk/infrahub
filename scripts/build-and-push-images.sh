@@ -65,7 +65,7 @@ IMAGES=(
   "localnet-p2p-freenet|docker/Dockerfile.freenet|p2p/freenet|linux/amd64"
   # no-mistakes shared git gate — linux/amd64 ONLY (target: Windows Docker Desktop, nl).
   "localnet-devops-no-mistakes|docker/Dockerfile.no-mistakes|devops/no-mistakes|linux/amd64"
-  # Local Watch Party — synchronized movie watching with friends (node:20-alpine + ffmpeg)
+  # Local Watch Party — synchronized movie watching with friends (node:26-alpine + ffmpeg)
   "localnet-media-watch-party|docker/Dockerfile.watch-party|media/watch-party|"
 )
 
