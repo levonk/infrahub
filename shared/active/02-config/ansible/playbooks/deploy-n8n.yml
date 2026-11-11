@@ -91,7 +91,7 @@
           Postgres port:   {{ infra_port_ai_n8n_postgres_host | default('5438') }} → {{ infra_port_ai_n8n_postgres_container | default(infra_port_db_postgres_host) }}  # project-lint: disable=magic-int  Jinja default port value, should use infra_port variable
           Prometheus port: {{ infra_port_ai_n8n_prometheus_host | default('3107') }} → {{ infra_port_ai_n8n_prometheus_container | default(infra_port_monitoring_prometheus_host) }}  # project-lint: disable=magic-int  Jinja default port value, should use infra_port variable
           Grafana port:    {{ infra_port_ai_n8n_grafana_host | default('3108') }} → {{ infra_port_ai_n8n_grafana_container | default(infra_port_monitoring_grafana_host) }}  # project-lint: disable=magic-int  Jinja default port value, should use infra_port variable
-          Network:         {{ infra_network_ai_n8n_network_name | default('n8n-network') }} ({{ infra_network_ai_n8n_subnet | default(infra_network_vpn_alt_subnet) }})
+          Network:         {{ infra_network_ai_n8n_network_name | default('n8n-network') }} ({{ infra_network_ai_n8n_subnet }})
           ========================================
       tags: ["always"]
 
