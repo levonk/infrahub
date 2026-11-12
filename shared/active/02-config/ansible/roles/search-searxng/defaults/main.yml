@@ -7,7 +7,9 @@ search_searxng_enabled: true
 search_searxng_data_dir: "/opt/searxng"
 search_searxng_container_name: "searxng"
 search_searxng_image: "searxng/searxng"
-search_searxng_image_tag: "latest"
+# Pin to a dated release tag, not "latest" — engine fixes (e.g. Google's
+# NSTNWV/"Google Go App" user-agent) ship in dated images.
+search_searxng_image_tag: "2026.11.6-ac11e14c5"
 
 # Network Configuration
 search_searxng_network_name: "searxng-network"
@@ -22,9 +24,14 @@ search_searxng_puid: 1000
 search_searxng_pgid: 1000
 search_searxng_tz: "UTC"
 
-# NordVPN Proxy Configuration
-search_searxng_http_proxy: "http://nordvpn:1080"
-search_searxng_https_proxy: "http://nordvpn:1080"
+# Egress Proxy Configuration (optional, disabled by default)
+# Engine requests leave directly from the host IP. SearXNG already anonymizes
+# the end user; routing engine traffic through NordVPN makes things WORSE:
+# NordVPN exit IPs are on every engine's bot list and get CAPTCHA'd/429'd.
+# Only enable if you have a specific reason to proxy engine egress.
+search_searxng_proxy_enabled: false
+search_searxng_http_proxy: "http://nordvpn:{{ infra_port_vpn_nordvpn_http_container | default(8888) }}"
+search_searxng_https_proxy: "http://nordvpn:{{ infra_port_vpn_nordvpn_http_container | default(8888) }}"
 
 # Volume Configuration
 search_searxng_config_volume: "localnet-searxng-config-volume"

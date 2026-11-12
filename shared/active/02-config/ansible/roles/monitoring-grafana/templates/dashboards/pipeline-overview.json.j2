@@ -22,7 +22,7 @@
         "title": "AI Pipeline",
         "datasource": {"type": "prometheus", "uid": "prometheus"},
         "targets": [
-          {"expr": "up{pipeline=\"ai\"}", "legendFormat": "{{service}}"}
+          {"expr": "probe_success{pipeline=\"ai\"}", "legendFormat": "{{service}}"}
         ],
         "gridPos": {"h": 8, "w": 6, "x": 0, "y": 0},  # project-lint: disable=magic-int  grafana panel grid position
         "fieldConfig": {
@@ -42,7 +42,7 @@
         "title": "DNS Pipeline",
         "datasource": {"type": "prometheus", "uid": "prometheus"},
         "targets": [
-          {"expr": "up{pipeline=\"dns\"}", "legendFormat": "{{service}}"}
+          {"expr": "probe_success{pipeline=\"dns\"}", "legendFormat": "{{service}}"}
         ],
         "gridPos": {"h": 8, "w": 6, "x": 6, "y": 0},  # project-lint: disable=magic-int  grafana panel grid position
         "fieldConfig": {
@@ -62,7 +62,7 @@
         "title": "Web Pipeline",
         "datasource": {"type": "prometheus", "uid": "prometheus"},
         "targets": [
-          {"expr": "up{pipeline=\"web\"}", "legendFormat": "{{service}}"}
+          {"expr": "probe_success{pipeline=\"web\"}", "legendFormat": "{{service}}"}
         ],
         "gridPos": {"h": 8, "w": 6, "x": 12, "y": 0},  # project-lint: disable=magic-int  grafana panel grid position
         "fieldConfig": {
@@ -82,7 +82,7 @@
         "title": "VPN Pipeline",
         "datasource": {"type": "prometheus", "uid": "prometheus"},
         "targets": [
-          {"expr": "up{pipeline=\"vpn\"}", "legendFormat": "{{service}}"}
+          {"expr": "probe_success{pipeline=\"vpn\"}", "legendFormat": "{{service}}"}
         ],
         "gridPos": {"h": 8, "w": 6, "x": 18, "y": 0},  # project-lint: disable=magic-int  grafana panel grid position
         "fieldConfig": {

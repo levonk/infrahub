@@ -1,0 +1,393 @@
+---
+# RustDesk Client — macOS (Darwin) install and configuration
+#
+# Automates everything RustDesk's first-run wizard does EXCEPT the three
+# TCC grants (Accessibility, Screen Recording, Input Monitoring). Those
+# are SIP-protected on macOS 10.15+ and cannot be granted programmatically
+# without an MDM-delivered PPPC profile — a human must flip the toggles
+# once. This is the "one wizard pass":
+#
+#   1. RustDesk.app via Homebrew cask (if missing)
+#   2. RustDesk2.toml for root (LaunchDaemon) and the console GUI user
+#      (LaunchAgent reads the session user's config)
+#   3. LaunchDaemon + LaunchAgent plists matching the ones RustDesk's
+#      wizard installs (src/platform/privileges_scripts/{daemon,agent}.plist)
+#   4. launchd bootstrap (daemon: system domain, agent: gui/<uid> domain)
+#   5. Launch RustDesk so its TCC entries register, then open the three
+#      System Settings panes for the GUI user to toggle
+#
+# After the first run, set in inventory to skip the pane handoff:
+#   rustdesk_client_macos_permissions_granted: true
+
+# ============================================================================
+# Resolve the GUI user — the TCC panes and the per-user config belong to the
+# person sitting at the console, not the headless auser account Ansible
+# connects as. Priority: role override → macos_gui_user inventory var →
+# /dev/console owner. Empty result means headless/no GUI session — the pane
+# handoff is skipped and the agent loads at next login.
+# ============================================================================
+- name: Detect console GUI user
+  ansible.builtin.command: stat -f%Su /dev/console
+  register: rustdesk_macos_console_user
+  changed_when: false
+  failed_when: false
+  tags: ["rustdesk", "check"]
+
+- name: Resolve GUI user
+  ansible.builtin.set_fact:
+    rustdesk_macos_gui_user_resolved: >-
+      {% set u = (rustdesk_client_macos_gui_user | default('') | trim) or
+                 (rustdesk_macos_console_user.stdout | default('') | trim) %}
+      {{- '' if u in ['root', 'loginwindow', '_mbsetupuser'] else u }}
+  tags: ["rustdesk", "check"]
+
+- name: Get GUI user uid (for the gui/<uid> launchd domain)
+  ansible.builtin.command: "id -u {{ rustdesk_macos_gui_user_resolved }}"
+  register: rustdesk_macos_gui_uid_result
+  changed_when: false
+  failed_when: false
+  when: rustdesk_macos_gui_user_resolved | length > 0
+  tags: ["rustdesk", "check"]
+
+- name: Set GUI user uid fact
+  ansible.builtin.set_fact:
+    rustdesk_macos_gui_uid: "{{ rustdesk_macos_gui_uid_result.stdout | trim }}"
+  when:
+    - rustdesk_macos_gui_user_resolved | length > 0
+    - rustdesk_macos_gui_uid_result.rc == 0
+  tags: ["rustdesk", "check"]
+
+# ============================================================================
+# RustDesk.app — installed by the nix-darwin homebrew module (cask
+# "rustdesk"); install it here as a fallback so the role is self-contained.
+# ============================================================================
+- name: Check if RustDesk.app is installed
+  ansible.builtin.stat:
+    path: "{{ rustdesk_client_macos_app_bin }}"
+  register: rustdesk_macos_app
+  tags: ["rustdesk", "install"]
+
+- name: Check Homebrew availability
+  ansible.builtin.command: "{{ macos_brew_dir | default('/opt/homebrew/bin' if ansible_facts['architecture'] == 'arm64' else '/usr/local/bin') }}/brew --version"
+  register: rustdesk_macos_brew
+  changed_when: false
+  failed_when: false
+  when: not rustdesk_macos_app.stat.exists
+  tags: ["rustdesk", "install"]
+
+- name: Install RustDesk via Homebrew cask
+  community.general.homebrew_cask:
+    name: rustdesk
+    state: present
+    path: "{{ macos_brew_dir | default('/opt/homebrew/bin' if ansible_facts['architecture'] == 'arm64' else '/usr/local/bin') }}"
+    install_options: "appdir=/Applications"
+  when:
+    - not rustdesk_macos_app.stat.exists
+    - rustdesk_macos_brew.rc == 0
+  tags: ["rustdesk", "install"]
+
+- name: Fail if RustDesk.app is still missing
+  ansible.builtin.stat:
+    path: "{{ rustdesk_client_macos_app_bin }}"
+  register: rustdesk_macos_app_final
+  tags: ["rustdesk", "install"]
+
+- name: Assert RustDesk.app is present
+  ansible.builtin.assert:
+    that:
+      - rustdesk_macos_app_final.stat.exists
+    fail_msg: >-
+      RustDesk.app not found at {{ rustdesk_client_macos_app_path }} and
+      Homebrew is not available to install it. Run configure-macos-host.yml
+      (installs brew + casks) or install manually: brew install --cask rustdesk
+  tags: ["rustdesk", "install"]
+
+# Newer RustDesk builds ship a dedicated Contents/MacOS/service binary for
+# the LaunchDaemon; older builds run the main binary with --service.
+# Match whichever is present so the daemon plist mirrors upstream's.
+- name: Check for dedicated service binary
+  ansible.builtin.stat:
+    path: "{{ rustdesk_client_macos_service_bin }}"
+  register: rustdesk_macos_service_bin
+  tags: ["rustdesk", "install"]
+
+- name: Resolve daemon program command
+  ansible.builtin.set_fact:
+    rustdesk_macos_daemon_command: >-
+      {{ rustdesk_client_macos_service_bin
+         if rustdesk_macos_service_bin.stat.exists
+         else rustdesk_client_macos_app_bin ~ ' --service' }}
+  tags: ["rustdesk", "install"]
+
+# ============================================================================
+# RustDesk2.toml — self-hosted server endpoints.
+# The LaunchDaemon runs as root and reads
+# /var/root/Library/Preferences/com.carriez.RustDesk/RustDesk2.toml;
+# the LaunchAgent runs in the GUI session and reads
+# /Users/<gui>/Library/Preferences/com.carriez.RustDesk/RustDesk2.toml.
+# ============================================================================
+- name: Ensure RustDesk config directory exists (root daemon)
+  ansible.builtin.file:
+    path: "/var/root/{{ rustdesk_client_macos_config_dir }}"
+    state: directory
+    mode: "{{ infra_mode_dir_restricted | default('0700') }}"
+    owner: root
+    group: wheel
+  become: true
+  tags: ["rustdesk", "config"]
+
+- name: Render RustDesk client configuration (root daemon)
+  ansible.builtin.template:
+    src: RustDesk2.toml.j2
+    dest: "/var/root/{{ rustdesk_client_macos_config_dir }}/{{ rustdesk_client_config_file }}"
+    mode: "{{ infra_mode_file_restricted | default('0600') }}"
+    owner: root
+    group: wheel
+  become: true
+  notify: rustdesk restart
+  tags: ["rustdesk", "config"]
+
+- name: Ensure RustDesk config directory exists (GUI user)
+  ansible.builtin.file:
+    path: "/Users/{{ rustdesk_macos_gui_user_resolved }}/{{ rustdesk_client_macos_config_dir }}"
+    state: directory
+    mode: "{{ infra_mode_dir_restricted | default('0700') }}"
+    owner: "{{ rustdesk_macos_gui_user_resolved }}"
+    group: staff
+  become: true
+  when: rustdesk_macos_gui_user_resolved | length > 0
+  tags: ["rustdesk", "config"]
+
+- name: Render RustDesk client configuration (GUI user)
+  ansible.builtin.template:
+    src: RustDesk2.toml.j2
+    dest: "/Users/{{ rustdesk_macos_gui_user_resolved }}/{{ rustdesk_client_macos_config_dir }}/{{ rustdesk_client_config_file }}"
+    mode: "{{ infra_mode_file_restricted | default('0600') }}"
+    owner: "{{ rustdesk_macos_gui_user_resolved }}"
+    group: staff
+  become: true
+  when: rustdesk_macos_gui_user_resolved | length > 0
+  notify: rustdesk restart
+  tags: ["rustdesk", "config"]
+
+# ============================================================================
+# launchd jobs — LaunchDaemon (root, works at loginwindow) + LaunchAgent
+# (per-user GUI session). Plist contents mirror the ones RustDesk's wizard
+# installs (src/platform/privileges_scripts/{daemon,agent}.plist).
+# ============================================================================
+- name: Install RustDesk LaunchDaemon plist
+  ansible.builtin.template:
+    src: com.carriez.RustDesk_service.plist.j2
+    dest: "{{ rustdesk_client_macos_daemon_plist }}"
+    mode: "{{ infra_mode_file | default('0644') }}"
+    owner: root
+    group: wheel
+  become: true
+  notify: rustdesk restart
+  tags: ["rustdesk", "service"]
+
+- name: Install RustDesk LaunchAgent plist
+  ansible.builtin.template:
+    src: com.carriez.RustDesk_server.plist.j2
+    dest: "{{ rustdesk_client_macos_agent_plist }}"
+    mode: "{{ infra_mode_file | default('0644') }}"
+    owner: root
+    group: wheel
+  become: true
+  notify: rustdesk restart
+  tags: ["rustdesk", "service"]
+
+# ============================================================================
+# Bootstrap the launchd jobs.
+# LaunchAgents in /Library/LaunchAgents auto-load for new GUI logins, so the
+# bootstrap only matters for the currently-logged-in user. When nobody is at
+# the console the daemon alone is bootstrapped — that's the job that serves
+# the login window.
+# ============================================================================
+- name: Check if RustDesk daemon is loaded
+  ansible.builtin.command: "launchctl print system/{{ rustdesk_client_macos_daemon_label }}"
+  register: rustdesk_macos_daemon_loaded
+  changed_when: false
+  failed_when: false
+  become: true
+  tags: ["rustdesk", "service"]
+
+- name: Bootstrap RustDesk LaunchDaemon
+  ansible.builtin.command: "launchctl bootstrap system {{ rustdesk_client_macos_daemon_plist }}"
+  become: true
+  when: rustdesk_macos_daemon_loaded.rc != 0
+  tags: ["rustdesk", "service"]
+
+- name: Check if RustDesk agent is loaded for the GUI user
+  ansible.builtin.command: "launchctl print gui/{{ rustdesk_macos_gui_uid }}/{{ rustdesk_client_macos_agent_label }}"
+  register: rustdesk_macos_agent_loaded
+  changed_when: false
+  failed_when: false
+  become: true
+  when: rustdesk_macos_gui_uid is defined
+  tags: ["rustdesk", "service"]
+
+- name: Bootstrap RustDesk LaunchAgent for the GUI user
+  ansible.builtin.command: "launchctl bootstrap gui/{{ rustdesk_macos_gui_uid }} {{ rustdesk_client_macos_agent_plist }}"
+  become: true
+  when:
+    - rustdesk_macos_gui_uid is defined
+    - rustdesk_macos_agent_loaded.rc != 0
+  tags: ["rustdesk", "service"]
+
+- name: Note when no GUI session is active
+  ansible.builtin.debug:
+    msg: >-
+      No GUI user at the console — the LaunchAgent was installed but will
+      only load at the next GUI login. The LaunchDaemon (login-window
+      remote access) is already running.
+  when: rustdesk_macos_gui_user_resolved | length == 0
+  tags: ["rustdesk", "service"]
+
+# ============================================================================
+# TCC handoff — the only manual step.
+#
+# Accessibility, Screen Recording, and Input Monitoring cannot be granted
+# programmatically (SIP-protected TCC.db; PPPC profiles require MDM).
+# Instead, the role reads the TCC databases and only opens the System
+# Settings panes for services that still lack an allowed grant:
+#
+#   - system db (root daemon grants) — readable as root
+#   - console-user db (session-agent grants) — may be unreadable without
+#     Full Disk Access; an unreadable db just means "can't confirm",
+#     so the pane still gets opened
+#
+# A service counts as granted when ANY RustDesk-related client row
+# (bundle id com.carriez.rustdesk or an /Applications/RustDesk.app path)
+# has auth_value 2 (allowed) or 3 (limited) in either db.
+# ============================================================================
+- name: Probe TCC databases for existing RustDesk grants
+  ansible.builtin.shell: |
+    {
+      sqlite3 "/Library/Application Support/com.apple.TCC/TCC.db" \
+        "SELECT service, client, auth_value FROM access WHERE client LIKE '%ustDesk%' OR client LIKE '%arriez%';" 2>/dev/null
+      {% if rustdesk_macos_gui_user_resolved | length > 0 %}
+      sqlite3 "/Users/{{ rustdesk_macos_gui_user_resolved }}/Library/Application Support/com.apple.TCC/TCC.db" \
+        "SELECT service, client, auth_value FROM access WHERE client LIKE '%ustDesk%' OR client LIKE '%arriez%';" 2>/dev/null
+      {% endif %}
+    } || true
+  args:
+    executable: /bin/bash
+  register: rustdesk_macos_tcc
+  changed_when: false
+  become: true
+  tags: ["rustdesk", "tcc"]
+
+# sqlite3 emits lines like: kTCCServiceAccessibility|com.carriez.rustdesk|2
+- name: Compute which TCC services already have an allowed grant
+  ansible.builtin.set_fact:
+    rustdesk_macos_tcc_granted: >-
+      {{ rustdesk_macos_tcc.stdout_lines | default([])
+         | select('search', '\|(2|3)$')
+         | map('regex_replace', '^([^|]+)\|.*$', '\1')
+         | list }}
+  tags: ["rustdesk", "tcc"]
+
+- name: Compute privacy panes still needing a grant
+  ansible.builtin.set_fact:
+    rustdesk_macos_tcc_missing_panes: >-
+      {{ rustdesk_client_macos_tcc_panes | dict2items
+         | rejectattr('value.service', 'in', rustdesk_macos_tcc_granted)
+         | map(attribute='key')
+         | list }}
+    rustdesk_macos_tcc_granted_names: >-
+      {{ rustdesk_client_macos_tcc_panes | dict2items
+         | selectattr('value.service', 'in', rustdesk_macos_tcc_granted)
+         | map(attribute='value.name')
+         | list }}
+    rustdesk_macos_tcc_missing_names: >-
+      {{ rustdesk_client_macos_tcc_panes | dict2items
+         | rejectattr('value.service', 'in', rustdesk_macos_tcc_granted)
+         | map(attribute='value.name')
+         | list }}
+  tags: ["rustdesk", "tcc"]
+
+- name: Report existing RustDesk TCC grants
+  ansible.builtin.debug:
+    msg: "TCC grants already allowed: {{ rustdesk_macos_tcc_granted_names | join(', ') }}"
+  when: rustdesk_macos_tcc_granted_names | length > 0
+  tags: ["rustdesk", "tcc"]
+
+- name: Launch RustDesk once to register its TCC entries
+  ansible.builtin.command: "open -a {{ rustdesk_client_macos_app_path }}"
+  become: true
+  become_user: "{{ rustdesk_macos_gui_user_resolved }}"
+  changed_when: true
+  failed_when: false
+  when:
+    - rustdesk_macos_gui_user_resolved | length > 0
+    - rustdesk_client_macos_open_privacy_panes | bool
+    - not rustdesk_client_macos_permissions_granted | bool
+    - rustdesk_macos_tcc_missing_panes | length > 0
+  tags: ["rustdesk", "tcc"]
+
+- name: Wait for RustDesk to register permission requests
+  ansible.builtin.pause:
+    seconds: "{{ rustdesk_client_macos_tcc_settle_seconds }}"
+  when:
+    - rustdesk_macos_gui_user_resolved | length > 0
+    - rustdesk_client_macos_open_privacy_panes | bool
+    - not rustdesk_client_macos_permissions_granted | bool
+    - rustdesk_macos_tcc_missing_panes | length > 0
+  tags: ["rustdesk", "tcc"]
+
+- name: Open System Settings privacy panes for the remaining TCC grants
+  ansible.builtin.command: "open 'x-apple.systempreferences:com.apple.preference.security?{{ item }}'"
+  loop: "{{ rustdesk_macos_tcc_missing_panes }}"
+  become: true
+  become_user: "{{ rustdesk_macos_gui_user_resolved }}"
+  changed_when: false
+  failed_when: false
+  when:
+    - rustdesk_macos_gui_user_resolved | length > 0
+    - rustdesk_client_macos_open_privacy_panes | bool
+    - not rustdesk_client_macos_permissions_granted | bool
+    - rustdesk_macos_tcc_missing_panes | length > 0
+  tags: ["rustdesk", "tcc"]
+
+# ============================================================================
+# Status report
+# ============================================================================
+- name: Report RustDesk client status
+  ansible.builtin.debug:
+    msg: |
+      ========================================
+      RustDesk client configured (macOS)
+      ========================================
+        ID Server:    {{ rustdesk_client_id_server }}
+        Relay Server: {{ rustdesk_client_relay_server }}
+        Daemon:       {{ rustdesk_client_macos_daemon_label }}
+                      (LaunchDaemon — root, serves the login window)
+        Agent:        {{ rustdesk_client_macos_agent_label }}
+                      (LaunchAgent — GUI session of {{ rustdesk_macos_gui_user_resolved | default('next login user') }})
+        Config:       /var/root/{{ rustdesk_client_macos_config_dir }}/{{ rustdesk_client_config_file }}
+                      /Users/{{ rustdesk_macos_gui_user_resolved | default('<gui-user>') }}/{{ rustdesk_client_macos_config_dir }}/{{ rustdesk_client_config_file }}
+      {% if rustdesk_macos_gui_user_resolved | length > 0 and rustdesk_client_macos_open_privacy_panes | bool and not rustdesk_client_macos_permissions_granted | bool %}
+      {%- if rustdesk_macos_tcc_missing_panes | length > 0 %}
+      MANUAL STEP — remaining TCC grants for {{ rustdesk_macos_gui_user_resolved }}:
+        These System Settings panes are open on the Mac — enable "RustDesk" under:
+        {%- for name in rustdesk_macos_tcc_missing_names %}
+          - Privacy & Security → {{ name }}
+        {%- endfor %}
+        {%- if rustdesk_macos_tcc_granted_names | length > 0 %}
+        Already granted (panes NOT reopened): {{ rustdesk_macos_tcc_granted_names | join(', ') }}
+        {%- endif %}
+        Optional: set in the inventory to silence this step on re-runs:
+          rustdesk_client_macos_permissions_granted: true
+      {%- else %}
+      TCC grants: all detected as allowed — no panes were opened.
+        Granted: {{ rustdesk_macos_tcc_granted_names | join(', ') }}
+      {%- endif %}
+      {% elif rustdesk_client_macos_permissions_granted | bool %}
+      TCC grants: marked granted in inventory (pane handoff skipped).
+      {% else %}
+      TCC grants: no GUI user detected — log in to the Mac and re-run, or
+      grant manually in System Settings → Privacy & Security.
+      {% endif %}
+      ========================================
+  tags: ["always", "info"]

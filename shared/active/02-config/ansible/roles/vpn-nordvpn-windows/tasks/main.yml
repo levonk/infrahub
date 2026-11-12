@@ -30,6 +30,7 @@
   ansible.builtin.command: "docker pull {{ vpn_nordvpn_windows_image }}"
   environment:
     DOCKER_HOST: "{{ vpn_nordvpn_windows_docker_host }}"
+    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
   delegate_to: localhost
   changed_when: true
   tags: ["deploy", "pull"]
@@ -38,6 +39,7 @@
   ansible.builtin.command: "docker pull {{ vpn_nordvpn_windows_tailscale_image }}"
   environment:
     DOCKER_HOST: "{{ vpn_nordvpn_windows_docker_host }}"
+    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
   delegate_to: localhost
   changed_when: true
   tags: ["deploy", "pull"]
@@ -52,6 +54,7 @@
     {{ vpn_nordvpn_windows_network_name }}
   environment:
     DOCKER_HOST: "{{ vpn_nordvpn_windows_docker_host }}"
+    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
   delegate_to: localhost
   changed_when: false
   tags: ["deploy", "network"]
@@ -63,6 +66,7 @@
     || docker volume create {{ item }}
   environment:
     DOCKER_HOST: "{{ vpn_nordvpn_windows_docker_host }}"
+    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
   delegate_to: localhost
   changed_when: false
   loop:
@@ -76,6 +80,7 @@
   ansible.builtin.command: "docker rm -f nordvpn-windows"
   environment:
     DOCKER_HOST: "{{ vpn_nordvpn_windows_docker_host }}"
+    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
   delegate_to: localhost
   changed_when: false
   failed_when: false
@@ -85,6 +90,7 @@
   ansible.builtin.command: "docker rm -f tailscale-nordvpn-windows"
   environment:
     DOCKER_HOST: "{{ vpn_nordvpn_windows_docker_host }}"
+    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
   delegate_to: localhost
   changed_when: false
   failed_when: false
@@ -95,6 +101,7 @@
   ansible.builtin.command: "docker rm -f {{ vpn_nordvpn_windows_container_name }}"
   environment:
     DOCKER_HOST: "{{ vpn_nordvpn_windows_docker_host }}"
+    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
   delegate_to: localhost
   changed_when: false
   failed_when: false
@@ -104,6 +111,7 @@
   ansible.builtin.command: "docker rm -f {{ vpn_nordvpn_windows_tailscale_container_name }}"
   environment:
     DOCKER_HOST: "{{ vpn_nordvpn_windows_docker_host }}"
+    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
   delegate_to: localhost
   changed_when: false
   failed_when: false
@@ -119,11 +127,11 @@
     --cap-add NET_RAW
     --device /dev/net/tun:/dev/net/tun
     --network {{ vpn_nordvpn_windows_network_name }}
-    --sysctl net.ipv4.ip_forward=1
-    --sysctl net.ipv6.conf.all.forwarding=1
+    --sysctl net.ipv4.ip_forward=1  # project-lint: disable=magic-int  sysctl forwarding flag
+    --sysctl net.ipv6.conf.all.forwarding=1  # project-lint: disable=magic-int  sysctl forwarding flag
     --security-opt no-new-privileges:true
     -e VPN_SERVICE_PROVIDER=nordvpn
-    -e OPENVPN_VERSION=2.6  # project-lint: disable=magic-dotted  version number, not an operational magic number
+    -e OPENVPN_VERSION=2.6  # project-lint: disable=magic-dotted  openvpn version, not an operational magic number
     -e "SERVER_COUNTRIES={{ vpn_nordvpn_windows_country }}"
     -e "OPENVPN_USER={{ vpn_nordvpn_windows_openvpn_user }}"
     -e "OPENVPN_PASSWORD={{ vpn_nordvpn_windows_openvpn_pass }}"
@@ -148,8 +156,10 @@
     {{ vpn_nordvpn_windows_image }}
   environment:
     DOCKER_HOST: "{{ vpn_nordvpn_windows_docker_host }}"
+    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
   delegate_to: localhost
   changed_when: true
+  no_log: true
   tags: ["deploy", "container"]
 
 # 8. Wait for NordVPN to initialize
@@ -167,8 +177,8 @@
     --network {{ vpn_nordvpn_windows_network_name }}
     --cap-add NET_ADMIN
     --device /dev/net/tun:/dev/net/tun
-    --sysctl net.ipv4.ip_forward=1
-    --sysctl net.ipv6.conf.all.forwarding=1
+    --sysctl net.ipv4.ip_forward=1  # project-lint: disable=magic-int  sysctl forwarding flag
+    --sysctl net.ipv6.conf.all.forwarding=1  # project-lint: disable=magic-int  sysctl forwarding flag
     --security-opt no-new-privileges:true
     -e TS_AUTHKEY={{ vpn_tailscale_windows_auth_key }}
     -e TS_HOSTNAME={{ vpn_tailscale_windows_nordvpn_hostname }}
@@ -182,6 +192,7 @@
     {{ vpn_nordvpn_windows_tailscale_image }}
   environment:
     DOCKER_HOST: "{{ vpn_nordvpn_windows_docker_host }}"
+    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
   delegate_to: localhost
   changed_when: true
   no_log: true
@@ -200,6 +211,7 @@
     --format '{% raw %}{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}{% endraw %}'
   environment:
     DOCKER_HOST: "{{ vpn_nordvpn_windows_docker_host }}"
+    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
   delegate_to: localhost
   register: nordvpn_windows_ip_result
   changed_when: false
@@ -211,6 +223,7 @@
     'ip route del default 2>/dev/null; ip route add default via {{ nordvpn_windows_ip_result.stdout }}'
   environment:
     DOCKER_HOST: "{{ vpn_nordvpn_windows_docker_host }}"
+    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
   delegate_to: localhost
   changed_when: true
   failed_when: false
@@ -223,6 +236,7 @@
     --format '{% raw %}{{.State.Status}}{{end}}{% endraw %}'
   environment:
     DOCKER_HOST: "{{ vpn_nordvpn_windows_docker_host }}"
+    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
   delegate_to: localhost
   register: nordvpn_windows_status
   changed_when: false
@@ -235,6 +249,7 @@
     --format '{% raw %}{{.State.Status}}{{end}}{% endraw %}'
   environment:
     DOCKER_HOST: "{{ vpn_nordvpn_windows_docker_host }}"
+    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
   delegate_to: localhost
   register: tailscale_nordvpn_windows_status
   changed_when: false

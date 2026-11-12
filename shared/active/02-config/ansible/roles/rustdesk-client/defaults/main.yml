@@ -23,3 +23,63 @@ rustdesk_client_version: "1.3.9"
 # /root/.config/rustdesk/RustDesk2.toml on Linux.
 rustdesk_client_config_dir: "/root/.config/rustdesk"
 rustdesk_client_config_file: "RustDesk2.toml"
+
+# ---------------------------------------------------------------------------
+# macOS (Darwin) — one-wizard-pass install
+#
+# Everything the RustDesk first-run wizard does is automated except the
+# three TCC grants (Accessibility, Screen Recording, Input Monitoring),
+# which are SIP-protected and require a human click unless the Mac is
+# MDM-enrolled (PPPC profile). The role finishes by launching RustDesk and
+# opening the three System Settings privacy panes for the console user.
+# ---------------------------------------------------------------------------
+
+# App bundle paths (Homebrew cask installs to /Applications)
+rustdesk_client_macos_app_path: "/Applications/RustDesk.app"
+rustdesk_client_macos_app_bin: "{{ rustdesk_client_macos_app_path }}/Contents/MacOS/RustDesk"
+# Dedicated service binary shipped by newer builds; the role falls back to
+# `RustDesk --service` on older builds
+rustdesk_client_macos_service_bin: "{{ rustdesk_client_macos_app_path }}/Contents/MacOS/service"
+
+# launchd job labels/paths — identical to the ones RustDesk's wizard installs
+rustdesk_client_macos_daemon_label: "com.carriez.RustDesk_service"
+rustdesk_client_macos_agent_label: "com.carriez.RustDesk_server"
+rustdesk_client_macos_daemon_plist: "/Library/LaunchDaemons/{{ rustdesk_client_macos_daemon_label }}.plist"
+rustdesk_client_macos_agent_plist: "/Library/LaunchAgents/{{ rustdesk_client_macos_agent_label }}.plist"
+
+# Per-home config dir (relative to $HOME — root daemon resolves to
+# /var/root/..., GUI session user resolves to /Users/<user>/...)
+rustdesk_client_macos_config_dir: "Library/Preferences/com.carriez.RustDesk"
+
+# GUI user the TCC panes + per-user config apply to. Empty = auto-detect
+# from /dev/console (whoever is at the keyboard). Honours the fleet-wide
+# macos_gui_user inventory var used by the macos-xcode role.
+rustdesk_client_macos_gui_user: "{{ macos_gui_user | default('') }}"
+
+# Launch RustDesk and open the three privacy panes at the end of the run
+rustdesk_client_macos_open_privacy_panes: true
+
+# Set true in the inventory once the three TCC grants have been flipped —
+# skips the pane handoff entirely on re-runs
+rustdesk_client_macos_permissions_granted: false
+
+# Pause (seconds) between launching RustDesk and opening the panes, so the
+# app's TCC entries register in the privacy lists first
+rustdesk_client_macos_tcc_settle_seconds: 5
+
+# System Settings privacy panes for the manual grants, keyed by pane anchor.
+# Each maps to the TCC service name used in TCC.db — the role probes the
+# system + console-user TCC databases and only opens panes whose service has
+# no allowed grant. A grant in EITHER database counts (the Settings toggle
+# typically covers both the root daemon and the session agent; anything we
+# can't confirm still gets its pane opened).
+rustdesk_client_macos_tcc_panes:
+  "Privacy_ScreenCapture":
+    service: "kTCCServiceScreenCapture"
+    name: "Screen & System Audio Recording"
+  "Privacy_Accessibility":
+    service: "kTCCServiceAccessibility"
+    name: "Accessibility"
+  "Privacy_ListenEvent":
+    service: "kTCCServiceListenEvent"
+    name: "Input Monitoring"

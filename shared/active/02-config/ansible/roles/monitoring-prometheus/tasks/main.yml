@@ -15,13 +15,13 @@
       - monitoring_prometheus_container_port is defined
       - monitoring_prometheus_config_dir is defined
       - monitoring_prometheus_volume is defined
-      - monitoring_prometheus_network is defined
+      - monitoring_prometheus_networks is defined
     fail_msg: >-
       Missing required Prometheus monitoring variables. Check inventory vars
       and infrastructure schema for infra_hostname_monitoring_prometheus,
       infra_port_monitoring_prometheus_host/container,
       infra_storage_monitoring_prometheus_volume/config_dir, and
-      infra_network_proxy_traefik_network_name.
+      infra_network_proxy_traefik_network_name / infra_network_dns_localnet_network_name.
     success_msg: "All required Prometheus monitoring variables are defined."
   tags: ["always", "validate"]
 
@@ -60,7 +60,10 @@
     - dns.yml
     - web.yml
     - vpn.yml
+    - media.yml
+    - apps.yml
     - infra.yml
+    - catalog.yml
   notify: restart monitoring-prometheus
 
 # ============================================================================
@@ -70,6 +73,27 @@
   community.docker.docker_volume:
     name: "{{ monitoring_prometheus_volume }}"
     state: present
+
+# ============================================================================
+# Discover which service networks exist (Prometheus must be attachable to
+# every network its scrape targets live on; skip missing ones gracefully)
+# ============================================================================
+- name: Check each candidate network
+  community.docker.docker_network_info:
+    name: "{{ item }}"
+  loop: "{{ monitoring_prometheus_networks }}"
+  register: _prometheus_network_probe
+  failed_when: false
+  tags: ["deploy", "monitoring", "prometheus"]
+
+- name: Compute networks to attach
+  ansible.builtin.set_fact:
+    monitoring_prometheus_attached_networks: >-
+      {{ _prometheus_network_probe.results
+         | selectattr('network', 'defined')
+         | map(attribute='network.Name')
+         | list }}
+  tags: ["deploy", "monitoring", "prometheus"]
 
 # ============================================================================
 # Image pull
@@ -90,8 +114,7 @@
     image: "{{ monitoring_prometheus_image_name }}:{{ monitoring_prometheus_image_tag }}"
     state: started
     restart_policy: unless-stopped
-    networks:
-      - name: "{{ monitoring_prometheus_network }}"
+    networks: "{{ monitoring_prometheus_attached_networks }}"
     published_ports:
       - "{{ monitoring_prometheus_host_port }}:{{ monitoring_prometheus_container_port }}/tcp"
     command:

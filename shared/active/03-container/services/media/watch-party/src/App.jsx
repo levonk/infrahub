@@ -30,7 +30,7 @@ import {
 } from "lucide-react";
 import "./styles.css";
 
-const SERVER_URL = window.location.hostname.includes("trycloudflare.com")
+const SERVER_URL = window.location.protocol === "https:"
   ? window.location.origin
   : `http://${window.location.hostname}:3001`;
 

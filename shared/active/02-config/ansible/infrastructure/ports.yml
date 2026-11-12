@@ -567,6 +567,13 @@ infra_port_monitoring_uptime_kuma_host: "3136"
 infra_port_monitoring_uptime_kuma_container: "3001"
 infra_port_monitoring_node_exporter_host: "9100"
 infra_port_monitoring_node_exporter_container: "9100"
+infra_port_monitoring_blackbox_host: "9115"
+infra_port_monitoring_blackbox_container: "9115"
+# Promtail metrics server (container-internal; Prometheus scrapes it via the
+# shared Docker network — no host publish needed).
+infra_port_monitoring_promtail_container: "9080"
+# AutoKuma sidecar (provisions Uptime Kuma monitors from static files) — no
+# published ports; connects outbound to Uptime Kuma's container port.
 
 # ---------------------------------------------------------------------------
 # Stirling-PDF (Self-hosted PDF utility suite)

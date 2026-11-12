@@ -1,0 +1,9 @@
+---
+# handlers file for monitoring-autokuma
+
+- name: Restart monitoring-autokuma
+  community.docker.docker_container:
+    name: "{{ monitoring_autokuma_container_name }}"
+    state: started
+    restart: true
+  listen: restart monitoring-autokuma

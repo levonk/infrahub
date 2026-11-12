@@ -1,0 +1,23 @@
+---
+galaxy_info:
+  role_name: monitoring_autokuma
+  author: localnet
+  description: AutoKuma — declarative Uptime Kuma monitor provisioning from the service catalog
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+    - name: Ubuntu
+      versions:
+        - jammy
+        - noble
+  galaxy_tags:
+    - monitoring
+    - uptime
+    - kuma
+    - docker
+
+dependencies:
+  - monitoring-catalog
