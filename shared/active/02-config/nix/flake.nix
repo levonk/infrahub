@@ -43,7 +43,6 @@
           cliApps = with pkgs; [
             git
             zsh
-            tailscale
             netbird
           ];
           # GUI apps — .app bundles symlinked to /Applications by symlink-apps

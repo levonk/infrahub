@@ -158,7 +158,6 @@ in
         # --- Fleet GUI apps ---
         git
         zsh
-        tailscale
         netbird
         brave
         raycast

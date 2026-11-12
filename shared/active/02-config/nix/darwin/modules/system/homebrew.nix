@@ -136,6 +136,11 @@ in {
 
       # Network tunneling
       "ngrok"
+      # tailscale-app (standalone pkg variant): installs Tailscale.app, the
+      # io.tailscale.ipn.macsys system daemon, and /usr/local/bin/tailscale.
+      # Replaces the nixpkgs tailscale CLI; hosts must not also enable
+      # services.tailscale — dueling daemons.
+      "tailscale-app"
     ]
     # OpenCore Legacy Patcher — only on x86_64-darwin (unsupported Intel Macs).
     # Apple Silicon Macs are supported by Apple and must NOT get OCLP.
