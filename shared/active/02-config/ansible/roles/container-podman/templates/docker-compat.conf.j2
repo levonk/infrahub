@@ -1,0 +1,5 @@
+# Managed by Ansible — container-podman role
+# /run is tmpfs; recreate the Docker API compat symlink on every boot.
+# community.docker modules and the docker CLI shim default to
+# unix:///var/run/docker.sock, which resolves to this path.
+L+ /run/docker.sock - - - - /run/podman/podman.sock
