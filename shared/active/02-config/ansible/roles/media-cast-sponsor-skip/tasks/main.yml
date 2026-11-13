@@ -1,0 +1,69 @@
+---
+# CastSponsorSkip container deployment
+# host networking is mandatory: discovery uses _googlecast._tcp mDNS multicast
+# (UDP 5353 → 224.0.0.251), which does not traverse container NAT. The host
+# must share an L2 multicast domain with the Cast devices.
+
+- name: Build CastSponsorSkip environment
+  ansible.builtin.set_fact:
+    cast_sponsor_skip_env: >-
+      {{
+        {
+          'TZ': localnet_tz | default('UTC'),
+          'CSS_CATEGORIES': cast_sponsor_skip_categories,
+          'CSS_ACTION_TYPES': cast_sponsor_skip_action_types,
+          'CSS_MUTE_ADS': cast_sponsor_skip_mute_ads,
+          'CSS_LOG_FORMAT': cast_sponsor_skip_log_format,
+          'CSS_LOG_LEVEL': cast_sponsor_skip_log_level,
+        }
+        | combine(({ 'CSS_YOUTUBE_API_KEY': cast_sponsor_skip_youtube_api_key } if cast_sponsor_skip_youtube_api_key | length > 0 else {}))
+        | combine(({ 'CSS_DEVICES': cast_sponsor_skip_devices } if cast_sponsor_skip_devices | length > 0 else {}))
+        | combine(({ 'CSS_NETWORK_INTERFACE': cast_sponsor_skip_network_interface } if cast_sponsor_skip_network_interface | length > 0 else {}))
+        | combine(({ 'CSS_PLAYING_INTERVAL': cast_sponsor_skip_playing_interval } if cast_sponsor_skip_playing_interval | length > 0 else {}))
+        | combine(({ 'CSS_PAUSED_INTERVAL': cast_sponsor_skip_paused_interval } if cast_sponsor_skip_paused_interval | length > 0 else {}))
+        | combine(({ 'CSS_DISCOVER_INTERVAL': cast_sponsor_skip_discover_interval } if cast_sponsor_skip_discover_interval | length > 0 else {}))
+        | combine(({ 'CSS_SKIP_DELAY': cast_sponsor_skip_skip_delay } if cast_sponsor_skip_skip_delay | length > 0 else {}))
+      }}
+  tags: ["always"]
+
+- name: Check cgroup memory controller availability
+  ansible.builtin.stat:
+    path: /sys/fs/cgroup/memory.max
+  register: cast_sponsor_skip_cgroup_mem
+  tags: ["always"]
+
+- name: Pull CastSponsorSkip image
+  community.docker.docker_image:
+    name: "{{ cast_sponsor_skip_image }}:{{ cast_sponsor_skip_tag }}"
+    source: pull
+    state: present
+  when: cast_sponsor_skip_enabled | bool
+
+- name: Deploy CastSponsorSkip container
+  community.docker.docker_container:
+    name: "{{ cast_sponsor_skip_container_name }}"
+    image: "{{ cast_sponsor_skip_image }}:{{ cast_sponsor_skip_tag }}"
+    state: started
+    restart_policy: always
+    network_mode: host
+    env: "{{ cast_sponsor_skip_env }}"
+    # memory cap is skipped when the kernel cgroup memory controller is
+    # disabled (DietPi/RPi ships 'cgroup_disable=memory' in cmdline.txt)
+    memory: "{{ cast_sponsor_skip_memory if cast_sponsor_skip_cgroup_mem.stat.exists else omit }}"
+    log_driver: json-file
+    log_options:
+      max-size: "{{ infra_log_max_size | default('10m') }}"
+      max-file: "{{ infra_log_max_file | default('3') }}"
+    healthcheck:
+      test: ["CMD", "pidof", "castsponsorskip"]
+      interval: "60s"
+      timeout: "5s"
+      retries: 3
+      start_period: "10s"
+  when: cast_sponsor_skip_enabled | bool
+
+- name: Remove CastSponsorSkip container when disabled
+  community.docker.docker_container:
+    name: "{{ cast_sponsor_skip_container_name }}"
+    state: absent
+  when: not cast_sponsor_skip_enabled | bool

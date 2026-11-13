@@ -84,6 +84,7 @@ See [`internal-docs/troubleshooting/ansible-lint.md`](../../../internal-docs/tro
 | `bootstrap-macos-host.yml` | `levonk/.../inventories/macos-hosts.yml` | `macos_hosts` | macOS | macOS hosts |
 | `localnet-tailscale.yml` | `levonk/.../inventories/localnet.yml` | `vpn_tailscale_clients` | Linux | localnet hosts |
 | `bootstrap-ai-inference-host.yml` | `levonk/.../inventories/localnet.yml --limit kckinai` | `vpn_tailscale_clients` | Linux | kckinai (NVIDIA inference host) |
+| `deploy-cast-sponsor-skip.yml` | `levonk/.../inventories/localnet.yml --limit minime01` | `localnet_hosts` | Linux | minime01 (RPi2 DietPi, armv7) |
 
 When adding a new role to a playbook, check this table to know which playbook(s) cover which hosts. Use `--tags <role-tag>` to deploy only that role across all inventories.
 

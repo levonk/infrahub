@@ -1,0 +1,22 @@
+---
+galaxy_info:
+  role_name: media_cast_sponsor_skip
+  author: infrahub
+  description: >
+    Deploy CastSponsorSkip (ghcr.io/gabe565/castsponsorskip) as a container
+    with host networking. Watches Google Cast devices on the LAN and skips
+    YouTube sponsor segments via the SponsorBlock API.
+  company: levonk
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+        - trixie
+  galaxy_tags:
+    - media
+    - sponsorblock
+    - chromecast
+
+dependencies: []
