@@ -26,10 +26,13 @@ container_podman_packages:
 # Written to /etc/containers/registries.conf.d/99-localnet-insecure.conf.
 container_podman_insecure_registries: []
 
-# Sockets to enable. podman.socket provides the rootful API at
+# Units to enable. podman.socket provides the rootful API at
 # /run/podman/podman.sock. Docker API compatibility is provided by a
 # /run/docker.sock symlink (created via tmpfiles.d — /run is tmpfs, so a
 # plain symlink would not survive reboots) that community.docker modules
 # and the docker CLI shim resolve transparently.
-container_podman_sockets:
+# podman-restart.service starts containers marked with a restart policy at
+# boot — without it, containers do not come back after a host reboot.
+container_podman_units:
   - podman.socket
+  - podman-restart.service

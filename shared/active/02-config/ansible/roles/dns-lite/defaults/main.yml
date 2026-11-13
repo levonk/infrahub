@@ -25,6 +25,14 @@ dns_lite_registry: "{{ local_registry | default(infra_registry) }}"
 dns_lite_unbound_image: "localnet-dns-unbound:latest"
 dns_lite_adguard_image: "localnet-dns-adguard:latest"
 
+# dnscrypt-proxy — encrypted/anonymized egress tier (lite version of the
+# chain's ODoH/anonymized-DNSCrypt tiers). Unbound forwards to it and falls
+# back to root recursion if it is unreachable.
+dns_lite_dnscrypt_image: "localnet-dns-dnscrypt:latest"
+dns_lite_dnscrypt_ip: "{{ infra_network_ip_dns_dnscrypt_odoh }}"
+dns_lite_dnscrypt_container_port: "{{ infra_port_dns_dnscrypt_odoh_container }}"
+dns_lite_dnscrypt_conf_dir: "{{ localnet_services_dir }}/dns/dnscrypt"
+
 # Ports — Unbound published for direct queries/debug; AdGuard is the
 # client-facing resolver (host :53 by default via localnet_dns_host_port)
 dns_lite_unbound_host_port: "{{ infra_port_dns_unbound_root_host }}"
