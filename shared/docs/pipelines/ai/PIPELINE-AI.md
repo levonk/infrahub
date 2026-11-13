@@ -353,7 +353,7 @@ Pi → treg /call/{upstream_url} → Iron-Proxy → Internet (real upstream API)
 
 **treg vs iron-proxy**: iron-proxy is the egress firewall (security). treg is the tool registry (productivity). They are complementary: iron-proxy as the egress firewall ensures nothing bypasses the proxy layer; treg as the tool registry manages which tools are available and injects their credentials. See the 2ndbrain note "Local Self-Hosted exe.dev From Devbox and Justfile.md" for the full feature matrix comparing treg, iron-proxy, Conduct, agentgateway, Infisical agent-vault, and keys-on-the-wire.
 
-**Status**: IMPLEMENTED — Phase 6 delivered 2026-10-14. Ansible role `ai-treg`, playbook `deploy-treg.yml` (`just ansible-deploy-treg`), locally-built image `localnet-ai-treg`, domain `https://treg.cno.levonk.com` (web UI behind Authelia SSO; `/call/`, `/mcp/`, `/api/`, `/meta` paths public with `X-Treg-Token` auth). Postgres sidecar `treg-postgres` backed up via restoredrill. See the "Phase 6 — treg Tool Registry" section for deployment details.
+**Status**: DEPLOYED — verified live 2026-11-13 (HTTPS `/meta` 200, Authelia SSO on web UI, LE cert issued). Phase 6 delivered 2026-10-14. Ansible role `ai-treg`, playbook `deploy-treg.yml` (`just ansible-deploy-treg`), locally-built image `localnet-ai-treg`, domain `https://treg.cno.levonk.com` (web UI behind Authelia SSO; `/call/`, `/mcp/`, `/api/`, `/meta` paths public with `X-Treg-Token` auth). Postgres sidecar `treg-postgres` backed up via restoredrill. See the "Phase 6 — treg Tool Registry" section for deployment details.
 
 ### Request Origin
 

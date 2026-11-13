@@ -137,6 +137,11 @@ copyparty_domain: "{{ infra_domain_storage_copyparty | default('files.' ~ (infra
 copyparty_container_name: "copyparty"
 copyparty_container_port: "{{ infra_port_storage_copyparty_container | default('3923') }}"  # project-lint: disable=magic-int  fallback default matches shared ports.yml
 
+# treg Tool Registry — domain + container naming for Traefik dynamic config
+treg_domain: "{{ infra_domain_ai_treg | default('treg.cno.' ~ (infra_domain_base | default('example.com'))) }}"
+treg_container_name: "{{ infra_hostname_treg | default('localnet-ai-treg') }}"
+treg_container_port: "{{ infra_port_ai_treg_container | default('18790') }}"  # project-lint: disable=magic-int  fallback default matches shared ports.yml
+
 # ---------------------------------------------------------------------------
 # AI Gateway Integration Flags (enable Traefik dynamic config for each service)
 # ---------------------------------------------------------------------------
