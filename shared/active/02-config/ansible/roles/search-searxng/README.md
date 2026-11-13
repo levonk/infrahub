@@ -2,12 +2,13 @@
 
 ## Overview
 
-Deploys SearXNG as a Docker container with NordVPN proxy integration for privacy-respecting metasearch functionality. Integrated with Traefik reverse proxy for secure external access via `search.example.com` with comprehensive security middleware chain.
+Deploys SearXNG as a Docker container with direct engine egress for privacy-respecting metasearch functionality. Integrated with Traefik reverse proxy for secure external access via `search.example.com` with comprehensive security middleware chain.
+
+Engine requests leave directly from the host IP by default. Optional proxy egress (e.g. NordVPN) can be enabled via `search_searxng_proxy_enabled`, but note that commercial VPN exit IPs are heavily CAPTCHA'd/rate-limited by search engines and generally make results worse.
 
 ## Requirements
 
 - Docker installed on target host
-- NordVPN container running on vpn-network
 - Traefik reverse proxy with security middleware (GeoBlock, CrowdSec, Authelia)
 - Cloudflare DNS configured for `search.example.com`
 
@@ -21,7 +22,7 @@ Deploys SearXNG as a Docker container with NordVPN proxy integration for privacy
 | `search_searxng_service_dir` | `/opt/searxng` | Service directory |
 | `search_searxng_container_name` | `searxng` | Container name |
 | `search_searxng_image` | `searxng/searxng` | Docker image |
-| `search_searxng_image_tag` | `latest` | Image tag |
+| `search_searxng_image_tag` | `2026.11.6-ac11e14c5` | Image tag (pinned dated release) |
 
 ### Network Configuration
 
@@ -33,12 +34,13 @@ Deploys SearXNG as a Docker container with NordVPN proxy integration for privacy
 | `search_searxng_container_port` | `8080` | Container port |
 | `search_searxng_container_ip` | `172.22.0.2` | Container IP address |
 
-### Proxy Configuration
+### Egress Proxy Configuration (optional)
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `search_searxng_http_proxy` | `http://nordvpn:1080` | HTTP proxy |
-| `search_searxng_https_proxy` | `http://nordvpn:1080` | HTTPS proxy |
+| `search_searxng_proxy_enabled` | `false` | Route engine requests through an HTTP proxy |
+| `search_searxng_http_proxy` | `http://nordvpn:8888` | HTTP proxy URL (used only when enabled) |
+| `search_searxng_https_proxy` | `http://nordvpn:8888` | HTTPS proxy URL (used only when enabled) |
 
 ### Traefik Integration
 
@@ -61,7 +63,7 @@ Requests from Tailscale (`100.64.0.0/10`) and NetBird (`100.100.0.0/10`) network
 
 ## Dependencies
 
-- NordVPN container must be running on vpn-network
+- NordVPN container on vpn-network (only when `search_searxng_proxy_enabled: true`)
 - Docker service must be active
 - Traefik reverse proxy with security middleware must be deployed
 - Cloudflare DNS must be configured for `search.example.com`
@@ -75,7 +77,6 @@ Requests from Tailscale (`100.64.0.0/10`) and NetBird (`100.100.0.0/10`) network
     - role: search-searxng
       vars:
         search_searxng_host_port: 8080
-        search_searxng_http_proxy: "http://nordvpn:1080"
         search_searxng_domain: "search.example.com"
 ```
 

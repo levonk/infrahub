@@ -1,0 +1,7 @@
+# Managed by Ansible — container-podman role
+# Registries served over plain HTTP (no TLS).
+{% for registry in container_podman_insecure_registries %}
+[[registry]]
+location = "{{ registry }}"
+insecure = true
+{% endfor %}

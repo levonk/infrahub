@@ -1,0 +1,74 @@
+---
+# Deploy dns-lite — reduced DNS chain (AdGuard → Unbound recursive)
+# Location: shared/active/02-config/ansible/playbooks/deploy-dns-lite.yml
+#
+# For resource-constrained hosts (minime01 RPi2 armv7, ~1 GB RAM) where the
+# full dns-stack chain does not fit. Installs Podman + deploys two containers
+# on the shared localnet bridge:
+#   client → AdGuard (:53) → Unbound recursive (DNSSEC)
+#
+# Usage:
+#   ansible-playbook \
+#     -i levonk/active/02-config/ansible/inventories/localnet.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-dns-lite.yml \
+#     --vault-password-file ~/.ansible/vault_password \
+#     --limit minime01
+
+- name: "Deploy dns-lite chain to localnet hosts"
+  hosts: localnet_hosts
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: "Gather ansible_facts"
+      ansible.builtin.setup:
+        gather_subset: ["all"]
+      tags: ["always"]
+
+    - name: "Load shared infrastructure variable schemas"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+        - modes.yml
+        - timing.yml
+        - values.yml
+      tags: ["always"]
+
+    - name: "Load client infrastructure overrides (levonk)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+      tags: ["always"]
+
+    - name: "Report target"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Deploy dns-lite (AdGuard → Unbound)
+          ========================================
+          Host: {{ inventory_hostname }}
+          Ansible Host: {{ ansible_host }}
+          OS: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}
+          Arch: {{ ansible_facts['architecture'] }}
+          ========================================
+      tags: ["always", "info"]
+
+  vars:
+    # Local image registry is plain HTTP — teach Podman it is insecure.
+    container_podman_insecure_registries:
+      - "{{ infra_registry }}"
+
+  roles:
+    - role: container-podman
+      tags: ["podman", "container-runtime"]
+
+    - role: dns-lite
+      tags: ["dns", "dns-lite"]

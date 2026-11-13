@@ -1,0 +1,749 @@
+---
+# Emergency Patch: Tailscale "Tailworm" SSH flaws (TS-2026-014 through TS-2026-017)
+#
+# Flaw (2026-10-25, Cyberdione Labs "Tailworm" report; Tailscale fixes shipped
+# 2026-10-27 in v1.104.4): Tailscale SSH runs inside the root tailscaled
+# daemon. It forwards Unix sockets (ssh -L/-R) as root and a race bypasses
+# its path allowlist, so an unprivileged session from any device the SSH
+# policy allows can reach privileged sockets (e.g. docker.sock), become
+# root, steal enrollment keys, and spread to other devices. Companion
+# issues: app connectors that ignore ACLs, an unbounded read in the DERP
+# client, and `tailscale serve --tcp` exposing the localapi socket.
+#
+# Fix:      upgrade every tailscaled to >= 1.104.4 (TS-2026-014..017).
+# Mitigate: TS_SSH_DISABLE_FORWARDING=1 on nodes that cannot upgrade, or
+#           `tailscale set --ssh=false` on nodes that do not need SSH.
+# headscale (<= 0.29.6) has no fix — not deployed here; tailnet is hosted.
+#
+# Scope: audits + remediates Linux hosts (apt/dnf), the tailscale/tailscale
+# exit-node containers on the OCI cloud server, macOS hosts (macsys app via
+# `tailscale update`; nix-darwin tailscaled is flagged — it must be patched
+# by a flake package override), and Windows hosts (`tailscale update`).
+#
+# Usage:
+#   ansible-playbook \
+#     -i levonk/active/02-config/ansible/inventories/oci.yml \
+#     -i levonk/active/02-config/ansible/inventories/localnet.yml \
+#     -i levonk/active/02-config/ansible/inventories/macos-hosts.yml \
+#     -i levonk/active/02-config/ansible/inventories/windows-docker.yml \
+#     shared/active/02-config/ansible/playbooks/patch-tailscale-tailworm.yml \
+#     --vault-password-file ~/.ansible/vault_password
+
+# ---------------------------------------------------------------------------
+# Play 1: Linux hosts — audit, upgrade tailscaled, refresh exit-node containers
+# ---------------------------------------------------------------------------
+- name: "Patch Tailscale Tailworm — Linux hosts"
+  hosts: cloud_servers:isolation_vms:localnet_hosts
+  become: true
+  gather_facts: true
+  vars:
+    tailworm_fixed_version: "1.104.4"
+    tailworm_gaps: []
+    tailworm_patched: []
+    tailworm_containers_recreated: []
+
+  pre_tasks:
+    - name: "Load shared infrastructure defaults (ports, networks, domains, storage)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+      tags: ["always"]
+
+    - name: "Load client infrastructure overrides (levonk)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+      tags: ["always"]
+
+    - name: "Gather ansible_facts"
+      ansible.builtin.setup:
+        gather_subset: ["all"]
+      tags: ["always"]
+
+  tasks:
+    # -----------------------------------------------------------------
+    # Audit: binary present, current version, SSH/serve exposure
+    # -----------------------------------------------------------------
+    - name: "PATCH-TAILWORM | Locate tailscale binary"
+      ansible.builtin.stat:
+        path: /usr/bin/tailscale
+      register: tailworm_bin
+      tags: ["patch-tailworm", "audit"]
+
+    - name: "PATCH-TAILWORM | Skip hosts without Tailscale"
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }}: no /usr/bin/tailscale — not affected"
+      when: not tailworm_bin.stat.exists
+      tags: ["patch-tailworm", "audit"]
+
+    - name: "PATCH-TAILWORM | Current version"
+      ansible.builtin.command:
+        cmd: tailscale version
+      register: tailworm_ver_before
+      changed_when: false
+      when: tailworm_bin.stat.exists
+      tags: ["patch-tailworm", "audit"]
+
+    - name: "PATCH-TAILWORM | Record current version"
+      ansible.builtin.set_fact:
+        tailworm_version: "{{ tailworm_ver_before.stdout_lines[0] }}"
+        tailworm_needs_patch: >-
+          {{ tailworm_ver_before.stdout_lines[0] is version('1.104.4', '<') }}
+      when: tailworm_bin.stat.exists
+      tags: ["patch-tailworm", "audit"]
+
+    - name: "PATCH-TAILWORM | Audit Tailscale SSH / serve exposure"
+      ansible.builtin.shell:
+        cmd: >-
+          tailscale debug prefs 2>/dev/null | grep -i runssh || true;
+          tailscale serve status 2>/dev/null | head -3 || true
+      register: tailworm_exposure
+      changed_when: false
+      failed_when: false
+      when: tailworm_bin.stat.exists
+      tags: ["patch-tailworm", "audit"]
+
+    - name: "PATCH-TAILWORM | Warn if Tailscale SSH is enabled"
+      ansible.builtin.debug:
+        msg: >-
+          WARNING: {{ inventory_hostname }} has Tailscale SSH ENABLED — this is
+          the primary Tailworm attack surface. Verify ssh rules in the tailnet
+          policy are narrow (single src/dst, forwarding disabled).
+      when:
+        - tailworm_bin.stat.exists
+        - "tailworm_exposure.stdout is search('\"RunSSH\": true')"
+      tags: ["patch-tailworm", "audit"]
+
+    # -----------------------------------------------------------------
+    # Remediate: package-manager upgrade (hosts the vpn-tailscale role
+    # installed via the official tailscale repo / install.sh)
+    # -----------------------------------------------------------------
+    - name: "PATCH-TAILWORM | Upgrade tailscale (Debian)"
+      ansible.builtin.apt:  # noqa package-latest — security patch playbook; latest is the intent
+        name: tailscale
+        state: latest
+        update_cache: true
+      register: tailworm_apt
+      when:
+        - tailworm_bin.stat.exists
+        - tailworm_needs_patch | bool
+        - ansible_facts['os_family'] == "Debian"
+      tags: ["patch-tailworm", "remediate"]
+
+    - name: "PATCH-TAILWORM | Upgrade tailscale (RedHat)"
+      ansible.builtin.dnf:  # noqa package-latest — security patch playbook; latest is the intent
+        name: tailscale
+        state: latest
+      register: tailworm_dnf
+      when:
+        - tailworm_bin.stat.exists
+        - tailworm_needs_patch | bool
+        - ansible_facts['os_family'] == "RedHat"
+      tags: ["patch-tailworm", "remediate"]
+
+    - name: "PATCH-TAILWORM | Restart tailscaled after upgrade"
+      ansible.builtin.systemd:
+        name: tailscaled
+        state: restarted
+      when:
+        - tailworm_bin.stat.exists
+        - tailworm_needs_patch | bool
+        - (tailworm_apt is changed) or (tailworm_dnf is changed)
+      tags: ["patch-tailworm", "remediate"]
+
+    - name: "PATCH-TAILWORM | Flag non-apt/dnf installs for manual update"
+      ansible.builtin.set_fact:
+        tailworm_gaps: "{{ tailworm_gaps + [inventory_hostname + ': tailscale ' + tailworm_version + ' not installed via apt/dnf — update manually (tailscale update)'] }}"
+      when:
+        - tailworm_bin.stat.exists
+        - tailworm_needs_patch | bool
+        - ansible_facts['os_family'] not in ["Debian", "RedHat"]
+      tags: ["patch-tailworm", "audit"]
+
+    # -----------------------------------------------------------------
+    # Verify host daemon
+    # -----------------------------------------------------------------
+    - name: "PATCH-TAILWORM | Version after remediation"
+      ansible.builtin.command:
+        cmd: tailscale version
+      register: tailworm_ver_after
+      changed_when: false
+      when: tailworm_bin.stat.exists
+      tags: ["patch-tailworm", "verify"]
+
+    - name: "PATCH-TAILWORM | Record outcome"
+      ansible.builtin.set_fact:
+        tailworm_patched: >-
+          {{ tailworm_patched + [inventory_hostname + ' ' + tailworm_ver_after.stdout_lines[0]] }}
+      when:
+        - tailworm_bin.stat.exists
+        - tailworm_ver_after.stdout_lines[0] is version('1.104.4', '>=')
+      tags: ["patch-tailworm", "verify"]
+
+    - name: "PATCH-TAILWORM | Flag still-vulnerable hosts"
+      ansible.builtin.set_fact:
+        tailworm_gaps: "{{ tailworm_gaps + [inventory_hostname + ': still ' + tailworm_ver_after.stdout_lines[0] + ' (< 1.104.4)'] }}"
+      when:
+        - tailworm_bin.stat.exists
+        - tailworm_ver_after.stdout_lines[0] is version('1.104.4', '<')
+      tags: ["patch-tailworm", "verify"]
+
+    # -----------------------------------------------------------------
+    # Containers: refresh tailscale/tailscale exit-node containers.
+    # Recreate keeps the same spec as the vpn-tailscale role (env, volumes,
+    # networks, sysctls) — only the image moves to the patched build.
+    # -----------------------------------------------------------------
+    - name: "PATCH-TAILWORM | Check docker availability"
+      ansible.builtin.command:
+        cmd: docker --version
+      register: tailworm_docker
+      changed_when: false
+      failed_when: false
+      when: tailworm_bin.stat.exists
+      tags: ["patch-tailworm", "containers"]
+
+    - name: "PATCH-TAILWORM | List running containers"
+      ansible.builtin.command:
+        cmd: "docker ps --format '{% raw %}{{.Names}}{% endraw %}'"
+      register: tailworm_docker_names
+      changed_when: false
+      failed_when: false
+      when: tailworm_docker.rc is defined and tailworm_docker.rc == 0
+      tags: ["patch-tailworm", "containers"]
+
+    - name: "PATCH-TAILWORM | Find containers on the tailscale image"
+      community.docker.docker_container_info:
+        name: "{{ item }}"
+      register: tailworm_ctn_info
+      loop: "{{ tailworm_docker_names.stdout_lines | default([]) }}"
+      when: tailworm_docker_names.rc is defined and tailworm_docker_names.rc == 0
+      tags: ["patch-tailworm", "containers"]
+
+    - name: "PATCH-TAILWORM | Collect tailscale containers"
+      ansible.builtin.set_fact:
+        tailworm_ts_containers: >-
+          {{ tailworm_ctn_info.results
+             | selectattr('container', 'defined')
+             | selectattr('container.Config.Image', 'search', '^tailscale/tailscale')
+             | map(attribute='container.Name')
+             | map('regex_replace', '^/', '')
+             | list }}
+      when: tailworm_docker_names.rc is defined and tailworm_docker_names.rc == 0
+      tags: ["patch-tailworm", "containers"]
+
+    - name: "PATCH-TAILWORM | Versions inside tailscale containers"
+      ansible.builtin.command:
+        cmd: "docker exec {{ item }} tailscale version"
+      register: tailworm_ctn_ver
+      changed_when: false
+      failed_when: false
+      loop: "{{ tailworm_ts_containers | default([]) }}"
+      tags: ["patch-tailworm", "containers"]
+
+    - name: "PATCH-TAILWORM | Report container versions"
+      ansible.builtin.debug:
+        msg: "{{ item.item }}: {{ item.stdout_lines[0] | default('unknown') }}"
+      loop: "{{ tailworm_ctn_ver.results | default([]) }}"
+      when: item.rc == 0
+      tags: ["patch-tailworm", "containers"]
+
+    - name: "PATCH-TAILWORM | Pull patched tailscale image"
+      community.docker.docker_image:
+        name: tailscale/tailscale
+        tag: latest
+        source: pull
+        force_source: true
+      register: tailworm_image_pull
+      when: tailworm_ts_containers | default([]) | length > 0
+      tags: ["patch-tailworm", "containers", "remediate"]
+
+    - name: "PATCH-TAILWORM | Containers needing recreate (image changed)"
+      ansible.builtin.set_fact:
+        tailworm_ctn_stale: >-
+          {{ tailworm_ctn_info.results
+             | selectattr('container', 'defined')
+             | selectattr('container.Config.Image', 'search', '^tailscale/tailscale')
+             | selectattr('container.Image', 'ne', tailworm_image_pull.image.Id)
+             | map(attribute='container.Name')
+             | map('regex_replace', '^/', '')
+             | list }}
+      when:
+        - tailworm_ts_containers | default([]) | length > 0
+        - tailworm_image_pull.image is defined
+      tags: ["patch-tailworm", "containers"]
+
+    - name: "PATCH-TAILWORM | Flag unknown tailscale containers"
+      ansible.builtin.set_fact:
+        tailworm_gaps: >-
+          {{ tailworm_gaps + [inventory_hostname + ': tailscale container(s) not managed by this playbook need manual redeploy: ' + (tailworm_ctn_stale | difference(['vpn-tailscale-exit', 'tor-tailscale-exit']) | join(','))] }}
+      when:
+        - tailworm_ctn_stale is defined
+        - tailworm_ctn_stale | difference(['vpn-tailscale-exit', 'tor-tailscale-exit']) | length > 0
+      tags: ["patch-tailworm", "containers", "verify"]
+
+    - name: "PATCH-TAILWORM | Detect NordVPN container (exit-node routing dep)"
+      ansible.builtin.shell:
+        cmd: docker ps | grep nordvpn
+      register: tailworm_nordvpn
+      changed_when: false
+      failed_when: false
+      ignore_errors: true
+      when: tailworm_ts_containers | default([]) | length > 0
+      tags: ["patch-tailworm", "containers"]
+
+    # --- Recreate: NordVPN-path exit node (mirrors vpn-tailscale role spec) ---
+    - name: "PATCH-TAILWORM | Remove stale NordVPN tailscale container"
+      community.docker.docker_container:
+        name: "{{ infra_hostname_vpn_tailscale_nordvpn | default('vpn-tailscale-exit') }}"
+        state: absent
+        force_kill: true
+      when:
+        - "'vpn-tailscale-exit' in (tailworm_ctn_stale | default([])) or (infra_hostname_vpn_tailscale_nordvpn | default('vpn-tailscale-exit')) in (tailworm_ctn_stale | default([]))"
+        - tailworm_nordvpn.rc == 0
+      tags: ["patch-tailworm", "containers", "remediate"]
+
+    - name: "PATCH-TAILWORM | Redeploy NordVPN tailscale exit node (patched image)"
+      community.docker.docker_container:
+        name: "{{ infra_hostname_vpn_tailscale_nordvpn | default('vpn-tailscale-exit') }}"
+        image: "tailscale/tailscale:latest"
+        state: started
+        restart_policy: unless-stopped
+        networks:
+          - name: "{{ vpn_nordvpn_network_name | default('vpn-network') }}"
+        capabilities:
+          - NET_ADMIN
+        env:
+          TS_AUTHKEY: "{{ vpn_tailscale_auth_key }}"
+          TS_HOSTNAME: "{{ vpn_tailscale_nordvpn_hostname | default('cno-vpn-tailscale-exit') }}"
+          TS_STATE_DIR: "/var/lib/tailscale"
+          TS_EXTRA_ARGS: "--advertise-exit-node --accept-routes"
+        volumes:
+          - vpn-tailscale-exit-state:/var/lib/tailscale
+      when:
+        - "'vpn-tailscale-exit' in (tailworm_ctn_stale | default([])) or (infra_hostname_vpn_tailscale_nordvpn | default('vpn-tailscale-exit')) in (tailworm_ctn_stale | default([]))"
+        - tailworm_nordvpn.rc == 0
+      register: tailworm_vpn_ctn_deploy
+      tags: ["patch-tailworm", "containers", "remediate"]
+
+    - name: "PATCH-TAILWORM | Get NordVPN container IP (route fixup)"  # noqa no-handler — sequential fixup, not a notify target
+      ansible.builtin.command:
+        cmd: "docker inspect {{ infra_hostname_nordvpn | default('nordvpn') }} --format '{% raw %}{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}{% endraw %}'"
+      register: tailworm_nordvpn_ip
+      changed_when: false
+      when: tailworm_vpn_ctn_deploy is changed
+      tags: ["patch-tailworm", "containers", "remediate"]
+
+    - name: "PATCH-TAILWORM | Restore NordVPN gateway route in tailscale container"  # noqa no-handler — sequential fixup, not a notify target
+      ansible.builtin.shell: |
+        docker exec {{ infra_hostname_vpn_tailscale_nordvpn | default('vpn-tailscale-exit') }} ip route del default || true
+        docker exec {{ infra_hostname_vpn_tailscale_nordvpn | default('vpn-tailscale-exit') }} ip route add default via {{ tailworm_nordvpn_ip.stdout }}
+      when: tailworm_vpn_ctn_deploy is changed
+      ignore_errors: true
+      tags: ["patch-tailworm", "containers", "remediate"]
+
+    - name: "PATCH-TAILWORM | Restore NAT masquerade in NordVPN container"  # noqa no-handler — sequential fixup, not a notify target
+      ansible.builtin.shell: |
+        docker exec {{ infra_hostname_nordvpn | default('nordvpn') }} iptables -t nat -A POSTROUTING -s {{ vpn_nordvpn_network_subnet | default(infra_network_vpn_nordvpn_subnet) }} -j MASQUERADE || true
+        docker exec {{ infra_hostname_nordvpn | default('nordvpn') }} iptables -A FORWARD -i eth0 -o tun0 -j ACCEPT || true
+        docker exec {{ infra_hostname_nordvpn | default('nordvpn') }} iptables -A FORWARD -i tun0 -o eth0 -m state --state RELATED,ESTABLISHED -j ACCEPT || true
+      when: tailworm_vpn_ctn_deploy is changed
+      ignore_errors: true
+      tags: ["patch-tailworm", "containers", "remediate"]
+
+    # --- Recreate: Tor-path exit node (mirrors vpn-tailscale role spec) ---
+    - name: "PATCH-TAILWORM | Remove stale Tor tailscale container"
+      community.docker.docker_container:
+        name: "{{ infra_hostname_vpn_tailscale_tor | default('tor-tailscale-exit') }}"
+        state: absent
+        force_kill: true
+      when:
+        - "'tor-tailscale-exit' in (tailworm_ctn_stale | default([])) or (infra_hostname_vpn_tailscale_tor | default('tor-tailscale-exit')) in (tailworm_ctn_stale | default([]))"
+        - vpn_tailscale_tor_enabled | default(false) | bool
+      tags: ["patch-tailworm", "containers", "remediate"]
+
+    - name: "PATCH-TAILWORM | Redeploy Tor tailscale exit node (patched image)"
+      community.docker.docker_container:
+        name: "{{ infra_hostname_vpn_tailscale_tor | default('tor-tailscale-exit') }}"
+        image: "tailscale/tailscale:latest"
+        state: started
+        restart_policy: unless-stopped
+        networks:
+          - name: "{{ vpn_tailscale_tor_network_name | default('tor-network') }}"
+        capabilities:
+          - NET_ADMIN
+        devices:
+          - /dev/net/tun:/dev/net/tun
+        env:
+          TS_AUTHKEY: "{{ vpn_tailscale_auth_key }}"
+          TS_HOSTNAME: "{{ vpn_tailscale_tor_hostname }}"
+          TS_EXTRA_ARGS: "--advertise-exit-node --accept-routes"
+          TS_STATE_DIR: "/var/lib/tailscale"
+          TS_SOCKET_DIR: "/var/run/tailscale"
+          ALL_PROXY: "socks5://{{ infra_hostname_vpn_tor | default('tor-exit') }}:{{ infra_port_vpn_tor_transparent_host }}"
+          all_proxy: "socks5://{{ infra_hostname_vpn_tor | default('tor-exit') }}:{{ infra_port_vpn_tor_transparent_host }}"
+          TZ: "{{ localnet_tz | default('UTC') }}"
+        sysctls:
+          net.ipv4.ip_forward: "1"
+          net.ipv6.conf.all.forwarding: "1"
+        security_opts:
+          - no-new-privileges:true
+        volumes:
+          - tor-tailscale-exit-state:/var/lib/tailscale
+          - tor-tailscale-exit-socket:/var/run/tailscale
+      when:
+        - "'tor-tailscale-exit' in (tailworm_ctn_stale | default([])) or (infra_hostname_vpn_tailscale_tor | default('tor-tailscale-exit')) in (tailworm_ctn_stale | default([]))"
+        - vpn_tailscale_tor_enabled | default(false) | bool
+      register: tailworm_tor_ctn_deploy
+      tags: ["patch-tailworm", "containers", "remediate"]
+
+    - name: "PATCH-TAILWORM | Verify container versions post-recreate"
+      ansible.builtin.command:
+        cmd: "docker exec {{ item }} tailscale version"
+      register: tailworm_ctn_ver_after
+      changed_when: false
+      failed_when: false
+      loop: "{{ tailworm_ts_containers | default([]) }}"
+      when: (tailworm_vpn_ctn_deploy is changed) or (tailworm_tor_ctn_deploy is changed)
+      tags: ["patch-tailworm", "containers", "verify"]
+
+    - name: "PATCH-TAILWORM | Record container outcome"
+      ansible.builtin.debug:
+        msg: "{{ item.item }}: {{ item.stdout_lines[0] | default('check failed') }}"
+      loop: "{{ tailworm_ctn_ver_after.results | default([]) }}"
+      when: (tailworm_vpn_ctn_deploy is changed) or (tailworm_tor_ctn_deploy is changed)
+      tags: ["patch-tailworm", "containers", "verify"]
+
+    # -----------------------------------------------------------------
+    # Summary
+    # -----------------------------------------------------------------
+    - name: "PATCH-TAILWORM | Summary"
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }}: before={{ tailworm_version | default('none') }},
+          after={{ tailworm_ver_after.stdout_lines[0] | default('n/a') }},
+          ssh={{ (tailworm_exposure.stdout is search('"RunSSH": true')) | ternary('ENABLED','off') }},
+          containers={{ tailworm_ts_containers | default([]) | join(',') | default('none') }},
+          gaps={{ tailworm_gaps | length }}
+      when: tailworm_bin.stat.exists
+      tags: ["patch-tailworm", "always"]
+
+    - name: "PATCH-TAILWORM | Fail on unremediated gaps"
+      ansible.builtin.fail:
+        msg: "Unremediated Tailworm gaps: {{ tailworm_gaps | join(', ') }}"
+      when: tailworm_gaps | length > 0
+      tags: ["patch-tailworm", "verify"]
+
+# ---------------------------------------------------------------------------
+# Play 2: macOS hosts — macsys app via `tailscale update`; nix-darwin
+# tailscaled cannot be package-patched (flagged for flake bump).
+# ---------------------------------------------------------------------------
+- name: "Patch Tailscale Tailworm — macOS hosts"
+  hosts: macos_hosts
+  gather_facts: true
+  become: false
+  vars:
+    tailworm_gaps: []
+
+  tasks:
+    - name: "PATCH-TAILWORM | Detect daemon variant (macsys app vs nix tailscaled)"
+      ansible.builtin.shell:
+        cmd: >-
+          ps aux | grep -i tailscale | grep -v grep | grep -oE 'io\.tailscale\.ipn\.macsys|/nix/store/[a-z0-9]+-tailscale-[0-9.]+' | head -1 || true
+      register: tailworm_mac_variant
+      changed_when: false
+      failed_when: false
+      tags: ["patch-tailworm", "audit"]
+
+    - name: "PATCH-TAILWORM | Current daemon version (macsys)"
+      ansible.builtin.shell:
+        cmd: >-
+          ( /usr/local/bin/tailscale version 2>/dev/null || tailscale version 2>/dev/null ) | head -1 || true;
+          launchctl list 2>/dev/null | grep -oE 'io\.tailscale\.ipn\.macsys.*[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true
+      register: tailworm_mac_ver
+      become: true
+      changed_when: false
+      failed_when: false
+      when: "'io.tailscale.ipn.macsys' in tailworm_mac_variant.stdout"
+      tags: ["patch-tailworm", "audit"]
+
+    # The *running* daemon is the system extension — its version is embedded
+    # in the launchctl label (network-extension.X.Y.Z). Prefer that over the
+    # CLI/app version: the pkg can update the app while the old extension
+    # is still active.
+    - name: "PATCH-TAILWORM | Resolve macsys daemon version"
+      ansible.builtin.set_fact:
+        tailworm_mac_version: >-
+          {{ (tailworm_mac_ver.stdout_lines
+              | select('search', 'network-extension\.')
+              | map('regex_replace', '^.*network-extension\.([0-9]+\.[0-9]+\.[0-9]+).*$', '\1')
+              | first)
+             | default((tailworm_mac_ver.stdout_lines | map('trim') | select('match', '^[0-9]+\.[0-9]+\.[0-9]+$') | first) | default('0.0.0')) }}
+      when: "'io.tailscale.ipn.macsys' in tailworm_mac_variant.stdout"
+      tags: ["patch-tailworm", "audit"]
+
+    - name: "PATCH-TAILWORM | Current daemon version (nix tailscaled)"
+      ansible.builtin.shell:
+        cmd: "PATH=$PATH:/run/current-system/sw/bin; tailscale version | head -1 || true"
+      register: tailworm_nix_ver
+      changed_when: false
+      failed_when: false
+      when: "'io.tailscale.ipn.macsys' not in tailworm_mac_variant.stdout"
+      tags: ["patch-tailworm", "audit"]
+
+    - name: "PATCH-TAILWORM | Flag nix-managed tailscaled"
+      ansible.builtin.set_fact:
+        tailworm_gaps: "{{ tailworm_gaps + [inventory_hostname + ': nix-darwin tailscaled ' + tailworm_nix_ver.stdout_lines[0] + ' — patch via flake package override, not tailscale update'] }}"
+      when:
+        - "'io.tailscale.ipn.macsys' not in tailworm_mac_variant.stdout"
+        - tailworm_nix_ver.stdout_lines[0] is version('1.104.4', '<')
+      tags: ["patch-tailworm", "audit"]
+
+    - name: "PATCH-TAILWORM | Check RunSSH / serve (all macs)"
+      ansible.builtin.shell:
+        cmd: >-
+          PATH=$PATH:/run/current-system/sw/bin:/usr/local/bin;
+          tailscale debug prefs 2>/dev/null | grep -i runssh || true;
+          tailscale serve status 2>/dev/null | head -3 || true
+      register: tailworm_mac_exposure
+      changed_when: false
+      failed_when: false
+      tags: ["patch-tailworm", "audit"]
+
+    # `tailscale update` drives the daemon's own updater over the localapi
+    # socket — works even when the /usr/local/bin shim is broken (any working
+    # CLI can issue it, incl. the nix-packaged one). The headless
+    # `installer -pkg` path is kept only as a fallback: the pkg's postinstall
+    # scripts can fail without a GUI session.
+    - name: "PATCH-TAILWORM | Daemon self-update (macsys)"
+      ansible.builtin.shell:
+        cmd: >-
+          /usr/local/bin/tailscale update 2>/dev/null ||
+          tailscale update 2>&1 ||
+          /run/current-system/sw/bin/tailscale update 2>&1
+      register: tailworm_mac_update
+      changed_when: true
+      failed_when: false
+      when:
+        - "'io.tailscale.ipn.macsys' in tailworm_mac_variant.stdout"
+        - tailworm_mac_version is version('1.104.4', '<')
+      tags: ["patch-tailworm", "remediate"]
+
+    - name: "PATCH-TAILWORM | Download patched standalone pkg (macsys fallback)"
+      ansible.builtin.get_url:
+        url: "https://pkgs.tailscale.com/stable/Tailscale-latest-macos.pkg"
+        dest: "/tmp/Tailscale-latest-macos.pkg"
+        mode: "0644"
+      register: tailworm_mac_pkg
+      become: true
+      when:
+        - "'io.tailscale.ipn.macsys' in tailworm_mac_variant.stdout"
+        - tailworm_mac_version is version('1.104.4', '<')
+        - tailworm_mac_update.rc != 0
+      tags: ["patch-tailworm", "remediate"]
+
+    - name: "PATCH-TAILWORM | Install patched standalone pkg (macsys fallback)"
+      ansible.builtin.command:
+        cmd: "installer -pkg /tmp/Tailscale-latest-macos.pkg -target /"
+      register: tailworm_mac_install
+      failed_when: false
+      become: true
+      when:
+        - "'io.tailscale.ipn.macsys' in tailworm_mac_variant.stdout"
+        - tailworm_mac_version is version('1.104.4', '<')
+        - tailworm_mac_pkg is changed or tailworm_mac_pkg is succeeded
+      tags: ["patch-tailworm", "remediate"]
+
+    # The pkg updates /Applications/Tailscale.app, but the *running* daemon is
+    # the already-activated system extension (launchctl label embeds its
+    # version). The app must re-launch in the GUI user's session for it to
+    # submit the sysex replacement — without this step the new app sits next
+    # to the still-vulnerable old extension.
+    - name: "PATCH-TAILWORM | Resolve GUI user uid (for app relaunch)"
+      ansible.builtin.command:
+        cmd: "id -u {{ macos_gui_user | default('micro') }}"
+      register: tailworm_mac_uid
+      changed_when: false
+      failed_when: false
+      when:
+        - "'io.tailscale.ipn.macsys' in tailworm_mac_variant.stdout"
+        - tailworm_mac_version is version('1.104.4', '<')
+      tags: ["patch-tailworm", "remediate"]
+
+    - name: "PATCH-TAILWORM | Quit running Tailscale.app (extension swap needs app restart)"
+      ansible.builtin.command:
+        cmd: "pkill -x Tailscale"
+      register: tailworm_mac_quit
+      changed_when: true
+      failed_when: false
+      become: true
+      when:
+        - "'io.tailscale.ipn.macsys' in tailworm_mac_variant.stdout"
+        - tailworm_mac_version is version('1.104.4', '<')
+        - tailworm_mac_uid.rc == 0
+      tags: ["patch-tailworm", "remediate"]
+
+    - name: "PATCH-TAILWORM | Relaunch app in GUI session to activate new extension"
+      ansible.builtin.command:
+        cmd: "launchctl asuser {{ tailworm_mac_uid.stdout }} open -g -j -a Tailscale"
+      register: tailworm_mac_relaunch
+      changed_when: true
+      failed_when: false
+      become: true
+      when:
+        - "'io.tailscale.ipn.macsys' in tailworm_mac_variant.stdout"
+        - tailworm_mac_version is version('1.104.4', '<')
+        - tailworm_mac_uid.rc == 0
+      tags: ["patch-tailworm", "remediate"]
+
+    - name: "PATCH-TAILWORM | Version after update (macsys)"
+      ansible.builtin.shell:
+        cmd: >-
+          sleep 15;
+          ( /usr/local/bin/tailscale version 2>/dev/null || tailscale version 2>/dev/null ) | head -1 || true;
+          launchctl list 2>/dev/null | grep -oE 'network-extension\.[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true
+      register: tailworm_mac_ver_after
+      become: true
+      changed_when: false
+      when:
+        - "'io.tailscale.ipn.macsys' in tailworm_mac_variant.stdout"
+        - tailworm_mac_update is defined
+      tags: ["patch-tailworm", "verify"]
+
+    - name: "PATCH-TAILWORM | Resolve post-update macsys version"
+      ansible.builtin.set_fact:
+        tailworm_mac_version_after: >-
+          {{ (tailworm_mac_ver_after.stdout_lines
+              | select('search', 'network-extension\.')
+              | map('regex_replace', '^.*network-extension\.([0-9]+\.[0-9]+\.[0-9]+).*$', '\1')
+              | first)
+             | default((tailworm_mac_ver_after.stdout_lines | map('trim') | select('match', '^[0-9]+\.[0-9]+\.[0-9]+$') | first) | default('0.0.0')) }}
+      when:
+        - "'io.tailscale.ipn.macsys' in tailworm_mac_variant.stdout"
+        - tailworm_mac_ver_after is defined
+      tags: ["patch-tailworm", "verify"]
+
+    - name: "PATCH-TAILWORM | Flag macsys hosts that failed to reach 1.104.4"
+      ansible.builtin.set_fact:
+        tailworm_gaps: "{{ tailworm_gaps + [inventory_hostname + ': macsys still ' + tailworm_mac_version_after + ' — network extension may need GUI approval in Tailscale.app or a reboot'] }}"
+      when:
+        - "'io.tailscale.ipn.macsys' in tailworm_mac_variant.stdout"
+        - tailworm_mac_ver_after is defined
+        - tailworm_mac_version_after | default('0.0.0') is version('1.104.4', '<')
+      tags: ["patch-tailworm", "verify"]
+
+    - name: "PATCH-TAILWORM | Warn if Tailscale SSH is enabled"
+      ansible.builtin.debug:
+        msg: >-
+          WARNING: {{ inventory_hostname }} has Tailscale SSH ENABLED — primary
+          Tailworm attack surface. Tighten ssh rules in tailnet policy.
+      when: "tailworm_mac_exposure.stdout is search('\"RunSSH\": true')"
+      tags: ["patch-tailworm", "audit"]
+
+    - name: "PATCH-TAILWORM | Summary"
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }}: variant={{ 'macsys' if 'io.tailscale.ipn.macsys' in tailworm_mac_variant.stdout else 'nix' }},
+          before={{ tailworm_mac_version | default(tailworm_nix_ver.stdout_lines[0] | default('unknown')) }},
+          after={{ tailworm_mac_version_after | default('unchanged') }},
+          ssh={{ (tailworm_mac_exposure.stdout is search('"RunSSH": true')) | ternary('ENABLED','off') }},
+          gaps={{ tailworm_gaps | length }}
+      tags: ["patch-tailworm", "always"]
+
+    - name: "PATCH-TAILWORM | Fail on unremediated gaps"
+      ansible.builtin.fail:
+        msg: "Unremediated Tailworm gaps: {{ tailworm_gaps | join(', ') }}"
+      when: tailworm_gaps | length > 0
+      tags: ["patch-tailworm", "verify"]
+
+# ---------------------------------------------------------------------------
+# Play 3: Windows hosts — `tailscale update` (GUI install). The nl-* exit
+# containers on this host are redeployed by deploy-windows-exit-nodes.yml
+# once the host is patched and reachable.
+# ---------------------------------------------------------------------------
+- name: "Patch Tailscale Tailworm — Windows hosts"
+  hosts: windows_docker_hosts
+  gather_facts: false
+  become: false
+  vars:
+    tailworm_gaps: []
+
+  tasks:
+    - name: "PATCH-TAILWORM | Current version (Windows)"
+      ansible.windows.win_shell:
+        "& 'C:\\Program Files\\Tailscale\\tailscale.exe' version | Select-Object -First 1"
+      register: tailworm_win_ver
+      changed_when: false
+      tags: ["patch-tailworm", "audit"]
+
+    - name: "PATCH-TAILWORM | Check RunSSH (Windows)"
+      ansible.windows.win_shell:
+        "& 'C:\\Program Files\\Tailscale\\tailscale.exe' debug prefs | Select-String -Pattern 'RunSSH'"
+      register: tailworm_win_ssh
+      changed_when: false
+      failed_when: false
+      tags: ["patch-tailworm", "audit"]
+
+    - name: "PATCH-TAILWORM | Update tailscale (Windows)"
+      ansible.windows.win_shell:
+        "& 'C:\\Program Files\\Tailscale\\tailscale.exe' update"
+      register: tailworm_win_update
+      changed_when: true
+      failed_when: false
+      when: (tailworm_win_ver.stdout | trim) is version('1.104.4', '<')
+      tags: ["patch-tailworm", "remediate"]
+
+    - name: "PATCH-TAILWORM | Version after update (Windows)"
+      ansible.windows.win_shell:
+        "& 'C:\\Program Files\\Tailscale\\tailscale.exe' version | Select-Object -First 1"
+      register: tailworm_win_ver_after
+      changed_when: false
+      when: tailworm_win_update is defined
+      tags: ["patch-tailworm", "verify"]
+
+    - name: "PATCH-TAILWORM | Flag if still vulnerable (Windows)"
+      ansible.builtin.set_fact:
+        tailworm_gaps: "{{ tailworm_gaps + [inventory_hostname + ': still ' + (tailworm_win_ver_after.stdout | trim) + ' — update via Tailscale GUI or winget'] }}"
+      when:
+        - tailworm_win_ver_after is defined
+        - (tailworm_win_ver_after.stdout | trim) is version('1.104.4', '<')
+      tags: ["patch-tailworm", "verify"]
+
+    - name: "PATCH-TAILWORM | List tailscale containers needing redeploy (Windows)"
+      ansible.windows.win_shell: |
+        docker ps --format '{% raw %}{{.Names}} {{.Image}}{% endraw %}' | Select-String -Pattern 'tailscale/tailscale'
+      register: tailworm_win_ctns
+      changed_when: false
+      failed_when: false
+      tags: ["patch-tailworm", "containers", "audit"]
+
+    - name: "PATCH-TAILWORM | Report Windows tailscale containers"
+      ansible.builtin.debug:
+        msg: >-
+          tailscale containers on {{ inventory_hostname }} (redeploy via
+          deploy-windows-exit-nodes.yml to pick up the patched image):
+          {{ tailworm_win_ctns.stdout_lines | join('; ') }}
+      when: tailworm_win_ctns.stdout | default('') | length > 0
+      tags: ["patch-tailworm", "containers", "verify"]
+
+    - name: "PATCH-TAILWORM | Summary"
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }}: before={{ tailworm_win_ver.stdout | trim }},
+          after={{ tailworm_win_ver_after.stdout | trim | default('unchanged') }},
+          ssh={{ tailworm_win_ssh.stdout | default('off') }},
+          gaps={{ tailworm_gaps | length }}
+      tags: ["patch-tailworm", "always"]
+
+    - name: "PATCH-TAILWORM | Fail on unremediated gaps"
+      ansible.builtin.fail:
+        msg: "Unremediated Tailworm gaps: {{ tailworm_gaps | join(', ') }}"
+      when: tailworm_gaps | length > 0
+      tags: ["patch-tailworm", "verify"]
