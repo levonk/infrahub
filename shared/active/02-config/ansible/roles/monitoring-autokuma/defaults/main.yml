@@ -1,0 +1,31 @@
+---
+# defaults file for monitoring-autokuma
+# AutoKuma — provisions Uptime Kuma monitors from static JSON files rendered
+# from the services.yml catalog (monitoring-catalog role). Deploying the Kuma
+# container alone gives zero monitor coverage; this role makes monitors
+# declarative.
+# All ports and IPs must be variables — never hardcode.
+
+# ---------------------------------------------------------------------------
+# Image & Container
+# ---------------------------------------------------------------------------
+monitoring_autokuma_container_name: "{{ infra_hostname_monitoring_autokuma | default('localnet-monitoring-autokuma') }}"
+monitoring_autokuma_image_name: "ghcr.io/bigboot/autokuma"
+monitoring_autokuma_image_tag: "2.1.0"
+
+# ---------------------------------------------------------------------------
+# Network — must reach the Uptime Kuma container
+# ---------------------------------------------------------------------------
+monitoring_autokuma_network: "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"
+
+# ---------------------------------------------------------------------------
+# Uptime Kuma connection (admin credentials live in the client vault)
+# ---------------------------------------------------------------------------
+monitoring_autokuma_kuma_url: "http://{{ infra_hostname_monitoring_uptime_kuma }}:{{ infra_port_monitoring_uptime_kuma_container }}"
+monitoring_autokuma_kuma_username: "{{ vault_uptime_kuma_admin_user | default('') }}"
+monitoring_autokuma_kuma_password: "{{ vault_uptime_kuma_admin_password | default('') }}"
+
+# ---------------------------------------------------------------------------
+# Storage — rendered static monitor definitions
+# ---------------------------------------------------------------------------
+monitoring_autokuma_config_dir: "{{ infra_storage_monitoring_config_dir | default('/opt/localnet/monitoring/autokuma') }}"

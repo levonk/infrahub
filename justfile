@@ -49,6 +49,7 @@ PB_WATCH_PARTY := ANSIBLE_ROOT + "/playbooks/deploy-watch-party.yml"
 PB_VAL_WATCH_PARTY := ANSIBLE_ROOT + "/playbooks/validate-watch-party.yml"
 PB_VAL_AUTHELIA := ANSIBLE_ROOT + "/playbooks/validate-authelia.yml"
 PB_ACRM := ANSIBLE_ROOT + "/playbooks/deploy-acrm.yml"
+PB_PATCH_OPENSSH := ANSIBLE_ROOT + "/playbooks/patch-openssh-musl-bypass.yml"
 WINDOWS_INVENTORY := INFRAHUB_ROOT + "/levonk/active/02-config/ansible/inventories/windows-docker.yml"
 MACOS_INVENTORY := INFRAHUB_ROOT + "/levonk/active/02-config/ansible/inventories/macos-hosts.yml"
 PB_CONFIGURE_MACOS := ANSIBLE_ROOT + "/playbooks/configure-macos-host.yml"
@@ -278,6 +279,7 @@ test_impl:
     set -euo pipefail
     {{_log}}
     log_start "Running all tests"
+    just test_config_impl
     just ansible_test_impl
 
 lint:
@@ -325,6 +327,45 @@ quality:
 quality_impl:
     just lint
     just test
+
+# -- Config-Policy Unit Tests --
+# Asserts structural/semantic invariants on playbooks and infrastructure
+# vars (e.g., tailnet-only DNS records must be A records, not CNAMEs into
+# *.ts.net — the bug that intermittently NXDOMAIN'd search.levonk.com).
+# Pure python3 unittest + PyYAML, both already in the devbox env.
+
+test-config:
+    @just _devbox test_config_impl
+
+[private]
+test_config_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Running config-policy unit tests"
+    python3 -m unittest discover -s {{INFRAHUB_ROOT}}/tests -p 'test_*.py' -v
+    log_end "Config-policy tests passed"
+
+# -- File-Write Watch: rerun policy tests on any config edit --
+# watchexec fires on every write to a yml/yaml/j2 file under the ansible
+# tree or client overlay. Ctrl-C to stop.
+
+watch-config:
+    @just _devbox watch_config_impl
+
+[private]
+watch_config_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Watching ansible config; running policy tests on write"
+    exec watchexec \
+        --exts yml,yaml,j2,jinja2 \
+        --watch {{ANSIBLE_ROOT}} \
+        --watch {{INFRAHUB_ROOT}}/levonk/active/02-config/ansible \
+        --watch {{INFRAHUB_ROOT}}/tests \
+        --restart \
+        -- just test_config_impl
 
 # === Ansible Lifecycle Commands ===
 
@@ -1276,3 +1317,32 @@ clean_all_impl:
     docker system prune -af || true
     docker volume prune -f || true
     log_end "Deep clean complete"
+
+# === Security ===
+
+# Emergency patch: OpenSSH musl password-auth bypass (OpenSSH <10.6p2, Alpine/musl sshd)
+# Audits + remediates all Linux hosts and scans running containers for musl sshd.
+ansible-patch-openssh:
+    @just _devbox ansible_patch_openssh_impl
+
+[private]
+ansible_patch_openssh_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Patching OpenSSH musl auth bypass on all managed hosts"
+    ansible-playbook -i {{INVENTORY}} -i {{LOCALNET_INVENTORY}} -i {{WINDOWS_INVENTORY}} {{PB_PATCH_OPENSSH}} --vault-password-file ~/.ansible/vault_password
+    log_end "OpenSSH musl bypass patch complete"
+
+# OCI cloud server only (fast path for emergency patching)
+ansible-patch-openssh-oci:
+    @just _devbox ansible_patch_openssh_oci_impl
+
+[private]
+ansible_patch_openssh_oci_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Patching OpenSSH musl auth bypass on OCI cloud server"
+    ansible-playbook -i {{INVENTORY}} {{PB_PATCH_OPENSSH}} --vault-password-file ~/.ansible/vault_password
+    log_end "OpenSSH musl bypass patch complete"

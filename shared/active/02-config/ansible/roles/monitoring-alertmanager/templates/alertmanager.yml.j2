@@ -90,7 +90,7 @@ inhibit_rules:
       - severity="critical"
     target_matchers:
       - pipeline="ai"
-      - stage=~"agent|gateway|compression|routing|forge|iron-proxy|synthetic-probe"
+      - stage=~"agent|gateway|compression|routing|iron-proxy|synthetic-probe"
       - alert=~".*Degraded|.*CantComplete|.*SyntheticProbeFailed"
     equal: ['client']
 
@@ -98,17 +98,6 @@ inhibit_rules:
   - source_matchers:
       - pipeline="ai"
       - stage="iron-proxy"
-      - severity="critical"
-    target_matchers:
-      - pipeline="ai"
-      - stage=~"agent|gateway|compression|routing|forge|synthetic-probe"
-      - alert=~".*Degraded|.*CantComplete|.*SyntheticProbeFailed"
-    equal: ['client']
-
-  # Forge is root cause → suppress everything upstream of it
-  - source_matchers:
-      - pipeline="ai"
-      - stage="forge"
       - severity="critical"
     target_matchers:
       - pipeline="ai"

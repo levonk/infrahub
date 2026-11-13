@@ -12,9 +12,17 @@ monitoring_uptime_kuma_image_name: "louislam/uptime-kuma"
 monitoring_uptime_kuma_image_tag: "2"
 
 # ---------------------------------------------------------------------------
-# Network
+# Networks — Kuma performs the checks itself, so it needs the same reachability
+# as blackbox: traefik-network plus service networks (attached when present),
+# and host.docker.internal for host-published ports.
 # ---------------------------------------------------------------------------
 monitoring_uptime_kuma_network: "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"
+monitoring_uptime_kuma_extra_networks:
+  - "{{ infra_network_dns_localnet_network_name | default('localnet-network') }}"
+  - "{{ infra_network_ai_proxy_chain_network_name | default('proxy-chain-network') }}"
+  - "{{ infra_network_ai_langfuse_network_name | default('langfuse-network') }}"
+  - "{{ infra_network_vpn_nordvpn_network_name | default('vpn-network') }}"
+  - "{{ infra_network_proxy_tor_network_name | default('tor-network') }}"
 
 # ---------------------------------------------------------------------------
 # Ports — all variable-driven per ADR (host:container mapping)

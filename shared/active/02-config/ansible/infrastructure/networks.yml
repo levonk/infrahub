@@ -163,6 +163,8 @@ infra_network_kvm_nat_bridge_subnet: "192.168.100.0/24"
 infra_network_kvm_nat_bridge_gateway: "192.168.100.1"
 infra_network_kvm_nat_bridge_dhcp_start: "192.168.100.128"
 infra_network_kvm_nat_bridge_dhcp_end: "192.168.100.254"
+# Isolation VM (QEMU guest on kvm-nat-br0) — static IP used for SSH/monitoring
+infra_network_kvm_isolation_vm_ip: "192.168.100.147"
 
 infra_network_kvm_routed_bridge_name: "kvm-route-br0"
 infra_network_kvm_routed_bridge_subnet: "192.168.101.0/24"

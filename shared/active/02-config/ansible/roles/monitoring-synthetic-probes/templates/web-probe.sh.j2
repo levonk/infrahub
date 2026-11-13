@@ -4,7 +4,7 @@ set -u
 : "${WEB_PROXY_URL:?WEB_PROXY_URL is required}"
 : "${WEB_TARGET_URL:?WEB_TARGET_URL is required}"
 TIMEOUT="${WEB_TIMEOUT:-30}"  # project-lint: disable=magic-int  timeout
-METRICS_DIR="${METRICS_DIR:-/var/lib/node_exporter/textfile_collector/probes}"
+METRICS_DIR="${METRICS_DIR:-/var/lib/node_exporter/textfile_collector}"
 METRIC_FILE="${METRICS_DIR}/web_pipeline_probe.prom"
 
 OUTFILE=$(mktemp)
