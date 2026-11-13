@@ -1,4 +1,9 @@
 ---
+- name: Restart dns-lite dnscrypt
+  community.docker.docker_container:
+    name: localnet-dns-dnscrypt-lite
+    restart: true
+
 - name: Restart dns-lite unbound
   community.docker.docker_container:
     name: localnet-dns-unbound-lite

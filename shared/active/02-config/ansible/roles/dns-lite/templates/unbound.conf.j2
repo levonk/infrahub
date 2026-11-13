@@ -1,6 +1,8 @@
 # Managed by Ansible — dns-lite role
-# Unbound recursive resolver (single tier: direct root resolution, DNSSEC-validating)
-# Derived from services/dns/unbound unbound-root.conf.template.
+# Unbound = local DNSSEC-validating cache (the "unbound-validator" middlebox
+# of the full chain). Forwards egress to dnscrypt-proxy (encrypted +
+# anonymized). forward-first: if dnscrypt is down, falls back to direct root
+# recursion — Tier 10 of the chain (see shared/docs/pipelines/dns/).
 
 server:
     interface: 0.0.0.0
@@ -51,3 +53,10 @@ server:
     access-control: 0.0.0.0/0 refuse
     access-control: {{ dns_lite_network_subnet }} allow
     access-control: 127.0.0.0/8 allow
+
+# Egress: encrypted/anonymized upstreams via dnscrypt-proxy first; direct
+# recursion only as fallback (forward-first).
+forward-zone:
+    name: "."
+    forward-first: yes
+    forward-addr: {{ dns_lite_dnscrypt_ip }}@{{ dns_lite_dnscrypt_container_port }}

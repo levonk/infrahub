@@ -36,6 +36,7 @@
   loop:
     - "{{ dns_lite_adguard_conf_dir }}"
     - "{{ dns_lite_unbound_conf_dir }}"
+    - "{{ dns_lite_dnscrypt_conf_dir }}"
   when: dns_lite_enabled | bool
 
 # AdGuard enforces 0700 on its work dir (stores query log + sessions); set it
@@ -89,6 +90,62 @@
     mode: "0600"
   when: dns_lite_enabled | bool
   notify: Restart dns-lite adguard
+
+# klutchell image reads /config/dnscrypt-proxy.toml and caches resolver lists
+# in the same dir — mount rw. Mode 0644 suffices (no secrets in the file).
+- name: Render dnscrypt-proxy.toml on host
+  ansible.builtin.template:
+    src: dnscrypt-proxy.toml.j2
+    dest: "{{ dns_lite_dnscrypt_conf_dir }}/dnscrypt-proxy.toml"
+    owner: root
+    group: root
+    mode: "{{ infra_mode_file }}"
+  when: dns_lite_enabled | bool
+  notify: Restart dns-lite dnscrypt
+
+# ============================================================================
+# dnscrypt-proxy — encrypted/anonymized egress (deployed before unbound,
+# which forwards to it)
+# ============================================================================
+- name: Pull dnscrypt image
+  community.docker.docker_image:
+    name: "{{ dns_lite_registry }}/{{ dns_lite_dnscrypt_image }}"
+    source: pull
+    state: present
+  when: dns_lite_enabled | bool
+
+- name: Deploy dnscrypt container
+  community.docker.docker_container:
+    name: localnet-dns-dnscrypt-lite
+    image: "{{ dns_lite_registry }}/{{ dns_lite_dnscrypt_image }}"
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ dns_lite_network_name }}"
+        ipv4_address: "{{ dns_lite_dnscrypt_ip }}"
+        aliases:
+          - dnscrypt
+          - dnscrypt-odoh
+    volumes:
+      - "{{ dns_lite_dnscrypt_conf_dir }}:/config:rw"
+    log_driver: json-file
+    log_options:
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
+    comparisons:
+      log_options: ignore
+      network_mode: ignore
+      networks: ignore
+      volumes: ignore
+  when: dns_lite_enabled | bool
+
+- name: Wait for dnscrypt to answer
+  ansible.builtin.wait_for:
+    host: "{{ dns_lite_dnscrypt_ip }}"
+    port: "{{ dns_lite_dnscrypt_container_port }}"
+    delay: "{{ infra_delay_default }}"
+    timeout: "{{ infra_timeout_default }}"
+  when: dns_lite_enabled | bool
 
 # ============================================================================
 # Unbound (recursive resolver — upstream for AdGuard)
@@ -204,5 +261,6 @@
       dns-lite deployed:
         - AdGuard DNS: port {{ dns_lite_adguard_dns_host_port }} (udp/tcp) — client-facing
         - AdGuard Web: http://{{ ansible_host }}:{{ dns_lite_adguard_web_host_port }}
-        - Unbound: port {{ dns_lite_unbound_host_port }} (udp/tcp) — upstream for AdGuard
-        - Chain: client → AdGuard → Unbound recursive (DNSSEC)
+        - Unbound: port {{ dns_lite_unbound_host_port }} (udp/tcp) — DNSSEC validator for AdGuard
+        - dnscrypt-proxy: {{ dns_lite_dnscrypt_ip }}:{{ dns_lite_dnscrypt_container_port }} — encrypted/anonymized egress
+        - Chain: client → AdGuard → Unbound (validate) → dnscrypt (ODoH/anon-DNSCrypt); root recursion if dnscrypt down
