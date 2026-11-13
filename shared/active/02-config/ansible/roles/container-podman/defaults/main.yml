@@ -11,12 +11,16 @@ container_podman_enabled: true
 #   crun           - OCI runtime (lighter than runc)
 #   podman-docker  - /usr/bin/docker shim + /run/docker.sock compat socket
 #   python3-docker - Docker SDK on the target so community.docker modules work
+#   aardvark-dns   - container-name DNS for netavark bridge networks that have
+#                    dns_enabled; without it, teardown on such networks fails
 container_podman_packages:
   - podman
   - crun
   - podman-docker
   - python3-docker
   - uidmap
+  - nftables
+  - aardvark-dns
 
 # Registries allowed over plain HTTP / without TLS verification.
 # Written to /etc/containers/registries.conf.d/99-localnet-insecure.conf.

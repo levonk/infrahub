@@ -1,0 +1,10 @@
+---
+- name: Restart dns-lite unbound
+  community.docker.docker_container:
+    name: localnet-dns-unbound-lite
+    restart: true
+
+- name: Restart dns-lite adguard
+  community.docker.docker_container:
+    name: localnet-dns-adguard-lite
+    restart: true
