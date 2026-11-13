@@ -1,0 +1,22 @@
+---
+galaxy_info:
+  role_name: dns_lite
+  author: infrahub
+  description: >
+    Reduced DNS chain for small hosts: AdGuard Home forwarding to a single
+    Unbound recursive resolver. Used where the full dns role chain (8
+    containers) does not fit (e.g. RPi2 1 GB).
+  company: levonk
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+        - trixie
+  galaxy_tags:
+    - dns
+    - adguard
+    - unbound
+
+dependencies: []

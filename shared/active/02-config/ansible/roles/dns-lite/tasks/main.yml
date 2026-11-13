@@ -1,0 +1,208 @@
+---
+# dns-lite — reduced DNS chain: AdGuard Home → Unbound recursive
+# Chain: client → AdGuard (:53, blocks ads/trackers) → Unbound (DNSSEC-validating
+# recursive to root). Two containers on the shared localnet bridge network.
+
+- name: Validate required variables
+  ansible.builtin.assert:
+    that:
+      - dns_lite_unbound_ip is defined
+      - dns_lite_adguard_ip is defined
+      - dns_lite_adguard_admin_password_hash is defined
+    fail_msg: "Missing dns-lite variables — check infrastructure files and vault."
+    success_msg: "All required dns-lite variables are defined."
+  tags: ["always", "validate"]
+
+# ============================================================================
+# Network
+# ============================================================================
+- name: Ensure localnet bridge network exists
+  community.docker.docker_network:
+    name: "{{ dns_lite_network_name }}"
+    state: present
+    driver: bridge
+    ipam_config:
+      - subnet: "{{ dns_lite_network_subnet }}"
+  when: dns_lite_enabled | bool
+
+# ============================================================================
+# Host config directories + rendered configs
+# ============================================================================
+- name: Ensure config directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "{{ infra_mode_dir }}"
+  loop:
+    - "{{ dns_lite_adguard_conf_dir }}"
+    - "{{ dns_lite_unbound_conf_dir }}"
+  when: dns_lite_enabled | bool
+
+# AdGuard enforces 0700 on its work dir (stores query log + sessions); set it
+# the same way here so this task doesn't fight the service every run.
+- name: Ensure adguard work dir exists (AdGuard-enforced mode)
+  ansible.builtin.file:
+    path: "{{ dns_lite_adguard_work_dir }}"
+    state: directory
+    mode: "0700"
+  when: dns_lite_enabled | bool
+
+# unbound maintains its RFC 5011 anchor via temp-file + atomic rename, which
+# cannot replace a bind-mounted file — so a writable dir mount is required.
+# Mode 0777: the container's unbound uid differs across image variants.
+- name: Ensure unbound runtime state dir exists
+  ansible.builtin.file:
+    path: "{{ dns_lite_unbound_conf_dir }}/state"
+    state: directory
+    mode: "0777"
+  when: dns_lite_enabled | bool
+
+- name: Render unbound.conf on host
+  ansible.builtin.template:
+    src: unbound.conf.j2
+    dest: "{{ dns_lite_unbound_conf_dir }}/unbound.conf"
+    owner: root
+    group: root
+    mode: "{{ infra_mode_file }}"
+  when: dns_lite_enabled | bool
+  notify: Restart dns-lite unbound
+
+# unbound requires the trust-anchor file to pre-exist; ship a primed copy in
+# the writable state dir (mode 0666: container unbound user must update it).
+- name: Seed DNSSEC root trust anchor
+  ansible.builtin.copy:
+    src: root.key
+    dest: "{{ dns_lite_unbound_conf_dir }}/state/root.key"
+    owner: root
+    group: root
+    mode: "0666"
+    force: false  # do not clobber unbound's RFC 5011-maintained anchor
+  when: dns_lite_enabled | bool
+
+# Mode 0600: file contains the admin password hash; AdGuard enforces 0600.
+- name: Render AdGuardHome.yaml on host
+  ansible.builtin.template:
+    src: AdGuardHome.yaml.j2
+    dest: "{{ dns_lite_adguard_conf_dir }}/AdGuardHome.yaml"
+    owner: root
+    group: root
+    mode: "0600"
+  when: dns_lite_enabled | bool
+  notify: Restart dns-lite adguard
+
+# ============================================================================
+# Unbound (recursive resolver — upstream for AdGuard)
+# ============================================================================
+- name: Pull unbound image
+  community.docker.docker_image:
+    name: "{{ dns_lite_registry }}/{{ dns_lite_unbound_image }}"
+    source: pull
+    state: present
+  when: dns_lite_enabled | bool
+
+- name: Deploy unbound container
+  community.docker.docker_container:
+    name: localnet-dns-unbound-lite
+    image: "{{ dns_lite_registry }}/{{ dns_lite_unbound_image }}"
+    state: started
+    restart_policy: unless-stopped
+    # Stock entrypoint expects the image's own layout; bypass it and run
+    # unbound directly against the host-rendered config. Works on both the
+    # amd64 localnet build and the armv7 upstream (alpinelinux) image.
+    entrypoint: "/usr/sbin/unbound"
+    command: "-d -c /etc/unbound/unbound.conf"
+    networks:
+      - name: "{{ dns_lite_network_name }}"
+        ipv4_address: "{{ dns_lite_unbound_ip }}"
+        aliases:
+          - unbound
+          - unbound-root
+    ports:
+      - "{{ dns_lite_unbound_host_port }}:{{ dns_lite_unbound_container_port }}/udp"
+      - "{{ dns_lite_unbound_host_port }}:{{ dns_lite_unbound_container_port }}/tcp"
+    volumes:
+      - "{{ dns_lite_unbound_conf_dir }}/unbound.conf:/etc/unbound/unbound.conf:ro"
+      - "{{ dns_lite_unbound_conf_dir }}/state:/var/lib/unbound:rw"
+    log_driver: json-file
+    log_options:
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
+    # podman's docker-compat API reports these differently than declared
+    # (log_options null, NetworkMode "bridge", mount-string normalization),
+    # which would force a recreate on every run — compare leniently.
+    comparisons:
+      log_options: ignore
+      network_mode: ignore
+      networks: ignore
+      volumes: ignore
+  when: dns_lite_enabled | bool
+
+- name: Wait for unbound to answer
+  ansible.builtin.wait_for:
+    host: "{{ dns_lite_unbound_ip }}"
+    port: "{{ dns_lite_unbound_container_port }}"
+    delay: "{{ infra_delay_default }}"
+    timeout: "{{ infra_timeout_default }}"
+  when: dns_lite_enabled | bool
+
+# ============================================================================
+# AdGuard Home (client-facing DNS :53 + web UI)
+# ============================================================================
+- name: Pull adguard image
+  community.docker.docker_image:
+    name: "{{ dns_lite_registry }}/{{ dns_lite_adguard_image }}"
+    source: pull
+    state: present
+  when: dns_lite_enabled | bool
+
+- name: Deploy adguard container
+  community.docker.docker_container:
+    name: localnet-dns-adguard-lite
+    image: "{{ dns_lite_registry }}/{{ dns_lite_adguard_image }}"
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ dns_lite_network_name }}"
+        ipv4_address: "{{ dns_lite_adguard_ip }}"
+        aliases:
+          - adguard
+    ports:
+      - "{{ dns_lite_adguard_dns_bind_ip }}:{{ dns_lite_adguard_dns_host_port }}:{{ dns_lite_adguard_dns_container_port }}/udp"
+      - "{{ dns_lite_adguard_dns_bind_ip }}:{{ dns_lite_adguard_dns_host_port }}:{{ dns_lite_adguard_dns_container_port }}/tcp"
+      - "{{ infra_network_bind_localhost }}:{{ dns_lite_adguard_dns_host_port }}:{{ dns_lite_adguard_dns_container_port }}/udp"
+      - "{{ infra_network_bind_localhost }}:{{ dns_lite_adguard_dns_host_port }}:{{ dns_lite_adguard_dns_container_port }}/tcp"
+      - "{{ dns_lite_adguard_web_host_port }}:{{ dns_lite_adguard_web_container_port }}/tcp"
+    volumes:
+      - "{{ dns_lite_adguard_conf_dir }}:/opt/adguardhome/conf:rw"
+      - "{{ dns_lite_adguard_work_dir }}:/opt/adguardhome/work:rw"
+    env:
+      TZ: "{{ localnet_tz | default('UTC') }}"
+    log_driver: json-file
+    log_options:
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
+    comparisons:
+      log_options: ignore
+      network_mode: ignore
+      networks: ignore
+      volumes: ignore
+  when: dns_lite_enabled | bool
+
+- name: Wait for adguard web UI
+  ansible.builtin.uri:
+    url: "http://{{ infra_network_bind_localhost }}:{{ dns_lite_adguard_web_host_port }}"
+    status_code: "{{ infra_http_status_ok }}"
+  register: dns_lite_adguard_health
+  until: dns_lite_adguard_health.status == infra_http_status_ok | int
+  retries: "{{ infra_retry_long }}"
+  delay: "{{ infra_delay_default }}"
+  when: dns_lite_enabled | bool
+
+- name: Report dns-lite status
+  ansible.builtin.debug:
+    msg: |
+      dns-lite deployed:
+        - AdGuard DNS: port {{ dns_lite_adguard_dns_host_port }} (udp/tcp) — client-facing
+        - AdGuard Web: http://{{ ansible_host }}:{{ dns_lite_adguard_web_host_port }}
+        - Unbound: port {{ dns_lite_unbound_host_port }} (udp/tcp) — upstream for AdGuard
+        - Chain: client → AdGuard → Unbound recursive (DNSSEC)

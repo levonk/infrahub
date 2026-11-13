@@ -1,0 +1,58 @@
+---
+# dns-lite — reduced DNS chain (AdGuard Home → Unbound recursive)
+# For resource-constrained hosts (e.g. minime01 RPi2 armv7, ~1 GB RAM) where
+# the full 8-container dns role chain does not fit.
+#
+# Images: localnet-dns-adguard / localnet-dns-unbound :latest manifest lists.
+# On arm/v7 these point at upstream adguard/adguardhome + alpinelinux/unbound
+# (no localnet rebuild was possible — qemu-user cannot emulate arm/v7 on the
+# build host). Behavior differences vs the amd64 localnet images are absorbed
+# by mounting a pre-rendered unbound.conf and overriding the unbound
+# entrypoint, and by seeding AdGuardHome.yaml directly.
+
+dns_lite_enabled: true
+
+# Network (shared localnet bridge)
+dns_lite_network_name: "{{ localnet_network_name | default('localnet-network') }}"
+dns_lite_network_subnet: "{{ localnet_network_subnet | default('172.26.0.0/16') }}"
+
+# Container IPs — reuse the chain's reserved allocations
+dns_lite_unbound_ip: "{{ infra_network_ip_dns_unbound_root }}"
+dns_lite_adguard_ip: "{{ infra_network_ip_dns_adguard }}"
+
+# Registry + images
+dns_lite_registry: "{{ local_registry | default(infra_registry) }}"
+dns_lite_unbound_image: "localnet-dns-unbound:latest"
+dns_lite_adguard_image: "localnet-dns-adguard:latest"
+
+# Ports — Unbound published for direct queries/debug; AdGuard is the
+# client-facing resolver (host :53 by default via localnet_dns_host_port)
+dns_lite_unbound_host_port: "{{ infra_port_dns_unbound_root_host }}"
+dns_lite_unbound_container_port: "{{ infra_port_dns_unbound_root_container }}"
+dns_lite_adguard_dns_host_port: "{{ localnet_dns_host_port | default('53') }}"
+# DNS published on the LAN interface + loopback only — NOT wildcard. A wildcard
+# :53 bind collides with aardvark-dns, which owns the localnet bridge gateway
+# IP (:53) while dns_enabled networks are up.
+dns_lite_adguard_dns_bind_ip: "{{ ansible_facts['default_ipv4']['address'] | default(ansible_host) }}"
+dns_lite_adguard_dns_container_port: "{{ infra_port_dns_adguard_container }}"
+dns_lite_adguard_web_host_port: "{{ infra_port_dns_adguard_web_host }}"
+dns_lite_adguard_web_container_port: "{{ infra_port_dns_adguard_web_container }}"
+
+# AdGuard config schema emitted by the template. The alpinelinux/registry
+# image (v0.107.80+) writes schema 34; keeping this in sync avoids an
+# unnecessary migrate+rewrite on every deploy.
+dns_lite_adguard_schema_version: "34"
+
+# AdGuard admin credentials (bcrypt hash from vault)
+dns_lite_adguard_admin_user: "admin"
+dns_lite_adguard_admin_password_hash: "{{ vault_dns_adguard_admin_password_hash | default(infra_value_dns_adguard_admin_password_hash) }}"
+
+# Fallback upstreams if Unbound is unreachable (plain UDP53 bootstrap resolvers)
+dns_lite_fallback_upstreams:
+  - "{{ infra_dns_cloudflare_primary }}"
+  - "{{ infra_dns_quad9_primary }}"
+
+# Host config dirs under the services tree
+dns_lite_adguard_conf_dir: "{{ localnet_services_dir }}/dns/adguard/conf"
+dns_lite_adguard_work_dir: "{{ localnet_services_dir }}/dns/adguard/work"
+dns_lite_unbound_conf_dir: "{{ localnet_services_dir }}/dns/unbound"
