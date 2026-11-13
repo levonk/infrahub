@@ -51,9 +51,14 @@
     # All services run on the OCI cloud server → CNAME to its Tailscale FQDN
     cloudflare_dns_records:
       # SearXNG search service
+      # A record to the Tailscale IP (not CNAME→ts.net FQDN): MagicDNS
+      # intermittently returns NXDOMAIN for tailnet names reached by chasing
+      # a CNAME from a public zone, which made search.levonk.com flaky
+      # ("server not found"). Same pattern as stirling-api.nl.levonk.com.
+      # Tailscale IPs are stable; role migrates CNAME → A on next run.
       - name: "{{ infra_domain_proxy_search | default('search.' ~ (infra_domain_base | default('example.com'))) }}"
-        type: "CNAME"
-        content: "{{ ts_fqdn }}"
+        type: "A"
+        content: "{{ infra_tailscale_ip_cloud_server }}"
         ttl: "{{ cloudflare_dns_ttl }}"
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"

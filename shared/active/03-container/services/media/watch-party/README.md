@@ -12,7 +12,7 @@ Copyright (C) Soroush Mohammadi Samani (smSamani)
 
 ## Container
 
-- **Image**: Locally built (multi-stage: node:20-alpine + ffmpeg)
+- **Image**: Locally built (multi-stage: node:26-alpine + ffmpeg)
 - **Dockerfile**: `docker/Dockerfile.watch-party`
 - **Container port**: 3001
 - **Health check**: `GET /api/health`

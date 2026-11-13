@@ -283,7 +283,7 @@
           DATABASE_URL: "postgresql+psycopg://{{ omnigent_db_user | default('omnigent') }}:{{ omnigent_db_password }}@{{ infra_hostname_omnigent_postgres | default('omnigent-postgres') }}:{{ infra_port_db_postgres_host }}/{{ omnigent_db_name | default('omnigent') }}"
           ARTIFACT_DIR: "/data/artifacts"
           HOST: "{{ infra_network_bind_all }}"
-          PORT: "{{ omnigent_container_port | default(infra_port_ai_dashboard_alt_host) }}"
+          PORT: "{{ omnigent_container_port | default(infra_port_ai_dashboard_host) }}"
           OMNIGENT_ADMIN_CREDENTIALS_PATH: "/data/admin-credentials"
           # ── Auth ─────────────────────────────────────────
           OMNIGENT_AUTH_ENABLED: "{{ omnigent_auth_enabled | default('1') }}"
@@ -309,7 +309,7 @@
           OMNIGENT_ACCOUNTS_MAGIC_TTL_MINUTES: "{{ omnigent_accounts_magic_ttl_minutes | default(infra_retry_long) }}"
           OMNIGENT_ACCOUNTS_AUTO_OPEN: "{{ omnigent_accounts_auto_open | default('0') }}"
         ports:
-          - "{{ omnigent_host_port | default(infra_port_ai_dashboard_alt_host) }}:{{ omnigent_container_port | default(infra_port_ai_dashboard_alt_host) }}/tcp"
+          - "{{ omnigent_host_port | default(infra_port_ai_dashboard_host) }}:{{ omnigent_container_port | default(infra_port_ai_dashboard_host) }}/tcp"
         volumes:
           - "localnet-omnigent-artifact-data-volume:/data"
         log_driver: json-file
@@ -317,7 +317,7 @@
           max-size: "{{ infra_log_max_size }}"
           max-file: "{{ infra_log_max_file }}"
         healthcheck:
-          test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:{{ omnigent_container_port | default(infra_port_ai_dashboard_alt_host) }}/health')"]
+          test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:{{ omnigent_container_port | default(infra_port_ai_dashboard_host) }}/health')"]
           interval: "{{ infra_timeout_default }}"
           timeout: "{{ infra_timeout_short }}"
           retries: "{{ infra_retry_short }}"
@@ -455,7 +455,7 @@
           Timestamp: {{ ansible_date_time.iso8601 }}
           ----------------------------------------
           Deployed Services:
-          - Omnigent Server: http://{{ omnigent_container_ip | default(infra_network_proxy_subnet_ip_10) }}:{{ omnigent_container_port | default(infra_port_ai_dashboard_alt_host) }} (API + web UI)
+          - Omnigent Server: http://{{ omnigent_container_ip | default(infra_network_proxy_subnet_ip_10) }}:{{ omnigent_container_port | default(infra_port_ai_dashboard_host) }} (API + web UI)
           - Omnigent Postgres: postgresql://{{ omnigent_db_user | default('omnigent') }}@{{ omnigent_db_container_ip | default(infra_network_proxy_subnet_ip_20) }}:{{ infra_port_db_postgres_host }}/{{ omnigent_db_name | default('omnigent') }}
           - Pi (RPC bridge): http://{{ pi_container_ip | default(infra_network_proxy_subnet_ip_30) }}:{{ infra_port_ai_pi_container | default(infra_port_ai_dashboard_host) }} (coding agent harness)
           ----------------------------------------
