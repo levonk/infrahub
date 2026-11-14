@@ -1,0 +1,20 @@
+---
+galaxy_info:
+  role_name: ntp_chronyd
+  author: infrahub
+  description: >-
+    Native chronyd NTP server for the tailnet — serves NTP bound to the
+    host's Tailscale IP, restricted to the Tailscale CIDR, with NTS
+    upstreams and leap smearing.
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: EL
+      versions:
+        - "8"
+        - "9"
+    - name: Debian
+      versions:
+        - all
+
+dependencies: []

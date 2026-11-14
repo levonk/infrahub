@@ -1,0 +1,6 @@
+# {{ ansible_managed }}
+# The tailnet bind address lives on tailscale0 — chronyd must start after
+# tailscaled or the bindaddress socket cannot be created.
+[Unit]
+After=tailscaled.service
+Wants=tailscaled.service

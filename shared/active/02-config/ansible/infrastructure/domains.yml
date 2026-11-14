@@ -92,6 +92,15 @@ infra_hostname_dns_adguard: "localnet-dns-adguard"
 infra_hostname_proxy_tor: "localnet-proxy-tor"
 
 # ---------------------------------------------------------------------------
+# NTP Time Server (per shared/docs/pipelines/ntp/ntp-chain.md)
+# A record (not CNAME) to the cloud server's Tailscale IP — MagicDNS
+# intermittently NXDOMAINs tailnet names reached via cross-zone CNAME chase,
+# and NTP clients resolve once at startup then cache, making them sensitive
+# to resolution flakes. Tailnet-only by construction (CGNAT IP).
+# ---------------------------------------------------------------------------
+infra_domain_ntp_server: "ntp.{{ infra_domain_base }}"
+
+# ---------------------------------------------------------------------------
 # VPN Hostnames
 # ---------------------------------------------------------------------------
 infra_hostname_vpn_nordvpn: "nordvpn"

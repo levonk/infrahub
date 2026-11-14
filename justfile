@@ -47,6 +47,8 @@ PB_MONITORING := ANSIBLE_ROOT + "/playbooks/deploy-monitoring-stack.yml"
 PB_VAL_MONITORING := ANSIBLE_ROOT + "/playbooks/validate-monitoring-stack.yml"
 PB_WATCH_PARTY := ANSIBLE_ROOT + "/playbooks/deploy-watch-party.yml"
 PB_VAL_WATCH_PARTY := ANSIBLE_ROOT + "/playbooks/validate-watch-party.yml"
+PB_NTP := ANSIBLE_ROOT + "/playbooks/deploy-ntp.yml"
+PB_VAL_NTP := ANSIBLE_ROOT + "/playbooks/validate-ntp.yml"
 PB_VAL_AUTHELIA := ANSIBLE_ROOT + "/playbooks/validate-authelia.yml"
 PB_ACRM := ANSIBLE_ROOT + "/playbooks/deploy-acrm.yml"
 PB_PATCH_OPENSSH := ANSIBLE_ROOT + "/playbooks/patch-openssh-musl-bypass.yml"
@@ -788,6 +790,31 @@ ansible_validate_watch_party_impl:
     {{_log}}
     log_start "Validating Local Watch Party + coturn on OCI"
     ansible-playbook -i {{INVENTORY}} {{PB_VAL_WATCH_PARTY}} --vault-password-file ~/.ansible/vault_password
+
+# Deploy NTP tailnet server (native chronyd) on OCI — serves NTP to the
+# tailnet only at ntp.levonk.com (A record → infra_tailscale_ip_cloud_server).
+ansible-deploy-ntp:
+    @just _devbox ansible_deploy_ntp_impl
+
+[private]
+ansible_deploy_ntp_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Deploying NTP tailnet server (chronyd) on OCI"
+    ansible-playbook -i {{INVENTORY}} {{PB_NTP}} --vault-password-file ~/.ansible/vault_password
+
+# Validate NTP tailnet server deployment on OCI
+ansible-validate-ntp:
+    @just _devbox ansible_validate_ntp_impl
+
+[private]
+ansible_validate_ntp_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Validating NTP tailnet server on OCI"
+    ansible-playbook -i {{INVENTORY}} {{PB_VAL_NTP}} --vault-password-file ~/.ansible/vault_password
 
 # Deploy Authelia SSO on OCI cloud server (runs the authelia-tagged tasks of cloud-server-infra.yml)
 # Prerequisites: Docker engine running, infra vars loaded by playbook pre_tasks.

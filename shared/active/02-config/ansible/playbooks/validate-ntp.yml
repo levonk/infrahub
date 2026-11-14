@@ -1,0 +1,158 @@
+---
+# Validate NTP tailnet server (chronyd) deployment on cloud_servers
+# Location: shared/active/02-config/ansible/playbooks/validate-ntp.yml
+#
+# Read-only, idempotent post-deployment checks. Run after deploy-ntp.yml.
+#
+# Usage:
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
+#     shared/active/02-config/ansible/playbooks/validate-ntp.yml \
+#     --vault-password-file ~/.ansible/vault_password
+
+- name: "Validate NTP tailnet server (chronyd) on cloud_servers"
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+  vars:
+    validation_results: {}
+
+  pre_tasks:
+    - name: "Load shared infrastructure defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+        - modes.yml
+        - timing.yml
+      tags: ["always"]
+
+    - name: "Load client infrastructure overrides (levonk)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+      tags: ["always"]
+
+    - name: "Set validation variables"
+      ansible.builtin.set_fact:
+        ntp_service_name: "{{ 'chronyd' if ansible_facts['os_family'] == 'RedHat' else 'chrony' }}"
+        ntp_tailnet_ip: "{{ infra_tailscale_ip_cloud_server | default('') }}"
+        ntp_port: "{{ infra_port_ntp_server_host | default('123') }}"  # project-lint: disable=magic-int  fallback default matches shared ports.yml
+      tags: ["always"]
+
+    - name: "Get service facts"
+      ansible.builtin.service_facts: {}
+      tags: ["always"]
+
+  tasks:
+    - name: "Check chronyd service state"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({
+          'chronyd_enabled': (ansible_facts.services[ntp_service_name ~ '.service']['status'] | default('unknown') == 'enabled'),
+          'chronyd_active': (ansible_facts.services[ntp_service_name ~ '.service']['state'] | default('unknown') == 'running')
+        }) }}"
+      tags: ["validate", "ntp"]
+
+    - name: "Check systemd-timesyncd is masked (no competing time daemon)"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({
+          'timesyncd_masked': (
+            ansible_facts.services['systemd-timesyncd.service'] is not defined or
+            ansible_facts.services['systemd-timesyncd.service']['status'] | default('') == 'masked'
+          )
+        }) }}"
+      tags: ["validate", "ntp"]
+
+    - name: "Check NTP sockets bound to tailnet IP and localhost"
+      ansible.builtin.command:
+        cmd: "ss -lun 'sport = :{{ ntp_port }}'"
+      register: ntp_sockets
+      changed_when: false
+      tags: ["validate", "ntp"]
+
+    - name: "Record socket binding results"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({
+          'ntp_socket_tailnet': (ntp_tailnet_ip ~ ':' ~ ntp_port) in ntp_sockets.stdout,
+          'ntp_socket_localhost': ('127.0.0.1:' ~ ntp_port) in ntp_sockets.stdout,
+          'ntp_socket_no_wildcard': '0.0.0.0:' ~ ntp_port not in ntp_sockets.stdout
+        }) }}"
+      tags: ["validate", "ntp"]
+
+    - name: "Check chronyd tracking (sync acquired)"
+      ansible.builtin.command:
+        cmd: "chronyc tracking"
+      register: ntp_tracking
+      changed_when: false
+      failed_when: false
+      tags: ["validate", "ntp"]
+
+    - name: "Record tracking results"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({
+          'chronyd_synchronized': ('Leap status' in ntp_tracking.stdout and 'Normal' in ntp_tracking.stdout)
+        }) }}"
+      tags: ["validate", "ntp"]
+
+    - name: "List chronyd sources"
+      ansible.builtin.command:
+        cmd: "chronyc -N sources"
+      register: ntp_sources
+      changed_when: false
+      failed_when: false
+      tags: ["validate", "ntp"]
+
+    - name: "Record source count"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({
+          'chronyd_has_sources': (ntp_sources.stdout_lines | default([]) | length > 0),
+          'chronyd_source_count': (ntp_sources.stdout_lines | default([]) | length)
+        }) }}"
+      tags: ["validate", "ntp"]
+
+    - name: "Query local NTP server (loopback smoke test)"
+      ansible.builtin.command:
+        cmd: "chronyd -Q 'server 127.0.0.1 iburst'"
+      register: ntp_query
+      changed_when: false
+      failed_when: false
+      tags: ["validate", "ntp"]
+
+    - name: "Record loopback query result"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({
+          'ntp_loopback_query_ok': (ntp_query.rc | default(1) == 0)
+        }) }}"
+      tags: ["validate", "ntp"]
+
+    - name: "Display validation summary"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          NTP Tailnet Server Validation
+          ========================================
+          chronyd enabled:        {{ validation_results.chronyd_enabled }}
+          chronyd running:        {{ validation_results.chronyd_active }}
+          timesyncd masked:       {{ validation_results.timesyncd_masked }}
+          socket (tailnet):       {{ validation_results.ntp_socket_tailnet }} ({{ ntp_tailnet_ip }}:{{ ntp_port }})
+          socket (localhost):     {{ validation_results.ntp_socket_localhost }}
+          no wildcard socket:     {{ validation_results.ntp_socket_no_wildcard }}
+          synchronized:           {{ validation_results.chronyd_synchronized }}
+          upstream sources:       {{ validation_results.chronyd_source_count }}
+          loopback query OK:      {{ validation_results.ntp_loopback_query_ok }}
+          ========================================
+      tags: ["always"]
+
+    - name: "Fail on any failed validation check"
+      ansible.builtin.fail:
+        msg: "NTP validation failed checks: {{ failed_checks | join(', ') }}"
+      vars:
+        failed_checks: "{{ validation_results | dict2items | rejectattr('key', 'equalto', 'chronyd_source_count') | selectattr('value', 'equalto', false) | map(attribute='key') | list }}"
+      when: failed_checks | length > 0
+      tags: ["always"]
