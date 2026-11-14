@@ -2,5 +2,5 @@
 # See timesyncd.conf(5) for details.
 
 [Time]
-NTP={% for server in nix_core_tools_ntp_servers %}{{ server }}{% if not loop.last %} {% endif %}{% endfor %}
+NTP={{ nix_core_tools_ntp_servers | reject('eq', '') | join(' ') }}
 FallbackNTP=time.debian.org

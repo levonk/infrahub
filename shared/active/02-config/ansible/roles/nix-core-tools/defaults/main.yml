@@ -33,8 +33,13 @@ nix_core_tools_zsh_path: "{{ nix_core_tools_nix_profile_bin }}/zsh"
 # ---------------------------------------------------------------------------
 # Time Sync
 # ---------------------------------------------------------------------------
+# On hosts that run the ntp-chronyd server role (cloud_servers), set
+# nix_core_tools_time_sync_method: "chrony" — chronyd replaces timesyncd.
 nix_core_tools_time_sync_method: "systemd-timesyncd"
 nix_core_tools_ntp_servers:
+  # Tailnet NTP server first (resolves via Cloudflare A record → Tailscale
+  # IP); pool servers stay as fallback for hosts off the tailnet.
+  - "{{ infra_domain_ntp_server | default('') }}"
   - "0.debian.pool.ntp.org"
   - "1.debian.pool.ntp.org"
   - "2.debian.pool.ntp.org"

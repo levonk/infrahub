@@ -63,6 +63,17 @@
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
 
+      # NTP tailnet time server (chronyd on the OCI cloud server)
+      # A record to the Tailscale IP (not CNAME→ts.net FQDN): NTP clients
+      # resolve once at startup and cache, so MagicDNS CNAME-chase flakes
+      # would silently break time sync. Same pattern as search.levonk.com.
+      - name: "{{ infra_domain_ntp_server | default('ntp.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "A"
+        content: "{{ infra_tailscale_ip_cloud_server }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
       # AI Dashboard analytics service
       - name: "{{ infra_domain_ai_dashboard_web | default('ai-dashboard.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"

@@ -1,0 +1,55 @@
+# {{ ansible_managed }}
+# chronyd — tailnet NTP server ({{ infra_domain_ntp_server | default('ntp.' ~ (infra_domain_base | default('example.com'))) }})
+# Upstreams are NTS-authenticated where supported. Google smears leap
+# seconds server-side; smoothtime below is the local safety net that only
+# activates when a non-smearing source is selected during a leap event
+# (leaponly — no double-smear). Clients never see a leap flag or time jump.
+
+# ---------------------------------------------------------------------------
+# Upstream sources
+# ---------------------------------------------------------------------------
+{% if ntp_chronyd_nts_enabled | bool %}
+{% for source in ntp_chronyd_nts_sources %}
+server {{ source }} iburst nts
+{% endfor %}
+{% endif %}
+{% for source in ntp_chronyd_fallback_sources %}
+server {{ source }} iburst
+{% endfor %}
+
+# ---------------------------------------------------------------------------
+# Clock discipline
+# ---------------------------------------------------------------------------
+driftfile {{ ntp_chronyd_driftfile }}
+makestep 1.0 3
+rtcsync
+leapsecmode {{ ntp_chronyd_leapsecmode }}
+maxslewrate {{ ntp_chronyd_maxslewrate }}
+smoothtime {{ ntp_chronyd_smoothtime }}
+minsources 2
+
+# ---------------------------------------------------------------------------
+# Server mode — tailnet only
+# bindaddress restricts listening sockets to localhost + the tailnet IP;
+# upstream client sockets are unaffected (bindacqaddress stays unbound).
+# allow limits service to the tailnet CIDR — everything else is silently
+# dropped, so the port is not a public amplification reflector.
+# ---------------------------------------------------------------------------
+port {{ infra_port_ntp_server_host }}
+{% for addr in ntp_chronyd_bind_addresses %}
+bindaddress {{ addr }}
+{% endfor %}
+{% for net in ntp_chronyd_allow_networks %}
+allow {{ net }}
+{% endfor %}
+
+# chronyc command socket — localhost only
+bindcmdaddress 127.0.0.1
+
+# ---------------------------------------------------------------------------
+# State / logging
+# ---------------------------------------------------------------------------
+ntsdumpdir {{ ntp_chronyd_ntsdumpdir }}
+logdir {{ ntp_chronyd_logdir }}
+log {{ ntp_chronyd_log_categories }}
+logchange 0.5

@@ -840,3 +840,12 @@ infra_port_media_coturn_relay_min_host: "49000"
 infra_port_media_coturn_relay_max_host: "49050"
 infra_port_media_coturn_relay_min_container: "49000"
 infra_port_media_coturn_relay_max_container: "49050"
+
+# ---------------------------------------------------------------------------
+# NTP — tailnet time server (chronyd, runs natively on cloud_servers)
+# Serves NTP to the tailnet only: chronyd binds to the host's Tailscale IP
+# and restricts service to the Tailscale CIDR. Plain NTP inside the tailnet
+# (WireGuard encrypts transport); NTS-KE is used client-side upstream only.
+# ---------------------------------------------------------------------------
+infra_port_ntp_server_host: "123"
+infra_port_ntp_nts_ke_host: "4460"

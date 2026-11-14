@@ -1,0 +1,153 @@
+---
+# ntp-chronyd Deployment Tasks
+# Installs and configures native chronyd as the tailnet NTP server.
+# Design: shared/docs/pipelines/ntp/ntp-chain.md
+
+- name: Validate required variables
+  ansible.builtin.assert:
+    that:
+      - infra_port_ntp_server_host is defined
+      - infra_port_ntp_server_host | length > 0
+      - ntp_chronyd_tailnet_bind_ip is defined
+      - ntp_chronyd_tailnet_bind_ip | length > 0
+      - ntp_chronyd_allow_networks | length > 0
+    fail_msg: >-
+      Missing required NTP variables. Ensure infrastructure/ports.yml and
+      infrastructure/networks.yml are loaded, and the host's Tailscale IP is
+      set (infra_tailscale_ip_cloud_server or ntp_chronyd_tailnet_bind_ip).
+    success_msg: "All required ntp-chronyd variables are defined."
+  tags: ["always", "validate"]
+
+# ---------------------------------------------------------------------------
+# Install chrony
+# ---------------------------------------------------------------------------
+- name: Install chrony package
+  ansible.builtin.package:
+    name: "{{ ntp_chronyd_package_name }}"
+    state: present
+  become: true
+
+- name: Get chronyd feature flags
+  ansible.builtin.command:
+    cmd: "chronyd -v"
+  register: ntp_chronyd_version
+  changed_when: false
+  failed_when: false
+
+- name: Assert chronyd was built with NTS support
+  ansible.builtin.assert:
+    that:
+      - "'+NTS' in ntp_chronyd_version.stdout"
+    fail_msg: >-
+      chronyd reports no NTS support ({{ ntp_chronyd_version.stdout | default('version check failed') }}).
+      Either upgrade chrony or set ntp_chronyd_nts_enabled: false.
+  when: ntp_chronyd_nts_enabled | bool
+  tags: ["always", "validate"]
+
+# ---------------------------------------------------------------------------
+# Disable systemd-timesyncd — two daemons must never discipline the same
+# clock. cloud_servers also set nix_core_tools_time_sync_method: "chrony" so
+# bootstrap does not re-enable it; this task is defense in depth.
+# ---------------------------------------------------------------------------
+- name: Get service facts
+  ansible.builtin.service_facts: {}
+  tags: ["always"]
+
+- name: Stop and mask systemd-timesyncd
+  ansible.builtin.systemd:
+    name: systemd-timesyncd
+    state: stopped
+    enabled: false
+    masked: true
+  become: true
+  when:
+    - ansible_facts.services['systemd-timesyncd.service'] is defined
+
+# ---------------------------------------------------------------------------
+# Directories (drift/state + logdir). /var/lib/chrony is created by the
+# package; logdir may not exist on EL.
+# ---------------------------------------------------------------------------
+- name: Ensure chronyd state and log directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ ntp_chronyd_user }}"
+    group: "{{ ntp_chronyd_group }}"
+    mode: "{{ infra_mode_dir | default('0755') }}"  # project-lint: disable=magic-int  standard directory mode from infra vars
+  become: true
+  loop:
+    - "{{ ntp_chronyd_ntsdumpdir }}"
+    - "{{ ntp_chronyd_logdir }}"
+
+# ---------------------------------------------------------------------------
+# Configuration
+# ---------------------------------------------------------------------------
+- name: Deploy chrony.conf
+  ansible.builtin.template:
+    src: chrony.conf.j2
+    dest: "{{ ntp_chronyd_config_path }}"
+    owner: root
+    group: root
+    mode: "{{ infra_mode_file | default('0644') }}"  # project-lint: disable=magic-int  standard file mode from infra vars
+  become: true
+  notify: restart chronyd
+
+# ---------------------------------------------------------------------------
+# Systemd ordering: the tailnet bind address lives on tailscale0, so chronyd
+# must start after tailscaled or the bindaddress fails and no server socket
+# is created.
+# ---------------------------------------------------------------------------
+- name: Ensure chronyd systemd drop-in directory exists
+  ansible.builtin.file:
+    path: "/etc/systemd/system/{{ ntp_chronyd_service_name }}.service.d"
+    state: directory
+    owner: root
+    group: root
+    mode: "{{ infra_mode_dir | default('0755') }}"  # project-lint: disable=magic-int  standard directory mode from infra vars
+  become: true
+
+- name: Deploy tailscaled ordering drop-in
+  ansible.builtin.template:
+    src: chronyd-override.conf.j2
+    dest: "/etc/systemd/system/{{ ntp_chronyd_service_name }}.service.d/tailscale-ordering.conf"
+    owner: root
+    group: root
+    mode: "{{ infra_mode_file | default('0644') }}"  # project-lint: disable=magic-int  standard file mode from infra vars
+  become: true
+  notify:
+    - systemd daemon-reload
+    - restart chronyd
+
+# ---------------------------------------------------------------------------
+# Service
+# ---------------------------------------------------------------------------
+- name: Enable and start chronyd
+  ansible.builtin.systemd:
+    name: "{{ ntp_chronyd_service_name }}"
+    state: started
+    enabled: true
+    daemon_reload: true
+  become: true
+
+# ---------------------------------------------------------------------------
+# Verification
+# ---------------------------------------------------------------------------
+- name: Wait for chronyd to acquire a sync source
+  ansible.builtin.command:
+    cmd: "chronyc tracking"
+  register: ntp_chronyd_tracking
+  changed_when: false
+  retries: "{{ ntp_chronyd_verify_retries }}"
+  delay: "{{ ntp_chronyd_verify_delay }}"
+  until: "'Reference ID' in ntp_chronyd_tracking.stdout and '(' in ntp_chronyd_tracking.stdout"
+  when: ntp_chronyd_verify_health | bool
+
+- name: Report chronyd status
+  ansible.builtin.debug:
+    msg: |2
+      chronyd deployed (tailnet NTP server):
+        - Serving: {{ ntp_chronyd_bind_addresses | join(', ') }}:{{ infra_port_ntp_server_host }}
+        - Allowed clients: {{ ntp_chronyd_allow_networks | join(', ') }}
+        - NTS upstreams: {{ ntp_chronyd_nts_enabled | bool }}
+        - Tracking: {{ ntp_chronyd_tracking.stdout_lines | default(['pending']) | join(' | ') }}
+  when: ntp_chronyd_verify_health | bool

@@ -1,0 +1,75 @@
+---
+# ntp-chronyd default variables
+# Native chronyd NTP server for the tailnet (ntp.{infra_domain_base}).
+# Runs on the host (not in a container): chronyd must discipline the host
+# clock, which a container would do anyway via SYS_TIME — running natively
+# keeps one time daemon, one config, and no SYS_TIME capability juggling.
+#
+# Design: shared/docs/pipelines/ntp/ntp-chain.md
+# Serving: tailnet only (bindaddress + allow restricted to the tailnet CIDR)
+
+# ---------------------------------------------------------------------------
+# Service Configuration
+# ---------------------------------------------------------------------------
+ntp_chronyd_enabled: true
+ntp_chronyd_package_name: "chrony"
+ntp_chronyd_user: "chrony"
+ntp_chronyd_group: "chrony"
+
+# EL uses chronyd.service + /etc/chrony.conf; Debian uses chrony.service +
+# /etc/chrony/chrony.conf. Resolved from os_family — overridable if needed.
+ntp_chronyd_service_name: "{{ 'chronyd' if ansible_facts['os_family'] == 'RedHat' else 'chrony' }}"
+ntp_chronyd_config_path: "{{ '/etc/chrony.conf' if ansible_facts['os_family'] == 'RedHat' else '/etc/chrony/chrony.conf' }}"
+
+# ---------------------------------------------------------------------------
+# Upstream Sources
+# NTS-authenticated sources preferred; Google smears leap seconds
+# server-side so served time is already smooth during leap events.
+# ---------------------------------------------------------------------------
+ntp_chronyd_nts_enabled: true
+ntp_chronyd_nts_sources:
+  - "time.google.com"
+  - "time2.google.com"
+  - "time.nist.gov"
+ntp_chronyd_fallback_sources:
+  - "0.pool.ntp.org"
+  - "time.cloudflare.com"
+  - "time.apple.com"
+  - "time.windows.com"
+
+# ---------------------------------------------------------------------------
+# Serving (tailnet only)
+# bindaddress restricts listening sockets; upstream client sockets are NOT
+# affected (they use bindacqaddress, default unbound). localhost is kept so
+# local consumers and verify checks can query the server.
+# ---------------------------------------------------------------------------
+ntp_chronyd_tailnet_bind_ip: "{{ infra_tailscale_ip_cloud_server | default('') }}"
+ntp_chronyd_bind_addresses: "{{ ['127.0.0.1'] + ([ntp_chronyd_tailnet_bind_ip] if ntp_chronyd_tailnet_bind_ip | length > 0 else []) }}"
+ntp_chronyd_allow_networks:
+  - "127.0.0.1"
+  - "{{ infra_network_tailscale_cidr | default('100.64.0.0/10') }}"
+
+# ---------------------------------------------------------------------------
+# Leap Smearing (safety net — leaponly)
+# Google smears upstream and suppresses the leap flag, so smoothtime only
+# activates when the selected source is non-smearing (NIST, pool) and a leap
+# flag actually arrives. Never double-smears.
+# ---------------------------------------------------------------------------
+ntp_chronyd_leapsecmode: "slew"
+ntp_chronyd_maxslewrate: "1000"
+ntp_chronyd_smoothtime: "400 0.001 leaponly"
+
+# ---------------------------------------------------------------------------
+# State / Logging
+# ---------------------------------------------------------------------------
+ntp_chronyd_driftfile: "/var/lib/chrony/drift"
+ntp_chronyd_ntsdumpdir: "/var/lib/chrony"
+ntp_chronyd_logdir: "/var/log/chrony"
+ntp_chronyd_log_categories: "measurements statistics tracking"
+
+# ---------------------------------------------------------------------------
+# Verification
+# ---------------------------------------------------------------------------
+ntp_chronyd_verify_health: true
+ntp_chronyd_verify_retries: "{{ infra_retry_short | default(10) }}"
+ntp_chronyd_verify_delay: "{{ infra_delay_default | default(10) }}"
