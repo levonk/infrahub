@@ -150,7 +150,7 @@
     --restart unless-stopped
     --cap-add NET_ADMIN
     --network {{ vpn_tor_windows_network_name }}
-    --sysctl net.ipv4.ip_forward=1  # project-lint: disable=magic-int  sysctl forwarding flag
+    --sysctl net.ipv4.ip_forward=1
     --security-opt no-new-privileges:true
     -e PROXY_TOR_SOCKS5_CONTAINER_PORT={{ vpn_tor_windows_socks5_container_port | string }}
     -e PROXY_TOR_EXIT_NODE_ENABLED=true
@@ -194,8 +194,8 @@
     --network {{ vpn_tor_windows_network_name }}
     --cap-add NET_ADMIN
     --device /dev/net/tun:/dev/net/tun
-    --sysctl net.ipv4.ip_forward=1  # project-lint: disable=magic-int  sysctl forwarding flag
-    --sysctl net.ipv6.conf.all.forwarding=1  # project-lint: disable=magic-int  sysctl forwarding flag
+    --sysctl net.ipv4.ip_forward=1
+    --sysctl net.ipv6.conf.all.forwarding=1
     --security-opt no-new-privileges:true
     -e TS_AUTHKEY={{ vpn_tailscale_windows_auth_key }}
     -e TS_HOSTNAME={{ vpn_tailscale_windows_tor_hostname }}

@@ -15,7 +15,7 @@
     that:
       - media_stack_docker_host is defined
       - media_stack_network_name is defined
-      - media_stack_data_volume is defined
+      - media_stack_data_mount is defined
       - media_stack_jellyfin_container_name is defined
       - media_stack_jellyfin_image is defined
       - media_stack_jellyfin_host_port is defined

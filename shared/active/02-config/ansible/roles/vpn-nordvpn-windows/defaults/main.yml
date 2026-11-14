@@ -57,8 +57,9 @@ vpn_nordvpn_windows_docker_host: "{{ windows_exit_nodes_docker_host | default('s
 
 # ---------------------------------------------------------------------------
 # NordVPN configuration
-# Uses WireGuard token auth (vault_nordvpn_token) — the OpenVPN user/pass
-# in the vault are empty, so we use the token method which is populated.
+# WireGuard is preferred: the account access token (vault_nordvpn_token) is
+# exchanged at deploy time for the nordlynx private key. OpenVPN user/pass
+# (service credentials) are the fallback when no token is set.
 # ---------------------------------------------------------------------------
 vpn_nordvpn_windows_token: ""
 vpn_nordvpn_windows_openvpn_user: ""
