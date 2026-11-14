@@ -4,10 +4,11 @@ FROM localnet-base-alpine:latest AS builder
 # Set the desired CoreDNS version (You will need to update this manually or via an external script)
 ARG COREDNS_VERSION="v1.13.1"
 
-# Determine architecture for downloading the correct binary
-# In Docker build, you can use 'dpkg --print-architecture' for Debian/Ubuntu-based,
-# or look at the platform argument if building via 'docker buildx build --platform ...'
-# For a standard multi-arch build, we'll use the build argument if available, otherwise default.
+# Determine architecture for downloading the correct binary.
+# TARGETARCH is the buildx-provided platform arg — it must be declared in the
+# stage or it expands empty (which silently produced amd64 binaries in the
+# arm64 image before this fix).
+ARG TARGETARCH
 ARG TARGET_ARCH=${TARGETARCH:-amd64}
 
 # Map standard architecture names to CoreDNS expected names

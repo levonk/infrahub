@@ -14,8 +14,15 @@ RUN mkdir -p /templates/etc/unbound /etc/unbound /var/lib/unbound && \
     chmod 755 /templates /etc/unbound /var/lib/unbound
 
 COPY assets/entrypoint-unbound.sh /entrypoint-unbound.sh
-COPY assets/root.key /usr/share/dnssec-keys/root.key
-RUN chmod +x /entrypoint-unbound.sh && \
+# Seed the DNSSEC root trust anchor. assets/root.key is gitignored (*.key), so
+# generate it at build; fall back to the well-known root KSK DS records
+# (KSK-2017 + KSK-2024 — the DNSKEY RRset is signed by KSK-2024, so the
+# KSK-2017 DS alone cannot validate it).
+RUN mkdir -p /usr/share/dnssec-keys && \
+    (unbound-anchor -a /usr/share/dnssec-keys/root.key 2>/dev/null || \
+     printf '. IN DS 20326 8 2 E06D44B80B8F1D39A95C0B0D7C65D08458E880409BBC683457104237C7F8EC8D\n. IN DS 38696 8 2 683D2D0ACB8C9B712A1948B27F741219298D0A450D612C483AF444A4C0FB2B16\n' \
+       > /usr/share/dnssec-keys/root.key) && \
+    chmod +x /entrypoint-unbound.sh && \
     chown unbound:unbound /usr/share/dnssec-keys/root.key && \
     chmod 644 /usr/share/dnssec-keys/root.key
 

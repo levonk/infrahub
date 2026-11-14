@@ -49,6 +49,8 @@ PB_WATCH_PARTY := ANSIBLE_ROOT + "/playbooks/deploy-watch-party.yml"
 PB_VAL_WATCH_PARTY := ANSIBLE_ROOT + "/playbooks/validate-watch-party.yml"
 PB_NTP := ANSIBLE_ROOT + "/playbooks/deploy-ntp.yml"
 PB_VAL_NTP := ANSIBLE_ROOT + "/playbooks/validate-ntp.yml"
+PB_DNS_STACK := ANSIBLE_ROOT + "/playbooks/dns-stack.yml"
+PB_VAL_DNS := ANSIBLE_ROOT + "/playbooks/validate-dns.yml"
 PB_VAL_AUTHELIA := ANSIBLE_ROOT + "/playbooks/validate-authelia.yml"
 PB_ACRM := ANSIBLE_ROOT + "/playbooks/deploy-acrm.yml"
 PB_PATCH_OPENSSH := ANSIBLE_ROOT + "/playbooks/patch-openssh-musl-bypass.yml"
@@ -815,6 +817,31 @@ ansible_validate_ntp_impl:
     {{_log}}
     log_start "Validating NTP tailnet server on OCI"
     ansible-playbook -i {{INVENTORY}} {{PB_VAL_NTP}} --vault-password-file ~/.ansible/vault_password
+
+# Deploy the DNS chain (AdGuard→dnsdist→CoreDNS→dnscrypt/unbound/tor) on OCI.
+# All published ports bind the Tailscale IP only; dns.levonk.com = AdGuard :53.
+ansible-deploy-dns-oci:
+    @just _devbox ansible_deploy_dns_oci_impl
+
+[private]
+ansible_deploy_dns_oci_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Deploying DNS chain (cno) on OCI"
+    ansible-playbook -i {{INVENTORY}} {{PB_DNS_STACK}} --vault-password-file ~/.ansible/vault_password
+
+# Validate the DNS chain on OCI — containers, tailnet-only binds, live queries.
+ansible-validate-dns-oci:
+    @just _devbox ansible_validate_dns_oci_impl
+
+[private]
+ansible_validate_dns_oci_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Validating DNS chain (cno) on OCI"
+    ansible-playbook -i {{INVENTORY}} {{PB_VAL_DNS}} --vault-password-file ~/.ansible/vault_password
 
 # Deploy Authelia SSO on OCI cloud server (runs the authelia-tagged tasks of cloud-server-infra.yml)
 # Prerequisites: Docker engine running, infra vars loaded by playbook pre_tasks.

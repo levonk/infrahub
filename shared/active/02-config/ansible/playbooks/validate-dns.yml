@@ -1,0 +1,194 @@
+---
+# Validate DNS chain deployment on cloud_servers (cno)
+# Location: shared/active/02-config/ansible/playbooks/validate-dns.yml
+#
+# Read-only, idempotent post-deployment checks. Run after dns-stack.yml.
+# Chain: client → AdGuard (tailnet :53) → dnsdist → CoreDNS → {dnscrypt
+# tiers, unbound, tor-proxy}. Every published port must bind the Tailscale
+# IP only — never 0.0.0.0.
+#
+# Usage:
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
+#     shared/active/02-config/ansible/playbooks/validate-dns.yml \
+#     --vault-password-file ~/.ansible/vault_password
+
+- name: "Validate DNS chain (cno) on cloud_servers"
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+  vars:
+    validation_results: {}
+    dns_chain_containers:
+      - localnet-dns-adguard
+      - localnet-dns-dnsdist
+      - localnet-dns-coredns
+      - localnet-dns-unbound-validator
+      - localnet-dns-unbound-tor
+      - localnet-dns-unbound-root
+      - localnet-dns-dnscrypt-odoh
+      - localnet-dns-dnscrypt-anon
+      - localnet-dns-dnscrypt-plaintext
+      # localnet-dns-blocklist-compiler is a one-shot job — the role removes
+      # it after it compiles the CDB volume, so it is not expected to run.
+      - localnet-proxy-tor
+
+  pre_tasks:
+    - name: "Load shared infrastructure defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+        - modes.yml
+        - timing.yml
+      tags: ["always"]
+
+    - name: "Load client infrastructure overrides (levonk)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+      tags: ["always"]
+
+    - name: "Set validation variables"
+      ansible.builtin.set_fact:
+        dns_tailnet_ip: "{{ infra_tailscale_ip_cloud_server | default('') }}"
+        dns_resolver_port: "{{ infra_port_dns_adguard_host | default('53') }}"
+      tags: ["always"]
+
+  tasks:
+    - name: "Check each DNS chain container is running"
+      community.docker.docker_container_info:
+        name: "{{ item }}"
+      register: dns_container_info
+      loop: "{{ dns_chain_containers }}"
+      loop_control:
+        label: "{{ item }}"
+      failed_when: false
+      tags: ["validate", "dns"]
+
+    - name: "Record container states"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({
+          'containers_all_running': (dns_container_info.results | default([]) | selectattr('container.State.Running', 'defined') | selectattr('container.State.Running') | list | length == dns_chain_containers | length),
+          'containers_running_count': (dns_container_info.results | default([]) | selectattr('container.State.Running', 'defined') | selectattr('container.State.Running') | list | length)
+        }) }}"
+      tags: ["validate", "dns"]
+
+    - name: "Check listeners on the resolver port (tailnet-only :53)"
+      ansible.builtin.command:
+        cmd: "ss -tuln '( sport = :{{ dns_adguard_host_port | default('53') }} )'"
+      register: dns_resolver_sockets
+      changed_when: false
+      tags: ["validate", "dns"]
+
+    - name: "Check all chain-published listeners are tailnet-bound"
+      ansible.builtin.command:
+        cmd: "ss -tuln"
+      register: dns_all_sockets
+      changed_when: false
+      tags: ["validate", "dns"]
+
+    - name: "Record socket binding results"
+      vars:
+        # Ports the chain publishes on cloud_servers — see cloud_servers group vars.
+        dns_chain_ports: >-
+          {{ [dns_adguard_host_port | default('53'),
+              dns_adguard_web_host_port | default('3053'),
+              dns_transparent_host_port | default('5500'),
+              dns_dnsdist_main_host_port | default('5501'),
+              dns_dnsdist_metrics_host_port | default('8083'),
+              dns_coredns_main_host_port | default('15354'),
+              dns_coredns_main_metrics_host_port | default('9153'),
+              dns_coredns_main_health_host_port | default('27493'),
+              dns_dnscrypt_odoh_host_port | default('5360'),
+              dns_dnscrypt_anon_host_port | default('5361'),
+              dns_dnscrypt_plaintext_host_port | default('5365'),
+              dns_unbound_validator_host_port | default('15355'),
+              proxy_tor_socks5_host_port | default('9150')] }}
+        wildcard_hits: >-
+          {{ ['0.0.0.0:', '[::]:', '*:']
+             | product(dns_chain_ports)
+             | map('join')
+             | select('in', dns_all_sockets.stdout)
+             | list }}
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({
+          'dns_socket_tailnet': (dns_tailnet_ip ~ ':' ~ (dns_adguard_host_port | default('53'))) in dns_resolver_sockets.stdout,
+          'dns_socket_no_wildcard': (wildcard_hits | length == 0)
+        }) }}"
+      tags: ["validate", "dns"]
+
+    - name: "End-to-end resolver query via tailnet IP (AdGuard :53)"
+      ansible.builtin.command:
+        cmd: "dig +time=5 +tries=2 +short example.com @{{ dns_tailnet_ip }} -p {{ dns_adguard_host_port | default('53') }}"
+      register: dns_e2e_query
+      changed_when: false
+      failed_when: false
+      tags: ["validate", "dns"]
+
+    - name: "Record end-to-end query result"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({
+          'dns_e2e_resolves': ((dns_e2e_query.rc | default(1)) == 0 and (dns_e2e_query.stdout | default('') | trim | length > 0))
+        }) }}"
+      tags: ["validate", "dns"]
+
+    - name: "Direct dnsdist query (chain hop after AdGuard)"
+      ansible.builtin.command:
+        cmd: "dig +time=5 +tries=2 +short example.com @{{ dns_tailnet_ip }} -p {{ dns_dnsdist_main_host_port | default('5501') }}"
+      register: dns_dnsdist_query
+      changed_when: false
+      failed_when: false
+      tags: ["validate", "dns"]
+
+    - name: "Record dnsdist query result"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({
+          'dns_dnsdist_resolves': ((dns_dnsdist_query.rc | default(1)) == 0 and (dns_dnsdist_query.stdout | default('') | trim | length > 0))
+        }) }}"
+      tags: ["validate", "dns"]
+
+    - name: "Check AdGuard web UI responds (tailnet-bound)"
+      ansible.builtin.uri:
+        url: "http://{{ dns_tailnet_ip }}:{{ dns_adguard_web_host_port | default('3053') }}"
+        status_code: [200, 301, 302]
+        timeout: 10
+      register: dns_adguard_web
+      failed_when: false
+      tags: ["validate", "dns"]
+
+    - name: "Record AdGuard web UI result"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({
+          'dns_adguard_web_ok': (dns_adguard_web.status | default(0) | int in [200, 301, 302])
+        }) }}"
+      tags: ["validate", "dns"]
+
+    - name: "Display validation summary"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          DNS Chain (cno) Validation
+          ========================================
+          containers running:     {{ validation_results.containers_running_count }}/{{ dns_chain_containers | length }}
+          resolver socket:        {{ validation_results.dns_socket_tailnet }} ({{ dns_tailnet_ip }}:{{ dns_adguard_host_port | default('53') }})
+          no wildcard binds:      {{ validation_results.dns_socket_no_wildcard }}
+          end-to-end resolves:    {{ validation_results.dns_e2e_resolves }}
+          dnsdist hop resolves:   {{ validation_results.dns_dnsdist_resolves }}
+          adguard web UI:         {{ validation_results.dns_adguard_web_ok }}
+          ========================================
+      tags: ["always"]
+
+    - name: "Fail on any failed validation check"
+      ansible.builtin.fail:
+        msg: "DNS validation failed checks: {{ failed_checks | join(', ') }}"
+      vars:
+        failed_checks: "{{ validation_results | dict2items | rejectattr('key', 'equalto', 'containers_running_count') | selectattr('value', 'equalto', false) | map(attribute='key') | list }}"
+      when: failed_checks | length > 0
+      tags: ["always"]

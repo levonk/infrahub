@@ -43,10 +43,15 @@ echo "[ENTRYPOINT] Config rendered, starting Unbound..." >&2
 ROOT_KEY="/var/lib/unbound/root.key"
 BUNDLED_KEY="/usr/share/dnssec-keys/root.key"
 echo "[ENTRYPOINT] Refreshing root trust anchor..." >&2
-if unbound-anchor -a "$ROOT_KEY" 2>&1; then
-  echo "[ENTRYPOINT] root.key is current" >&2
+unbound-anchor -a "$ROOT_KEY" 2>&1
+anchor_rc=$?
+# unbound-anchor exit codes: 0 = anchor current, 1 = anchor updated —
+# both are success. Only a real failure (network unreachable, bad
+# signature) falls through to the bundled seed.
+if [ "$anchor_rc" -eq 0 ] || [ "$anchor_rc" -eq 1 ]; then
+  echo "[ENTRYPOINT] root.key refreshed (rc=$anchor_rc)" >&2
 elif [ -s "$BUNDLED_KEY" ]; then
-  echo "[ENTRYPOINT] unbound-anchor could not fetch, using bundled KSK-2017 trust anchor" >&2
+  echo "[ENTRYPOINT] unbound-anchor could not fetch, using bundled root trust anchor" >&2
   cp "$BUNDLED_KEY" "$ROOT_KEY"
 elif [ ! -s "$ROOT_KEY" ]; then
   echo "[ENTRYPOINT] ERROR: No root trust anchor available" >&2

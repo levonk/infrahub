@@ -3,37 +3,38 @@
 
 - name: Pull adguard image
   community.docker.docker_image:
-    name: "{{ local_registry | default('{{ infra_registry }}') }}/localnet-dns-adguard:latest"
+    name: "{{ dns_registry }}/localnet-dns-adguard:latest"
     source: pull
+    force_source: true
     state: present
 
 - name: Deploy adguard container
   community.docker.docker_container:
     name: localnet-dns-adguard
-    image: localnet-dns-adguard
+    image: "{{ dns_registry }}/localnet-dns-adguard"
     state: started
     restart_policy: unless-stopped
     networks:
-      - name: "{{ localnet_network_name }}"
+      - name: "{{ dns_network_name }}"
         ipv4_address: "{{ dns_adguard_ip }}"
         aliases:
           - adguard
     ports:
-      - "{{ dns_adguard_host_port }}:{{ dns_adguard_container_port }}/udp"
-      - "{{ dns_adguard_host_port }}:{{ dns_adguard_container_port }}/tcp"
-      - "{{ dns_adguard_web_host_port }}:{{ infra_port_monitoring_grafana_host }}/tcp"
+      - "{{ dns_port_prefix }}{{ dns_adguard_host_port }}:{{ dns_adguard_container_port }}/udp"
+      - "{{ dns_port_prefix }}{{ dns_adguard_host_port }}:{{ dns_adguard_container_port }}/tcp"
+      - "{{ dns_port_prefix }}{{ dns_adguard_web_host_port }}:{{ dns_adguard_web_container_port }}/tcp"
     volumes:
       - localnet-dns-adguard-conf-volume:/opt/adguardhome/conf
       - localnet-dns-adguard-work-volume:/opt/adguardhome/work
     env:
-      PUID: "{{ localnet_puid }}"
-      PGID: "{{ localnet_pgid }}"
-      TZ: "{{ localnet_tz }}"
-      DNS_ADGUARD_IP: "{{ dns_adguard_ip }}"
-      DNS_ADGUARD_HOST_PORT: "{{ dns_adguard_host_port }}"
-      DNS_ADGUARD_CONTAINER_PORT: "{{ dns_adguard_container_port }}"
-      DNS_ADGUARD_WEB_HOST_PORT: "{{ dns_adguard_web_host_port }}"
-      DNS_ADGUARD_WEB_CONTAINER_PORT: "{{ dns_adguard_web_container_port }}"
+      PUID: "{{ localnet_puid | string }}"
+      PGID: "{{ localnet_pgid | string }}"
+      TZ: "{{ localnet_tz | string }}"
+      DNS_ADGUARD_IP: "{{ dns_adguard_ip | string }}"
+      DNS_ADGUARD_HOST_PORT: "{{ dns_adguard_host_port | string }}"
+      DNS_ADGUARD_CONTAINER_PORT: "{{ dns_adguard_container_port | string }}"
+      DNS_ADGUARD_WEB_HOST_PORT: "{{ dns_adguard_web_host_port | string }}"
+      DNS_ADGUARD_WEB_CONTAINER_PORT: "{{ dns_adguard_web_container_port | string }}"
     log_driver: json-file
     log_options:
       max-size: "{{ infra_log_max_size }}"
@@ -41,15 +42,15 @@
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:{{ infra_port_monitoring_grafana_host }}"]
       interval: "{{ infra_healthcheck_interval }}"
-      timeout: "{{ infra_timeout_short }}"
+      timeout: "{{ infra_timeout_short }}s"
       retries: "{{ infra_retry_short }}"
       start_period: "{{ infra_healthcheck_start_period }}"
 
 - name: Wait for adguard to be healthy
   ansible.builtin.uri:
-    url: "http://{{ infra_network_bind_localhost }}:{{ dns_adguard_web_host_port }}"
+    url: "http://{{ dns_publish_ip | default(infra_network_bind_localhost, true) }}:{{ dns_adguard_web_host_port }}"
     status_code: "{{ infra_http_status_ok }}"
   register: adguard_health
-  until: adguard_health.status == {{ infra_http_status_ok }}
+  until: adguard_health.status == (infra_http_status_ok | int)
   retries: "{{ infra_retry_long }}"
   delay: "{{ infra_delay_default }}"
