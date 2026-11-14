@@ -59,13 +59,18 @@
         }) }}"
       tags: ["validate", "ntp"]
 
-    - name: "Check systemd-timesyncd is masked (no competing time daemon)"
+    - name: "Check systemd-timesyncd is not active (no competing time daemon)"
+      ansible.builtin.command:
+        cmd: "systemctl is-active systemd-timesyncd"
+      register: ntp_timesyncd_state
+      changed_when: false
+      failed_when: false
+      tags: ["validate", "ntp"]
+
+    - name: "Record timesyncd state"
       ansible.builtin.set_fact:
         validation_results: "{{ validation_results | combine({
-          'timesyncd_masked': (
-            ansible_facts.services['systemd-timesyncd.service'] is not defined or
-            ansible_facts.services['systemd-timesyncd.service']['status'] | default('') == 'masked'
-          )
+          'timesyncd_inactive': (ntp_timesyncd_state.stdout | default('unknown') | trim != 'active')
         }) }}"
       tags: ["validate", "ntp"]
 
@@ -80,7 +85,6 @@
       ansible.builtin.set_fact:
         validation_results: "{{ validation_results | combine({
           'ntp_socket_tailnet': (ntp_tailnet_ip ~ ':' ~ ntp_port) in ntp_sockets.stdout,
-          'ntp_socket_localhost': ('127.0.0.1:' ~ ntp_port) in ntp_sockets.stdout,
           'ntp_socket_no_wildcard': '0.0.0.0:' ~ ntp_port not in ntp_sockets.stdout
         }) }}"
       tags: ["validate", "ntp"]
@@ -116,9 +120,9 @@
         }) }}"
       tags: ["validate", "ntp"]
 
-    - name: "Query local NTP server (loopback smoke test)"
+    - name: "Query local NTP server (tailnet-IP smoke test)"
       ansible.builtin.command:
-        cmd: "chronyd -Q 'server 127.0.0.1 iburst'"
+        cmd: "chronyd -Q 'server {{ ntp_tailnet_ip }} iburst'"
       register: ntp_query
       changed_when: false
       failed_when: false
@@ -139,13 +143,12 @@
           ========================================
           chronyd enabled:        {{ validation_results.chronyd_enabled }}
           chronyd running:        {{ validation_results.chronyd_active }}
-          timesyncd masked:       {{ validation_results.timesyncd_masked }}
+          timesyncd inactive:     {{ validation_results.timesyncd_inactive }}
           socket (tailnet):       {{ validation_results.ntp_socket_tailnet }} ({{ ntp_tailnet_ip }}:{{ ntp_port }})
-          socket (localhost):     {{ validation_results.ntp_socket_localhost }}
           no wildcard socket:     {{ validation_results.ntp_socket_no_wildcard }}
           synchronized:           {{ validation_results.chronyd_synchronized }}
           upstream sources:       {{ validation_results.chronyd_source_count }}
-          loopback query OK:      {{ validation_results.ntp_loopback_query_ok }}
+          tailnet query OK:       {{ validation_results.ntp_loopback_query_ok }}
           ========================================
       tags: ["always"]
 

@@ -8,11 +8,9 @@
 # ---------------------------------------------------------------------------
 # Upstream sources
 # ---------------------------------------------------------------------------
-{% if ntp_chronyd_nts_enabled | bool %}
 {% for source in ntp_chronyd_nts_sources %}
-server {{ source }} iburst nts
+server {{ source }} iburst{{ ' nts' if ntp_chronyd_nts_enabled | bool }}
 {% endfor %}
-{% endif %}
 {% for source in ntp_chronyd_fallback_sources %}
 server {{ source }} iburst
 {% endfor %}
