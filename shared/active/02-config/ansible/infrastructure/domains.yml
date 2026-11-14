@@ -101,6 +101,42 @@ infra_hostname_proxy_tor: "localnet-proxy-tor"
 infra_domain_ntp_server: "ntp.{{ infra_domain_base }}"
 
 # ---------------------------------------------------------------------------
+# DNS Chain Service Domains (per shared/docs/pipelines/dns/complete-dns-chain.mmd)
+# Chain: client → AdGuard → dnsdist → CoreDNS → {dnscrypt tiers, unbound, tor}
+# All tailnet-only: A records to the cloud server's Tailscale IP (same
+# rationale as NTP — resolvers cache and MagicDNS can NXDOMAIN on the
+# CNAME→*.ts.net chase). adguard/dnsdist vars already exist client-side.
+#
+# dns.<base> is the *resolver endpoint* clients configure (AdGuard :53).
+# The rest are per-service names for config, Traefik routing, and monitoring.
+# The *.cno.<base> aliases follow the dual-deployment alias scheme — the
+# same names scoped to the cloud-network-oracle network.
+# ---------------------------------------------------------------------------
+infra_domain_dns_resolver: "dns.{{ infra_domain_base }}"
+infra_domain_dns_coredns: "coredns.{{ infra_domain_base }}"
+infra_domain_dns_unbound: "unbound.{{ infra_domain_base }}"
+infra_domain_dns_dnscrypt: "dnscrypt.{{ infra_domain_base }}"
+infra_domain_dns_dnscrypt_odoh: "dnscrypt-odoh.{{ infra_domain_base }}"
+infra_domain_dns_dnscrypt_anon: "dnscrypt-anon.{{ infra_domain_base }}"
+infra_domain_dns_dnscrypt_plaintext: "dnscrypt-plaintext.{{ infra_domain_base }}"
+infra_domain_dns_tor: "tor.{{ infra_domain_base }}"
+
+# cno-scoped aliases (*.{nl,cno}.<base> dual-deployment scheme).
+# NOTE: tor.cno.<base> is NOT defined here — it's already the Tor exit-node
+# domain (infra_domain_tor_exit_cno), a different service. The DNS-chain
+# Tor proxy uses dns-tor.cno.<base> instead.
+infra_domain_dns_resolver_cno: "dns.cno.{{ infra_domain_base }}"
+infra_domain_dns_adguard_cno: "adguard.cno.{{ infra_domain_base }}"
+infra_domain_dns_dnsdist_cno: "dnsdist.cno.{{ infra_domain_base }}"
+infra_domain_dns_coredns_cno: "coredns.cno.{{ infra_domain_base }}"
+infra_domain_dns_unbound_cno: "unbound.cno.{{ infra_domain_base }}"
+infra_domain_dns_dnscrypt_cno: "dnscrypt.cno.{{ infra_domain_base }}"
+infra_domain_dns_dnscrypt_odoh_cno: "dnscrypt-odoh.cno.{{ infra_domain_base }}"
+infra_domain_dns_dnscrypt_anon_cno: "dnscrypt-anon.cno.{{ infra_domain_base }}"
+infra_domain_dns_dnscrypt_plaintext_cno: "dnscrypt-plaintext.cno.{{ infra_domain_base }}"
+infra_domain_dns_tor_cno: "dns-tor.cno.{{ infra_domain_base }}"
+
+# ---------------------------------------------------------------------------
 # VPN Hostnames
 # ---------------------------------------------------------------------------
 infra_hostname_vpn_nordvpn: "nordvpn"

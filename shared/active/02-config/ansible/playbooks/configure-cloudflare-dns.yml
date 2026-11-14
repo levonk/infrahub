@@ -593,18 +593,153 @@
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
 
-      # AdGuard Home DNS web UI (runs on Windows Docker, routed via Traefik on OCI)
-      - name: "{{ infra_domain_dns_adguard | default('adguard.' ~ (infra_domain_base | default('example.com'))) }}"
-        type: "CNAME"
-        content: "{{ ts_fqdn }}"
+      # DNS chain on OCI (cno) — tailnet-only A records to the cloud server's
+      # Tailscale IP (same rationale as NTP: DNS infra must not depend on the
+      # MagicDNS CNAME chase). All ports publish on the tailnet IP only.
+      #
+      # dns.<base> is the resolver endpoint clients configure (AdGuard :53).
+      - name: "{{ infra_domain_dns_resolver | default('dns.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "A"
+        content: "{{ infra_tailscale_ip_cloud_server | default('') }}"
         ttl: "{{ cloudflare_dns_ttl }}"
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
 
-      # DNSDist web console (runs on Windows Docker, routed via Windows Traefik)
+      # AdGuard Home (runs on OCI — DNS :53 tailnet-only, web UI :3053)
+      - name: "{{ infra_domain_dns_adguard | default('adguard.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "A"
+        content: "{{ infra_tailscale_ip_cloud_server | default('') }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      # DNSDist (runs on OCI — was previously CNAME to Windows Docker host)
       - name: "{{ infra_domain_dns_dnsdist | default('dnsdist.' ~ (infra_domain_base | default('example.com'))) }}"
-        type: "CNAME"
-        content: "{{ ts_fqdn_windows_docker }}"
+        type: "A"
+        content: "{{ infra_tailscale_ip_cloud_server | default('') }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      # Remaining DNS chain services on OCI — bare + *.cno.<base> aliases.
+      # tor.<base> = DNS-chain Tor proxy (tor.cno.<base> is the exit node —
+      # a different service — so the chain proxy uses dns-tor.cno.<base>).
+      - name: "{{ infra_domain_dns_coredns | default('coredns.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "A"
+        content: "{{ infra_tailscale_ip_cloud_server | default('') }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      - name: "{{ infra_domain_dns_unbound | default('unbound.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "A"
+        content: "{{ infra_tailscale_ip_cloud_server | default('') }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      - name: "{{ infra_domain_dns_dnscrypt | default('dnscrypt.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "A"
+        content: "{{ infra_tailscale_ip_cloud_server | default('') }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      - name: "{{ infra_domain_dns_dnscrypt_odoh | default('dnscrypt-odoh.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "A"
+        content: "{{ infra_tailscale_ip_cloud_server | default('') }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      - name: "{{ infra_domain_dns_dnscrypt_anon | default('dnscrypt-anon.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "A"
+        content: "{{ infra_tailscale_ip_cloud_server | default('') }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      - name: "{{ infra_domain_dns_dnscrypt_plaintext | default('dnscrypt-plaintext.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "A"
+        content: "{{ infra_tailscale_ip_cloud_server | default('') }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      - name: "{{ infra_domain_dns_tor | default('tor.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "A"
+        content: "{{ infra_tailscale_ip_cloud_server | default('') }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      # cno-scoped aliases — same services, dual-deployment naming scheme.
+      - name: "{{ infra_domain_dns_resolver_cno | default('dns.cno.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "A"
+        content: "{{ infra_tailscale_ip_cloud_server | default('') }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      - name: "{{ infra_domain_dns_adguard_cno | default('adguard.cno.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "A"
+        content: "{{ infra_tailscale_ip_cloud_server | default('') }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      - name: "{{ infra_domain_dns_dnsdist_cno | default('dnsdist.cno.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "A"
+        content: "{{ infra_tailscale_ip_cloud_server | default('') }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      - name: "{{ infra_domain_dns_coredns_cno | default('coredns.cno.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "A"
+        content: "{{ infra_tailscale_ip_cloud_server | default('') }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      - name: "{{ infra_domain_dns_unbound_cno | default('unbound.cno.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "A"
+        content: "{{ infra_tailscale_ip_cloud_server | default('') }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      - name: "{{ infra_domain_dns_dnscrypt_cno | default('dnscrypt.cno.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "A"
+        content: "{{ infra_tailscale_ip_cloud_server | default('') }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      - name: "{{ infra_domain_dns_dnscrypt_odoh_cno | default('dnscrypt-odoh.cno.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "A"
+        content: "{{ infra_tailscale_ip_cloud_server | default('') }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      - name: "{{ infra_domain_dns_dnscrypt_anon_cno | default('dnscrypt-anon.cno.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "A"
+        content: "{{ infra_tailscale_ip_cloud_server | default('') }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      - name: "{{ infra_domain_dns_dnscrypt_plaintext_cno | default('dnscrypt-plaintext.cno.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "A"
+        content: "{{ infra_tailscale_ip_cloud_server | default('') }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      - name: "{{ infra_domain_dns_tor_cno | default('dns-tor.cno.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "A"
+        content: "{{ infra_tailscale_ip_cloud_server | default('') }}"
         ttl: "{{ cloudflare_dns_ttl }}"
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"

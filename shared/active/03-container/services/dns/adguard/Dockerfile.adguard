@@ -1,7 +1,10 @@
 FROM adguard/adguardhome:latest
 
-# Install curl for healthcheck
-RUN apk add --no-cache curl
+# Install curl for healthcheck + su-exec (entrypoint drops privileges) and
+# create the adguard user the entrypoint execs as (upstream image has neither)
+RUN apk add --no-cache curl su-exec && \
+    addgroup -g 1000 -S adguard && \
+    adduser -u 1000 -S -G adguard adguard
 
 # Add healthcheck
 HEALTHCHECK --interval=30s --timeout=3s \
@@ -11,8 +14,9 @@ HEALTHCHECK --interval=30s --timeout=3s \
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# Set non-root user (will be overridden by entrypoint if PUID/PGID provided)
-USER adguard
+# NOTE: upstream adguardhome image has no `adguard` user and its init model
+# expects root (it drops privileges internally via PUID/PGID env). Declaring
+# USER here makes the container unstartable ("unable to find user adguard").
 
 # Expose ports
 EXPOSE ${DNS_ADGUARD_CONTAINER_PORT:-5354}/tcp

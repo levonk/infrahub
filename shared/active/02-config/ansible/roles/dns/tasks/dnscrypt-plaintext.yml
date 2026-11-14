@@ -3,27 +3,28 @@
 
 - name: Pull dnscrypt-plaintext image
   community.docker.docker_image:
-    name: "{{ local_registry | default('{{ infra_registry }}') }}/localnet-dns-dnscrypt-plaintext:latest"
+    name: "{{ dns_registry }}/localnet-dns-dnscrypt-plaintext:latest"
     source: pull
+    force_source: true
     state: present
 
 - name: Deploy dnscrypt-plaintext container
   community.docker.docker_container:
     name: localnet-dns-dnscrypt-plaintext
-    image: localnet-dns-dnscrypt-plaintext
+    image: "{{ dns_registry }}/localnet-dns-dnscrypt-plaintext"
     state: started
     restart_policy: unless-stopped
     command: ["/usr/local/bin/entrypoint-dnscrypt.sh", "dnscrypt-proxy-plaintext"]
     networks:
-      - name: "{{ localnet_network_name }}"
+      - name: "{{ dns_network_name }}"
         ipv4_address: "{{ dns_dnscrypt_plaintext_ip }}"
     ports:
-      - "{{ dns_dnscrypt_plaintext_host_port }}:{{ dns_dnscrypt_plaintext_container_port }}/udp"
-      - "{{ dns_dnscrypt_plaintext_host_port }}:{{ dns_dnscrypt_plaintext_container_port }}/tcp"
+      - "{{ dns_port_prefix }}{{ dns_dnscrypt_plaintext_host_port }}:{{ dns_dnscrypt_plaintext_container_port }}/udp"
+      - "{{ dns_port_prefix }}{{ dns_dnscrypt_plaintext_host_port }}:{{ dns_dnscrypt_plaintext_container_port }}/tcp"
     volumes:
       - "{{ localnet_services_dir }}/dns/dnscrypt/mounts/templates:/templates:ro"
     env:
-      DNS_DNSCRYPT_PLAINTEXT_CONTAINER_PORT: "{{ dns_dnscrypt_plaintext_container_port }}"
+      DNS_DNSCRYPT_PLAINTEXT_CONTAINER_PORT: "{{ dns_dnscrypt_plaintext_container_port | string | string }}"
     log_driver: json-file
     log_options:
       max-size: "{{ infra_log_max_size }}"

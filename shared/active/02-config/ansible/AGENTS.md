@@ -86,6 +86,8 @@ See [`internal-docs/troubleshooting/ansible-lint.md`](../../../internal-docs/tro
 | `bootstrap-ai-inference-host.yml` | `levonk/.../inventories/localnet.yml --limit kckinai` | `vpn_tailscale_clients` | Linux | kckinai (NVIDIA inference host) |
 | `deploy-cast-sponsor-skip.yml` | `levonk/.../inventories/localnet.yml --limit minime01` | `localnet_hosts` | Linux | minime01 (RPi2 DietPi, armv7) |
 | `deploy-dns-lite.yml` | `levonk/.../inventories/localnet.yml` | `localnet_hosts` | Linux | reduced AdGuard→Unbound chain for low-RAM/armv7 hosts (minime01) |
+| `dns-stack.yml` | `levonk/.../inventories/oci.yml` | `cloud_servers` | Oracle Linux (EL) | full DNS chain on OCI (cno) — AdGuard→dnsdist→CoreDNS→{dnscrypt,unbound,tor}, tailnet-only binds |
+| `validate-dns.yml` | `levonk/.../inventories/oci.yml` | `cloud_servers` | Oracle Linux (EL) | read-only post-deploy checks for the cno DNS chain |
 
 When adding a new role to a playbook, check this table to know which playbook(s) cover which hosts. Use `--tags <role-tag>` to deploy only that role across all inventories.
 

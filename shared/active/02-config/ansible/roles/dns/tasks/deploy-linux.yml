@@ -9,6 +9,37 @@
     mode: "{{ infra_mode_dir }}"
 
 # ============================================================================
+# Network Management
+# ============================================================================
+# DNS containers get fixed IPs in infra_network_dns_localnet_subnet
+# (172.26.255.x). The network must exist with that subnet before any
+# container task runs.
+- name: Ensure DNS network exists
+  community.docker.docker_network:
+    name: "{{ dns_network_name }}"
+    state: present
+    ipam_config:
+      - subnet: "{{ dns_network_subnet }}"
+
+# ============================================================================
+# Config Template Mounts
+# ============================================================================
+# Linux containers bind-mount {{ localnet_services_dir }}/dns/<svc>/mounts/templates.
+# Copy the repo's mounts/ trees to the target (the Windows path seeds volumes
+# instead — see deploy-windows.yml).
+- name: Sync DNS config template mounts to target
+  ansible.builtin.copy:
+    src: "{{ role_path }}/../../../../03-container/services/dns/{{ item }}/mounts/"
+    dest: "{{ localnet_services_dir }}/dns/{{ item }}/mounts/"
+    mode: preserve
+  loop:
+    - coredns
+    - dnscrypt
+    - unbound
+    - dnsdist
+    - adguard
+
+# ============================================================================
 # Volume Management
 # ============================================================================
 - name: Ensure DNS volumes exist
@@ -35,7 +66,59 @@
 - ansible.builtin.include_tasks: unbound.yml
 - ansible.builtin.include_tasks: coredns.yml
 - ansible.builtin.include_tasks: dnsdist.yml
+
+# ============================================================================
+# AdGuard config seed (first boot only)
+# ============================================================================
+# AdGuard's upstream_dns must point at dnsdist or the chain is bypassed.
+# The .template file is Ansible-rendered (Jinja, not envsubst), then seeded
+# into the conf volume only when the volume is still empty — the `test -f`
+# guard makes this safe on hosts where AdGuard already owns its config.
+- name: Ensure AdGuard seed directory exists
+  ansible.builtin.file:
+    path: "{{ localnet_services_dir }}/dns/adguard/seed"
+    state: directory
+    mode: "0755"
+
+- name: Render AdGuardHome.yaml seed config
+  ansible.builtin.template:
+    src: "{{ role_path }}/../../../../03-container/services/dns/adguard/mounts/templates/opt/adguard_home/conf/AdGuardHome.yaml.template"
+    dest: "{{ localnet_services_dir }}/dns/adguard/seed/AdGuardHome.yaml"
+    mode: "0644"
+
+- name: Seed AdGuard conf volume if empty
+  community.docker.docker_container:
+    name: localnet-dns-adguard-seed
+    image: "{{ dns_registry }}/localnet-base-alpine:latest"
+    # entrypoint override is REQUIRED — localnet-base-alpine's ENTRYPOINT
+    # script would swallow `command:` (it becomes args to the entrypoint).
+    entrypoint: ["/bin/sh", "-c"]
+    # command MUST be a single-element list — a string is split on
+    # whitespace into argv tokens (sh -c "test" -f /conf/...) and the
+    # copy never runs.
+    command:
+      - "test -f /conf/.localnet-seeded || { cp /seed/AdGuardHome.yaml /conf/AdGuardHome.yaml && touch /conf/.localnet-seeded; }"
+    volumes:
+      - localnet-dns-adguard-conf-volume:/conf
+      - "{{ localnet_services_dir }}/dns/adguard/seed:/seed:ro"
+    state: started
+    restart_policy: "no"
+    detach: false
+  register: dns_adguard_seed
+  failed_when: false
+
+- name: Ensure seed container is removed
+  community.docker.docker_container:
+    name: localnet-dns-adguard-seed
+    state: absent
+
 - ansible.builtin.include_tasks: adguard.yml
+
+- name: Restart AdGuard to load seeded config
+  community.docker.docker_container:
+    name: localnet-dns-adguard
+    restart: true
+  when: dns_adguard_seed is defined and dns_adguard_seed.changed | default(false)
 
 # ============================================================================
 # Status Report

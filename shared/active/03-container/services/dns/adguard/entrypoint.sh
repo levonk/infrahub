@@ -59,11 +59,13 @@ if [ ! -f "${CONFIG_FILE}" ]; then
     /opt/adguardhome/AdGuardHome -c "${CONFIG_FILE}" -w /opt/adguardhome/work --check-config
 fi
 
-# Update ports in configuration if needed
+# Update ports in configuration if needed. The seds MUST be anchored to
+# whole values — an unanchored `s/port: 53/` rewrites `port: 5354` into
+# garbage (e.g. `5.35454...`) and the config fails to parse.
 if [ -f "${CONFIG_FILE}" ]; then
     echo "Updating port configuration in AdGuardHome.yaml"
-    sed -i "s/port: 53/port: ${DNS_ADGUARD_CONTAINER_PORT}/g" "${CONFIG_FILE}"
-    sed -i "s/bind_port: 80/bind_port: ${DNS_ADGUARD_WEB_CONTAINER_PORT}/g" "${CONFIG_FILE}" || true
+    sed -i "s/^  port: 53\$/  port: ${DNS_ADGUARD_CONTAINER_PORT}/" "${CONFIG_FILE}"
+    sed -i "s/^    bind_port: 80\$/    bind_port: ${DNS_ADGUARD_WEB_CONTAINER_PORT}/" "${CONFIG_FILE}" || true
 fi
 
 # Switch to adguard user and start AdGuard Home
