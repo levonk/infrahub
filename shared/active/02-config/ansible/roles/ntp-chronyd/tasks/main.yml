@@ -48,9 +48,16 @@
 # Disable systemd-timesyncd — two daemons must never discipline the same
 # clock. cloud_servers also set nix_core_tools_time_sync_method: "chrony" so
 # bootstrap does not re-enable it; this task is defense in depth.
+# service_facts can list the unit even when systemd can't load it (EL does
+# not ship timesyncd), so existence is checked via list-unit-files instead.
 # ---------------------------------------------------------------------------
-- name: Get service facts
-  ansible.builtin.service_facts: {}
+- name: Check whether systemd-timesyncd unit exists
+  ansible.builtin.command:
+    cmd: "systemctl list-unit-files systemd-timesyncd.service --no-legend --no-pager"
+  register: ntp_chronyd_timesyncd_unit
+  changed_when: false
+  failed_when: false
+  become: true
   tags: ["always"]
 
 - name: Stop and mask systemd-timesyncd
@@ -61,7 +68,8 @@
     masked: true
   become: true
   when:
-    - ansible_facts.services['systemd-timesyncd.service'] is defined
+    - ntp_chronyd_timesyncd_unit.rc == 0
+    - "'systemd-timesyncd.service' in ntp_chronyd_timesyncd_unit.stdout"
 
 # ---------------------------------------------------------------------------
 # Directories (drift/state + logdir). /var/lib/chrony is created by the
@@ -130,8 +138,11 @@
   become: true
 
 # ---------------------------------------------------------------------------
-# Verification
+# Verification — flush first so the restart lands before we check sync
 # ---------------------------------------------------------------------------
+- name: Flush handlers (apply chrony.conf + drop-in now)
+  ansible.builtin.meta: flush_handlers
+
 - name: Wait for chronyd to acquire a sync source
   ansible.builtin.command:
     cmd: "chronyc tracking"
@@ -139,7 +150,7 @@
   changed_when: false
   retries: "{{ ntp_chronyd_verify_retries }}"
   delay: "{{ ntp_chronyd_verify_delay }}"
-  until: "'Reference ID' in ntp_chronyd_tracking.stdout and '(' in ntp_chronyd_tracking.stdout"
+  until: "'Leap status' in ntp_chronyd_tracking.stdout and 'Normal' in ntp_chronyd_tracking.stdout"
   when: ntp_chronyd_verify_health | bool
 
 - name: Report chronyd status

@@ -45,7 +45,7 @@
           ========================================
           Target: {{ inventory_hostname }}
           Domain: {{ infra_domain_ntp_server | default('ntp.' ~ (infra_domain_base | default('example.com'))) }}
-          Bind: {{ infra_tailscale_ip_cloud_server | default('unset') }}:{{ infra_port_ntp_server_host | default('123') }}/udp+tcp
+          Bind: {{ infra_tailscale_ip_cloud_server | default('unset') }}:{{ infra_port_ntp_server_host | default('123') }}/udp
           Allowed: {{ infra_network_tailscale_cidr | default('100.64.0.0/10') }}
           ========================================
       tags: ["always", "info"]

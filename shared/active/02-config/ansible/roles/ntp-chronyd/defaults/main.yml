@@ -39,12 +39,13 @@ ntp_chronyd_fallback_sources:
 
 # ---------------------------------------------------------------------------
 # Serving (tailnet only)
-# bindaddress restricts listening sockets; upstream client sockets are NOT
-# affected (they use bindacqaddress, default unbound). localhost is kept so
-# local consumers and verify checks can query the server.
+# NOTE: chronyd allows only ONE bindaddress per protocol — last wins — so
+# the server socket binds to the tailnet IP only. Local consumers query the
+# tailnet IP (allowed via 127.0.0.1 / tailnet CIDR source). Upstream client
+# sockets are unaffected by bindaddress (bindacqaddress stays unbound).
 # ---------------------------------------------------------------------------
 ntp_chronyd_tailnet_bind_ip: "{{ infra_tailscale_ip_cloud_server | default('') }}"
-ntp_chronyd_bind_addresses: "{{ ['127.0.0.1'] + ([ntp_chronyd_tailnet_bind_ip] if ntp_chronyd_tailnet_bind_ip | length > 0 else []) }}"
+ntp_chronyd_bind_addresses: "{{ [ntp_chronyd_tailnet_bind_ip] if ntp_chronyd_tailnet_bind_ip | length > 0 else [] }}"
 ntp_chronyd_allow_networks:
   - "127.0.0.1"
   - "{{ infra_network_tailscale_cidr | default('100.64.0.0/10') }}"

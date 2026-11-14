@@ -17,14 +17,18 @@ so bootstrap does not re-enable it.
 
 - Installs `chrony`, templates `chrony.conf` (EL: `/etc/chrony.conf`,
   Debian: `/etc/chrony/chrony.conf`).
-- Upstreams: NTS to `time.google.com`/`time2.google.com`/`time.nist.gov`,
-  plain-NTP fallbacks (pool, Cloudflare, Apple, Microsoft).
+- Upstreams: NTS-capable sources (`time.google.com`/`time2.google.com`/
+  `time.nist.gov`) get the `nts` flag only when `ntp_chronyd_nts_enabled` —
+  **on OCI it is set `false`** because the OCI security list blocks
+  outbound TCP 4460 (NTS-KE). Plain-NTP fallbacks: pool, Cloudflare,
+  Apple, Microsoft.
 - Leap smearing: `smoothtime 400 0.001 leaponly` — Google smears
   server-side; this is the safety net for non-smearing sources.
 - Serves NTP on `port {{ infra_port_ntp_server_host }}` (123) bound to
-  `127.0.0.1` + `{{ infra_tailscale_ip_cloud_server }}` only, `allow` limited
-  to `{{ infra_network_tailscale_cidr }}` — public queries are silently
-  dropped (no amplification reflector).
+  `{{ infra_tailscale_ip_cloud_server }}` only (chronyd allows one
+  `bindaddress` per protocol — last wins; local consumers query the
+  tailnet IP), `allow` limited to `{{ infra_network_tailscale_cidr }}` —
+  public queries are silently dropped (no amplification reflector).
 - systemd drop-in orders chronyd `After=tailscaled.service` so the bind
   address exists at startup.
 - Stops + masks `systemd-timesyncd` (defense in depth).
@@ -36,8 +40,8 @@ See `defaults/main.yml`. Key overrides:
 | Var | Default | Purpose |
 |-----|---------|---------|
 | `ntp_chronyd_tailnet_bind_ip` | `infra_tailscale_ip_cloud_server` | Tailscale IP to bind/serve on |
-| `ntp_chronyd_nts_enabled` | `true` | Use `nts` on upstreams (role asserts `+NTS` in `chronyd -v`) |
-| `ntp_chronyd_bind_addresses` | localhost + tailnet IP | Listening sockets |
+| `ntp_chronyd_nts_enabled` | `true` (`false` on OCI) | Use `nts` on upstreams (role asserts `+NTS` in `chronyd -v`) |
+| `ntp_chronyd_bind_addresses` | tailnet IP only | Listening sockets (one `bindaddress` per protocol) |
 | `ntp_chronyd_allow_networks` | localhost + tailnet CIDR | `allow` ACL |
 | `ntp_chronyd_verify_health` | `true` | Run `chronyc tracking` retries post-deploy |
 
