@@ -1,0 +1,43 @@
+---
+# net-openwrt — manage OpenWrt devices via rendered /etc/config files.
+
+- name: Validate required variables
+  ansible.builtin.assert:
+    that:
+      - openwrt_mode in ["ap", "router"]
+      - openwrt_lan_ipaddr | length > 0
+      - openwrt_wireless_networks | length > 0
+      - openwrt_mode == "router" or (openwrt_lan_gateway | length > 0)
+      - openwrt_mode == "ap" or (openwrt_wan_interfaces | length > 0)
+    fail_msg: >-
+      ERROR: net-openwrt variables missing/invalid. Required: openwrt_lan_ipaddr,
+      openwrt_wireless_networks. AP mode also needs openwrt_lan_gateway;
+      router mode needs openwrt_wan_interfaces. Check group_vars/host_vars.
+    success_msg: "net-openwrt variables validated."
+  tags: ["always", "validate"]
+
+- name: Validate every SSID has a key
+  ansible.builtin.assert:
+    that:
+      - item.key is defined and (item.key | length) >= 8
+    fail_msg: >-
+      ERROR: wireless network "{{ item.ssid | default('?') }}" has no key or a
+      key shorter than 8 chars. Point it at a vault variable
+      (e.g. vault_openwrt_wifi_key_*) in group_vars/openwrt_aps.yml.
+    success_msg: "All SSIDs have keys."
+  loop: "{{ openwrt_wireless_networks }}"
+  when: (item.encryption | default('sae-mixed')) != "none"
+  tags: ["always", "validate"]
+
+- name: Bootstrap (python3-light, packages, SSH keys)
+  ansible.builtin.include_tasks: bootstrap.yml
+  tags: ["always", "bootstrap"]
+
+- name: Deploy UCI configuration
+  ansible.builtin.include_tasks: configure.yml
+  tags: ["always", "configure"]
+
+- name: Configure mwan3 multi-WAN
+  ansible.builtin.include_tasks: mwan3.yml
+  when: openwrt_mwan3_enabled
+  tags: ["mwan3"]

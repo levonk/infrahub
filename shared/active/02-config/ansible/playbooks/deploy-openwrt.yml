@@ -1,0 +1,98 @@
+---
+# Deploy OpenWrt Configuration Playbook
+# Location: shared/active/02-config/ansible/playbooks/deploy-openwrt.yml
+#
+# Configures OpenWrt devices (Linksys WHW01/VLP01 etc.) in the openwrt_aps
+# inventory group. Bootstrap installs python3-light via raw/opkg on first
+# run, then renders /etc/config/{system,network,wireless,dropbear,dhcp,
+# firewall,mwan3} from role templates.
+#
+# Prerequisites (per device, one-time, physical):
+#   1. Flash OpenWrt factory image via the Linksys web UI
+#      (Connectivity → "CA" link → manual firmware update).
+#   2. Set a root password (LuCI → System → Administration, or `passwd`).
+#   3. First run: override ansible_host to the device's current IP —
+#      fresh OpenWrt is 192.168.1.1:
+#        -e ansible_host=192.168.1.1 --limit velop01 -k
+#      The play applies the static mgmt IP at the END via handlers; the
+#      connection may drop on the final network reload — that is expected.
+#
+# Usage:
+#   ansible-playbook \
+#     -i levonk/active/02-config/ansible/inventories/localnet.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-openwrt.yml \
+#     --vault-password-file ~/.ansible/vault_password \
+#     --limit velop01
+#
+# WARNING: network/wireless reloads at handler time can drop the SSH
+# session. Re-run validation afterwards (validate-openwrt.yml) against the
+# final management IP.
+
+- name: "Configure OpenWrt devices"
+  hosts: openwrt_aps
+  gather_facts: false
+  become: false
+
+  pre_tasks:
+    - name: "Load shared infrastructure variable schemas"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/{{ item }}"
+      loop:
+        - modes.yml
+        - timing.yml
+      tags: ["always"]
+
+    - name: "Load client infrastructure overrides (levonk)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/{{ item }}"
+      loop:
+        - networks.yml
+        - domains.yml
+      tags: ["always"]
+
+    - name: "Report target"
+      ansible.builtin.raw: ubus call system board
+      register: openwrt_board
+      changed_when: false
+      failed_when: false
+      tags: ["always", "info"]
+
+    - name: "Show board info"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Deploy OpenWrt config
+          ========================================
+          Host: {{ inventory_hostname }}
+          Ansible Host: {{ ansible_host }}
+          Mode: {{ openwrt_mode }}
+          Board: {{ openwrt_board.stdout | default('unavailable') }}
+          ========================================
+      tags: ["always", "info"]
+
+  roles:
+    - role: net-openwrt
+      tags: ["openwrt", "network"]
+
+  post_tasks:
+    - name: "Flush handlers early so connectivity settles before verify"
+      ansible.builtin.meta: flush_handlers
+      tags: ["verify"]
+
+    - name: "Wait for SSH to come back after network reload"
+      ansible.builtin.wait_for_connection:
+        timeout: 60
+      tags: ["verify"]
+      ignore_errors: true
+
+    - name: "Verify configured SSIDs are committed"
+      ansible.builtin.command: uci show wireless
+      register: openwrt_wireless_check
+      changed_when: false
+      tags: ["verify"]
+      ignore_errors: true
+
+    - name: "Report wireless state"
+      ansible.builtin.debug:
+        msg: "wireless config present: {{ openwrt_wireless_check.stdout | default('n/a') | length > 0 }}"
+      tags: ["verify"]

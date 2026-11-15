@@ -1,0 +1,23 @@
+---
+# Handlers run at play end so connectivity-disrupting reloads happen once.
+
+- name: reload system
+  ansible.builtin.command: /etc/init.d/system reload
+
+- name: reload network
+  ansible.builtin.command: /etc/init.d/network reload
+
+- name: reload wireless
+  ansible.builtin.command: wifi reload
+
+- name: reload dropbear
+  ansible.builtin.command: /etc/init.d/dropbear reload
+
+- name: reload dnsmasq
+  ansible.builtin.command: /etc/init.d/dnsmasq restart
+
+- name: reload firewall
+  ansible.builtin.command: /etc/init.d/firewall reload
+
+- name: restart mwan3
+  ansible.builtin.command: /usr/sbin/mwan3 restart

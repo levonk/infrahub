@@ -126,6 +126,8 @@
       "ansible-validate-paperclip": "just --justfile levonk/justfile levonk-validate-paperclip",
       "ansible-validate-copyparty": "just --justfile levonk/justfile levonk-validate-copyparty",
       "ansible-deploy-copyparty": "just --justfile levonk/justfile levonk-deploy-copyparty",
+      "ansible-deploy-openwrt": "just --justfile levonk/justfile levonk-deploy-openwrt",
+      "ansible-validate-openwrt": "just --justfile levonk/justfile levonk-validate-openwrt",
       "levonk-deploy-exit-nodes-nl": "just --justfile levonk/justfile levonk-deploy-exit-nodes-nl",
       "ansible-bootstrap-windows-docker": "just --justfile levonk/justfile levonk-bootstrap-windows-docker",
       "ansible-deploy-local-registry": "just --justfile levonk/justfile levonk-deploy-local-registry",

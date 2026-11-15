@@ -1,0 +1,14 @@
+---
+# Handlers for ntp-chronyd role
+
+- name: systemd daemon-reload
+  ansible.builtin.systemd:
+    daemon_reload: true
+  become: true
+
+- name: restart chronyd
+  ansible.builtin.systemd:
+    name: "{{ ntp_chronyd_service_name }}"
+    state: restarted
+    daemon_reload: true
+  become: true

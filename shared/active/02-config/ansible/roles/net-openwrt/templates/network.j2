@@ -1,0 +1,82 @@
+# Managed by Ansible (net-openwrt role) — manual edits will be overwritten.
+
+config interface 'loopback'
+	option device 'lo'
+	option proto 'static'
+	option ipaddr '127.0.0.1'
+	option netmask '255.0.0.0'
+
+config globals 'globals'
+	option ula_prefix 'fd00:0:0:1::/64'
+
+config device
+	option name '{{ openwrt_lan_device }}'
+	option type 'bridge'
+{% for port in openwrt_lan_ports %}
+	list ports '{{ port }}'
+{% endfor %}
+
+config interface 'lan'
+	option device '{{ openwrt_lan_device }}{{ '.' ~ openwrt_lan_pvid if openwrt_bridge_vlans | length > 0 else '' }}'
+	option proto '{{ openwrt_lan_proto }}'
+{% if openwrt_lan_proto == 'static' %}
+	option ipaddr '{{ openwrt_lan_ipaddr }}'
+	option netmask '{{ openwrt_lan_netmask }}'
+{% if openwrt_mode == 'ap' %}
+	option gateway '{{ openwrt_lan_gateway }}'
+{% for dns in openwrt_lan_dns %}
+	list dns '{{ dns }}'
+{% endfor %}
+{% endif %}
+{% endif %}
+{% for bv in openwrt_bridge_vlans %}
+
+config bridge-vlan
+	option device '{{ bv.device | default('br-lan') }}'
+	option vlan '{{ bv.vid }}'
+{% for port in bv.tagged_ports | default([]) %}
+	list ports '{{ port }}:t'
+{% endfor %}
+{% for port in bv.untagged_ports | default([]) %}
+	list ports '{{ port }}:u*'
+{% endfor %}
+{% endfor %}
+{% for iface in openwrt_extra_interfaces %}
+{% if iface.ports is defined and iface.ports | length > 0 %}
+
+config device
+	option name 'br-{{ iface.name }}'
+	option type 'bridge'
+{% for port in iface.ports %}
+	list ports '{{ port }}'
+{% endfor %}
+{% endif %}
+
+config interface '{{ iface.name }}'
+	option device '{{ iface.device | default('br-' ~ iface.name) }}'
+	option proto '{{ iface.proto | default('static') }}'
+{% if (iface.proto | default('static')) == 'static' %}
+	option ipaddr '{{ iface.ipaddr }}'
+	option netmask '{{ iface.netmask | default('255.255.255.0') }}'
+{% endif %}
+{% endfor %}
+{% if openwrt_mode == 'router' %}
+{% for wan in openwrt_wan_interfaces %}
+
+config interface '{{ wan.name }}'
+	option proto '{{ wan.proto | default('dhcp') }}'
+	option device '{{ wan.device | default(openwrt_wan_port) }}'
+	option metric '{{ wan.metric | default(loop.index * 10) }}'
+{% if (wan.proto | default('dhcp')) == 'static' %}
+	option ipaddr '{{ wan.ipaddr }}'
+	option netmask '{{ wan.netmask | default('255.255.255.0') }}'
+	option gateway '{{ wan.gateway }}'
+{% endif %}
+{% if wan.peerdns is defined %}
+	option peerdns '{{ wan.peerdns }}'
+{% endif %}
+{% for dns in wan.dns | default([]) %}
+	list dns '{{ dns }}'
+{% endfor %}
+{% endfor %}
+{% endif %}

@@ -134,6 +134,12 @@ in {
       # Notes / productivity
       "obsidian"
 
+      # Voice dictation — GPLv3, on-device models, no cloud/API key needed.
+      # Universal binary (x86_64+arm64), macOS 15+ (all fleet hosts qualify).
+      # Local models (Fluid Speech/Parakeet/Nemotron/Qwen3) are Apple
+      # Silicon-only — Intel hosts fall back to local Whisper dictation.
+      "fluidvoice"
+
       # Network tunneling
       "ngrok"
     ]

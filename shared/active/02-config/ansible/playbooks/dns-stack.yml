@@ -58,3 +58,38 @@
   roles:
     - role: dns
       tags: ["dns"]
+
+- name: "Deploy DNS Stack to OCI cloud server (cno)"
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+
+  # NOTE: do NOT include_vars shared group_vars/all.yml here — include_vars
+  # outranks inventory group_vars and would clobber cloud_servers overrides
+  # (port remaps for OCI conflicts, dns_publish_ip, etc.).
+  pre_tasks:
+    - name: "Load shared infrastructure defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+        - modes.yml
+        - timing.yml
+      tags: ["always"]
+
+    - name: "Load client infrastructure overrides (levonk)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+      tags: ["always"]
+
+  roles:
+    - role: dns
+      tags: ["dns"]

@@ -117,7 +117,33 @@
   failed_when: false
   tags: ["deploy", "container"]
 
-# 7. Deploy NordVPN (gluetun) container
+# 7. Derive NordVPN WireGuard private key from the API token.
+# The NordVPN account access token (vault_nordvpn_token) is exchanged for the
+# account's nordlynx_private_key — WireGuard auth is preferred over OpenVPN
+# because the vault's OpenVPN service credentials may be stale.
+- name: "Derive NordVPN WireGuard private key from API token"
+  ansible.builtin.uri:
+    url: "https://api.nordvpn.com/v1/users/services/credentials"
+    method: GET
+    url_username: "token"
+    url_password: "{{ vpn_nordvpn_windows_token }}"
+    force_basic_auth: true
+    return_content: true
+    status_code: 200
+  delegate_to: localhost
+  register: nordvpn_windows_credentials
+  no_log: true
+  when: vpn_nordvpn_windows_token | length > 0
+  tags: ["deploy", "auth"]
+
+- name: "Set NordVPN WireGuard private key fact"
+  ansible.builtin.set_fact:
+    nordvpn_windows_wg_private_key: "{{ nordvpn_windows_credentials.json.nordlynx_private_key }}"
+  no_log: true
+  when: vpn_nordvpn_windows_token | length > 0
+  tags: ["deploy", "auth"]
+
+# 8. Deploy NordVPN (gluetun) container
 - name: "Deploy NordVPN Windows container"
   ansible.builtin.shell: >-
     docker run -d
@@ -127,14 +153,19 @@
     --cap-add NET_RAW
     --device /dev/net/tun:/dev/net/tun
     --network {{ vpn_nordvpn_windows_network_name }}
-    --sysctl net.ipv4.ip_forward=1  # project-lint: disable=magic-int  sysctl forwarding flag
-    --sysctl net.ipv6.conf.all.forwarding=1  # project-lint: disable=magic-int  sysctl forwarding flag
+    --sysctl net.ipv4.ip_forward=1
+    --sysctl net.ipv6.conf.all.forwarding=1
     --security-opt no-new-privileges:true
     -e VPN_SERVICE_PROVIDER=nordvpn
-    -e OPENVPN_VERSION=2.6  # project-lint: disable=magic-dotted  openvpn version, not an operational magic number
-    -e "SERVER_COUNTRIES={{ vpn_nordvpn_windows_country }}"
+    {% if vpn_nordvpn_windows_token | length > 0 %}
+    -e VPN_TYPE=wireguard
+    -e "WIREGUARD_PRIVATE_KEY={{ nordvpn_windows_wg_private_key }}"
+    {% else %}
+    -e OPENVPN_VERSION=2.6
     -e "OPENVPN_USER={{ vpn_nordvpn_windows_openvpn_user }}"
     -e "OPENVPN_PASSWORD={{ vpn_nordvpn_windows_openvpn_pass }}"
+    {% endif %}
+    -e "SERVER_COUNTRIES={{ vpn_nordvpn_windows_country }}"
     -e FIREWALL=on
     -e DOT=on
     -e TZ={{ vpn_nordvpn_windows_tz }}
@@ -162,13 +193,13 @@
   no_log: true
   tags: ["deploy", "container"]
 
-# 8. Wait for NordVPN to initialize
+# 9. Wait for NordVPN to initialize
 - name: "Wait for NordVPN Windows container to initialize"
   ansible.builtin.pause:
     seconds: "{{ infra_delay_long }}"
   tags: ["deploy", "wait"]
 
-# 9. Deploy Tailscale exit node container (routes through NordVPN)
+# 10. Deploy Tailscale exit node container (routes through NordVPN)
 - name: "Deploy Tailscale NordVPN Windows exit node container"
   ansible.builtin.shell: >-
     docker run -d
@@ -177,8 +208,8 @@
     --network {{ vpn_nordvpn_windows_network_name }}
     --cap-add NET_ADMIN
     --device /dev/net/tun:/dev/net/tun
-    --sysctl net.ipv4.ip_forward=1  # project-lint: disable=magic-int  sysctl forwarding flag
-    --sysctl net.ipv6.conf.all.forwarding=1  # project-lint: disable=magic-int  sysctl forwarding flag
+    --sysctl net.ipv4.ip_forward=1
+    --sysctl net.ipv6.conf.all.forwarding=1
     --security-opt no-new-privileges:true
     -e TS_AUTHKEY={{ vpn_tailscale_windows_auth_key }}
     -e TS_HOSTNAME={{ vpn_tailscale_windows_nordvpn_hostname }}
@@ -198,13 +229,13 @@
   no_log: true
   tags: ["deploy", "container"]
 
-# 10. Wait for Tailscale to initialize
+# 11. Wait for Tailscale to initialize
 - name: "Wait for Tailscale NordVPN Windows to initialize"
   ansible.builtin.pause:
     seconds: "{{ infra_delay_extended }}"
   tags: ["deploy", "wait"]
 
-# 11. Configure NordVPN as gateway for Tailscale traffic
+# 12. Configure NordVPN as gateway for Tailscale traffic
 - name: "Get NordVPN Windows container IP"
   ansible.builtin.shell: >-
     docker inspect {{ vpn_nordvpn_windows_container_name }}
@@ -229,7 +260,7 @@
   failed_when: false
   tags: ["deploy", "route"]
 
-# 12. Status report
+# 13. Status report
 - name: "Get NordVPN Windows container status"
   ansible.builtin.shell: >-
     docker inspect {{ vpn_nordvpn_windows_container_name }}

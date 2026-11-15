@@ -1,0 +1,9 @@
+# Managed by Ansible (net-openwrt role) — manual edits will be overwritten.
+
+config dropbear
+	option PasswordAuth '{{ 'on' if openwrt_dropbear_password_auth else 'off' }}'
+	option RootPasswordAuth '{{ 'on' if openwrt_dropbear_root_password_auth else 'off' }}'
+	option Port '{{ openwrt_dropbear_port }}'
+{% if openwrt_dropbear_interface | length > 0 %}
+	option Interface '{{ openwrt_dropbear_interface }}'
+{% endif %}
