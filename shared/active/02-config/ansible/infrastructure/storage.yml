@@ -331,6 +331,20 @@ infra_storage_stirling_pdf_logs_volume: "localnet-stirling-pdf-logs-volume"
 infra_storage_acrm_postgres_data_volume: "localnet-acrm-postgres-data-volume"
 
 # ---------------------------------------------------------------------------
+# Postiz (self-hosted social-media scheduling — nl region, dtop202311)
+# Uploads volume holds user media (STORAGE_PROVIDER=local, mounted at
+# /uploads). Temporal dynamicconfig volume is populated by a one-shot init
+# container (development-sql.yaml — not baked into the image) and mounted
+# at /etc/temporal/config/dynamicconfig. Redis persistence is nice-to-have.
+# ---------------------------------------------------------------------------
+infra_storage_postiz_uploads_volume: "localnet-postiz-uploads-volume"
+infra_storage_postiz_postgres_data_volume: "localnet-postiz-postgres-data-volume"
+infra_storage_postiz_redis_data_volume: "localnet-postiz-redis-data-volume"
+infra_storage_postiz_temporal_postgres_data_volume: "localnet-postiz-temporal-postgres-data-volume"
+infra_storage_postiz_temporal_dynamicconfig_volume: "localnet-postiz-temporal-dynamicconfig-volume"
+infra_storage_postiz_es_data_volume: "localnet-postiz-temporal-es-data-volume"
+
+# ---------------------------------------------------------------------------
 # Wazuh Security Stack — missing volume definitions
 # ---------------------------------------------------------------------------
 infra_storage_wazuh_indexer_config_volume: "localnet-wazuh-indexer-config-volume"

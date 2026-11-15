@@ -1042,6 +1042,98 @@ services:
   storage:
     - "localnet-acrm-postgres-data-volume (pgdata — /var/lib/postgresql/data)"
 
+# ---------------------------------------------------------------------------
+# Postiz (self-hosted social-media scheduling — nl region, dtop202311)
+# All-in-one ghcr.io image (Next.js UI + NestJS API + Temporal worker on
+# :5000) + dedicated Postgres + Redis + Temporal auto-setup + Temporal's
+# own Postgres. App auth, no Authelia — provider OAuth callbacks need a
+# direct path. postiz.nl serves UI /api /uploads /integrations on one port.
+# ---------------------------------------------------------------------------
+
+- name: "Postiz"
+  container: "{{ infra_hostname_postiz }}"
+  machine: "dtop202311"
+  category: "app"
+  description: "Social-media scheduling platform (UI + API + Temporal worker, all-in-one)"
+  source_repo: "https://github.com/gitroomhq/postiz-app"
+  domains:
+    - "infra_domain_tools_postiz"
+  ports:
+    - host: "infra_port_tools_postiz_host"
+      container: "infra_port_tools_postiz_container"
+      label: "Web/API"
+  traefik: true
+  network: "traefik-windows-network"
+  notes: "Also joined to postiz-network + postiz-temporal-network for postgres/redis/temporal access"
+  storage:
+    - "localnet-postiz-uploads-volume (user media — /uploads)"
+  health_endpoint: "/"
+  metrics_path: null
+  pipeline: "none"
+  alert_labels:
+    pipeline: "none"
+    stage: "app"
+    service: "postiz"
+
+- name: "Postiz Postgres"
+  container: "{{ infra_hostname_postiz_postgres }}"
+  machine: "dtop202311"
+  category: "passive"
+  description: "PostgreSQL database for Postiz (channels, posts, schedules)"
+  source_repo: "https://github.com/postgres/postgres"
+  ports:
+    - host: "infra_port_tools_postiz_postgres_host"
+      container: "infra_port_tools_postiz_postgres_container"
+      label: "PostgreSQL"
+  network: "postiz-network"
+  storage:
+    - "localnet-postiz-postgres-data-volume (pgdata — /var/lib/postgresql/data)"
+
+- name: "Postiz Redis"
+  container: "{{ infra_hostname_postiz_redis }}"
+  machine: "dtop202311"
+  category: "passive"
+  description: "Redis queues/cache/sessions for Postiz"
+  source_repo: "https://github.com/redis/redis"
+  network: "postiz-network"
+  storage:
+    - "localnet-postiz-redis-data-volume (AOF — /data)"
+
+- name: "Postiz Temporal"
+  container: "{{ infra_hostname_postiz_temporal }}"
+  machine: "dtop202311"
+  category: "passive"
+  description: "Temporal workflow engine (auto-setup) for Postiz post scheduling"
+  source_repo: "https://github.com/temporalio/temporal"
+  network: "postiz-temporal-network"
+  storage:
+    - "localnet-postiz-temporal-dynamicconfig-volume (development-sql.yaml — /etc/temporal/config/dynamicconfig)"
+  notes: "ENABLE_ES=false — no Elasticsearch; gRPC 7233 internal only (TEMPORAL_ADDRESS)"
+
+- name: "Postiz Temporal Postgres"
+  container: "{{ infra_hostname_postiz_temporal_postgres }}"
+  machine: "dtop202311"
+  category: "passive"
+  description: "PostgreSQL persistence for Temporal (separate from app DB per upstream layout)"
+  source_repo: "https://github.com/postgres/postgres"
+  ports:
+    - host: "infra_port_tools_postiz_temporal_postgres_host"
+      container: "infra_port_tools_postiz_temporal_postgres_container"
+      label: "PostgreSQL"
+  network: "postiz-temporal-network"
+  storage:
+    - "localnet-postiz-temporal-postgres-data-volume (pgdata — /var/lib/postgresql/data)"
+
+- name: "Postiz Temporal Elasticsearch"
+  container: "localnet-postiz-temporal-elasticsearch"
+  machine: "dtop202311"
+  category: "passive"
+  description: "Advanced visibility store for Temporal — required by Postiz (registers more Text search attributes than SQL visibility allows)"
+  source_repo: "https://github.com/elastic/elasticsearch"
+  network: "postiz-temporal-network"
+  storage:
+    - "localnet-postiz-temporal-es-data-volume (indices — /usr/share/elasticsearch/data)"
+
 # ===========================================================================
 # Dashboards / Start Pages
 # ===========================================================================

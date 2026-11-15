@@ -259,6 +259,17 @@ infra_network_ip_n8n_grafana_traefik: "172.31.0.21"
 infra_network_ai_acrm_network_name: "acrm-network"
 
 # ---------------------------------------------------------------------------
+# Postiz (nl region — dtop202311, Windows Docker Desktop)
+# Used by: tools-postiz role (deploy-postiz.yml playbook)
+# Two bridge networks matching the upstream compose layout: postiz-network
+# for app <-> postgres <-> redis, postiz-temporal-network for temporal <->
+# temporal-postgres. The postiz app container joins both plus
+# traefik-windows-network. No subnet allocation (Docker Desktop assigns).
+# ---------------------------------------------------------------------------
+infra_network_tools_postiz_network_name: "postiz-network"
+infra_network_tools_postiz_temporal_network_name: "postiz-temporal-network"
+
+# ---------------------------------------------------------------------------
 # Fallback network values — referenced by role defaults but not yet allocated
 # to specific deployments.
 # These are last-resort defaults used inside `default()` expressions in role

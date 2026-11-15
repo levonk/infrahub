@@ -49,6 +49,7 @@ PB_WATCH_PARTY := ANSIBLE_ROOT + "/playbooks/deploy-watch-party.yml"
 PB_VAL_WATCH_PARTY := ANSIBLE_ROOT + "/playbooks/validate-watch-party.yml"
 PB_VAL_AUTHELIA := ANSIBLE_ROOT + "/playbooks/validate-authelia.yml"
 PB_ACRM := ANSIBLE_ROOT + "/playbooks/deploy-acrm.yml"
+PB_POSTIZ := ANSIBLE_ROOT + "/playbooks/deploy-postiz.yml"
 PB_PATCH_OPENSSH := ANSIBLE_ROOT + "/playbooks/patch-openssh-musl-bypass.yml"
 WINDOWS_INVENTORY := INFRAHUB_ROOT + "/levonk/active/02-config/ansible/inventories/windows-docker.yml"
 MACOS_INVENTORY := INFRAHUB_ROOT + "/levonk/active/02-config/ansible/inventories/macos-hosts.yml"
@@ -763,6 +764,34 @@ ansible_deploy_acrm_check_impl:
     {{_log}}
     log_start "Checking ACRM deployment on Windows Docker host (--check --diff)"
     ansible-playbook -i {{WINDOWS_INVENTORY}} {{PB_ACRM}} --check --diff --vault-password-file ~/.ansible/vault_password
+
+# Deploy Postiz (app + postgres + redis + temporal + temporal-postgres) on
+# Windows Docker host (nl region). App's own auth — no Authelia.
+# Prerequisites: vault keys (vault_postiz_jwt_secret,
+# vault_postiz_postgres_password, vault_postiz_temporal_postgres_password,
+# vault_postiz_encryption_key), SSH to the Windows host, ghcr.io reachable.
+ansible-deploy-postiz:
+    @just _devbox ansible_deploy_postiz_impl
+
+[private]
+ansible_deploy_postiz_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Deploying Postiz on Windows Docker host"
+    ansible-playbook -i {{WINDOWS_INVENTORY}} {{PB_POSTIZ}} --vault-password-file ~/.ansible/vault_password
+
+# Dry-run Postiz deployment (--check --diff; limited fidelity — role tasks are shell/command)
+ansible-deploy-postiz-check:
+    @just _devbox ansible_deploy_postiz_check_impl
+
+[private]
+ansible_deploy_postiz_check_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Checking Postiz deployment on Windows Docker host (--check --diff)"
+    ansible-playbook -i {{WINDOWS_INVENTORY}} {{PB_POSTIZ}} --check --diff --vault-password-file ~/.ansible/vault_password
 
 # Deploy Local Watch Party + coturn on OCI cloud server
 # Prerequisites: Traefik + Authelia deployed, watch-party image built, vault secret set.

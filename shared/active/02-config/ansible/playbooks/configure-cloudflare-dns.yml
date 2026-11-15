@@ -218,6 +218,14 @@
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
 
+      # Postiz — nl (Windows Docker Desktop, app auth — no Authelia)
+      - name: "{{ infra_domain_tools_postiz | default('postiz.nl.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "CNAME"
+        content: "{{ ts_fqdn_windows_docker }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
       # Media Stack — nl (Windows Docker Desktop)
       # All media services run on dtop202311 behind Traefik.
       # See shared/docs/pipelines/media/PIPELINE-MEDIA.md for the full pipeline.

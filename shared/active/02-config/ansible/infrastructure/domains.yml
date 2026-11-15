@@ -309,6 +309,19 @@ infra_hostname_acrm_web: "localnet-acrm-web"
 infra_hostname_acrm_postgres: "localnet-acrm-postgres"
 
 # ---------------------------------------------------------------------------
+# Postiz (nl region — X86, dtop202311)
+# Self-hosted social-media scheduling (all-in-one ghcr.io image: Next.js UI +
+# NestJS API + Temporal worker on container :5000). App's own auth — no
+# Authelia: provider OAuth callbacks and registration need a direct path.
+# ---------------------------------------------------------------------------
+infra_domain_tools_postiz: "postiz.nl.{{ infra_domain_base }}"
+infra_hostname_postiz: "localnet-postiz"
+infra_hostname_postiz_postgres: "localnet-postiz-postgres"
+infra_hostname_postiz_redis: "localnet-postiz-redis"
+infra_hostname_postiz_temporal: "localnet-postiz-temporal"
+infra_hostname_postiz_temporal_postgres: "localnet-postiz-temporal-postgres"
+
+# ---------------------------------------------------------------------------
 # Fallback hostnames — generic (non-suffixed) aliases for roles that reference
 # the service without a region suffix. Map to the nl (primary) variant.
 # ---------------------------------------------------------------------------

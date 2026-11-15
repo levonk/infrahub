@@ -300,6 +300,20 @@ infra_value_rustfs_traefik_backend_url: ""
 # --- tools-croc-relay ---
 infra_value_croc_relay_docker_host: ""
 
+# --- tools-postiz ---
+infra_value_postiz_container_name: "localnet-postiz"
+infra_value_postiz_container_name_postgres: "localnet-postiz-postgres"
+infra_value_postiz_container_name_redis: "localnet-postiz-redis"
+infra_value_postiz_container_name_temporal: "localnet-postiz-temporal"
+infra_value_postiz_container_name_temporal_postgres: "localnet-postiz-temporal-postgres"
+infra_value_postiz_docker_host_windows: ""
+infra_value_postiz_domain: ""
+infra_value_postiz_encryption_key: "change-me"
+infra_value_postiz_jwt_secret: "change-me"
+infra_value_postiz_postgres_password: "change-me"
+infra_value_postiz_temporal_postgres_password: "change-me"
+infra_value_postiz_tz: "UTC"
+
 # --- vpn-netbird ---
 infra_value_vpn_netbird_hostname: ""
 

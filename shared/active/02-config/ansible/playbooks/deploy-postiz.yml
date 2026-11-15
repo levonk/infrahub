@@ -1,0 +1,253 @@
+---
+# Deploy Postiz to Windows Docker Desktop (nl region)
+# Location: shared/active/02-config/ansible/playbooks/deploy-postiz.yml
+#
+# Postiz — self-hosted social-media scheduling platform. Upstream all-in-one
+# ghcr.io image (Next.js UI + NestJS API + Temporal worker on container :5000)
+# + dedicated Postgres + Redis + Temporal auto-setup + Temporal Postgres on
+# dtop202311 (Windows Docker Desktop).
+#   postiz.nl.{{ infra_domain_base }} — UI/API/uploads/OAuth on one domain
+#
+# Three-phase deployment:
+#   Phase 0 (localhost): Cloudflare DNS — postiz.nl CNAME → the Windows
+#            Docker host's Tailscale FQDN (cloudflare-dns role with an inline
+#            one-record list; the canonical configure-cloudflare-dns.yml
+#            already carries this record, this phase is self-contained).
+#   Phase 1 (Windows Docker host): deploy the six Postiz containers via the
+#            ssh-tunneled Docker CLI pattern (community.docker modules can't
+#            run on Windows — Ansible core basic.py imports grp, Unix-only).
+#            Boot order: postgres + temporal-postgres + redis → temporal →
+#            app → connect postiz-temporal-network + traefik-windows-network.
+#   Phase 2 (Windows Docker host): re-run proxy_traefik_windows with
+#            proxy_traefik_windows_postiz_enabled to deploy the postiz-nl.yml
+#            dynamic config. App's own auth — NO Authelia middleware
+#            (provider OAuth callbacks + registration need a direct path).
+#
+# First-deploy prerequisites:
+#   1. Vault keys present (all asserted non-empty by the role):
+#        vault_postiz_jwt_secret                  — JWT signing secret
+#        vault_postiz_postgres_password           — app database password
+#        vault_postiz_temporal_postgres_password  — temporal database password
+#        vault_postiz_encryption_key              — ENCRYPTION_PROVIDER=local
+#                                                   key (provider OAuth tokens
+#                                                   encrypted at rest)
+#      in levonk/.../group_vars/infrahub-levonk-all.vault.yml (user handoff)
+#   2. SSH to ansible@dtop202311.tale-grouper.ts.net works from the controller
+#      (SSH config entry with IdentityFile + IdentitiesOnly)
+#   3. ghcr.io reachable from the controller (public image pull via tunnel)
+#
+# Usage:
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/windows-docker.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-postiz.yml \
+#     --vault-password-file ~/.ansible/vault_password
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/windows-docker.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-postiz.yml \
+#     --check --diff --vault-password-file ~/.ansible/vault_password
+
+- name: "Phase Zero — Configure Cloudflare DNS for Postiz (nl)"
+  hosts: localhost
+  gather_facts: false
+  become: false
+  vars_files:
+    - "{{ playbook_dir }}/../infrastructure/domains.yml"
+    - "{{ playbook_dir }}/../infrastructure/timing.yml"
+    - "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/domains.yml"
+    - "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/inventories/group_vars/infrahub-levonk-all.vault.yml"
+  vars:
+    cloudflare_api_token: "{{ vault_cloudflare_api_token | default('') }}"
+    cloudflare_zone_id: "{{ vault_cloudflare_zone_id | default('') }}"
+    cloudflare_dns_state: "present"
+    cloudflare_dns_ttl: "{{ infra_dns_ttl | int }}"
+    cloudflare_dns_proxied: false
+    cloudflare_dns_verify: true
+    cloudflare_dns_verify_propagation: false
+    cloudflare_dns_validate_ip: true
+    cloudflare_dns_allow_private_ip: false
+    # Tailscale FQDN for the Windows Docker host — defined in the client
+    # infrastructure/domains.yml (dtop202311.tale-grouper.ts.net)
+    ts_fqdn_windows_docker: "{{ infra_tailscale_fqdn_windows_docker | default(infra_tailscale_tailnet | default('example.ts.net')) }}"
+    cloudflare_dns_records:
+      # Postiz — nl (Windows Docker Desktop, app auth — no Authelia)
+      - name: "{{ infra_domain_tools_postiz | default('postiz.nl.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "CNAME"
+        content: "{{ ts_fqdn_windows_docker }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+  roles:
+    - cloudflare-dns
+  tags: ["dns"]
+
+- name: "Phase One — Deploy Postiz containers on Windows Docker host (nl)"
+  hosts: windows_docker_hosts
+  gather_facts: true
+  become: false
+  vars:
+    tools_postiz_enabled: true
+
+  pre_tasks:
+    - name: "Load shared infrastructure port defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/ports.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure storage defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/storage.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure domain defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/domains.yml"
+      tags: ["always"]
+
+    - name: "Load client infrastructure domain overrides"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/domains.yml"
+      tags: ["always"]
+
+    - name: "Load client infrastructure storage overrides"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/storage.yml"
+      tags: ["always"]
+
+    - name: "Load client infrastructure port overrides"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/ports.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure timing defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/timing.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure mode defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/modes.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure network defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/networks.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure app defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/apps.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure fallback values"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/values.yml"
+      tags: ["always"]
+
+    - name: "Validate required variables"
+      ansible.builtin.assert:
+        that:
+          - tools_postiz_enabled is defined
+          - infra_port_tools_postiz_host is defined
+          - infra_domain_tools_postiz is defined
+        fail_msg: >-
+          Missing required variables. Check infrastructure files
+          (ports.yml, domains.yml, storage.yml) and client overrides.
+        success_msg: "All required postiz variables are defined."
+      tags: ["always", "validate"]
+
+  roles:
+    - role: tools-postiz
+      tags: ["deploy", "postiz"]
+
+
+- name: "Phase Two — Deploy Traefik dynamic config for Postiz on Windows"
+  hosts: windows_docker_hosts
+  become: false
+  gather_facts: true
+  vars:
+    tools_postiz_enabled: true
+    proxy_traefik_windows_postiz_enabled: true
+
+  pre_tasks:
+    - name: "Load shared infrastructure port defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/ports.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure storage defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/storage.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure domain defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/domains.yml"
+      tags: ["always"]
+
+    - name: "Load client infrastructure domain overrides"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/domains.yml"
+      tags: ["always"]
+
+    - name: "Load client infrastructure storage overrides"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/storage.yml"
+      tags: ["always"]
+
+    - name: "Load client infrastructure port overrides"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/ports.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure timing defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/timing.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure mode defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/modes.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure network defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/networks.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure app defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/apps.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure fallback values"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/values.yml"
+      tags: ["always"]
+
+    - name: "Load tools-postiz role defaults (for container name + port vars)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../roles/tools-postiz/defaults/main.yml"
+      tags: ["always"]
+
+    - name: "Load ai-acrm role defaults (required by proxy_traefik_windows acrm template)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../roles/ai-acrm/defaults/main.yml"
+      tags: ["always"]
+
+    - name: "Load search-hister role defaults (required by proxy_traefik_windows hister template)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../roles/search-hister/defaults/main.yml"
+      tags: ["always"]
+
+    - name: "Load media-stack role defaults (required by proxy_traefik_windows media template)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../roles/media-stack/defaults/main.yml"
+      tags: ["always"]
+
+    - name: "Load vault secrets (Cloudflare API token for ACME)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/inventories/group_vars/infrahub-levonk-all.vault.yml"
+      tags: ["always"]
+      no_log: true
+
+  roles:
+    - role: proxy_traefik_windows
+      tags: ["deploy", "traefik-windows", "postiz"]
