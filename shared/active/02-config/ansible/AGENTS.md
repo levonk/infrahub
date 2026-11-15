@@ -633,3 +633,23 @@ DNS records for new services must be added to the `cloudflare_dns_records` list 
 ```
 
 **Note**: The `configure-cloudflare-dns.yml` playbook runs on `localhost` (not `cloud_servers`), and processes records in order. A failure on one record (e.g., pre-existing `search.levonk.com` 400 error) will abort before reaching later records. To deploy a single record, override `cloudflare_dns_records` via `--extra-vars`.
+
+## Lessons Learned (postiz deployment)
+
+### Postiz `ENCRYPTION_KEY` is base64, not hex
+
+Postiz's local encryption provider **base64-decodes** `ENCRYPTION_KEY` and requires exactly 32 decoded bytes. `openssl rand -hex 32` (64 chars) decodes to 48 bytes; `openssl rand -hex 16` (32 chars) decodes to 24. The correct generator is `openssl rand -base64 32` (44-char base64 → 32 bytes). A wrong-length key puts the app's PM2 orchestrator in a crash loop (~115% CPU) while the container healthcheck still reports `healthy` — always check `docker logs` for child-process errors, not just container health.
+
+### Temporal auto-setup: `DB` driver name and healthcheck address
+
+- `DB=postgresql` is **invalid** for `temporalio/auto-setup`; valid drivers are `postgres12`, `postgres12_pgx`, `mysql8`, `cassandra`.
+- Temporal gRPC binds the **container's eth0 IP**, not localhost — healthcheck with `--address $(hostname -i):7233`, not `127.0.0.1`.
+- First boot (schema + namespace) takes ~3min; give the health-wait a dedicated budget beyond `infra_retry_extended` × `infra_delay_default`.
+
+### Temporal search attributes require Elasticsearch
+
+With `ENABLE_ES=false` (standard SQL visibility) Temporal caps custom search attributes at ~3 per type. Postiz registers more `Text` attributes and dies in `TemporalRegister.onModuleInit` with `cannot have more than 3 search attribute of type Text`. Upstream's ES container is **required**, not optional: deploy `elasticsearch:7.17.27` (single-node, `xpack.security.enabled=false`, 256MB heap) on the temporal network and set `ENABLE_ES=true`, `ES_SEEDS=<es container>`, `ES_VERSION=v7`.
+
+### Merge driver can silently drop YAML entries
+
+The repo's YAML merge driver resolved domains/ports/DNS-playbook conflicts by taking our base's shorter lists, dropping entries added on master. After any merge touching `infrastructure/*.yml` or `configure-cloudflare-dns.yml`, diff the `infra_*`/`name:` variable lists against `origin/master` before committing.
