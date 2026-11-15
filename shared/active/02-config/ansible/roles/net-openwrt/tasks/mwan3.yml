@@ -1,0 +1,16 @@
+---
+# mwan3 multi-WAN: failover + per-flow load balancing across WAN interfaces.
+
+- name: Render /etc/config/mwan3
+  ansible.builtin.template:
+    src: mwan3.j2
+    dest: /etc/config/mwan3
+    mode: "0644"
+  notify: restart mwan3
+
+- name: Enable mwan3 service
+  ansible.builtin.raw: >-
+    /etc/init.d/mwan3 enabled || (/etc/init.d/mwan3 enable && exit 0) ; exit 1
+  register: openwrt_mwan3_enable
+  changed_when: openwrt_mwan3_enable.rc == 0
+  failed_when: false

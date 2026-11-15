@@ -1,0 +1,129 @@
+---
+# net-openwrt role defaults
+# Manages OpenWrt devices (UCI config via rendered /etc/config files).
+# Modes:
+#   ap     — bridged access point (no NAT/DHCP/firewall). Default.
+#   router — gateway with NAT, DHCP, firewall, optional mwan3 multi-WAN.
+# ---------------------------------------------------------------------------
+
+openwrt_mode: "ap"
+openwrt_hostname: "{{ inventory_hostname }}"
+openwrt_timezone: "UTC"
+openwrt_zonename: "UTC"
+openwrt_country: "US"
+
+# ---------------------------------------------------------------------------
+# Bootstrap
+# ---------------------------------------------------------------------------
+# Fresh OpenWrt has no Python; the role installs python3-light via raw/opkg
+# so standard Ansible modules work afterwards.
+openwrt_bootstrap_python: true
+openwrt_packages: []
+openwrt_admin_authorized_keys: []
+
+# ---------------------------------------------------------------------------
+# LAN / management interface (br-lan)
+# ---------------------------------------------------------------------------
+# AP mode: static mgmt IP, both ethernet ports bridged into br-lan.
+# Router mode: only openwrt_lan_ports bridged; WAN ports handled separately.
+openwrt_lan_device: "br-lan"
+openwrt_lan_ports:
+  - "lan"
+  - "wan"
+openwrt_lan_proto: "static"
+openwrt_lan_ipaddr: ""          # REQUIRED — per-host mgmt IP
+openwrt_lan_netmask: "255.255.255.0"
+openwrt_lan_gateway: ""         # REQUIRED in ap mode — upstream router IP
+openwrt_lan_dns: []
+
+# Additional bridge interfaces (e.g. per-SSID VLAN segments).
+# Each: {name, ports: [], ipaddr, netmask, dhcp: bool, zone: "lan"}
+openwrt_extra_interfaces: []
+
+# ---------------------------------------------------------------------------
+# WAN interfaces (router mode only)
+# ---------------------------------------------------------------------------
+# Each: {name, device, proto, ipaddr, netmask, gateway, dns, metric, peerdns}
+# proto dhcp: only name/device/metric required.
+# Two WANs on the same L2 subnet with different gateways is supported
+# (mwan3 policy-routes each member's traffic via its own gateway).
+openwrt_wan_interfaces: []
+openwrt_wan_port: "wan"
+
+# ---------------------------------------------------------------------------
+# DHCP server (router mode + extra interfaces with dhcp: true)
+# ---------------------------------------------------------------------------
+openwrt_dhcp_start: 100
+openwrt_dhcp_limit: 150
+openwrt_dhcp_leasetime: "12h"
+
+# ---------------------------------------------------------------------------
+# Wireless
+# ---------------------------------------------------------------------------
+# Radio devices — Linksys WHW01/VLP01: radio0 = 2.4 GHz, radio1 = 5 GHz.
+openwrt_radios:
+  - name: "radio0"
+    band: "2g"
+    channel: "auto"
+    htmode: "HT40"
+    disabled: false
+  - name: "radio1"
+    band: "5g"
+    channel: "auto"
+    htmode: "VHT80"
+    disabled: false
+
+# SSIDs. Each entry:
+#   ssid:          broadcast name (required)
+#   key:           PSK (required unless encryption: "none")
+#   encryption:    sae-mixed (WPA2/WPA3 transitional), psk2, sae, none
+#   network:       interface to attach to (default: lan)
+#   radios:        subset of radio names (default: all)
+#   ieee80211r:    fast roaming FT (default true — same mobility_domain on all APs)
+#   mobility_domain: 4-hex-digit domain (default in openwrt_mobility_domain)
+#   ieee80211k:    radio resource measurement (default true)
+#   ieee80211w:    PMF: 0=off, 1=optional, 2=required (default 1)
+#   isolate:       client isolation (default false)
+#   hidden:        hide SSID (default false)
+#   disabled:      keep defined but off air (default false)
+openwrt_mobility_domain: "4f57"
+openwrt_wireless_networks: []
+
+# ---------------------------------------------------------------------------
+# Dropbear (SSH)
+# ---------------------------------------------------------------------------
+openwrt_dropbear_port: 22
+openwrt_dropbear_interface: ""          # "" = listen on all interfaces
+openwrt_dropbear_password_auth: true    # set false once key auth verified
+openwrt_dropbear_root_password_auth: true
+
+# ---------------------------------------------------------------------------
+# mwan3 multi-WAN (router mode)
+# ---------------------------------------------------------------------------
+# Members are auto-generated from openwrt_wan_interfaces (list order =
+# failover priority). Policies auto-generated: "balanced" (equal load-share)
+# and "<wan>_only" per interface. openwrt_mwan3_rules maps traffic → policy.
+openwrt_mwan3_enabled: false
+openwrt_mwan3_track_ips:
+  - "1.1.1.1"
+  - "8.8.8.8"
+openwrt_mwan3_reliability: 1
+openwrt_mwan3_count: 1
+openwrt_mwan3_timeout: 2
+openwrt_mwan3_interval: 5
+openwrt_mwan3_down: 3
+openwrt_mwan3_up: 3
+# Each: {use_policy, src_ip, dest_ip, proto, sticky, timeout}
+# src_ip accepts interface names, subnets, IPs. Omit fields to match all.
+openwrt_mwan3_rules:
+  - use_policy: "balanced"
+    src_ip: "any"
+    dest_ip: "any"
+
+# ---------------------------------------------------------------------------
+# Services to disable in pure AP mode
+# ---------------------------------------------------------------------------
+openwrt_ap_disabled_services:
+  - "dnsmasq"
+  - "odhcpd"
+  - "firewall"

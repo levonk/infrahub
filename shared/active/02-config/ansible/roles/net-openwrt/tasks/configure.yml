@@ -1,0 +1,68 @@
+---
+# Deploy rendered UCI configs and apply service state.
+
+- name: Render /etc/config/system
+  ansible.builtin.template:
+    src: system.j2
+    dest: /etc/config/system
+    mode: "0644"
+  notify: reload system
+
+- name: Render /etc/config/network
+  ansible.builtin.template:
+    src: network.j2
+    dest: /etc/config/network
+    mode: "0644"
+  notify: reload network
+
+- name: Render /etc/config/wireless
+  ansible.builtin.template:
+    src: wireless.j2
+    dest: /etc/config/wireless
+    mode: "0644"
+  notify: reload wireless
+
+- name: Render /etc/config/dropbear
+  ansible.builtin.template:
+    src: dropbear.j2
+    dest: /etc/config/dropbear
+    mode: "0644"
+  notify: reload dropbear
+
+- name: Render /etc/config/dhcp (router mode / extra-interface DHCP)
+  ansible.builtin.template:
+    src: dhcp.j2
+    dest: /etc/config/dhcp
+    mode: "0644"
+  when: openwrt_mode == "router" or (openwrt_extra_interfaces | selectattr('dhcp', 'defined') | selectattr('dhcp') | list | length > 0)
+  notify: reload dnsmasq
+
+- name: Render /etc/config/firewall (router mode)
+  ansible.builtin.template:
+    src: firewall.j2
+    dest: /etc/config/firewall
+    mode: "0644"
+  when: openwrt_mode == "router"
+  notify: reload firewall
+
+- name: Disable services not needed in pure AP mode (idempotent)
+  ansible.builtin.raw: >-
+    (/etc/init.d/{{ item }} enabled && /etc/init.d/{{ item }} stop &&
+    /etc/init.d/{{ item }} disable) || exit 1
+  register: openwrt_svc_disable
+  changed_when: openwrt_svc_disable.rc == 0
+  failed_when: false
+  loop: "{{ openwrt_ap_disabled_services }}"
+  when: openwrt_mode == "ap"
+
+- name: Enable core services in router mode
+  ansible.builtin.raw: >-
+    /etc/init.d/{{ item }} enabled || (/etc/init.d/{{ item }} enable && exit 0) ; exit 1
+  register: openwrt_svc_enable
+  changed_when: openwrt_svc_enable.rc == 0
+  failed_when: false
+  loop:
+    - "dnsmasq"
+    - "odhcpd"
+    - "firewall"
+  when: openwrt_mode == "router"

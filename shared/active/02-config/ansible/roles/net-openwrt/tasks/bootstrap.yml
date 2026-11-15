@@ -1,0 +1,47 @@
+---
+# Bootstrap a fresh OpenWrt install: python3 for Ansible, extra packages,
+# admin SSH keys. Uses raw commands so it works before python exists.
+
+- name: Check for python3
+  ansible.builtin.raw: test -x /usr/bin/python3
+  register: openwrt_python_check
+  changed_when: false
+  failed_when: false
+  when: openwrt_bootstrap_python
+
+- name: Install python3-light via opkg
+  ansible.builtin.raw: opkg update && opkg install python3-light
+  register: openwrt_python_install
+  when:
+    - openwrt_bootstrap_python
+    - openwrt_python_check.rc != 0
+
+- name: Install extra opkg packages (idempotent)
+  ansible.builtin.raw: >-
+    (opkg list-installed | grep -q '^{{ item }} ' && exit 1) ||
+    (opkg update >/dev/null && opkg install {{ item }})
+  register: openwrt_pkg_install
+  changed_when: openwrt_pkg_install.rc == 0
+  failed_when: false
+  loop: "{{ openwrt_packages + (['mwan3'] if openwrt_mwan3_enabled else []) }}"
+  when: openwrt_packages | length > 0 or openwrt_mwan3_enabled
+
+- name: Ensure dropbear authorized_keys exists
+  ansible.builtin.raw: mkdir -p /etc/dropbear && touch /etc/dropbear/authorized_keys && chmod 700 /etc/dropbear && chmod 600 /etc/dropbear/authorized_keys
+  changed_when: false
+  when: openwrt_admin_authorized_keys | length > 0
+
+- name: Install admin SSH authorized keys (idempotent)
+  ansible.builtin.raw: >-
+    (grep -qxF '{{ item }}' /etc/dropbear/authorized_keys && exit 1) ||
+    echo '{{ item }}' >> /etc/dropbear/authorized_keys
+  register: openwrt_key_install
+  changed_when: openwrt_key_install.rc == 0
+  failed_when: false
+  loop: "{{ openwrt_admin_authorized_keys }}"
+  when: openwrt_admin_authorized_keys | length > 0
+
+- name: Gather ansible_facts (requires python3 from bootstrap)
+  ansible.builtin.setup:
+    gather_subset: ["!all", "distribution", "distribution_version"]
+  when: openwrt_bootstrap_python
