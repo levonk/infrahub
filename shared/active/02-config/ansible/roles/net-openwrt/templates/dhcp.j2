@@ -1,0 +1,49 @@
+# Managed by Ansible (net-openwrt role) — manual edits will be overwritten.
+
+config dnsmasq
+	option domainneeded '1'
+	option boguspriv '1'
+	option filterwin2k '0'
+	option localise_queries '1'
+	option rebind_protection '1'
+	option local '/lan/'
+	option domain 'lan'
+	option expandhosts '1'
+	option authoritative '1'
+	option readethers '1'
+	option leasefile '/tmp/dhcp.leases'
+	option resolvfile '/tmp/resolv.conf.d/resolv.conf.auto'
+	option localservice '1'
+	option ednspacket_max '1232'
+
+config dhcp 'lan'
+	option interface 'lan'
+	option start '{{ openwrt_dhcp_start }}'
+	option limit '{{ openwrt_dhcp_limit }}'
+	option leasetime '{{ openwrt_dhcp_leasetime }}'
+{% if openwrt_mode == 'router' %}
+	option dhcpv4 'server'
+	option dhcpv6 'server'
+	option ra 'server'
+{% else %}
+	option ignore '1'
+{% endif %}
+{% for iface in openwrt_extra_interfaces %}
+{% if iface.dhcp | default(false) %}
+
+config dhcp '{{ iface.name }}'
+	option interface '{{ iface.name }}'
+	option start '{{ iface.dhcp_start | default(openwrt_dhcp_start) }}'
+	option limit '{{ iface.dhcp_limit | default(openwrt_dhcp_limit) }}'
+	option leasetime '{{ iface.dhcp_leasetime | default(openwrt_dhcp_leasetime) }}'
+	option dhcpv4 'server'
+{% endif %}
+{% endfor %}
+{% if openwrt_mode == 'router' %}
+
+config odhcpd 'odhcpd'
+	option maindhcp '0'
+	option leasefile '/tmp/hosts/odhcpd'
+	option leasetrigger '/usr/sbin/odhcpd-update'
+	option loglevel '4'
+{% endif %}

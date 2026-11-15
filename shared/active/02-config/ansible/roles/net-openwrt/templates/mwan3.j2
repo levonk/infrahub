@@ -1,0 +1,58 @@
+# Managed by Ansible (net-openwrt role) — manual edits will be overwritten.
+# Members follow openwrt_wan_interfaces order: index 1 = highest priority.
+
+config globals 'globals'
+	option mmx_mask '0x3F00'
+{% for wan in openwrt_wan_interfaces %}
+
+config interface '{{ wan.name }}'
+	option enabled '1'
+{% for track_ip in openwrt_mwan3_track_ips %}
+	list track_ip '{{ track_ip }}'
+{% endfor %}
+	option reliability '{{ openwrt_mwan3_reliability }}'
+	option count '{{ openwrt_mwan3_count }}'
+	option timeout '{{ openwrt_mwan3_timeout }}'
+	option interval '{{ openwrt_mwan3_interval }}'
+	option down '{{ openwrt_mwan3_down }}'
+	option up '{{ openwrt_mwan3_up }}'
+	option family 'ipv4'
+
+config member '{{ wan.name }}_m'
+	option interface '{{ wan.name }}'
+	option metric '{{ loop.index }}'
+	option weight '1'
+
+config policy '{{ wan.name }}_only'
+	list use_member '{{ wan.name }}_m'
+{% endfor %}
+
+config policy 'balanced'
+{% for wan in openwrt_wan_interfaces %}
+	list use_member '{{ wan.name }}_m'
+{% endfor %}
+
+config policy 'failover'
+{% for wan in openwrt_wan_interfaces %}
+	list use_member '{{ wan.name }}_m'
+{% endfor %}
+{% for rule in openwrt_mwan3_rules %}
+
+config rule
+	option use_policy '{{ rule.use_policy }}'
+{% if rule.src_ip is defined %}
+	option src_ip '{{ rule.src_ip }}'
+{% endif %}
+{% if rule.dest_ip is defined %}
+	option dest_ip '{{ rule.dest_ip }}'
+{% endif %}
+{% if rule.proto is defined %}
+	option proto '{{ rule.proto }}'
+{% endif %}
+{% if rule.sticky is defined %}
+	option sticky '{{ rule.sticky }}'
+{% endif %}
+{% if rule.timeout is defined %}
+	option timeout '{{ rule.timeout }}'
+{% endif %}
+{% endfor %}

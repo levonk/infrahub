@@ -1,0 +1,125 @@
+---
+# Validate OpenWrt Deployment Playbook
+# Location: shared/active/02-config/ansible/playbooks/validate-openwrt.yml
+#
+# Read-only post-deployment checks for the openwrt_aps group. Does NOT
+# fail fast — collects results into validation_results and summarises.
+#
+# Usage:
+#   ansible-playbook \
+#     -i levonk/active/02-config/ansible/inventories/localnet.yml \
+#     shared/active/02-config/ansible/playbooks/validate-openwrt.yml \
+#     --vault-password-file ~/.ansible/vault_password
+
+- name: "Validate OpenWrt devices"
+  hosts: openwrt_aps
+  gather_facts: false
+  become: false
+
+  vars:
+    validation_results: []
+
+  tasks:
+    - name: "Board info"
+      ansible.builtin.command: ubus call system board
+      register: openwrt_board
+      changed_when: false
+      failed_when: false
+      tags: ["validate", "openwrt"]
+
+    - name: "Record board check"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results + [{'check': 'ssh+ubus reachable', 'ok': (openwrt_board.rc | default(1)) == 0}] }}"
+      tags: ["validate", "openwrt"]
+
+    - name: "python3-light installed (bootstrap done)"
+      ansible.builtin.command: test -x /usr/bin/python3
+      register: openwrt_python
+      changed_when: false
+      failed_when: false
+      tags: ["validate", "openwrt"]
+
+    - name: "Record python check"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results + [{'check': 'python3-light installed', 'ok': (openwrt_python.rc | default(1)) == 0}] }}"
+      tags: ["validate", "openwrt"]
+
+    - name: "Expected SSIDs present in UCI"
+      ansible.builtin.command: uci show wireless
+      register: openwrt_uci_wireless
+      changed_when: false
+      tags: ["validate", "openwrt"]
+
+    - name: "Check each configured SSID is committed"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results + [{'check': 'ssid ' + item.ssid, 'ok': item.ssid in openwrt_uci_wireless.stdout}] }}"
+      loop: "{{ openwrt_wireless_networks }}"
+      tags: ["validate", "openwrt"]
+
+    - name: "Radios up (iwinfo)"
+      ansible.builtin.command: iwinfo
+      register: openwrt_iwinfo
+      changed_when: false
+      failed_when: false
+      tags: ["validate", "openwrt"]
+
+    - name: "Record radio check"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results + [{'check': 'iwinfo reports interfaces', 'ok': (openwrt_iwinfo.rc | default(1)) == 0 and (openwrt_iwinfo.stdout | default('') | length > 0)}] }}"
+      tags: ["validate", "openwrt"]
+
+    - name: "AP-mode services disabled (dnsmasq, odhcpd, firewall)"
+      ansible.builtin.command: /etc/init.d/{{ item }} enabled
+      register: openwrt_svc_state
+      changed_when: false
+      failed_when: false
+      loop: "{{ openwrt_ap_disabled_services }}"
+      when: openwrt_mode == "ap"
+      tags: ["validate", "openwrt"]
+
+    - name: "Record AP-mode service checks"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results + [{'check': 'AP mode: ' + item.item + ' disabled', 'ok': (item.rc | default(1)) != 0}] }}"
+      loop: "{{ openwrt_svc_state.results | default([]) }}"
+      when: openwrt_mode == "ap"
+      tags: ["validate", "openwrt"]
+
+    - name: "mwan3 status (router mode)"
+      ansible.builtin.command: /usr/sbin/mwan3 status
+      register: openwrt_mwan3_status
+      changed_when: false
+      failed_when: false
+      when: openwrt_mwan3_enabled
+      tags: ["validate", "openwrt", "mwan3"]
+
+    - name: "Record mwan3 check"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results + [{'check': 'mwan3 reports status', 'ok': (openwrt_mwan3_status.rc | default(1)) == 0}] }}"
+      when: openwrt_mwan3_enabled
+      tags: ["validate", "openwrt", "mwan3"]
+
+    - name: "Reach upstream gateway (AP mode)"
+      ansible.builtin.command: ping -c 1 -W 3 {{ openwrt_lan_gateway }}
+      register: openwrt_ping_gw
+      changed_when: false
+      failed_when: false
+      when: openwrt_mode == "ap"
+      tags: ["validate", "openwrt"]
+
+    - name: "Record gateway check"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results + [{'check': 'can ping gateway ' + openwrt_lan_gateway, 'ok': (openwrt_ping_gw.rc | default(1)) == 0}] }}"
+      when: openwrt_mode == "ap"
+      tags: ["validate", "openwrt"]
+
+    - name: "Validation summary"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          OpenWrt validation — {{ inventory_hostname }}
+          ========================================
+          {% for r in validation_results %}
+          {{ 'PASS' if r.ok else 'FAIL' }}  {{ r.check }}
+          {% endfor %}
+          ========================================
+      tags: ["validate", "openwrt"]

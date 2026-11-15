@@ -88,6 +88,8 @@ See [`internal-docs/troubleshooting/ansible-lint.md`](../../../internal-docs/tro
 | `deploy-dns-lite.yml` | `levonk/.../inventories/localnet.yml` | `localnet_hosts` | Linux | reduced AdGuard→Unbound chain for low-RAM/armv7 hosts (minime01) |
 | `dns-stack.yml` | `levonk/.../inventories/oci.yml` | `cloud_servers` | Oracle Linux (EL) | full DNS chain on OCI (cno) — AdGuard→dnsdist→CoreDNS→{dnscrypt,unbound,tor}, tailnet-only binds |
 | `validate-dns.yml` | `levonk/.../inventories/oci.yml` | `cloud_servers` | Oracle Linux (EL) | read-only post-deploy checks for the cno DNS chain |
+| `deploy-openwrt.yml` | `levonk/.../inventories/localnet.yml` | `openwrt_aps` | OpenWrt | velop01/velop02 (Linksys VLP01/WHW01) APs; bootstraps python3-light then renders UCI configs |
+| `validate-openwrt.yml` | `levonk/.../inventories/localnet.yml` | `openwrt_aps` | OpenWrt | read-only post-deploy checks for the Velop APs |
 
 When adding a new role to a playbook, check this table to know which playbook(s) cover which hosts. Use `--tags <role-tag>` to deploy only that role across all inventories.
 

@@ -1,0 +1,17 @@
+---
+galaxy_info:
+  role_name: net_openwrt
+  author: levonk
+  description: Manage OpenWrt devices (bridged AP and multi-WAN router modes) via UCI config templates
+  license: MIT
+  min_ansible_version: "2.14"
+  platforms:
+    - name: OpenWrt
+      versions:
+        - "23.05"
+        - "24.10"
+  galaxy_tags:
+    - openwrt
+    - networking
+    - wireless
+dependencies: []
