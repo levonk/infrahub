@@ -17,7 +17,7 @@ config device
 {% endfor %}
 
 config interface 'lan'
-	option device '{{ openwrt_lan_device }}'
+	option device '{{ openwrt_lan_device }}{{ '.' ~ openwrt_lan_pvid if openwrt_bridge_vlans | length > 0 else '' }}'
 	option proto '{{ openwrt_lan_proto }}'
 {% if openwrt_lan_proto == 'static' %}
 	option ipaddr '{{ openwrt_lan_ipaddr }}'
@@ -29,20 +29,36 @@ config interface 'lan'
 {% endfor %}
 {% endif %}
 {% endif %}
+{% for bv in openwrt_bridge_vlans %}
+
+config bridge-vlan
+	option device '{{ bv.device | default('br-lan') }}'
+	option vlan '{{ bv.vid }}'
+{% for port in bv.tagged_ports | default([]) %}
+	list ports '{{ port }}:t'
+{% endfor %}
+{% for port in bv.untagged_ports | default([]) %}
+	list ports '{{ port }}:u*'
+{% endfor %}
+{% endfor %}
 {% for iface in openwrt_extra_interfaces %}
+{% if iface.ports is defined and iface.ports | length > 0 %}
 
 config device
 	option name 'br-{{ iface.name }}'
 	option type 'bridge'
-{% for port in iface.ports | default([]) %}
+{% for port in iface.ports %}
 	list ports '{{ port }}'
 {% endfor %}
+{% endif %}
 
 config interface '{{ iface.name }}'
-	option device 'br-{{ iface.name }}'
-	option proto 'static'
+	option device '{{ iface.device | default('br-' ~ iface.name) }}'
+	option proto '{{ iface.proto | default('static') }}'
+{% if (iface.proto | default('static')) == 'static' %}
 	option ipaddr '{{ iface.ipaddr }}'
 	option netmask '{{ iface.netmask | default('255.255.255.0') }}'
+{% endif %}
 {% endfor %}
 {% if openwrt_mode == 'router' %}
 {% for wan in openwrt_wan_interfaces %}

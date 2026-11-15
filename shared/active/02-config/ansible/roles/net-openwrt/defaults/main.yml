@@ -35,9 +35,19 @@ openwrt_lan_ipaddr: ""          # REQUIRED — per-host mgmt IP
 openwrt_lan_netmask: "255.255.255.0"
 openwrt_lan_gateway: ""         # REQUIRED in ap mode — upstream router IP
 openwrt_lan_dns: []
+# PVID the lan (mgmt) interface binds to once VLAN filtering is active
+# (openwrt_bridge_vlans non-empty → device becomes br-lan.<pvid>).
+openwrt_lan_pvid: 1
+
+# 802.1q VLANs on the LAN bridge (AP mode: trunk tagged VLANs between the
+# uplink ports; each SSID attaches to a VLAN sub-interface). DSA syntax.
+# Each: {vid, device: "br-lan", tagged_ports: [...], untagged_ports: [...]}
+openwrt_bridge_vlans: []
 
 # Additional bridge interfaces (e.g. per-SSID VLAN segments).
-# Each: {name, ports: [], ipaddr, netmask, dhcp: bool, zone: "lan"}
+# Each: {name, device (default br-<name>; use br-lan.<vid> for a VLAN),
+#        proto (default static; "none" for pure bridge), ipaddr, netmask,
+#        dhcp: bool, zone: "lan"}
 openwrt_extra_interfaces: []
 
 # ---------------------------------------------------------------------------
