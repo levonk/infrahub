@@ -6,7 +6,7 @@ use: "When adding a new service, ansible deployment, etc. for all clients in sha
 date:
   created: "2026-07-08"
   knowledge-basis: "2026-07-20"
-  last-used: "2026-07-29"
+  last-used: "2026-11-13"
 see-also:
   - skill: "execute-upsert"
     relationship: "pipeline-controller"

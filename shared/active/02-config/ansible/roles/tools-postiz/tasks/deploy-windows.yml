@@ -1,0 +1,477 @@
+---
+# Postiz Windows (nl) deployment — ssh-tunneled Docker CLI pattern
+# Target: Windows Docker Desktop (dtop202311, X86).
+#
+# community.docker modules can't run on Windows (Ansible core basic.py imports
+# grp, Unix-only). We use ansible.builtin.shell/command with
+# DOCKER_HOST: ssh:// and delegate_to: localhost, matching the
+# ai-acrm / artifact-verdaccio / search-hister pattern.
+#
+# Layout (mirrors upstream postiz-docker-compose):
+#   postiz-network:          localnet-postiz, localnet-postiz-postgres,
+#                            localnet-postiz-redis
+#   postiz-temporal-network: localnet-postiz-temporal,
+#                            localnet-postiz-temporal-postgres
+#   localnet-postiz also joins traefik-windows-network so Traefik routes
+#   postiz.nl to it by container name.
+# Postgres host ports are published for tailnet debugging only — the app
+# always reaches them via container name + container port on the bridges.
+
+# ============================================================================
+# Network Management — two bridges matching the upstream layout
+# ============================================================================
+- name: Ensure postiz network exists
+  ansible.builtin.shell: "docker network inspect {{ tools_postiz_network_name }} 2>/dev/null || docker network create {{ tools_postiz_network_name }}"
+  environment:
+    DOCKER_HOST: "{{ tools_postiz_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "network"]
+
+- name: Ensure postiz temporal network exists
+  ansible.builtin.shell: "docker network inspect {{ tools_postiz_temporal_network_name }} 2>/dev/null || docker network create {{ tools_postiz_temporal_network_name }}"
+  environment:
+    DOCKER_HOST: "{{ tools_postiz_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "network"]
+
+# ============================================================================
+# Volume Management — inspect-or-create. Postgres/redis entrypoints fix
+# their data-dir ownership themselves; no localnet-volume-init needed.
+# ============================================================================
+- name: Ensure postiz volumes exist
+  ansible.builtin.shell: "docker volume inspect {{ item }} 2>/dev/null || docker volume create {{ item }}"
+  environment:
+    DOCKER_HOST: "{{ tools_postiz_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  loop:
+    - "{{ tools_postiz_uploads_volume }}"
+    - "{{ tools_postiz_postgres_volume }}"
+    - "{{ tools_postiz_redis_volume }}"
+    - "{{ tools_postiz_temporal_postgres_volume }}"
+    - "{{ tools_postiz_temporal_dynamicconfig_volume }}"
+    - "{{ tools_postiz_es_volume }}"
+  tags: ["deploy", "volume"]
+
+# ============================================================================
+# Temporal dynamicconfig — the upstream compose bind-mounts
+# ./dynamicconfig/development-sql.yaml; that file is not baked into the
+# image. We populate a named volume via a one-shot init container (no
+# Windows host bind-mounts — matches the named-volume convention).
+# ============================================================================
+- name: Check temporal dynamicconfig already populated
+  ansible.builtin.command: >-
+    docker run --rm
+    -v {{ tools_postiz_temporal_dynamicconfig_volume }}:/config:ro
+    {{ tools_postiz_init_image }}
+    test -f /config/development-sql.yaml
+  environment:
+    DOCKER_HOST: "{{ tools_postiz_docker_host }}"
+  delegate_to: localhost
+  register: tools_postiz_dynconfig_check
+  failed_when: false
+  changed_when: false
+  tags: ["deploy", "config"]
+
+- name: Populate temporal dynamicconfig volume (development-sql.yaml)
+  ansible.builtin.command: >-
+    docker run --rm
+    -v {{ tools_postiz_temporal_dynamicconfig_volume }}:/config
+    {{ tools_postiz_init_image }}
+    sh -c 'printf "limit.maxIDLength:\n  - value: 255\n    constraints: {}\nsystem.forceSearchAttributesCacheRefreshOnRead:\n  - value: true\n    constraints: {}\n" > /config/development-sql.yaml'
+  environment:
+    DOCKER_HOST: "{{ tools_postiz_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  when: tools_postiz_dynconfig_check.rc != 0
+  tags: ["deploy", "config"]
+
+# ============================================================================
+# Pull Images
+# DOCKER_CONFIG points at ~/.docker-no-creds (a dir containing just `{}`) so
+# public pulls don't trigger the macOS keychain unlock modal.
+# ============================================================================
+- name: Pull postiz images
+  ansible.builtin.command: "docker pull {{ item }}"
+  environment:
+    DOCKER_HOST: "{{ tools_postiz_docker_host }}"
+    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
+  delegate_to: localhost
+  changed_when: true
+  loop:
+    - "{{ tools_postiz_image }}:{{ tools_postiz_image_tag }}"
+    - "{{ tools_postiz_postgres_image }}"
+    - "{{ tools_postiz_temporal_postgres_image }}"
+    - "{{ tools_postiz_redis_image }}"
+    - "{{ tools_postiz_temporal_image }}"
+    - "{{ tools_postiz_es_image }}"
+  tags: ["deploy", "pull"]
+
+# ============================================================================
+# App Postgres Deployment
+# ============================================================================
+- name: Stop existing postiz postgres container
+  ansible.builtin.shell: "docker rm -f {{ tools_postiz_container_name_postgres }} 2>/dev/null || true"
+  environment:
+    DOCKER_HOST: "{{ tools_postiz_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "container"]
+
+- name: Deploy postiz postgres container
+  ansible.builtin.shell: >-
+    docker run -d
+    --name {{ tools_postiz_container_name_postgres }}
+    --restart unless-stopped
+    --network {{ tools_postiz_network_name }}
+    -p "{{ tools_postiz_postgres_host_port }}:{{ tools_postiz_postgres_container_port }}/tcp"
+    -v {{ tools_postiz_postgres_volume }}:/var/lib/postgresql/data:rw
+    -e "POSTGRES_USER={{ tools_postiz_postgres_user }}"
+    -e "POSTGRES_PASSWORD={{ tools_postiz_postgres_password }}"
+    -e "POSTGRES_DB={{ tools_postiz_postgres_db }}"
+    -e "TZ={{ tools_postiz_tz }}"
+    --log-driver json-file
+    --log-opt max-size={{ tools_postiz_log_max_size }}
+    --log-opt max-file={{ tools_postiz_log_max_file }}
+    --health-cmd "pg_isready -U {{ tools_postiz_postgres_user }} -d {{ tools_postiz_postgres_db }} || exit 1"
+    --health-interval {{ tools_postiz_postgres_healthcheck_interval }}
+    --health-timeout {{ tools_postiz_postgres_healthcheck_timeout }}
+    --health-retries {{ tools_postiz_postgres_healthcheck_retries }}
+    --health-start-period {{ tools_postiz_postgres_healthcheck_start_period }}
+    --security-opt no-new-privileges:true
+    {{ tools_postiz_postgres_image }}
+  environment:
+    DOCKER_HOST: "{{ tools_postiz_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  no_log: true
+  tags: ["deploy", "container"]
+
+# ============================================================================
+# Temporal Postgres Deployment (Temporal's own DB — upstream keeps them
+# separate; do not merge with the app postgres)
+# ============================================================================
+- name: Stop existing postiz temporal-postgres container
+  ansible.builtin.shell: "docker rm -f {{ tools_postiz_container_name_temporal_postgres }} 2>/dev/null || true"
+  environment:
+    DOCKER_HOST: "{{ tools_postiz_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "container"]
+
+- name: Deploy postiz temporal-postgres container
+  ansible.builtin.shell: >-
+    docker run -d
+    --name {{ tools_postiz_container_name_temporal_postgres }}
+    --restart unless-stopped
+    --network {{ tools_postiz_temporal_network_name }}
+    -p "{{ tools_postiz_temporal_postgres_host_port }}:{{ tools_postiz_temporal_postgres_container_port }}/tcp"
+    -v {{ tools_postiz_temporal_postgres_volume }}:/var/lib/postgresql/data:rw
+    -e "POSTGRES_USER={{ tools_postiz_temporal_postgres_user }}"
+    -e "POSTGRES_PASSWORD={{ tools_postiz_temporal_postgres_password }}"
+    -e "POSTGRES_DB={{ tools_postiz_temporal_postgres_db }}"
+    -e "TZ={{ tools_postiz_tz }}"
+    --log-driver json-file
+    --log-opt max-size={{ tools_postiz_log_max_size }}
+    --log-opt max-file={{ tools_postiz_log_max_file }}
+    --health-cmd "pg_isready -U {{ tools_postiz_temporal_postgres_user }} -d {{ tools_postiz_temporal_postgres_db }} || exit 1"
+    --health-interval {{ tools_postiz_postgres_healthcheck_interval }}
+    --health-timeout {{ tools_postiz_postgres_healthcheck_timeout }}
+    --health-retries {{ tools_postiz_postgres_healthcheck_retries }}
+    --health-start-period {{ tools_postiz_postgres_healthcheck_start_period }}
+    --security-opt no-new-privileges:true
+    {{ tools_postiz_temporal_postgres_image }}
+  environment:
+    DOCKER_HOST: "{{ tools_postiz_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  no_log: true
+  tags: ["deploy", "container"]
+
+# ============================================================================
+# Redis Deployment
+# ============================================================================
+- name: Stop existing postiz redis container
+  ansible.builtin.shell: "docker rm -f {{ tools_postiz_container_name_redis }} 2>/dev/null || true"
+  environment:
+    DOCKER_HOST: "{{ tools_postiz_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "container"]
+
+- name: Deploy postiz redis container
+  ansible.builtin.shell: >-
+    docker run -d
+    --name {{ tools_postiz_container_name_redis }}
+    --restart unless-stopped
+    --network {{ tools_postiz_network_name }}
+    -v {{ tools_postiz_redis_volume }}:/data:rw
+    -e "TZ={{ tools_postiz_tz }}"
+    --log-driver json-file
+    --log-opt max-size={{ tools_postiz_log_max_size }}
+    --log-opt max-file={{ tools_postiz_log_max_file }}
+    --health-cmd "redis-cli ping || exit 1"
+    --health-interval {{ tools_postiz_redis_healthcheck_interval }}
+    --health-timeout {{ tools_postiz_redis_healthcheck_timeout }}
+    --health-retries {{ tools_postiz_redis_healthcheck_retries }}
+    --health-start-period {{ tools_postiz_redis_healthcheck_start_period }}
+    --security-opt no-new-privileges:true
+    {{ tools_postiz_redis_image }}
+    redis-server --appendonly yes
+  environment:
+    DOCKER_HOST: "{{ tools_postiz_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "container"]
+
+# ============================================================================
+# Temporal Elasticsearch — REQUIRED (not optional). Postiz registers more
+# Text custom search attributes than the standard SQL visibility store
+# allows (~3 per type); advanced visibility via ES lifts the cap. Single
+# node, security off (internal network only), 512MB heap.
+# ============================================================================
+- name: Stop existing postiz elasticsearch container
+  ansible.builtin.shell: "docker rm -f {{ tools_postiz_container_name_es }} 2>/dev/null || true"
+  environment:
+    DOCKER_HOST: "{{ tools_postiz_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "container"]
+
+- name: Deploy postiz elasticsearch container
+  ansible.builtin.shell: >-
+    docker run -d
+    --name {{ tools_postiz_container_name_es }}
+    --restart unless-stopped
+    --network {{ tools_postiz_temporal_network_name }}
+    -v {{ tools_postiz_es_volume }}:/usr/share/elasticsearch/data:rw
+    -e "cluster.routing.allocation.disk.threshold_enabled=true"
+    -e "cluster.routing.allocation.disk.watermark.low=512mb"
+    -e "cluster.routing.allocation.disk.watermark.high=256mb"
+    -e "cluster.routing.allocation.disk.watermark.flood_stage=128mb"
+    -e "discovery.type=single-node"
+    -e "ES_JAVA_OPTS=-Xms256m -Xmx256m"
+    -e "xpack.security.enabled=false"
+    -e "TZ={{ tools_postiz_tz }}"
+    --log-driver json-file
+    --log-opt max-size={{ tools_postiz_log_max_size }}
+    --log-opt max-file={{ tools_postiz_log_max_file }}
+    --health-cmd "curl -fs http://127.0.0.1:9200/ || exit 1"
+    --health-interval {{ tools_postiz_es_healthcheck_interval }}
+    --health-timeout {{ tools_postiz_es_healthcheck_timeout }}
+    --health-retries {{ tools_postiz_es_healthcheck_retries }}
+    --health-start-period {{ tools_postiz_es_healthcheck_start_period }}
+    {{ tools_postiz_es_image }}
+  environment:
+    DOCKER_HOST: "{{ tools_postiz_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["deploy", "container"]
+
+# ============================================================================
+# Wait for infra tier — app + temporal need healthy databases
+# ============================================================================
+- name: Wait for postiz infra containers to be healthy
+  ansible.builtin.command: >-
+    docker inspect --format '{% raw %}{{.State.Health.Status}}{% endraw %}' {{ item }}
+  environment:
+    DOCKER_HOST: "{{ tools_postiz_docker_host }}"
+  delegate_to: localhost
+  register: tools_postiz_infra_health
+  until: tools_postiz_infra_health.stdout == "healthy"
+  retries: "{{ infra_retry_extended }}"
+  delay: "{{ infra_delay_default }}"
+  changed_when: false
+  loop:
+    - "{{ tools_postiz_container_name_postgres }}"
+    - "{{ tools_postiz_container_name_temporal_postgres }}"
+    - "{{ tools_postiz_container_name_redis }}"
+    - "{{ tools_postiz_container_name_es }}"
+  tags: ["deploy", "container"]
+
+# ============================================================================
+# Temporal Deployment (auto-setup — creates its own schema on boot)
+# ENABLE_ES=true points visibility at the ES container (upstream layout);
+# the standard SQL store caps Text search attributes below what Postiz
+# registers. DYNAMIC_CONFIG_FILE_PATH points into the populated volume.
+# ============================================================================
+- name: Stop existing postiz temporal container
+  ansible.builtin.shell: "docker rm -f {{ tools_postiz_container_name_temporal }} 2>/dev/null || true"
+  environment:
+    DOCKER_HOST: "{{ tools_postiz_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "container"]
+
+- name: Deploy postiz temporal container
+  ansible.builtin.shell: >-
+    docker run -d
+    --name {{ tools_postiz_container_name_temporal }}
+    --restart unless-stopped
+    --network {{ tools_postiz_temporal_network_name }}
+    -v {{ tools_postiz_temporal_dynamicconfig_volume }}:/etc/temporal/config/dynamicconfig:ro
+    -e "DB=postgres12_pgx"
+    -e "DB_PORT={{ tools_postiz_temporal_postgres_container_port }}"
+    -e "POSTGRES_SEEDS={{ tools_postiz_container_name_temporal_postgres }}"
+    -e "POSTGRES_USER={{ tools_postiz_temporal_postgres_user }}"
+    -e "POSTGRES_PWD={{ tools_postiz_temporal_postgres_password }}"
+    -e "ENABLE_ES=true"
+    -e "ES_SEEDS={{ tools_postiz_container_name_es }}"
+    -e "ES_VERSION=v7"
+    -e "DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development-sql.yaml"
+    -e "TZ={{ tools_postiz_tz }}"
+    --log-driver json-file
+    --log-opt max-size={{ tools_postiz_log_max_size }}
+    --log-opt max-file={{ tools_postiz_log_max_file }}
+    --health-cmd "temporal operator cluster health --address \$(hostname -i | awk '{print $1}'):7233 || exit 1"
+    --health-interval {{ tools_postiz_temporal_healthcheck_interval }}
+    --health-timeout {{ tools_postiz_temporal_healthcheck_timeout }}
+    --health-retries {{ tools_postiz_temporal_healthcheck_retries }}
+    --health-start-period {{ tools_postiz_temporal_healthcheck_start_period }}
+    --security-opt no-new-privileges:true
+    {{ tools_postiz_temporal_image }}
+  environment:
+    DOCKER_HOST: "{{ tools_postiz_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  no_log: true
+  tags: ["deploy", "container"]
+
+- name: Wait for postiz temporal to be healthy
+  ansible.builtin.command: >-
+    docker inspect --format '{% raw %}{{.State.Health.Status}}{% endraw %}' {{ tools_postiz_container_name_temporal }}
+  environment:
+    DOCKER_HOST: "{{ tools_postiz_docker_host }}"
+  delegate_to: localhost
+  register: tools_postiz_temporal_health
+  until: tools_postiz_temporal_health.stdout == "healthy"
+  retries: "{{ tools_postiz_temporal_health_wait_retries }}"
+  delay: "{{ infra_delay_default }}"
+  changed_when: false
+  tags: ["deploy", "container"]
+
+# ============================================================================
+# Postiz App Deployment
+# ============================================================================
+- name: Stop existing postiz container
+  ansible.builtin.shell: "docker rm -f {{ tools_postiz_container_name }} 2>/dev/null || true"
+  environment:
+    DOCKER_HOST: "{{ tools_postiz_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "container"]
+
+- name: Deploy postiz app container
+  ansible.builtin.shell: >-
+    docker run -d
+    --name {{ tools_postiz_container_name }}
+    --restart unless-stopped
+    --network {{ tools_postiz_network_name }}
+    -p "{{ tools_postiz_host_port }}:{{ tools_postiz_container_port }}/tcp"
+    -v {{ tools_postiz_uploads_volume }}:/uploads:rw
+    -e "MAIN_URL={{ tools_postiz_url }}"
+    -e "FRONTEND_URL={{ tools_postiz_url }}"
+    -e "NEXT_PUBLIC_BACKEND_URL={{ tools_postiz_url }}/api"
+    -e "BACKEND_INTERNAL_URL=http://localhost:3000"
+    -e "DATABASE_URL={{ tools_postiz_database_url }}"
+    -e "REDIS_URL={{ tools_postiz_redis_url }}"
+    -e "JWT_SECRET={{ tools_postiz_jwt_secret }}"
+    -e "TEMPORAL_ADDRESS={{ tools_postiz_temporal_address }}"
+    -e "IS_GENERAL=true"
+    -e "RUN_CRON=true"
+    -e "STORAGE_PROVIDER=local"
+    -e "UPLOAD_DIRECTORY=/uploads"
+    -e "NEXT_PUBLIC_UPLOAD_DIRECTORY=/uploads"
+    -e "NEXT_PUBLIC_UPLOAD_STATIC_DIRECTORY=/uploads"
+    -e "ENCRYPTION_PROVIDER=local"
+    -e "ENCRYPTION_KEY={{ tools_postiz_encryption_key }}"
+    {% if tools_postiz_disable_registration | bool %}-e "DISABLE_REGISTRATION=true"{% endif %}
+    -e "TZ={{ tools_postiz_tz }}"
+    --log-driver json-file
+    --log-opt max-size={{ tools_postiz_log_max_size }}
+    --log-opt max-file={{ tools_postiz_log_max_file }}
+    --health-cmd "node -e \"fetch('http://{{ infra_network_bind_localhost | default('127.0.0.1') }}:{{ tools_postiz_container_port }}/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""
+    --health-interval {{ tools_postiz_healthcheck_interval }}
+    --health-timeout {{ tools_postiz_healthcheck_timeout }}
+    --health-retries {{ tools_postiz_healthcheck_retries }}
+    --health-start-period {{ tools_postiz_healthcheck_start_period }}
+    --security-opt no-new-privileges:true
+    {{ tools_postiz_image }}:{{ tools_postiz_image_tag }}
+  environment:
+    DOCKER_HOST: "{{ tools_postiz_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  no_log: true
+  tags: ["deploy", "container"]
+
+# ============================================================================
+# Additional networks — temporal (worker channel) + Traefik reachability.
+# `|| true` keeps both idempotent when already connected.
+# ============================================================================
+- name: Connect postiz container to temporal network
+  ansible.builtin.shell: "docker network connect {{ tools_postiz_temporal_network_name }} {{ tools_postiz_container_name }} 2>/dev/null || true"
+  environment:
+    DOCKER_HOST: "{{ tools_postiz_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "network"]
+
+- name: Connect postiz container to traefik-windows network
+  ansible.builtin.shell: "docker network connect {{ tools_postiz_traefik_network_name }} {{ tools_postiz_container_name }} 2>/dev/null || true"
+  environment:
+    DOCKER_HOST: "{{ tools_postiz_docker_host }}"
+  delegate_to: localhost
+  changed_when: false
+  tags: ["deploy", "network"]
+
+# ============================================================================
+# Wait for health — the app is slow to boot (start_period 120s)
+# ============================================================================
+- name: Wait for postiz app to be healthy
+  ansible.builtin.command: >-
+    docker inspect --format '{% raw %}{{.State.Health.Status}}{% endraw %}' {{ tools_postiz_container_name }}
+  environment:
+    DOCKER_HOST: "{{ tools_postiz_docker_host }}"
+  delegate_to: localhost
+  register: tools_postiz_app_health
+  until: tools_postiz_app_health.stdout == "healthy"
+  retries: "{{ tools_postiz_app_health_wait_retries }}"
+  delay: "{{ infra_delay_default }}"
+  changed_when: false
+  ignore_errors: true
+  when: tools_postiz_verify_health | bool
+  tags: ["deploy", "container"]
+
+# ============================================================================
+# Status Report
+# ============================================================================
+- name: Get postiz container status
+  ansible.builtin.command: >-
+    docker inspect --format '{% raw %}{{.Name}}={{.State.Status}} health={{.State.Health.Status}}{% endraw %}'
+    {{ tools_postiz_container_name }}
+    {{ tools_postiz_container_name_postgres }}
+    {{ tools_postiz_container_name_redis }}
+    {{ tools_postiz_container_name_temporal }}
+    {{ tools_postiz_container_name_temporal_postgres }}
+  environment:
+    DOCKER_HOST: "{{ tools_postiz_docker_host }}"
+  delegate_to: localhost
+  register: tools_postiz_status
+  changed_when: false
+  ignore_errors: true
+  tags: ["always", "info"]
+
+- name: Report postiz status
+  ansible.builtin.debug:
+    msg: |
+      Postiz deployed:
+        - URL: {{ tools_postiz_url }} (app auth — no Authelia)
+        - App container: {{ tools_postiz_container_name }} ({{ tools_postiz_image }}:{{ tools_postiz_image_tag }})
+        - App port: {{ tools_postiz_host_port }}:{{ tools_postiz_container_port }}/tcp
+        - Postgres port: {{ tools_postiz_postgres_host_port }}:{{ tools_postiz_postgres_container_port }}/tcp (tailnet debugging only)
+        - Temporal postgres port: {{ tools_postiz_temporal_postgres_host_port }}:{{ tools_postiz_temporal_postgres_container_port }}/tcp (tailnet debugging only)
+        - Networks: {{ tools_postiz_network_name }}, {{ tools_postiz_temporal_network_name }}, {{ tools_postiz_traefik_network_name }} (app only)
+        - Status: {{ tools_postiz_status.stdout_lines | default(['unknown']) | join(', ') }}
+  tags: ["always", "info"]

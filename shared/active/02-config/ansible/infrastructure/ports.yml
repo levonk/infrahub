@@ -598,6 +598,21 @@ infra_port_ai_acrm_host: "4538"
 infra_port_ai_acrm_container: "3000"
 infra_port_ai_acrm_postgres_host: "5440"
 infra_port_ai_acrm_postgres_container: "5432"
+# ---------------------------------------------------------------------------
+# Postiz (self-hosted social-media scheduling — all-in-one GHCR image)
+# Used by: tools-postiz role on windows_docker_hosts (nl region, dtop202311)
+# Web UI exposed via Traefik at postiz.nl.{{ infra_domain_base }} (app's own
+# auth — no Authelia; OAuth callbacks need a direct path).
+# Host port 4539 follows the nl-region range (acrm=4538). Postgres host
+# ports 5441/5442 follow the per-service postgres debug convention
+# (acrm=5440). Redis + Temporal gRPC stay internal to their bridge networks.
+# ---------------------------------------------------------------------------
+infra_port_tools_postiz_host: "4539"
+infra_port_tools_postiz_container: "5000"
+infra_port_tools_postiz_postgres_host: "5441"
+infra_port_tools_postiz_postgres_container: "5432"
+infra_port_tools_postiz_temporal_postgres_host: "5442"
+infra_port_tools_postiz_temporal_postgres_container: "5432"
 
 # ---------------------------------------------------------------------------
 # Fallback ports — referenced by role defaults but not yet allocated to specific deployments

@@ -1,0 +1,19 @@
+---
+galaxy_info:
+  role_name: tools_postiz
+  author: localnet
+  description: Deploy Postiz social-media scheduling stack (app + postgres + redis + temporal + temporal-postgres) on Windows Docker Desktop (nl region)
+  license: MIT
+  min_ansible_version: "2.9"
+  platforms:
+    - name: Windows
+      versions:
+        - "all"
+  galaxy_tags:
+    - postiz
+    - socialmedia
+    - postgres
+    - redis
+    - temporal
+    - web
+dependencies: []
