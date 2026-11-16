@@ -194,6 +194,10 @@ or the `devbox run -- ansible-*-wanbonding` devbox.json scripts).
 - `just --justfile levonk/justfile levonk-build-wanbonding` — build + push
   the arm64 image (amd64 Mac, `docker buildx`). Alternatively the generic
   root recipe: `just docker-build-push localnet-net-wanbonding`.
+  One-time daemon prerequisite: the OCI registry is plain HTTP over
+  Tailscale, so the build daemon must list `100.90.22.85:5000` in
+  `insecure-registries` (colima: `docker.insecure-registries` in
+  `~/.config/colima/default/colima.yaml`, then `colima restart`).
 - `just --justfile levonk/justfile levonk-deploy-wanbonding` — provision +
   configure (manual approval required; check mode:
   `levonk-deploy-wanbonding-check`).
