@@ -187,13 +187,20 @@ loss). Bonded paths restore automatically when the endpoint returns.
 
 ## Verification / operations
 
-- `just levonk-build-wanbonding` — build + push the arm64 image (amd64 Mac,
-  `docker buildx`).
-- `just levonk-deploy-wanbonding` — provision + configure (manual approval
-  required; check mode: `levonk-deploy-wanbonding-check`).
-- `just levonk-validate-wanbonding` — read-only host + guest checks
-  (VM state, DHCP reservation, DNAT rules, `net.mptcp.enabled`, listeners,
-  `glorytun show dev`, containers, nftables).
+levonk recipes live in `levonk/justfile` — from the repo root run
+`just --justfile levonk/justfile <recipe>` (or `cd levonk && just <recipe>`,
+or the `devbox run -- ansible-*-wanbonding` devbox.json scripts).
+
+- `just --justfile levonk/justfile levonk-build-wanbonding` — build + push
+  the arm64 image (amd64 Mac, `docker buildx`). Alternatively the generic
+  root recipe: `just docker-build-push localnet-net-wanbonding`.
+- `just --justfile levonk/justfile levonk-deploy-wanbonding` — provision +
+  configure (manual approval required; check mode:
+  `levonk-deploy-wanbonding-check`).
+- `just --justfile levonk/justfile levonk-validate-wanbonding` — read-only
+  host + guest checks (VM state, DHCP reservation, DNAT rules,
+  `net.mptcp.enabled`, listeners, `glorytun show dev`, containers,
+  nftables).
 - Role-level health: `wanbonding_verify_health` + `--tags verify`.
 - Snapshot before upgrades: `sudo virsh snapshot-create-as bonding-vm`.
 
