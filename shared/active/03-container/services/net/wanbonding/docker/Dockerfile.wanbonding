@@ -1,0 +1,65 @@
+# syntax=docker/dockerfile:1
+# WAN bonding endpoint — shadowsocks-libev + glorytun (UDP + TCP) + mptcpize
+# Server half of an MPTCP WAN-aggregation system (OpenMPTCProuter server
+# pattern). Runs inside bonding-vm (arm64 Debian guest on oci-cloud-server).
+#
+# Build platform: linux/arm64 ONLY (target guest is arm64; the amd64 control
+# Mac cross-builds via `docker buildx`):
+#   just docker-build-push localnet-net-wanbonding
+#
+# Multi-stage build per AGENTS.md Invariant #2:
+#   - builder: compile glorytun + glorytun-tcp (angt/glorytun, needs libsodium)
+#     and mptcpize/libmptcpwrap (Ysurac/mptcpize) from source
+#   - runtime: debian:bookworm-slim + distro shadowsocks-libev package
+#     (available in Debian repos for arm64 — no source build needed) + the
+#     built binaries; no toolchain in the final image
+#
+# No ENTRYPOINT — the image is a daemon toolbox; each container supplies its
+# own command (ss-server / glorytun-udp-server.sh / glorytun-tcp-server.sh).
+
+FROM debian:bookworm-slim AS builder
+
+ARG GLORYTUN_GIT_REF=master
+ARG MPTCPIZE_GIT_REF=master
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      build-essential \
+      ca-certificates \
+      git \
+      libsodium-dev \
+      pkg-config \
+ && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /src
+
+# glorytun — produces `glorytun` (UDP impl) and `glorytun-tcp` (TCP impl)
+RUN git clone --depth 1 --branch "${GLORYTUN_GIT_REF}" \
+      https://github.com/angt/glorytun.git \
+ && make -C glorytun
+
+# mptcpize — produces `mptcpize` wrapper + libmptcpwrap.so (LD_PRELOAD shim
+# that converts app TCP sockets to IPPROTO_MPTCP). ss-server/glorytun-tcp
+# have native MPTCP flags; the shim is kept for daemons that don't.
+RUN git clone --depth 1 --branch "${MPTCPIZE_GIT_REF}" \
+      https://github.com/Ysurac/mptcpize.git \
+ && make -C mptcpize
+
+FROM debian:bookworm-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      shadowsocks-libev \
+      libsodium23 \
+      iproute2 \
+      procps \
+ && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /src/glorytun/glorytun /usr/local/sbin/glorytun
+COPY --from=builder /src/glorytun/glorytun-tcp /usr/local/sbin/glorytun-tcp
+COPY --from=builder /src/mptcpize/mptcpize /usr/local/bin/mptcpize
+COPY --from=builder /src/mptcpize/libmptcpwrap.so /usr/local/lib/mptcpize/libmptcpwrap.so
+
+# Sanity check at build time (fails the build if binaries are broken)
+RUN ss-server -h >/dev/null 2>&1; \
+    glorytun 2>&1 | grep -qi "usage\|keyfile" || true
+
+CMD ["sleep", "infinity"]

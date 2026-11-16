@@ -1,0 +1,73 @@
+---
+# tasks file for net-wanbonding
+# WAN-bonding aggregation endpoint (server half) — runs inside bonding-vm,
+# a dedicated KVM guest on the arm64 OCI host.
+#
+# Layout:
+#   mptcp.yml          guest-kernel MPTCP config (sanctioned host-level
+#                      exception — see defaults/main.yml)
+#   firewall.yml       guest nftables (default-deny input + tunnel NAT)
+#   containers.yml     shadowsocks-libev + glorytun containers
+#   verify.yml         read-only health checks (--tags verify)
+#   host-forwarding.yml  invoked with tasks_from on the cloud_servers play —
+#                      DNAT of the WAN-facing ports into bonding-vm. NOT
+#                      included from here.
+# ---------------------------------------------------------------------------
+
+- name: Gather ansible_facts
+  ansible.builtin.setup:
+    gather_subset: ["all"]
+  tags: ["always"]
+
+- name: Validate required variables are defined
+  ansible.builtin.assert:
+    that:
+      - wanbonding_enabled is defined
+      - wanbonding_image is defined
+      - wanbonding_shadowsocks_port is defined
+      - wanbonding_glorytun_udp_port is defined
+      - wanbonding_glorytun_tcp_port is defined
+      - ansible_facts['architecture'] in ["aarch64", "arm64"]
+    fail_msg: "ERROR: net-wanbonding requires arm64 guest + infra port variables. Check infrastructure/{ports,networks}.yml and group_vars."
+    success_msg: "Required wanbonding variables are defined."
+  tags: ["always", "validate"]
+
+- name: Assert shadowsocks secret is present when enabled
+  ansible.builtin.assert:
+    that:
+      - wanbonding_shadowsocks_password is defined
+      - wanbonding_shadowsocks_password | length > 0
+    fail_msg: "ERROR: vault_wanbonding_shadowsocks_password is empty. Add it to the levonk vault via scripts/edit-vault.sh (see deploy-wanbonding.yml header)."
+    success_msg: "shadowsocks secret validated."
+  when: wanbonding_shadowsocks_enabled | bool
+  tags: ["always", "validate"]
+
+- name: Assert glorytun secret is present when enabled
+  ansible.builtin.assert:
+    that:
+      - wanbonding_glorytun_key is defined
+      - wanbonding_glorytun_key | length > 0
+    fail_msg: "ERROR: vault_wanbonding_glorytun_key is empty. Generate a keyfile (`glorytun keyfile <path>` inside the wanbonding image) and add its contents to the levonk vault via scripts/edit-vault.sh."
+    success_msg: "glorytun secret validated."
+  when:
+    - wanbonding_glorytun_udp_enabled | bool or wanbonding_glorytun_tcp_enabled | bool
+  tags: ["always", "validate"]
+
+- name: Include MPTCP guest-kernel configuration
+  ansible.builtin.include_tasks: mptcp.yml
+  when: wanbonding_mptcp_enabled | bool
+  tags: ["mptcp", "kernel"]
+
+- name: Include guest firewall configuration
+  ansible.builtin.include_tasks: firewall.yml
+  when: wanbonding_guest_firewall_enabled | bool
+  tags: ["firewall"]
+
+- name: Include container deployment
+  ansible.builtin.include_tasks: containers.yml
+  tags: ["deploy", "containers"]
+
+- name: Include health verification
+  ansible.builtin.include_tasks: verify.yml
+  when: wanbonding_verify_health | bool
+  tags: ["verify", "validate"]

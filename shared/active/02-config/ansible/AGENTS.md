@@ -90,6 +90,8 @@ See [`internal-docs/troubleshooting/ansible-lint.md`](../../../internal-docs/tro
 | `validate-dns.yml` | `levonk/.../inventories/oci.yml` | `cloud_servers` | Oracle Linux (EL) | read-only post-deploy checks for the cno DNS chain |
 | `deploy-openwrt.yml` | `levonk/.../inventories/localnet.yml` | `openwrt_aps` | OpenWrt | velop01/velop02 (Linksys VLP01/WHW01) APs; bootstraps python3-light then renders UCI configs |
 | `validate-openwrt.yml` | `levonk/.../inventories/localnet.yml` | `openwrt_aps` | OpenWrt | read-only post-deploy checks for the Velop APs |
+| `deploy-wanbonding.yml` ⚠️ NOT YET DEPLOYED | `levonk/.../inventories/oci.yml` | `cloud_servers`, `wanbonding_vms` | Oracle Linux (EL host) + Debian arm64 (guest) | provisions bonding-vm (2nd KVM guest) + DNAT WAN ports; configures MPTCP guest kernel + shadowsocks/glorytun containers — manual approval required, see ADR-20261115001 |
+| `validate-wanbonding.yml` | `levonk/.../inventories/oci.yml` | `cloud_servers`, `wanbonding_vms` | EL + Debian arm64 | read-only checks: VM state, DNAT, MPTCP sysctl, listeners, glorytun dev, containers, nftables |
 
 When adding a new role to a playbook, check this table to know which playbook(s) cover which hosts. Use `--tags <role-tag>` to deploy only that role across all inventories.
 

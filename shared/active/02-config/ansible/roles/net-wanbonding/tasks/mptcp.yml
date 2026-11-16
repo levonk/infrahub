@@ -1,0 +1,69 @@
+---
+# MPTCP guest-kernel configuration for net-wanbonding.
+# HOST-SERVICE JUSTIFIED: MPTCP is a kernel capability — sysctl state, the
+# netlink path-manager limits/endpoints, and boot persistence are guest-
+# kernel configuration that cannot live inside a container. The oneshot
+# systemd unit only applies `ip mptcp` state at boot; no long-running host
+# process is introduced. All userspace daemons remain containerized.
+# ---------------------------------------------------------------------------
+
+- name: Deploy MPTCP + forwarding sysctl drop-in
+  ansible.builtin.template:
+    src: 99-wanbonding-mptcp.conf.j2
+    dest: "{{ wanbonding_mptcp_sysctl_file }}"
+    owner: root
+    group: root
+    mode: "{{ infra_mode_file }}"
+  become: true
+  notify: apply wanbonding sysctl settings
+
+# Ordering matters: net.mptcp.enabled=1 must be live BEFORE the containers
+# start — ss-server/glorytun-tcp create IPPROTO_MPTCP sockets at listen time
+# and silently degrade to plain TCP otherwise.
+- name: Apply sysctl changes before continuing
+  ansible.builtin.meta: flush_handlers
+
+- name: Deploy MPTCP setup script
+  ansible.builtin.template:
+    src: wanbonding-mptcp-setup.sh.j2
+    dest: "{{ wanbonding_mptcp_setup_script }}"
+    owner: root
+    group: root
+    mode: "{{ infra_mode_exec }}"
+  become: true
+  register: wanbonding_mptcp_script
+
+- name: Deploy MPTCP boot-persistence oneshot unit
+  ansible.builtin.template:
+    src: wanbonding-mptcp-setup.service.j2
+    dest: "/etc/systemd/system/{{ wanbonding_mptcp_setup_service }}.service"
+    owner: root
+    group: root
+    mode: "{{ infra_mode_file }}"
+  become: true
+  register: wanbonding_mptcp_unit
+  notify: daemon reload
+
+- name: Enable MPTCP boot-persistence unit
+  ansible.builtin.systemd:
+    name: "{{ wanbonding_mptcp_setup_service }}"
+    enabled: true
+  become: true
+
+- name: Apply MPTCP limits and endpoints now
+  ansible.builtin.command:
+    cmd: "{{ wanbonding_mptcp_setup_script }}"
+  become: true
+  changed_when: true
+
+- name: Show effective MPTCP state
+  ansible.builtin.command:
+    cmd: "sh -c 'sysctl net.mptcp.enabled; ip mptcp limits show; ip mptcp endpoint show'"
+  register: wanbonding_mptcp_state
+  changed_when: false
+  failed_when: false
+  become: true
+
+- name: Display MPTCP state
+  ansible.builtin.debug:
+    var: wanbonding_mptcp_state.stdout_lines

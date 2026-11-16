@@ -61,6 +61,7 @@
       --graphics vnc,listen={{ infra_network_bind_all }}
       --noautoconsole
       --osinfo {{ isolation_vm_osinfo }}
+      {% if isolation_vm_cloud_init_enabled | default(false) | bool %}--cloud-init user-data=/tmp/{{ isolation_vm_name }}-user-data.yml,meta-data=/tmp/{{ isolation_vm_name }}-meta-data.yml{% endif %}
       --import
     become: true
   register: install_result

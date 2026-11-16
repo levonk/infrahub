@@ -863,4 +863,24 @@ infra_port_media_coturn_relay_max_container: "49050"
 # (WireGuard encrypts transport); NTS-KE is used client-side upstream only.
 # ---------------------------------------------------------------------------
 infra_port_ntp_server_host: "123"
+
+# ---------------------------------------------------------------------------
+# WAN Bonding Endpoint Ports (MPTCP multi-WAN aggregation — server half)
+# Used by: deploy-wanbonding.yml on wanbonding_vms (bonding-vm, KVM guest on
+# oci-cloud-server arm64). Containers run host-networked inside the guest;
+# host==container ports. DNAT'd into the VM by the host firewall; also needs
+# matching OCI VCN security-list ingress (manual console step).
+# Port choices follow the OpenMPTCProuter server convention:
+#   shadowsocks TCP 65101, glorytun UDP 65001 (+ TCP 65001 for the TCP
+#   variant — same number, different L4 proto, so they coexist).
+# The glorytun UDP "client" port (5000) is the peer port the remote client
+# binds — the server replies to it; it is not opened locally.
+# ---------------------------------------------------------------------------
+infra_port_net_wanbonding_shadowsocks_host: "65101"
+infra_port_net_wanbonding_shadowsocks_container: "65101"
+infra_port_net_wanbonding_glorytun_udp_host: "65001"
+infra_port_net_wanbonding_glorytun_udp_container: "65001"
+infra_port_net_wanbonding_glorytun_udp_client: "5000"
+infra_port_net_wanbonding_glorytun_tcp_host: "65001"
+infra_port_net_wanbonding_glorytun_tcp_container: "65001"
 infra_port_ntp_nts_ke_host: "4460"

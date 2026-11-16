@@ -22,6 +22,11 @@ isolation_vm_debian_version: "bookworm"
 isolation_vm_debian_arch: "arm64"
 isolation_vm_image_url: "https://cloud.debian.org/images/cloud/bookworm/daily/latest/debian-12-generic-arm64-daily.qcow2"
 isolation_vm_osinfo: "debian12"
+# Attach the rendered cloud-init user/meta-data to virt-install via
+# --cloud-init (NoCloud seed). Default off — the original isolation-vm was
+# provisioned before this flag existed and must not be reprovisioned.
+# bonding-vm sets this true so cuser + SSH key exist on first boot.
+isolation_vm_cloud_init_enabled: false
 
 # KVM Configuration Dependencies
 kvm_storage_pool_path: "/var/lib/libvirt/images"
