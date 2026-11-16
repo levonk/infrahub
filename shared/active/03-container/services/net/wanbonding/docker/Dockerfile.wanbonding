@@ -23,19 +23,35 @@ ARG GLORYTUN_GIT_REF=master
 ARG MPTCPIZE_GIT_REF=master
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
+      autoconf \
+      automake \
       build-essential \
       ca-certificates \
       git \
       libsodium-dev \
+      libtool \
       pkg-config \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src
 
-# glorytun — produces `glorytun` (UDP impl) and `glorytun-tcp` (TCP impl)
-RUN git clone --depth 1 --branch "${GLORYTUN_GIT_REF}" \
+# glorytun — produces `glorytun` (UDP impl, master branch).
+# mud + argz are git submodules (--recurse-submodules). The Makefile's
+# vendored .sodium paths are absent, but -I/-L to nonexistent dirs are
+# ignored and -lsodium resolves via the system libsodium-dev.
+RUN git clone --depth 1 --shallow-submodules --recurse-submodules \
+      --branch "${GLORYTUN_GIT_REF}" \
       https://github.com/angt/glorytun.git \
  && make -C glorytun
+
+# glorytun-tcp — the TCP impl lives on the `tcp` branch of the same repo,
+# an autotools build whose binary is also named `glorytun`; installed as
+# `glorytun-tcp` (same naming as the OpenMPTCProuter packages).
+RUN git clone --depth 1 --branch tcp \
+      https://github.com/angt/glorytun.git glorytun-tcp-src \
+ && cd glorytun-tcp-src \
+ && ./autogen.sh && ./configure && make \
+ && cp glorytun /usr/local/sbin/glorytun-tcp
 
 # mptcpize — produces `mptcpize` wrapper + libmptcpwrap.so (LD_PRELOAD shim
 # that converts app TCP sockets to IPPROTO_MPTCP). ss-server/glorytun-tcp
@@ -54,7 +70,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
  && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /src/glorytun/glorytun /usr/local/sbin/glorytun
-COPY --from=builder /src/glorytun/glorytun-tcp /usr/local/sbin/glorytun-tcp
+COPY --from=builder /usr/local/sbin/glorytun-tcp /usr/local/sbin/glorytun-tcp
 COPY --from=builder /src/mptcpize/mptcpize /usr/local/bin/mptcpize
 COPY --from=builder /src/mptcpize/libmptcpwrap.so /usr/local/lib/mptcpize/libmptcpwrap.so
 
