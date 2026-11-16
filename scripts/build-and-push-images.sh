@@ -70,6 +70,9 @@ IMAGES=(
   "localnet-devops-no-mistakes|docker/Dockerfile.no-mistakes|devops/no-mistakes|linux/amd64"
   # Local Watch Party — synchronized movie watching with friends (node:26-alpine + ffmpeg)
   "localnet-media-watch-party|docker/Dockerfile.watch-party|media/watch-party|"
+  # WAN bonding endpoint — shadowsocks-libev + glorytun + mptcpize.
+  # linux/arm64 ONLY (target: bonding-vm, arm64 guest on oci-cloud-server).
+  "localnet-net-wanbonding|docker/Dockerfile.wanbonding|net/wanbonding|linux/arm64"
 )
 
 # NOTE: envoy, privoxy, squid use upstream Docker Hub images directly (no custom Dockerfile).

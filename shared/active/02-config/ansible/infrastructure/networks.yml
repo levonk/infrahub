@@ -171,6 +171,23 @@ infra_network_kvm_routed_bridge_subnet: "192.168.101.0/24"
 infra_network_kvm_routed_bridge_gateway: "192.168.101.1"
 infra_network_kvm_routed_bridge_dhcp_start: "192.168.101.128"
 infra_network_kvm_routed_bridge_dhcp_end: "192.168.101.254"
+# Bonding VM (QEMU guest on kvm-nat-br0) — WAN bonding endpoint; static IP
+# used for SSH (via host nc ProxyCommand), monitoring, and WAN-port DNAT.
+infra_network_kvm_bonding_vm_ip: "192.168.100.148"
+
+# ---------------------------------------------------------------------------
+# WAN Bonding Endpoint — glorytun tunnel point-to-point addressing
+# Used by: deploy-wanbonding.yml on wanbonding_vms (bonding-vm).
+# OMR convention: UDP tunnel uses 10.255.254.0/24 (server .1, client .2),
+# TCP variant uses 10.255.255.0/24. These subnets are masqueraded out the
+# VM's uplink by the guest nftables.
+# ---------------------------------------------------------------------------
+infra_network_wanbonding_glorytun_udp_subnet: "10.255.254.0/24"
+infra_network_wanbonding_glorytun_udp_server_ip: "10.255.254.1"
+infra_network_wanbonding_glorytun_udp_client_ip: "10.255.254.2"
+infra_network_wanbonding_glorytun_tcp_subnet: "10.255.255.0/24"
+infra_network_wanbonding_glorytun_tcp_server_ip: "10.255.255.1"
+infra_network_wanbonding_glorytun_tcp_client_ip: "10.255.255.2"
 
 # ---------------------------------------------------------------------------
 # Service IP Allocations (within networks)

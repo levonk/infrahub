@@ -1,0 +1,80 @@
+---
+# Read-only health verification for net-wanbonding.
+# Runs during deploy and via `--tags verify`. Does not fail fast on the
+# first failing check — results are collected and summarized.
+# ---------------------------------------------------------------------------
+
+- name: Build expected container list
+  ansible.builtin.set_fact:
+    wanbonding_container_names: "{{ wanbonding_container_names | default([]) + [item] }}"
+  loop: >-
+    {{ ([wanbonding_shadowsocks_container_name] if wanbonding_shadowsocks_enabled | bool else [])
+       + ([wanbonding_glorytun_udp_container_name] if (wanbonding_glorytun_udp_enabled | bool and wanbonding_glorytun_variant == 'udp') else [])
+       + ([wanbonding_glorytun_tcp_container_name] if (wanbonding_glorytun_tcp_enabled | bool and wanbonding_glorytun_variant == 'tcp') else []) }}
+  loop_control:
+    label: "{{ item }}"
+
+- name: Check MPTCP is enabled in the guest kernel
+  ansible.builtin.command:
+    cmd: "sysctl -n net.mptcp.enabled"
+  register: wanbonding_verify_mptcp
+  changed_when: false
+  failed_when: false
+  become: true
+
+- name: Check shadowsocks TCP listener
+  ansible.builtin.command:
+    cmd: "ss -ltn"
+  register: wanbonding_verify_ss_listen
+  changed_when: false
+  failed_when: false
+  become: true
+  when: wanbonding_shadowsocks_enabled | bool
+
+# The glorytun binary lives inside the container; the TUN device it creates
+# is visible in the guest's network namespace (host networking).
+- name: Check glorytun UDP tunnel device
+  ansible.builtin.command:
+    cmd: "ip -o link show dev {{ wanbonding_glorytun_udp_dev }}"
+  register: wanbonding_verify_gt_udp
+  changed_when: false
+  failed_when: false
+  become: true
+  when: wanbonding_glorytun_udp_enabled | bool and wanbonding_glorytun_variant == "udp"
+
+- name: Check glorytun TCP listener
+  ansible.builtin.command:
+    cmd: "ss -ltn"
+  register: wanbonding_verify_gt_tcp
+  changed_when: false
+  failed_when: false
+  become: true
+  when: wanbonding_glorytun_tcp_enabled | bool and wanbonding_glorytun_variant == "tcp"
+
+- name: Check wanbonding containers are running
+  community.docker.docker_container_info:
+    name: "{{ item }}"
+  register: wanbonding_verify_containers
+  loop: "{{ wanbonding_container_names | default([]) }}"
+  failed_when: false
+
+- name: Build verification summary
+  ansible.builtin.set_fact:
+    wanbonding_validation_results: >-
+      {{ [
+        {'check': 'net.mptcp.enabled == 1', 'ok': (wanbonding_verify_mptcp.stdout | default('0') | trim) == '1'},
+        {'check': 'shadowsocks TCP listener on ' ~ wanbonding_shadowsocks_port, 'ok': (wanbonding_shadowsocks_enabled | bool) and (':' ~ wanbonding_shadowsocks_port ~ ' ' in (wanbonding_verify_ss_listen.stdout | default('')))},
+        {'check': 'glorytun-udp tunnel present', 'ok': (not (wanbonding_glorytun_udp_enabled | bool and wanbonding_glorytun_variant == 'udp')) or ((wanbonding_verify_gt_udp.rc | default(1)) == 0)},
+        {'check': 'glorytun-tcp listener on ' ~ wanbonding_glorytun_tcp_port, 'ok': (not (wanbonding_glorytun_tcp_enabled | bool and wanbonding_glorytun_variant == 'tcp')) or (':' ~ wanbonding_glorytun_tcp_port ~ ' ' in (wanbonding_verify_gt_tcp.stdout | default('')))}
+      ] }}
+
+- name: Report verification results
+  ansible.builtin.debug:
+    msg: "{{ item.check }}: {{ 'OK' if item.ok else 'FAIL' }}"
+  loop: "{{ wanbonding_validation_results }}"
+
+- name: Display container states
+  ansible.builtin.debug:
+    msg: "{{ item.name }}: {{ item.container.State.Status | default('missing') }}"
+  loop: "{{ wanbonding_verify_containers.results }}"
+  when: wanbonding_verify_containers.results is defined

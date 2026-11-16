@@ -1,0 +1,259 @@
+---
+# Deploy WAN Bonding Endpoint — bonding-vm on oci-cloud-server
+# Location: shared/active/02-config/ansible/playbooks/deploy-wanbonding.yml
+#
+# ⚠️  NOT YET DEPLOYED — manual approval required before first run.
+#
+# Provisions a SECOND KVM isolation guest ("bonding-vm") on the arm64 OCI
+# host and configures it as the server half of an MPTCP WAN-aggregation
+# system (shadowsocks-libev + glorytun — the OpenMPTCProuter server pattern,
+# built for arm64). See ADR-20261115001 (shared/active/08-docs/adr/).
+#
+# Play 1 (cloud_servers): provisions bonding-vm via the existing
+#   isolation-vm role (same QEMU/KVM + NAT/routed bridge pattern — with
+#   --cloud-init enabled so cuser/SSH key exist on first boot), then DNATs
+#   the WAN-facing ports from the host's public interface into the VM.
+# Play 2 (wanbonding_vms): base config (user/SSH/tools) + Docker engine +
+#   net-wanbonding role (MPTCP guest-kernel config, guest firewall,
+#   shadowsocks/glorytun containers, health checks).
+#
+# Prerequisites (manual — see ADR for details):
+#   1. KVM hypervisor on OCI already deployed: just ansible-deploy-vms
+#   2. Image built + pushed (amd64 Mac, buildx linux/arm64):
+#        just docker-build-push localnet-net-wanbonding
+#   3. Vault secrets set via scripts/edit-vault.sh:
+#        vault_wanbonding_shadowsocks_password
+#        vault_wanbonding_glorytun_key   (contents of a `glorytun keyfile`)
+#        vault_wanbonding_vm_ssh_public_key  (operator key — may reuse the
+#          isolation-vm public key literal)
+#   4. OCI VCN security list ingress (OCI console — NOT managed by Ansible):
+#        tcp/65101 (shadowsocks), udp/65001 (glorytun), tcp/65001 (only if
+#        the glorytun TCP variant is enabled)
+#   5. Host firewall engine consistent with group_vars
+#      (cloud_server_firewall_type; levonk = firewalld).
+#
+# Usage:
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-wanbonding.yml \
+#     --vault-password-file ~/.ansible/vault_password
+#
+# Dry run:
+#   same + --check --diff  (note: virsh/docker module check-mode coverage
+#   is partial; the VM create step will report changed)
+
+# ===========================================================================
+# Play 1 — host side: provision bonding-vm + DNAT the WAN ports into it
+# ===========================================================================
+- name: "Provision bonding-vm and configure WAN port forwarding"
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+
+  vars:
+    # Map the bonding-vm spec onto the reusable isolation-vm role.
+    # Values mirror roles/net-wanbonding/defaults/main.yml — role defaults
+    # are not visible to play vars, so infra_* vars are referenced directly.
+    isolation_vm_enabled: true
+    isolation_vm_name: "bonding-vm"
+    isolation_vm_memory_mb: 2048  # project-lint: disable=magic-int  memory size value, not a standalone magic number
+    isolation_vm_vcpus: 2
+    isolation_vm_disk_gb: 20  # project-lint: disable=magic-int  disk size value, not a standalone magic number
+    isolation_vm_ip_address: "{{ infra_network_kvm_bonding_vm_ip }}"
+    isolation_vm_gateway_ip: "{{ infra_network_kvm_nat_bridge_gateway }}"
+    isolation_vm_mac_address: "52:54:00:36:e0:0e"  # project-lint: disable=magic-int  MAC address component, not an operational value
+    isolation_vm_nat_bridge: "{{ infra_network_kvm_nat_bridge_name }}"
+    isolation_vm_routed_bridge: "{{ infra_network_kvm_routed_bridge_name }}"
+    isolation_vm_debian_version: "bookworm"
+    isolation_vm_debian_arch: "arm64"
+    isolation_vm_osinfo: "debian12"
+    isolation_vm_image_url: "https://cloud.debian.org/images/cloud/bookworm/daily/latest/debian-12-generic-arm64-daily.qcow2"
+    # The original isolation-vm predates --cloud-init support in this role;
+    # bonding-vm enables it so cuser + SSH key exist on first boot.
+    isolation_vm_cloud_init_enabled: true
+    kvm_storage_pool_path: "/var/lib/libvirt/images"
+    kvm_cpu_mode: "qemu"
+    isolation_vm_user: "cuser"
+    isolation_vm_user_uid: "{{ infra_identity_puid }}"
+    isolation_vm_user_gid: "{{ infra_identity_pgid }}"
+    isolation_vm_user_shell: "/bin/bash"
+    isolation_vm_user_home: "/home/cuser"
+    isolation_vm_sudo_groups: "sudo"
+    isolation_vm_sudo_enabled: true
+    isolation_vm_sudo_password_required: false
+    isolation_vm_ssh_public_key: "{{ wanbonding_vm_ssh_public_key }}"
+    isolation_vm_ssh_password_auth: false
+    isolation_vm_ssh_permit_root_login: "no"
+    isolation_vm_ssh_port: "{{ infra_port_ssh_host }}"
+
+  pre_tasks:
+    - name: "Load shared infrastructure schemas"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/{{ item }}"
+      loop:
+        - modes.yml
+        - timing.yml
+        - values.yml
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+      tags: ["always"]
+
+    - name: "Load client infrastructure overrides (levonk)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+      tags: ["always"]
+
+    - name: "Validate provisioning variables"
+      ansible.builtin.assert:
+        that:
+          - isolation_vm_ip_address is defined
+          - isolation_vm_ip_address | length > 0
+          - wanbonding_vm_ssh_public_key is defined
+          - wanbonding_vm_ssh_public_key | length > 0
+        fail_msg: "ERROR: bonding-vm provisioning variables missing. Check infrastructure/networks.yml (infra_network_kvm_bonding_vm_ip) and the wanbonding_vms group_vars (wanbonding_vm_ssh_public_key)."
+        success_msg: "bonding-vm provisioning variables validated."
+      tags: ["always", "validate"]
+
+    - name: "Install cloud-init seed tooling (virt-install --cloud-init)"
+      ansible.builtin.dnf:
+        name:
+          - genisoimage
+          - cloud-utils
+        state: present
+      become: true
+      when: ansible_facts['os_family'] == "RedHat"
+      tags: ["provision", "packages"]
+
+    - name: "Install cloud-init seed tooling (Debian hosts)"
+      ansible.builtin.apt:
+        name:
+          - genisoimage
+          - cloud-image-utils
+        state: present
+      become: true
+      when: ansible_facts['os_family'] == "Debian"
+      tags: ["provision", "packages"]
+
+    - name: "Check whether bonding-vm already exists"
+      ansible.builtin.command:
+        cmd: "virsh dominfo {{ isolation_vm_name }}"
+      register: wanbonding_vm_exists
+      changed_when: false
+      failed_when: false
+      become: true
+      tags: ["provision", "vm"]
+
+  roles:
+    # Reuses the existing QEMU isolation-VM pattern — same NAT + routed
+    # bridge, cloud-init seed, DHCP reservation. Creates bonding-vm only;
+    # does not touch isolation-vm. Skipped when the domain already exists —
+    # the role's image download + virt-install are not safe to re-run
+    # against a live guest (qcow2 re-download could clobber the disk).
+    - role: isolation-vm
+      when: wanbonding_vm_exists.rc != 0
+      tags: ["provision", "vm"]
+
+    # DNAT the WAN-facing ports from the public interface into bonding-vm.
+    - role: net-wanbonding
+      tasks_from: host-forwarding
+      tags: ["forwarding", "firewall"]
+
+# ===========================================================================
+# Play 2 — guest side: base config + Docker + net-wanbonding
+# ===========================================================================
+- name: "Configure bonding-vm as WAN bonding endpoint"
+  hosts: wanbonding_vms
+  become: true
+  gather_facts: true
+
+  vars:
+    # isolation-vm-config / isolation-vm-docker consume isolation_vm_* vars.
+    # Values mirror roles/net-wanbonding/defaults/main.yml — role defaults
+    # are not visible to play vars, so infra_* vars are referenced directly.
+    isolation_vm_user: "cuser"
+    isolation_vm_user_uid: "{{ infra_identity_puid }}"
+    isolation_vm_user_gid: "{{ infra_identity_pgid }}"
+    isolation_vm_user_shell: "/bin/bash"
+    isolation_vm_user_home: "/home/cuser"
+    isolation_vm_ssh_enabled: true
+    isolation_vm_ssh_port: "{{ infra_port_ssh_host }}"
+    isolation_vm_ssh_password_auth: false
+    isolation_vm_ssh_permit_root_login: "no"
+    isolation_vm_ssh_public_key: "{{ wanbonding_vm_ssh_public_key }}"
+    isolation_vm_nat_bridge: "{{ infra_network_kvm_nat_bridge_name }}"
+    isolation_vm_routed_bridge: "{{ infra_network_kvm_routed_bridge_name }}"
+    isolation_vm_dns_servers:
+      - "{{ infra_network_kvm_nat_bridge_gateway }}"
+      - "{{ infra_network_ip_google_dns_primary }}"
+      - "{{ infra_network_ip_google_dns_secondary }}"
+    isolation_vm_dns_search_domains:
+      - "localnet"
+    isolation_vm_cli_tools:
+      - "zsh"
+      - "tmux"
+      - "curl"
+      - "git"
+      - "vim"
+      - "wget"
+      - "htop"
+      - "net-tools"
+      - "iputils-ping"
+      - "dnsutils"
+    isolation_vm_timezone: "UTC"
+    isolation_vm_locale: "en_US.UTF-8"
+    isolation_vm_sudo_enabled: true
+    isolation_vm_sudo_password_required: false
+    isolation_vm_sudo_groups:
+      - "sudo"
+      - "docker"
+    isolation_vm_gateway: "{{ infra_network_kvm_nat_bridge_gateway }}"
+    isolation_vm_docker_user: "cuser"
+    isolation_vm_docker_group: "docker"
+    isolation_vm_docker_install_method: "repo"
+    isolation_vm_docker_verify_install: true
+    isolation_vm_docker_log_driver: "json-file"
+    isolation_vm_docker_log_opts:
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "3"
+    isolation_vm_docker_live_restore: true
+    isolation_vm_docker_storage_driver: "overlay2"
+
+  pre_tasks:
+    - name: "Load shared infrastructure schemas"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/{{ item }}"
+      loop:
+        - modes.yml
+        - timing.yml
+        - values.yml
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+      tags: ["always"]
+
+    - name: "Load client infrastructure overrides (levonk)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+      tags: ["always"]
+
+  roles:
+    - role: isolation-vm-config
+      tags: ["configure", "base"]
+
+    - role: isolation-vm-docker
+      tags: ["docker"]
+
+    - role: net-wanbonding
+      tags: ["wanbonding", "deploy"]

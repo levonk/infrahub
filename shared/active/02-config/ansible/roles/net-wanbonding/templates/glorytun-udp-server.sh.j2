@@ -1,0 +1,37 @@
+#!/bin/sh
+# {{ ansible_managed }}
+# glorytun (UDP variant) server entrypoint — mirrors the OpenMPTCProuter
+# VPS `glorytun-udp-run` script semantics:
+#   from addr <bind> port <listen>  — where the server accepts peer packets
+#   to addr <peer> port <client>    — peer spec (0.0.0.0 = learn on first
+#                                     packet; replies go to client port)
+# Runs with host networking + NET_ADMIN + /dev/net/tun inside the
+# localnet-net-wanbonding image.
+set -e
+
+DEV="{{ wanbonding_glorytun_udp_dev }}"
+
+glorytun \
+    bind to addr {{ wanbonding_glorytun_udp_peer_addr }} port {{ wanbonding_glorytun_udp_peer_port }} \
+    from addr {{ wanbonding_glorytun_udp_bind }} port {{ wanbonding_glorytun_udp_port }} \
+    keyfile {{ wanbonding_glorytun_udp_keyfile }} \
+    dev "${DEV}" \
+    {{ wanbonding_glorytun_udp_options }} &
+GT_PID=$!
+
+# Wait for the tun device to appear, then give it the point-to-point
+# addresses (OMR convention: server {{ wanbonding_glorytun_udp_server_tun_ip }},
+# client {{ wanbonding_glorytun_udp_client_tun_ip }}).
+i=0
+while [ "$i" -lt 30 ]; do
+    if ip link show "${DEV}" >/dev/null 2>&1; then
+        break
+    fi
+    i=$((i + 1))
+    sleep 1
+done
+
+ip addr add {{ wanbonding_glorytun_udp_server_tun_ip }}/32 peer {{ wanbonding_glorytun_udp_client_tun_ip }} dev "${DEV}" 2>/dev/null || true
+ip link set "${DEV}" mtu {{ wanbonding_glorytun_mtu }} up
+
+wait "${GT_PID}"
