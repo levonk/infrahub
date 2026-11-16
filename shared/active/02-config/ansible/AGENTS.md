@@ -649,7 +649,3 @@ Postiz's local encryption provider **base64-decodes** `ENCRYPTION_KEY` and requi
 ### Temporal search attributes require Elasticsearch
 
 With `ENABLE_ES=false` (standard SQL visibility) Temporal caps custom search attributes at ~3 per type. Postiz registers more `Text` attributes and dies in `TemporalRegister.onModuleInit` with `cannot have more than 3 search attribute of type Text`. Upstream's ES container is **required**, not optional: deploy `elasticsearch:7.17.27` (single-node, `xpack.security.enabled=false`, 256MB heap) on the temporal network and set `ENABLE_ES=true`, `ES_SEEDS=<es container>`, `ES_VERSION=v7`.
-
-### Merge driver can silently drop YAML entries
-
-The repo's YAML merge driver resolved domains/ports/DNS-playbook conflicts by taking our base's shorter lists, dropping entries added on master. After any merge touching `infrastructure/*.yml` or `configure-cloudflare-dns.yml`, diff the `infra_*`/`name:` variable lists against `origin/master` before committing.

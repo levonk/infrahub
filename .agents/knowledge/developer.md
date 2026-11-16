@@ -362,6 +362,8 @@ Chains define request-flow topology for proxy/cache chains (e.g., AI Pipeline, N
 - **envoy/privoxy/squid**: These services use upstream Docker Hub images directly (no custom Dockerfiles). Do NOT try to build them locally.
 - **TraLa exclude patterns**: Use router names WITHOUT the `@file` suffix (e.g., `trala-https`, not `trala-https@file`). Wildcards: `*` matches any chars, `?` matches one char.
 
+- **User-global mergiraf merge driver**: `~/.config/git/gitattributes` (user dotfiles, not repo `.gitattributes`) assigns `merge=mergiraf` to YAML (and most source types) in every repo. Its semantic YAML merge can silently prefer our side's shorter lists — during the postiz merge it dropped 18 master-side `name:`/`infra_*` entries in `domains.yml`, `ports.yml`, `configure-cloudflare-dns.yml` with no conflict markers. After ANY merge touching YAML, diff the `infra_*`/record lists against `origin/master` before committing.
+
 </known-gotchas>
 
 ## Definition of Done
