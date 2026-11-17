@@ -223,6 +223,11 @@
       max-file: "3"
     isolation_vm_docker_live_restore: true
     isolation_vm_docker_storage_driver: "overlay2"
+    # The local registry is plain HTTP over Tailscale — the guest daemon
+    # must trust it or the wanbonding image pull is refused.
+    isolation_vm_docker_extra_daemon_config:
+      insecure-registries:
+        - "{{ infra_registry }}"
 
   pre_tasks:
     - name: "Load shared infrastructure schemas"
