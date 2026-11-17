@@ -13,6 +13,8 @@
 #     marks darwin as badPlatforms, so it stays a cask below. discord is
 #     also listed in nixpkgs but its darwin derivation breaks the app's
 #     sealed-resources signature (see below), so it is a cask too.
+#     vesktop is in nixpkgs but stays a cask because the app self-updates
+#     (auto_updates), beating nixpkgs-unstable rebuild latency.
 #   - Casks listed here are apps NOT available in nixpkgs or that are better
 #     managed as casks (e.g., Docker Desktop requires cask-only install).
 #   - firefox (stable) and visual-studio-code (stable) are kept as casks
@@ -98,6 +100,10 @@ in {
       # "damaged and can't be opened". The cask installs Discord's
       # official signed+notarized dmg.
       "discord"
+      # vesktop is in nixpkgs but kept as a cask: the app self-updates
+      # (cask is auto_updates), so brew tracks upstream releases more
+      # timely than nixpkgs-unstable rebuilds + darwin-rebuild switches.
+      "vesktop"
       # Browsers. Dev Edition moved back to cask: the nixpkgs-darwin wrapper
       # sets MOZ_APP_LAUNCHER/MOZ_LEGACY_PROFILES which breaks profile
       # creation on GUI launch ("no such profile exists") — upstream issue.
