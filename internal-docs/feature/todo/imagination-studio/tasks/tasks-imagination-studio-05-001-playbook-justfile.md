@@ -7,7 +7,7 @@ prd_file: "internal-docs/feature/todo/imagination-studio/feat-202611170854-imagi
 phase: 5
 parallel_id: 4
 branch: "levonk/20261116-imagination-studio"
-status: "todo"
+status: "done"
 assignee: ""
 reviewer: ""
 dependencies: ["03-001", "04-001"]
@@ -31,7 +31,7 @@ SERVICES.md regeneration if catalog-driven). Mirrors
 
 ## Sub-Tasks
 
-- [ ] `shared/active/02-config/ansible/playbooks/deploy-imagination-studio.yml`
+- [x] `shared/active/02-config/ansible/playbooks/deploy-imagination-studio.yml`
   — header comment (purpose, prerequisites: hf auth under lk, tailnet
   reachability, disk; usage incl. `--check`, `--tags`); play
   `hosts: localnet_hosts` `--limit kckinai` with full vars_files
@@ -40,7 +40,7 @@ SERVICES.md regeneration if catalog-driven). Mirrors
   `ai_studio_enabled: true`; tags: `validate`, `deps`, `dirs`,
   `checkout`, `env`, `service`, `verify`. NO model install here (that's
   story 04-001's playbook).
-- [ ] `shared/active/02-config/ansible/playbooks/validate-imagination-studio.yml`
+- [x] `shared/active/02-config/ansible/playbooks/validate-imagination-studio.yml`
   — read-only checks per Ansible AGENTS.md "Validation & Testing
   Layers" (delegate_to localhost + ssh/docker patterns where needed for
   localnet native host): service unit active+enabled (systemctl --user
@@ -53,20 +53,20 @@ SERVICES.md regeneration if catalog-driven). Mirrors
   published, disk free vs threshold, installer dir exists. Collect
   `validation_results` + `security_warnings`, display summary, don't
   fail-fast. Tags `validate`, `imagination-studio`.
-- [ ] just recipes in the appropriate Justfile(s) (check where
+- [x] just recipes in the appropriate Justfile(s) (check where
   `ansible-deploy-comfyui`/`ansible-validate-*` live — root justfile or
   levonk/justfile): `ansible-deploy-imagination-studio`,
   `ansible-deploy-imagination-studio-models`,
   `ansible-validate-imagination-studio` (+ `-internal` variants per repo
   convention). Copy the acrm/postiz/comfyui recipe shape exactly.
-- [ ] `devbox.json` — matching script entries (mirror existing
+- [x] `devbox.json` — matching script entries (mirror existing
   ansible-* scripts).
-- [ ] `shared/active/02-config/ansible/AGENTS.md` — add rows to
+- [x] `shared/active/02-config/ansible/AGENTS.md` — add rows to
   "Playbook-to-Inventory Mapping" table for the two new playbooks
   (`localnet.yml --limit kckinai`, `localnet_hosts`, Linux, kckinai).
-- [ ] SERVICES.md — regenerate via catalog generator (same as
+- [x] SERVICES.md — regenerate via catalog generator (same as
   02-001) so imagination-studio appears; verify entry correct.
-- [ ] Final sweep: `just ansible-lint`, `just ansible-syntax`,
+- [x] Final sweep: `just ansible-lint`, `just ansible-syntax`,
   `--syntax-check` both new playbooks, `git status` clean review.
 
 ## Acceptance Criteria

@@ -7,7 +7,7 @@ prd_file: "internal-docs/feature/todo/imagination-studio/feat-202611170854-imagi
 phase: 2
 parallel_id: 1
 branch: "levonk/20261116-imagination-studio"
-status: "todo"
+status: "done"
 assignee: ""
 reviewer: ""
 dependencies: []

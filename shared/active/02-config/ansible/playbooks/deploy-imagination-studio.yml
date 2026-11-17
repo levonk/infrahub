@@ -1,0 +1,133 @@
+---
+# Deploy Imagination Studio — converge the ai-imagination-studio role on kckinai
+# Location: shared/active/02-config/ansible/playbooks/deploy-imagination-studio.yml
+#
+# PURPOSE
+#   Idempotent converge of the NATIVE Imagination Studio install ("TensorFold
+#   Studio" upstream) on the GB10 inference host: OS deps, upstream checkout
+#   pinned to ai_studio_ref (v4.5.0), STUDIO_HOME/PREFIX/HF-cache dirs, env
+#   file, systemd --user unit + linger, and the tailnet bind (HOST =
+#   `tailscale ip -4`, port 7870 — never 0.0.0.0, never the LAN).
+#
+#   This playbook does NOT install models/components (~423 GB) — that is
+#   playbooks/deploy-imagination-studio-models.yml (async; run it AFTER this
+#   one converges). Until the models playbook has built $PREFIX/venv,
+#   scripts/app.sh cannot start and the unit restart-loops harmlessly; the
+#   role's verify probe skips itself in that state.
+#
+# PREREQUISITES
+#   - SSH access to kckinai as the localnet ansible user (lk)
+#   - Tailscale up on kckinai (`tailscale ip -4` must return an address)
+#   - HF auth already persisted at ~lk/.cache/huggingface/token (needed later
+#     by the models playbook, not by this converge)
+#   - Sufficient disk under the studio storage dir for the eventual ~423 GB
+#     model tree (checked by the models playbook, not here)
+#
+# USAGE
+#   ansible-playbook \
+#     -i levonk/active/02-config/ansible/inventories/localnet.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-imagination-studio.yml \
+#     --vault-password-file ~/.ansible/vault_password \
+#     --limit kckinai
+#
+#   Dry run (diff only; the role's command/shell tasks are skipped in check
+#   mode, package/git/template tasks still report):
+#     ... --limit kckinai --check --diff
+#
+#   Run a single phase of the role:
+#     ... --limit kckinai --tags deps        # OS packages + uv only
+#     ... --limit kckinai --tags checkout    # git clone/pull at ai_studio_ref
+#     ... --limit kckinai --tags service     # systemd --user unit + linger
+#     ... --limit kckinai --tags verify      # health probe (needs venv = post-models)
+#
+#   Disable the service:
+#     ... --limit kckinai -e '{"ai_studio_enabled": false}'
+#
+# POST-DEPLOY
+#   1. Run playbooks/deploy-imagination-studio-models.yml --limit kckinai
+#      (async ~423 GB install; poll with --tags status, check with --tags verify)
+#   2. Run playbooks/validate-imagination-studio.yml --limit kckinai
+#   3. Retrieve the access key + URLs:
+#      ssh lk@<kckinai> 'bash <install_dir>/scripts/studio-key.sh'
+#      App URL: http://<kckinai tailscale IP>:7870/?key=<access-key>
+
+- name: "Deploy Imagination Studio — AI film studio (native, kckinai)"
+  hosts: localnet_hosts
+  become: true
+  gather_facts: true
+
+  vars_files:
+    - "{{ playbook_dir }}/../infrastructure/ports.yml"
+    - "{{ playbook_dir }}/../infrastructure/domains.yml"
+    - "{{ playbook_dir }}/../infrastructure/storage.yml"
+    - "{{ playbook_dir }}/../infrastructure/modes.yml"
+    - "{{ playbook_dir }}/../infrastructure/timing.yml"
+    - "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/ports.yml"
+    - "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/domains.yml"
+    - "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/storage.yml"
+
+  vars:
+    # Explicit enable — the role defaults to true, but pin it so a stray
+    # extra-var cannot silently disable the service on a routine converge.
+    ai_studio_enabled: true
+
+  pre_tasks:
+    - name: "Gather ansible_facts"
+      ansible.builtin.setup:
+        gather_subset: ["all"]
+      tags: ["always"]
+
+    - name: "Report target"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Deploy Imagination Studio
+          ========================================
+          Host: {{ inventory_hostname }}
+          Ansible Host: {{ ansible_host }}
+          OS: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}
+          Arch: {{ ansible_facts['architecture'] }}
+          Port: {{ infra_port_ai_studio_host | default('7870') }}
+          Ref: {{ ai_studio_ref | default('v4.5.0') }}
+          ========================================
+      tags: ["always", "info"]
+
+    - name: "Validate required infrastructure variables are defined"
+      ansible.builtin.assert:
+        that:
+          - infra_storage_studio_home_dir is defined and infra_storage_studio_home_dir | length > 0
+          - infra_storage_studio_install_dir is defined and infra_storage_studio_install_dir | length > 0
+          - infra_storage_studio_prefix_dir is defined and infra_storage_studio_prefix_dir | length > 0
+          - infra_storage_studio_hf_cache_dir is defined and infra_storage_studio_hf_cache_dir | length > 0
+          - infra_port_ai_studio_host is defined and infra_port_ai_studio_host | length > 0
+          - localnet_kckinai_ansible_user is defined or ansible_user is defined
+        fail_msg: >-
+          Missing infra_storage_studio_* / infra_port_ai_studio_* variables
+          (vars_files) or the kckinai ansible user. Check the vars_files
+          preamble and inventory group_vars.
+        success_msg: "Required infrastructure variables present."
+      tags: ["always", "validate"]
+
+  roles:
+    - role: ai-imagination-studio
+      tags: ["imagination-studio"]
+
+  post_tasks:
+    - name: "Report next steps"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Imagination Studio — converge complete
+          ========================================
+          Service:   {{ ai_studio_service_name }} (systemd --user, user {{ ai_studio_run_user }})
+          Install:   {{ ai_studio_install_dir }}
+          STUDIO_HOME: {{ ai_studio_home }}
+          PREFIX:    {{ ai_studio_prefix }}
+          Env file:  {{ ai_studio_env_file }}
+
+          NOTE: models/components are NOT installed by this playbook.
+          Next: deploy-imagination-studio-models.yml --limit kckinai
+          (async, ~423 GB), then validate-imagination-studio.yml.
+          Until then the unit may restart-loop — that is expected.
+          ========================================
+      tags: ["always", "info"]

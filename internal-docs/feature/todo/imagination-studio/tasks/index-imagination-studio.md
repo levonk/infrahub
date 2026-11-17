@@ -12,7 +12,7 @@ deployment, configuration, security, alternatives)
 | 02-001 | Shared + levonk infra vars, services.yml entry | 02 | [x] Done | true | — | 03-001, 04-001, 05-001 | `levonk/20261116-imagination-studio` |
 | 03-001 | `ai-imagination-studio` Ansible role (native install on kckinai) | 03 | [x] Done | false | 02-001 | 04-001, 05-001 | `levonk/20261116-imagination-studio` |
 | 04-001 | `deploy-imagination-studio-models.yml` async install playbook | 04 | [x] Done | false | 02-001, 03-001 | 05-001 | `levonk/20261116-imagination-studio` |
-| 05-001 | deploy + validate playbooks, just/devbox recipes, docs | 05 | [~] In-Progress | false | 03-001, 04-001 | — | `levonk/20261116-imagination-studio` |
+| 05-001 | deploy + validate playbooks, just/devbox recipes, docs | 05 | [x] Done | false | 03-001, 04-001 | — | `levonk/20261116-imagination-studio` |
 
 ## Notes
 

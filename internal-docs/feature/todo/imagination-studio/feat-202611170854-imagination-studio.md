@@ -5,7 +5,7 @@ feature_slug: imagination-studio
 created: 2026-11-17
 completed:
 last-activity: 2026-11-17
-status: todo
+status: done
 tech_context:
   install_type: native             # upstream installer on DGX OS, NOT containers
   target_host: kckinai             # DGX Spark, GB10, arm64, DGX OS
