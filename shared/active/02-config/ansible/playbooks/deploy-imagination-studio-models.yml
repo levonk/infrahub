@@ -1,0 +1,515 @@
+---
+# Deploy Imagination Studio — model/component install (ASYNC, long-running)
+# Location: shared/active/02-config/ansible/playbooks/deploy-imagination-studio-models.yml
+#
+# PURPOSE
+#   Runs the upstream one-shot installer
+#   (oneshot-setup-spark.sh -> oneshot-setup-cuda.sh) as the `lk` user on
+#   kckinai to provision the Python venv, pinned ComfyUI, engine builds and
+#   ~423 GB of model weights (`--all --h3-image`). This playbook installs
+#   MODELS/COMPONENTS ONLY — the code checkout, env file, systemd --user
+#   unit and linger are owned by deploy-imagination-studio.yml /
+#   roles/ai-imagination-studio (run that FIRST).
+#
+# PREREQUITES
+#   - deploy-imagination-studio.yml already converged on kckinai (install
+#     dir + dirs exist, owned by lk)
+#   - HF auth persisted at ~lk/.cache/huggingface/token (verified for the
+#     gated repos: FLUX3-K, Stable Audio Open). This playbook only stats
+#     the file — it NEVER reads or logs its contents.
+#   - ~450 GB free under the models dir (ai_studio_models_min_free_gb)
+#
+# INTERACTIVITY / ASYNC APPROACH
+#   The installer is NON-INTERACTIVE when feature flags are passed:
+#   scripts/install-checklist.sh's checklist_wanted() returns false for any
+#   run carrying a feature flag (or with no TTY), and oneshot-setup-cuda.sh
+#   contains no `read` prompts — gated repos are probed via the HF API and
+#   skipped with instructions, not prompted. So Ansible async/poll:0 is
+#   used (no nohup wrapper needed). Installer stdout is tee'd to
+#   {{ ai_studio_state_dir }}/install.log so `--tags status` can tail real
+#   progress (the installer has no progress file of its own;
+#   spark/progress_file.py is render-progress, not install-progress).
+#   Ansible's own async jid file stays in ~lk/.ansible_async (async_dir is
+#   controller config, not per-play); this playbook stores the jid under
+#   {{ ai_studio_state_dir }}/last-install-jid so status polling survives
+#   across playbook runs.
+#
+# MODEL TREE LOCATION
+#   Upstream splits PREFIX (venv/ComfyUI/engines) from SPARK_MODELS (weights,
+#   default ~/spark-studio-models). Rather than exporting SPARK_MODELS
+#   (which the role-managed env file does not carry — the app would not see
+#   it), this playbook symlinks ~lk/spark-studio-models ->
+#   {{ ai_studio_models_dir }} ({{ ai_studio_prefix }}/models). Installer,
+#   app, memguard and any manual `bash oneshot-setup-spark.sh` run all
+#   resolve the upstream default into service storage. If a real directory
+#   already exists at that path the play fails rather than clobbering it.
+#
+# USAGE
+#   ansible-playbook \
+#     -i levonk/active/02-config/ansible/inventories/localnet.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-imagination-studio-models.yml \
+#     --vault-password-file ~/.ansible/vault_password \
+#     --limit kckinai
+#
+#   Dry run (stat/assert diffs only, no mutations, installer NOT started):
+#     ... --limit kckinai --check
+#
+#   Poll progress any time (tails install.log, async jid, model stats):
+#     ... --limit kckinai --tags status
+#
+#   Verify an existing install (upstream --verify; downloads nothing):
+#     ... --limit kckinai --tags verify
+#
+#   Override flags / timeouts / thresholds:
+#     ... --limit kckinai -e '{"ai_studio_install_flags": "--all --h3-image --no-render"}'
+#     ... --limit kckinai -e '{"ai_studio_install_async_timeout": 21600}'
+#
+# EXPECTED DURATION / RESUME / FAILURE MODES
+#   ~423 GB of HF downloads: hours, WAN-bandwidth-bound (plan for a full
+#   day on a slow link). async timeout defaults to 7200s — raise
+#   ai_studio_install_async_timeout for slow links (a timeout SIGKILLs the
+#   wrapper; `hf download` resumes partial files on re-run). The installer
+#   is re-runnable: re-run this playbook to resume — missing() checks skip
+#   already-fetched files. A second concurrent run is refused (pgrep guard).
+#   Gated-repo failure -> check `hf auth status` / token validity under lk,
+#   accept licences at the URLs the installer prints, then re-run.
+#   License flags are echoed by the installer (non-commercial weights ship
+#   per user decision — see research security.md).
+
+- name: "Imagination Studio — async model/component install"
+  hosts: localnet_hosts
+  become: false
+  gather_facts: true
+
+  vars_files:
+    - "{{ playbook_dir }}/../infrastructure/ports.yml"
+    - "{{ playbook_dir }}/../infrastructure/domains.yml"
+    - "{{ playbook_dir }}/../infrastructure/storage.yml"
+    - "{{ playbook_dir }}/../infrastructure/modes.yml"
+    - "{{ playbook_dir }}/../infrastructure/timing.yml"
+    - "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/ports.yml"
+    - "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/domains.yml"
+    - "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/storage.yml"
+
+  vars:
+    # Run user — lk on kckinai (localnet_kckinai_ansible_user via inventory).
+    ai_studio_run_user: "{{ localnet_kckinai_ansible_user | default(ansible_user | default('lk')) }}"
+
+    # Paths — mirror roles/ai-imagination-studio/defaults/main.yml.
+    ai_studio_home: "{{ infra_storage_studio_home_dir }}"
+    ai_studio_install_dir: "{{ infra_storage_studio_install_dir }}"
+    ai_studio_prefix: "{{ infra_storage_studio_prefix_dir }}"
+    # Upstream SPARK_MODELS tree, relocated under service storage via the
+    # ~lk/spark-studio-models symlink (see header).
+    ai_studio_models_dir: "{{ ai_studio_prefix }}/models"
+
+    # Installer invocation. --all expands to SWAP REF2VA H3_BASE IMAGE_EDIT
+    # FLUX3 MOSS MUSIC YUE2 SOUND BOLT VOICE MOTION TRAIN GRAPHICS FINISH;
+    # --h3-image is deliberately separate upstream (not part of --all).
+    ai_studio_install_flags: "--all --h3-image"
+    ai_studio_install_async_timeout: 7200
+    ai_studio_verify_async_timeout: 1800
+
+    # State dir under STUDIO_HOME: install.log + last-install-jid pointer.
+    ai_studio_state_dir: "{{ ai_studio_home }}/.ansible-async"
+    ai_studio_install_log: "{{ ai_studio_state_dir }}/install.log"
+    ai_studio_jid_file: "{{ ai_studio_state_dir }}/last-install-jid"
+
+    # Free-space gate for the ~423 GB download ( GiB ; installer needs ~450 ).
+    ai_studio_models_min_free_gb: 450
+
+  pre_tasks:
+    - name: "Gather ansible_facts"
+      ansible.builtin.setup:
+        gather_subset: ["all"]
+      tags: ["always"]
+
+    - name: "Report target"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Imagination Studio — model install (async)
+          ========================================
+          Host: {{ inventory_hostname }}
+          Ansible Host: {{ ansible_host }}
+          Run user: {{ ai_studio_run_user }} (become: false — user-level install)
+          Install dir: {{ ai_studio_install_dir }}
+          PREFIX: {{ ai_studio_prefix }}
+          Models dir: {{ ai_studio_models_dir }}
+          Flags: {{ ai_studio_install_flags }}
+          Install log: {{ ai_studio_install_log }}
+          ========================================
+      tags: ["always", "info"]
+
+    - name: "Validate required variables are defined"
+      ansible.builtin.assert:
+        that:
+          - infra_storage_studio_home_dir is defined and infra_storage_studio_home_dir | length > 0
+          - infra_storage_studio_install_dir is defined and infra_storage_studio_install_dir | length > 0
+          - infra_storage_studio_prefix_dir is defined and infra_storage_studio_prefix_dir | length > 0
+          - localnet_kckinai_ansible_user is defined or ansible_user is defined
+        fail_msg: >-
+          Missing infra_storage_studio_* variables (vars_files) or the
+          kckinai ansible user. Check the vars_files preamble and inventory.
+        success_msg: "Required variables present."
+      tags: ["always", "validate"]
+
+    - name: "Look up run user home directory"
+      ansible.builtin.getent:
+        database: passwd
+        key: "{{ ai_studio_run_user }}"
+      register: ai_studio_passwd
+
+    - name: "Resolve run user home"
+      ansible.builtin.set_fact:
+        ai_studio_run_home: "{{ ai_studio_passwd.ansible_facts.getent_passwd[0][5] }}"
+      when: ai_studio_passwd.ansible_facts.getent_passwd | length > 0
+
+    - name: "Fail when run user does not exist on the target"
+      ansible.builtin.assert:
+        that:
+          - ai_studio_passwd.ansible_facts.getent_passwd | length > 0
+          - ai_studio_run_home is defined
+        fail_msg: "Run user '{{ ai_studio_run_user }}' not found on {{ inventory_hostname }} (getent passwd)."
+      tags: ["always", "validate"]
+
+  tasks:
+    # ------------------------------------------------------------------
+    # Preflight — read-only checks (run under every tag selection)
+    # ------------------------------------------------------------------
+    - name: "Check install dir exists (role must have converged)"
+      ansible.builtin.stat:
+        path: "{{ ai_studio_install_dir }}"
+      register: ai_studio_install_dir_stat
+
+    - name: "Fail when the source checkout is missing"
+      ansible.builtin.assert:
+        that:
+          - ai_studio_install_dir_stat.stat.exists
+          - ai_studio_install_dir_stat.stat.isdir
+        fail_msg: >-
+          {{ ai_studio_install_dir }} does not exist — run
+          deploy-imagination-studio.yml (role ai-imagination-studio) first.
+      tags: ["always", "validate"]
+
+    - name: "Check upstream installer script exists"
+      ansible.builtin.stat:
+        path: "{{ ai_studio_install_dir }}/oneshot-setup-spark.sh"
+      register: ai_studio_installer_stat
+
+    - name: "Fail when oneshot-setup-spark.sh is missing"
+      ansible.builtin.assert:
+        that:
+          - ai_studio_installer_stat.stat.exists
+        fail_msg: >-
+          {{ ai_studio_install_dir }}/oneshot-setup-spark.sh not found —
+          the checkout may be at the wrong ref (ai_studio_ref) or incomplete.
+      tags: ["always", "validate"]
+
+    - name: "Check HF token file exists (existence only — contents never read)"
+      ansible.builtin.stat:
+        path: "{{ ai_studio_run_home }}/.cache/huggingface/token"
+      register: ai_studio_hf_token_stat
+
+    - name: "Fail install when HF token is missing"
+      ansible.builtin.assert:
+        that:
+          - ai_studio_hf_token_stat.stat.exists
+          - ai_studio_hf_token_stat.stat.isreg
+        fail_msg: >-
+          No HF token at {{ ai_studio_run_home }}/.cache/huggingface/token.
+          Gated repos (FLUX3-K, Stable Audio Open) need `hf auth login` as
+          {{ ai_studio_run_user }} first. (Token contents are never read.)
+      tags: ["install", "validate"]
+
+    - name: "Check free space on the models filesystem"
+      ansible.builtin.command:
+        cmd: "df -BG --output=avail {{ ai_studio_models_dir | dirname }}"
+      check_mode: false
+      register: ai_studio_df
+      changed_when: false
+      failed_when: false
+
+    - name: "Resolve free space in GiB"
+      ansible.builtin.set_fact:
+        ai_studio_free_gb: "{{ (ai_studio_df.stdout_lines | default(['0'])) | last | regex_replace('\\D', '') | int }}"
+      when: ai_studio_df.rc == 0
+
+    - name: "Fail install when free space is below the required minimum"
+      ansible.builtin.assert:
+        that:
+          - ai_studio_df.rc == 0
+          - ai_studio_free_gb | default(0) | int >= ai_studio_models_min_free_gb | int
+        fail_msg: >-
+          Only {{ ai_studio_free_gb | default('unknown') }} GiB free at
+          {{ ai_studio_models_dir | dirname }}; the --all --h3-image install
+          needs ~{{ ai_studio_models_min_free_gb }} GiB. Free space or lower
+          ai_studio_install_flags / ai_studio_models_min_free_gb.
+      tags: ["install", "validate"]
+
+    - name: "Report disk headroom"
+      ansible.builtin.debug:
+        msg: >-
+          Disk: {{ ai_studio_free_gb | default('?') }} GiB free at
+          {{ ai_studio_models_dir | dirname }} (min required:
+          {{ ai_studio_models_min_free_gb }} GiB).
+      tags: ["always", "info"]
+
+    # ------------------------------------------------------------------
+    # Install — dirs, models symlink, async installer launch
+    # ------------------------------------------------------------------
+    - name: "Ensure install state dir exists"
+      ansible.builtin.file:
+        path: "{{ ai_studio_state_dir }}"
+        state: directory
+        mode: "{{ infra_mode_dir }}"
+      tags: ["install"]
+
+    - name: "Ensure models dir exists"
+      ansible.builtin.file:
+        path: "{{ ai_studio_models_dir }}"
+        state: directory
+        mode: "{{ infra_mode_dir }}"
+      tags: ["install"]
+
+    - name: "Link upstream default models path into service storage"
+      ansible.builtin.file:
+        src: "{{ ai_studio_models_dir }}"
+        dest: "{{ ai_studio_run_home }}/spark-studio-models"
+        state: link
+      tags: ["install"]
+
+    - name: "Check whether an installer is already running"
+      ansible.builtin.command:
+        # Bracket/alternation pattern avoids matching this pgrep's own cmdline.
+        cmd: >-
+          pgrep -f 'oneshot-setup-(spark|[sc]uda)\.sh'
+      check_mode: false
+      register: ai_studio_pgrep
+      changed_when: false
+      failed_when: false
+      tags: ["install", "status"]
+
+    - name: "Skip launch when an installer is already running"
+      ansible.builtin.debug:
+        msg: >-
+          An oneshot installer process is already running on
+          {{ inventory_hostname }} (pid(s):
+          {{ ai_studio_pgrep.stdout_lines | default([]) | join(', ') }}).
+          Not starting a second one — use --tags status to watch it, or let
+          it finish and re-run to resume.
+      when:
+        - ai_studio_pgrep.rc == 0
+        - not ansible_check_mode
+      tags: ["install"]
+
+    - name: "Check mode — installer would run with these flags"
+      ansible.builtin.debug:
+        msg: >-
+          CHECK MODE: would run `bash oneshot-setup-spark.sh
+          {{ ai_studio_install_flags }}` in {{ ai_studio_install_dir }} as
+          {{ ai_studio_run_user }}, async {{ ai_studio_install_async_timeout }}s,
+          logging to {{ ai_studio_install_log }}.
+      when: ansible_check_mode
+      tags: ["install"]
+
+    - name: "Run Imagination Studio installer (async, non-blocking)"
+      ansible.builtin.shell: >-
+        echo "=== run $(date -Is) flags: {{ ai_studio_install_flags }} ==="
+        >> {{ ai_studio_install_log }} &&
+        bash oneshot-setup-spark.sh {{ ai_studio_install_flags }}
+        >> {{ ai_studio_install_log }} 2>&1
+      args:
+        chdir: "{{ ai_studio_install_dir }}"
+      environment:
+        PREFIX: "{{ ai_studio_prefix }}"
+        HOME: "{{ ai_studio_run_home }}"
+      async: "{{ ai_studio_install_async_timeout }}"
+      poll: 0
+      register: ai_studio_install_job
+      when:
+        - not ansible_check_mode
+        - ai_studio_pgrep.rc != 0
+      tags: ["install"]
+
+    - name: "Record async job id for later status polling"
+      ansible.builtin.copy:
+        content: "{{ ai_studio_install_job.ansible_job_id }}\n"
+        dest: "{{ ai_studio_jid_file }}"
+        mode: "{{ infra_mode_file }}"
+      when:
+        - ai_studio_install_job is defined
+        - ai_studio_install_job.ansible_job_id is defined
+      tags: ["install"]
+
+    - name: "Report launched async job"
+      ansible.builtin.debug:
+        msg: >-
+          Installer launched asynchronously (job:
+          {{ ai_studio_install_job.ansible_job_id | default('n/a') }}).
+          It does NOT block this playbook. Poll progress with:
+          ansible-playbook -i levonk/active/02-config/ansible/inventories/localnet.yml
+          shared/active/02-config/ansible/playbooks/deploy-imagination-studio-models.yml
+          --limit kckinai --tags status
+          Live log on host: {{ ai_studio_install_log }}
+      when:
+        - ai_studio_install_job is defined
+        - ai_studio_install_job.ansible_job_id is defined
+      tags: ["install", "info"]
+
+    # ------------------------------------------------------------------
+    # Status — progress reporting (--tags status)
+    # ------------------------------------------------------------------
+    - name: "Check for a recorded async job id"
+      ansible.builtin.stat:
+        path: "{{ ai_studio_jid_file }}"
+      register: ai_studio_jid_stat
+      tags: ["status"]
+
+    - name: "Read recorded async job id"
+      ansible.builtin.slurp:
+        src: "{{ ai_studio_jid_file }}"
+      register: ai_studio_jid_slurp
+      when: ai_studio_jid_stat.stat.exists
+      tags: ["status"]
+
+    - name: "Query async installer status"
+      ansible.builtin.async_status:
+        jid: "{{ ai_studio_jid_slurp.content | b64decode | trim }}"
+        mode: status
+      register: ai_studio_async_result
+      when:
+        - ai_studio_jid_stat.stat.exists
+        - ai_studio_jid_slurp is defined
+      tags: ["status"]
+
+    - name: "Report async job state"
+      ansible.builtin.debug:
+        msg: >-
+          Async installer job {{ ai_studio_jid_slurp.content | b64decode | trim }}:
+          started={{ ai_studio_async_result.started | default('?') }}
+          finished={{ ai_studio_async_result.finished | default('?') }}
+          failed={{ ai_studio_async_result.failed | default('?') }}
+          {% if ai_studio_async_result.finished | default(false) %}(final rc in job file){% endif %}
+      when:
+        - ai_studio_async_result is defined
+      tags: ["status", "info"]
+
+    - name: "Check install log exists"
+      ansible.builtin.stat:
+        path: "{{ ai_studio_install_log }}"
+      register: ai_studio_log_stat
+      tags: ["status"]
+
+    - name: "Tail installer log"
+      ansible.builtin.command:
+        cmd: "tail -n 60 {{ ai_studio_install_log }}"
+      check_mode: false
+      register: ai_studio_log_tail
+      changed_when: false
+      failed_when: false
+      when: ai_studio_log_stat.stat.exists
+      tags: ["status"]
+
+    - name: "Show installer log tail"
+      ansible.builtin.debug:
+        msg: "{{ ai_studio_log_tail.stdout_lines | default(['(no log yet)']) | join('\n') }}"
+      when:
+        - ai_studio_log_stat.stat.exists
+      tags: ["status", "info"]
+
+    - name: "Stat key model/install artifacts"
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - "{{ ai_studio_prefix }}/venv/bin/python"
+        - "{{ ai_studio_prefix }}/VERSION"
+        - "{{ ai_studio_models_dir }}/FastH3-Comfy/diffusion_models/fastvideo_fasth3_8step_v2_pruned_bf16.safetensors"
+        - "{{ ai_studio_models_dir }}/Qwen-Image-2.1-Comfy/diffusion_models/qwen_image_2.1_turbo_bf16.safetensors"
+        - "{{ ai_studio_models_dir }}/MiniMax-H3-Image-Comfy/diffusion_models/minimax_h3_image_pruned_int8_convrot.safetensors"
+        - "{{ ai_studio_run_home }}/spark-studio-models"
+      register: ai_studio_artifact_stats
+      tags: ["status"]
+
+    - name: "Report artifact presence"
+      ansible.builtin.debug:
+        msg: >-
+          {{ item.item }}: {{ 'present' if item.stat.exists else 'MISSING' }}
+      loop: "{{ ai_studio_artifact_stats.results | default([]) }}"
+      loop_control:
+        label: "{{ item.item }}"
+      tags: ["status", "info"]
+
+    # ------------------------------------------------------------------
+    # Verify — upstream --verify (downloads nothing; tags: verify)
+    # ------------------------------------------------------------------
+    - name: "Run installer --verify (async-short, read-only checks)"
+      ansible.builtin.shell: >-
+        bash oneshot-setup-spark.sh --verify
+        >> {{ ai_studio_install_log }} 2>&1
+      args:
+        chdir: "{{ ai_studio_install_dir }}"
+      environment:
+        PREFIX: "{{ ai_studio_prefix }}"
+        HOME: "{{ ai_studio_run_home }}"
+      async: "{{ ai_studio_verify_async_timeout }}"
+      poll: 30
+      register: ai_studio_verify_result
+      when: not ansible_check_mode
+      tags: ["verify"]
+
+    - name: "Report verify result"
+      ansible.builtin.debug:
+        msg: >-
+          --verify finished: rc={{ ai_studio_verify_result.rc | default('?') }}
+          (full output appended to {{ ai_studio_install_log }}).
+          Last lines:
+          {{ (ai_studio_verify_result.stdout_lines | default([]))[-40:] | join('\n') }}
+      when:
+        - ai_studio_verify_result is defined
+        - ai_studio_verify_result.finished | default(true)
+      tags: ["verify", "info"]
+
+    # ------------------------------------------------------------------
+    # Post-install info — memguard state + next steps (every run)
+    # ------------------------------------------------------------------
+    - name: "Check memory guard status (upstream memguard.py)"
+      ansible.builtin.command:
+        cmd: "python3 {{ ai_studio_install_dir }}/scripts/memguard.py status"
+      check_mode: false
+      register: ai_studio_memguard
+      changed_when: false
+      failed_when: false
+      tags: ["always", "info"]
+
+    - name: "Report memory guard status"
+      ansible.builtin.debug:
+        msg: "{{ ai_studio_memguard.stdout_lines | default(['(memguard.py status unavailable — installer may not have run yet)']) | join('\n') }}"
+      tags: ["always", "info"]
+
+    - name: "Print next steps"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Imagination Studio — next steps
+          ========================================
+          Install dir:  {{ ai_studio_install_dir }}
+          STUDIO_HOME:  {{ ai_studio_home }}
+          PREFIX:       {{ ai_studio_prefix }}
+          Models:       {{ ai_studio_models_dir }}
+                          (via symlink {{ ai_studio_run_home }}/spark-studio-models)
+          Install log:  {{ ai_studio_install_log }}
+
+          While the install runs:  --tags status
+          After it finishes:
+            1. Poll until 'DONE.' appears in the install log.
+            2. Run with --tags verify for the upstream --verify report.
+            3. Ensure the app service is up:
+               deploy-imagination-studio.yml --limit kckinai
+               (systemctl --user status imagination-studio on {{ inventory_hostname }})
+            4. Retrieve the access key + URLs:
+               ssh {{ ai_studio_run_user }}@{{ ansible_host }} \
+                 'bash {{ ai_studio_install_dir }}/scripts/studio-key.sh'
+            5. App URL: http://<kckinai tailscale IP>:7870/?key=<access-key>
+          ========================================
+      tags: ["always", "info"]
