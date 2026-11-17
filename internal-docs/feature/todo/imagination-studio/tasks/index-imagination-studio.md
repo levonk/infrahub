@@ -9,8 +9,8 @@ deployment, configuration, security, alternatives)
 
 | Story ID | Title | Phase | Status | Parallel-safe | Dependencies | Dependants | Branch |
 |---|---|---|---:|---|---|---|---|
-| 02-001 | Shared + levonk infra vars, services.yml entry | 02 | [ ] Todo | true | — | 03-001, 04-001, 05-001 | `levonk/20261116-imagination-studio` |
-| 03-001 | `ai-imagination-studio` Ansible role (native install on kckinai) | 03 | [ ] Todo | false | 02-001 | 04-001, 05-001 | `levonk/20261116-imagination-studio` |
+| 02-001 | Shared + levonk infra vars, services.yml entry | 02 | [x] Done | true | — | 03-001, 04-001, 05-001 | `levonk/20261116-imagination-studio` |
+| 03-001 | `ai-imagination-studio` Ansible role (native install on kckinai) | 03 | [~] In-Progress | false | 02-001 | 04-001, 05-001 | `levonk/20261116-imagination-studio` |
 | 04-001 | `deploy-imagination-studio-models.yml` async install playbook | 04 | [ ] Todo | false | 02-001, 03-001 | 05-001 | `levonk/20261116-imagination-studio` |
 | 05-001 | deploy + validate playbooks, just/devbox recipes, docs | 05 | [ ] Todo | false | 03-001, 04-001 | — | `levonk/20261116-imagination-studio` |
 

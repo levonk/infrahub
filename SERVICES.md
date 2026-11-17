@@ -1,11 +1,11 @@
 # Infrahub Service Catalog (Shared Defaults)
 
-> **Auto-generated** from `infrastructure/*.yml` (shared defaults only) — last updated: 2026-11-15 15:36
+> **Auto-generated** from `infrastructure/*.yml` (shared defaults only) — last updated: 2026-11-17 09:12
 > Regenerate with: `just generate-service-catalog-shared`
 > Source: `shared/active/02-config/ansible/infrastructure/services.yml`
 > Note: This catalog shows **default ports and suggested hostnames** only. Client-specific deployment details (custom domains, deployed machines, client port overrides) are not included. See `levonk/SERVICES.md` for the deployed client catalog.
 
-**122 services** (shared defaults — no deployment info)
+**123 services** (shared defaults — no deployment info)
 
 ## Table of Contents
 
@@ -55,7 +55,7 @@ flowchart TD
 
     %% Machine color coding
     classDef machine_oci_AI_Pipeline fill:#4A90D9,color:#fff,stroke:#333,stroke-width:1px
-    class iron_proxy,Pi,Headroom,OmniRoute,Omnigent,LiteLLM,treg_Tool_Registry__cno_ machine_oci_AI_Pipeline
+    class OmniRoute,Pi,LiteLLM,iron_proxy,Headroom,Omnigent,treg_Tool_Registry__cno_ machine_oci_AI_Pipeline
 ```
 
 ### Nix Cache Chain (nl)
@@ -79,7 +79,7 @@ flowchart TD
 
     %% Machine color coding
     classDef machine_dtop_Nix_Cache_Chain__nl_ fill:#50C878,color:#fff,stroke:#333,stroke-width:1px
-    class Nix_ncro__nl_,Nix_Harmonia__nl_,Nix_ncps__nl_ machine_dtop_Nix_Cache_Chain__nl_
+    class Nix_Harmonia__nl_,Nix_ncro__nl_,Nix_ncps__nl_ machine_dtop_Nix_Cache_Chain__nl_
 ```
 
 ### Nix Cache Chain (cno)
@@ -103,7 +103,7 @@ flowchart TD
 
     %% Machine color coding
     classDef machine_oci_Nix_Cache_Chain__cno_ fill:#4A90D9,color:#fff,stroke:#333,stroke-width:1px
-    class Nix_ncro__cno_,Nix_ncps__cno_,Nix_Harmonia__cno_ machine_oci_Nix_Cache_Chain__cno_
+    class Nix_Harmonia__cno_,Nix_ncps__cno_,Nix_ncro__cno_ machine_oci_Nix_Cache_Chain__cno_
 ```
 
 ### Media Pipeline
@@ -149,7 +149,7 @@ flowchart TD
 
     %% Machine color coding
     classDef machine_dtop_Media_Pipeline fill:#50C878,color:#fff,stroke:#333,stroke-width:1px
-    class Prowlarr,Flaresolverr,Radarr,RomM,Komga,qBittorrent,Lidarr,Sonarr,SABnzbd,Unpackarr,Kavita,Audiobookshelf,Jellyseerr,Calibre_Web,Bazarr,Jellyfin machine_dtop_Media_Pipeline
+    class Prowlarr,RomM,SABnzbd,Jellyseerr,Bazarr,Calibre_Web,Lidarr,qBittorrent,Jellyfin,Audiobookshelf,Kavita,Unpackarr,Komga,Flaresolverr,Sonarr,Radarr machine_dtop_Media_Pipeline
 ```
 
 ## All Services (Alphabetical)
@@ -191,6 +191,7 @@ flowchart TD
 | Homepage | `homepage` | `infra_domain_dashboard_homepage` (suggested) | `8084`→`3000` (Web) | — | — | — | Infrastructure | [gethomepage/homepage](https://github.com/gethomepage/homepage) |
 | Host Exit Node (cno) | `—` | — | — | — | — | — | VPN / Mesh Networking | [tailscale/tailscale](https://github.com/tailscale/tailscale) |
 | Host Exit Node (nl) | `—` | — | — | — | — | — | VPN / Mesh Networking | [tailscale/tailscale](https://github.com/tailscale/tailscale) |
+| Imagination Studio | `imagination-studio` | — | `7870`→`7870` (Web UI (tailnet)) | — | — | health: `/api/spark/self`<br>labels: `pipeline=none, service=imagination-studio, stage=standalone` | ai | [Keys-Wasserman/Imagination-Studio-by-keys-Wasserman](https://github.com/Keys-Wasserman/Imagination-Studio-by-keys-Wasserman) |
 | iron-proxy | `iron-proxy` | — | `8080` (HTTP)<br>`8443` (HTTPS) | proxy-chain-network | — | pipeline: `ai`/`iron-proxy`<br>labels: `pipeline=ai, service=iron-proxy, stage=iron-proxy` | Proxy Chain (Internal) | [ironsh/iron-proxy](https://github.com/ironsh/iron-proxy) |
 | Isolation VM | `isolation-vm` | — | — | — | — | — | Infrastructure | [www.qemu.org](https://www.qemu.org/) |
 | Jellyfin | `localnet-media-jellyfin` | `infra_domain_media_jellyfin` (suggested) | `8096`→`8096` (Web)<br>`7359`→`7359` (Discovery (UDP)) | traefik-windows-network | — | health: `/health`<br>pipeline: `media`<br>labels: `pipeline=media, service=jellyfin, stage=streaming` | UI (Web Apps) | [jellyfin/jellyfin](https://github.com/jellyfin/jellyfin) |

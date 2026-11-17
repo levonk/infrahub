@@ -376,6 +376,25 @@ infra_storage_comfyui_custom_nodes_dir: "{{ infra_storage_comfyui_install_dir }}
 infra_storage_comfyui_config_dir: "{{ infra_storage_config_dir }}/comfyui"
 
 # ---------------------------------------------------------------------------
+# Imagination Studio — AI film studio (native on kckinai)
+# Native (non-Docker) install under user lk on the GB10 inference host.
+# base_dir doubles as STUDIO_HOME (home_dir) — projects, renders, library,
+# and the auto-generated access-key live at its root. install_dir is the
+# pinned upstream source checkout the role clones and the oneshot installer
+# runs from. prefix_dir is exported as PREFIX — holds the Python venv, the
+# single deduplicated model tree, and the app-managed ComfyUI (loopback
+# :8190). hf_cache_dir overrides HF_HOME so hub caches stay inside service
+# storage instead of lk's home (the HF token itself stays under
+# ~/.cache/huggingface). Model tree is disjoint from the standalone
+# ComfyUI tree above. Keep on the fastest NVMe storage available.
+# ---------------------------------------------------------------------------
+infra_storage_studio_base_dir: "{{ infra_storage_services_dir }}/imagination-studio"
+infra_storage_studio_install_dir: "{{ infra_storage_studio_base_dir }}/app"
+infra_storage_studio_home_dir: "{{ infra_storage_studio_base_dir }}"
+infra_storage_studio_prefix_dir: "{{ infra_storage_studio_base_dir }}/studio"
+infra_storage_studio_hf_cache_dir: "{{ infra_storage_studio_base_dir }}/hf-cache"
+
+# ---------------------------------------------------------------------------
 # Media Stack — Jellyfin + *arr services (nl region = dtop202311)
 # All media services run on Windows Docker Desktop (dtop202311, X86).
 # Config volumes hold per-service state (databases, settings, API keys).
