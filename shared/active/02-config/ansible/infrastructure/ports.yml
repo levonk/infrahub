@@ -756,6 +756,20 @@ infra_port_ai_comfyui_host: "8188"
 infra_port_ai_comfyui_container: "8188"
 
 # ---------------------------------------------------------------------------
+# Imagination Studio — AI film studio (native on kckinai)
+# Native (non-Docker) install under user lk on the GB10 inference host.
+# The app binds the host Tailscale IP on 7870 — tailnet-only, no Traefik.
+# ---------------------------------------------------------------------------
+infra_port_ai_studio_host: "7870"
+infra_port_ai_studio_container: "7870"
+
+# Managed ComfyUI spawned by the app on 127.0.0.1:8190 — loopback only,
+# never published to the host or tailnet. Registered for port-conflict
+# tracking; distinct from the standalone ComfyUI on 8188.
+infra_port_ai_studio_comfy_host: "8190"
+infra_port_ai_studio_comfy_container: "8190"
+
+# ---------------------------------------------------------------------------
 # Media Stack — Jellyfin + *arr services (nl region = dtop202311)
 # All media services run on Windows Docker Desktop (dtop202311, X86).
 # Deployed via the media-stack Ansible role using SSH-tunneled Docker CLI.

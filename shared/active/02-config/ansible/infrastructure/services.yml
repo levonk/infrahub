@@ -1876,6 +1876,34 @@ services:
     stage: "standalone"
     service: "comfyui"
 
+# ---------------------------------------------------------------------------
+# Imagination Studio — AI film studio (native on kckinai)
+# Native (non-Docker) install under user lk on the GB10 inference host.
+# Tailnet-only: the app binds the host Tailscale IP on port 7870 — no
+# Traefik route and no domain (reached as
+# http://kckinai.<tailnet>:7870 with the studio access key). Its managed
+# ComfyUI is app-spawned on 127.0.0.1:8190 and never published, so only the
+# app port is cataloged.
+# ---------------------------------------------------------------------------
+- name: "Imagination Studio"
+  container: "imagination-studio"
+  machine: "kckinai"
+  category: "ai"
+  description: "AI film studio — FastH3 video, Qwen/FLUX images, Drama3 voice, Music3/YuE2 music (tailnet-only)"
+  source_repo: "https://github.com/Keys-Wasserman/Imagination-Studio-by-keys-Wasserman"
+  ports:
+    - host: "infra_port_ai_studio_host"
+      container: "infra_port_ai_studio_container"
+      label: "Web UI (tailnet)"
+  traefik: false
+  health_endpoint: "/api/spark/self"
+  pipeline: "none"
+  pipeline_stage: "standalone"
+  alert_labels:
+    pipeline: "none"
+    stage: "standalone"
+    service: "imagination-studio"
+
 # ===========================================================================
 # Media Stack Services (nl region = dtop202311, Windows Docker Desktop)
 # See shared/docs/pipelines/media/PIPELINE-MEDIA.md for the full pipeline.

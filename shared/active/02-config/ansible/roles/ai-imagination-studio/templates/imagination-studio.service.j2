@@ -1,0 +1,27 @@
+# Imagination Studio — AI film studio (systemd --user unit for {{ ai_studio_run_user }})
+# Managed by the ai-imagination-studio Ansible role. Mirrors the per-user unit
+# layout upstream uses for its memory guard (scripts/memguard.py install:
+# ~/.config/systemd/user/, enabled with `systemctl --user`).
+# `loginctl enable-linger` (applied by the role) keeps the user manager — and
+# therefore this unit — running without an interactive login.
+
+[Unit]
+Description=Imagination Studio — AI film studio (TensorFold)
+Documentation=https://github.com/Keys-Wasserman/Imagination-Studio-by-keys-Wasserman
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory={{ ai_studio_install_dir }}
+EnvironmentFile={{ ai_studio_env_file }}
+# scripts/app.sh is upstream's documented entry point: it exports PREFIX,
+# pins the GPU (spark/gpu.sh), sanity-checks ffmpeg, then execs
+# $PREFIX/venv/bin/python app/launcher.py (the launcher manages the server
+# child and serialized restarts/updates).
+ExecStart=/bin/bash {{ ai_studio_install_dir }}/scripts/app.sh
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target

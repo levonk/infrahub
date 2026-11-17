@@ -54,6 +54,9 @@ PB_VAL_DNS := ANSIBLE_ROOT + "/playbooks/validate-dns.yml"
 PB_VAL_AUTHELIA := ANSIBLE_ROOT + "/playbooks/validate-authelia.yml"
 PB_ACRM := ANSIBLE_ROOT + "/playbooks/deploy-acrm.yml"
 PB_POSTIZ := ANSIBLE_ROOT + "/playbooks/deploy-postiz.yml"
+PB_IMAGINATION_STUDIO := ANSIBLE_ROOT + "/playbooks/deploy-imagination-studio.yml"
+PB_IMAGINATION_STUDIO_MODELS := ANSIBLE_ROOT + "/playbooks/deploy-imagination-studio-models.yml"
+PB_VAL_IMAGINATION_STUDIO := ANSIBLE_ROOT + "/playbooks/validate-imagination-studio.yml"
 PB_PATCH_OPENSSH := ANSIBLE_ROOT + "/playbooks/patch-openssh-musl-bypass.yml"
 WINDOWS_INVENTORY := INFRAHUB_ROOT + "/levonk/active/02-config/ansible/inventories/windows-docker.yml"
 MACOS_INVENTORY := INFRAHUB_ROOT + "/levonk/active/02-config/ansible/inventories/macos-hosts.yml"
@@ -796,6 +799,84 @@ ansible_deploy_postiz_check_impl:
     {{_log}}
     log_start "Checking Postiz deployment on Windows Docker host (--check --diff)"
     ansible-playbook -i {{WINDOWS_INVENTORY}} {{PB_POSTIZ}} --check --diff --vault-password-file ~/.ansible/vault_password
+
+# Deploy Imagination Studio (native install) on kckinai (localnet)
+# Converges the ai-imagination-studio role: deps, checkout @ v4.5.0, dirs,
+# env file, systemd --user unit + linger, tailnet bind on :7870.
+# Does NOT install models — run ansible-deploy-imagination-studio-models next.
+# Prerequisites: SSH to kckinai as lk, tailscale up on the host.
+ansible-deploy-imagination-studio:
+    @just _devbox ansible_deploy_imagination_studio_impl
+
+[private]
+ansible_deploy_imagination_studio_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Deploying Imagination Studio (role converge) on kckinai"
+    ansible-playbook -i {{LOCALNET_INVENTORY}} {{PB_IMAGINATION_STUDIO}} --limit kckinai --vault-password-file ~/.ansible/vault_password
+
+# Dry-run Imagination Studio role converge (--check --diff)
+ansible-deploy-imagination-studio-check:
+    @just _devbox ansible_deploy_imagination_studio_check_impl
+
+[private]
+ansible_deploy_imagination_studio_check_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Checking Imagination Studio deployment on kckinai (--check --diff)"
+    ansible-playbook -i {{LOCALNET_INVENTORY}} {{PB_IMAGINATION_STUDIO}} --limit kckinai --check --diff --vault-password-file ~/.ansible/vault_password
+
+# Deploy Imagination Studio models/components on kckinai (ASYNC, ~423 GB)
+# Runs the upstream oneshot installer as lk; returns immediately (poll: 0).
+# Prerequisites: ansible-deploy-imagination-studio converged, HF token under lk.
+ansible-deploy-imagination-studio-models:
+    @just _devbox ansible_deploy_imagination_studio_models_impl
+
+[private]
+ansible_deploy_imagination_studio_models_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Launching Imagination Studio async model install on kckinai"
+    ansible-playbook -i {{LOCALNET_INVENTORY}} {{PB_IMAGINATION_STUDIO_MODELS}} --limit kckinai --vault-password-file ~/.ansible/vault_password
+
+# Poll Imagination Studio model-install progress (install.log + async jid)
+ansible-imagination-studio-models-status:
+    @just _devbox ansible_imagination_studio_models_status_impl
+
+[private]
+ansible_imagination_studio_models_status_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Polling Imagination Studio model install status on kckinai"
+    ansible-playbook -i {{LOCALNET_INVENTORY}} {{PB_IMAGINATION_STUDIO_MODELS}} --limit kckinai --tags status --vault-password-file ~/.ansible/vault_password
+
+# Verify Imagination Studio model install (upstream --verify; downloads nothing)
+ansible-imagination-studio-models-verify:
+    @just _devbox ansible_imagination_studio_models_verify_impl
+
+[private]
+ansible_imagination_studio_models_verify_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Verifying Imagination Studio model install on kckinai"
+    ansible-playbook -i {{LOCALNET_INVENTORY}} {{PB_IMAGINATION_STUDIO_MODELS}} --limit kckinai --tags verify --vault-password-file ~/.ansible/vault_password
+
+# Validate Imagination Studio deployment on kckinai (read-only checks)
+ansible-validate-imagination-studio:
+    @just _devbox ansible_validate_imagination_studio_impl
+
+[private]
+ansible_validate_imagination_studio_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Validating Imagination Studio deployment on kckinai"
+    ansible-playbook -i {{LOCALNET_INVENTORY}} {{PB_VAL_IMAGINATION_STUDIO}} --limit kckinai --vault-password-file ~/.ansible/vault_password
 
 # Deploy Local Watch Party + coturn on OCI cloud server
 # Prerequisites: Traefik + Authelia deployed, watch-party image built, vault secret set.

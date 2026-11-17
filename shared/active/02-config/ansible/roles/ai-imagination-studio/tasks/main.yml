@@ -1,0 +1,360 @@
+---
+# Imagination Studio — AI film studio (native install on kckinai)
+# https://github.com/Keys-Wasserman/Imagination-Studio-by-keys-Wasserman
+#
+# Provisions Imagination Studio natively on the GB10 inference host:
+#   1. validate  — required vars, run-user lookup
+#   2. deps      — OS packages (git, ffmpeg, python3, rsync, curl), uv
+#   3. dirs      — STUDIO_HOME / PREFIX / HF cache / install dir, all owned
+#                  by the run user (lk); systemd --user unit directory
+#   4. checkout  — upstream git clone pinned to ai_studio_ref (tag/branch/SHA)
+#   5. env       — tailscale IPv4 resolution + env file (HOST/PORT/STUDIO_HOME/
+#                  PREFIX) for systemd EnvironmentFile=
+#   6. service   — systemd --user unit + loginctl enable-linger + enable/start
+#   7. verify    — health probe of /api/spark/self on the tailnet bind
+#
+# This role does NOT run oneshot-setup-spark.sh (the ~423 GB model/component
+# install) — that is playbooks/deploy-imagination-studio-models.yml. Until it
+# has run, $PREFIX/venv does not exist and scripts/app.sh exits; the systemd
+# unit will restart-loop harmlessly (Restart=on-failure) and the verify probe
+# skips itself.
+
+# ---------------------------------------------------------------------------
+# 1. Validate
+# ---------------------------------------------------------------------------
+- name: Validate required variables are defined
+  ansible.builtin.assert:
+    that:
+      - ai_studio_home is defined and ai_studio_home | length > 0
+      - ai_studio_install_dir is defined and ai_studio_install_dir | length > 0
+      - ai_studio_prefix is defined and ai_studio_prefix | length > 0
+      - ai_studio_hf_cache_dir is defined and ai_studio_hf_cache_dir | length > 0
+      - ai_studio_repo_url is defined and ai_studio_repo_url | length > 0
+      - ai_studio_ref is defined and ai_studio_ref | length > 0
+      - ai_studio_run_user is defined and ai_studio_run_user | length > 0
+      - ai_studio_port is defined and ai_studio_port | length > 0
+    fail_msg: "Missing required ai_studio / infra_storage_studio / infra_port_ai_studio variables."
+    success_msg: "All required ai_studio variables are defined."
+  tags: ["always", "validate"]
+
+- name: Look up run user account (home dir + uid)
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ ai_studio_run_user }}"
+  register: ai_studio_passwd
+
+- name: Resolve run user home and uid
+  ansible.builtin.set_fact:
+    ai_studio_run_home: "{{ ai_studio_passwd.ansible_facts.getent_passwd[0][5] }}"
+    ai_studio_run_uid: "{{ ai_studio_passwd.ansible_facts.getent_passwd[0][2] }}"
+    ai_studio_xdg_runtime_dir: "/run/user/{{ ai_studio_passwd.ansible_facts.getent_passwd[0][2] }}"
+  when: ai_studio_passwd.ansible_facts.getent_passwd | length > 0
+
+- name: Fail when run user does not exist on the target
+  ansible.builtin.assert:
+    that:
+      - ai_studio_passwd.ansible_facts.getent_passwd | length > 0
+      - ai_studio_run_home is defined
+      - ai_studio_run_uid is defined
+    fail_msg: "Run user '{{ ai_studio_run_user }}' not found on {{ inventory_hostname }} (getent passwd)."
+  tags: ["always", "validate"]
+
+# ---------------------------------------------------------------------------
+# 2. Dependencies
+# ---------------------------------------------------------------------------
+- name: Install OS packages (Debian/Ubuntu — DGX OS)
+  ansible.builtin.apt:
+    name: "{{ ai_studio_packages_debian }}"
+    state: present
+    update_cache: true
+  become: true
+  when: ansible_facts.os_family == "Debian"
+  tags: ["deps"]
+
+- name: Install OS packages (RedHat family)
+  ansible.builtin.dnf:
+    name: "{{ ai_studio_packages_redhat }}"
+    state: present
+  become: true
+  when: ansible_facts.os_family == "RedHat"
+  tags: ["deps"]
+
+- name: Check for uv in the run user's ~/.local/bin
+  ansible.builtin.stat:
+    path: "{{ ai_studio_run_home }}/.local/bin/uv"
+  register: ai_studio_uv_stat
+  tags: ["deps"]
+
+- name: Download uv installer when uv is missing
+  ansible.builtin.get_url:
+    url: "https://astral.sh/uv/install.sh"
+    dest: "/tmp/uv-install.sh"
+    mode: "{{ infra_mode_file_readonly }}"
+  become: true
+  become_user: "{{ ai_studio_run_user }}"
+  when:
+    - not ai_studio_uv_stat.stat.exists
+    - ai_studio_enabled | bool
+  tags: ["deps"]
+
+- name: Install uv for the run user
+  ansible.builtin.command:
+    cmd: "sh /tmp/uv-install.sh"
+    creates: "{{ ai_studio_run_home }}/.local/bin/uv"
+  become: true
+  become_user: "{{ ai_studio_run_user }}"
+  when:
+    - not ai_studio_uv_stat.stat.exists
+    - ai_studio_enabled | bool
+  tags: ["deps"]
+
+- name: Remove uv installer script
+  ansible.builtin.file:
+    path: "/tmp/uv-install.sh"
+    state: absent
+  become: true
+  when:
+    - not ai_studio_uv_stat.stat.exists
+    - ai_studio_enabled | bool
+  tags: ["deps"]
+
+- name: Verify docker CLI is present (DGX OS ships Docker; role does not install it)
+  ansible.builtin.command:
+    cmd: docker --version
+  check_mode: false
+  register: ai_studio_docker_version
+  changed_when: false
+  failed_when: false
+  tags: ["deps", "validate"]
+
+- name: Warn when docker CLI is missing
+  ansible.builtin.debug:
+    msg: >-
+      WARNING: 'docker' not found on {{ inventory_hostname }}. Imagination
+      Studio's managed ComfyUI workers may need it. Install Docker separately
+      (this role intentionally does not manage the docker package).
+  when: ai_studio_docker_version.rc != 0
+  tags: ["deps", "validate"]
+
+# ---------------------------------------------------------------------------
+# 3. Directories (all owned by the run user — upstream installs nothing as root)
+# ---------------------------------------------------------------------------
+- name: Ensure Imagination Studio directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ ai_studio_run_user }}"
+    group: "{{ ai_studio_run_group }}"
+    mode: "{{ infra_mode_dir }}"
+  become: true
+  loop:
+    - "{{ ai_studio_home }}"
+    - "{{ ai_studio_install_dir }}"
+    - "{{ ai_studio_prefix }}"
+    - "{{ ai_studio_hf_cache_dir }}"
+    - "{{ ai_studio_run_home }}/.config/systemd/user"
+  tags: ["dirs"]
+
+# ---------------------------------------------------------------------------
+# 4. Checkout upstream source at the pinned ref
+# ---------------------------------------------------------------------------
+- name: Clone / update Imagination Studio repository
+  ansible.builtin.git:
+    repo: "{{ ai_studio_repo_url }}"
+    dest: "{{ ai_studio_install_dir }}"
+    version: "{{ ai_studio_ref }}"
+  become: true
+  become_user: "{{ ai_studio_run_user }}"
+  tags: ["checkout", "install"]
+
+# ---------------------------------------------------------------------------
+# 5. Environment — tailscale bind address + env file
+# ---------------------------------------------------------------------------
+- name: Resolve tailscale IPv4 on the host
+  ansible.builtin.command:
+    cmd: tailscale ip -4  # project-lint: disable=magic-int  IP version flag in tailscale command, not an operational value
+  become: true
+  check_mode: false
+  register: ai_studio_tailscale_ip
+  changed_when: false
+  failed_when: false
+  when:
+    - ai_studio_enabled | bool
+    - ai_studio_bind_host | length == 0
+  tags: ["env"]
+
+- name: Set resolved bind address
+  ansible.builtin.set_fact:
+    ai_studio_bind_ip: "{{ ai_studio_bind_host if ai_studio_bind_host | length > 0 else (ai_studio_tailscale_ip.stdout_lines | default(['']))[0] }}"
+  when: ai_studio_enabled | bool
+  tags: ["env"]
+
+- name: Fail when no bind address could be resolved
+  ansible.builtin.assert:
+    that:
+      - ai_studio_bind_ip is defined
+      - ai_studio_bind_ip | length > 0
+      - ai_studio_bind_ip is match('^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$|^[0-9a-fA-F:]+$|^localhost$|^127\\.[0-9.]+$')
+    fail_msg: >-
+      Could not resolve a bind address for Imagination Studio on
+      {{ inventory_hostname }}. `tailscale ip -4` returned nothing — is
+      tailscale up? Or set ai_studio_bind_host explicitly.
+    success_msg: "Imagination Studio will bind HOST={{ ai_studio_bind_ip }}:{{ ai_studio_port }}"
+  when: ai_studio_enabled | bool
+  tags: ["env", "validate"]
+
+- name: Deploy Imagination Studio environment file
+  ansible.builtin.template:
+    src: imagination-studio.env.j2
+    dest: "{{ ai_studio_env_file }}"
+    owner: "{{ ai_studio_run_user }}"
+    group: "{{ ai_studio_run_group }}"
+    mode: "{{ infra_mode_file }}"
+  become: true
+  notify: restart imagination-studio
+  when: ai_studio_enabled | bool
+  tags: ["env"]
+
+# ---------------------------------------------------------------------------
+# 6. systemd --user service + linger
+#
+# Upstream's own scripts/memguard.py installs per-user units at
+# ~/.config/systemd/user/ and enables them with `systemctl --user`; we follow
+# the same layout for the app itself. A user unit only runs while the user
+# has a session unless linger is enabled — `loginctl enable-linger` creates
+# the user manager at boot (/run/user/<uid>), which is also what makes
+# `systemctl --user` work over a non-login SSH connection.
+#
+# ansible.builtin.systemd with scope: user runs `systemctl --user` as
+# become_user; it needs XDG_RUNTIME_DIR pointing at the user's runtime dir,
+# provided via the environment: keyword on each task.
+# ---------------------------------------------------------------------------
+- name: Deploy Imagination Studio systemd user unit
+  ansible.builtin.template:
+    src: imagination-studio.service.j2
+    dest: "{{ ai_studio_run_home }}/.config/systemd/user/{{ ai_studio_service_name }}.service"
+    owner: "{{ ai_studio_run_user }}"
+    group: "{{ ai_studio_run_group }}"
+    mode: "{{ infra_mode_file }}"
+  become: true
+  notify: restart imagination-studio
+  when: ai_studio_enabled | bool
+  tags: ["service"]
+
+- name: Check linger state for run user
+  ansible.builtin.command:
+    cmd: loginctl show-user {{ ai_studio_run_user }} --property=Linger --value
+  become: true
+  check_mode: false
+  register: ai_studio_linger_state
+  changed_when: false
+  failed_when: false
+  when: ai_studio_enabled | bool
+  tags: ["service"]
+
+- name: Enable linger for run user (keeps user services running without login)
+  ansible.builtin.command:
+    cmd: loginctl enable-linger {{ ai_studio_run_user }}
+  become: true
+  register: ai_studio_linger_enabled
+  when:
+    - ai_studio_enabled | bool
+    - ai_studio_linger_state.rc != 0 or (ai_studio_linger_state.stdout | trim) != "yes"
+  tags: ["service"]
+
+- name: Wait for the user runtime directory after enabling linger
+  ansible.builtin.wait_for:
+    path: "{{ ai_studio_xdg_runtime_dir }}"
+    state: present
+    timeout: 15
+  when:
+    - ai_studio_enabled | bool
+    - ai_studio_linger_enabled is changed
+  tags: ["service"]
+
+- name: Enable and start Imagination Studio user service
+  ansible.builtin.systemd:
+    name: "{{ ai_studio_service_name }}"
+    scope: user
+    state: "{{ ai_studio_state }}"
+    enabled: true
+    daemon_reload: true
+  become: true
+  become_user: "{{ ai_studio_run_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "{{ ai_studio_xdg_runtime_dir }}"
+  when: ai_studio_enabled | bool
+  tags: ["service"]
+
+- name: Disable Imagination Studio user service
+  ansible.builtin.systemd:
+    name: "{{ ai_studio_service_name }}"
+    scope: user
+    state: stopped
+    enabled: false
+    daemon_reload: true
+  become: true
+  become_user: "{{ ai_studio_run_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "{{ ai_studio_xdg_runtime_dir }}"
+  when: not (ai_studio_enabled | bool)
+  tags: ["service"]
+
+# ---------------------------------------------------------------------------
+# 7. Verify — health probe (tag: verify; also runs on a full converge)
+#
+# /api/spark/self needs the studio access key for non-loopback clients, but
+# answers 401 without it — both 200 and 401 prove the tailnet-bound HTTP
+# server is alive, so the probe accepts either and never touches the key
+# file. The keyed end-to-end check lives in validate-imagination-studio.yml.
+# The probe only runs once $PREFIX/venv exists (i.e. after the models
+# playbook has built the environment); before that scripts/app.sh cannot
+# start and a failure would be expected, not actionable.
+# ---------------------------------------------------------------------------
+- name: Check whether the studio Python environment exists
+  ansible.builtin.stat:
+    path: "{{ ai_studio_prefix }}/venv/bin/python"
+  register: ai_studio_venv_stat
+  tags: ["verify"]
+
+- name: Report that the environment is not installed yet
+  ansible.builtin.debug:
+    msg: >-
+      {{ ai_studio_prefix }}/venv not found — the oneshot installer has not
+      run yet. Run playbooks/deploy-imagination-studio-models.yml, then
+      re-run with --tags verify. Skipping the health probe.
+  when:
+    - ai_studio_verify_health | bool
+    - not ai_studio_venv_stat.stat.exists
+  tags: ["verify"]
+
+- name: Probe Imagination Studio API on the tailnet bind
+  ansible.builtin.uri:
+    url: "http://{{ ai_studio_bind_ip }}:{{ ai_studio_port }}/api/spark/self"
+    method: GET
+    status_code: [200, 401]
+    timeout: "{{ ai_studio_health_timeout }}"
+  register: ai_studio_probe
+  retries: "{{ ai_studio_health_retries }}"
+  delay: "{{ ai_studio_health_retry_delay }}"
+  until: ai_studio_probe.status is defined and ai_studio_probe.status in [200, 401]
+  when:
+    - ai_studio_verify_health | bool
+    - ai_studio_enabled | bool
+    - ai_studio_venv_stat.stat.exists
+  tags: ["verify"]
+
+- name: Report Imagination Studio health probe result
+  ansible.builtin.debug:
+    msg: >-
+      Imagination Studio probe: HTTP {{ ai_studio_probe.status | default('n/a') }}
+      from http://{{ ai_studio_bind_ip }}:{{ ai_studio_port }}/api/spark/self
+      (200 = keyed access, 401 = alive, key required — both healthy).
+      Service: {{ ai_studio_service_name }}.user, install: {{ ai_studio_install_dir }},
+      STUDIO_HOME: {{ ai_studio_home }}, PREFIX: {{ ai_studio_prefix }}.
+  when:
+    - ai_studio_verify_health | bool
+    - ai_studio_enabled | bool
+    - ai_studio_venv_stat.stat.exists
+    - ai_studio_probe is defined
+  tags: ["verify", "info"]
