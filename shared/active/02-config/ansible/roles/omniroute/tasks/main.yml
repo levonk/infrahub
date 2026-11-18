@@ -96,7 +96,7 @@
     healthcheck:
       test: ["CMD", "/usr/local/bin/healthcheck-omniroute.sh"]
       interval: "{{ infra_healthcheck_interval }}"
-      timeout: "{{ infra_timeout_short }}"
+      timeout: "{{ infra_healthcheck_timeout }}"
       retries: 3  # project-lint: disable=magic-int  healthcheck retry count, not an operational value
       start_period: "{{ infra_healthcheck_start_period }}"
     labels:
