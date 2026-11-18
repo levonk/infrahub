@@ -100,14 +100,14 @@ When adding a new role to a playbook, check this table to know which playbook(s)
 
 ## DNS Architecture (Two-Layer)
 
-The shared roles provide a two-layer DNS architecture for Tailscale-attached hosts. Clients opt in by setting Tailscale FQDN variables in their `infrastructure/domains.yml` and per-host `cloudflare_ddns_hostname` in their inventory.
+The shared roles provide a two-layer DNS architecture for Tailscale-attached hosts. Clients opt in by setting Tailscale IP/FQDN variables in their `infrastructure/domains.yml` and per-host `cloudflare_ddns_hostname` in their inventory.
 
-### Layer 1: CNAME → Tailscale FQDN (Primary)
+### Layer 1: A record → Tailscale IP (Primary)
 
 **Role**: `cloudflare-dns`  
 **Playbook**: `playbooks/configure-cloudflare-dns.yml`
 
-Service domains (`*.<base>`) are CNAMEs to Tailscale FQDNs (`*.<tailnet>`). This decouples Cloudflare DNS from ephemeral Tailscale IPs — if Tailscale reassigns the IP, only Tailscale's internal DNS updates. See AGENTS.md (root) → Architectural Invariant #9 for the full rule.
+Service domains (`*.<base>`) are A records to the host's Tailscale IP (`infra_tailscale_ip_*`). CNAMEs to `*.<tailnet>` FQDNs are NOT used for tailnet-only services — `*.ts.net` names are MagicDNS-only, and MagicDNS intermittently NXDOMAINs tailnet names reached by chasing a CNAME from a public zone. CNAMEs remain only for in-zone service aliases and the `*.mach.<base>` public fallback targets. See AGENTS.md (root) → Architectural Invariant #9 for the full rule.
 
 ### Layer 2: DDNS → Public IP (Fallback)
 
@@ -121,8 +121,11 @@ A lightweight container on each host updates an A record (`{hostname}.mach.{doma
 | Variable | Shared default | Client override |
 |----------|---------------|-----------------|
 | `infra_tailscale_tailnet` | `example.ts.net` | `<tailnet>` |
-| `infra_tailscale_fqdn_cloud_server` | `{{ infra_tailscale_tailnet }}` | `oci.<tailnet>` |
-| `infra_tailscale_fqdn_inference_host` | (none) | `kckinai.<tailnet>` |
+| `infra_tailscale_ip_cloud_server` | `""` | e.g. `100.90.22.85` |
+| `infra_tailscale_ip_windows_docker` | `""` | e.g. `100.81.103.34` |
+| `infra_tailscale_ip_inference_host` | `""` | e.g. `100.120.164.114` |
+| `infra_tailscale_ip_{cno,nl}_{vpn,tor}_exit` | `""` | exit-node container IPs |
+| `infra_tailscale_fqdn_*` | `{{ infra_tailscale_tailnet }}` | host FQDNs (non-DNS uses) |
 | `cloudflare_ddns_hostname` | (none — set per-host) | `"oci"`, `"kckinai"` |
 
 ### Clients Using This Feature
@@ -626,12 +629,12 @@ Services that use non-HTTP protocols (UDP relay, STUN/TURN) cannot be routed thr
 
 ### DNS Records: Add to configure-cloudflare-dns.yml, Not Manually
 
-DNS records for new services must be added to the `cloudflare_dns_records` list in `configure-cloudflare-dns.yml`, following the existing CNAME-to-Tailscale-FQDN pattern:
+DNS records for new services must be added to the `cloudflare_dns_records` list in `configure-cloudflare-dns.yml`, following the existing A-record-to-Tailscale-IP pattern:
 
 ```yaml
-- name: "{{ infra_domain_media_watch_party | default('watch.' ~ (infra_domain_base | default('example.com'))) }}"
-  type: "CNAME"
-  content: "{{ ts_fqdn }}"
+- name: "{{ infra_domain_ai_newservice | default('newservice.' ~ (infra_domain_base | default('example.com'))) }}"
+  type: "A"
+  content: "{{ infra_tailscale_ip_cloud_server | default('') }}"
   ttl: "{{ cloudflare_dns_ttl }}"
   proxied: "{{ cloudflare_dns_proxied }}"
   state: "{{ cloudflare_dns_state }}"

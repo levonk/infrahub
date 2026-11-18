@@ -48,14 +48,14 @@
     cloudflare_dns_allow_private_ip: false
     cloudflare_dns_records:
       - name: "{{ infra_domain_dashboard_homepage | default('start.' ~ (infra_domain_base | default('example.com'))) }}"
-        type: "CNAME"
-        content: "{{ infra_tailscale_fqdn_cloud_server | default('oci.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) }}"
+        type: "A"
+        content: "{{ infra_tailscale_ip_cloud_server | default('') }}"
         ttl: "{{ cloudflare_dns_ttl }}"
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
       - name: "{{ infra_domain_dashboard_trala | default('start2.' ~ (infra_domain_base | default('example.com'))) }}"
-        type: "CNAME"
-        content: "{{ infra_tailscale_fqdn_cloud_server | default('oci.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) }}"
+        type: "A"
+        content: "{{ infra_tailscale_ip_cloud_server | default('') }}"
         ttl: "{{ cloudflare_dns_ttl }}"
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
