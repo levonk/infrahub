@@ -203,6 +203,13 @@
       ignore_errors: true
       tags: ["cleanup", "docker"]
 
+    - name: "Remove stale Langfuse containers not managed by compose"
+      ansible.builtin.shell:
+        cmd: "docker ps -aq --filter 'name=langfuse-' | xargs -r docker rm -f"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      tags: ["cleanup", "docker"]
+
     - name: "Deploy Langfuse containers"
       ansible.builtin.shell:
         cmd: "docker compose -f docker-compose.langfuse.yml --env-file .env.langfuse --profile langfuse up -d"
