@@ -39,7 +39,9 @@
         # Headroom forwards to OmniRoute (airoute) which does provider fanout
         - model_name: "auto"
           litellm_params:
-            model: "openai/auto"
+            # OmniRoute's built-in "auto" router can pick browser-required
+            # providers; kckinaicombo is the managed combo (kckinai + freellmapi).
+            model: "openai/kckinaicombo"
             api_base: "{{ ai_litellm_upstream_url }}"
             api_key: "sk-litellm-internal"
         # Claude models
