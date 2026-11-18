@@ -45,6 +45,10 @@ ai_omniroute_no_proxy: "{{ 'localhost,127.0.0.1,172.16.0.0/12,172.29.0.0/16,100.
 # Admin dashboard password (argon2id hash from vault; OmniRoute INITIAL_PASSWORD)
 ai_omniroute_admin_password: "{{ vault_omniroute_admin_password | default(infra_value_ai_omniroute_admin_password) }}"
 
+# Plaintext admin password for the /api/auth/login call (managed-config push).
+# Distinct from the argon2id hash above — the API expects the cleartext secret.
+ai_omniroute_admin_password_plain: "{{ vault_omniroute_admin_password_plain | default(ai_omniroute_admin_password) }}"
+
 # Public base URL (required when behind HTTPS proxy / custom host)
 ai_omniroute_public_base_url: "https://{{ ai_omniroute_domain }}"
 
