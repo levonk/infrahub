@@ -326,6 +326,10 @@ infra_network_proxy_headroom_docker_network_name: "proxy-chain-network"
 infra_network_proxy_iron_proxy_docker_network_name: "proxy-chain-network"
 infra_network_proxy_iron_proxy_chain_network_name: "proxy-chain-network"
 
+# iron-proxy static DNS record target (example internal host) and IMDS deny CIDR
+infra_network_proxy_endpoint: "10.0.0.5"
+infra_network_metadata_endpoint: "169.254.169.254/32"
+
 # Dashboard network fallbacks
 infra_network_dashboard_homepage_network_name: "traefik-network"
 infra_network_dashboard_trala_network_name: "traefik-network"
