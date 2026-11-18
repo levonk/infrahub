@@ -39,6 +39,9 @@ networks:
   traefik-network:
     external: true
     name: traefik-network
+  proxy-chain-network:
+    external: true
+    name: proxy-chain-network
 
 volumes:
   langfuse-postgres-data:
