@@ -163,6 +163,14 @@ infra_tailscale_ip_windows_docker: ""
 # Used where CNAME→*.ts.net is unreliable: MagicDNS intermittently NXDOMAINs
 # tailnet names reached by chasing a CNAME across zones.
 infra_tailscale_ip_cloud_server: ""
+# Tailscale IP for the AI inference host (A records — same rationale as above).
+infra_tailscale_ip_inference_host: ""
+# Tailscale IPs for the exit-node containers (tagged devices — stable IPs).
+# A records, not CNAME→*.ts.net, for the same MagicDNS CNAME-chase reason.
+infra_tailscale_ip_cno_vpn_exit: ""
+infra_tailscale_ip_cno_tor_exit: ""
+infra_tailscale_ip_nl_vpn_exit: ""
+infra_tailscale_ip_nl_tor_exit: ""
 
 # ---------------------------------------------------------------------------
 # Service Hostnames (container names)

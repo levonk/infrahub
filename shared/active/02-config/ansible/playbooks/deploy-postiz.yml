@@ -69,8 +69,8 @@
     cloudflare_dns_records:
       # Postiz — nl (Windows Docker Desktop, app auth — no Authelia)
       - name: "{{ infra_domain_tools_postiz | default('postiz.nl.' ~ (infra_domain_base | default('example.com'))) }}"
-        type: "CNAME"
-        content: "{{ ts_fqdn_windows_docker }}"
+        type: "A"
+        content: "{{ infra_tailscale_ip_windows_docker | default('') }}"
         ttl: "{{ cloudflare_dns_ttl }}"
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"

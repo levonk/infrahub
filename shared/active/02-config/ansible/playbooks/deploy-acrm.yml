@@ -65,16 +65,16 @@
     cloudflare_dns_records:
       # ACRM dashboard — nl (Windows Docker Desktop, Authelia-gated)
       - name: "{{ infra_domain_ai_acrm | default('acrm.nl.' ~ (infra_domain_base | default('example.com'))) }}"
-        type: "CNAME"
-        content: "{{ ts_fqdn_windows_docker }}"
+        type: "A"
+        content: "{{ infra_tailscale_ip_windows_docker | default('') }}"
         ttl: "{{ cloudflare_dns_ttl }}"
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
 
       # ACRM API subdomain — no Authelia (app enforces x-acrm-api-key)
       - name: "{{ infra_domain_ai_acrm_api | default('acrm-api.nl.' ~ (infra_domain_base | default('example.com'))) }}"
-        type: "CNAME"
-        content: "{{ ts_fqdn_windows_docker }}"
+        type: "A"
+        content: "{{ infra_tailscale_ip_windows_docker | default('') }}"
         ttl: "{{ cloudflare_dns_ttl }}"
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
