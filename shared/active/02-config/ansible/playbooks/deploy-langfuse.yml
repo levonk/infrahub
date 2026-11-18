@@ -179,7 +179,7 @@
 
     - name: "Network setup - Ensure ai-dashboard-network exists"
       ansible.builtin.shell:
-        cmd: "docker network inspect ai-dashboard-network >/dev/null 2>&1 || docker network create ai-dashboard-network --driver bridge --subnet {{ infra_network_proxy_alt_subnet }}"
+        cmd: "docker network inspect ai-dashboard-network >/dev/null 2>&1 || docker network create ai-dashboard-network --driver bridge --subnet {{ infra_network_ai_forge_subnet }}"
       become: true
       become_user: "{{ cloud_server_admin_user }}"
       ignore_errors: true
