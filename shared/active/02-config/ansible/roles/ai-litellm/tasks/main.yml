@@ -78,7 +78,7 @@
 
       general_settings:
         master_key: "{{ ai_litellm_master_key }}"
-        database_url: "postgresql://{{ ai_litellm_postgres_user }}:{{ ai_litellm_database_password }}@{{ ai_litellm_postgres_container_name }}:{{ infra_port_db_postgres_host }}/{{ ai_litellm_postgres_db }}"
+        database_url: "postgresql://{{ ai_litellm_postgres_user }}:{{ ai_litellm_database_password }}@{{ ai_litellm_postgres_container_name }}:{{ ai_litellm_postgres_container_port }}/{{ ai_litellm_postgres_db }}"
         # Spend tracking
         disable_spend_logs: false
         # PII guardrail (Presidio) — masks PII before forwarding to upstream
@@ -202,7 +202,7 @@
       # Config file path
       LITELLM_CONFIG_FILE_PATH: "/app/config.yaml"
       # Database
-      DATABASE_URL: "postgresql://{{ ai_litellm_postgres_user }}:{{ ai_litellm_database_password }}@{{ ai_litellm_postgres_container_name }}:{{ infra_port_db_postgres_host }}/{{ ai_litellm_postgres_db }}"
+      DATABASE_URL: "postgresql://{{ ai_litellm_postgres_user }}:{{ ai_litellm_database_password }}@{{ ai_litellm_postgres_container_name }}:{{ ai_litellm_postgres_container_port }}/{{ ai_litellm_postgres_db }}"
       # Auth
       LITELLM_MASTER_KEY: "{{ ai_litellm_master_key }}"
       LITELLM_SALT_KEY: "{{ ai_litellm_salt_key }}"
