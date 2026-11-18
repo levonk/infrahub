@@ -230,6 +230,22 @@
       delay: "{{ infra_delay_default }}"
       tags: ["verify", "database"]
 
+    - name: "Sync Langfuse Postgres role password with vault"
+      ansible.builtin.shell:
+        cmd: "docker exec -i {{ infra_hostname_langfuse_postgres | default('langfuse-postgres') }} psql -U {{ langfuse_postgres_user | default('langfuse') }} -d {{ langfuse_postgres_db | default('langfuse') }} -v ON_ERROR_STOP=1"
+        stdin: "ALTER USER {{ langfuse_postgres_user | default('langfuse') }} WITH PASSWORD '{{ vault_langfuse_postgres_password }}';"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      no_log: true
+      tags: ["deploy", "database"]
+
+    - name: "Restart Langfuse web and worker to pick up synced DB credentials"
+      ansible.builtin.shell:
+        cmd: "docker restart {{ infra_hostname_langfuse_web | default('langfuse-web') }} {{ infra_hostname_langfuse_worker | default('langfuse-worker') }}"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      tags: ["deploy", "docker"]
+
     - name: "Wait for Langfuse ClickHouse to be ready"
       ansible.builtin.shell:
         cmd: "docker exec {{ infra_hostname_langfuse_clickhouse | default('langfuse-clickhouse') }} wget --no-verbose --tries=1 --spider http://localhost:8123/ping"  # project-lint: disable=magic-int  Jinja default port value, should use infra_port variable
