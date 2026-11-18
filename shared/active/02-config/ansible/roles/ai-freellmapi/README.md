@@ -62,8 +62,8 @@ code. Consequences:
 - `license` activates detached, so an unreachable license service never
   delays boot; the live catalog sync is kicked after activation.
 
-The image tag is pinned (`v0.12.0`) because these fields only exist on
-upstream >= v0.12.0.
+The image tag is pinned (`v0.16.34`) — bumped from v0.12.0; the
+`admin`/`license` fields require upstream >= v0.12.0.
 
 ## Health Check
 

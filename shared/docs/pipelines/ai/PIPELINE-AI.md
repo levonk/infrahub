@@ -91,7 +91,7 @@ This is a topology decision, not a pipeline architecture decision. See `shared/d
 
 **2026-11-17**: Added FreeLLMAPI as OmniRoute's free-tier leaf provider
 - FreeLLMAPI (https://github.com/tashfeenahmed/freellmapi) is a free-tier LLM aggregator — 34+ providers behind a single OpenAI-compatible `/v1` endpoint with automatic fallover, per-key rate tracking, and a self-updating model catalog (~7.4B tokens/month of free inference)
-- Deployed as `ai-freellmapi` Ansible role on the OCI cloud server; container `localnet-ai-freellmapi` (image `ghcr.io/tashfeenahmed/freellmapi:v0.12.0`)
+- Deployed as `ai-freellmapi` Ansible role on the OCI cloud server; container `localnet-ai-freellmapi` (image `ghcr.io/tashfeenahmed/freellmapi:v0.16.34`)
 - Domain: https://freellmapi.<base-domain> (Traefik + GeoBlock + CrowdSec + Authelia); host port 3003 → container 3001
 - Wired into OmniRoute via managed config: `freellmapi` provider node + connection, `freellmapi/auto` model in the `kckinaicombo` combo
 - **Egress exception**: FreeLLMAPI egresses directly to its 34+ providers (`PROXY_URL` unset) — it does NOT traverse Iron-Proxy. Routing it through iron-proxy is deferred (default-deny would require allowlisting the dynamic provider catalog)
@@ -472,7 +472,7 @@ Omnigent + Pi are NOT mid-pipeline transformation stages like Headroom or Forge 
 
 FreeLLMAPI (https://github.com/tashfeenahmed/freellmapi) is not a serial pipeline stage — it is a **provider leaf** that OmniRoute routes to for `freellmapi/*` models. It aggregates free tiers from 34+ LLM providers behind a single OpenAI-compatible `/v1` endpoint with automatic fallover, per-key rate tracking, and a self-updating model catalog (~7.4B tokens/month of free inference capacity).
 
-- **Implementation**: `ghcr.io/tashfeenahmed/freellmapi:v0.12.0` (pinned — declarative `admin`/`license` provisioning requires >= v0.12.0)
+- **Implementation**: `ghcr.io/tashfeenahmed/freellmapi:v0.16.34` (pinned — declarative `admin`/`license` provisioning requires >= v0.12.0)
 - **Ansible role**: `roles/ai-freellmapi/`; deployed by `playbooks/deploy-ai-gateway-pipeline.yml` (tags `deploy`/`verify`/`freellmapi`), staged BEFORE the omniroute role so managed config can reference it
 - **Container**: `localnet-ai-freellmapi`; **Domain**: freellmapi.<base-domain> (Traefik + GeoBlock + CrowdSec + Authelia); **Ports**: 3003 → 3001
 - **Networks**: `traefik-network` (ingress) + `proxy-chain-network` at `172.29.0.20` (OmniRoute reaches it here as `http://172.29.0.20:3001/v1`)
