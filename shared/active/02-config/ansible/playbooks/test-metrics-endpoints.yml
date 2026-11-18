@@ -24,7 +24,7 @@
         return_content: true
         timeout: "{{ test_timeout }}"
       register: traefik_metrics
-      until: traefik_metrics.status == {{ infra_http_status_ok }}
+      until: traefik_metrics.status == (infra_http_status_ok | int)
       retries: "{{ test_retries }}"
       delay: "{{ test_delay }}"
       when: proxy_traefik_metrics_enabled | bool
@@ -33,7 +33,7 @@
     - name: Verify Traefik metrics contain expected data
       ansible.builtin.assert:
         that:
-          - traefik_metrics.status == {{ infra_http_status_ok }}
+          - traefik_metrics.status == (infra_http_status_ok | int)
           - "'traefik_' in traefik_metrics.content"
           - "'entrypoint' in traefik_metrics.content or 'service' in traefik_metrics.content"
         fail_msg: "Traefik metrics endpoint is not returning expected data"
@@ -52,7 +52,7 @@
         return_content: true
         timeout: "{{ test_timeout }}"
       register: authelia_metrics
-      until: authelia_metrics.status == {{ infra_http_status_ok }}
+      until: authelia_metrics.status == (infra_http_status_ok | int)
       retries: "{{ test_retries }}"
       delay: "{{ test_delay }}"
       when: proxy_authelia_metrics_enabled | bool
@@ -61,7 +61,7 @@
     - name: Verify Authelia metrics contain expected data
       ansible.builtin.assert:
         that:
-          - authelia_metrics.status == {{ infra_http_status_ok }}
+          - authelia_metrics.status == (infra_http_status_ok | int)
           - "'authelia_' in authelia_metrics.content"
           - "'request' in authelia_metrics.content or 'authentication' in authelia_metrics.content"
         fail_msg: "Authelia metrics endpoint is not returning expected data"
@@ -80,7 +80,7 @@
         return_content: true
         timeout: "{{ test_timeout }}"
       register: crowdsec_metrics
-      until: crowdsec_metrics.status == {{ infra_http_status_ok }}
+      until: crowdsec_metrics.status == (infra_http_status_ok | int)
       retries: "{{ test_retries }}"
       delay: "{{ test_delay }}"
       when: security_crowdsec_prometheus_enabled | bool
@@ -89,7 +89,7 @@
     - name: Verify CrowdSec metrics contain expected data
       ansible.builtin.assert:
         that:
-          - crowdsec_metrics.status == {{ infra_http_status_ok }}
+          - crowdsec_metrics.status == (infra_http_status_ok | int)
           - "'crowdsec_' in crowdsec_metrics.content"
           - "'decision' in crowdsec_metrics.content or 'alert' in crowdsec_metrics.content"
         fail_msg: "CrowdSec metrics endpoint is not returning expected data"
@@ -107,19 +107,19 @@
           Metrics Endpoints Test Summary:
           
           Traefik Metrics (port {{ proxy_traefik_metrics_port }}):
-            Status: {{ 'PASS' if (proxy_traefik_metrics_enabled | bool and traefik_metrics.status == {{ infra_http_status_ok }}) else 'SKIP' if not (proxy_traefik_metrics_enabled | bool) else 'FAIL' }}
+            Status: {{ 'PASS' if (proxy_traefik_metrics_enabled | bool and traefik_metrics.status == (infra_http_status_ok | int)) else 'SKIP' if not (proxy_traefik_metrics_enabled | bool) else 'FAIL' }}
             {% if proxy_traefik_metrics_enabled | bool %}
             Response Time: {{ traefik_metrics.elapsed | default('N/A') }}s
             {% endif %}
           
           Authelia Metrics (port {{ proxy_authelia_metrics_port }}):
-            Status: {{ 'PASS' if (proxy_authelia_metrics_enabled | bool and authelia_metrics.status == {{ infra_http_status_ok }}) else 'SKIP' if not (proxy_authelia_metrics_enabled | bool) else 'FAIL' }}
+            Status: {{ 'PASS' if (proxy_authelia_metrics_enabled | bool and authelia_metrics.status == (infra_http_status_ok | int)) else 'SKIP' if not (proxy_authelia_metrics_enabled | bool) else 'FAIL' }}
             {% if proxy_authelia_metrics_enabled | bool %}
             Response Time: {{ authelia_metrics.elapsed | default('N/A') }}s
             {% endif %}
           
           CrowdSec Metrics (port {{ security_crowdsec_prometheus_host_port }}):
-            Status: {{ 'PASS' if (security_crowdsec_prometheus_enabled | bool and crowdsec_metrics.status == {{ infra_http_status_ok }}) else 'SKIP' if not (security_crowdsec_prometheus_enabled | bool) else 'FAIL' }}
+            Status: {{ 'PASS' if (security_crowdsec_prometheus_enabled | bool and crowdsec_metrics.status == (infra_http_status_ok | int)) else 'SKIP' if not (security_crowdsec_prometheus_enabled | bool) else 'FAIL' }}
             {% if security_crowdsec_prometheus_enabled | bool %}
             Response Time: {{ crowdsec_metrics.elapsed | default('N/A') }}s
             {% endif %}
