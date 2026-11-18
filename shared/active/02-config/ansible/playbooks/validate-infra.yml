@@ -63,7 +63,7 @@
 
     - name: "Record Netbird management API status"
       ansible.builtin.set_fact:
-        validation_results: "{{ validation_results | combine({'netbird_mgmt_api_ok': netbird_api_check.status == {{ infra_http_status_ok }}}) }}"
+        validation_results: "{{ validation_results | combine({'netbird_mgmt_api_ok': netbird_api_check.status == (infra_http_status_ok | int)}) }}"
       tags: ["validate", "netbird"]
 
     - name: "Check Netbird signal container status"

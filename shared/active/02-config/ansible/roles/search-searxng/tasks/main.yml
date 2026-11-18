@@ -152,7 +152,7 @@
     url: "http://{{ infra_network_bind_localhost }}:{{ search_searxng_host_port }}{{ search_searxng_health_endpoint }}"
     status_code: "{{ infra_http_status_ok }}"
   register: searxng_health
-  until: searxng_health.status == {{ infra_http_status_ok }}
+  until: searxng_health.status == (infra_http_status_ok | int)
   retries: "{{ infra_retry_long }}"
   delay: "{{ infra_delay_default }}"
   when:

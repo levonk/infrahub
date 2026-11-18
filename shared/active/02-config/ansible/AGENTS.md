@@ -334,7 +334,7 @@ Playbooks that use `include_vars` to load infrastructure schemas must load `mode
 The `until` clause in Ansible tasks (e.g., `ansible.builtin.uri` retries) does not support `{{ }}` Jinja delimiters. Use a bare expression instead:
 ```yaml
 # ❌ Wrong — Syntax error in expression
-until: result.status == {{ infra_http_status_ok }}
+until: result.status == (infra_http_status_ok | int)
 # ✅ Correct — bare Jinja expression with filter
 until: result.status == (infra_http_status_ok | int)
 ```

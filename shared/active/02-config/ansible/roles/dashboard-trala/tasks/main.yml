@@ -75,7 +75,7 @@
     url: "http://{{ infra_network_bind_localhost }}:{{ dashboard_trala_host_port }}{{ dashboard_trala_health_endpoint }}"
     status_code: "{{ infra_http_status_ok }}"
   register: trala_health
-  until: trala_health.status == {{ infra_http_status_ok }}
+  until: trala_health.status == (infra_http_status_ok | int)
   retries: "{{ infra_retry_long }}"
   delay: "{{ infra_delay_default }}"
   when:
