@@ -31,7 +31,7 @@ proxy_headroom_upstream_proxy: ""
 # forwards to this OpenAI-compatible endpoint.
 # Env var: OPENAI_TARGET_API_URL
 # ---------------------------------------------------------------------------
-proxy_headroom_openai_target_api_url: "http://{{ ai_omniroute_container_name | default(infra_value_proxy_headroom_openai_target_api_url) }}:{{ infra_port_ai_omniroute_container | default(infra_port_vpn_netbird_management_host) }}"
+proxy_headroom_openai_target_api_url: "http://{{ infra_hostname_ai_omniroute | default(infra_hostname_omniroute) }}:{{ infra_port_ai_omniroute_container | default(infra_port_vpn_netbird_management_host) }}"
 
 # ---------------------------------------------------------------------------
 # Output Token Reduction
