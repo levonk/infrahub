@@ -163,10 +163,10 @@
       max-file: "{{ infra_log_max_file }}"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U {{ ai_litellm_postgres_user }} -d {{ ai_litellm_postgres_db }}"]
-      interval: "{{ infra_timeout_short }}"
-      timeout: "{{ infra_timeout_healthcheck_short }}"
+      interval: "{{ infra_healthcheck_interval_short }}"
+      timeout: "{{ infra_healthcheck_timeout }}"
       retries: "{{ infra_retry_long }}"
-      start_period: "{{ infra_timeout_short }}"
+      start_period: "{{ infra_healthcheck_start_period }}"
     security_opts:
       - no-new-privileges:true
   notify: restart litellm-postgres
@@ -240,10 +240,10 @@
       max-file: "{{ infra_log_max_file }}"
     healthcheck:
       test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:{{ ai_litellm_container_port }}/health/liveness')\""]
-      interval: "{{ infra_timeout_default }}"
-      timeout: "{{ infra_timeout_short }}"
+      interval: "{{ infra_healthcheck_interval }}"
+      timeout: "{{ infra_healthcheck_timeout }}"
       retries: "{{ infra_retry_default }}"
-      start_period: "{{ infra_timeout_long }}"
+      start_period: "{{ infra_healthcheck_start_period_long }}"
     security_opts:
       - no-new-privileges:true
     labels:

@@ -62,6 +62,9 @@
         - networks.yml
         - domains.yml
         - storage.yml
+        - modes.yml
+        - timing.yml
+        - values.yml
       tags: ["always"]
 
     - name: "Load client infrastructure overrides (levonk)"
@@ -81,7 +84,7 @@
           Langfuse Deployment Started
           ========================================
           Target: {{ inventory_hostname }}
-          User: {{ ansible_user_id }}
+          User: {{ ansible_user }}
           OS: {{ ansible_distribution }} {{ ansible_distribution_version }}
           Architecture: {{ ansible_facts['architecture'] }}
           Timestamp: {{ ansible_date_time.iso8601 }}
