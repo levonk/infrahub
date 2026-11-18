@@ -299,17 +299,31 @@
       loop: "{{ langfuse_container_status.results }}"
       tags: ["verify", "containers"]
 
+    - name: "Get Langfuse Web container start time"
+      community.docker.docker_container_info:
+        name: "{{ infra_hostname_langfuse_web | default('langfuse-web') }}"
+      register: langfuse_web_info
+      changed_when: false
+      tags: ["verify", "logs"]
+
     - name: "Check Langfuse Web logs for errors"
       ansible.builtin.shell:
-        cmd: "docker logs {{ infra_hostname_langfuse_web | default('langfuse-web') }} --tail=50 2>&1 | grep -i error || echo 'No errors found'"  # project-lint: disable=magic-int  docker logs tail count, not an operational value
+        cmd: "docker logs {{ infra_hostname_langfuse_web | default('langfuse-web') }} --since '{{ langfuse_web_info.container.State.StartedAt }}' 2>&1 | grep -i error || echo 'No errors found'"
       register: langfuse_web_logs
       changed_when: false
       failed_when: "'error' in langfuse_web_logs.stdout.lower() and 'No errors found' not in langfuse_web_logs.stdout"
       tags: ["verify", "logs"]
 
+    - name: "Get Langfuse Worker container start time"
+      community.docker.docker_container_info:
+        name: "{{ infra_hostname_langfuse_worker | default('langfuse-worker') }}"
+      register: langfuse_worker_info
+      changed_when: false
+      tags: ["verify", "logs"]
+
     - name: "Check Langfuse Worker logs for errors"
       ansible.builtin.shell:
-        cmd: "docker logs {{ infra_hostname_langfuse_worker | default('langfuse-worker') }} --tail=50 2>&1 | grep -i error || echo 'No errors found'"  # project-lint: disable=magic-int  docker logs tail count, not an operational value
+        cmd: "docker logs {{ infra_hostname_langfuse_worker | default('langfuse-worker') }} --since '{{ langfuse_worker_info.container.State.StartedAt }}' 2>&1 | grep -i error || echo 'No errors found'"
       register: langfuse_worker_logs
       changed_when: false
       failed_when: "'error' in langfuse_worker_logs.stdout.lower() and 'No errors found' not in langfuse_worker_logs.stdout"
