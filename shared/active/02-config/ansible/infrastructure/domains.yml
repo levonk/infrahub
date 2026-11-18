@@ -39,6 +39,7 @@ infra_domain_ai_buzz: "buzz.{{ infra_domain_base }}"
 # FreeLLMAPI (Free-tier LLM aggregator — OpenAI-compatible /v1 endpoint)
 infra_domain_ai_freellmapi: "freellmapi.{{ infra_domain_base }}"
 infra_hostname_ai_freellmapi: "localnet-ai-freellmapi"
+infra_hostname_ai_omniroute: "localnet-ai-omniroute"
 
 # QM (Multiplayer agent harness for work — web UI)
 infra_domain_ai_qm: "qm.{{ infra_domain_base }}"
