@@ -134,6 +134,14 @@ traefik_acme_email: "{{ vault_traefik_acme_email | default('letsencrypt@example.
 # dns_api_keys: "{{ vault_dns_api_keys | default({}) }}"
 
 # ---------------------------------------------------------------------------
+# Windows desktop applications
+# winget IDs installed into the interactive user's session by
+# bootstrap-windows-docker-host.yml (tags: desktop-apps). Client group_vars
+# override this list; empty means no desktop apps are managed.
+# ---------------------------------------------------------------------------
+windows_desktop_apps: []
+
+# ---------------------------------------------------------------------------
 # Ansible Vault Configuration
 # ---------------------------------------------------------------------------
 # To use encrypted secrets:
