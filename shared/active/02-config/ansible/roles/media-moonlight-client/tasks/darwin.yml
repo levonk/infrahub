@@ -72,6 +72,25 @@
   when: not media_moonlight_macos_app.stat.exists
   tags: ["moonlight", "install"]
 
+# auser (the SSH account) is admin-group but the brew prefix drifts: dirs
+# created later by micro (e.g. /usr/local/share/man) lose group-write, and
+# brew then aborts with "directories are not writable by your user". Apply
+# the same admin-group normalization as configure-macos-host.yml before
+# invoking brew — idempotent, NOPASSWD sudo is fleet-standard.
+- name: Normalize Homebrew dir permissions for admin group
+  ansible.builtin.shell:
+    cmd: |
+      BREW_DIR="{{ macos_brew_dir | default('/opt/homebrew/bin' if ansible_facts['architecture'] == 'arm64' else '/usr/local/bin') | dirname }}"
+      chgrp -R admin "$BREW_DIR"
+      find "$BREW_DIR" -type d -exec chmod g+w {} +
+      chmod -R g+w "$BREW_DIR"
+  become: true
+  changed_when: false
+  when:
+    - not media_moonlight_macos_app.stat.exists
+    - media_moonlight_macos_brew.rc == 0
+  tags: ["moonlight", "install"]
+
 - name: Install Moonlight via Homebrew cask
   community.general.homebrew_cask:
     name: moonlight
