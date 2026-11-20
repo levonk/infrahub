@@ -104,6 +104,11 @@
     - name: "Deploy LiteLLM via role"
       ansible.builtin.include_role:
         name: ai-litellm
+        # include_role does NOT propagate tags to role tasks (unlike
+        # include_tasks) — apply: ensures --tags litellm/--tags deploy select
+        # the tasks inside the role.
+        apply:
+          tags: ["deploy", "litellm"]
       tags: ["deploy", "litellm"]
 
     # ===========================================================================
@@ -115,6 +120,11 @@
     - name: "Deploy headroom via role"
       ansible.builtin.include_role:
         name: proxy-headroom
+        # include_role does NOT propagate tags to role tasks (unlike
+        # include_tasks) — apply: ensures --tags headroom/--tags deploy select
+        # the tasks inside the role.
+        apply:
+          tags: ["deploy", "headroom"]
       tags: ["deploy", "headroom"]
 
     # ===========================================================================
@@ -132,6 +142,11 @@
     - name: "Deploy freellmapi via role"
       ansible.builtin.include_role:
         name: ai-freellmapi
+        # include_role does NOT propagate tags to role tasks (unlike
+        # include_tasks) — apply: ensures --tags freellmapi/--tags deploy
+        # select the tasks inside the role.
+        apply:
+          tags: ["deploy", "freellmapi"]
       tags: ["deploy", "freellmapi"]
 
     # ===========================================================================
@@ -148,6 +163,11 @@
     - name: "Deploy omniroute via role"
       ansible.builtin.include_role:
         name: omniroute
+        # include_role does NOT propagate tags to role tasks (unlike
+        # include_tasks) — apply: ensures --tags omniroute/--tags deploy
+        # select the tasks inside the role.
+        apply:
+          tags: ["deploy", "omniroute"]
       tags: ["deploy", "omniroute"]
 
     # ===========================================================================

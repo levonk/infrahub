@@ -56,4 +56,9 @@
     - name: "Deploy Moonlight client (cask + optional automated pairing)"
       ansible.builtin.include_role:
         name: media-moonlight-client
+        # include_role does NOT propagate tags to role tasks (unlike
+        # include_tasks) — apply: ensures --tags moonlight selects the tasks
+        # inside the role.
+        apply:
+          tags: ["moonlight"]
       tags: ["moonlight"]
