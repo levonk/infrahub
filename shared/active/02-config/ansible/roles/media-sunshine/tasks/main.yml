@@ -40,22 +40,103 @@
   changed_when: false
   tags: ["sunshine", "check"]
 
-- name: "SUNSHINE | Refresh winget sources (fresh machines ship with a stale/missing index)"
+# winget cannot run over WinRM/SSH: the winget source index is per-user and
+# never materializes in the ansible service account's session (0x8a15000f
+# "Data required by the source is missing" even after source reset+update).
+# Same fix as bootstrap-windows-docker-host.yml desktop-apps: deploy a small
+# script and run it via a one-shot scheduled task as the logged-on desktop
+# user (RunLevel Highest — the Sunshine MSI is machine-scope and needs admin).
+
+- name: "SUNSHINE | Check for interactive user (needed for winget)"
   ansible.windows.win_shell:
-    cmd: "winget source reset --force; winget source update --disable-interactivity"
-  register: sunshine_source_update
+    cmd: "(Get-CimInstance Win32_ComputerSystem).UserName"
+  register: sunshine_console_user
   changed_when: false
-  failed_when: false
   when: "'NOT_INSTALLED' in sunshine_check.stdout"
   tags: ["sunshine", "install"]
 
-- name: "SUNSHINE | Install Sunshine via winget"
-  ansible.windows.win_shell:
-    cmd: "winget install {{ media_sunshine_winget_id }} --source winget --silent --accept-package-agreements --accept-source-agreements --disable-interactivity"
-  register: sunshine_install
-  changed_when: sunshine_install.rc == 0
-  when: "'NOT_INSTALLED' in sunshine_check.stdout"
+- name: "SUNSHINE | Fail when no interactive user is logged on"
+  ansible.builtin.fail:
+    msg: >-
+      Sunshine is not installed and winget requires an interactive session
+      (it cannot run over WinRM as the ansible service account).
+      Log in on {{ inventory_hostname }} and re-run this playbook.
+  when:
+    - "'NOT_INSTALLED' in sunshine_check.stdout"
+    - sunshine_console_user.stdout | default('') | trim | length == 0
   tags: ["sunshine", "install"]
+
+- name: "SUNSHINE | Deploy install script"
+  ansible.windows.win_copy:
+    dest: "C:\\Users\\Public\\install-sunshine.ps1"
+    content: |
+      $ErrorActionPreference = 'Continue'
+      $log = 'C:\Users\Public\sunshine-winget.log'
+      $winget = "$env:LOCALAPPDATA\Microsoft\WindowsApps\winget.exe"
+      if (-not (Test-Path $winget)) { $winget = 'winget' }
+
+      "=== sunshine install $(Get-Date -Format o) ===" | Out-File $log -Encoding utf8
+      & $winget install --id {{ media_sunshine_winget_id }} --silent --accept-package-agreements --accept-source-agreements --disable-interactivity *>> $log
+      $code = $LASTEXITCODE
+      "<<< exit=$code" | Out-File $log -Append -Encoding utf8
+      if ($code -ne 0) { exit 1 }
+      exit 0
+  when:
+    - "'NOT_INSTALLED' in sunshine_check.stdout"
+    - sunshine_console_user.stdout | default('') | trim | length > 0
+  tags: ["sunshine", "install"]
+
+- name: "SUNSHINE | Run winget install as interactive user"
+  ansible.windows.win_shell:
+    cmd: |
+      $interactive = (Get-CimInstance Win32_ComputerSystem).UserName
+      $scriptPath = 'C:\Users\Public\install-sunshine.ps1'
+      $logPath = 'C:\Users\Public\sunshine-winget.log'
+      if (Test-Path $logPath) { Remove-Item $logPath -Force -ErrorAction SilentlyContinue }
+
+      $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$scriptPath`""
+      $principal = New-ScheduledTaskPrincipal -UserId $interactive -LogonType Interactive -RunLevel Highest
+      Register-ScheduledTask -TaskName 'InfrahubSunshineInstall' -Action $action -Principal $principal -Force | Out-Null
+      try {
+        Start-ScheduledTask -TaskName 'InfrahubSunshineInstall'
+        $timeoutSec = 600  # project-lint: disable=magic-int  Windows/PowerShell config value, not a standalone magic number
+        $elapsed = 0  # project-lint: disable=magic-int  loop counter init, not a config value
+        do {
+          Start-Sleep -Seconds 5  # project-lint: disable=magic-int  polling interval accumulator
+          $elapsed += 5  # project-lint: disable=magic-int  loop counter init, not a config value
+          $task = Get-ScheduledTask -TaskName 'InfrahubSunshineInstall'
+          $info = $task | Get-ScheduledTaskInfo
+        } while ($task.State -eq 'Running' -and $elapsed -lt $timeoutSec)
+        Write-Output "TaskState=$($task.State) LastResult=$($info.LastTaskResult)"
+      } finally {
+        Unregister-ScheduledTask -TaskName 'InfrahubSunshineInstall' -Confirm:$false -ErrorAction SilentlyContinue
+      }
+      if (Test-Path $logPath) { Get-Content $logPath -Raw }
+  register: sunshine_install
+  changed_when: "'LastResult=0' in sunshine_install.stdout"
+  failed_when: >-
+    ('LastResult=' in sunshine_install.stdout) and
+    ('LastResult=0' not in sunshine_install.stdout)
+  when:
+    - "'NOT_INSTALLED' in sunshine_check.stdout"
+    - sunshine_console_user.stdout | default('') | trim | length > 0
+  tags: ["sunshine", "install"]
+
+- name: "SUNSHINE | Re-check executable after install"
+  ansible.windows.win_shell:
+    cmd: "if (Test-Path '{{ media_sunshine_exe }}') { Write-Output 'INSTALLED' } else { Write-Output 'MISSING' }"
+  register: sunshine_recheck
+  changed_when: false
+  when: "'NOT_INSTALLED' in sunshine_check.stdout"
+  tags: ["sunshine", "check"]
+
+- name: "SUNSHINE | Verify install landed the executable"
+  ansible.builtin.assert:
+    that:
+      - "'INSTALLED' in sunshine_recheck.stdout"
+    fail_msg: "winget reported success but {{ media_sunshine_exe }} is missing — check C:\\Users\\Public\\sunshine-winget.log on the host."
+  when: "'NOT_INSTALLED' in sunshine_check.stdout"
+  tags: ["sunshine", "install", "verify"]
 
 # ---------------------------------------------------------------------------
 # Configuration — sunshine.conf in the MSI config dir
