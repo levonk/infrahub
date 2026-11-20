@@ -1,11 +1,11 @@
 # Infrahub Service Catalog (Shared Defaults)
 
-> **Auto-generated** from `infrastructure/*.yml` (shared defaults only) — last updated: 2026-11-17 09:12
+> **Auto-generated** from `infrastructure/*.yml` (shared defaults only) — last updated: 2026-11-19 20:13
 > Regenerate with: `just generate-service-catalog-shared`
 > Source: `shared/active/02-config/ansible/infrastructure/services.yml`
 > Note: This catalog shows **default ports and suggested hostnames** only. Client-specific deployment details (custom domains, deployed machines, client port overrides) are not included. See `levonk/SERVICES.md` for the deployed client catalog.
 
-**123 services** (shared defaults — no deployment info)
+**124 services** (shared defaults — no deployment info)
 
 ## Table of Contents
 
@@ -169,6 +169,7 @@ flowchart TD
 | Buzz Agent Runtime | `buzz-agent-*` | — | — | buzz-network | — | — | ai | [block/buzz](https://github.com/block/buzz) |
 | Buzz Relay | `buzz` | `infra_domain_buzz` (suggested) | `3101`→`3000` (WebSocket Relay)<br>`3102`→`8080` (Health)<br>`3103`→`9102` (Metrics) | — | — | metrics: `/metrics`<br>health: `/_liveness`<br>pipeline: `ai`/`relay`<br>labels: `pipeline=ai, service=buzz, stage=relay` | ai | [block/buzz](https://github.com/block/buzz) |
 | Calibre-Web | `localnet-media-calibre-web` | `infra_domain_media_calibre_web` (suggested) | `8087`→`8083` (Web) | traefik-windows-network | — | pipeline: `media`<br>labels: `pipeline=media, service=calibre-web, stage=library` | UI (Web Apps) | [janeczku/calibre-web](https://github.com/janeczku/calibre-web) |
+| CastSponsorSkip | `cast-sponsor-skip` | — | — | host | — | labels: `pipeline=none, service=cast-sponsor-skip, stage=standalone` | tools | [gabe565/CastSponsorSkip](https://github.com/gabe565/CastSponsorSkip) |
 | ComfyUI | `comfyui` | `infra_domain_ai_comfyui` (suggested) | `8188`→`8188` (Web UI) | — | — | health: `/`<br>labels: `pipeline=none, service=comfyui, stage=standalone` | ai | [comfyanonymous/ComfyUI](https://github.com/comfyanonymous/ComfyUI) |
 | Control Center | `localnet-dashboard-control-center` | `infra_domain_dashboard_control_center` (suggested)<br>`infra_domain_dashboard_control_center_nl` (suggested) | `4537`→`3000` (Web) | traefik-windows-network | `localnet-control-center-data-volume` (volume) | health: `/api/health`<br>labels: `pipeline=none, service=control-center, stage=none` | UI (Web Apps) | [lrepo52/control-center](https://github.com/lrepo52/control-center) |
 | copyparty | `{{ infra_hostname_copyparty | default('copyparty') }}` | `infra_domain_storage_copyparty` (suggested) | `3923`→`3923` (Web) | — | `localnet-copyparty-data-volume` (volume)<br>`localnet-copyparty-config-volume` (volume) | health: `/`<br>labels: `pipeline=none, service=copyparty, stage=storage` | UI (Web Apps) | [9001/copyparty](https://github.com/9001/copyparty) |

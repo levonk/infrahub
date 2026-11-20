@@ -2324,6 +2324,28 @@ services:
     service: "coturn"
 
 # ===========================================================================
+# Localnet Host Services (minime01 — RPi2 DietPi, armv7)
+# ===========================================================================
+
+- name: "CastSponsorSkip"
+  container: "cast-sponsor-skip"
+  machine: "minime01"
+  category: "tools"
+  description: "YouTube sponsor-segment + ad skipper for Google Cast devices — host-networked mDNS discovery, SponsorBlock API"
+  source_repo: "https://github.com/gabe565/CastSponsorSkip"
+  ports: []
+  network: "host"
+  health_endpoint: null
+  pipeline: "none"
+  pipeline_stage: "standalone"
+  alert_labels:
+    pipeline: "none"
+    stage: "standalone"
+    service: "cast-sponsor-skip"
+  probe:
+    skip: true  # host-networked daemon — no listening TCP/HTTP port to probe
+
+# ===========================================================================
 # Service Chains
 # Data-driven request-flow topology for proxy/cache chains.
 # The generate_service_catalog.py script renders each chain as a Mermaid
