@@ -10,8 +10,8 @@
 |----|-------|--------|---------|--------|
 | 01-001 | Sunshine on Windows — shared ports, `media-sunshine` role, deploy+validate playbooks, services.yml entries, devbox.json scripts | [x] Done | — | merged |
 | 01-002 | Moonlight on macOS fleet — homebrew cask, levonk darwin module, `media-moonlight-client` role, deploy playbook, levonk justfile recipe | [x] Done | — | merged |
-| 01-003 | Vault secrets handoff (vault_sunshine_web_username/password) | [~] In-Progress | — | user handoff |
-| 01-004 | Deploy + verify (dtop202311 Sunshine, macos_hosts Moonlight) | [!] Blocked | 01-001..003 | needs SSH key + vault pw on lzkmm2026 |
+| 01-003 | Vault secrets handoff (vault_sunshine_web_username/password) | [!] Blocked | — | user never added the vault vars; first-run Web UI creates admin instead |
+| 01-004 | Deploy + verify (dtop202311 Sunshine, macos_hosts Moonlight) | [x] Done | 01-001, 01-002 | deployed 2026-11-20; pairing skipped (no vault creds → media_moonlight_pair_enabled: false) |
 
 ## Execution Order
 
@@ -40,3 +40,14 @@
 - macOS Local Network permission = one-time human click (first launch).
 - Devbox env is BROKEN project-wide (packer-1.15.3 nixpkgs build crash);
   use `nix shell nixpkgs#ansible -c <cmd>` for ansible/lint until fixed.
+- Deploy outcome 2026-11-20:
+  - Sunshine: winget CANNOT run over WinRM (0x8a15000f — per-user source
+    index never materializes for the ansible account). Role now installs via
+    one-shot scheduled task as the logged-on desktop user (same pattern as
+    bootstrap desktop-apps). Deployed + validate-sunshine all-green.
+  - Moonlight: brew cask installed on all 3 macs. lzkmbp2016/2018 needed
+    brew-prefix admin-group normalization (role now applies it); lzkmm2026's
+    `auser` lacks the oracle key — ran via `ansible_connection=local`.
+  - Pairing NOT done: vault_sunshine_web_* unset → Sunshine `--creds`
+    skipped, `media_moonlight_pair_enabled: false`. Handoff = manual
+    pairing (Add Host FQDN + Web UI PIN) or add vault creds and re-run.
