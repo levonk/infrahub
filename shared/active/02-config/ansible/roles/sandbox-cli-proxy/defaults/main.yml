@@ -9,6 +9,13 @@
 # iron-proxy Container
 # ---------------------------------------------------------------------------
 sandbox_cli_proxy_enabled: true
+
+# Apple Container (macOS 26+ ARM, infra_app_container_runtime ==
+# "apple-container") exposes no Docker Engine API, so community.docker
+# modules cannot manage containers. deploy-sandbox-proxy.yml disables this
+# role on apple-container hosts unless this is explicitly set true.
+sandbox_cli_proxy_allow_apple_container: false
+
 sandbox_cli_proxy_version: "0.7.0"
 sandbox_cli_proxy_image: "ironsh/iron-proxy:{{ sandbox_cli_proxy_version }}"
 
