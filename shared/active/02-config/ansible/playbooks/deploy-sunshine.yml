@@ -70,4 +70,9 @@
     - name: "Deploy Sunshine via media-sunshine role"
       ansible.builtin.include_role:
         name: media-sunshine
+        # include_role does NOT propagate tags to role tasks (unlike
+        # include_tasks) — apply: ensures --tags sunshine/--tags deploy select
+        # the tasks inside the role.
+        apply:
+          tags: ["deploy", "sunshine"]
       tags: ["deploy", "sunshine"]

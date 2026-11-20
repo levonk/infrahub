@@ -892,6 +892,11 @@
     - name: "Sinkhole IP-logger/tracker domains in /etc/hosts"
       ansible.builtin.include_role:
         name: common-hosts-blocklist
+        # include_role does NOT propagate tags to role tasks — apply:
+        # ensures --tags hosts-blocklist/--tags hardening select the tasks
+        # inside the role.
+        apply:
+          tags: ["hardening", "hosts-blocklist"]
       tags: ["hardening", "hosts-blocklist"]
 
     # ---------------------------------------------------------------------------
@@ -902,6 +907,11 @@
     - name: "Distribute Firefox enterprise policies.json"
       ansible.builtin.include_role:
         name: common-firefox-policy
+        # include_role does NOT propagate tags to role tasks — apply:
+        # ensures --tags firefox-policy/--tags hardening select the tasks
+        # inside the role.
+        apply:
+          tags: ["firefox-policy", "hardening"]
       tags: ["firefox-policy", "hardening"]
 
     # ---------------------------------------------------------------------------
@@ -912,6 +922,11 @@
     - name: "Distribute Chromium managed-preferences policies"
       ansible.builtin.include_role:
         name: common-chromium-policy
+        # include_role does NOT propagate tags to role tasks — apply:
+        # ensures --tags chromium-policy/--tags hardening select the tasks
+        # inside the role.
+        apply:
+          tags: ["chromium-policy", "hardening"]
       tags: ["chromium-policy", "hardening"]
 
     # ---------------------------------------------------------------------------
@@ -941,6 +956,11 @@
     - name: "Install Xcode via mas"
       ansible.builtin.include_role:
         name: macos-xcode
+        # include_role does NOT propagate tags to role tasks — apply:
+        # ensures --tags xcode/--tags dev-tools select the tasks inside the
+        # role.
+        apply:
+          tags: ["xcode", "dev-tools"]
       tags: ["xcode", "dev-tools"]
 
     # ---------------------------------------------------------------------------
