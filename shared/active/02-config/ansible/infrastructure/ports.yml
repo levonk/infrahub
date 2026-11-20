@@ -871,6 +871,27 @@ infra_port_media_coturn_relay_min_container: "49000"
 infra_port_media_coturn_relay_max_container: "49050"
 
 # ---------------------------------------------------------------------------
+# Sunshine — LizardByte GameStream host (native Windows install, NOT a container)
+# Used by: windows_docker_hosts (dtop202311), deploy-sunshine.yml playbook.
+# Winget package: LizardByte.Sunshine. Streams the real Windows desktop to
+# Moonlight clients over Tailscale. No Traefik, no public domain.
+# Single vars (no host/container split) — native service, like infra_port_vpn_tailscale.
+# Port family: base port 47989 (GameStream HTTP); every other port is an offset.
+# NOTE: UDP 5353 (mDNS auto-discovery) is LAN-only and intentionally NOT opened —
+# mDNS does not cross Tailscale; Moonlight hosts are added manually by FQDN.
+# ---------------------------------------------------------------------------
+infra_port_stream_sunshine_https: "47984"    # GameStream HTTPS client API (TCP) — pairing handshake
+infra_port_stream_sunshine_http: "47989"     # GameStream HTTP client API (TCP) — Moonlight "Add Host Manually" default
+infra_port_stream_sunshine_webui: "47990"    # Web UI HTTPS (TCP) — admin + /api/pin pairing
+infra_port_stream_sunshine_rtsp: "48010"     # RTSP stream negotiation (TCP+UDP)
+infra_port_stream_sunshine_video: "47998"    # Video RTP (UDP)
+infra_port_stream_sunshine_control: "47999"  # Control / input ENet (UDP)
+infra_port_stream_sunshine_audio: "48000"    # Audio Opus (UDP)
+infra_port_stream_sunshine_mic: "48002"      # Microphone (UDP) — reserved; unused by current Moonlight
+
+
+
+# ---------------------------------------------------------------------------
 # NTP — tailnet time server (chronyd, runs natively on cloud_servers)
 # Serves NTP to the tailnet only: chronyd binds to the host's Tailscale IP
 # and restricts service to the Tailscale CIDR. Plain NTP inside the tailnet

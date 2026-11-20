@@ -1,0 +1,222 @@
+---
+# Validate Sunshine (LizardByte GameStream host) on dtop202311
+# Location: shared/active/02-config/ansible/playbooks/validate-sunshine.yml
+#
+# Read-only, idempotent post-deployment checks. Run after deploy-sunshine.yml.
+# Sunshine is a NATIVE Windows install (no containers) — checks use
+# ansible.windows PowerShell modules on the target + a Web UI probe from the
+# control machine over Tailscale.
+#
+# Checks:
+#   1. SunshineService is present and running
+#   2. GameStream TCP listeners (HTTPS/HTTP/WebUI/RTSP) via Get-NetTCPConnection
+#   3. GameStream UDP endpoints (Video/Control/Audio/Mic/RTSP) via Get-NetUDPEndpoint
+#   4. sunshine.conf deployed at the expected path
+#   5. Web UI reachable from the control machine over Tailscale
+#      (self-signed cert — validate_certs: false; 200/401/302 all prove reachability)
+#
+# Usage:
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/windows-docker.yml \
+#     shared/active/02-config/ansible/playbooks/validate-sunshine.yml \
+#     --vault-password-file ~/.ansible/vault_password
+#   just levonk-validate-sunshine   # from levonk/justfile
+
+- name: "Validate Sunshine game-stream host on Windows"
+  hosts: windows_docker_hosts
+  gather_facts: true
+  become: false
+  vars:
+    validation_results: {}
+
+  pre_tasks:
+    # modes.yml + timing.yml are shared-only — the client infrastructure dir
+    # has no copies of them (see AGENTS.md lessons learned).
+    - name: "Load shared infrastructure defaults (ports, networks, domains, storage, modes, timing)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+        - modes.yml
+        - timing.yml
+      tags: ["always"]
+
+    - name: "Load client infrastructure overrides (levonk)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+      tags: ["always"]
+
+    - name: "Load media-sunshine role defaults (ports, paths, service name)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../roles/media-sunshine/defaults/main.yml"
+      tags: ["always"]
+
+    - name: "Initialize validation results"
+      ansible.builtin.set_fact:
+        validation_results:
+          service_running: false
+          exe_present: false
+          config_deployed: false
+          tcp_https_listening: false
+          tcp_http_listening: false
+          tcp_webui_listening: false
+          tcp_rtsp_listening: false
+          udp_video_listening: false
+          udp_control_listening: false
+          udp_audio_listening: false
+          udp_mic_listening: false
+          udp_rtsp_listening: false
+          webui_reachable: false
+      tags: ["always"]
+
+  tasks:
+    # =========================================================================
+    # Binary + service + config
+    # =========================================================================
+    - name: "Check Sunshine executable is installed"
+      ansible.windows.win_shell:
+        cmd: "if (Test-Path '{{ media_sunshine_exe }}') { Write-Output 'PRESENT' } else { Write-Output 'ABSENT' }"
+      register: sunshine_exe_check
+      changed_when: false
+      failed_when: false
+      tags: ["validate", "sunshine"]
+
+    - name: "Record executable status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'exe_present': 'PRESENT' in sunshine_exe_check.stdout}) }}"
+      tags: ["validate", "sunshine"]
+
+    - name: "Check SunshineService status"
+      ansible.windows.win_shell:
+        cmd: |
+          $s = Get-Service -Name '{{ media_sunshine_service_name }}' -ErrorAction SilentlyContinue
+          if ($s -and $s.Status -eq 'Running') { Write-Output 'RUNNING' }
+          elseif ($s) { Write-Output "PRESENT_$($s.Status)" }
+          else { Write-Output 'MISSING' }
+      register: sunshine_service_check
+      changed_when: false
+      failed_when: false
+      tags: ["validate", "sunshine"]
+
+    - name: "Record service status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'service_running': 'RUNNING' in sunshine_service_check.stdout}) }}"
+      tags: ["validate", "sunshine"]
+
+    - name: "Check sunshine.conf is deployed"
+      ansible.windows.win_stat:
+        path: "{{ media_sunshine_config_file }}"
+      register: sunshine_conf_stat
+      failed_when: false
+      tags: ["validate", "sunshine"]
+
+    - name: "Record sunshine.conf status"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'config_deployed': sunshine_conf_stat.stat.exists | default(false)}) }}"
+      tags: ["validate", "sunshine"]
+
+    # =========================================================================
+    # TCP listeners — Get-NetTCPConnection
+    # =========================================================================
+    - name: "Check Sunshine TCP listeners"
+      ansible.windows.win_shell:
+        cmd: "if (Get-NetTCPConnection -State Listen -LocalPort {{ item.port }} -ErrorAction SilentlyContinue) { Write-Output 'LISTENING' } else { Write-Output 'NOT_LISTENING' }"
+      register: sunshine_tcp_check
+      changed_when: false
+      failed_when: false
+      loop:
+        - { key: "tcp_https_listening", port: "{{ media_sunshine_port_https }}" }
+        - { key: "tcp_http_listening", port: "{{ media_sunshine_port_http }}" }
+        - { key: "tcp_webui_listening", port: "{{ media_sunshine_port_webui }}" }
+        - { key: "tcp_rtsp_listening", port: "{{ media_sunshine_port_rtsp }}" }
+      tags: ["validate", "sunshine"]
+
+    - name: "Record TCP listener results"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({item.item.key: 'LISTENING' in item.stdout}) }}"
+      loop: "{{ sunshine_tcp_check.results }}"
+      tags: ["validate", "sunshine"]
+
+    # =========================================================================
+    # UDP endpoints — Get-NetUDPEndpoint
+    # =========================================================================
+    - name: "Check Sunshine UDP endpoints"
+      ansible.windows.win_shell:
+        cmd: "if (Get-NetUDPEndpoint -LocalPort {{ item.port }} -ErrorAction SilentlyContinue) { Write-Output 'LISTENING' } else { Write-Output 'NOT_LISTENING' }"
+      register: sunshine_udp_check
+      changed_when: false
+      failed_when: false
+      loop:
+        - { key: "udp_video_listening", port: "{{ media_sunshine_port_video }}" }
+        - { key: "udp_control_listening", port: "{{ media_sunshine_port_control }}" }
+        - { key: "udp_audio_listening", port: "{{ media_sunshine_port_audio }}" }
+        - { key: "udp_mic_listening", port: "{{ media_sunshine_port_mic }}" }
+        - { key: "udp_rtsp_listening", port: "{{ media_sunshine_port_rtsp }}" }
+      tags: ["validate", "sunshine"]
+
+    - name: "Record UDP endpoint results"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({item.item.key: 'LISTENING' in item.stdout}) }}"
+      loop: "{{ sunshine_udp_check.results }}"
+      tags: ["validate", "sunshine"]
+
+    # =========================================================================
+    # Web UI over Tailscale — probe from the control machine so the check
+    # covers tailnet routing + firewall + Sunshine end-to-end.
+    # Self-signed cert: validate_certs off. Sunshine answers 200 (UI),
+    # 401 (basic auth), or 302 (redirect) — all prove reachability.
+    # =========================================================================
+    - name: "Check Sunshine Web UI over Tailscale"
+      ansible.builtin.uri:
+        url: "https://{{ ansible_host }}:{{ media_sunshine_port_webui }}/"
+        method: GET
+        return_content: false
+        validate_certs: false
+        timeout: "{{ infra_timeout_short | int }}"
+        status_code:
+          - "{{ infra_http_status_ok | int }}"
+          - "{{ infra_http_status_unauthorized | int }}"
+          - "{{ infra_http_status_redirect | int }}"
+          - "{{ infra_http_status_not_modified | int }}"
+      delegate_to: localhost
+      become: false
+      register: sunshine_webui
+      failed_when: false
+      tags: ["validate", "sunshine"]
+
+    - name: "Record Web UI reachability"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'webui_reachable': sunshine_webui.status | default(infra_size_unlimited) | int in [infra_http_status_ok | int, infra_http_status_unauthorized | int, infra_http_status_redirect | int, infra_http_status_not_modified | int]}) }}"
+      tags: ["validate", "sunshine"]
+
+  post_tasks:
+    - name: "Display validation results (JSON)"
+      ansible.builtin.debug:
+        msg: "{{ validation_results | to_nice_json }}"
+      tags: ["always"]
+
+    - name: "Display validation summary"
+      ansible.builtin.debug:
+        msg:
+          "Sunshine Validation Summary:\n
+          - Executable Present:             {{ validation_results.exe_present }}\n
+          - Service Running ({{ media_sunshine_service_name }}):   {{ validation_results.service_running }}\n
+          - sunshine.conf Deployed:         {{ validation_results.config_deployed }}\n
+          - TCP GameStream HTTPS (:{{ media_sunshine_port_https }}):  {{ validation_results.tcp_https_listening }}\n
+          - TCP GameStream HTTP  (:{{ media_sunshine_port_http }}):  {{ validation_results.tcp_http_listening }}\n
+          - TCP Web UI           (:{{ media_sunshine_port_webui }}):  {{ validation_results.tcp_webui_listening }}\n
+          - TCP RTSP             (:{{ media_sunshine_port_rtsp }}):  {{ validation_results.tcp_rtsp_listening }}\n
+          - UDP Video            (:{{ media_sunshine_port_video }}):  {{ validation_results.udp_video_listening }}\n
+          - UDP Control          (:{{ media_sunshine_port_control }}):  {{ validation_results.udp_control_listening }}\n
+          - UDP Audio            (:{{ media_sunshine_port_audio }}):  {{ validation_results.udp_audio_listening }}\n
+          - UDP Mic (reserved)   (:{{ media_sunshine_port_mic }}):  {{ validation_results.udp_mic_listening }}\n
+          - UDP RTSP             (:{{ media_sunshine_port_rtsp }}):  {{ validation_results.udp_rtsp_listening }}\n
+          - Web UI reachable (https://{{ ansible_host }}:{{ media_sunshine_port_webui }}): {{ validation_results.webui_reachable }}"
+      tags: ["always"]

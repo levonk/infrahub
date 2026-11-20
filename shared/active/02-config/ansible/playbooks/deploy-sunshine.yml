@@ -1,0 +1,73 @@
+---
+# Deploy Sunshine (LizardByte GameStream host) — native Windows install
+# Location: shared/active/02-config/ansible/playbooks/deploy-sunshine.yml
+#
+# Installs Sunshine via winget on windows_docker_hosts (dtop202311), renders
+# sunshine.conf (origin_web_ui_allowed=wan so the Web UI works over Tailscale),
+# provisions Web UI credentials from vault vars, ensures Windows Firewall rules
+# for the GameStream port family, and starts SunshineService.
+#
+# Access is Tailscale-only — no Traefik, no public domain. Moonlight clients
+# add the host manually by FQDN (mDNS does not cross Tailscale).
+#
+# Vault (optional, via scripts/edit-vault.sh):
+#   vault_sunshine_web_username / vault_sunshine_web_password
+#
+# Usage:
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/windows-docker.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-sunshine.yml \
+#     --vault-password-file ~/.ansible/vault_password
+#   just levonk-deploy-sunshine   # from levonk/justfile
+
+- name: "Deploy Sunshine game-stream host on Windows"
+  hosts: windows_docker_hosts
+  gather_facts: true
+  become: false
+
+  pre_tasks:
+    - name: "Gather ansible_facts"
+      ansible.builtin.setup:
+        gather_subset: ["all"]
+      tags: ["always"]
+
+    # modes.yml + timing.yml are shared-only — the client infrastructure dir
+    # has no copies of them (see AGENTS.md lessons learned).
+    - name: "Load shared infrastructure defaults (ports, networks, domains, storage, modes, timing)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+        - modes.yml
+        - timing.yml
+      tags: ["always"]
+
+    - name: "Load client infrastructure overrides (levonk)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+      tags: ["always"]
+
+    - name: "Report target machine"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Deploy Sunshine (native Windows)
+          ========================================
+          Host: {{ inventory_hostname }}
+          Ansible Host: {{ ansible_host }}
+          OS: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}
+          ========================================
+      tags: ["always", "info"]
+
+  tasks:
+    - name: "Deploy Sunshine via media-sunshine role"
+      ansible.builtin.include_role:
+        name: media-sunshine
+      tags: ["deploy", "sunshine"]

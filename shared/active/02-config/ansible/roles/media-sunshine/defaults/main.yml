@@ -1,0 +1,82 @@
+---
+# Sunshine (LizardByte GameStream host) — native Windows install defaults
+# Role: media-sunshine | Target: windows_docker_hosts (dtop202311)
+#
+# All ports resolve through the infra_port_stream_sunshine_* infrastructure
+# variables (shared/active/02-config/ansible/infrastructure/ports.yml) —
+# single vars, no host/container split (native service, not a container).
+# The literal default() fallbacks mirror the upstream Sunshine defaults and
+# only apply if the infrastructure vars are absent.
+
+# Master switch — deploy + validate only when enabled
+media_sunshine_enabled: true
+
+# winget package id (machine-scope MSI)
+media_sunshine_winget_id: "LizardByte.Sunshine"
+
+# Native install layout (%ProgramFiles%\Sunshine — set by the MSI)
+media_sunshine_install_dir: 'C:\Program Files\Sunshine'
+media_sunshine_exe: "{{ media_sunshine_install_dir }}\\sunshine.exe"
+media_sunshine_config_dir: "{{ media_sunshine_install_dir }}\\config"
+media_sunshine_config_file: "{{ media_sunshine_config_dir }}\\sunshine.conf"
+
+# Windows service installed by the MSI (binary tools\sunshinesvc.exe,
+# display name "Sunshine Service")
+media_sunshine_service_name: "SunshineService"
+
+# Display name shown in Moonlight's host list
+media_sunshine_name: "{{ windows_tailscale_hostname | default(inventory_hostname) }}"
+
+# Ports (native-service single vars — see infrastructure/ports.yml)
+media_sunshine_port_https: "{{ infra_port_stream_sunshine_https | default('47984') }}"
+media_sunshine_port_http: "{{ infra_port_stream_sunshine_http | default('47989') }}"
+media_sunshine_port_webui: "{{ infra_port_stream_sunshine_webui | default('47990') }}"
+media_sunshine_port_rtsp: "{{ infra_port_stream_sunshine_rtsp | default('48010') }}"
+media_sunshine_port_video: "{{ infra_port_stream_sunshine_video | default('47998') }}"
+media_sunshine_port_control: "{{ infra_port_stream_sunshine_control | default('47999') }}"
+media_sunshine_port_audio: "{{ infra_port_stream_sunshine_audio | default('48000') }}"
+media_sunshine_port_mic: "{{ infra_port_stream_sunshine_mic | default('48002') }}"
+
+# Web UI admin credentials — vault-backed; leave empty to skip provisioning
+# (hand off: add vault_sunshine_web_username / vault_sunshine_web_password to
+# the client vault via scripts/edit-vault.sh)
+media_sunshine_web_username: "{{ vault_sunshine_web_username | default('') }}"
+media_sunshine_web_password: "{{ vault_sunshine_web_password | default('') }}"
+
+# sunshine.conf — 'lan' only permits RFC1918 origins; Tailscale's CGNAT range
+# 100.64.0.0/10 is NOT RFC1918, so 'wan' is required for Web UI access over
+# Tailscale (still behind HTTPS + basic auth).
+media_sunshine_origin_web_ui_allowed: "wan"
+
+# Windows Firewall inbound rules (display names prefixed "Sunshine-*").
+# The MSI also creates its own rules; these verify coverage for the exact
+# infra_port_stream_sunshine_* set. UDP 5353 (mDNS) intentionally absent —
+# LAN-only, does not cross Tailscale.
+media_sunshine_firewall_rules:
+  - name: "Sunshine-GameStream-HTTPS"
+    proto: "TCP"
+    port: "{{ media_sunshine_port_https }}"
+  - name: "Sunshine-GameStream-HTTP"
+    proto: "TCP"
+    port: "{{ media_sunshine_port_http }}"
+  - name: "Sunshine-WebUI"
+    proto: "TCP"
+    port: "{{ media_sunshine_port_webui }}"
+  - name: "Sunshine-RTSP"
+    proto: "TCP"
+    port: "{{ media_sunshine_port_rtsp }}"
+  - name: "Sunshine-Video"
+    proto: "UDP"
+    port: "{{ media_sunshine_port_video }}"
+  - name: "Sunshine-Control"
+    proto: "UDP"
+    port: "{{ media_sunshine_port_control }}"
+  - name: "Sunshine-Audio"
+    proto: "UDP"
+    port: "{{ media_sunshine_port_audio }}"
+  - name: "Sunshine-Microphone"
+    proto: "UDP"
+    port: "{{ media_sunshine_port_mic }}"
+  - name: "Sunshine-RTSP-UDP"
+    proto: "UDP"
+    port: "{{ media_sunshine_port_rtsp }}"
