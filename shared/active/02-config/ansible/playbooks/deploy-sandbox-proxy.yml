@@ -42,6 +42,50 @@
         - storage.yml
       tags: ["always"]
 
+    # ---------------------------------------------------------------------------
+    # Apple Container (macOS 26+ ARM) has no Docker Engine API, so the
+    # community.docker modules in sandbox-cli-proxy cannot manage containers.
+    # Skip the role on apple-container hosts unless the host explicitly opts
+    # in via sandbox_cli_proxy_allow_apple_container: true.
+    # Detection mirrors configure-macos-host.yml: macos_container_runtime
+    # group var ("auto" → macOS 26+ ARM = apple-container, else orbstack).
+    # ---------------------------------------------------------------------------
+    - name: "Resolve effective container runtime"
+      ansible.builtin.set_fact:
+        sandbox_proxy_effective_runtime: >-
+          {{ 'apple-container'
+             if ansible_facts['system'] | default('') == 'Darwin'
+                and (
+                  (macos_container_runtime | default('auto')) == 'apple-container'
+                  or (
+                    (macos_container_runtime | default('auto')) == 'auto'
+                    and ansible_facts['distribution_version'] is version('26', '>=')
+                    and ansible_facts['architecture'] == 'arm64'
+                  )
+                )
+             else 'docker' }}
+      tags: ["always"]
+
+    - name: "Disable sandbox-cli-proxy on Apple Container hosts"
+      ansible.builtin.set_fact:
+        sandbox_cli_proxy_enabled: false
+      when: >-
+        sandbox_proxy_effective_runtime == 'apple-container'
+        and not sandbox_cli_proxy_allow_apple_container | default(false) | bool
+      tags: ["always"]
+
+    - name: "Report container runtime gate"
+      ansible.builtin.debug:
+        msg: >-
+          {{ 'sandbox-cli-proxy SKIPPED on ' ~ inventory_hostname ~
+             ': Apple Container has no Docker Engine API ' ~
+             '(set sandbox_cli_proxy_allow_apple_container: true to override)'
+             if sandbox_proxy_effective_runtime == 'apple-container'
+                and not sandbox_cli_proxy_allow_apple_container | default(false) | bool
+             else 'sandbox-cli-proxy proceeding on ' ~ inventory_hostname ~
+                  ' (' ~ sandbox_proxy_effective_runtime ~ ' runtime)' }}
+      tags: ["always", "info"]
+
     - name: "Display deployment start information"
       ansible.builtin.debug:
         msg: |

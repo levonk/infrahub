@@ -16,6 +16,7 @@
     group: "{{ sandbox_cli_proxy_root_group }}"
     mode: "{{ infra_mode_dir }}"
   become: true
+  when: sandbox_cli_proxy_enabled | bool
 
 - name: Ensure sandbox-cli CA directory exists
   ansible.builtin.file:
@@ -25,6 +26,7 @@
     group: "{{ sandbox_cli_proxy_root_group }}"
     mode: "{{ infra_mode_dir }}"
   become: true
+  when: sandbox_cli_proxy_enabled | bool
 
 - name: Ensure sandbox-cli per-profile config directories exist
   ansible.builtin.file:
