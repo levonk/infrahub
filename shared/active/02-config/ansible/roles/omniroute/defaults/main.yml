@@ -45,6 +45,10 @@ ai_omniroute_no_proxy: "{{ 'localhost,127.0.0.1,172.16.0.0/12,172.29.0.0/16,100.
 # Admin dashboard password (argon2id hash from vault; OmniRoute INITIAL_PASSWORD)
 ai_omniroute_admin_password: "{{ vault_omniroute_admin_password | default(infra_value_ai_omniroute_admin_password) }}"
 
+# Plaintext admin password for the /api/auth/login call (managed-config push).
+# Distinct from the argon2id hash above — the API expects the cleartext secret.
+ai_omniroute_admin_password_plain: "{{ vault_omniroute_admin_password_plain | default(ai_omniroute_admin_password) }}"
+
 # Public base URL (required when behind HTTPS proxy / custom host)
 ai_omniroute_public_base_url: "https://{{ ai_omniroute_domain }}"
 
@@ -68,6 +72,19 @@ ai_omniroute_managed_combo_id: "c8e982e7-824c-4c73-b33a-bd846001a026"
 # kckinai vLLM endpoint (Tailscale-accessible)
 ai_omniroute_managed_kckinai_base_url: "http://{{ infra_tailscale_fqdn_inference_host | default('kckinai.' ~ (infra_tailscale_tailnet | default(infra_value_ai_omniroute_managed_kckinai_base_url))) }}:8002/v1"
 ai_omniroute_managed_kckinai_model: "codgician/Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-GPTQ-int4"
+
+# ---------------------------------------------------------------------------
+# kckinai abliterated endpoint (SGLang on :8008 via levonk-ai-playground
+# model-abliterated.sh). Separate combo so uncensored weights stay opt-in -
+# not part of kckinaicombo's general fallback pool. The endpoint is only up
+# while the model script is running on kckinai.
+# ---------------------------------------------------------------------------
+ai_omniroute_kckinai_abliterated_enabled: true
+ai_omniroute_managed_kckinai_abliterated_node_id: "openai-compatible-chat-7a66d0d8-5b16-48e7-9e30-7561b38b2a3f"
+ai_omniroute_managed_kckinai_abliterated_connection_id: "05137e3f-75c2-4f01-8ac8-44f5c53f5006"
+ai_omniroute_managed_kckinai_abliterated_combo_id: "d7fdad3d-f6d0-40d1-86db-25e4cb39175d"
+ai_omniroute_managed_kckinai_abliterated_base_url: "http://{{ infra_tailscale_fqdn_inference_host | default('kckinai.' ~ (infra_tailscale_tailnet | default(infra_value_ai_omniroute_managed_kckinai_abliterated_base_url))) }}:8008/v1"
+ai_omniroute_managed_kckinai_abliterated_model: "huihui-ai/Huihui-Qwen3.8-27B-abliterated"
 
 # ---------------------------------------------------------------------------
 # FreeLLMAPI leaf provider (free-tier aggregator on the proxy-chain network)

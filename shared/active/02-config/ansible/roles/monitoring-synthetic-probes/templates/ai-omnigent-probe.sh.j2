@@ -2,21 +2,37 @@
 set -u
 
 : "${OMNIGENT_ENDPOINT:?OMNIGENT_ENDPOINT is required}"
-: "${OMNIGENT_API_KEY:?OMNIGENT_API_KEY is required}"
 TIMEOUT="${OMNIGENT_TIMEOUT:-30}"  # project-lint: disable=magic-int  timeout
-METRICS_DIR="${METRICS_DIR:-/var/lib/node_exporter/textfile_collector/probes}"
+MAX_TOKENS="${OMNIGENT_PROBE_MAX_TOKENS:-5}"  # project-lint: disable=magic-int  max tokens
+METRICS_DIR="${METRICS_DIR:-/var/lib/node_exporter/textfile_collector}"
 METRIC_FILE="${METRICS_DIR}/ai_omnigent_probe.prom"
+
+mkdir -p "$METRICS_DIR"
+
+# Unconfigured key → write configured=0 only (see ai-probe.sh for rationale).
+if [ -z "${OMNIGENT_API_KEY:-}" ]; then
+  cat > "$METRIC_FILE" <<EOF
+# HELP ai_pipeline_probe_configured Synthetic AI probe credential configured
+# TYPE ai_pipeline_probe_configured gauge
+ai_pipeline_probe_configured{probe="omnigent",pipeline="ai"} 0
+EOF
+  exit 0
+fi
 
 OUTFILE=$(mktemp)
 trap 'rm -f "$OUTFILE"' EXIT
 
-PAYLOAD='{"action":"probe","prompt":"Reply with exactly: OK","max_tokens":5}'  # project-lint: disable=magic-int  max tokens
+PAYLOAD=$(jq -nc --argjson mt "$MAX_TOKENS" \
+  '{action:"probe",prompt:"Reply with exactly: OK",max_tokens:$mt}')
 
+START=$(date +%s)
 HTTP_CODE=$(curl -sS -m "$TIMEOUT" -o "$OUTFILE" -w '%{http_code}' \
   -H "Authorization: Bearer $OMNIGENT_API_KEY" \
   -H "Content-Type: application/json" \
   -d "$PAYLOAD" \
   "$OMNIGENT_ENDPOINT/api/v1/sessions" 2>/dev/null) || true
+END=$(date +%s)
+DURATION=$((END - START))
 
 HTTP_CODE=${HTTP_CODE:-000}  # project-lint: disable=magic-int  default http code
 SUCCESS=0  # project-lint: disable=magic-int  success flag
@@ -30,11 +46,16 @@ if [ "$HTTP_CODE" = "200" ]; then  # project-lint: disable=magic-int  http ok co
   fi
 fi
 
-mkdir -p "$METRICS_DIR"
 cat > "$METRIC_FILE" <<EOF
+# HELP ai_pipeline_probe_configured Synthetic AI probe credential configured
+# TYPE ai_pipeline_probe_configured gauge
+ai_pipeline_probe_configured{probe="omnigent",pipeline="ai"} 1
 # HELP ai_pipeline_probe_success Synthetic AI pipeline probe result
 # TYPE ai_pipeline_probe_success gauge
 ai_pipeline_probe_success{probe="omnigent",pipeline="ai"} $SUCCESS
+# HELP ai_pipeline_probe_duration_seconds Synthetic AI probe round-trip time
+# TYPE ai_pipeline_probe_duration_seconds gauge
+ai_pipeline_probe_duration_seconds{probe="omnigent",pipeline="ai"} $DURATION
 EOF
 
 [ "$SUCCESS" -eq 1 ] && exit 0 || exit 1  # project-lint: disable=magic-int  exit codes

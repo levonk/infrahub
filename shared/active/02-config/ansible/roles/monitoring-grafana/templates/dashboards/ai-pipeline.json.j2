@@ -22,7 +22,7 @@
         "title": "AI Pipeline Service Status",
         "datasource": {"type": "prometheus", "uid": "prometheus"},
         "targets": [
-          {"expr": "up{pipeline=\"ai\"}", "legendFormat": "{{job}}"}
+          {"expr": "probe_success{pipeline=\"ai\"}", "legendFormat": "{{service}}"}
         ],
         "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},  # project-lint: disable=magic-int  grafana panel grid position
         "fieldConfig": {

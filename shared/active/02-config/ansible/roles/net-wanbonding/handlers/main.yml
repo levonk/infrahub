@@ -1,0 +1,40 @@
+---
+# handlers file for net-wanbonding
+
+- name: daemon reload
+  ansible.builtin.systemd:
+    daemon_reload: true
+  become: true
+
+- name: apply wanbonding sysctl settings
+  ansible.builtin.command:
+    cmd: "sysctl --system"
+  become: true
+  changed_when: true
+
+- name: reload nftables
+  ansible.builtin.systemd:
+    name: nftables
+    state: reloaded
+  become: true
+
+- name: restart wanbonding shadowsocks
+  community.docker.docker_container:
+    name: "{{ wanbonding_shadowsocks_container_name }}"
+    state: started
+    restart: true
+  become: true
+
+- name: restart wanbonding glorytun-udp
+  community.docker.docker_container:
+    name: "{{ wanbonding_glorytun_udp_container_name }}"
+    state: started
+    restart: true
+  become: true
+
+- name: restart wanbonding glorytun-tcp
+  community.docker.docker_container:
+    name: "{{ wanbonding_glorytun_tcp_container_name }}"
+    state: started
+    restart: true
+  become: true

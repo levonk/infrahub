@@ -1,0 +1,77 @@
+---
+# Deploy CastSponsorSkip Playbook
+# Location: shared/active/02-config/ansible/playbooks/deploy-cast-sponsor-skip.yml
+#
+# Installs Podman (with Docker compat) and runs CastSponsorSkip as a
+# host-networked container. Target host must share an L2 multicast domain
+# with the Google Cast devices (mDNS _googlecast._tcp discovery).
+#
+# Usage:
+#   ansible-playbook \
+#     -i levonk/active/02-config/ansible/inventories/localnet.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-cast-sponsor-skip.yml \
+#     --vault-password-file ~/.ansible/vault_password \
+#     --limit minime01
+#
+# To pin mDNS to one interface or use static device addresses, pass:
+#   --extra-vars '{"cast_sponsor_skip_network_interface": "eth0"}'
+#   --extra-vars '{"cast_sponsor_skip_devices": "192.168.12.10,192.168.12.11"}'
+
+- name: "Deploy CastSponsorSkip to localnet hosts"
+  hosts: localnet_hosts
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: "Gather ansible_facts"
+      ansible.builtin.setup:
+        gather_subset: ["all"]
+      tags: ["always"]
+
+    - name: "Load shared infrastructure variable schemas"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/{{ item }}"
+      loop:
+        - modes.yml
+        - timing.yml
+      tags: ["always"]
+
+    - name: "Report target"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Deploy CastSponsorSkip
+          ========================================
+          Host: {{ inventory_hostname }}
+          Ansible Host: {{ ansible_host }}
+          OS: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}
+          Arch: {{ ansible_facts['architecture'] }}
+          ========================================
+      tags: ["always", "info"]
+
+  roles:
+    - role: container-podman
+      tags: ["podman", "container-runtime"]
+
+    - role: media-cast-sponsor-skip
+      tags: ["cast-sponsor-skip", "media"]
+
+  vars:
+    # Local image registry is plain HTTP — teach Podman it is insecure.
+    container_podman_insecure_registries:
+      - "{{ infra_registry }}"
+
+  post_tasks:
+    - name: "Report CastSponsorSkip container status"
+      community.docker.docker_container_info:
+        name: "{{ cast_sponsor_skip_container_name }}"
+      register: cast_sponsor_skip_info
+      tags: ["verify"]
+
+    - name: "Fail if container is not running"
+      ansible.builtin.assert:
+        that:
+          - cast_sponsor_skip_info.container.State.Running | bool
+        fail_msg: "cast-sponsor-skip container is not running — check podman logs on {{ inventory_hostname }}."
+        success_msg: "cast-sponsor-skip container is running."
+      tags: ["verify"]

@@ -16,6 +16,15 @@ media_stack_network_name: "{{ proxy_traefik_windows_network_name | default('trae
 # Shared media data volume (movies, tv, music, comics, downloads, audiobooks)
 media_stack_data_volume: "{{ infra_storage_media_data_volume | default('localnet-media-data-volume') }}"
 
+# Optional host bind-mount path for media data (e.g. "D:/media" on Windows).
+# When set, media files live on the host filesystem instead of the named
+# Docker volume — survives docker volume removal and is directly browsable.
+media_stack_data_host_path: "{{ infra_storage_media_data_host_path | default('') }}"
+
+# Resolved mount source for all media data mounts: host path when set,
+# otherwise the named Docker volume.
+media_stack_data_mount: "{{ media_stack_data_host_path if media_stack_data_host_path | length > 0 else media_stack_data_volume }}"
+
 # Timezone
 media_stack_tz: "{{ localnet_tz | default('UTC') }}"
 

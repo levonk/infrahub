@@ -17,6 +17,8 @@
 #   - Adds ansible user to docker-users group
 #   - Creates C:\localnet\services directory structure
 #   - Starts Docker Desktop and waits for it to be ready
+#   - Installs desktop apps (windows_desktop_apps) into the interactive
+#     user's session via winget (tags: desktop-apps)
 #
 # Usage (example with levonk client inventory):
 #   ansible-playbook -i <client>/active/02-config/ansible/inventories/windows-docker.yml \
@@ -343,6 +345,113 @@
         - docker_config_update is changed
         - windows_registry_url is defined
       tags: ["registry", "wait"]
+
+    # ---------------------------------------------------------------------------
+    # Desktop applications — installed into the interactive user's session.
+    # winget over SSH installs into the ansible service account's profile;
+    # a one-shot scheduled task (Interactive logon, no stored credentials)
+    # runs winget as the logged-on desktop user instead. Skipped when no
+    # user is logged on — log in and re-run to install.
+    # ---------------------------------------------------------------------------
+    - name: "Desktop apps — check for interactive user"
+      ansible.windows.win_shell:
+        cmd: "(Get-CimInstance Win32_ComputerSystem).UserName"
+      register: desktop_apps_console_user
+      changed_when: false
+      when: windows_desktop_apps | default([]) | length > 0
+      tags: ["desktop-apps", "check"]
+
+    - name: "Desktop apps — no interactive user, skipping"
+      ansible.builtin.debug:
+        msg: "No interactive user logged on {{ inventory_hostname }}; desktop apps install skipped. Log in and re-run to install."
+      when:
+        - windows_desktop_apps | default([]) | length > 0
+        - desktop_apps_console_user is defined
+        - desktop_apps_console_user.stdout | default('') | trim | length == 0
+      tags: ["desktop-apps", "info"]
+
+    - name: "Desktop apps — deploy install script"
+      ansible.windows.win_copy:
+        dest: "C:\\Users\\Public\\install-desktop-apps.ps1"
+        content: |
+          $ErrorActionPreference = 'Continue'
+          $log = 'C:\Users\Public\desktop-apps-winget.log'
+          $winget = "$env:LOCALAPPDATA\Microsoft\WindowsApps\winget.exe"
+          if (-not (Test-Path $winget)) { $winget = 'winget' }
+
+          $apps = @(
+          {%- for app in windows_desktop_apps %}
+            @{ Id = '{{ app.winget_id }}'; Name = '{{ app.name }}' }
+          {%- endfor %}
+          )
+
+          "=== desktop apps install $(Get-Date -Format o) ===" | Out-File $log -Encoding utf8
+          $failed = $false
+          foreach ($app in $apps) {
+            ">>> $($app.Name) [$($app.Id)]" | Out-File $log -Append -Encoding utf8
+            & $winget install --id $app.Id --silent --accept-package-agreements --accept-source-agreements --disable-interactivity *>> $log
+            $code = $LASTEXITCODE
+            "<<< exit=$code" | Out-File $log -Append -Encoding utf8
+            if ($code -ne 0) { $failed = $true }
+          }
+          if ($failed) { exit 1 }
+          exit 0
+      when:
+        - windows_desktop_apps | default([]) | length > 0
+        - desktop_apps_console_user is defined
+        - desktop_apps_console_user.stdout | default('') | trim | length > 0
+      tags: ["desktop-apps"]
+
+    - name: "Desktop apps — run installer as interactive user"
+      ansible.windows.win_shell:
+        cmd: |
+          $interactive = (Get-CimInstance Win32_ComputerSystem).UserName
+          if ([string]::IsNullOrWhiteSpace($interactive)) {
+            Write-Output 'SKIP: no interactive user logged on'
+            exit 0
+          }
+
+          $scriptPath = 'C:\Users\Public\install-desktop-apps.ps1'
+          $logPath = 'C:\Users\Public\desktop-apps-winget.log'
+          if (Test-Path $logPath) { Remove-Item $logPath -Force -ErrorAction SilentlyContinue }
+
+          $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$scriptPath`""
+          $principal = New-ScheduledTaskPrincipal -UserId $interactive -LogonType Interactive -RunLevel Limited
+          Register-ScheduledTask -TaskName 'InfrahubDesktopAppsInstall' -Action $action -Principal $principal -Force | Out-Null
+          try {
+            Start-ScheduledTask -TaskName 'InfrahubDesktopAppsInstall'
+            $timeoutSec = 600  # project-lint: disable=magic-int  Windows/PowerShell config value, not a standalone magic number
+            $elapsed = 0  # project-lint: disable=magic-int  loop counter init, not a config value
+            do {
+              Start-Sleep -Seconds 5  # project-lint: disable=magic-int  Windows/PowerShell config value, not a standalone magic number
+              $elapsed += 5  # project-lint: disable=magic-int  polling interval accumulator
+              $task = Get-ScheduledTask -TaskName 'InfrahubDesktopAppsInstall'
+              $info = $task | Get-ScheduledTaskInfo
+            } while ($task.State -eq 'Running' -and $elapsed -lt $timeoutSec)
+            Write-Output "TaskState=$($task.State) LastResult=$($info.LastTaskResult)"
+          } finally {
+            Unregister-ScheduledTask -TaskName 'InfrahubDesktopAppsInstall' -Confirm:$false -ErrorAction SilentlyContinue
+          }
+          if (Test-Path $logPath) { Get-Content $logPath -Raw }
+      register: desktop_apps_install
+      changed_when: "'LastResult=0' in desktop_apps_install.stdout"
+      failed_when: >-
+        ('LastResult=' in desktop_apps_install.stdout) and
+        ('LastResult=0' not in desktop_apps_install.stdout)
+      when:
+        - windows_desktop_apps | default([]) | length > 0
+        - desktop_apps_console_user is defined
+        - desktop_apps_console_user.stdout | default('') | trim | length > 0
+      tags: ["desktop-apps", "install"]
+
+    - name: "Report desktop apps install result"
+      ansible.builtin.debug:
+        msg: "{{ desktop_apps_install.stdout }}"
+      when:
+        - desktop_apps_install is defined
+        - desktop_apps_install.stdout is defined
+        - desktop_apps_install.stdout | length > 0
+      tags: ["desktop-apps", "verify"]
 
   post_tasks:
     - name: "Verify Docker is accessible via named pipe"

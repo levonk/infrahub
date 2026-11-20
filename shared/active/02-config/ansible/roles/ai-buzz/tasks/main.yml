@@ -79,10 +79,10 @@
       max-file: "{{ infra_log_max_file }}"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U {{ ai_buzz_postgres_user }} -d {{ ai_buzz_postgres_db }}"]
-      interval: "{{ infra_timeout_short }}"
-      timeout: "{{ infra_timeout_healthcheck_short }}"
+      interval: "{{ infra_healthcheck_interval_short }}"
+      timeout: "{{ infra_healthcheck_timeout }}"
       retries: "{{ infra_retry_long }}"
-      start_period: "{{ infra_timeout_short }}"
+      start_period: "{{ infra_healthcheck_start_period }}"
     security_opts:
       - no-new-privileges:true
   notify: restart buzz-postgres
@@ -118,10 +118,10 @@
       max-file: "{{ infra_log_max_file }}"
     healthcheck:
       test: ["CMD-SHELL", "redis-cli ping"]
-      interval: "{{ infra_timeout_healthcheck_short }}"
-      timeout: "{{ infra_timeout_connect_short }}"
+      interval: "{{ infra_healthcheck_interval_short }}"
+      timeout: "{{ infra_healthcheck_timeout }}"
       retries: "{{ infra_retry_long }}"
-      start_period: "{{ infra_timeout_healthcheck_short }}"
+      start_period: "{{ infra_healthcheck_interval_short }}"
     security_opts:
       - no-new-privileges:true
   notify: restart buzz-redis
@@ -152,10 +152,10 @@
       max-file: "{{ infra_log_max_file }}"
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:{{ infra_port_ai_buzz_minio_api_container | default(infra_port_storage_rustfs_s3_host) }}/minio/health/live"]
-      interval: "{{ infra_timeout_healthcheck_short }}"
-      timeout: "{{ infra_timeout_healthcheck_short }}"
+      interval: "{{ infra_healthcheck_interval_short }}"
+      timeout: "{{ infra_healthcheck_timeout }}"
       retries: "{{ infra_retry_long }}"
-      start_period: "{{ infra_timeout_short }}"
+      start_period: "{{ infra_healthcheck_start_period }}"
     security_opts:
       - no-new-privileges:true
   notify: restart buzz-minio
@@ -252,10 +252,10 @@
       max-file: "{{ infra_log_max_file }}"
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:{{ ai_buzz_health_container_port }}/_liveness"]
-      interval: "{{ infra_timeout_default }}"
-      timeout: "{{ infra_timeout_short }}"
+      interval: "{{ infra_healthcheck_interval }}"
+      timeout: "{{ infra_healthcheck_timeout }}"
       retries: "{{ infra_retry_default }}"
-      start_period: "{{ infra_timeout_long }}"
+      start_period: "{{ infra_healthcheck_start_period }}"
     security_opts:
       - no-new-privileges:true
     labels:

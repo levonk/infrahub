@@ -1,0 +1,71 @@
+# Managed by Ansible (net-openwrt role) — manual edits will be overwritten.
+# Router mode only. All WAN interfaces share the 'wan' zone — mwan3 picks
+# the egress member via policy routing before NAT.
+
+config defaults
+	option input 'REJECT'
+	option output 'ACCEPT'
+	option forward 'REJECT'
+	option synflood_protect '1'
+	option drop_invalid '1'
+
+config zone 'lan'
+	option name 'lan'
+	option input 'ACCEPT'
+	option output 'ACCEPT'
+	option forward 'ACCEPT'
+	list network 'lan'
+{% for iface in openwrt_extra_interfaces %}
+{% if (iface.zone | default('lan')) == 'lan' %}
+	list network '{{ iface.name }}'
+{% endif %}
+{% endfor %}
+
+config zone 'wan'
+	option name 'wan'
+	option input 'REJECT'
+	option output 'ACCEPT'
+	option forward 'REJECT'
+	option masq '1'
+	option mtu_fix '1'
+{% for wan in openwrt_wan_interfaces %}
+	list network '{{ wan.name }}'
+{% endfor %}
+
+config forwarding
+	option src 'lan'
+	option dest 'wan'
+{% for iface in openwrt_extra_interfaces %}
+{% if (iface.zone | default('lan')) == 'guest' %}
+
+config zone 'guest_{{ iface.name }}'
+	option name 'guest_{{ iface.name }}'
+	option input 'ACCEPT'
+	option output 'ACCEPT'
+	option forward 'REJECT'
+	list network '{{ iface.name }}'
+
+config forwarding
+	option src 'guest_{{ iface.name }}'
+	option dest 'wan'
+{% endif %}
+{% endfor %}
+
+config rule
+	option name 'Allow-DHCP-Renew'
+	option src 'wan'
+	option proto 'udp'
+	option dest_port '68'
+	option target 'ACCEPT'
+	option family 'ipv4'
+
+config rule
+	option name 'Allow-Ping'
+	option src 'wan'
+	option proto 'icmp'
+	option icmp_type 'echo-request'
+	option family 'ipv4'
+	option target 'ACCEPT'
+
+config include
+	option path '/etc/firewall.user'

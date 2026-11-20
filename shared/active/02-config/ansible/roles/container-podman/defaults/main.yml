@@ -1,0 +1,38 @@
+---
+# Podman Container Runtime Role Defaults
+# Installs Podman as the default container runtime on Debian-family hosts,
+# with Docker CLI/API compatibility so community.docker Ansible modules work.
+
+# Service toggle
+container_podman_enabled: true
+
+# Packages installed on Debian-family hosts.
+#   podman         - container engine
+#   crun           - OCI runtime (lighter than runc)
+#   podman-docker  - /usr/bin/docker shim + /run/docker.sock compat socket
+#   python3-docker - Docker SDK on the target so community.docker modules work
+#   aardvark-dns   - container-name DNS for netavark bridge networks that have
+#                    dns_enabled; without it, teardown on such networks fails
+container_podman_packages:
+  - podman
+  - crun
+  - podman-docker
+  - python3-docker
+  - uidmap
+  - nftables
+  - aardvark-dns
+
+# Registries allowed over plain HTTP / without TLS verification.
+# Written to /etc/containers/registries.conf.d/99-localnet-insecure.conf.
+container_podman_insecure_registries: []
+
+# Units to enable. podman.socket provides the rootful API at
+# /run/podman/podman.sock. Docker API compatibility is provided by a
+# /run/docker.sock symlink (created via tmpfiles.d — /run is tmpfs, so a
+# plain symlink would not survive reboots) that community.docker modules
+# and the docker CLI shim resolve transparently.
+# podman-restart.service starts containers marked with a restart policy at
+# boot — without it, containers do not come back after a host reboot.
+container_podman_units:
+  - podman.socket
+  - podman-restart.service

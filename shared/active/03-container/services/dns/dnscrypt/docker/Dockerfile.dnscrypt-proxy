@@ -1,8 +1,21 @@
 # Dockerfile for dnscrypt-proxy with ODoH support
-# Uses custom-built binary from assets/ to fix IPv4 binding bug
-# Bug: https://github.com/DNSCrypt/dnscrypt-proxy/discussions/2700
+# Builds the binary in a Go stage at a pinned dev-branch commit to fix the
+# IPv4 binding bug: https://github.com/DNSCrypt/dnscrypt-proxy/discussions/2700
 # The official releases fail to bind to IPv4 when running as non-root on Alpine Linux.
-# This Dockerfile uses a pre-built binary compiled from the development branch.
+# Commit matches services/dns/dnscrypt/BUILD_NOTES.md (v2.1.5, "Listen 0.0.0.0 only on IPv4").
+
+# --- Builder: compile dnscrypt-proxy for the target arch (multi-arch via buildx) ---
+# --platform=$BUILDPLATFORM + GOOS/GOARCH cross-compile avoids running the Go
+# toolchain under QEMU emulation (amd64 Go compile segfaults on arm64 hosts).
+FROM --platform=$BUILDPLATFORM golang:1.24.0-alpine AS dnscrypt-builder
+ARG DNSCRYPT_COMMIT="ac5087315c9c48eb1d113b42c69fa14e451a9a1c"
+ARG TARGETOS
+ARG TARGETARCH
+RUN apk add --no-cache git && \
+	git clone https://github.com/DNSCrypt/dnscrypt-proxy /src && \
+	cd /src && git checkout "${DNSCRYPT_COMMIT}" && \
+	GOOS="${TARGETOS}" GOARCH="${TARGETARCH}" CGO_ENABLED=0 \
+	  go build -o /dnscrypt-proxy ./dnscrypt-proxy
 
 FROM localnet-base-alpine:latest
 
@@ -19,8 +32,8 @@ RUN apk add --no-cache \
 RUN addgroup -g 1010 dnscrypt && \
 	adduser -D -u 1010 -G dnscrypt dnscrypt
 
-# Copy all assets into the builder stage
-COPY --chown=dnscrypt:dnscrypt assets/usr/local/bin/dnscrypt-proxy /usr/local/bin/dnscrypt-proxy
+# Copy the compiled binary from the builder stage and the entrypoint from assets
+COPY --from=dnscrypt-builder --chown=dnscrypt:dnscrypt /dnscrypt-proxy /usr/local/bin/dnscrypt-proxy
 COPY --chown=dnscrypt:dnscrypt assets/entrypoint-dnscrypt.sh /usr/local/bin/entrypoint-dnscrypt.sh
 
 # Set ownership for the directories that will be used by the non-root user

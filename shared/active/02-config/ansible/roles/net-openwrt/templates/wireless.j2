@@ -1,0 +1,50 @@
+# Managed by Ansible (net-openwrt role) — manual edits will be overwritten.
+{% for radio in openwrt_radios %}
+
+config wifi-device '{{ radio.name }}'
+	option type 'mac80211'
+	option band '{{ radio.band }}'
+	option channel '{{ radio.channel }}'
+	option htmode '{{ radio.htmode }}'
+	option country '{{ openwrt_country }}'
+	option cell_density '0'
+{% if radio.disabled | default(false) %}
+	option disabled '1'
+{% endif %}
+{% for net in openwrt_wireless_networks %}
+{% if radio.name in (net.radios | default(openwrt_radios | map(attribute='name') | list)) %}
+
+config wifi-iface
+	option device '{{ radio.name }}'
+	option network '{{ net.network | default('lan') }}'
+	option mode 'ap'
+	option ssid '{{ net.ssid }}'
+{% set enc = net.encryption | default('sae-mixed') %}
+{% if enc != 'none' %}
+	option encryption '{{ enc }}'
+	option key '{{ net.key }}'
+{% endif %}
+{% if net.ieee80211r | default(true) %}
+	option ieee80211r '1'
+	option mobility_domain '{{ net.mobility_domain | default(openwrt_mobility_domain) }}'
+	option ft_over_ds '1'
+	option ft_psk_generate_local '1'
+{% endif %}
+{% if net.ieee80211k | default(true) %}
+	option ieee80211k '1'
+{% endif %}
+{% if (net.ieee80211w | default(1)) > 0 %}
+	option ieee80211w '{{ net.ieee80211w | default(1) }}'
+{% endif %}
+{% if net.isolate | default(false) %}
+	option isolate '1'
+{% endif %}
+{% if net.hidden | default(false) %}
+	option hidden '1'
+{% endif %}
+{% if net.disabled | default(false) %}
+	option disabled '1'
+{% endif %}
+{% endif %}
+{% endfor %}
+{% endfor %}

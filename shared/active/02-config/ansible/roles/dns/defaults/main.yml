@@ -6,6 +6,18 @@
 # Service toggle
 dns_enabled: true
 
+# Host-side bind address for published ports. Empty = all interfaces (0.0.0.0).
+# On cloud_servers this is set to the host's Tailscale IP so the whole chain
+# (DNS, web UIs, metrics) is only reachable inside the tailnet.
+dns_publish_ip: ""
+
+# Container identity (defaults mirror group_vars/all.yml — defined here so
+# hosts whose inventory doesn't load that file still get sane values)
+localnet_puid: 1000
+localnet_pgid: 1000
+localnet_tz: "UTC"
+dns_port_prefix: "{{ (dns_publish_ip ~ ':') if dns_publish_ip | length > 0 else '' }}"
+
 # Network
 dns_network_name: "{{ infra_network_dns_localnet_network_name | default(infra_network_dns_network_name) }}"
 dns_network_subnet: "{{ infra_network_dns_localnet_subnet | default(infra_network_dns_localnet_subnet) }}"

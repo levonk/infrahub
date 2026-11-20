@@ -1,0 +1,9 @@
+---
+# handlers file for monitoring-blackbox
+
+- name: Restart monitoring-blackbox
+  community.docker.docker_container:
+    name: "{{ monitoring_blackbox_container_name }}"
+    state: started
+    restart: true
+  listen: restart monitoring-blackbox

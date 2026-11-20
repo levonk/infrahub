@@ -84,19 +84,30 @@ See [`internal-docs/troubleshooting/ansible-lint.md`](../../../internal-docs/tro
 | `bootstrap-macos-host.yml` | `levonk/.../inventories/macos-hosts.yml` | `macos_hosts` | macOS | macOS hosts |
 | `localnet-tailscale.yml` | `levonk/.../inventories/localnet.yml` | `vpn_tailscale_clients` | Linux | localnet hosts |
 | `bootstrap-ai-inference-host.yml` | `levonk/.../inventories/localnet.yml --limit kckinai` | `vpn_tailscale_clients` | Linux | kckinai (NVIDIA inference host) |
+| `deploy-cast-sponsor-skip.yml` | `levonk/.../inventories/localnet.yml --limit minime01` | `localnet_hosts` | Linux | minime01 (RPi2 DietPi, armv7) |
+| `deploy-dns-lite.yml` | `levonk/.../inventories/localnet.yml` | `localnet_hosts` | Linux | reduced AdGuard→Unbound chain for low-RAM/armv7 hosts (minime01) |
+| `dns-stack.yml` | `levonk/.../inventories/oci.yml` | `cloud_servers` | Oracle Linux (EL) | full DNS chain on OCI (cno) — AdGuard→dnsdist→CoreDNS→{dnscrypt,unbound,tor}, tailnet-only binds |
+| `validate-dns.yml` | `levonk/.../inventories/oci.yml` | `cloud_servers` | Oracle Linux (EL) | read-only post-deploy checks for the cno DNS chain |
+| `deploy-openwrt.yml` | `levonk/.../inventories/localnet.yml` | `openwrt_aps` | OpenWrt | velop01/velop02 (Linksys VLP01/WHW01) APs; bootstraps python3-light then renders UCI configs |
+| `validate-openwrt.yml` | `levonk/.../inventories/localnet.yml` | `openwrt_aps` | OpenWrt | read-only post-deploy checks for the Velop APs |
+| `deploy-wanbonding.yml` ⚠️ NOT YET DEPLOYED | `levonk/.../inventories/oci.yml` | `cloud_servers`, `wanbonding_vms` | Oracle Linux (EL host) + Debian arm64 (guest) | provisions bonding-vm (2nd KVM guest) + DNAT WAN ports; configures MPTCP guest kernel + shadowsocks/glorytun containers — manual approval required, see ADR-20261115001 |
+| `validate-wanbonding.yml` | `levonk/.../inventories/oci.yml` | `cloud_servers`, `wanbonding_vms` | EL + Debian arm64 | read-only checks: VM state, DNAT, MPTCP sysctl, listeners, glorytun dev, containers, nftables |
+| `deploy-imagination-studio.yml` | `levonk/.../inventories/localnet.yml --limit kckinai` | `localnet_hosts` | Linux | kckinai (GB10) — native Imagination Studio converge: `ai-imagination-studio` role (deps, checkout @ v4.5.0, dirs, env, systemd --user unit + linger, tailnet bind :7870) |
+| `deploy-imagination-studio-models.yml` | `levonk/.../inventories/localnet.yml --limit kckinai` | `localnet_hosts` | Linux | kckinai — ASYNC ~423 GB model/component install via upstream oneshot installer as `lk` (`--tags install|status|verify`) |
+| `validate-imagination-studio.yml` | `levonk/.../inventories/localnet.yml --limit kckinai` | `localnet_hosts` | Linux | read-only post-deploy checks: user unit active+enabled, linger, :7870 tailnet-only bind, `/api/spark/self` (200|401), managed ComfyUI :8190 loopback, NRestarts, journal tail, ComfyUI :8188 unaffected, disk headroom |
 
 When adding a new role to a playbook, check this table to know which playbook(s) cover which hosts. Use `--tags <role-tag>` to deploy only that role across all inventories.
 
 ## DNS Architecture (Two-Layer)
 
-The shared roles provide a two-layer DNS architecture for Tailscale-attached hosts. Clients opt in by setting Tailscale FQDN variables in their `infrastructure/domains.yml` and per-host `cloudflare_ddns_hostname` in their inventory.
+The shared roles provide a two-layer DNS architecture for Tailscale-attached hosts. Clients opt in by setting Tailscale IP/FQDN variables in their `infrastructure/domains.yml` and per-host `cloudflare_ddns_hostname` in their inventory.
 
-### Layer 1: CNAME → Tailscale FQDN (Primary)
+### Layer 1: A record → Tailscale IP (Primary)
 
 **Role**: `cloudflare-dns`  
 **Playbook**: `playbooks/configure-cloudflare-dns.yml`
 
-Service domains (`*.<base>`) are CNAMEs to Tailscale FQDNs (`*.<tailnet>`). This decouples Cloudflare DNS from ephemeral Tailscale IPs — if Tailscale reassigns the IP, only Tailscale's internal DNS updates. See AGENTS.md (root) → Architectural Invariant #9 for the full rule.
+Service domains (`*.<base>`) are A records to the host's Tailscale IP (`infra_tailscale_ip_*`). CNAMEs to `*.<tailnet>` FQDNs are NOT used for tailnet-only services — `*.ts.net` names are MagicDNS-only, and MagicDNS intermittently NXDOMAINs tailnet names reached by chasing a CNAME from a public zone. CNAMEs remain only for in-zone service aliases and the `*.mach.<base>` public fallback targets. See AGENTS.md (root) → Architectural Invariant #9 for the full rule.
 
 ### Layer 2: DDNS → Public IP (Fallback)
 
@@ -110,8 +121,11 @@ A lightweight container on each host updates an A record (`{hostname}.mach.{doma
 | Variable | Shared default | Client override |
 |----------|---------------|-----------------|
 | `infra_tailscale_tailnet` | `example.ts.net` | `<tailnet>` |
-| `infra_tailscale_fqdn_cloud_server` | `{{ infra_tailscale_tailnet }}` | `oci.<tailnet>` |
-| `infra_tailscale_fqdn_inference_host` | (none) | `kckinai.<tailnet>` |
+| `infra_tailscale_ip_cloud_server` | `""` | e.g. `100.90.22.85` |
+| `infra_tailscale_ip_windows_docker` | `""` | e.g. `100.81.103.34` |
+| `infra_tailscale_ip_inference_host` | `""` | e.g. `100.120.164.114` |
+| `infra_tailscale_ip_{cno,nl}_{vpn,tor}_exit` | `""` | exit-node container IPs |
+| `infra_tailscale_fqdn_*` | `{{ infra_tailscale_tailnet }}` | host FQDNs (non-DNS uses) |
 | `cloudflare_ddns_hostname` | (none — set per-host) | `"oci"`, `"kckinai"` |
 
 ### Clients Using This Feature
@@ -323,7 +337,7 @@ Playbooks that use `include_vars` to load infrastructure schemas must load `mode
 The `until` clause in Ansible tasks (e.g., `ansible.builtin.uri` retries) does not support `{{ }}` Jinja delimiters. Use a bare expression instead:
 ```yaml
 # ❌ Wrong — Syntax error in expression
-until: result.status == {{ infra_http_status_ok }}
+until: result.status == (infra_http_status_ok | int)
 # ✅ Correct — bare Jinja expression with filter
 until: result.status == (infra_http_status_ok | int)
 ```
@@ -615,15 +629,31 @@ Services that use non-HTTP protocols (UDP relay, STUN/TURN) cannot be routed thr
 
 ### DNS Records: Add to configure-cloudflare-dns.yml, Not Manually
 
-DNS records for new services must be added to the `cloudflare_dns_records` list in `configure-cloudflare-dns.yml`, following the existing CNAME-to-Tailscale-FQDN pattern:
+DNS records for new services must be added to the `cloudflare_dns_records` list in `configure-cloudflare-dns.yml`, following the existing A-record-to-Tailscale-IP pattern:
 
 ```yaml
-- name: "{{ infra_domain_media_watch_party | default('watch.' ~ (infra_domain_base | default('example.com'))) }}"
-  type: "CNAME"
-  content: "{{ ts_fqdn }}"
+- name: "{{ infra_domain_ai_newservice | default('newservice.' ~ (infra_domain_base | default('example.com'))) }}"
+  type: "A"
+  content: "{{ infra_tailscale_ip_cloud_server | default('') }}"
   ttl: "{{ cloudflare_dns_ttl }}"
   proxied: "{{ cloudflare_dns_proxied }}"
   state: "{{ cloudflare_dns_state }}"
 ```
 
 **Note**: The `configure-cloudflare-dns.yml` playbook runs on `localhost` (not `cloud_servers`), and processes records in order. A failure on one record (e.g., pre-existing `search.levonk.com` 400 error) will abort before reaching later records. To deploy a single record, override `cloudflare_dns_records` via `--extra-vars`.
+
+## Lessons Learned (postiz deployment)
+
+### Postiz `ENCRYPTION_KEY` is base64, not hex
+
+Postiz's local encryption provider **base64-decodes** `ENCRYPTION_KEY` and requires exactly 32 decoded bytes. `openssl rand -hex 32` (64 chars) decodes to 48 bytes; `openssl rand -hex 16` (32 chars) decodes to 24. The correct generator is `openssl rand -base64 32` (44-char base64 → 32 bytes). A wrong-length key puts the app's PM2 orchestrator in a crash loop (~115% CPU) while the container healthcheck still reports `healthy` — always check `docker logs` for child-process errors, not just container health.
+
+### Temporal auto-setup: `DB` driver name and healthcheck address
+
+- `DB=postgresql` is **invalid** for `temporalio/auto-setup`; valid drivers are `postgres12`, `postgres12_pgx`, `mysql8`, `cassandra`.
+- Temporal gRPC binds the **container's eth0 IP**, not localhost — healthcheck with `--address $(hostname -i):7233`, not `127.0.0.1`.
+- First boot (schema + namespace) takes ~3min; give the health-wait a dedicated budget beyond `infra_retry_extended` × `infra_delay_default`.
+
+### Temporal search attributes require Elasticsearch
+
+With `ENABLE_ES=false` (standard SQL visibility) Temporal caps custom search attributes at ~3 per type. Postiz registers more `Text` attributes and dies in `TemporalRegister.onModuleInit` with `cannot have more than 3 search attribute of type Text`. Upstream's ES container is **required**, not optional: deploy `elasticsearch:7.17.27` (single-node, `xpack.security.enabled=false`, 256MB heap) on the temporal network and set `ENABLE_ES=true`, `ES_SEEDS=<es container>`, `ES_VERSION=v7`.

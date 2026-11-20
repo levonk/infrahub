@@ -1,0 +1,76 @@
+---
+# Postiz — Deployment Tasks
+# Deploys localnet-postiz + localnet-postiz-postgres + localnet-postiz-redis +
+# localnet-postiz-temporal + localnet-postiz-temporal-postgres on Windows
+# Docker Desktop (dtop202311, nl region). nl-only role — structured with a
+# group_names dispatch (search-hister pattern) so a future cno path can
+# slot in.
+#
+# Uses the ssh-tunneled Docker CLI pattern (DOCKER_HOST: ssh:// +
+# delegate_to: localhost) because community.docker modules can't run on
+# Windows (Ansible core basic.py imports grp, Unix-only).
+
+# 1. Validate required variables — empty secrets mean the app deploys with
+#    an unsigned JWT secret / unencrypted channel tokens, so all four vault
+#    secrets are asserted non-empty.
+- name: Validate required variables are defined
+  ansible.builtin.assert:
+    that:
+      - tools_postiz_container_name is defined
+      - tools_postiz_container_name_postgres is defined
+      - tools_postiz_container_name_redis is defined
+      - tools_postiz_container_name_temporal is defined
+      - tools_postiz_container_name_temporal_postgres is defined
+      - tools_postiz_image is defined
+      - tools_postiz_image_tag is defined
+      - tools_postiz_postgres_image is defined
+      - tools_postiz_temporal_postgres_image is defined
+      - tools_postiz_redis_image is defined
+      - tools_postiz_temporal_image is defined
+      - tools_postiz_es_image is defined
+      - tools_postiz_init_image is defined
+      - tools_postiz_host_port is defined
+      - tools_postiz_container_port is defined
+      - tools_postiz_postgres_host_port is defined
+      - tools_postiz_postgres_container_port is defined
+      - tools_postiz_temporal_postgres_host_port is defined
+      - tools_postiz_temporal_postgres_container_port is defined
+      - tools_postiz_network_name is defined
+      - tools_postiz_temporal_network_name is defined
+      - tools_postiz_traefik_network_name is defined
+      - tools_postiz_uploads_volume is defined
+      - tools_postiz_postgres_volume is defined
+      - tools_postiz_redis_volume is defined
+      - tools_postiz_temporal_postgres_volume is defined
+      - tools_postiz_temporal_dynamicconfig_volume is defined
+      - tools_postiz_docker_host is defined
+      - tools_postiz_domain is defined
+      - tools_postiz_postgres_password is defined
+      - tools_postiz_postgres_password | length > 0
+      - tools_postiz_temporal_postgres_password is defined
+      - tools_postiz_temporal_postgres_password | length > 0
+      - tools_postiz_jwt_secret is defined
+      - tools_postiz_jwt_secret | length > 0
+      - tools_postiz_jwt_secret != "change-me"
+      - tools_postiz_encryption_key is defined
+      - tools_postiz_encryption_key | length > 0
+      - tools_postiz_encryption_key != "change-me"
+      - tools_postiz_postgres_password != "change-me"
+      - tools_postiz_temporal_postgres_password != "change-me"
+    fail_msg: >-
+      Missing required tools_postiz variables, or a vault_postiz_* secret is
+      empty or still the "change-me" placeholder (JWT_SECRET, ENCRYPTION_KEY
+      and both postgres passwords must be real — empty means unsigned
+      tokens / plaintext channel secrets / open databases). Check infrastructure files (ports.yml, domains.yml,
+      networks.yml, storage.yml, values.yml) and add the vault_postiz_* keys
+      to the client vault via the vault handoff documented in the role README.
+    success_msg: "All required tools_postiz variables are defined."
+  tags: ["always", "validate"]
+
+# 2. Dispatch to Windows deployment (nl region)
+- name: Deploy Postiz on Windows Docker host
+  ansible.builtin.include_tasks: deploy-windows.yml
+  when:
+    - tools_postiz_enabled | bool
+    - "'windows_docker_hosts' in group_names"
+  tags: ["deploy"]

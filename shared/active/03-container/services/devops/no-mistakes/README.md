@@ -35,10 +35,11 @@ Subsequent pushes skip provisioning and go directly to the existing gate.
 
 **Locally built** — no upstream container exists. Multi-stage Dockerfile:
 
-- **Stage 1** (`golang:1.23-alpine`): builds `no-mistakes` from source via
+- **Stage 1** (`golang:1.25-bookworm`): builds `no-mistakes` from source via
   `go install`
-- **Stage 2** (`alpine:3.20`): runtime with sshd, git, git-shell, gh CLI,
-  devin-cli, acpx, and the auto-provision wrapper
+- **Stage 2** (`debian:bookworm-slim`): runtime with sshd, git, git-shell, gh
+  CLI, devin-cli, acpx, and the auto-provision wrapper (glibc, not musl —
+  unaffected by the musl/non-PAM sshd auth bypass)
 
 ### Build
 

@@ -180,7 +180,7 @@
 
     - name: "Verify omniroute container is running"
       ansible.builtin.command:
-        cmd: "docker inspect --format='{% raw %}{{.State.Status}}{% endraw %}' {{ ai_omniroute_container_name }}"
+        cmd: "docker inspect --format='{% raw %}{{.State.Status}}{% endraw %}' {{ infra_hostname_ai_omniroute }}"
       become: true
       become_user: "{{ cloud_server_admin_user }}"
       register: omniroute_status

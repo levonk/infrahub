@@ -47,8 +47,17 @@ PB_MONITORING := ANSIBLE_ROOT + "/playbooks/deploy-monitoring-stack.yml"
 PB_VAL_MONITORING := ANSIBLE_ROOT + "/playbooks/validate-monitoring-stack.yml"
 PB_WATCH_PARTY := ANSIBLE_ROOT + "/playbooks/deploy-watch-party.yml"
 PB_VAL_WATCH_PARTY := ANSIBLE_ROOT + "/playbooks/validate-watch-party.yml"
+PB_NTP := ANSIBLE_ROOT + "/playbooks/deploy-ntp.yml"
+PB_VAL_NTP := ANSIBLE_ROOT + "/playbooks/validate-ntp.yml"
+PB_DNS_STACK := ANSIBLE_ROOT + "/playbooks/dns-stack.yml"
+PB_VAL_DNS := ANSIBLE_ROOT + "/playbooks/validate-dns.yml"
 PB_VAL_AUTHELIA := ANSIBLE_ROOT + "/playbooks/validate-authelia.yml"
 PB_ACRM := ANSIBLE_ROOT + "/playbooks/deploy-acrm.yml"
+PB_POSTIZ := ANSIBLE_ROOT + "/playbooks/deploy-postiz.yml"
+PB_IMAGINATION_STUDIO := ANSIBLE_ROOT + "/playbooks/deploy-imagination-studio.yml"
+PB_IMAGINATION_STUDIO_MODELS := ANSIBLE_ROOT + "/playbooks/deploy-imagination-studio-models.yml"
+PB_VAL_IMAGINATION_STUDIO := ANSIBLE_ROOT + "/playbooks/validate-imagination-studio.yml"
+PB_PATCH_OPENSSH := ANSIBLE_ROOT + "/playbooks/patch-openssh-musl-bypass.yml"
 WINDOWS_INVENTORY := INFRAHUB_ROOT + "/levonk/active/02-config/ansible/inventories/windows-docker.yml"
 MACOS_INVENTORY := INFRAHUB_ROOT + "/levonk/active/02-config/ansible/inventories/macos-hosts.yml"
 PB_CONFIGURE_MACOS := ANSIBLE_ROOT + "/playbooks/configure-macos-host.yml"
@@ -278,6 +287,7 @@ test_impl:
     set -euo pipefail
     {{_log}}
     log_start "Running all tests"
+    just test_config_impl
     just ansible_test_impl
 
 lint:
@@ -325,6 +335,45 @@ quality:
 quality_impl:
     just lint
     just test
+
+# -- Config-Policy Unit Tests --
+# Asserts structural/semantic invariants on playbooks and infrastructure
+# vars (e.g., tailnet-only DNS records must be A records, not CNAMEs into
+# *.ts.net — the bug that intermittently NXDOMAIN'd search.levonk.com).
+# Pure python3 unittest + PyYAML, both already in the devbox env.
+
+test-config:
+    @just _devbox test_config_impl
+
+[private]
+test_config_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Running config-policy unit tests"
+    python3 -m unittest discover -s {{INFRAHUB_ROOT}}/tests -p 'test_*.py' -v
+    log_end "Config-policy tests passed"
+
+# -- File-Write Watch: rerun policy tests on any config edit --
+# watchexec fires on every write to a yml/yaml/j2 file under the ansible
+# tree or client overlay. Ctrl-C to stop.
+
+watch-config:
+    @just _devbox watch_config_impl
+
+[private]
+watch_config_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Watching ansible config; running policy tests on write"
+    exec watchexec \
+        --exts yml,yaml,j2,jinja2 \
+        --watch {{ANSIBLE_ROOT}} \
+        --watch {{INFRAHUB_ROOT}}/levonk/active/02-config/ansible \
+        --watch {{INFRAHUB_ROOT}}/tests \
+        --restart \
+        -- just test_config_impl
 
 # === Ansible Lifecycle Commands ===
 
@@ -723,6 +772,112 @@ ansible_deploy_acrm_check_impl:
     log_start "Checking ACRM deployment on Windows Docker host (--check --diff)"
     ansible-playbook -i {{WINDOWS_INVENTORY}} {{PB_ACRM}} --check --diff --vault-password-file ~/.ansible/vault_password
 
+# Deploy Postiz (app + postgres + redis + temporal + temporal-postgres) on
+# Windows Docker host (nl region). App's own auth — no Authelia.
+# Prerequisites: vault keys (vault_postiz_jwt_secret,
+# vault_postiz_postgres_password, vault_postiz_temporal_postgres_password,
+# vault_postiz_encryption_key), SSH to the Windows host, ghcr.io reachable.
+ansible-deploy-postiz:
+    @just _devbox ansible_deploy_postiz_impl
+
+[private]
+ansible_deploy_postiz_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Deploying Postiz on Windows Docker host"
+    ansible-playbook -i {{WINDOWS_INVENTORY}} {{PB_POSTIZ}} --vault-password-file ~/.ansible/vault_password
+
+# Dry-run Postiz deployment (--check --diff; limited fidelity — role tasks are shell/command)
+ansible-deploy-postiz-check:
+    @just _devbox ansible_deploy_postiz_check_impl
+
+[private]
+ansible_deploy_postiz_check_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Checking Postiz deployment on Windows Docker host (--check --diff)"
+    ansible-playbook -i {{WINDOWS_INVENTORY}} {{PB_POSTIZ}} --check --diff --vault-password-file ~/.ansible/vault_password
+
+# Deploy Imagination Studio (native install) on kckinai (localnet)
+# Converges the ai-imagination-studio role: deps, checkout @ v4.5.0, dirs,
+# env file, systemd --user unit + linger, tailnet bind on :7870.
+# Does NOT install models — run ansible-deploy-imagination-studio-models next.
+# Prerequisites: SSH to kckinai as lk, tailscale up on the host.
+ansible-deploy-imagination-studio:
+    @just _devbox ansible_deploy_imagination_studio_impl
+
+[private]
+ansible_deploy_imagination_studio_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Deploying Imagination Studio (role converge) on kckinai"
+    ansible-playbook -i {{LOCALNET_INVENTORY}} {{PB_IMAGINATION_STUDIO}} --limit kckinai --vault-password-file ~/.ansible/vault_password
+
+# Dry-run Imagination Studio role converge (--check --diff)
+ansible-deploy-imagination-studio-check:
+    @just _devbox ansible_deploy_imagination_studio_check_impl
+
+[private]
+ansible_deploy_imagination_studio_check_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Checking Imagination Studio deployment on kckinai (--check --diff)"
+    ansible-playbook -i {{LOCALNET_INVENTORY}} {{PB_IMAGINATION_STUDIO}} --limit kckinai --check --diff --vault-password-file ~/.ansible/vault_password
+
+# Deploy Imagination Studio models/components on kckinai (ASYNC, ~423 GB)
+# Runs the upstream oneshot installer as lk; returns immediately (poll: 0).
+# Prerequisites: ansible-deploy-imagination-studio converged, HF token under lk.
+ansible-deploy-imagination-studio-models:
+    @just _devbox ansible_deploy_imagination_studio_models_impl
+
+[private]
+ansible_deploy_imagination_studio_models_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Launching Imagination Studio async model install on kckinai"
+    ansible-playbook -i {{LOCALNET_INVENTORY}} {{PB_IMAGINATION_STUDIO_MODELS}} --limit kckinai --vault-password-file ~/.ansible/vault_password
+
+# Poll Imagination Studio model-install progress (install.log + async jid)
+ansible-imagination-studio-models-status:
+    @just _devbox ansible_imagination_studio_models_status_impl
+
+[private]
+ansible_imagination_studio_models_status_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Polling Imagination Studio model install status on kckinai"
+    ansible-playbook -i {{LOCALNET_INVENTORY}} {{PB_IMAGINATION_STUDIO_MODELS}} --limit kckinai --tags status --vault-password-file ~/.ansible/vault_password
+
+# Verify Imagination Studio model install (upstream --verify; downloads nothing)
+ansible-imagination-studio-models-verify:
+    @just _devbox ansible_imagination_studio_models_verify_impl
+
+[private]
+ansible_imagination_studio_models_verify_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Verifying Imagination Studio model install on kckinai"
+    ansible-playbook -i {{LOCALNET_INVENTORY}} {{PB_IMAGINATION_STUDIO_MODELS}} --limit kckinai --tags verify --vault-password-file ~/.ansible/vault_password
+
+# Validate Imagination Studio deployment on kckinai (read-only checks)
+ansible-validate-imagination-studio:
+    @just _devbox ansible_validate_imagination_studio_impl
+
+[private]
+ansible_validate_imagination_studio_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Validating Imagination Studio deployment on kckinai"
+    ansible-playbook -i {{LOCALNET_INVENTORY}} {{PB_VAL_IMAGINATION_STUDIO}} --limit kckinai --vault-password-file ~/.ansible/vault_password
+
 # Deploy Local Watch Party + coturn on OCI cloud server
 # Prerequisites: Traefik + Authelia deployed, watch-party image built, vault secret set.
 ansible-deploy-watch-party:
@@ -747,6 +902,56 @@ ansible_validate_watch_party_impl:
     {{_log}}
     log_start "Validating Local Watch Party + coturn on OCI"
     ansible-playbook -i {{INVENTORY}} {{PB_VAL_WATCH_PARTY}} --vault-password-file ~/.ansible/vault_password
+
+# Deploy NTP tailnet server (native chronyd) on OCI — serves NTP to the
+# tailnet only at ntp.levonk.com (A record → infra_tailscale_ip_cloud_server).
+ansible-deploy-ntp:
+    @just _devbox ansible_deploy_ntp_impl
+
+[private]
+ansible_deploy_ntp_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Deploying NTP tailnet server (chronyd) on OCI"
+    ansible-playbook -i {{INVENTORY}} {{PB_NTP}} --vault-password-file ~/.ansible/vault_password
+
+# Validate NTP tailnet server deployment on OCI
+ansible-validate-ntp:
+    @just _devbox ansible_validate_ntp_impl
+
+[private]
+ansible_validate_ntp_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Validating NTP tailnet server on OCI"
+    ansible-playbook -i {{INVENTORY}} {{PB_VAL_NTP}} --vault-password-file ~/.ansible/vault_password
+
+# Deploy the DNS chain (AdGuard→dnsdist→CoreDNS→dnscrypt/unbound/tor) on OCI.
+# All published ports bind the Tailscale IP only; dns.levonk.com = AdGuard :53.
+ansible-deploy-dns-oci:
+    @just _devbox ansible_deploy_dns_oci_impl
+
+[private]
+ansible_deploy_dns_oci_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Deploying DNS chain (cno) on OCI"
+    ansible-playbook -i {{INVENTORY}} {{PB_DNS_STACK}} --vault-password-file ~/.ansible/vault_password
+
+# Validate the DNS chain on OCI — containers, tailnet-only binds, live queries.
+ansible-validate-dns-oci:
+    @just _devbox ansible_validate_dns_oci_impl
+
+[private]
+ansible_validate_dns_oci_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Validating DNS chain (cno) on OCI"
+    ansible-playbook -i {{INVENTORY}} {{PB_VAL_DNS}} --vault-password-file ~/.ansible/vault_password
 
 # Deploy Authelia SSO on OCI cloud server (runs the authelia-tagged tasks of cloud-server-infra.yml)
 # Prerequisites: Docker engine running, infra vars loaded by playbook pre_tasks.
@@ -1276,3 +1481,32 @@ clean_all_impl:
     docker system prune -af || true
     docker volume prune -f || true
     log_end "Deep clean complete"
+
+# === Security ===
+
+# Emergency patch: OpenSSH musl password-auth bypass (OpenSSH <10.6p2, Alpine/musl sshd)
+# Audits + remediates all Linux hosts and scans running containers for musl sshd.
+ansible-patch-openssh:
+    @just _devbox ansible_patch_openssh_impl
+
+[private]
+ansible_patch_openssh_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Patching OpenSSH musl auth bypass on all managed hosts"
+    ansible-playbook -i {{INVENTORY}} -i {{LOCALNET_INVENTORY}} -i {{WINDOWS_INVENTORY}} {{PB_PATCH_OPENSSH}} --vault-password-file ~/.ansible/vault_password
+    log_end "OpenSSH musl bypass patch complete"
+
+# OCI cloud server only (fast path for emergency patching)
+ansible-patch-openssh-oci:
+    @just _devbox ansible_patch_openssh_oci_impl
+
+[private]
+ansible_patch_openssh_oci_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Patching OpenSSH musl auth bypass on OCI cloud server"
+    ansible-playbook -i {{INVENTORY}} {{PB_PATCH_OPENSSH}} --vault-password-file ~/.ansible/vault_password
+    log_end "OpenSSH musl bypass patch complete"

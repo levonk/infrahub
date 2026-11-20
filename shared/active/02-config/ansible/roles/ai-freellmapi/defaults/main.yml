@@ -9,7 +9,7 @@ ai_freellmapi_container_name: "{{ infra_hostname_ai_freellmapi | default('localn
 ai_freellmapi_image_name: "ghcr.io/tashfeenahmed/freellmapi"
 # Pinned release — the admin/license FREEAPI_CONFIG_JSON fields require
 # upstream >= v0.12.0 (PR #1291). Never track `latest` for this service.
-ai_freellmapi_image_tag: "v0.12.0"
+ai_freellmapi_image_tag: "v0.16.34"
 
 # Port configuration (reference infrastructure variables)
 ai_freellmapi_host_port: "{{ infra_port_ai_freellmapi_host }}"

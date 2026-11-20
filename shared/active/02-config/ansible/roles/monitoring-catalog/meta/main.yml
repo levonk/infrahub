@@ -1,0 +1,20 @@
+---
+galaxy_info:
+  role_name: monitoring_catalog
+  author: localnet
+  description: Derives per-service monitoring probe targets from the services.yml catalog
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+    - name: Ubuntu
+      versions:
+        - jammy
+        - noble
+  galaxy_tags:
+    - monitoring
+    - catalog
+
+dependencies: []

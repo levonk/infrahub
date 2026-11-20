@@ -96,7 +96,7 @@
     healthcheck:
       test: ["CMD", "/usr/local/bin/healthcheck-omniroute.sh"]
       interval: "{{ infra_healthcheck_interval }}"
-      timeout: "{{ infra_timeout_short }}"
+      timeout: "{{ infra_healthcheck_timeout }}"
       retries: 3  # project-lint: disable=magic-int  healthcheck retry count, not an operational value
       start_period: "{{ infra_healthcheck_start_period }}"
     labels:
@@ -193,7 +193,7 @@
     HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
       -c "$COOKIE_FILE" \
       -X POST -H "Content-Type: application/json" \
-      -d "{\"username\":\"admin\",\"password\":\"{{ ai_omniroute_admin_password }}\"}" \
+      -d "{\"username\":\"admin\",\"password\":\"{{ ai_omniroute_admin_password_plain }}\"}" \
       http://localhost:{{ ai_omniroute_host_port }}/api/auth/login)
     if [ "$HTTP_CODE" != "{{ infra_http_status_ok }}" ]; then
       echo "Login failed with HTTP $HTTP_CODE" >&2  # project-lint: disable=magic-int  stderr file descriptor, not an operational value

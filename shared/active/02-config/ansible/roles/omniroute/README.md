@@ -84,7 +84,8 @@ The role performs the following tasks:
    - Healthcheck
 5. **Health Verification**: Waits for the service to become healthy
 6. **Managed Configuration**: Pushes a partial config (provider nodes,
-   connections, `kckinaicombo`) via `/api/settings/import-json`. Uses
+   connections, `kckinaicombo`, `kckinai-abliterated`) via
+   `/api/settings/import-json`. Uses
    INSERT OR REPLACE - only entities in `managed-config.json.j2` are
    reconciled; UI changes to other entities are preserved. Disable with
    `ai_omniroute_managed_config_enabled: false`.
@@ -106,6 +107,17 @@ When `ai_omniroute_freellmapi_enabled` is true (default), the role also:
    `kckinaicombo` (weight `ai_omniroute_managed_freellmapi_weight`, default 12).
 
 Set `ai_omniroute_freellmapi_enabled: false` on hosts without FreeLLMAPI.
+
+### kckinai abliterated endpoint
+
+When `ai_omniroute_kckinai_abliterated_enabled` is true (default), the managed
+config also adds a `kckinai-abliterated` openai-compatible provider node +
+connection pointing at `http://<inference-host>:8008/v1` (SGLang serving
+`huihui-ai/Huihui-Qwen3.8-27B-abliterated` via `model-abliterated.sh` in
+levonk-ai-playground), plus a dedicated `kckinai-abliterated` combo. The
+abliterated weights stay out of `kckinaicombo`'s general fallback pool —
+clients opt in by requesting the `kckinai-abliterated` combo. The endpoint
+is only reachable while the model script is running on kckinai.
 
 ## Handlers
 

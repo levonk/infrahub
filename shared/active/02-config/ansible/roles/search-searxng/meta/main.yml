@@ -5,11 +5,11 @@
 galaxy_info:
   role_name: search_searxng
   author: levonk
-  description: Deploy SearXNG privacy-respecting metasearch engine with NordVPN proxy integration
+  description: Deploy SearXNG privacy-respecting metasearch engine (direct egress, optional proxy)
   company: levonk
   license: MIT
   min_ansible_version: "2.13"
-  
+
   platforms:
     - name: Debian
       versions:
@@ -19,7 +19,7 @@ galaxy_info:
       versions:
         - jammy
         - focal
-  
+
   galaxy_tags:
     - search
     - privacy

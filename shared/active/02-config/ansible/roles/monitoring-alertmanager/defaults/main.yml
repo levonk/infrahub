@@ -9,7 +9,7 @@
 # ---------------------------------------------------------------------------
 monitoring_alertmanager_container_name: "{{ infra_hostname_monitoring_alertmanager }}"
 monitoring_alertmanager_image_name: "prom/alertmanager"
-monitoring_alertmanager_image_tag: "v0.34.0"
+monitoring_alertmanager_image_tag: "v0.34.1"
 
 # ---------------------------------------------------------------------------
 # Network

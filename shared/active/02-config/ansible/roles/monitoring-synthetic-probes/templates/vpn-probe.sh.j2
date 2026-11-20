@@ -5,7 +5,7 @@ set -u
 : "${NORDVPN_SOCKS5:?NORDVPN_SOCKS5 is required}"
 : "${TOR_SOCKS5_HOSTNAME:?TOR_SOCKS5_HOSTNAME is required}"
 TIMEOUT="${VPN_TIMEOUT:-30}"  # project-lint: disable=magic-int  timeout
-METRICS_DIR="${METRICS_DIR:-/var/lib/node_exporter/textfile_collector/probes}"
+METRICS_DIR="${METRICS_DIR:-/var/lib/node_exporter/textfile_collector}"
 METRIC_FILE="${METRICS_DIR}/vpn_egress_probe.prom"
 
 # NordVPN — exit IP must not be the host's public IP
@@ -24,10 +24,11 @@ if [ -n "$TOR_JSON" ]; then
   [ "$(echo "$TOR_JSON" | jq -r '.IsTor // false' 2>/dev/null)" = "true" ] && TOR_OK=1  # project-lint: disable=magic-int  success flag
 fi
 
-# Tailscale — optional; the container may not have tailscale installed
+# Tailscale — TCP connect to the cloud server's tailnet address (ssh port).
+# This container has no tailscaled; tailnet reachability is the signal.
 TAIL_OK=0  # project-lint: disable=magic-int  initial state
-if command -v tailscale >/dev/null 2>&1; then
-  tailscale status 2>/dev/null | grep -qi 'active' && TAIL_OK=1  # project-lint: disable=magic-int  success flag
+if [ -n "${TAILSCALE_IP:-}" ]; then
+  nc -z -w"$TIMEOUT" "$TAILSCALE_IP" 22 >/dev/null 2>&1 && TAIL_OK=1  # project-lint: disable=magic-int  ssh port
 fi
 
 mkdir -p "$METRICS_DIR"

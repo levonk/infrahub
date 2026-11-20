@@ -1,0 +1,12 @@
+{
+    "server": "{{ wanbonding_shadowsocks_bind }}",
+    "server_port": {{ wanbonding_shadowsocks_port | int }},
+    "password": "{{ wanbonding_shadowsocks_password }}",
+    "method": "{{ wanbonding_shadowsocks_method }}",
+    "mode": "{{ wanbonding_shadowsocks_mode }}",
+    "timeout": {{ wanbonding_shadowsocks_timeout | int }},
+    "fast_open": {{ wanbonding_shadowsocks_fast_open | bool | lower }},
+    "reuse_port": true,
+    "no_delay": true,
+    "nameserver": "{{ infra_network_ip_google_dns_primary }}"
+}

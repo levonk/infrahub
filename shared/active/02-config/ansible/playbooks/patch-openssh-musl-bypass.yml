@@ -1,0 +1,396 @@
+---
+# Emergency Patch: OpenSSH musl password-authentication bypass
+#
+# Flaw (2026-11-05, OpenSSH 10.6p2 emergency fix): on musl-libc systems
+# (Alpine, OpenWrt-with-OpenSSH, Buildroot, Yocto) running an sshd built
+# WITHOUT PAM, a password of 257-1024 bytes authenticates as ANY account
+# whose shadow field is `*` (no password set). musl crypt() returns `*`
+# on over-length input; sshd salt-borrowing (CVE-2016-6210 fix) then
+# compares `*` == `*` and accepts.
+#
+# Exposure requires ALL of:
+#   1. musl libc sshd without PAM (Alpine openssh-server, UsePAM no)
+#   2. PasswordAuthentication yes (OpenSSH default)
+#   3. >=1 account with `*` password field (root, key-only users, alpine)
+#   4. >=1 other account with a $5$/$6$ password hash
+#
+# Fix:    apk upgrade -U -a  +  rc-service sshd restart  (musl hosts)
+# Mitigate: PasswordAuthentication no  (everywhere, incl. containers)
+#
+# Scope: audits + remediates Linux hosts, then scans every running Docker
+# container for an sshd process and patches musl-based sshd containers
+# in place (image rebuild still required — flagged at the end).
+#
+# Usage:
+#   ansible-playbook -i levonk/.../oci.yml -i levonk/.../localnet.yml \
+#     -i levonk/.../windows-docker.yml \
+#     shared/active/02-config/ansible/playbooks/patch-openssh-musl-bypass.yml \
+#     --vault-password-file ~/.ansible/vault_password
+
+# ---------------------------------------------------------------------------
+# Play 1: Linux hosts — audit, remediate musl sshd, enforce key-only auth
+# ---------------------------------------------------------------------------
+- name: "Patch OpenSSH musl auth bypass — Linux hosts"
+  hosts: cloud_servers:isolation_vms:localnet_hosts
+  become: true
+  gather_facts: true
+  vars:
+    musl_patch_gaps: []
+    musl_patch_patched_containers: []
+    musl_patch_rebuild_images: []
+
+  tasks:
+    - name: "PATCH-MUSL-SSH | Detect musl package manager (apk)"
+      ansible.builtin.command:
+        cmd: "command -v apk"
+      register: musl_patch_apk
+      changed_when: false
+      failed_when: false
+      tags: ["patch-musl-ssh", "audit"]
+
+    - name: "PATCH-MUSL-SSH | Record musl presence"
+      ansible.builtin.set_fact:
+        musl_patch_is_musl: "{{ musl_patch_apk.rc == 0 }}"
+      tags: ["patch-musl-ssh", "audit"]
+
+    - name: "PATCH-MUSL-SSH | Report libc family"
+      ansible.builtin.debug:
+        msg: "musl-based system detected — running Alpine advisory fix path"
+      when: musl_patch_is_musl | bool
+      tags: ["patch-musl-ssh", "audit"]
+
+    # --- musl host remediation (Alpine advisory: apk upgrade + sshd restart) ---
+    - name: "PATCH-MUSL-SSH | Upgrade packages incl. fixed openssh (musl only)"
+      ansible.builtin.command:
+        cmd: "apk upgrade -U -a"
+      register: musl_patch_apk_upgrade
+      changed_when: true
+      when: musl_patch_is_musl | bool
+      tags: ["patch-musl-ssh", "remediate"]
+
+    - name: "PATCH-MUSL-SSH | Restart sshd after package upgrade (musl only)"
+      ansible.builtin.command:
+        cmd: "rc-service sshd restart"
+      changed_when: true
+      when:
+        - musl_patch_is_musl | bool
+        - musl_patch_apk_upgrade is changed
+      tags: ["patch-musl-ssh", "remediate"]
+
+    # --- universal mitigation: PasswordAuthentication no (drop-in + Match fix) ---
+    - name: "PATCH-MUSL-SSH | Audit effective PasswordAuthentication (sshd -T)"
+      ansible.builtin.command:
+        cmd: "sshd -T"
+      register: musl_patch_sshd_t
+      changed_when: false
+      failed_when: false
+      tags: ["patch-musl-ssh", "audit"]
+
+    - name: "PATCH-MUSL-SSH | Flag hosts where sshd -T cannot be evaluated"
+      ansible.builtin.set_fact:
+        musl_patch_gaps: "{{ musl_patch_gaps + ['sshd -T failed on ' + inventory_hostname + ' — manual check required'] }}"
+      when: musl_patch_sshd_t.rc != 0
+      tags: ["patch-musl-ssh", "audit"]
+
+    - name: "PATCH-MUSL-SSH | Record effective passwordauthentication"
+      ansible.builtin.set_fact:
+        musl_patch_password_auth_enabled: "{{ musl_patch_sshd_t.stdout_lines | select('search', '^passwordauthentication yes') | list | length > 0 }}"
+      tags: ["patch-musl-ssh", "audit"]
+
+    - name: "PATCH-MUSL-SSH | Install drop-in disabling password auth"
+      ansible.builtin.copy:
+        dest: "/etc/ssh/sshd_config.d/99-disable-password-auth.conf"
+        content: |
+          # Emergency mitigation for musl openssh auth bypass (OpenSSH <10.6p2)
+          # Enforced by patch-openssh-musl-bypass.yml — do not remove.
+          PasswordAuthentication no
+          KbdInteractiveAuthentication no
+        owner: root
+        group: root
+        mode: "0600"
+      register: musl_patch_dropin
+      when:
+        - musl_patch_password_auth_enabled | bool
+        - musl_patch_sshd_t.rc == 0
+      tags: ["patch-musl-ssh", "remediate"]
+
+    - name: "PATCH-MUSL-SSH | Flip any PasswordAuthentication yes in sshd_config"
+      ansible.builtin.replace:
+        path: /etc/ssh/sshd_config
+        regexp: '^(\s*PasswordAuthentication\s+)yes'
+        replace: '\1no'
+      register: musl_patch_maincfg
+      when:
+        - musl_patch_password_auth_enabled | bool
+        - musl_patch_sshd_t.rc == 0
+      tags: ["patch-musl-ssh", "remediate"]
+
+    - name: "PATCH-MUSL-SSH | Validate sshd config after remediation"
+      ansible.builtin.command:
+        cmd: "sshd -t"
+      register: musl_patch_sshd_validate
+      changed_when: false
+      when:
+        - musl_patch_password_auth_enabled | bool
+        - (musl_patch_dropin is changed) or (musl_patch_maincfg is changed)
+      tags: ["patch-musl-ssh", "remediate"]
+
+    - name: "PATCH-MUSL-SSH | Restart sshd to apply mitigation"
+      ansible.builtin.service:
+        name: "{{ 'sshd' if ansible_facts['os_family'] == 'RedHat' else ('ssh' if ansible_facts['os_family'] == 'Debian' else 'sshd') }}"
+        state: restarted
+      when:
+        - musl_patch_password_auth_enabled | bool
+        - not (musl_patch_is_musl | bool)
+        - (musl_patch_dropin is changed) or (musl_patch_maincfg is changed)
+      tags: ["patch-musl-ssh", "remediate"]
+
+    - name: "PATCH-MUSL-SSH | Re-audit effective PasswordAuthentication"
+      ansible.builtin.command:
+        cmd: "sshd -T"
+      register: musl_patch_sshd_t_after
+      changed_when: false
+      failed_when: false
+      when: musl_patch_password_auth_enabled | bool
+      tags: ["patch-musl-ssh", "verify"]
+
+    - name: "PATCH-MUSL-SSH | Flag if password auth still enabled"
+      ansible.builtin.set_fact:
+        musl_patch_gaps: "{{ musl_patch_gaps + ['PasswordAuthentication still enabled on ' + inventory_hostname] }}"
+      when:
+        - musl_patch_password_auth_enabled | bool
+        - musl_patch_sshd_t_after.stdout_lines | select('search', '^passwordauthentication yes') | list | length > 0
+      tags: ["patch-musl-ssh", "verify"]
+
+    # --- shadow-file exposure audit (conditions 3 & 4) ---
+    - name: "PATCH-MUSL-SSH | Count no-password (*) accounts (locked ! excluded)"
+      ansible.builtin.shell:
+        cmd: "grep -cE ':\\*:' /etc/shadow || true"
+      register: musl_patch_nopw_accounts
+      changed_when: false
+      tags: ["patch-musl-ssh", "audit"]
+      args:
+        executable: /bin/bash
+
+    - name: "PATCH-MUSL-SSH | Count SHA-crypt ($5$/$6$) password hashes"
+      ansible.builtin.shell:
+        cmd: "grep -cE ':\\$[56]\\$' /etc/shadow || true"
+      register: musl_patch_sha_accounts
+      changed_when: false
+      tags: ["patch-musl-ssh", "audit"]
+      args:
+        executable: /bin/bash
+
+    - name: "PATCH-MUSL-SSH | Assess bypass preconditions on this host"
+      ansible.builtin.debug:
+        msg: >-
+          EXPOSED-IF-MUSL: {{ musl_patch_nopw_accounts.stdout }} no-password
+          account(s) + {{ musl_patch_sha_accounts.stdout }} $5$/$6$ hash(es)
+          on {{ inventory_hostname }} (musl={{ musl_patch_is_musl }},
+          passwordauth={{ musl_patch_password_auth_enabled }})
+      when: musl_patch_sha_accounts.stdout | int > 0 and musl_patch_nopw_accounts.stdout | int > 0
+      tags: ["patch-musl-ssh", "audit"]
+
+    # -----------------------------------------------------------------
+    # Container scan: find sshd inside running containers, patch musl
+    # -----------------------------------------------------------------
+    - name: "PATCH-MUSL-SSH | List running containers"
+      ansible.builtin.command:
+        cmd: "docker ps --format '{% raw %}{{.Names}}{% endraw %}'"
+      register: musl_patch_containers
+      changed_when: false
+      failed_when: false
+      tags: ["patch-musl-ssh", "containers"]
+
+    - name: "PATCH-MUSL-SSH | Detect sshd process in each container"
+      # NOTE: bare `docker top` — `-o/-eo` format opts fail on newer Docker
+      # daemons ("Couldn't find PID field in ps output"), which would make
+      # this scan silently skip every container.
+      ansible.builtin.command:
+        cmd: "docker top {{ item }}"
+      register: musl_patch_container_procs
+      changed_when: false
+      failed_when: false
+      loop: "{{ musl_patch_containers.stdout_lines }}"
+      when: musl_patch_containers.rc == 0
+      tags: ["patch-musl-ssh", "containers"]
+
+    - name: "PATCH-MUSL-SSH | Flag containers whose process table is unreadable"
+      ansible.builtin.set_fact:
+        musl_patch_unverified_containers: "{{ musl_patch_unverified_containers | default([]) + [item.item] }}"
+      loop: "{{ musl_patch_container_procs.results | default([]) }}"
+      when: item.rc != 0
+      tags: ["patch-musl-ssh", "containers"]
+
+    - name: "PATCH-MUSL-SSH | Collect containers running sshd"
+      ansible.builtin.set_fact:
+        musl_patch_sshd_containers: "{{ musl_patch_sshd_containers | default([]) + [item.item] }}"
+      loop: "{{ musl_patch_container_procs.results | default([]) }}"
+      when:
+        - item.rc == 0
+        - item.stdout is search('(^|[ /])sshd( |$)')
+      tags: ["patch-musl-ssh", "containers"]
+
+    - name: "PATCH-MUSL-SSH | Report containers running sshd"
+      ansible.builtin.debug:
+        msg: "sshd running in containers: {{ musl_patch_sshd_containers | default([]) | join(', ') }}"
+      when: musl_patch_sshd_containers | default([]) | length > 0
+      tags: ["patch-musl-ssh", "containers"]
+
+    - name: "PATCH-MUSL-SSH | Check musl (apk) inside each sshd container"
+      ansible.builtin.command:
+        cmd: "docker exec {{ item }} sh -c 'command -v apk'"
+      register: musl_patch_ctn_musl
+      changed_when: false
+      failed_when: false
+      loop: "{{ musl_patch_sshd_containers | default([]) }}"
+      tags: ["patch-musl-ssh", "containers"]
+
+    - name: "PATCH-MUSL-SSH | Warn about containers with unreadable procs"
+      ansible.builtin.debug:
+        msg: >-
+          docker top failed — cannot confirm sshd absence, inspect manually:
+          {{ musl_patch_unverified_containers | join(', ') }}
+      when: musl_patch_unverified_containers | default([]) | length > 0
+      tags: ["patch-musl-ssh", "containers", "verify"]
+
+    - name: "PATCH-MUSL-SSH | Collect musl-based sshd containers"
+      ansible.builtin.set_fact:
+        musl_patch_musl_containers: "{{ musl_patch_musl_containers | default([]) + [item.item] }}"
+      loop: "{{ musl_patch_ctn_musl.results | default([]) }}"
+      when:
+        - item.rc == 0
+        - item.stdout | length > 0
+      tags: ["patch-musl-ssh", "containers"]
+
+    - name: "PATCH-MUSL-SSH | Flag unverifiable sshd containers (no shell)"
+      ansible.builtin.set_fact:
+        musl_patch_unverified_containers: "{{ musl_patch_unverified_containers | default([]) + [item.item] }}"
+      loop: "{{ musl_patch_ctn_musl.results | default([]) }}"
+      when:
+        - item.rc != 0
+      tags: ["patch-musl-ssh", "containers", "verify"]
+
+    - name: "PATCH-MUSL-SSH | Warn about unverifiable sshd containers"
+      ansible.builtin.debug:
+        msg: >-
+          Cannot inspect (no shell) — verify libc manually; musl+no-PAM sshd
+          is exploitable: {{ musl_patch_unverified_containers | join(', ') }}
+      when: musl_patch_unverified_containers | default([]) | length > 0
+      tags: ["patch-musl-ssh", "containers", "verify"]
+
+    - name: "PATCH-MUSL-SSH | Upgrade openssh inside musl sshd containers"
+      ansible.builtin.command:
+        cmd: "docker exec {{ item }} sh -c 'apk upgrade -U -a openssh openssh-server 2>/dev/null || apk upgrade -U -a'"
+      register: musl_patch_ctn_upgrade
+      changed_when: true
+      failed_when: false
+      loop: "{{ musl_patch_musl_containers | default([]) }}"
+      tags: ["patch-musl-ssh", "containers", "remediate"]
+
+    - name: "PATCH-MUSL-SSH | Disable password auth inside musl sshd containers"
+      ansible.builtin.command:
+        cmd: >
+          docker exec {{ item }} sh -c
+          "mkdir -p /etc/ssh/sshd_config.d &&
+          printf 'PasswordAuthentication no\nKbdInteractiveAuthentication no\n' > /etc/ssh/sshd_config.d/99-disable-password-auth.conf &&
+          sed -i -E 's/^([[:space:]]*PasswordAuthentication[[:space:]]+)yes/\1no/' /etc/ssh/sshd_config 2>/dev/null || true"
+      register: musl_patch_ctn_cfg
+      changed_when: true
+      failed_when: false
+      loop: "{{ musl_patch_musl_containers | default([]) }}"
+      tags: ["patch-musl-ssh", "containers", "remediate"]
+
+    - name: "PATCH-MUSL-SSH | Restart sshd inside patched containers"
+      ansible.builtin.command:
+        cmd: >
+          docker exec {{ item }} sh -c
+          "rc-service sshd restart 2>/dev/null ||
+          service ssh restart 2>/dev/null ||
+          (pidof sshd | xargs -r kill -HUP) 2>/dev/null ||
+          pkill -HUP sshd 2>/dev/null || true"
+      changed_when: true
+      loop: "{{ musl_patch_musl_containers | default([]) }}"
+      tags: ["patch-musl-ssh", "containers", "remediate"]
+
+    - name: "PATCH-MUSL-SSH | Record patched containers"
+      ansible.builtin.set_fact:
+        musl_patch_patched_containers: "{{ musl_patch_musl_containers | default([]) }}"
+        musl_patch_rebuild_images: "{{ musl_patch_musl_containers | default([]) }}"
+      when: musl_patch_musl_containers | default([]) | length > 0
+      tags: ["patch-musl-ssh", "containers"]
+
+    - name: "PATCH-MUSL-SSH | Warn: rebuilt images still required"
+      ansible.builtin.debug:
+        msg: >-
+          In-container patch does NOT survive recreate/rebuild. Rebuild these
+          container images from a base with fixed openssh (Alpine >=3.24.4 or
+          patched 3.16-3.23 packages): {{ musl_patch_rebuild_images | join(', ') }}
+      when: musl_patch_rebuild_images | length > 0
+      tags: ["patch-musl-ssh", "containers", "verify"]
+
+    - name: "PATCH-MUSL-SSH | Verified non-musl sshd containers are safe"
+      ansible.builtin.debug:
+        msg: >-
+          sshd containers verified non-musl (no apk) — NOT affected:
+          {{ (musl_patch_sshd_containers | default([])) | difference((musl_patch_musl_containers | default([])) + (musl_patch_unverified_containers | default([]))) | join(', ') }}
+      when: (musl_patch_sshd_containers | default([]) | difference((musl_patch_musl_containers | default([])) + (musl_patch_unverified_containers | default([])))) | length > 0
+      tags: ["patch-musl-ssh", "containers", "verify"]
+
+    - name: "PATCH-MUSL-SSH | Summary"
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }}: musl={{ musl_patch_is_musl }},
+          passwordauth_was_enabled={{ musl_patch_password_auth_enabled }},
+          sshd_containers={{ musl_patch_sshd_containers | default([]) | length }},
+          musl_containers_patched={{ musl_patch_patched_containers | length }},
+          gaps={{ musl_patch_gaps | length }}
+      tags: ["patch-musl-ssh", "always"]
+
+    - name: "PATCH-MUSL-SSH | Fail on unremediated gaps"
+      ansible.builtin.fail:
+        msg: "Unremediated musl SSH gaps: {{ musl_patch_gaps | join(', ') }}"
+      when: musl_patch_gaps | length > 0
+      tags: ["patch-musl-ssh", "verify"]
+
+# ---------------------------------------------------------------------------
+# Play 2: Windows Docker hosts — container sshd scan (Windows sshd is not
+# musl; only Linux containers under Docker Desktop could be exposed)
+# ---------------------------------------------------------------------------
+- name: "Patch OpenSSH musl auth bypass — Windows container audit"
+  hosts: windows_docker_hosts
+  gather_facts: false
+  vars:
+    musl_patch_win_sshd_containers: []
+
+  tasks:
+    - name: "PATCH-MUSL-SSH | List running containers (Windows host)"
+      ansible.windows.win_shell:
+        "docker ps --format '{% raw %}{{.Names}}{% endraw %}'"
+      register: musl_patch_win_containers
+      changed_when: false
+      failed_when: false
+      tags: ["patch-musl-ssh", "containers"]
+
+    - name: "PATCH-MUSL-SSH | Scan container processes for sshd (Windows host)"
+      ansible.windows.win_shell: |
+        $found = @()
+        docker ps --format '{% raw %}{{.Names}}{% endraw %}' | ForEach-Object {
+          $procs = docker top $_ 2>$null
+          if ($procs -match '(^|\s)sshd(\s|$)') { $found += $_ }
+        }
+        $found -join "`n"
+      register: musl_patch_win_scan
+      changed_when: false
+      failed_when: false
+      tags: ["patch-musl-ssh", "containers"]
+
+    - name: "PATCH-MUSL-SSH | Report sshd containers on Windows host"
+      ansible.builtin.debug:
+        msg: >-
+          sshd containers on {{ inventory_hostname }}:
+          {{ musl_patch_win_scan.stdout_lines | default([]) | join(', ') }}.
+          Inspect each for musl (apk) and rebuild with patched openssh;
+          Windows OpenSSH itself is NOT affected.
+      when: musl_patch_win_scan.stdout | default('') | length > 0
+      tags: ["patch-musl-ssh", "containers", "verify"]

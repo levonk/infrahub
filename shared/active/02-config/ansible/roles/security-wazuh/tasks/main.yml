@@ -330,7 +330,7 @@
     DOCKER_HOST: "{{ wazuh_docker_host }}"
   delegate_to: localhost
   register: wazuh_indexer_health
-  until: wazuh_indexer_health.stdout == "{{ infra_http_status_ok }}"
+  until: wazuh_indexer_health.stdout == infra_http_status_ok
   retries: "{{ infra_retry_extended }}"
   delay: "{{ infra_delay_default }}"
   changed_when: false

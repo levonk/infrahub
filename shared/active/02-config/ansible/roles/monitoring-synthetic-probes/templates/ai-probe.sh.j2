@@ -2,31 +2,53 @@
 set -u
 
 : "${LITELLM_ENDPOINT:?LITELLM_ENDPOINT is required}"
-: "${LITELLM_API_KEY:?LITELLM_API_KEY is required}"
 TIMEOUT="${LITELLM_TIMEOUT:-30}"  # project-lint: disable=magic-int  timeout
-METRICS_DIR="${METRICS_DIR:-/var/lib/node_exporter/textfile_collector/probes}"
+MAX_TOKENS="${LITELLM_PROBE_MAX_TOKENS:-5}"  # project-lint: disable=magic-int  max tokens
+METRICS_DIR="${METRICS_DIR:-/var/lib/node_exporter/textfile_collector}"
 METRIC_FILE="${METRICS_DIR}/ai_litellm_probe.prom"
+
+mkdir -p "$METRICS_DIR"
+
+# Unconfigured key → write configured=0 only (no success metric, so the
+# critical *ProbeFailed alert stays silent; AIPipelineProbeUnconfigured fires).
+if [ -z "${LITELLM_API_KEY:-}" ]; then
+  cat > "$METRIC_FILE" <<EOF
+# HELP ai_pipeline_probe_configured Synthetic AI probe credential configured
+# TYPE ai_pipeline_probe_configured gauge
+ai_pipeline_probe_configured{probe="litellm",pipeline="ai"} 0
+EOF
+  exit 0
+fi
 
 OUTFILE=$(mktemp)
 trap 'rm -f "$OUTFILE"' EXIT
 
-PAYLOAD='{
-  "model": "gpt-4o-mini",
-  "messages": [{"role": "user", "content": "Reply with exactly: OK"}],
-  "max_tokens": 5,  # project-lint: disable=magic-int  max tokens
-  "temperature": 0  # project-lint: disable=magic-int  temperature
-}'
+PAYLOAD=$(jq -nc --argjson mt "$MAX_TOKENS" '{
+  model: "gpt-4o-mini",
+  messages: [{role: "user", content: "Reply with exactly: OK"}],
+  max_tokens: $mt,
+  temperature: 0
+}')
 
+START=$(date +%s)
 HTTP_CODE=$(curl -sS -m "$TIMEOUT" -o "$OUTFILE" -w '%{http_code}' \
   -H "Authorization: Bearer $LITELLM_API_KEY" \
   -H "Content-Type: application/json" \
   -d "$PAYLOAD" \
   "$LITELLM_ENDPOINT" 2>/dev/null) || true
+END=$(date +%s)
+DURATION=$((END - START))
 
 HTTP_CODE=${HTTP_CODE:-000}  # project-lint: disable=magic-int  default http code
 SUCCESS=0  # project-lint: disable=magic-int  success flag
+TOTAL_TOKENS=0
+PROMPT_TOKENS=0
+COMPLETION_TOKENS=0
 
 if [ "$HTTP_CODE" = "200" ]; then  # project-lint: disable=magic-int  http ok code
+  TOTAL_TOKENS=$(jq -r '.usage.total_tokens // 0' "$OUTFILE" 2>/dev/null || echo 0)
+  PROMPT_TOKENS=$(jq -r '.usage.prompt_tokens // 0' "$OUTFILE" 2>/dev/null || echo 0)
+  COMPLETION_TOKENS=$(jq -r '.usage.completion_tokens // 0' "$OUTFILE" 2>/dev/null || echo 0)
   if jq -e '
     (.usage.total_tokens != null) and
     ((.choices[0].message.content // "") | contains("OK"))
@@ -35,11 +57,25 @@ if [ "$HTTP_CODE" = "200" ]; then  # project-lint: disable=magic-int  http ok co
   fi
 fi
 
-mkdir -p "$METRICS_DIR"
 cat > "$METRIC_FILE" <<EOF
+# HELP ai_pipeline_probe_configured Synthetic AI probe credential configured
+# TYPE ai_pipeline_probe_configured gauge
+ai_pipeline_probe_configured{probe="litellm",pipeline="ai"} 1
 # HELP ai_pipeline_probe_success Synthetic AI pipeline probe result
 # TYPE ai_pipeline_probe_success gauge
 ai_pipeline_probe_success{probe="litellm",pipeline="ai"} $SUCCESS
+# HELP ai_pipeline_probe_duration_seconds Synthetic AI probe round-trip time
+# TYPE ai_pipeline_probe_duration_seconds gauge
+ai_pipeline_probe_duration_seconds{probe="litellm",pipeline="ai"} $DURATION
+# HELP ai_pipeline_probe_total_tokens Synthetic AI probe token usage
+# TYPE ai_pipeline_probe_total_tokens gauge
+ai_pipeline_probe_total_tokens{probe="litellm",pipeline="ai"} $TOTAL_TOKENS
+# HELP ai_pipeline_probe_prompt_tokens Synthetic AI probe prompt token usage
+# TYPE ai_pipeline_probe_prompt_tokens gauge
+ai_pipeline_probe_prompt_tokens{probe="litellm",pipeline="ai"} $PROMPT_TOKENS
+# HELP ai_pipeline_probe_completion_tokens Synthetic AI probe completion token usage
+# TYPE ai_pipeline_probe_completion_tokens gauge
+ai_pipeline_probe_completion_tokens{probe="litellm",pipeline="ai"} $COMPLETION_TOKENS
 EOF
 
 [ "$SUCCESS" -eq 1 ] && exit 0 || exit 1  # project-lint: disable=magic-int  exit codes

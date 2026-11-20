@@ -1,0 +1,125 @@
+---
+# Postiz — self-hosted social-media scheduling platform (nl region only)
+# All-in-one ghcr.io image (Next.js UI + NestJS API + Temporal worker on
+# container :5000) plus dedicated Postgres, Redis, Temporal auto-setup, and
+# Temporal's own Postgres on Windows Docker Desktop (dtop202311).
+# Domain: postiz.nl.{{ infra_domain_base }} — app's own auth, no Authelia
+# (provider OAuth callbacks + registration need a direct path).
+
+# Service toggles
+tools_postiz_enabled: true
+tools_postiz_verify_health: true
+# Set true AFTER creating the first account — note upstream
+# DISABLE_REGISTRATION also disables OIDC login.
+tools_postiz_disable_registration: false
+
+# Container names (reference infrastructure variables)
+tools_postiz_container_name: "{{ infra_hostname_postiz | default(infra_value_postiz_container_name) }}"
+tools_postiz_container_name_postgres: "{{ infra_hostname_postiz_postgres | default(infra_value_postiz_container_name_postgres) }}"
+tools_postiz_container_name_redis: "{{ infra_hostname_postiz_redis | default(infra_value_postiz_container_name_redis) }}"
+tools_postiz_container_name_temporal: "{{ infra_hostname_postiz_temporal | default(infra_value_postiz_container_name_temporal) }}"
+tools_postiz_container_name_temporal_postgres: "{{ infra_hostname_postiz_temporal_postgres | default(infra_value_postiz_container_name_temporal_postgres) }}"
+tools_postiz_container_name_es: "{{ infra_hostname_postiz_es | default('localnet-postiz-temporal-elasticsearch') }}"
+
+# Images — upstream all-in-one (multi-arch amd64+arm64). Upstream publishes
+# no semver tags; `latest` is the default — pin by digest to freeze.
+tools_postiz_image: "ghcr.io/gitroomhq/postiz-app"
+tools_postiz_image_tag: "latest"
+tools_postiz_postgres_image: "postgres:17-alpine"
+tools_postiz_temporal_postgres_image: "postgres:16-alpine"
+tools_postiz_redis_image: "redis:7.2-alpine"
+tools_postiz_temporal_image: "temporalio/auto-setup:1.28.1"
+tools_postiz_es_image: "elasticsearch:7.17.27"
+tools_postiz_init_image: "alpine:3"
+
+# Ports (reference infrastructure variables — required, asserted in tasks/main.yml)
+tools_postiz_host_port: "{{ infra_port_tools_postiz_host }}"
+tools_postiz_container_port: "{{ infra_port_tools_postiz_container }}"
+tools_postiz_postgres_host_port: "{{ infra_port_tools_postiz_postgres_host }}"
+tools_postiz_postgres_container_port: "{{ infra_port_tools_postiz_postgres_container }}"
+tools_postiz_temporal_postgres_host_port: "{{ infra_port_tools_postiz_temporal_postgres_host }}"
+tools_postiz_temporal_postgres_container_port: "{{ infra_port_tools_postiz_temporal_postgres_container }}"
+
+# Networks — postiz-network for app <-> postgres <-> redis;
+# postiz-temporal-network for temporal <-> temporal-postgres. The app joins
+# both plus traefik-windows-network (reference two-bridge layout).
+tools_postiz_network_name: "{{ infra_network_tools_postiz_network_name | default('postiz-network') }}"
+tools_postiz_temporal_network_name: "{{ infra_network_tools_postiz_temporal_network_name | default('postiz-temporal-network') }}"
+tools_postiz_traefik_network_name: "{{ proxy_traefik_windows_network_name | default('traefik-windows-network') }}"
+
+# Domain (reference infrastructure variable)
+tools_postiz_domain: "{{ infra_domain_tools_postiz | default('postiz.nl.' ~ (infra_domain_base | default(infra_value_postiz_domain))) }}"
+tools_postiz_url: "https://{{ tools_postiz_domain }}"
+
+# Volumes (reference infrastructure variables)
+tools_postiz_uploads_volume: "{{ infra_storage_postiz_uploads_volume }}"
+tools_postiz_postgres_volume: "{{ infra_storage_postiz_postgres_data_volume }}"
+tools_postiz_redis_volume: "{{ infra_storage_postiz_redis_data_volume }}"
+tools_postiz_temporal_postgres_volume: "{{ infra_storage_postiz_temporal_postgres_data_volume }}"
+tools_postiz_temporal_dynamicconfig_volume: "{{ infra_storage_postiz_temporal_dynamicconfig_volume }}"
+tools_postiz_es_volume: "{{ infra_storage_postiz_es_data_volume | default('localnet-postiz-temporal-es-data-volume') }}"
+
+# Postgres credentials — passwords come from the vault (user handoff).
+tools_postiz_postgres_user: "postiz"
+tools_postiz_postgres_db: "postiz"
+tools_postiz_postgres_password: "{{ vault_postiz_postgres_password | default(infra_value_postiz_postgres_password) }}"
+tools_postiz_temporal_postgres_user: "temporal"
+tools_postiz_temporal_postgres_db: "temporal"
+tools_postiz_temporal_postgres_password: "{{ vault_postiz_temporal_postgres_password | default(infra_value_postiz_temporal_postgres_password) }}"
+
+# App secrets — JWT signing secret + token encryption key (ENCRYPTION_PROVIDER
+# local keeps provider OAuth tokens encrypted at rest; plaintext is the
+# upstream default). Both asserted non-empty in tasks/main.yml.
+# NOTE: ENCRYPTION_KEY is base64-decoded by the app and must decode to
+# exactly 32 bytes — use `openssl rand -base64 32`. Any other decoded
+# length makes the orchestrator exit on boot.
+tools_postiz_jwt_secret: "{{ vault_postiz_jwt_secret | default(infra_value_postiz_jwt_secret) }}"
+tools_postiz_encryption_key: "{{ vault_postiz_encryption_key | default(infra_value_postiz_encryption_key) }}"
+
+# Container-to-container DSN — postgres container name + CONTAINER port on
+# postiz-network; never the published host port (tailnet debugging only).
+tools_postiz_database_url: "postgresql://{{ tools_postiz_postgres_user }}:{{ tools_postiz_postgres_password }}@{{ tools_postiz_container_name_postgres }}:{{ tools_postiz_postgres_container_port }}/{{ tools_postiz_postgres_db }}"
+tools_postiz_redis_url: "redis://{{ tools_postiz_container_name_redis }}:6379"
+tools_postiz_temporal_address: "{{ tools_postiz_container_name_temporal }}:7233"
+
+# Docker host for Windows deployment (ssh-tunneled)
+# community.docker modules can't run on Windows (Ansible core basic.py imports
+# grp, Unix-only). We delegate_to: localhost and connect to the Windows Docker
+# daemon via ssh://. Requires SSH config entry for the Windows host.
+tools_postiz_docker_host: "ssh://ansible@{{ infra_tailscale_fqdn_windows_docker | default('dtop202311.' ~ (infra_tailscale_tailnet | default(infra_value_postiz_docker_host_windows))) }}"
+
+# Timezone
+tools_postiz_tz: "{{ localnet_tz | default(infra_value_postiz_tz) }}"
+
+# Healthchecks — MUST use strings with unit suffix, NOT bare integers.
+# The app is slow to boot (Next.js + NestJS + worker); keep start_period 120s.
+tools_postiz_healthcheck_interval: "30s"
+tools_postiz_healthcheck_timeout: "10s"
+tools_postiz_healthcheck_retries: 3
+tools_postiz_healthcheck_start_period: "120s"
+tools_postiz_postgres_healthcheck_interval: "10s"
+tools_postiz_postgres_healthcheck_timeout: "5s"
+tools_postiz_postgres_healthcheck_retries: 10
+tools_postiz_postgres_healthcheck_start_period: "10s"
+tools_postiz_redis_healthcheck_interval: "10s"
+tools_postiz_redis_healthcheck_timeout: "5s"
+tools_postiz_redis_healthcheck_retries: 10
+tools_postiz_redis_healthcheck_start_period: "10s"
+tools_postiz_temporal_healthcheck_interval: "15s"
+tools_postiz_temporal_healthcheck_timeout: "10s"
+tools_postiz_temporal_healthcheck_retries: 12
+tools_postiz_temporal_healthcheck_start_period: "60s"
+tools_postiz_es_healthcheck_interval: "10s"
+tools_postiz_es_healthcheck_timeout: "5s"
+tools_postiz_es_healthcheck_retries: 12
+tools_postiz_es_healthcheck_start_period: "60s"
+
+# Wait budgets — temporal auto-setup (schema + search attributes) takes ~3min
+# on first boot; the app runs Prisma migrations before serving. Both exceed
+# infra_retry_extended × infra_delay_default (150s), so they get their own.
+tools_postiz_temporal_health_wait_retries: 90
+tools_postiz_app_health_wait_retries: 60
+
+# Logging
+tools_postiz_log_max_size: "10m"
+tools_postiz_log_max_file: "5"

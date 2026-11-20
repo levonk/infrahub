@@ -803,6 +803,10 @@ process.on("exit", () => {
   tunnelProcess?.kill();
 });
 
+// Disable the 300s request timeout so multi-GB movie uploads on slow
+// uplinks are not killed mid-upload (Node >=18 default is 300000 ms).
+server.requestTimeout = 0;
+
 server.listen(PORT, "0.0.0.0", () => {
   const urls = [`http://localhost:${PORT}`, ...getLanIps().map((ip) => `http://${ip}:${PORT}`)];
   console.log(`Local Watch Party server is running:\n${urls.map((url) => `  ${url}`).join("\n")}`);

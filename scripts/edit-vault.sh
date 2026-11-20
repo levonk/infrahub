@@ -57,6 +57,34 @@ esac
 
 VAULT_FILE="${2:-$DEFAULT_VAULT}"
 
+# Vault files live inside git submodules (e.g. `levonk`), which Orca
+# worktrees and fresh clones may not have checked out (`git submodule
+# status` shows `-`). Auto-init the owning submodule when the target path
+# is inside the repo — BEFORE path resolution below, since the vault dir
+# doesn't exist until the submodule is populated.
+VAULT_ABS="$VAULT_FILE"
+case "$VAULT_ABS" in
+    /*) ;;
+    *)  VAULT_ABS="$PWD/$VAULT_FILE" ;;
+esac
+if [ "$ACTION" != "create" ] && [ ! -f "$VAULT_ABS" ]; then
+    case "$VAULT_ABS" in
+        "$REPO_ROOT"/*)
+            rel="${VAULT_ABS#"$REPO_ROOT"/}"
+            top="$(printf '%s' "$rel" | cut -d/ -f1)"
+            sub_path="$(git -C "$REPO_ROOT" config -f .gitmodules --get "submodule.$top.path" 2>/dev/null || true)"
+            if [ -n "$sub_path" ]; then
+                case "$VAULT_ABS" in
+                    "$REPO_ROOT/$sub_path"/*|"$REPO_ROOT/$sub_path")
+                        echo "Vault file missing — initializing submodule '$top'..." >&2
+                        git -C "$REPO_ROOT" submodule update --init "$top"
+                        ;;
+                esac
+            fi
+            ;;
+    esac
+fi
+
 # Resolve to an absolute path (portable; no realpath/readlink -f on macOS).
 case "$VAULT_FILE" in
     /*) ;;

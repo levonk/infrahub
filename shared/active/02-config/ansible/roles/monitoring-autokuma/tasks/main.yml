@@ -1,0 +1,100 @@
+---
+# AutoKuma deployment — provisions Uptime Kuma monitors from the services.yml
+# catalog via static monitor files (Files source; Docker label source disabled).
+
+# ============================================================================
+# Validate required variables
+# ============================================================================
+- name: Validate required variables are defined
+  ansible.builtin.assert:
+    that:
+      - monitoring_autokuma_container_name is defined
+      - monitoring_autokuma_image_name is defined
+      - monitoring_autokuma_image_tag is defined
+      - monitoring_autokuma_network is defined
+      - monitoring_autokuma_kuma_url is defined
+      - monitoring_autokuma_config_dir is defined
+    fail_msg: >-
+      Missing required variables for monitoring-autokuma.
+      Check infrastructure vars (domains, networks, storage).
+    success_msg: "All required monitoring-autokuma variables are defined."
+  tags: ["always", "validate"]
+
+- name: Check Uptime Kuma admin credentials are available
+  ansible.builtin.set_fact:
+    monitoring_autokuma_credentials_ready: >-
+      {{ (monitoring_autokuma_kuma_username | default('') | length > 0)
+         and (monitoring_autokuma_kuma_password | default('') | length > 0) }}
+  tags: ["always", "validate"]
+
+- name: Warn when Kuma credentials are not configured
+  ansible.builtin.debug:
+    msg: >-
+      vault_uptime_kuma_admin_user / vault_uptime_kuma_admin_password are not
+      set — AutoKuma container will be deployed but cannot log in to Uptime
+      Kuma until the credentials are added to the client vault.
+  when: not monitoring_autokuma_credentials_ready
+  tags: ["always", "validate"]
+
+# ============================================================================
+# Config directory + rendered static monitor files
+# ============================================================================
+- name: Ensure AutoKuma static monitors directory exists on host
+  ansible.builtin.file:
+    path: "{{ monitoring_autokuma_config_dir }}/static-monitors"
+    state: directory
+    mode: "{{ infra_mode_dir }}"
+
+- name: Render catalog monitor definitions (one file per machine)
+  ansible.builtin.template:
+    src: monitors.json.j2
+    dest: "{{ monitoring_autokuma_config_dir }}/static-monitors/{{ item | regex_replace('[^a-z0-9]+', '-') }}.json"
+    mode: "{{ infra_mode_file }}"
+  loop:
+    - oci-cloud-server
+    - dtop202311
+    - kckinai
+    - isolation-vm
+  vars:
+    monitor_group_machine: "{{ item }}"
+  notify: restart monitoring-autokuma
+  tags: ["deploy", "monitoring", "autokuma"]
+
+# ============================================================================
+# Image pull
+# ============================================================================
+- name: Pull AutoKuma image
+  community.docker.docker_image:
+    name: "{{ monitoring_autokuma_image_name }}:{{ monitoring_autokuma_image_tag }}"
+    source: pull
+    state: present
+  notify: restart monitoring-autokuma
+
+# ============================================================================
+# Container deployment
+# ============================================================================
+- name: Deploy AutoKuma container
+  community.docker.docker_container:
+    name: "{{ monitoring_autokuma_container_name }}"
+    image: "{{ monitoring_autokuma_image_name }}:{{ monitoring_autokuma_image_tag }}"
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ monitoring_autokuma_network }}"
+    volumes:
+      - "{{ monitoring_autokuma_config_dir }}/static-monitors:/config/static-monitors:ro"
+    env:
+      AUTOKUMA__KUMA__URL: "{{ monitoring_autokuma_kuma_url }}"
+      AUTOKUMA__KUMA__USERNAME: "{{ monitoring_autokuma_kuma_username }}"
+      AUTOKUMA__KUMA__PASSWORD: "{{ monitoring_autokuma_kuma_password }}"
+      AUTOKUMA__STATIC_MONITORS: "/config/static-monitors"
+      AUTOKUMA__DOCKER__ENABLED: "false"
+      AUTOKUMA__TAG_NAME: "infrahub"
+      TZ: "{{ localnet_tz | default('UTC') }}"
+    log_driver: json-file
+    log_options:
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "{{ infra_log_max_file }}"
+  notify: restart monitoring-autokuma
+  no_log: "{{ true | bool }}"  # env contains Kuma admin password
+  tags: ["deploy", "monitoring", "autokuma"]

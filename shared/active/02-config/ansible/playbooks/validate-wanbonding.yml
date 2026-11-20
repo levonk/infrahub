@@ -1,0 +1,270 @@
+---
+# Validate WAN Bonding Endpoint — bonding-vm on oci-cloud-server
+# Location: shared/active/02-config/ansible/playbooks/validate-wanbonding.yml
+#
+# Read-only post-deployment checks for deploy-wanbonding.yml. Does NOT fail
+# fast — collects results into validation_results and summarises.
+#
+# Checks (host): bonding-vm defined+running in libvirt, DHCP reservation,
+#   WAN port DNAT rules present (firewalld rich rules / nftables).
+# Checks (guest): net.mptcp.enabled==1, `ip mptcp` limits applied, shadowsocks
+#   TCP listener, glorytun tunnel device + peer state, containers running,
+#   guest nftables active.
+#
+# Usage:
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml \
+#     shared/active/02-config/ansible/playbooks/validate-wanbonding.yml \
+#     --vault-password-file ~/.ansible/vault_password
+
+# ===========================================================================
+# Host-side checks (cloud_servers)
+# ===========================================================================
+- name: "Validate bonding-vm provisioning on the KVM host"
+  hosts: cloud_servers
+  become: true
+  gather_facts: true
+
+  vars:
+    validation_results: []
+    # Role defaults are not loaded in a plain play — mirror the values this
+    # play needs (kept in sync with roles/net-wanbonding/defaults/main.yml).
+    wanbonding_vm_name: "bonding-vm"
+    wanbonding_vm_ip_address: "{{ infra_network_kvm_bonding_vm_ip }}"
+    wanbonding_vm_nat_bridge: "{{ infra_network_kvm_nat_bridge_name }}"
+    wanbonding_host_firewall_type: "{{ cloud_server_firewall_type | default(infra_value_proxy_firewall_type | default('firewalld')) }}"
+    wanbonding_host_dnat_zone: "public"
+    wanbonding_glorytun_tcp_enabled: false
+    wanbonding_host_forward_ports:
+      - proto: tcp
+        port: "{{ infra_port_net_wanbonding_shadowsocks_host }}"
+      - proto: udp
+        port: "{{ infra_port_net_wanbonding_glorytun_udp_host }}"
+      - proto: tcp
+        port: "{{ infra_port_net_wanbonding_glorytun_tcp_host }}"
+        enabled: "{{ wanbonding_glorytun_tcp_enabled }}"
+
+  pre_tasks:
+    - name: "Load shared infrastructure schemas"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/{{ item }}"
+      loop:
+        - modes.yml
+        - timing.yml
+        - values.yml
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+      tags: ["always"]
+
+    - name: "Load client infrastructure overrides (levonk)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+      tags: ["always"]
+
+  tasks:
+    - name: "bonding-vm is defined and running"
+      ansible.builtin.command:
+        cmd: "virsh domstate {{ wanbonding_vm_name }}"
+      register: wanbonding_host_vm_state
+      changed_when: false
+      failed_when: false
+      tags: ["validate", "wanbonding"]
+
+    - name: "Record VM state check"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results + [{'check': 'bonding-vm running', 'ok': 'running' in (wanbonding_host_vm_state.stdout | default(''))}] }}"
+      tags: ["validate", "wanbonding"]
+
+    - name: "DHCP reservation present for bonding-vm"
+      ansible.builtin.command:
+        cmd: "virsh net-dumpxml {{ wanbonding_vm_nat_bridge }}"
+      register: wanbonding_host_dhcp
+      changed_when: false
+      failed_when: false
+      tags: ["validate", "wanbonding"]
+
+    - name: "Record DHCP reservation check"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results + [{'check': 'DHCP reservation for ' ~ wanbonding_vm_ip_address, 'ok': wanbonding_vm_ip_address in (wanbonding_host_dhcp.stdout | default(''))}] }}"
+      tags: ["validate", "wanbonding"]
+
+    - name: "WAN port DNAT rules present (firewalld)"
+      ansible.builtin.command:
+        cmd: "firewall-cmd --zone={{ wanbonding_host_dnat_zone }} --list-rich-rules"
+      register: wanbonding_host_rich
+      changed_when: false
+      failed_when: false
+      when: wanbonding_host_firewall_type == "firewalld"
+      tags: ["validate", "wanbonding"]
+
+    - name: "Record DNAT checks (firewalld)"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results + [{'check': 'DNAT ' ~ item.proto ~ '/' ~ item.port ~ ' → ' ~ wanbonding_vm_ip_address, 'ok': (item.proto ~ '=' ~ item.port) in (wanbonding_host_rich.stdout | default('')) or (item.port ~ ' protocol=' ~ item.proto) in (wanbonding_host_rich.stdout | default(''))}] }}"
+      loop: "{{ wanbonding_host_forward_ports }}"
+      when:
+        - wanbonding_host_firewall_type == "firewalld"
+        - (item.enabled | default(true)) | bool
+      tags: ["validate", "wanbonding"]
+
+    - name: "Host-side validation summary"
+      ansible.builtin.debug:
+        msg: "{{ item.check }}: {{ 'OK' if item.ok else 'FAIL' }}"
+      loop: "{{ validation_results }}"
+      tags: ["validate", "wanbonding", "report"]
+
+# ===========================================================================
+# Guest-side checks (bonding-vm)
+# ===========================================================================
+- name: "Validate WAN bonding endpoint inside bonding-vm"
+  hosts: wanbonding_vms
+  become: true
+  gather_facts: true
+
+  vars:
+    validation_results: []
+    # Role defaults are not loaded in a plain play — mirror the values this
+    # play needs (kept in sync with roles/net-wanbonding/defaults/main.yml).
+    wanbonding_mptcp_subflow_limit: "8"
+    wanbonding_shadowsocks_enabled: true
+    wanbonding_shadowsocks_port: "{{ infra_port_net_wanbonding_shadowsocks_host }}"
+    wanbonding_shadowsocks_container_name: "wanbonding-shadowsocks"
+    wanbonding_glorytun_variant: "udp"
+    wanbonding_glorytun_udp_enabled: true
+    wanbonding_glorytun_udp_dev: "gt-udp0"
+    wanbonding_glorytun_udp_port: "{{ infra_port_net_wanbonding_glorytun_udp_host }}"
+    wanbonding_glorytun_udp_container_name: "wanbonding-glorytun-udp"
+    wanbonding_glorytun_tcp_enabled: false
+    wanbonding_glorytun_tcp_port: "{{ infra_port_net_wanbonding_glorytun_tcp_host }}"
+    wanbonding_glorytun_tcp_container_name: "wanbonding-glorytun-tcp"
+
+  pre_tasks:
+    - name: "Load shared infrastructure schemas"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/{{ item }}"
+      loop:
+        - modes.yml
+        - timing.yml
+        - values.yml
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+      tags: ["always"]
+
+    - name: "Load client infrastructure overrides (levonk)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/{{ item }}"
+      loop:
+        - ports.yml
+        - networks.yml
+        - domains.yml
+        - storage.yml
+      tags: ["always"]
+
+  tasks:
+    - name: "net.mptcp.enabled == 1"
+      ansible.builtin.command:
+        cmd: "sysctl -n net.mptcp.enabled"
+      register: wanbonding_val_mptcp
+      changed_when: false
+      failed_when: false
+      tags: ["validate", "wanbonding"]
+
+    - name: "Record MPTCP sysctl check"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results + [{'check': 'net.mptcp.enabled == 1', 'ok': (wanbonding_val_mptcp.stdout | default('0') | trim) == '1'}] }}"
+      tags: ["validate", "wanbonding"]
+
+    - name: "MPTCP limits applied"
+      ansible.builtin.command:
+        cmd: "ip mptcp limits show"
+      register: wanbonding_val_mptcp_limits
+      changed_when: false
+      failed_when: false
+      tags: ["validate", "wanbonding"]
+
+    - name: "Record MPTCP limits check"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results + [{'check': 'ip mptcp limits applied', 'ok': ('subflow ' ~ (wanbonding_mptcp_subflow_limit | default('8'))) in (wanbonding_val_mptcp_limits.stdout | default(''))}] }}"
+      tags: ["validate", "wanbonding"]
+
+    - name: "shadowsocks TCP listener present"
+      ansible.builtin.command:
+        cmd: "ss -ltn"
+      register: wanbonding_val_ss
+      changed_when: false
+      failed_when: false
+      tags: ["validate", "wanbonding"]
+
+    - name: "Record shadowsocks listener check"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results + [{'check': 'ss-server listening on ' ~ wanbonding_shadowsocks_port ~ '/tcp', 'ok': ':' ~ wanbonding_shadowsocks_port ~ ' ' in (wanbonding_val_ss.stdout | default(''))}] }}"
+      when: wanbonding_shadowsocks_enabled | bool
+      tags: ["validate", "wanbonding"]
+
+    - name: "glorytun UDP tunnel device present"
+      ansible.builtin.command:
+        cmd: "ip -o link show dev {{ wanbonding_glorytun_udp_dev }}"
+      register: wanbonding_val_gt_udp
+      changed_when: false
+      failed_when: false
+      when: wanbonding_glorytun_udp_enabled | bool and wanbonding_glorytun_variant == "udp"
+      tags: ["validate", "wanbonding"]
+
+    - name: "glorytun UDP session state (inside container)"
+      ansible.builtin.command:
+        cmd: "docker exec {{ wanbonding_glorytun_udp_container_name }} glorytun show dev {{ wanbonding_glorytun_udp_dev }}"
+      register: wanbonding_val_gt_udp_state
+      changed_when: false
+      failed_when: false
+      when: wanbonding_glorytun_udp_enabled | bool and wanbonding_glorytun_variant == "udp"
+      tags: ["validate", "wanbonding"]
+
+    - name: "Record glorytun UDP check"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results + [{'check': 'glorytun-udp tunnel on ' ~ wanbonding_glorytun_udp_dev, 'ok': ((wanbonding_val_gt_udp.rc | default(1)) == 0) and ((wanbonding_val_gt_udp_state.rc | default(1)) == 0)}] }}"
+      when: wanbonding_glorytun_udp_enabled | bool and wanbonding_glorytun_variant == "udp"
+      tags: ["validate", "wanbonding"]
+
+    - name: "wanbonding containers running"
+      community.docker.docker_container_info:
+        name: "{{ item }}"
+      register: wanbonding_val_containers
+      loop: >-
+        {{ ([wanbonding_shadowsocks_container_name] if wanbonding_shadowsocks_enabled | bool else [])
+           + ([wanbonding_glorytun_udp_container_name] if (wanbonding_glorytun_udp_enabled | bool and wanbonding_glorytun_variant == 'udp') else [])
+           + ([wanbonding_glorytun_tcp_container_name] if (wanbonding_glorytun_tcp_enabled | bool and wanbonding_glorytun_variant == 'tcp') else []) }}
+      failed_when: false
+      tags: ["validate", "wanbonding"]
+
+    - name: "Record container checks"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results + [{'check': 'container ' ~ item.name, 'ok': (item.container.State.Status | default('')) == 'running'}] }}"
+      loop: "{{ wanbonding_val_containers.results | default([]) }}"
+      tags: ["validate", "wanbonding"]
+
+    - name: "guest nftables active"
+      ansible.builtin.systemd:
+        name: nftables
+        state: started
+      check_mode: true
+      register: wanbonding_val_nft
+      failed_when: false
+      tags: ["validate", "wanbonding"]
+
+    - name: "Record nftables check"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results + [{'check': 'nftables service active', 'ok': wanbonding_val_nft is succeeded}] }}"
+      tags: ["validate", "wanbonding"]
+
+    - name: "Guest-side validation summary"
+      ansible.builtin.debug:
+        msg: "{{ item.check }}: {{ 'OK' if item.ok else 'FAIL' }}"
+      loop: "{{ validation_results }}"
+      tags: ["validate", "wanbonding", "report"]

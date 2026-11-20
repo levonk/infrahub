@@ -1,0 +1,64 @@
+{# Derives monitoring probe targets from services.yml. Rendered to YAML, parsed
+   back via from_yaml in tasks/main.yml. See tasks/main.yml for field docs. #}
+{% set ns = namespace(probes=[], skipped=[]) %}
+{% for svc in services | default([]) %}
+{%   set p = svc.probe | default({}) %}
+{%   if p.skip | default(false) %}
+{%     set _ = ns.skipped.append(svc.name) %}
+{%   else %}
+{%     set category = svc.category | default('') %}
+{%     set machine = svc.machine | default('oci-cloud-server') %}
+{%     set pipeline = p.pipeline | default(svc.pipeline | default('none')) %}
+{%     set stage = p.stage | default(svc.pipeline_stage | default((svc.alert_labels | default({})).stage | default('standalone'))) %}
+{%     set sname = p.service | default((svc.alert_labels | default({})).service | default(svc.name | lower | regex_replace('[^a-z0-9]+', '-') | regex_replace('^-+|-+$', ''))) %}
+{%     set httpish = category in ['ui', 'api', 'console', 'ai', 'tools', 'search'] or svc.health_endpoint is defined %}
+{%     set ptype = p.type | default('http' if httpish else 'tcp') %}
+{%     set target = p.target | default('') %}
+{%     set ports = svc.ports | default([]) %}
+{%     set hostvar = (ports | selectattr('host', 'defined') | map(attribute='host') | list | first) | default('') %}
+{%     set contvar = (ports | selectattr('container', 'defined') | map(attribute='container') | list | first) | default('') %}
+{%     set hport = lookup('vars', hostvar, default='') if hostvar else '' %}
+{%     set cport = lookup('vars', contvar, default='') if contvar else '' %}
+{%     set container = svc.container | default('') %}
+{%     if not target %}
+{%       if machine == 'oci-cloud-server' %}
+{%         if hport %}
+{%           set target = 'host.docker.internal:' ~ hport %}
+{%         elif cport and container and '*' not in container %}
+{%           set target = container ~ ':' ~ cport %}
+{%         endif %}
+{%       elif machine == 'dtop202311' and hport %}
+{%         set target = infra_tailscale_ip_windows_docker | default('') ~ ':' ~ hport %}
+{%       elif machine == 'kckinai' and hport %}
+{%         set target = infra_tailscale_ip_inference_host | default(infra_tailscale_fqdn_inference_host | default('')) ~ ':' ~ hport %}
+{%       endif %}
+{%     endif %}
+{%     if not target or target.startswith(':') %}
+{%       set _ = ns.skipped.append(svc.name) %}
+{%     else %}
+{%       set path = p.path | default(svc.health_endpoint | default('')) %}
+{%       set fullurl = p.url | default('') %}
+{%       if fullurl %}
+{%         set target = fullurl | regex_replace('^https?://', '') | regex_replace('/.*$', '') %}
+{%       endif %}
+{%       set host = target.split(':')[0] %}
+{%       set port = target.split(':')[-1] %}
+{%       set entry = {
+           'name': svc.name,
+           'service': sname,
+           'pipeline': pipeline,
+           'stage': stage,
+           'machine': machine,
+           'type': ptype,
+           'target': target,
+           'hostname': host,
+           'port': port,
+           'path': path,
+           'url': fullurl if fullurl else ('http://' ~ target ~ (path | default(''))),
+           'network': svc.network | default('')
+         } %}
+{%       set _ = ns.probes.append(entry) %}
+{%     endif %}
+{%   endif %}
+{% endfor %}
+{{ ns.probes | to_nice_yaml }}

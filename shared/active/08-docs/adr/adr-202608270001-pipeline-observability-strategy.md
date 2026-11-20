@@ -7,11 +7,11 @@ url: "https://github.com/levonk/infrahub/blob/main/shared/active/08-docs/adr/adr
 synopsis: "Topology-aware monitoring across AI, DNS, Web, and VPN/egress pipelines with Alertmanager inhibition to surface root-cause failures and suppress downstream alert storms. Per-client monitoring instances. Includes synthetic OpenAI-compatible API probes for AI pipeline end-to-end validation."
 author: "https://github.com/levonk"
 date-created: "2026-08-27"
-date-updated: "2026-08-27"
+date-updated: "2026-10-13"
 date-review: "2026-12-27"
-date-triggers: ["2026-08-27"]
-version: "1.0.0"
-status: "proposed"
+date-triggers: ["2026-08-27", "2026-10-13"]
+version: "1.1.0"
+status: "accepted"
 aliases: []
 tags: [doc/architecture/adr, observability, monitoring, alerting, alertmanager, prometheus, loki, grafana]
 supersedes: []
@@ -112,7 +112,15 @@ Each pipeline is modeled as a directed graph. Edges represent "depends on" relat
 
 #### 2.1 AI Pipeline
 
-The AI pipeline starts at **Omnigent** (the entry point where users/agents interact) and flows downstream through the chain to NordVPN (egress to the internet). Each node is monitored individually. The root cause is the **deepest failing node** — the first broken link when walking the chain from Omnigent downward. Only that node alerts; everything downstream of it (which is also broken, as a symptom) and everything upstream of it (which is up but can't complete work) is suppressed by Alertmanager inhibition.
+**Topology source of truth**: [`shared/docs/pipelines/ai/PIPELINE-AI.md`](../../docs/pipelines/ai/PIPELINE-AI.md). This section describes *monitoring* of the implemented chain only — the pipeline document owns the topology and must not be duplicated or drifted from here. As of PIPELINE-AI.md (2026-09-03 revision), the implemented request chain is:
+
+```
+Omnigent → Pi → LiteLLM → Headroom → OmniRoute → Iron-Proxy → Internet
+```
+
+Forge (Phase 2), Privacy Orchestrator (Phase 5), and NordVPN-chained egress (Phase 3) are **deployed but deferred** — they exist as containers in `services.yml` but are not members of the request chain. They are monitored as AI *support* nodes (warning severity), not chain members. Langfuse is a parallel observability sink, treg is the tool-call branch, and the Postgres/Redis stores are datastore dependencies.
+
+The AI pipeline starts at **Omnigent** (the entry point where users/agents interact) and flows downstream through the chain to the internet egress. Each node is monitored individually. The root cause is the **deepest failing node** — the first broken link when walking the chain from Omnigent downward. Only that node alerts; everything downstream of it (which is also broken, as a symptom) and everything upstream of it (which is up but can't complete work) is suppressed by Alertmanager inhibition.
 
 ```
 ENTRY POINT
@@ -121,41 +129,39 @@ ENTRY POINT
 Omnigent ──depends on──> Pi ──depends on──> LiteLLM ──depends on──> Headroom
     │                                                                      │
     │                                                                      ▼
-    │                                                                  OmniRoute ──depends on──> Forge
-    │                                                                                               │
-    │                                                                                               ▼
-    │                                                                                          Iron-Proxy
-    │                                                                                               │
-    │                                                                                               ▼
-    │                                                                                          NordVPN (egress)
-    │                                                                                               │
-    │                                                                                               ▼
-    │                                                                                          Internet / LLM Provider
+    │                                                                  OmniRoute
+    │                                                                      │
+    │                                                                      ▼
+    │                                                                  Iron-Proxy
+    │                                                                      │
+    │                                                                      ▼
+    │                                                          Internet / LLM Provider
+    │                                                                  (NordVPN optional)
     │
     ▼
-Supporting services:
-  LiteLLM ──depends on──> LiteLLM Postgres
-  LiteLLM ──depends on──> LiteLLM Redis
+Supporting services (deployed, monitored, not chain members):
+  Pi ──depends on──> treg (tool-call path, parallel to LLM requests)
+  LiteLLM ──depends on──> LiteLLM Postgres, LiteLLM Redis
+  LiteLLM ──traces──> Langfuse Web ──depends on──> Langfuse Postgres, ClickHouse, Redis, MinIO, Worker
   Omnigent ──depends on──> Omnigent Postgres
-  Langfuse Web ──depends on──> Langfuse Postgres, ClickHouse, Redis, MinIO, Worker
-  All AI services ──depends on──> Traefik (ingress)
-  All AI services ──depends on──> Authelia (auth)
-  All AI services ──depends on──> DNS Pipeline (resolution)
+  Forge (Phase 2), Privacy Orchestrator (Phase 5) — deployed support nodes
+  All AI services ──depends on──> Traefik (ingress), Authelia (auth), DNS Pipeline
 ```
 
 **Per-node monitoring** (each node has its own health check, metrics, and alert rules):
 
 | Stage | Node | Monitoring checks | Alert name | Labels |
 |---|---|---|---|---|
-| `agent` | Omnigent | Container health, `/health` endpoint, Omnigent Postgres connectivity, active session count | `OmnigentDown` | `pipeline=ai, stage=agent, service=omnigent` |
-| `agent` | Pi | Container health, RPC endpoint responsiveness, Omnigent runner connectivity | `PiDown` | `pipeline=ai, stage=agent, service=pi` |
-| `gateway` | LiteLLM | Container health, `/health` endpoint, `/v1/models` responds, Postgres + Redis connectivity, proxy throughput metrics | `LiteLLMDown` | `pipeline=ai, stage=gateway, service=litellm` |
-| `compression` | Headroom | Container health, API endpoint responds, request latency | `HeadroomDown` | `pipeline=ai, stage=compression, service=headroom` |
-| `routing` | OmniRoute | Container health, API endpoint responds, tier-fallback metrics, free-tier drain status | `OmniRouteDown` | `pipeline=ai, stage=routing, service=omniroute` |
-| `forge` | Forge | Container health, API endpoint responds, tool-call success rate | `ForgeDown` | `pipeline=ai, stage=forge, service=forge` |
-| `iron-proxy` | Iron-Proxy | Container health, HTTP/HTTPS proxy responds, upstream connectivity | `IronProxyDown` | `pipeline=ai, stage=iron-proxy, service=iron-proxy` |
-| `egress` | NordVPN | Container health, WireGuard handshake, SOCKS/HTTP proxy responds, public IP changed (exit IP validation) | `NordVPNEgressDown` | `pipeline=ai, stage=egress, service=nordvpn` |
-| `synthetic-probe` | (probe script) | End-to-end OpenAI-compatible API request with token-count validation (see §4.1) | `AIPipelineSyntheticProbeFailed` | `pipeline=ai, stage=synthetic-probe` |
+| `agent` | Omnigent | blackbox HTTP probe `/health` | `OmnigentDown` | `pipeline=ai, stage=agent, service=omnigent` |
+| `agent` | Pi | blackbox TCP probe of RPC port | `PiDown` | `pipeline=ai, stage=agent, service=pi` |
+| `gateway` | LiteLLM | native `/metrics` scrape + blackbox `/health` probe | `LiteLLMDown` | `pipeline=ai, stage=gateway, service=litellm` |
+| `compression` | Headroom | blackbox HTTP probe `/health` | `HeadroomDown` | `pipeline=ai, stage=compression, service=headroom` |
+| `routing` | OmniRoute | blackbox HTTP probe `/api/health` | `OmniRouteDown` | `pipeline=ai, stage=routing, service=omniroute` |
+| `forge` | Forge *(deployed-deferred)* | blackbox HTTP probe `/health` | `ForgeDown` (warning) | `pipeline=ai, stage=forge, service=forge` |
+| `privacy` | Privacy Orchestrator *(deployed-deferred)* | blackbox HTTP probe `/health` | `PrivacyOrchestratorDown` (warning) | `pipeline=ai, stage=privacy, service=privacy-orchestrator` |
+| `iron-proxy` | Iron-Proxy | blackbox TCP probe of HTTP proxy port | `IronProxyDown` | `pipeline=ai, stage=iron-proxy, service=iron-proxy` |
+| `egress` | NordVPN *(optional egress)* | blackbox TCP probe of SOCKS port | `NordVPNEgressDown` | `pipeline=ai, stage=egress, service=nordvpn` |
+| `synthetic-probe` | (probe scripts) | End-to-end OpenAI-compatible API request with token-count validation (see §4.1) | `AIPipelineSyntheticProbeFailed`, `AIPipelineGatewayProbeFailed` | `pipeline=ai, stage=synthetic-probe` |
 
 **Root-cause identification logic** (walk the chain from Omnigent downward):
 
@@ -267,6 +273,31 @@ All pipelines ──depend on──> Egress layer
 | `synthetic-probe` | (probe script) | Per-egress IP validation (see §4.4) | `VPNEgressSyntheticProbeFailed` | `pipeline=vpn, stage=synthetic-probe` |
 
 **Root-cause identification**: Tailscale is the mesh layer — if it's down, all cross-cluster communication fails. Alert on Tailscale at highest priority and suppress all cross-cluster-dependent alerts. Each egress option (NordVPN, Tor, WireGuard, host-direct) is independent — if NordVPN is down, only services routing through NordVPN should alert; Tor/WireGuard/host-direct are unaffected. The synthetic probe checks each egress independently and labels which one failed.
+
+#### 2.5 Service Catalog Coverage (all services)
+
+Pipeline-specific per-node monitoring covers the named chain members. **Every** service in `shared/active/02-config/ansible/infrastructure/services.yml` — across `oci-cloud-server`, `dtop202311`, `kckinai`, and `isolation-vm` — additionally gets availability coverage, generated automatically from the catalog by the `monitoring-catalog` role:
+
+| Coverage | Mechanism | Selection rule |
+|---|---|---|
+| **Blackbox HTTP probe** | Prometheus `blackbox_http` job (`module: http_up`) | service has `metrics_path`/`health_endpoint` or any `ports:` entry |
+| **Blackbox TCP probe** | Prometheus `blackbox_tcp` job (`module: tcp_connect`) | fallback when no HTTP path |
+| **Blackbox DNS probe** | Prometheus `blackbox_dns` job (`module: dns_udp`) | `probe.type: dns` |
+| **Uptime Kuma monitor** | AutoKuma static monitor files per machine | same rules — one monitor per service |
+| **Native scrape** | dedicated `job_name: '<service>'` | `metrics_path` set |
+| **Explicit skip** | `probe.skip: true` + `probe.reason` | batch/UDP-only/dynamic services — recorded in `probe-skipped.yml` |
+
+Per-entry overrides: `probe.type` (`http`/`tcp`/`dns`), `probe.target` (`host:port` or `hostname:port`, may contain `infra_*` vars), `probe.service` (label slug). Machine mapping: `oci-cloud-server` → container on shared network or `host.docker.internal`; `dtop202311`/`kckinai` → `<tailscale-ip>:<host-port>`; `isolation-vm` → `infra_network_kvm_isolation_vm_ip` TCP probe.
+
+Generic alerts (in `rules/catalog.yml`):
+
+- `ServiceUnreachable` — warning, fires when any non-pipeline catalog probe fails ≥15 min.
+- `PipelineServiceUnreachable` — escalates to `ServiceDown`, inhibited per §3.
+- `ServiceNotMonitored` — **critical**, fires when a service exists in `services.yml` but has no scrape/probe target — coverage gap detection.
+- `ProbeTargetMissing` — critical, fires when a service declares `metrics_path`/`health_endpoint`/`pipeline` but no probe target rendered — catalog completeness check.
+- `MediaServiceDown` — critical for `pipeline=media` services.
+
+**Coverage guarantee**: `ansible-playbook … --tags catalog-verify` renders `probe-skipped.yml` listing every skipped service + reason — a reviewable audit of intentional non-coverage. Any service not probed and not skipped fires `ServiceNotMonitored`.
 
 ### 3. Alertmanager Inhibition Rules
 
@@ -678,17 +709,24 @@ Following ADR-20260624001 (hybrid secret storage) and ADR-20260625001 (infrastru
 
 ```
 shared/active/02-config/ansible/roles/
+├── monitoring-catalog/           # services.yml → probe lists + coverage gate
+│   └── templates/probe-targets.yml.j2
 ├── monitoring-prometheus/        # Prometheus deployment + scrape configs
 │   ├── defaults/main.yml         # Default ports, retention, scrape intervals
-│   ├── templates/prometheus.yml.j2  # Scrape config (references infra_ port vars)
+│   ├── templates/prometheus.yml.j2  # Scrape config (native + blackbox jobs)
+│   ├── templates/rules/          # ai/dns/web/vpn/infra/catalog alert rules
 │   └── tasks/main.yml            # community.docker.docker_container
+├── monitoring-blackbox/          # blackbox_exporter (http/tcp/dns modules)
 ├── monitoring-loki/              # Loki + Promtail
 ├── monitoring-grafana/           # Grafana + datasource provisioning
 ├── monitoring-alertmanager/      # Alertmanager + inhibition rules
 │   └── templates/alertmanager.yml.j2  # Inhibition rules (§3)
-├── monitoring-uptime-kuma/       # Uptime Kuma deployment
-└── monitoring-synthetic-probes/  # Probe scripts as cron/sidecar containers
+├── monitoring-uptime-kuma/       # Uptime Kuma deployment (multi-network)
+├── monitoring-autokuma/          # Declarative Kuma monitor provisioning
+│   └── templates/monitors.json.j2   # per-machine static monitor files
+└── monitoring-synthetic-probes/  # Probe scripts as cron container
     ├── templates/ai-probe.sh.j2
+    ├── templates/ai-omnigent-probe.sh.j2
     ├── templates/dns-probe.sh.j2
     ├── templates/web-probe.sh.j2
     └── templates/vpn-probe.sh.j2
@@ -716,6 +754,8 @@ infra_port_monitoring_alertmanager_host: "9093"
 infra_port_monitoring_alertmanager_container: "9093"
 infra_port_monitoring_uptime_kuma_host: "3001"
 infra_port_monitoring_uptime_kuma_container: "3001"
+infra_port_monitoring_blackbox_host: "9115"
+infra_port_monitoring_blackbox_container: "9115"
 ```
 
 Add to `shared/active/02-config/ansible/infrastructure/domains.yml`:
@@ -852,3 +892,4 @@ Alertmanager routes alerts to notification channels. Per-client configuration in
 ## Revision History
 
 - 2026-08-27: Initial ADR creation — proposed, pending review
+- 2026-10-13: v1.1.0 — accepted after implementation review. AI chain section reconciled to PIPELINE-AI.md (source of truth): implemented chain is Omnigent → Pi → LiteLLM → Headroom → OmniRoute → Iron-Proxy → Internet; Forge/Privacy Orchestrator/NordVPN-in-chain are deployed-deferred support nodes, not chain members. Added §2.5 service-catalog coverage (blackbox + AutoKuma-driven Uptime Kuma monitors generated from services.yml for all ~106 services across oci-cloud-server, dtop202311, kckinai, isolation-vm), monitoring-catalog/monitoring-blackbox/monitoring-autokuma roles, and coverage-gap alerts (ServiceNotMonitored, ProbeTargetMissing).

@@ -1,39 +1,5 @@
-FROM localnet-base-debian:latest AS builder
-
-USER root
-
-# Install build dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-	build-essential \
-	meson \
-	ninja-build \
-	git \
-	libedit-dev \
-	libsodium-dev \
-	liblmdb-dev \
-	libnghttp2-dev \
-	libssl-dev \
-	libre2-dev \
-	libfstrm-dev \
-	libprotobuf-dev \
-	libsnmp-dev \
-	&& rm -rf /var/lib/apt/lists/* \
-	&& mkdir -p /tmp/dnsdist \
-	libedit-dev libsodium-dev lmdb-dev \
-	nghttp2-dev openssl-dev re2-dev \
-	fstrm-dev protobuf-dev snmp-dev
-
-WORKDIR /tmp/dnsdist
-
-# Clone and build dnsdist
-RUN git clone https://github.com/PowerDNS/pdns.git && \
-	cd pdns/dnsdist && \
-	meson setup build -Denable_cdb=true && \
-	ninja -C build && \
-	ninja -C build install && \
-	dnsdist --version
-
-
+# Runtime installs dnsdist from Debian apt; the previous source-compile
+# builder stage was dead weight (its artifact was never copied over).
 FROM localnet-base-debian:latest
 
 # Switch to root to install packages

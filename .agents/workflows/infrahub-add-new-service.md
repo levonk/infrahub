@@ -130,10 +130,10 @@ Only if the client uses different paths than the shared defaults.
 
 ### 2e. DNS Record
 
-If the service gets a public domain, add a CNAME record to the Cloudflare DNS configuration:
+If the service gets a public domain, add an A record to the Cloudflare DNS configuration:
 
-- File: `levonk/active/02-config/ansible/inventories/group_vars/all.yml` (or wherever `cloudflare_dns_records` is defined)
-- Add: `{service}.levonk.com` → CNAME → `oci.tale-grouper.ts.net` (Tailscale FQDN)
+- File: `shared/active/02-config/ansible/playbooks/configure-cloudflare-dns.yml` (the `cloudflare_dns_records` list)
+- Add: `{service}.levonk.com` → A → `infra_tailscale_ip_cloud_server` (Tailscale IP — not a CNAME to `*.ts.net`; MagicDNS intermittently NXDOMAINs CNAME-chased tailnet names)
 - Deploy DNS: `devbox run -- ansible-playbook -i levonk/active/02-config/ansible/inventories/oci.yml shared/active/02-config/ansible/playbooks/configure-cloudflare-dns.yml --vault-password-file ~/.ansible/vault_password`
 
 ### 2f. Update Service Catalog Metadata

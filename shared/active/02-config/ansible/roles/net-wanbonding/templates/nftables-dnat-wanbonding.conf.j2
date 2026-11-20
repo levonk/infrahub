@@ -1,0 +1,20 @@
+#!/usr/sbin/nft -f
+# {{ ansible_managed }}
+# Host-side DNAT: WAN-facing wanbonding ports → bonding-vm
+# ({{ wanbonding_vm_ip_address }} on the KVM NAT bridge).
+# Loaded by hosts using the nftables firewall engine; firewalld hosts use
+# forward-port rich rules instead (see tasks/host-forwarding.yml).
+# NOTE: OCI VCN security list ingress for these ports is a manual console
+# step — Ansible does not manage it.
+
+table ip nat {
+    chain prerouting {
+        type nat hook prerouting priority -100; policy accept;  # project-lint: disable=magic-int  nftables chain priority, config syntax
+
+{% for p in wanbonding_host_forward_ports %}
+{% if (p.enabled | default(true)) | bool %}
+        {{ p.proto }} dport {{ p.port }} dnat to {{ wanbonding_vm_ip_address }}:{{ p.port }}  # {{ p.comment | default('wanbonding') }}
+{% endif %}
+{% endfor %}
+    }
+}

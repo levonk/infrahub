@@ -1,0 +1,27 @@
+---
+galaxy_info:
+  role_name: net_wanbonding
+  author: levonk
+  description: >
+    WAN-bonding aggregation endpoint (server half) — MPTCP guest-kernel
+    config, shadowsocks-libev, and glorytun (UDP/TCP) inside a dedicated
+    KVM isolation VM on an arm64 host. Server side of an OpenMPTCProuter-
+    style multi-WAN aggregation system.
+  license: MIT
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Debian
+      versions:
+        - "bookworm"
+        - "trixie"
+    - name: EL
+      versions:
+        - "8"
+        - "9"
+  galaxy_tags:
+    - networking
+    - mptcp
+    - vpn
+    - shadowsocks
+    - glorytun
+dependencies: []

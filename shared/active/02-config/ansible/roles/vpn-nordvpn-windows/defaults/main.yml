@@ -22,9 +22,9 @@ vpn_nordvpn_windows_tailscale_image: "tailscale/tailscale:latest"
 # Docker networks are local to each host — same names as OCI (cno) since
 # they are on separate Docker daemons. Subnets differ to avoid confusion.
 # ---------------------------------------------------------------------------
-vpn_nordvpn_windows_network_name: "{{ infra_network_vpn_nordvpn_windows_network_name | default(infra_network_vpn_nordvpn_windows_network_name) }}"
-vpn_nordvpn_windows_network_subnet: "{{ infra_network_vpn_nordvpn_windows_subnet | default(infra_network_vpn_nordvpn_windows_network_subnet) }}"
-vpn_nordvpn_windows_network_gateway: "{{ infra_network_vpn_nordvpn_windows_gateway | default(infra_network_vpn_nordvpn_windows_network_gateway) }}"
+vpn_nordvpn_windows_network_name: "{{ infra_network_vpn_nordvpn_windows_network_name | default('vpn-network') }}"
+vpn_nordvpn_windows_network_subnet: "{{ infra_network_vpn_nordvpn_windows_subnet | default('172.40.0.0/16') }}"  # project-lint: disable=magic-cidr  fallback matches networks.yml when vars not loaded
+vpn_nordvpn_windows_network_gateway: "{{ infra_network_vpn_nordvpn_windows_gateway | default('172.40.0.1') }}"  # project-lint: disable=all  fallback matches networks.yml when vars not loaded
 
 # ---------------------------------------------------------------------------
 # Port configuration (ALL ports as variables — offset from OCI to avoid
@@ -57,8 +57,9 @@ vpn_nordvpn_windows_docker_host: "{{ windows_exit_nodes_docker_host | default('s
 
 # ---------------------------------------------------------------------------
 # NordVPN configuration
-# Uses WireGuard token auth (vault_nordvpn_token) — the OpenVPN user/pass
-# in the vault are empty, so we use the token method which is populated.
+# WireGuard is preferred: the account access token (vault_nordvpn_token) is
+# exchanged at deploy time for the nordlynx private key. OpenVPN user/pass
+# (service credentials) are the fallback when no token is set.
 # ---------------------------------------------------------------------------
 vpn_nordvpn_windows_token: ""
 vpn_nordvpn_windows_openvpn_user: ""

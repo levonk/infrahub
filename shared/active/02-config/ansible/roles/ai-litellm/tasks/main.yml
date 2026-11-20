@@ -39,7 +39,9 @@
         # Headroom forwards to OmniRoute (airoute) which does provider fanout
         - model_name: "auto"
           litellm_params:
-            model: "openai/auto"
+            # OmniRoute's built-in "auto" router can pick browser-required
+            # providers; kckinaicombo is the managed combo (kckinai + freellmapi).
+            model: "openai/kckinaicombo"
             api_base: "{{ ai_litellm_upstream_url }}"
             api_key: "sk-litellm-internal"
         # Claude models
@@ -78,7 +80,7 @@
 
       general_settings:
         master_key: "{{ ai_litellm_master_key }}"
-        database_url: "postgresql://{{ ai_litellm_postgres_user }}:{{ ai_litellm_database_password }}@{{ ai_litellm_postgres_container_name }}:{{ infra_port_db_postgres_host }}/{{ ai_litellm_postgres_db }}"
+        database_url: "postgresql://{{ ai_litellm_postgres_user }}:{{ ai_litellm_database_password }}@{{ ai_litellm_postgres_container_name }}:{{ ai_litellm_postgres_container_port }}/{{ ai_litellm_postgres_db }}"
         # Spend tracking
         disable_spend_logs: false
         # PII guardrail (Presidio) — masks PII before forwarding to upstream
@@ -163,10 +165,10 @@
       max-file: "{{ infra_log_max_file }}"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U {{ ai_litellm_postgres_user }} -d {{ ai_litellm_postgres_db }}"]
-      interval: "{{ infra_timeout_short }}"
-      timeout: "{{ infra_timeout_healthcheck_short }}"
+      interval: "{{ infra_healthcheck_interval_short }}"
+      timeout: "{{ infra_healthcheck_timeout }}"
       retries: "{{ infra_retry_long }}"
-      start_period: "{{ infra_timeout_short }}"
+      start_period: "{{ infra_healthcheck_start_period }}"
     security_opts:
       - no-new-privileges:true
   notify: restart litellm-postgres
@@ -202,7 +204,7 @@
       # Config file path
       LITELLM_CONFIG_FILE_PATH: "/app/config.yaml"
       # Database
-      DATABASE_URL: "postgresql://{{ ai_litellm_postgres_user }}:{{ ai_litellm_database_password }}@{{ ai_litellm_postgres_container_name }}:{{ infra_port_db_postgres_host }}/{{ ai_litellm_postgres_db }}"
+      DATABASE_URL: "postgresql://{{ ai_litellm_postgres_user }}:{{ ai_litellm_database_password }}@{{ ai_litellm_postgres_container_name }}:{{ ai_litellm_postgres_container_port }}/{{ ai_litellm_postgres_db }}"
       # Auth
       LITELLM_MASTER_KEY: "{{ ai_litellm_master_key }}"
       LITELLM_SALT_KEY: "{{ ai_litellm_salt_key }}"
@@ -240,10 +242,10 @@
       max-file: "{{ infra_log_max_file }}"
     healthcheck:
       test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:{{ ai_litellm_container_port }}/health/liveness')\""]
-      interval: "{{ infra_timeout_default }}"
-      timeout: "{{ infra_timeout_short }}"
+      interval: "{{ infra_healthcheck_interval }}"
+      timeout: "{{ infra_healthcheck_timeout }}"
       retries: "{{ infra_retry_default }}"
-      start_period: "{{ infra_timeout_long }}"
+      start_period: "{{ infra_healthcheck_start_period_long }}"
     security_opts:
       - no-new-privileges:true
     labels:

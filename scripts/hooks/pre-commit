@@ -191,4 +191,39 @@ if [[ -x "$project_lint_bin" ]]; then
     fi
 fi
 
+# ---------------------------------------------------------------------------
+# Config-policy unit tests (tests/test_config_policy.py).
+#
+# Fires whenever staged changes touch ansible config or the client overlay —
+# the class of bug that intermittently NXDOMAIN'd search.levonk.com (a
+# tailnet-only record CNAME'd into *.ts.net) lives in these files. The suite
+# is stdlib unittest + PyYAML inside the devbox env, so it runs in <1s.
+# ---------------------------------------------------------------------------
+
+config_files_staged=false
+while IFS= read -r f; do
+    [[ -n "$f" ]] && config_files_staged=true && break
+done < <(git diff --cached --name-only --diff-filter=ACM -- \
+    'shared/active/02-config/ansible/**/*.yml' \
+    'shared/active/02-config/ansible/**/*.yaml' \
+    'shared/active/02-config/ansible/**/*.j2' \
+    'levonk/active/02-config/ansible/**/*.yml' \
+    'tests/test_*.py')
+
+if [[ "$config_files_staged" = true ]]; then
+    if ! command -v devbox >/dev/null 2>&1; then
+        echo "" >&2
+        echo "ERROR: ansible config staged but 'devbox' not in PATH." >&2
+        echo "Run:  source scripts/ensure-env.sh" >&2
+        echo "Commit aborted (config-policy tests could not run)." >&2
+        exit 1
+    fi
+    if ! devbox run -- just test-config; then
+        echo "" >&2
+        echo "ERROR: config-policy tests failed for staged changes." >&2
+        echo "Commit aborted." >&2
+        exit 1
+    fi
+fi
+
 exit 0

@@ -81,7 +81,7 @@
     url: "http://localhost:{{ dns_coredns_metrics_host_port }}/health"
     status_code: "{{ infra_http_status_ok }}"
   register: dns_coredns_health
-  until: dns_coredns_health.status == {{ infra_http_status_ok }}
+  until: dns_coredns_health.status == (infra_http_status_ok | int)
   retries: "{{ infra_retry_long }}"
   delay: 3
   when:

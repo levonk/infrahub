@@ -38,6 +38,6 @@
     url: "http://{{ infra_network_bind_localhost }}:{{ proxy_envoy_admin_host_port }}/ready"
     status_code: "{{ infra_http_status_ok }}"
   register: envoy_health
-  until: envoy_health.status == {{ infra_http_status_ok }}
+  until: envoy_health.status == (infra_http_status_ok | int)
   retries: "{{ infra_retry_long }}"
   delay: "{{ infra_delay_default }}"

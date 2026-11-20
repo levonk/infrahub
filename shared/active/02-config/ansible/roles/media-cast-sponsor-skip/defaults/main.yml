@@ -1,0 +1,31 @@
+---
+# CastSponsorSkip Role Defaults
+# Skips YouTube sponsor segments and mutes ads on Google Cast devices.
+# Research: internal-docs/research/service/cast-sponsor-skip/
+
+# Service toggle
+cast_sponsor_skip_enabled: true
+
+# Image — multi-arch manifest includes linux/arm/v7 (RPi2/DietPi)
+cast_sponsor_skip_image: "ghcr.io/gabe565/castsponsorskip"
+cast_sponsor_skip_tag: "0.8.3"
+cast_sponsor_skip_container_name: "cast-sponsor-skip"
+
+# SponsorBlock categories to skip
+cast_sponsor_skip_categories: "sponsor,selfpromo,interaction"
+cast_sponsor_skip_action_types: "skip,mute"
+cast_sponsor_skip_mute_ads: "true"
+cast_sponsor_skip_log_format: "json"
+cast_sponsor_skip_log_level: "info"
+
+# Optional tuning — leave empty to omit the env var entirely
+cast_sponsor_skip_youtube_api_key: "{{ vault_castsponsorskip_youtube_api_key | default('') }}"
+cast_sponsor_skip_devices: ""           # CSV of static device IPs; disables mDNS discovery
+cast_sponsor_skip_network_interface: "" # pin mDNS to one NIC on multi-homed hosts
+cast_sponsor_skip_playing_interval: ""
+cast_sponsor_skip_paused_interval: ""
+cast_sponsor_skip_discover_interval: ""
+cast_sponsor_skip_skip_delay: ""
+
+# Resource limit — upstream benchmark ~10 MiB steady state; 128m is generous
+cast_sponsor_skip_memory: "128m"

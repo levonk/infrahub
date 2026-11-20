@@ -44,12 +44,15 @@ IMAGES=(
   "localnet-dns-adguard|Dockerfile.adguard|dns/adguard|"
   "localnet-dns-blocklist-compiler|Dockerfile.blocklist-compiler|dns/dns-blocklists|"
   "localnet-dns-coredns|docker/Dockerfile.coredns|dns/coredns|"
+  "localnet-dns-dnscrypt|docker/Dockerfile.dnscrypt-proxy|dns/dnscrypt|"
   "localnet-dns-dnscrypt-plaintext|docker/Dockerfile.dnscrypt-proxy|dns/dnscrypt|"
   "localnet-dns-dnsdist|docker/Dockerfile.dnsdist|dns/dnsdist|"
+  "localnet-dns-unbound|docker/Dockerfile.unbound|dns/unbound|"
   "localnet-proxy-tor|docker/Dockerfile.tor|proxy/tor|"
   "localnet-proxy-gost|docker/Dockerfile.gost|proxy/gost|"
   "localnet-proxy-9router|Dockerfile|proxy/9router|"
   "localnet-base-alpine|Dockerfile.base-alpine|base/base-alpine|"
+  "localnet-base-debian|Dockerfile.base-debian|base/base-debian|"
   "localnet-volume-init|Dockerfile.volume-init|base/volume-init|"
   "isolation-vm-base-kali|Dockerfile.base-kali|base/base-kali|"
   "isolation-vm-base-kalinix|Dockerfile.base-kalinix|base/base-kalinix|"
@@ -65,8 +68,11 @@ IMAGES=(
   "localnet-p2p-freenet|docker/Dockerfile.freenet|p2p/freenet|linux/amd64"
   # no-mistakes shared git gate — linux/amd64 ONLY (target: Windows Docker Desktop, nl).
   "localnet-devops-no-mistakes|docker/Dockerfile.no-mistakes|devops/no-mistakes|linux/amd64"
-  # Local Watch Party — synchronized movie watching with friends (node:20-alpine + ffmpeg)
+  # Local Watch Party — synchronized movie watching with friends (node:26-alpine + ffmpeg)
   "localnet-media-watch-party|docker/Dockerfile.watch-party|media/watch-party|"
+  # WAN bonding endpoint — shadowsocks-libev + glorytun + mptcpize.
+  # linux/arm64 ONLY (target: bonding-vm, arm64 guest on oci-cloud-server).
+  "localnet-net-wanbonding|docker/Dockerfile.wanbonding|net/wanbonding|linux/arm64"
 )
 
 # NOTE: envoy, privoxy, squid use upstream Docker Hub images directly (no custom Dockerfile).

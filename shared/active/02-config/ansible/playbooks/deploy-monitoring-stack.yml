@@ -16,7 +16,7 @@
   gather_facts: true
 
   pre_tasks:
-    - name: "Load shared infrastructure defaults (ports, networks, domains, storage, modes, timing, values)"
+    - name: "Load shared infrastructure defaults (ports, networks, domains, storage, modes, timing, values, services)"
       ansible.builtin.include_vars:
         file: "{{ playbook_dir }}/../infrastructure/{{ item }}"
       loop:
@@ -27,6 +27,7 @@
         - modes.yml
         - timing.yml
         - values.yml
+        - services.yml
       tags: ["always"]
 
     - name: "Load client infrastructure overrides (levonk)"
@@ -67,6 +68,10 @@
           - infra_hostname_monitoring_alertmanager is defined
           - infra_hostname_monitoring_uptime_kuma is defined
           - infra_hostname_monitoring_node_exporter is defined
+          - infra_hostname_monitoring_blackbox is defined
+          - infra_hostname_monitoring_autokuma is defined
+          - infra_port_monitoring_blackbox_host is defined
+          - infra_port_monitoring_blackbox_container is defined
         fail_msg: >-
           Missing required monitoring infrastructure variables.
           Check shared/active/02-config/ansible/infrastructure/ports.yml
@@ -113,6 +118,8 @@
   roles:
     - role: monitoring-node-exporter
       tags: ["deploy", "monitoring", "node-exporter"]
+    - role: monitoring-blackbox
+      tags: ["deploy", "monitoring", "blackbox"]
     - role: monitoring-prometheus
       tags: ["deploy", "monitoring", "prometheus"]
     - role: monitoring-alertmanager
@@ -123,6 +130,8 @@
       tags: ["deploy", "monitoring", "grafana"]
     - role: monitoring-uptime-kuma
       tags: ["deploy", "monitoring", "uptime-kuma"]
+    - role: monitoring-autokuma
+      tags: ["deploy", "monitoring", "autokuma"]
     - role: monitoring-synthetic-probes
       tags: ["deploy", "monitoring", "probes"]
 

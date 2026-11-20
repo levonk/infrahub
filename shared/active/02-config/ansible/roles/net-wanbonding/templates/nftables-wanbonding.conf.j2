@@ -1,0 +1,70 @@
+#!/usr/sbin/nft -f
+# {{ ansible_managed }}
+# Default-deny guest firewall for bonding-vm (WAN bonding endpoint).
+# Role: net-wanbonding
+
+flush ruleset
+
+table inet filter {
+    chain input {
+        type filter hook input priority 0; policy drop;  # project-lint: disable=magic-int  nftables chain priority, config syntax
+
+        # Loopback + established
+        iif "lo" accept
+        ct state established,related accept
+        ct state invalid drop
+
+        # ICMP (path health / tunnel bring-up checks)
+        ip protocol icmp accept
+        ip6 nexthdr icmpv6 accept
+
+        # SSH + admin from KVM bridges + tailnet only
+{% for subnet in wanbonding_guest_admin_subnets %}
+        ip saddr {{ subnet }} tcp dport {{ wanbonding_guest_ssh_port }} ct state new accept
+        ip saddr {{ subnet }} accept
+{% endfor %}
+
+        # WAN-facing service ports — public by design (DNAT'd in by the OCI
+        # host; the remote peers can be anywhere).
+{% if wanbonding_shadowsocks_enabled | bool %}
+        tcp dport {{ wanbonding_shadowsocks_port }} ct state new accept  # shadowsocks-libev (MPTCP)
+{% endif %}
+{% if wanbonding_glorytun_udp_enabled | bool and wanbonding_glorytun_variant == 'udp' %}
+        udp dport {{ wanbonding_glorytun_udp_port }} ct state new accept  # glorytun UDP
+{% endif %}
+{% if wanbonding_glorytun_tcp_enabled | bool and wanbonding_glorytun_variant == 'tcp' %}
+        tcp dport {{ wanbonding_glorytun_tcp_port }} ct state new accept  # glorytun TCP (MPTCP)
+{% endif %}
+
+        log prefix "wanbonding dropped: " limit rate 5/minute  # project-lint: disable=magic-int  nftables rate limit rule, not a standalone magic number
+        drop
+    }
+
+    chain forward {
+        type filter hook forward priority 0; policy drop;  # project-lint: disable=magic-int  nftables chain priority, config syntax
+
+        ct state established,related accept
+
+        # Tunnel subnets ↔ uplink (glorytun tun devices)
+{% if wanbonding_glorytun_udp_enabled | bool and wanbonding_glorytun_variant == 'udp' %}
+        ip saddr {{ wanbonding_glorytun_udp_subnet }} accept
+        ip daddr {{ wanbonding_glorytun_udp_subnet }} accept
+{% endif %}
+{% if wanbonding_glorytun_tcp_enabled | bool and wanbonding_glorytun_variant == 'tcp' %}
+        ip saddr {{ wanbonding_glorytun_tcp_subnet }} accept
+        ip daddr {{ wanbonding_glorytun_tcp_subnet }} accept
+{% endif %}
+    }
+}
+
+table ip nat {
+    chain postrouting {
+        type nat hook postrouting priority 100; policy accept;  # project-lint: disable=magic-int  nftables chain priority, config syntax
+
+        # Masquerade tunnel traffic out the VM uplink — the endpoint IS the
+        # egress for bonded client traffic.
+{% for subnet in wanbonding_guest_nat_subnets %}
+        ip saddr {{ subnet }} masquerade
+{% endfor %}
+    }
+}

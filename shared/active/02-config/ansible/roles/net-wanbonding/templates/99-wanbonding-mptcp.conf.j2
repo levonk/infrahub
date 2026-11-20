@@ -1,0 +1,19 @@
+# {{ ansible_managed }}
+# WAN bonding endpoint — MPTCP + forwarding sysctl configuration
+# Managed by the net-wanbonding Ansible role.
+
+# Master switch for kernel MPTCP. ss-server (--mptcp) and glorytun-tcp
+# (mptcp flag) create IPPROTO_MPTCP sockets; without this the listeners
+# silently fall back to plain TCP.
+net.mptcp.enabled = 1
+
+# Route tunnel traffic (glorytun tun) out the VM uplink. Required for the
+# bonding endpoint to NAT client traffic to the internet.
+{% if wanbonding_ip_forward_enabled | bool %}
+net.ipv4.ip_forward = 1
+{% endif %}
+
+# BBR + fq on the server side — OMR VPS convention; measurably better than
+# cubic on high-jitter paths (5G) where MPTCP reordering dominates.
+net.ipv4.tcp_congestion_control = {{ wanbonding_tcp_congestion_control }}
+net.core.default_qdisc = {{ wanbonding_default_qdisc }}

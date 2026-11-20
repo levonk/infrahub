@@ -14,6 +14,7 @@
       - copyparty_image is defined
       - copyparty_host_port is defined
       - copyparty_admin_password is defined
+      - copyparty_dawn_password is defined
     msg: "Required copyparty variables must be defined."
 
 - name: Ensure copyparty config directory exists
@@ -21,6 +22,15 @@
     path: "{{ copyparty_config_dir }}"
     state: directory
     # userns-remap: container root maps to this UID on the host.
+    owner: "{{ infra_storage_userns_remap_uid | default(infra_storage_userns_remap_uid) }}"
+    group: "{{ infra_storage_userns_remap_gid | default(infra_storage_userns_remap_uid) }}"
+    mode: "{{ infra_mode_dir }}"
+  become: true
+
+- name: Ensure copyparty log directory exists
+  ansible.builtin.file:
+    path: "{{ copyparty_config_dir }}/logs"
+    state: directory
     owner: "{{ infra_storage_userns_remap_uid | default(infra_storage_userns_remap_uid) }}"
     group: "{{ infra_storage_userns_remap_gid | default(infra_storage_userns_remap_uid) }}"
     mode: "{{ infra_mode_dir }}"

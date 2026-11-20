@@ -1,0 +1,16 @@
+# {{ ansible_managed }}
+# Boot-persistence for `ip mptcp` limits/endpoints — netlink PM state does
+# not survive reboot. Oneshot only; no long-running host process (MPTCP
+# guest-kernel config is the sanctioned host-level exception for this role).
+[Unit]
+Description=Apply MPTCP path-manager limits and endpoints (net-wanbonding)
+After=network.target docker.service
+Wants=network.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart={{ wanbonding_mptcp_setup_script }}
+
+[Install]
+WantedBy=multi-user.target

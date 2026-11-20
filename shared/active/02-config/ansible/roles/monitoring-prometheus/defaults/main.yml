@@ -8,12 +8,54 @@
 # ---------------------------------------------------------------------------
 monitoring_prometheus_container_name: "{{ infra_hostname_monitoring_prometheus }}"
 monitoring_prometheus_image_name: "prom/prometheus"
-monitoring_prometheus_image_tag: "v3.14.0"
+monitoring_prometheus_image_tag: "v3.15.0"
 
 # ---------------------------------------------------------------------------
 # Network
 # ---------------------------------------------------------------------------
-monitoring_prometheus_network: "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"
+# Prometheus must reach scrape targets on more than just traefik-network:
+# traefik-network   — monitoring stack, Traefik, Authelia, CrowdSec, LiteLLM
+# localnet-network  — CoreDNS, dnsdist, AdGuard, dnscrypt, tor-proxy, web chain
+# proxy-chain/langfuse/vpn/tor — native scrapes via docker_sd + future jobs.
+# Non-existent networks are skipped at deploy time (docker_network_info probe).
+monitoring_prometheus_networks:
+  - "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"
+  - "{{ infra_network_dns_localnet_network_name | default('localnet-network') }}"
+  - "{{ infra_network_ai_proxy_chain_network_name | default('proxy-chain-network') }}"
+  - "{{ infra_network_ai_langfuse_network_name | default('langfuse-network') }}"
+  - "{{ infra_network_vpn_nordvpn_network_name | default('vpn-network') }}"
+  - "{{ infra_network_proxy_tor_network_name | default('tor-network') }}"
+
+# ---------------------------------------------------------------------------
+# Extra blackbox probes — host/network checks that are NOT catalog services.
+# Merged with monitoring_service_probes (monitoring-catalog) in the template.
+# ---------------------------------------------------------------------------
+monitoring_extra_probes:
+  # Tailscale mesh on the cloud server: SSH over the tailnet interface proves
+  # the tailscaled path is alive (the tailscale container itself is UDP-only).
+  - name: "Tailscale Mesh (OCI)"
+    service: "tailscale-mesh"
+    pipeline: "vpn"
+    stage: "mesh"
+    machine: "oci-cloud-server"
+    type: "tcp"
+    target: "{{ infra_tailscale_ip_cloud_server | default('') }}:22"
+    hostname: "{{ infra_tailscale_ip_cloud_server | default('') }}"
+    port: "22"
+    path: ""
+    url: ""
+  # Direct internet egress from the cloud server (no VPN/proxy).
+  - name: "Host Direct Egress (OCI)"
+    service: "host-egress"
+    pipeline: "vpn"
+    stage: "egress-host"
+    machine: "oci-cloud-server"
+    type: "http"
+    target: "https://api.ipify.org"
+    hostname: "api.ipify.org"
+    port: "443"
+    path: ""
+    url: "https://api.ipify.org"
 
 # ---------------------------------------------------------------------------
 # Ports — all variable-driven per ADR (host:container mapping)

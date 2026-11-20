@@ -1,0 +1,17 @@
+#!/bin/sh
+# {{ ansible_managed }}
+# Apply netlink path-manager limits and (optional) MPTCP endpoints.
+# Run once at boot via wanbonding-mptcp-setup.service and at deploy time.
+set -e
+
+# Path-manager limits: max subflows per connection + ADD_ADDR acceptance.
+ip mptcp limits set subflow {{ wanbonding_mptcp_subflow_limit }} add_addr_accepted {{ wanbonding_mptcp_add_addr_accepted_limit }}
+
+{% if wanbonding_mptcp_endpoints | length > 0 %}
+# Signal additional local addresses to peers via ADD_ADDR.
+{% for ep in wanbonding_mptcp_endpoints %}
+ip mptcp endpoint add {{ ep.address }}{% if ep.dev is defined %} dev {{ ep.dev }}{% endif %}{% if ep.port is defined %} port {{ ep.port }}{% endif %} {{ ep.flags | default('signal') }}
+{% endfor %}
+{% endif %}
+
+exit 0

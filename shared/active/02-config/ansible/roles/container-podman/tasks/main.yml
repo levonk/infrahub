@@ -1,0 +1,68 @@
+---
+# Podman Container Runtime — Debian-family install
+# Makes Podman the default runtime and wires up Docker compatibility so
+# existing community.docker-based roles keep working.
+
+- name: Validate OS family
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['os_family'] == "Debian"
+    fail_msg: "container-podman currently supports Debian-family hosts only."
+    success_msg: "Debian-family host detected."
+  tags: ["always", "validate"]
+
+- name: Install Podman packages
+  ansible.builtin.apt:
+    name: "{{ container_podman_packages }}"
+    state: present
+    update_cache: true
+  when: container_podman_enabled | bool
+
+- name: Enable Podman API socket + boot-time restart units
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  loop: "{{ container_podman_units }}"
+  when: container_podman_enabled | bool
+
+- name: Persist /run/docker.sock compat symlink across reboots
+  ansible.builtin.template:
+    src: docker-compat.conf.j2
+    dest: /etc/tmpfiles.d/docker-compat.conf
+    owner: root
+    group: root
+    mode: "{{ infra_mode_file | default('0644') }}"
+  when: container_podman_enabled | bool
+
+- name: Create /run/docker.sock compat symlink now
+  ansible.builtin.file:
+    src: /run/podman/podman.sock
+    dest: /run/docker.sock
+    state: link
+  when: container_podman_enabled | bool
+
+- name: Write insecure-registry config for Podman
+  ansible.builtin.template:
+    src: 99-localnet-insecure.conf.j2
+    dest: /etc/containers/registries.conf.d/99-localnet-insecure.conf
+    owner: root
+    group: root
+    mode: "{{ infra_mode_file | default('0644') }}"
+  when:
+    - container_podman_enabled | bool
+    - container_podman_insecure_registries | length > 0
+  notify: Restart podman
+
+- name: Report runtime status
+  ansible.builtin.command: podman version
+  register: container_podman_info
+  changed_when: false
+  when: container_podman_enabled | bool
+
+- name: Show Podman version
+  ansible.builtin.debug:
+    msg: "{{ container_podman_info.stdout_lines | default([]) }}"
+  when:
+    - container_podman_enabled | bool
+    - container_podman_info is defined

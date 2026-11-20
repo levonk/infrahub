@@ -1,0 +1,48 @@
+{# AutoKuma static monitor file for ONE machine group. Renders a group object
+   plus one monitor per catalog service on that machine. parent_name uses the
+   "<file-stem>[0]" convention so monitors nest under the group. #}
+{% set machine = monitor_group_machine | default('oci-cloud-server') %}
+{% set stem = machine | regex_replace('[^a-z0-9]+', '-') %}
+{% set members = monitoring_service_probes | default([]) | selectattr('machine', 'equalto', machine) | list %}
+{% set ns = namespace(items=[{'name': 'infrahub / ' ~ machine, 'type': 'group'}]) %}
+{% for p in members %}
+{%   if p.type == 'http' %}
+{%     set mon = {
+       'name': p.name,
+       'type': 'http',
+       'url': p.url,
+       'accepted_statuscodes': '200-404',
+       'interval': 60,
+       'max_retries': 2,
+       'timeout': 15,
+       'ignore_tls': true,
+       'parent_name': stem ~ '[0]',
+       'description': p.pipeline ~ '/' ~ p.stage
+     } %}
+{%   elif p.type == 'dns' %}
+{%     set mon = {
+       'name': p.name,
+       'type': 'dns',
+       'hostname': p.hostname,
+       'resolver_server': infra_domain_base | default('example.com'),
+       'port': p.port | int,
+       'interval': 60,
+       'max_retries': 2,
+       'parent_name': stem ~ '[0]',
+       'description': p.pipeline ~ '/' ~ p.stage
+     } %}
+{%   else %}
+{%     set mon = {
+       'name': p.name,
+       'type': 'port',
+       'hostname': p.hostname,
+       'port': p.port | int,
+       'interval': 60,
+       'max_retries': 2,
+       'parent_name': stem ~ '[0]',
+       'description': p.pipeline ~ '/' ~ p.stage
+     } %}
+{%   endif %}
+{%   set _ = ns.items.append(mon) %}
+{% endfor %}
+{{ ns.items | to_nice_json }}

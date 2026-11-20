@@ -1,0 +1,38 @@
+---
+# defaults file for monitoring-blackbox
+# blackbox_exporter — probes HTTP/TCP/DNS endpoints so services without a
+# native /metrics endpoint still produce probe_success metrics for alerting.
+# All ports and IPs must be variables — never hardcode.
+
+# ---------------------------------------------------------------------------
+# Image & Container
+# ---------------------------------------------------------------------------
+monitoring_blackbox_container_name: "{{ infra_hostname_monitoring_blackbox | default('localnet-monitoring-blackbox') }}"
+monitoring_blackbox_image_name: "prom/blackbox-exporter"
+monitoring_blackbox_image_tag: "v0.27.0"
+
+# ---------------------------------------------------------------------------
+# Network
+# ---------------------------------------------------------------------------
+# Primary network — Prometheus must be able to reach blackbox here.
+monitoring_blackbox_network: "{{ infra_network_proxy_traefik_network_name | default('traefik-network') }}"
+
+# Additional service networks blackbox joins (if they exist) so it can probe
+# containers that have no host-published port (e.g. litellm-redis).
+monitoring_blackbox_extra_networks:
+  - "{{ infra_network_dns_localnet_network_name | default('localnet-network') }}"
+  - "{{ infra_network_ai_proxy_chain_network_name | default('proxy-chain-network') }}"
+  - "{{ infra_network_ai_langfuse_network_name | default('langfuse-network') }}"
+  - "{{ infra_network_vpn_nordvpn_network_name | default('vpn-network') }}"
+  - "{{ infra_network_proxy_tor_network_name | default('tor-network') }}"
+
+# ---------------------------------------------------------------------------
+# Ports
+# ---------------------------------------------------------------------------
+monitoring_blackbox_host_port: "{{ infra_port_monitoring_blackbox_host | default('9115') }}"  # project-lint: disable=magic-int  blackbox port
+monitoring_blackbox_container_port: "{{ infra_port_monitoring_blackbox_container | default('9115') }}"  # project-lint: disable=magic-int  blackbox port
+
+# ---------------------------------------------------------------------------
+# Storage
+# ---------------------------------------------------------------------------
+monitoring_blackbox_config_dir: "{{ infra_storage_monitoring_config_dir | default('/opt/localnet/monitoring') }}/blackbox"

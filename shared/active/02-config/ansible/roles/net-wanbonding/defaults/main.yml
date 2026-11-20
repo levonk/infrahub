@@ -1,0 +1,199 @@
+---
+# Default variables for net-wanbonding role
+# WAN-bonding aggregation endpoint (server half) — runs inside a dedicated
+# KVM guest ("bonding-vm") on an arm64 host. Neutral, overridable defaults.
+# All IPs and ports come from infrastructure/{networks,ports}.yml — never
+# hardcode them in tasks.
+#
+# See shared/active/08-docs/adr/adr-20261115001-wan-bonding-endpoint.md for
+# the architecture decision record.
+
+# ---------------------------------------------------------------------------
+# Feature flags
+# ---------------------------------------------------------------------------
+wanbonding_enabled: true
+wanbonding_verify_health: true
+
+# ---------------------------------------------------------------------------
+# Guest VM provisioning (consumed by deploy-wanbonding.yml via the
+# isolation-vm role — this role only documents the schema; the playbook maps
+# these onto isolation_vm_* variables).
+# ---------------------------------------------------------------------------
+wanbonding_vm_name: "bonding-vm"
+wanbonding_vm_memory_mb: 2048  # project-lint: disable=magic-int  memory size value, not a standalone magic number
+wanbonding_vm_vcpus: 2
+wanbonding_vm_disk_gb: 20  # project-lint: disable=magic-int  disk size value, not a standalone magic number
+wanbonding_vm_ip_address: "{{ infra_network_kvm_bonding_vm_ip }}"
+wanbonding_vm_gateway_ip: "{{ infra_network_kvm_nat_bridge_gateway }}"
+wanbonding_vm_mac_address: "52:54:00:36:e0:0e"  # project-lint: disable=magic-int  MAC address component, not an operational value
+wanbonding_vm_nat_bridge: "{{ infra_network_kvm_nat_bridge_name }}"
+wanbonding_vm_routed_bridge: "{{ infra_network_kvm_routed_bridge_name }}"
+wanbonding_vm_debian_version: "bookworm"
+wanbonding_vm_debian_arch: "arm64"
+wanbonding_vm_image_url: "https://cloud.debian.org/images/cloud/bookworm/daily/latest/debian-12-generic-arm64-daily.qcow2"
+wanbonding_vm_osinfo: "debian12"
+wanbonding_vm_user: "cuser"
+wanbonding_vm_user_uid: "{{ infra_identity_puid }}"
+wanbonding_vm_user_gid: "{{ infra_identity_pgid }}"
+wanbonding_vm_user_shell: "/bin/bash"
+wanbonding_vm_user_home: "/home/cuser"
+wanbonding_vm_ssh_port: "{{ infra_port_ssh_host }}"
+wanbonding_vm_ssh_public_key: "{{ vault_wanbonding_vm_ssh_public_key | default('') }}"
+wanbonding_vm_ssh_password_auth: false
+wanbonding_vm_ssh_permit_root_login: "no"
+wanbonding_vm_sudo_enabled: true
+wanbonding_vm_sudo_password_required: false
+wanbonding_vm_sudo_groups: "sudo"
+
+# ---------------------------------------------------------------------------
+# Container image
+# Built on the amd64 control machine via `just docker-build-push
+# localnet-net-wanbonding` (docker buildx, linux/arm64) and pulled from the
+# local registry. NEVER built on the target (AGENTS.md Invariant #2).
+# ---------------------------------------------------------------------------
+wanbonding_image_registry: "{{ infra_registry }}"
+wanbonding_image_name: "localnet-net-wanbonding"
+wanbonding_image_tag: "latest"
+wanbonding_image: "{{ wanbonding_image_registry }}/{{ wanbonding_image_name }}:{{ wanbonding_image_tag }}"
+
+# ---------------------------------------------------------------------------
+# MPTCP guest-kernel configuration
+# HOST-SERVICE JUSTIFIED: MPTCP is a kernel-level capability. The sysctl, the
+# `ip mptcp` endpoint/limit state, and the boot-persistence oneshot unit are
+# host (guest-kernel) configuration — they cannot live in a container. This
+# is the sanctioned exception to the container-first rule (AGENTS.md
+# Invariant #5). Userspace daemons still run as containers.
+# ---------------------------------------------------------------------------
+wanbonding_mptcp_enabled: true
+wanbonding_mptcp_sysctl_file: "/etc/sysctl.d/90-wanbonding-mptcp.conf"
+wanbonding_mptcp_subflow_limit: "8"  # project-lint: disable=magic-int  kernel subflow limit, not a standalone magic number
+wanbonding_mptcp_add_addr_accepted_limit: "8"  # project-lint: disable=magic-int  kernel add_addr limit, not a standalone magic number
+# Optional MPTCP endpoints to advertise via ADD_ADDR (list of dicts:
+# {address, port, flags}). Empty on a single-IP endpoint — the remote peers
+# create their own subflows toward this address.
+wanbonding_mptcp_endpoints: []
+wanbonding_mptcp_setup_script: "/usr/local/sbin/wanbonding-mptcp-setup.sh"
+wanbonding_mptcp_setup_service: "wanbonding-mptcp-setup"
+# BBR + fq on the server side: OMR VPS convention — measurably better
+# throughput on high-jitter paths (5G) than cubic.
+wanbonding_tcp_congestion_control: "bbr"
+wanbonding_default_qdisc: "fq"
+# Required for glorytun tunnel traffic to egress the VM's uplink.
+wanbonding_ip_forward_enabled: true
+
+# ---------------------------------------------------------------------------
+# shadowsocks-libev (TCP proxy — the MPTCP aggregation path)
+# ss-server runs with --mptcp so the listener creates MPTCP sockets; the
+# remote client stripes subflows across its WANs to this single endpoint.
+# Container uses host networking: the WAN-facing port must bind the VM's
+# bridge IP directly (Docker bridge NAT inside the guest would add a second
+# DNAT hop and hide the client's real source IPs).
+# ---------------------------------------------------------------------------
+wanbonding_shadowsocks_enabled: true
+wanbonding_shadowsocks_container_name: "wanbonding-shadowsocks"
+wanbonding_shadowsocks_method: "aes-256-gcm"
+# tcp_only: UDP is handled by the glorytun path — no ss UDP relay is
+# exposed, so no udp/65101 surface exists to forward or defend.
+wanbonding_shadowsocks_mode: "tcp_only"
+wanbonding_shadowsocks_port: "{{ infra_port_net_wanbonding_shadowsocks_host }}"
+wanbonding_shadowsocks_password: "{{ vault_wanbonding_shadowsocks_password | default('') }}"
+wanbonding_shadowsocks_timeout: "{{ infra_timeout_dns_ttl }}"
+wanbonding_shadowsocks_fast_open: true
+wanbonding_shadowsocks_config_dir: "/etc/wanbonding/shadowsocks"
+wanbonding_shadowsocks_config_file: "{{ wanbonding_shadowsocks_config_dir }}/config.json"
+wanbonding_shadowsocks_bind: "{{ infra_network_bind_all }}"
+
+# ---------------------------------------------------------------------------
+# glorytun (non-TCP gap coverage — UDP/ICMP/etc. ride the VPN to the same
+# endpoint). Two variants:
+#   udp (binary `glorytun`)     — default; lowest latency, no head-of-line
+#   tcp (binary `glorytun-tcp`) — native `mptcp` flag; aggregates like the
+#                                 shadowsocks path but inner latency-sensitive
+#                                 traffic suffers TCP-in-TCP head-of-line.
+# Only one variant is expected to run at a time (wanbonding_glorytun_variant).
+# ---------------------------------------------------------------------------
+wanbonding_glorytun_variant: "udp"  # udp | tcp
+wanbonding_glorytun_config_dir: "/etc/wanbonding/glorytun"
+wanbonding_glorytun_scripts_dir: "/opt/wanbonding"
+wanbonding_glorytun_key: "{{ vault_wanbonding_glorytun_key | default('') }}"
+wanbonding_glorytun_mtu: "1280"  # project-lint: disable=magic-int  tunnel MTU — glorytun default, see ADR overhead analysis
+# glorytun keyfile content comes verbatim from the vault (generate with
+# `glorytun keyfile <path>` inside the wanbonding image).
+
+# glorytun UDP variant (binary `glorytun`)
+wanbonding_glorytun_udp_enabled: true
+wanbonding_glorytun_udp_container_name: "wanbonding-glorytun-udp"
+wanbonding_glorytun_udp_dev: "gt-udp0"
+wanbonding_glorytun_udp_port: "{{ infra_port_net_wanbonding_glorytun_udp_host }}"
+wanbonding_glorytun_udp_bind: "{{ infra_network_bind_all }}"
+# Remote peer spec — OMR VPS convention: accept from any peer address,
+# replies go to the client's glorytun listen port (5000).
+wanbonding_glorytun_udp_peer_addr: "{{ infra_network_bind_all }}"
+wanbonding_glorytun_udp_peer_port: "{{ infra_port_net_wanbonding_glorytun_udp_client }}"
+wanbonding_glorytun_udp_server_tun_ip: "{{ infra_network_wanbonding_glorytun_udp_server_ip }}"
+wanbonding_glorytun_udp_client_tun_ip: "{{ infra_network_wanbonding_glorytun_udp_client_ip }}"
+wanbonding_glorytun_udp_subnet: "{{ infra_network_wanbonding_glorytun_udp_subnet }}"
+wanbonding_glorytun_udp_options: "chacha persist"
+wanbonding_glorytun_udp_keyfile: "{{ wanbonding_glorytun_config_dir }}/tun-udp.key"
+
+# glorytun TCP variant (binary `glorytun-tcp`, native `mptcp` flag)
+wanbonding_glorytun_tcp_enabled: false
+wanbonding_glorytun_tcp_container_name: "wanbonding-glorytun-tcp"
+wanbonding_glorytun_tcp_dev: "gt-tcp0"
+wanbonding_glorytun_tcp_port: "{{ infra_port_net_wanbonding_glorytun_tcp_host }}"
+wanbonding_glorytun_tcp_bind: "{{ infra_network_bind_all }}"
+wanbonding_glorytun_tcp_server_tun_ip: "{{ infra_network_wanbonding_glorytun_tcp_server_ip }}"
+wanbonding_glorytun_tcp_client_tun_ip: "{{ infra_network_wanbonding_glorytun_tcp_client_ip }}"
+wanbonding_glorytun_tcp_subnet: "{{ infra_network_wanbonding_glorytun_tcp_subnet }}"
+wanbonding_glorytun_tcp_options: "chacha20 retry count -1 const 5000000 timeout 5000 keepalive count 5 idle 20 interval 2 buffer-size 65536 multiqueue"
+wanbonding_glorytun_tcp_keyfile: "{{ wanbonding_glorytun_config_dir }}/tun-tcp.key"
+wanbonding_glorytun_tcp_mptcp: true
+
+# ---------------------------------------------------------------------------
+# Host-side WAN port forwarding (cloud_servers play — DNAT from the host's
+# public interface into bonding-vm on the KVM NAT bridge).
+# The OCI VCN security list is NOT managed by Ansible — matching ingress
+# rules must exist in the OCI console (documented in the ADR + playbook).
+# ---------------------------------------------------------------------------
+wanbonding_host_forward_enabled: true
+wanbonding_host_firewall_type: "{{ cloud_server_firewall_type | default(infra_value_proxy_firewall_type | default('firewalld')) }}"
+wanbonding_host_dnat_zone: "public"
+# firewalld zone containing the KVM bridge interfaces (libvirt default zone).
+wanbonding_host_vm_zone: "libvirt"
+wanbonding_host_forward_ports:
+  - proto: tcp
+    port: "{{ infra_port_net_wanbonding_shadowsocks_host }}"
+    comment: "shadowsocks-libev (MPTCP aggregation path)"
+  - proto: udp
+    port: "{{ infra_port_net_wanbonding_glorytun_udp_host }}"
+    comment: "glorytun UDP VPN (non-TCP gap)"
+  - proto: tcp
+    port: "{{ infra_port_net_wanbonding_glorytun_tcp_host }}"
+    comment: "glorytun TCP VPN (alternative variant)"
+    enabled: "{{ wanbonding_glorytun_tcp_enabled }}"
+
+# ---------------------------------------------------------------------------
+# Guest firewall (inside bonding-vm — nftables; default-deny input).
+# WAN-facing ports must be reachable from 0.0.0.0/0 (the whole point of the
+# endpoint). Admin/SSH only from the KVM bridges + tailnet.
+# ---------------------------------------------------------------------------
+wanbonding_guest_firewall_enabled: true
+wanbonding_guest_firewall_type: "nftables"
+wanbonding_guest_firewall_conf: "/etc/nftables.conf"
+wanbonding_guest_ssh_port: "{{ infra_port_ssh_host }}"
+wanbonding_guest_admin_subnets:
+  - "{{ infra_network_kvm_nat_bridge_subnet }}"
+  - "{{ infra_network_kvm_routed_bridge_subnet }}"
+  - "{{ infra_network_vpn_tailscale_subnet }}"
+# Tunnel subnets that get NAT'd out the VM uplink (postrouting masquerade).
+wanbonding_guest_nat_subnets:
+  - "{{ infra_network_wanbonding_glorytun_udp_subnet }}"
+  - "{{ infra_network_wanbonding_glorytun_tcp_subnet }}"
+
+# ---------------------------------------------------------------------------
+# Health checks / verification
+# ---------------------------------------------------------------------------
+wanbonding_healthcheck_interval: "{{ infra_healthcheck_interval }}"
+wanbonding_healthcheck_timeout: "{{ infra_healthcheck_timeout }}"
+wanbonding_healthcheck_start_period: "{{ infra_healthcheck_start_period }}"
+wanbonding_healthcheck_retries: "{{ infra_healthcheck_retries }}"

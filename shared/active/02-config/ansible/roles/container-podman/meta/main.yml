@@ -1,0 +1,22 @@
+---
+galaxy_info:
+  role_name: container_podman
+  author: infrahub
+  description: >
+    Install Podman as the default container runtime on Debian-family hosts,
+    including the Docker CLI/API compatibility layer (podman-docker) so that
+    community.docker Ansible modules work unchanged.
+  company: levonk
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+        - trixie
+  galaxy_tags:
+    - podman
+    - containers
+    - docker
+
+dependencies: []

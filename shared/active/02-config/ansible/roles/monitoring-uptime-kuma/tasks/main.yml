@@ -34,6 +34,27 @@
   tags: ["deploy", "monitoring", "uptime-kuma"]
 
 # ============================================================================
+# Discover which optional service networks exist (Kuma probes services on them)
+# ============================================================================
+- name: Check each candidate service network
+  community.docker.docker_network_info:
+    name: "{{ item }}"
+  loop: "{{ monitoring_uptime_kuma_extra_networks }}"
+  register: _kuma_network_probe
+  failed_when: false
+  tags: ["deploy", "monitoring", "uptime-kuma"]
+
+- name: Compute networks to attach
+  ansible.builtin.set_fact:
+    monitoring_uptime_kuma_attached_networks: >-
+      {{ [monitoring_uptime_kuma_network]
+         + (_kuma_network_probe.results
+            | selectattr('network', 'defined')
+            | map(attribute='network.Name')
+            | list) }}
+  tags: ["deploy", "monitoring", "uptime-kuma"]
+
+# ============================================================================
 # Image Pull
 # ============================================================================
 - name: Pull Uptime Kuma image
@@ -53,8 +74,9 @@
     image: "{{ monitoring_uptime_kuma_image_name }}:{{ monitoring_uptime_kuma_image_tag }}"
     state: started
     restart_policy: unless-stopped
-    networks:
-      - name: "{{ monitoring_uptime_kuma_network }}"
+    networks: "{{ monitoring_uptime_kuma_attached_networks }}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     published_ports:
       - "{{ monitoring_uptime_kuma_host_port }}:{{ monitoring_uptime_kuma_container_port }}/tcp"
     volumes:

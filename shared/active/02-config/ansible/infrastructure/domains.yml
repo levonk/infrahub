@@ -39,6 +39,7 @@ infra_domain_ai_buzz: "buzz.{{ infra_domain_base }}"
 # FreeLLMAPI (Free-tier LLM aggregator — OpenAI-compatible /v1 endpoint)
 infra_domain_ai_freellmapi: "freellmapi.{{ infra_domain_base }}"
 infra_hostname_ai_freellmapi: "localnet-ai-freellmapi"
+infra_hostname_ai_omniroute: "localnet-ai-omniroute"
 
 # QM (Multiplayer agent harness for work — web UI)
 infra_domain_ai_qm: "qm.{{ infra_domain_base }}"
@@ -86,6 +87,55 @@ infra_hostname_monitoring_loki: "localnet-monitoring-loki"
 infra_hostname_monitoring_alertmanager: "localnet-monitoring-alertmanager"
 infra_hostname_monitoring_uptime_kuma: "localnet-monitoring-uptime-kuma"
 infra_hostname_monitoring_node_exporter: "localnet-monitoring-node-exporter"
+infra_hostname_monitoring_blackbox: "localnet-monitoring-blackbox"
+infra_hostname_monitoring_autokuma: "localnet-monitoring-autokuma"
+infra_hostname_dns_adguard: "localnet-dns-adguard"
+infra_hostname_proxy_tor: "localnet-proxy-tor"
+
+# ---------------------------------------------------------------------------
+# NTP Time Server (per shared/docs/pipelines/ntp/ntp-chain.md)
+# A record (not CNAME) to the cloud server's Tailscale IP — MagicDNS
+# intermittently NXDOMAINs tailnet names reached via cross-zone CNAME chase,
+# and NTP clients resolve once at startup then cache, making them sensitive
+# to resolution flakes. Tailnet-only by construction (CGNAT IP).
+# ---------------------------------------------------------------------------
+infra_domain_ntp_server: "ntp.{{ infra_domain_base }}"
+
+# ---------------------------------------------------------------------------
+# DNS Chain Service Domains (per shared/docs/pipelines/dns/complete-dns-chain.mmd)
+# Chain: client → AdGuard → dnsdist → CoreDNS → {dnscrypt tiers, unbound, tor}
+# All tailnet-only: A records to the cloud server's Tailscale IP (same
+# rationale as NTP — resolvers cache and MagicDNS can NXDOMAIN on the
+# CNAME→*.ts.net chase). adguard/dnsdist vars already exist client-side.
+#
+# dns.<base> is the *resolver endpoint* clients configure (AdGuard :53).
+# The rest are per-service names for config, Traefik routing, and monitoring.
+# The *.cno.<base> aliases follow the dual-deployment alias scheme — the
+# same names scoped to the cloud-network-oracle network.
+# ---------------------------------------------------------------------------
+infra_domain_dns_resolver: "dns.{{ infra_domain_base }}"
+infra_domain_dns_coredns: "coredns.{{ infra_domain_base }}"
+infra_domain_dns_unbound: "unbound.{{ infra_domain_base }}"
+infra_domain_dns_dnscrypt: "dnscrypt.{{ infra_domain_base }}"
+infra_domain_dns_dnscrypt_odoh: "dnscrypt-odoh.{{ infra_domain_base }}"
+infra_domain_dns_dnscrypt_anon: "dnscrypt-anon.{{ infra_domain_base }}"
+infra_domain_dns_dnscrypt_plaintext: "dnscrypt-plaintext.{{ infra_domain_base }}"
+infra_domain_dns_tor: "tor.{{ infra_domain_base }}"
+
+# cno-scoped aliases (*.{nl,cno}.<base> dual-deployment scheme).
+# NOTE: tor.cno.<base> is NOT defined here — it's already the Tor exit-node
+# domain (infra_domain_tor_exit_cno), a different service. The DNS-chain
+# Tor proxy uses dns-tor.cno.<base> instead.
+infra_domain_dns_resolver_cno: "dns.cno.{{ infra_domain_base }}"
+infra_domain_dns_adguard_cno: "adguard.cno.{{ infra_domain_base }}"
+infra_domain_dns_dnsdist_cno: "dnsdist.cno.{{ infra_domain_base }}"
+infra_domain_dns_coredns_cno: "coredns.cno.{{ infra_domain_base }}"
+infra_domain_dns_unbound_cno: "unbound.cno.{{ infra_domain_base }}"
+infra_domain_dns_dnscrypt_cno: "dnscrypt.cno.{{ infra_domain_base }}"
+infra_domain_dns_dnscrypt_odoh_cno: "dnscrypt-odoh.cno.{{ infra_domain_base }}"
+infra_domain_dns_dnscrypt_anon_cno: "dnscrypt-anon.cno.{{ infra_domain_base }}"
+infra_domain_dns_dnscrypt_plaintext_cno: "dnscrypt-plaintext.cno.{{ infra_domain_base }}"
+infra_domain_dns_tor_cno: "dns-tor.cno.{{ infra_domain_base }}"
 
 # ---------------------------------------------------------------------------
 # VPN Hostnames
@@ -109,6 +159,18 @@ infra_tailscale_fqdn_windows_docker: "{{ infra_tailscale_tailnet }}"
 # Tailscale IP for the Windows Docker host (for A records — direct tailnet access)
 # Overridden in client infrastructure/domains.yml with the actual Tailscale IP.
 infra_tailscale_ip_windows_docker: ""
+# Tailscale IP for the OCI cloud server (for A records — direct tailnet access).
+# Used where CNAME→*.ts.net is unreliable: MagicDNS intermittently NXDOMAINs
+# tailnet names reached by chasing a CNAME across zones.
+infra_tailscale_ip_cloud_server: ""
+# Tailscale IP for the AI inference host (A records — same rationale as above).
+infra_tailscale_ip_inference_host: ""
+# Tailscale IPs for the exit-node containers (tagged devices — stable IPs).
+# A records, not CNAME→*.ts.net, for the same MagicDNS CNAME-chase reason.
+infra_tailscale_ip_cno_vpn_exit: ""
+infra_tailscale_ip_cno_tor_exit: ""
+infra_tailscale_ip_nl_vpn_exit: ""
+infra_tailscale_ip_nl_tor_exit: ""
 
 # ---------------------------------------------------------------------------
 # Service Hostnames (container names)
@@ -299,6 +361,18 @@ infra_domain_ai_acrm: "acrm.nl.{{ infra_domain_base }}"
 infra_domain_ai_acrm_api: "acrm-api.nl.{{ infra_domain_base }}"
 infra_hostname_acrm_web: "localnet-acrm-web"
 infra_hostname_acrm_postgres: "localnet-acrm-postgres"
+# ---------------------------------------------------------------------------
+# Postiz (nl region — X86, dtop202311)
+# Self-hosted social-media scheduling (all-in-one ghcr.io image: Next.js UI +
+# NestJS API + Temporal worker on container :5000). App's own auth — no
+# Authelia: provider OAuth callbacks and registration need a direct path.
+# ---------------------------------------------------------------------------
+infra_domain_tools_postiz: "postiz.nl.{{ infra_domain_base }}"
+infra_hostname_postiz: "localnet-postiz"
+infra_hostname_postiz_postgres: "localnet-postiz-postgres"
+infra_hostname_postiz_redis: "localnet-postiz-redis"
+infra_hostname_postiz_temporal: "localnet-postiz-temporal"
+infra_hostname_postiz_temporal_postgres: "localnet-postiz-temporal-postgres"
 
 # ---------------------------------------------------------------------------
 # Fallback hostnames — generic (non-suffixed) aliases for roles that reference

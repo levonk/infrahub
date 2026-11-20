@@ -12,6 +12,7 @@
       - ca-certificates
       - curl
       - gnupg
+      - python3-debian
     state: present
     update_cache: true
   become: true
@@ -31,18 +32,21 @@
 # Install Tailscale (official repository)
 # ---------------------------------------------------------------------------
 - name: Add Tailscale GPG key
-  ansible.builtin.apt_key:
-    url: https://pkgs.tailscale.com/{{ vpn_tailscale_channel }}/{{ ansible_distribution | lower }}/{{ ansible_distribution_release }}.gpg
-    keyring: /usr/share/keyrings/tailscale-archive-keyring.gpg
+  ansible.builtin.get_url:
+    url: https://pkgs.tailscale.com/{{ vpn_tailscale_channel }}/{{ ansible_facts['distribution'] | lower }}/{{ ansible_facts['distribution_release'] }}.gpg
+    dest: /usr/share/keyrings/tailscale-archive-keyring.gpg
+    mode: "0644"
   become: true
   when: ansible_facts.os_family == "Debian"
 
 - name: Add Tailscale apt repository
-  ansible.builtin.apt_repository:
-    repo: >-
-      deb [signed-by=/usr/share/keyrings/tailscale-archive-keyring.gpg]
-      https://pkgs.tailscale.com/{{ vpn_tailscale_channel }}/{{ ansible_distribution | lower }} {{ ansible_distribution_release }} main
-    filename: tailscale
+  ansible.builtin.deb822_repository:
+    name: tailscale
+    types: deb
+    uris: "https://pkgs.tailscale.com/{{ vpn_tailscale_channel }}/{{ ansible_facts['distribution'] | lower }}"
+    suites: "{{ ansible_facts['distribution_release'] }}"
+    components: main
+    signed_by: /usr/share/keyrings/tailscale-archive-keyring.gpg
     state: present
   become: true
   when: ansible_facts.os_family == "Debian"

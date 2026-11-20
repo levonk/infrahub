@@ -1,0 +1,58 @@
+---
+# Monitoring Catalog — derives per-service probe targets from services.yml.
+#
+# Produces two facts used by monitoring-prometheus, monitoring-blackbox, and
+# monitoring-autokuma:
+#
+#   monitoring_service_probes  — list of probe dicts:
+#       name      human-readable service name
+#       service   slug (alert label: service)
+#       pipeline  ai | dns | web | vpn | media | infra | none
+#       stage     pipeline stage label
+#       machine   oci-cloud-server | dtop202311 | kckinai | isolation-vm
+#       type      http | tcp | dns
+#       target    "host:port" (blackbox __param_target / kuma hostname+port)
+#       url       "http://host:port/path" (http probes only)
+#       hostname  host part (kuma port-monitor hostname)
+#       port      port part (kuma port-monitor port)
+#       path      health endpoint path ("" for tcp/dns probes)
+#
+#   monitoring_service_skipped — service names with no probeable endpoint
+#                                (no ports, no override, netns-only, hosts).
+#
+# services.yml schema notes:
+#   ports[] entries carry VARIABLE NAMES (e.g. "infra_port_ai_litellm_host"),
+#   resolved here via the vars lookup.
+#   probe:   optional per-service override dict:
+#       { type, target, path, skip, pipeline, stage }
+#   Use probe.skip: true for entries that are not reachable endpoints
+#   (host-level constructs, netns sidecars, batch containers).
+
+- name: "Validate service catalog is loaded"
+  ansible.builtin.assert:
+    that:
+      - services is defined
+      - services is iterable
+    fail_msg: >-
+      services.yml was not loaded. Add services.yml to the playbook's
+      include_vars list before depending on monitoring-catalog.
+    success_msg: "Service catalog loaded with {{ services | length }} entries."
+  tags: ["always", "validate"]
+
+- name: "Derive per-service probe targets from services.yml"
+  ansible.builtin.set_fact:
+    monitoring_service_probes: "{{ lookup('template', 'probe-targets.yml.j2') | from_yaml }}"
+  tags: ["always"]
+
+- name: "List services without a probeable endpoint"
+  ansible.builtin.set_fact:
+    monitoring_service_skipped: "{{ lookup('template', 'probe-skipped.yml.j2') | from_yaml }}"
+  tags: ["always"]
+
+- name: "Report catalog coverage"
+  ansible.builtin.debug:
+    msg: >-
+      {{ monitoring_service_probes | length }} services probeable,
+      {{ monitoring_service_skipped | length }} skipped (no reachable endpoint):
+      {{ monitoring_service_skipped | join(', ') }}
+  tags: ["always", "summary"]

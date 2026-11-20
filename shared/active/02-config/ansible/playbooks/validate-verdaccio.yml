@@ -104,7 +104,7 @@
 
     - name: "Record Verdaccio (cno) ping status"
       ansible.builtin.set_fact:
-        validation_results: "{{ validation_results | combine({'cno_ping_ok': verdaccio_cno_ping.status | default(infra_size_unlimited) == {{ infra_http_status_ok }}}) }}"
+        validation_results: "{{ validation_results | combine({'cno_ping_ok': verdaccio_cno_ping.status | default(infra_size_unlimited) == (infra_http_status_ok | int)}) }}"
       when: "'cloud_servers' in group_names"
       tags: ["validate", "verdaccio"]
 
@@ -161,7 +161,7 @@
 
     - name: "Record Verdaccio (nl) ping status"
       ansible.builtin.set_fact:
-        validation_results: "{{ validation_results | combine({'nl_ping_ok': verdaccio_nl_ping.status | default(infra_size_unlimited) == {{ infra_http_status_ok }}}) }}"
+        validation_results: "{{ validation_results | combine({'nl_ping_ok': verdaccio_nl_ping.status | default(infra_size_unlimited) == (infra_http_status_ok | int)}) }}"
       when: "'windows_docker_hosts' in group_names"
       tags: ["validate", "verdaccio"]
 
@@ -182,7 +182,7 @@
 
     - name: "Record Traefik cno route status"
       ansible.builtin.set_fact:
-        validation_results: "{{ validation_results | combine({'traefik_cno_route_ok': traefik_cno_route.status | default(infra_size_unlimited) == {{ infra_http_status_ok }}}) }}"
+        validation_results: "{{ validation_results | combine({'traefik_cno_route_ok': traefik_cno_route.status | default(infra_size_unlimited) == (infra_http_status_ok | int)}) }}"
       when: "'cloud_servers' in group_names"
       tags: ["validate", "verdaccio", "traefik"]
 
@@ -199,7 +199,7 @@
 
     - name: "Record Traefik nl route status"
       ansible.builtin.set_fact:
-        validation_results: "{{ validation_results | combine({'traefik_nl_route_ok': traefik_nl_route.status | default(infra_size_unlimited) == {{ infra_http_status_ok }}}) }}"
+        validation_results: "{{ validation_results | combine({'traefik_nl_route_ok': traefik_nl_route.status | default(infra_size_unlimited) == (infra_http_status_ok | int)}) }}"
       when: "'cloud_servers' in group_names"
       tags: ["validate", "verdaccio", "traefik"]
 
