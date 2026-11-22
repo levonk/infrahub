@@ -95,6 +95,7 @@ See [`internal-docs/troubleshooting/ansible-lint.md`](../../../internal-docs/tro
 | `deploy-imagination-studio.yml` | `levonk/.../inventories/localnet.yml --limit kckinai` | `localnet_hosts` | Linux | kckinai (GB10) — native Imagination Studio converge: `ai-imagination-studio` role (deps, checkout @ v4.5.0, dirs, env, systemd --user unit + linger, tailnet bind :7870) |
 | `deploy-imagination-studio-models.yml` | `levonk/.../inventories/localnet.yml --limit kckinai` | `localnet_hosts` | Linux | kckinai — ASYNC ~423 GB model/component install via upstream oneshot installer as `lk` (`--tags install|status|verify`) |
 | `validate-imagination-studio.yml` | `levonk/.../inventories/localnet.yml --limit kckinai` | `localnet_hosts` | Linux | read-only post-deploy checks: user unit active+enabled, linger, :7870 tailnet-only bind, `/api/spark/self` (200|401), managed ComfyUI :8190 loopback, NRestarts, journal tail, ComfyUI :8188 unaffected, disk headroom |
+| `deploy-whisper-server.yml` | `levonk/.../inventories/localnet.yml --limit kckinai` | `localnet_hosts` | Linux | kckinai (GB10) — `ai-whisper-server` role: on-host CUDA build of whisper.cpp (`docker_image source: build`), container `whisper-server` with NVIDIA GPU passthrough, models ro-mounted from `whisper_models_host_dir`, :8178, Silero VAD; consumed by bffdwn audio-pipeline |
 
 When adding a new role to a playbook, check this table to know which playbook(s) cover which hosts. Use `--tags <role-tag>` to deploy only that role across all inventories.
 

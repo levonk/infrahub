@@ -770,6 +770,13 @@ infra_port_ai_studio_comfy_host: "8190"
 infra_port_ai_studio_comfy_container: "8190"
 
 # ---------------------------------------------------------------------------
+# whisper.cpp — Speech-to-Text server (CUDA container on kckinai)
+# Consumed by the bffdwn audio-pipeline Mac orchestrator (POST /inference).
+# ---------------------------------------------------------------------------
+infra_port_ai_whisper_host: "8178"
+infra_port_ai_whisper_container: "8178"
+
+# ---------------------------------------------------------------------------
 # Media Stack — Jellyfin + *arr services (nl region = dtop202311)
 # All media services run on Windows Docker Desktop (dtop202311, X86).
 # Deployed via the media-stack Ansible role using SSH-tunneled Docker CLI.

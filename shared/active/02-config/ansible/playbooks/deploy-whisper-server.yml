@@ -1,0 +1,65 @@
+---
+# Deploy whisper.cpp STT server (CUDA container) on an NVIDIA inference host.
+# Location: shared/active/02-config/ansible/playbooks/deploy-whisper-server.yml
+#
+# Builds the whisper.cpp CUDA image on the target and runs whisper-server
+# with NVIDIA GPU passthrough. Consumed by the bffdwn audio-pipeline Mac
+# orchestrator (POST /inference on the host port).
+#
+# Prerequisites:
+#   - Target reachable via SSH (localnet_hosts inventory)
+#   - NVIDIA GPU + nvidia-container-toolkit on the host
+#   - Model files present in whisper_models_host_dir
+#     (client group_vars may point at an existing cache)
+#
+# Usage:
+#   ansible-playbook \
+#     -i levonk/active/02-config/ansible/inventories/localnet.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-whisper-server.yml \
+#     --vault-password-file ~/.ansible/vault_password \
+#     --limit kckinai
+
+- name: "Deploy whisper.cpp STT server"
+  hosts: localnet_hosts
+  become: true
+  gather_facts: true
+
+  vars_files:
+    - "{{ playbook_dir }}/../infrastructure/ports.yml"
+    - "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/ports.yml"
+
+  pre_tasks:
+    - name: "Gather ansible_facts"
+      ansible.builtin.setup:
+        gather_subset: ["all"]
+      tags: ["always"]
+
+    - name: "Report target"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          whisper.cpp STT server deploy
+          ========================================
+          Host: {{ inventory_hostname }}
+          Ansible Host: {{ ansible_host }}
+          OS: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}
+          Arch: {{ ansible_facts['architecture'] }}
+          Port: {{ infra_port_ai_whisper_host }} -> {{ infra_port_ai_whisper_container }}
+          ========================================
+      tags: ["always", "info"]
+
+  roles:
+    - role: ai-whisper-server
+      tags: ["whisper", "stt", "ai"]
+
+  post_tasks:
+    - name: "Verify whisper-server container is running"
+      community.docker.docker_container_info:
+        name: "{{ whisper_container_name }}"
+      register: whisper_container_info
+
+    - name: "Report container status"
+      ansible.builtin.debug:
+        msg: >-
+          whisper-server container: {{ whisper_container_info.container.State.Status }}
+          (restarts: {{ whisper_container_info.container.RestartCount }})

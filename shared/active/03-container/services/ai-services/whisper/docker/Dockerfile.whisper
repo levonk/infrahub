@@ -1,0 +1,43 @@
+# whisper.cpp server — CUDA build for NVIDIA GB10 (aarch64, CUDA 13)
+# Multi-stage: compile in devel image, run in slim runtime image.
+# Models are NOT baked in — mounted read-only at /models by Ansible.
+
+FROM nvidia/cuda:13.0.0-devel-ubuntu24.04 AS build
+
+ARG WHISPER_CPP_REPO=https://github.com/ggml-org/whisper.cpp.git
+ARG WHISPER_CPP_REF=master
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential cmake git ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Driver stubs: libggml-cuda.so has DT_NEEDED libcuda.so.1, but the devel
+# image ships no driver lib. The toolkit stubs dir provides libcuda.so —
+# give the linker a libcuda.so.1 name and put it on the search path.
+# At runtime nvidia-container-toolkit injects the real libcuda.so.1.
+RUN ln -sf libcuda.so /usr/local/cuda/lib64/stubs/libcuda.so.1
+ENV LIBRARY_PATH=/usr/local/cuda/lib64/stubs
+
+RUN git clone --depth 1 --branch "${WHISPER_CPP_REF}" "${WHISPER_CPP_REPO}" /src/whisper.cpp \
+    && cd /src/whisper.cpp \
+    && cmake -B build -DGGML_CUDA=ON -DCMAKE_BUILD_TYPE=Release \
+       -DCMAKE_EXE_LINKER_FLAGS="-Wl,-rpath-link,/usr/local/cuda/lib64/stubs" \
+       -DCMAKE_SHARED_LINKER_FLAGS="-Wl,-rpath-link,/usr/local/cuda/lib64/stubs" \
+    && cmake --build build -j "$(nproc)" --target whisper-server
+
+FROM nvidia/cuda:13.0.0-runtime-ubuntu24.04
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libgomp1 ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Preserve the build tree layout so RPATH-relative .so lookups keep working.
+COPY --from=build /src/whisper.cpp/build /opt/whisper/build
+
+ENV LD_LIBRARY_PATH=/opt/whisper/build/bin:/opt/whisper/build/src:/opt/whisper/build/ggml/src
+
+# whisper-server args are supplied by the container runtime (Ansible command).
+# Defaults shown for manual runs:
+#   -m /models/ggml-large-v3-turbo.bin --host 0.0.0.0 --port 8178 \
+#   --inference-path /inference --vad -vm /models/ggml-silero-v6.2.0.bin
+ENTRYPOINT ["/opt/whisper/build/bin/whisper-server"]

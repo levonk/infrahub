@@ -1,0 +1,14 @@
+---
+galaxy_info:
+  author: infrahub
+  description: whisper.cpp CUDA speech-to-text server (docker container, NVIDIA GPU)
+  license: MIT
+  min_ansible_version: "2.14"
+  platforms:
+    - name: EL
+      versions: ["8", "9"]
+    - name: Ubuntu
+      versions: ["22.04", "24.04"]
+  galaxy_tags: [ai, whisper, stt, gpu, nvidia]
+
+dependencies: []

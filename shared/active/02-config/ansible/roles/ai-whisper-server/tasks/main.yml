@@ -1,0 +1,184 @@
+---
+# ai-whisper-server — whisper.cpp CUDA STT server
+# Builds a local aarch64+CUDA image on the target host, then runs
+# whisper-server in a container with NVIDIA GPU passthrough.
+# Consumed by the bffdwn audio-pipeline Mac orchestrator (POST /inference).
+
+# 1. Validate required variables
+- name: Validate required variables are defined
+  ansible.builtin.assert:
+    that:
+      - infra_port_ai_whisper_host is defined
+      - infra_port_ai_whisper_host | length > 0
+      - infra_port_ai_whisper_container is defined
+      - infra_port_ai_whisper_container | length > 0
+      - whisper_model_file is defined
+      - whisper_vad_model_file is defined
+    fail_msg: >-
+      Missing whisper variables. Check infrastructure/ports.yml for
+      infra_port_ai_whisper_host/container and role defaults for model files.
+    success_msg: "All required whisper variables are defined."
+  tags: ["always", "validate"]
+
+# 2. Stage build context on the target (docker_image source: build executes
+#    through the target's Docker API — context must live on the host).
+- name: Ensure whisper build directory exists
+  ansible.builtin.file:
+    path: "{{ whisper_build_dir }}"
+    state: directory
+    mode: "0755"
+  become: true
+
+- name: Copy whisper Dockerfile to target
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../../../../active/03-container/services/ai-services/whisper/docker/{{ whisper_dockerfile }}"
+    dest: "{{ whisper_build_dir }}/{{ whisper_dockerfile }}"
+    mode: "0644"
+  become: true
+  register: whisper_dockerfile_copy
+
+# 3. Ensure model directory exists (client may point at an existing cache)
+- name: Ensure whisper models directory exists
+  ansible.builtin.file:
+    path: "{{ whisper_models_host_dir }}"
+    state: directory
+    mode: "0755"
+  become: true
+
+# 4. Check whether image already exists (avoid pointless CUDA rebuilds)
+- name: Check whisper image presence
+  community.docker.docker_image_info:
+    name: "{{ whisper_image_name }}:{{ whisper_image_tag }}"
+  register: whisper_image_info
+  ignore_errors: true
+
+- name: Build whisper.cpp CUDA image
+  community.docker.docker_image:
+    name: "{{ whisper_image_name }}:{{ whisper_image_tag }}"
+    source: build
+    build:
+      dockerfile: "{{ whisper_dockerfile }}"
+      path: "{{ whisper_build_dir }}"
+      pull: true
+      rm: true
+      nocache: "{{ whisper_dockerfile_copy is changed }}"
+  become: true
+  when: >-
+    whisper_image_info.images | default([]) | length == 0
+    or whisper_dockerfile_copy is changed
+
+# 4b. Stop/disable the legacy systemd --user whisper-server unit if present —
+#     the container owns port 8178 now. No-op on hosts that never had it.
+- name: Check for legacy whisper-server user unit
+  ansible.builtin.command: >-
+    systemctl --user list-unit-files whisper-server.service --no-legend
+  become: true
+  become_user: "{{ ansible_user }}"
+  register: whisper_legacy_unit
+  failed_when: false
+  changed_when: false
+
+- name: Stop and disable legacy whisper-server user unit
+  ansible.builtin.systemd:
+    name: whisper-server
+    scope: user
+    state: stopped
+    enabled: false
+  become: true
+  become_user: "{{ ansible_user }}"
+  when: whisper_legacy_unit.stdout is search("whisper-server")
+
+# 5. Inspect existing container and decide whether a redeploy is needed.
+#    community.docker.docker_container is NOT idempotent with
+#    device_requests (NVIDIA GPU) — it recreates on every converge — so we
+#    compare the live config ourselves and only recreate on real drift.
+- name: Inspect whisper-server container
+  community.docker.docker_container_info:
+    name: "{{ whisper_container_name }}"
+  register: whisper_container_info
+  ignore_errors: true
+  become: true
+
+- name: Refresh image ID after build
+  community.docker.docker_image_info:
+    name: "{{ whisper_image_name }}:{{ whisper_image_tag }}"
+  register: whisper_image_info_after
+  become: true
+
+- name: Determine whether whisper-server needs redeploy
+  ansible.builtin.set_fact:
+    whisper_needs_redeploy: >-
+      {{ whisper_container_info.container is not defined
+         or whisper_container_info.container.Config.Image
+            != (whisper_image_name ~ ':' ~ whisper_image_tag)
+         or whisper_container_info.container.Image
+            != ('sha256:' ~ (whisper_image_info_after.images[0].Id | regex_replace('^sha256:', '')))
+         or whisper_container_info.container.HostConfig.RestartPolicy.Name
+            != whisper_restart_policy
+         or (((whisper_container_info.container.HostConfig.PortBindings | default({}))
+              .get(whisper_server_port ~ '/tcp', [])
+              | map(attribute='HostPort') | list) != [infra_port_ai_whisper_host])
+         or (whisper_container_info.container.HostConfig.DeviceRequests
+             | default([]) | length) == 0
+         or ((whisper_models_host_dir ~ ':' ~ whisper_container_models_dir ~ ':ro')
+             not in (whisper_container_info.container.HostConfig.Binds | default([])))
+         or ((whisper_container_info.container.Config.Cmd | default([]) | join(' '))
+            != (whisper_server_args | join(' '))) }}
+
+- name: Report whisper-server drift
+  ansible.builtin.debug:
+    msg: >-
+      whisper-server {{ 'REDEPLOY' if whisper_needs_redeploy else 'up to date' }}
+      (image={{ whisper_container_info.container.Image | default('none') }})
+  changed_when: false
+
+# 6. Deploy container with NVIDIA GPU passthrough (only on drift/absence)
+- name: Deploy whisper-server container
+  community.docker.docker_container:
+    name: "{{ whisper_container_name }}"
+    image: "{{ whisper_image_name }}:{{ whisper_image_tag }}"
+    state: started
+    restart_policy: "{{ whisper_restart_policy }}"
+    published_ports:
+      - "{{ infra_port_ai_whisper_host }}:{{ whisper_server_port }}"
+    volumes:
+      - "{{ whisper_models_host_dir }}:{{ whisper_container_models_dir }}:ro"
+    command: "{{ whisper_server_args | join(' ') }}"
+    device_requests:
+      - device_ids: ["0"]
+        capabilities: [["gpu"]]
+    log_driver: json-file
+    log_options:
+      max-size: "{{ whisper_log_max_size }}"
+      max-file: "{{ whisper_log_max_file }}"
+  become: true
+  when: whisper_needs_redeploy
+  notify: restart whisper-server
+
+- name: Ensure whisper-server container is running
+  community.docker.docker_container:
+    name: "{{ whisper_container_name }}"
+    state: started
+  become: true
+  when: not whisper_needs_redeploy
+
+# 6. Wait for HTTP listener
+- name: Wait for whisper-server to accept connections
+  ansible.builtin.wait_for:
+    host: "127.0.0.1"
+    port: "{{ infra_port_ai_whisper_host }}"
+    delay: 5
+    timeout: 120
+  become: true
+
+# 7. Health check — server root returns 200 when ready
+- name: Verify whisper-server HTTP endpoint
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ infra_port_ai_whisper_host }}/"
+    method: GET
+    status_code: [200, 404]
+  register: whisper_health
+  retries: 6
+  delay: 10
+  until: whisper_health.status in [200, 404]
+  become: true

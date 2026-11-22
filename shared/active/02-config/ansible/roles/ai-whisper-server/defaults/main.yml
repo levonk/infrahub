@@ -1,0 +1,41 @@
+---
+# ai-whisper-server defaults
+# whisper.cpp speech-to-text HTTP server in a CUDA container.
+# Deployed on NVIDIA inference hosts (kckinai / GB10). Tailnet-reachable only
+# via the host port; the Mac audio pipeline POSTs FLACs to /inference.
+
+whisper_container_name: "whisper-server"
+whisper_image_name: "localnet-ai-whisper"
+whisper_image_tag: "latest"
+whisper_network_name: "bridge"
+whisper_restart_policy: "unless-stopped"
+
+# Build context staged on the target host (docker_image source: build runs
+# through the target's Docker API, so the Dockerfile must exist there).
+whisper_build_dir: "/opt/localnet/build/whisper"
+whisper_dockerfile: "Dockerfile.whisper"
+
+# Model files mounted read-only. Client overrides whisper_models_host_dir to
+# point at an existing model cache (e.g. /home/lk/models/whisper on kckinai).
+whisper_models_host_dir: "/opt/localnet/whisper/models"
+whisper_container_models_dir: "/models"
+whisper_model_file: "ggml-large-v3-turbo.bin"
+whisper_vad_model_file: "ggml-silero-v6.2.0.bin"
+whisper_vad_enabled: true
+
+# Server listen settings — ports come from infrastructure/ports.yml.
+whisper_server_port: "{{ infra_port_ai_whisper_container }}"
+whisper_inference_path: "/inference"
+
+# whisper-server argv (container CMD). Kept as a list so drift comparison
+# against container.Config.Cmd is exact.
+whisper_server_args: >-
+  {{ ['-m', whisper_container_models_dir ~ '/' ~ whisper_model_file,
+      '--host', '0.0.0.0',
+      '--port', whisper_server_port,
+      '--inference-path', whisper_inference_path]
+     + (['--vad', '-vm', whisper_container_models_dir ~ '/' ~ whisper_vad_model_file]
+        if whisper_vad_enabled | bool else []) }}
+
+whisper_log_max_size: "50m"
+whisper_log_max_file: "3"
