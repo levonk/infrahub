@@ -53,6 +53,7 @@ PB_DNS_STACK := ANSIBLE_ROOT + "/playbooks/dns-stack.yml"
 PB_VAL_DNS := ANSIBLE_ROOT + "/playbooks/validate-dns.yml"
 PB_VAL_AUTHELIA := ANSIBLE_ROOT + "/playbooks/validate-authelia.yml"
 PB_ACRM := ANSIBLE_ROOT + "/playbooks/deploy-acrm.yml"
+PB_ACRM_PLUGIN := ANSIBLE_ROOT + "/playbooks/deploy-acrm-plugin.yml"
 PB_POSTIZ := ANSIBLE_ROOT + "/playbooks/deploy-postiz.yml"
 PB_IMAGINATION_STUDIO := ANSIBLE_ROOT + "/playbooks/deploy-imagination-studio.yml"
 PB_IMAGINATION_STUDIO_MODELS := ANSIBLE_ROOT + "/playbooks/deploy-imagination-studio-models.yml"
@@ -772,6 +773,32 @@ ansible_deploy_acrm_check_impl:
     {{_log}}
     log_start "Checking ACRM deployment on Windows Docker host (--check --diff)"
     ansible-playbook -i {{WINDOWS_INVENTORY}} {{PB_ACRM}} --check --diff --vault-password-file ~/.ansible/vault_password
+
+# Deploy the ACRM Vencord plugin into Vesktop on Windows desktop hosts.
+# Prerequisites: deploy-acrm.yml run first (API reachable), Vencord dist
+# built on the controller with the plugin linked, interactive user logged on.
+ansible-deploy-acrm-plugin:
+    @just _devbox ansible_deploy_acrm_plugin_impl
+
+[private]
+ansible_deploy_acrm_plugin_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Deploying ACRM Vencord plugin to Windows desktop Vesktop"
+    ansible-playbook -i {{WINDOWS_INVENTORY}} {{PB_ACRM_PLUGIN}} --vault-password-file ~/.ansible/vault_password
+
+# Dry-run ACRM plugin deploy (--check --diff; limited fidelity — role tasks are shell/command)
+ansible-deploy-acrm-plugin-check:
+    @just _devbox ansible_deploy_acrm_plugin_check_impl
+
+[private]
+ansible_deploy_acrm_plugin_check_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Checking ACRM plugin deployment (--check --diff)"
+    ansible-playbook -i {{WINDOWS_INVENTORY}} {{PB_ACRM_PLUGIN}} --check --diff --vault-password-file ~/.ansible/vault_password
 
 # Deploy Postiz (app + postgres + redis + temporal + temporal-postgres) on
 # Windows Docker host (nl region). App's own auth — no Authelia.

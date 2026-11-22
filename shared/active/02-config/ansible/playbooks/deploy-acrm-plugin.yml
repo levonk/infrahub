@@ -1,0 +1,58 @@
+---
+# Deploy the ACRM Vencord plugin into Vesktop on Windows desktop hosts.
+# Location: shared/active/02-config/ansible/playbooks/deploy-acrm-plugin.yml
+#
+# Deploys a prebuilt Vencord `dist` (built on the controller with the ACRM
+# userplugin linked into src/userplugins) to the Windows host, points
+# Vesktop's `vencordDir` at it, enables the plugin with the deployed API
+# endpoint + key, and restarts Vesktop inside the interactive session.
+#
+# First-deploy prerequisites:
+#   1. deploy-acrm.yml has run — the API must be reachable at
+#      https://acrm-api.nl.{{ infra_domain_base }}/api/v1
+#   2. Vencord built with the plugin on the controller:
+#        cd ~/p/gh/Vendicated/Vencord && pnpm install
+#        cd <acrm>/apps/active/plugins/discord-vencord
+#        VENCORD_REPO_PATH=~/p/gh/Vendicated/Vencord pnpm run link:vencord
+#        cd ~/p/gh/Vendicated/Vencord && pnpm build
+#      (override with -e acrm_vencord_dist_dir=<path>)
+#   3. An interactive user logged on the Windows host (Vesktop is a GUI app)
+#
+# Usage:
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/windows-docker.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-acrm-plugin.yml \
+#     --vault-password-file ~/.ansible/vault_password
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/windows-docker.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-acrm-plugin.yml \
+#     --check --diff --vault-password-file ~/.ansible/vault_password
+
+- name: "Deploy ACRM Vencord plugin to Windows desktop Vesktop"
+  hosts: windows_docker_hosts
+  gather_facts: true
+  become: false
+  vars_files:
+    - "{{ playbook_dir }}/../infrastructure/domains.yml"
+    - "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/domains.yml"
+    - "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/inventories/group_vars/infrahub-levonk-all.vault.yml"
+  vars:
+    acrm_vencord_plugin_enabled: true
+
+  pre_tasks:
+    - name: "Validate required variables"
+      ansible.builtin.assert:
+        that:
+          - infra_domain_ai_acrm_api is defined
+          - infra_domain_ai_acrm_api | length > 0
+          - acrm_vencord_api_key is defined
+          - acrm_vencord_api_key | length > 0
+        fail_msg: >-
+          Missing infra_domain_ai_acrm_api or the acrm api key
+          (vault_acrm_api_key / vault_acrm_plugin_api_key in
+          infrahub-levonk-all.vault.yml).
+        success_msg: "acrm plugin variables OK."
+      tags: ["always", "validate"]
+      no_log: true
+
+  roles:
+    - role: acrm-vencord-plugin
+      tags: ["deploy", "acrm-plugin"]
