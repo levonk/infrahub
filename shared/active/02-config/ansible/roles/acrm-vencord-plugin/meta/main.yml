@@ -1,0 +1,22 @@
+---
+galaxy_info:
+  role_name: acrm_vencord_plugin
+  author: levonk
+  description: >-
+    Deploy the ACRM Vencord plugin into Vesktop on Windows desktop hosts.
+    Ships a controller-built Vencord dist (plugin compiled in as a
+    userplugin), points Vesktop's vencordDir at it, enables the plugin with
+    the deployed API endpoint + key in Vesktop settings, and restarts
+    Vesktop inside the interactive user session.
+  license: MIT
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Windows
+      versions: ["all"]
+  galaxy_tags:
+    - acrm
+    - vencord
+    - vesktop
+    - discord
+    - windows
+dependencies: []
