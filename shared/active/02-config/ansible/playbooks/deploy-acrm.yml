@@ -236,6 +236,11 @@
         file: "{{ playbook_dir }}/../roles/search-hister/defaults/main.yml"
       tags: ["always"]
 
+    - name: "Load media-stack role defaults (required by proxy_traefik_windows media template)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../roles/media-stack/defaults/main.yml"
+      tags: ["always"]
+
     - name: "Load vault secrets (Cloudflare API token for ACME)"
       ansible.builtin.include_vars:
         file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/inventories/group_vars/infrahub-levonk-all.vault.yml"
