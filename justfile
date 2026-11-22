@@ -56,6 +56,7 @@ PB_ACRM := ANSIBLE_ROOT + "/playbooks/deploy-acrm.yml"
 PB_POSTIZ := ANSIBLE_ROOT + "/playbooks/deploy-postiz.yml"
 PB_IMAGINATION_STUDIO := ANSIBLE_ROOT + "/playbooks/deploy-imagination-studio.yml"
 PB_IMAGINATION_STUDIO_MODELS := ANSIBLE_ROOT + "/playbooks/deploy-imagination-studio-models.yml"
+PB_WHISPER := ANSIBLE_ROOT + "/playbooks/deploy-whisper-server.yml"
 PB_VAL_IMAGINATION_STUDIO := ANSIBLE_ROOT + "/playbooks/validate-imagination-studio.yml"
 PB_PATCH_OPENSSH := ANSIBLE_ROOT + "/playbooks/patch-openssh-musl-bypass.yml"
 WINDOWS_INVENTORY := INFRAHUB_ROOT + "/levonk/active/02-config/ansible/inventories/windows-docker.yml"
@@ -827,6 +828,35 @@ ansible_deploy_imagination_studio_check_impl:
     {{_log}}
     log_start "Checking Imagination Studio deployment on kckinai (--check --diff)"
     ansible-playbook -i {{LOCALNET_INVENTORY}} {{PB_IMAGINATION_STUDIO}} --limit kckinai --check --diff --vault-password-file ~/.ansible/vault_password
+
+# Deploy whisper.cpp STT server (CUDA container) on kckinai (localnet)
+# Builds the aarch64+CUDA image on the target host and runs whisper-server
+# with NVIDIA GPU passthrough on :8178. Consumed by the bffdwn
+# audio-pipeline Mac orchestrator (POST /inference).
+# Prerequisites: SSH to kckinai as lk, NVIDIA GPU + nvidia-container-toolkit,
+# model files in whisper_models_host_dir (default reuses /home/lk/models/whisper).
+ansible-deploy-whisper:
+    @just _devbox ansible_deploy_whisper_impl
+
+[private]
+ansible_deploy_whisper_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Deploying whisper.cpp STT server on kckinai"
+    ansible-playbook -i {{LOCALNET_INVENTORY}} {{PB_WHISPER}} --limit kckinai --vault-password-file ~/.ansible/vault_password
+
+# Dry-run whisper deployment on kckinai (--check --diff)
+ansible-deploy-whisper-check:
+    @just _devbox ansible_deploy_whisper_check_impl
+
+[private]
+ansible_deploy_whisper_check_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Checking whisper.cpp deployment on kckinai (--check --diff)"
+    ansible-playbook -i {{LOCALNET_INVENTORY}} {{PB_WHISPER}} --limit kckinai --check --diff --vault-password-file ~/.ansible/vault_password
 
 # Deploy Imagination Studio models/components on kckinai (ASYNC, ~423 GB)
 # Runs the upstream oneshot installer as lk; returns immediately (poll: 0).
