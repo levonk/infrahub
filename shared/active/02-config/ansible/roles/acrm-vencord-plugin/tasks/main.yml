@@ -99,60 +99,154 @@
         $distDir = $cfg.distDir
         $pluginName = $cfg.pluginName
 
+        # --- stop Vesktop FIRST: it rewrites state.json/settings.json from
+        #     memory on shutdown, which would clobber the edits below ---
+        Get-Process -Name 'Vesktop' -ErrorAction SilentlyContinue | Stop-Process -Force
+        $waited = 0  # project-lint: disable=magic-int  loop counter init, not a config value
+        while ((Get-Process -Name 'Vesktop' -ErrorAction SilentlyContinue) -and $waited -lt 15000) {  # project-lint: disable=magic-int  Windows/PowerShell config value, not a standalone magic number
+          Start-Sleep -Milliseconds 500  # project-lint: disable=magic-int  Windows/PowerShell config value, not a standalone magic number
+          $waited += 500  # project-lint: disable=magic-int  polling interval accumulator
+        }
+        $survivors = @(Get-Process -Name 'Vesktop' -ErrorAction SilentlyContinue)
+        "Vesktop stopped ($waited ms, survivors=$($survivors.Count))" | Out-File $log -Append -Encoding utf8
+        if ($survivors.Count -gt 0) {
+          # A surviving process can flush stale state over our edits — abort rather than risk it.
+          "ERROR: Vesktop processes still alive after stop: $($survivors.Id -join ',')" | Out-File $log -Append -Encoding utf8
+          exit 1
+        }
+
+        # --- surgical JSON edits only: NEVER ConvertFrom-Json + ConvertTo-Json
+        #     the whole file (PS5.1 depth truncation + reserialization has
+        #     already destroyed user plugin settings once). Text-level edits
+        #     preserve every other byte. Timestamped backup before any write.
+        function Backup-File($path) {
+          if (Test-Path $path) {
+            $bak = "$path.acrm-bak-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+            Copy-Item $path $bak -Force
+            "backup -> $bak" | Out-File $log -Append -Encoding utf8
+          }
+        }
+        function Write-JsonSafe($path, $raw) {
+          # parse-check the NEW text before touching the file; never write invalid JSON
+          try { $null = $raw | ConvertFrom-Json -ErrorAction Stop } catch {
+            "ERROR: refusing to write invalid JSON to $path : $_" | Out-File $log -Append -Encoding utf8
+            exit 1
+          }
+          Backup-File $path
+          [System.IO.File]::WriteAllText($path, $raw, (New-Object System.Text.UTF8Encoding($false)))
+        }
+        $changed = $false
+
         # --- state.json: point Vesktop's vencordDir at the staged dist ---
         $statePath = Join-Path $env:APPDATA 'Vesktop\state.json'
         $stateDir = Split-Path $statePath -Parent
         if (-not (Test-Path $stateDir)) { New-Item -ItemType Directory -Path $stateDir -Force | Out-Null }
+        $distJson = ConvertTo-Json $distDir  # JSON-escaped string literal
         if (Test-Path $statePath) {
-          $state = Get-Content $statePath -Raw | ConvertFrom-Json
+          $stateRaw = Get-Content $statePath -Raw
         } else {
-          $state = [PSCustomObject]@{}
+          $stateRaw = '{}'
         }
-        if (-not ($state.PSObject.Properties.Name -contains 'vencordDir')) {
-          $state | Add-Member -NotePropertyName vencordDir -NotePropertyValue $null
+        $vdPattern = '"vencordDir"\s*:\s*"(?:[^"\\]|\\.)*"'
+        if ([regex]::IsMatch($stateRaw, $vdPattern)) {
+          if ($stateRaw -match ('"vencordDir"\s*:\s*' + [regex]::Escape($distJson))) {
+            "state.json vencordDir already correct" | Out-File $log -Append -Encoding utf8
+          } else {
+            $stateRaw = [regex]::Replace($stateRaw, $vdPattern, ('"vencordDir": ' + $distJson), 1)
+            Write-JsonSafe $statePath $stateRaw
+            $changed = $true
+            "state.json vencordDir -> $distDir" | Out-File $log -Append -Encoding utf8
+          }
+        } else {
+          $m = [regex]::Match($stateRaw, '\{')
+          if (-not $m.Success) { "ERROR: state.json has no opening brace" | Out-File $log -Append -Encoding utf8; exit 1 }
+          $at = $m.Index + 1
+          $tail = $stateRaw.Substring($at)
+          $comma = ''
+          if (-not $tail.TrimStart().StartsWith('}')) { $comma = ',' }
+          $stateRaw = $stateRaw.Substring(0, $at) + "`n  `"vencordDir`": $distJson$comma" + $tail
+          Write-JsonSafe $statePath $stateRaw
+          $changed = $true
+          "state.json vencordDir -> $distDir" | Out-File $log -Append -Encoding utf8
         }
-        $state.vencordDir = $distDir
-        $state | ConvertTo-Json -Depth 10 | Set-Content $statePath -Encoding utf8
-        "state.json vencordDir -> $distDir" | Out-File $log -Append -Encoding utf8
 
-        # --- settings.json: enable plugin + set plugin settings ---
+        # --- settings.json: enable plugin + set plugin settings (surgical) ---
         $settingsDir = Join-Path $env:APPDATA 'Vesktop\settings'
         if (-not (Test-Path $settingsDir)) { New-Item -ItemType Directory -Path $settingsDir -Force | Out-Null }
         $settingsPath = Join-Path $settingsDir 'settings.json'
         if (Test-Path $settingsPath) {
-          $settings = Get-Content $settingsPath -Raw | ConvertFrom-Json
+          $setRaw = Get-Content $settingsPath -Raw
         } else {
-          $settings = [PSCustomObject]@{}
+          $setRaw = '{"plugins":{}}'
         }
-        if (-not ($settings.PSObject.Properties.Name -contains 'plugins')) {
-          $settings | Add-Member -NotePropertyName plugins -NotePropertyValue ([PSCustomObject]@{})
-        }
-        $pluginEntry = [PSCustomObject]@{
+        # flat entry — our plugin settings have no nested objects, so the
+        # first closing brace after the entry's opening brace is its end
+        $entryJson = (@{
           enabled         = $true
           acrmApiUrl      = $cfg.apiUrl
           acrmApiKey      = $cfg.apiKey
           capturePresence = $true
-        }
-        if ($settings.plugins.PSObject.Properties.Name -contains $pluginName) {
-          $settings.plugins.$pluginName = $pluginEntry
+        } | ConvertTo-Json -Compress)
+        $pluginKeyJson = ConvertTo-Json $pluginName
+        $pluginKeyPattern = '"' + [regex]::Escape($pluginName) + '"\s*:\s*\{[^{}]*\}'
+        $pluginPresent = $setRaw -match ('"' + [regex]::Escape($pluginName) + '"')
+        if ([regex]::IsMatch($setRaw, $pluginKeyPattern)) {
+          # entry exists — only rewrite when values actually differ, and only
+          # the entry's own {...} span (surrounding bytes untouched)
+          $em = [regex]::Match($setRaw, $pluginKeyPattern)
+          $existing = $em.Value
+          $alreadyCorrect = $existing -match '"enabled"\s*:\s*true'
+          foreach ($kv in @('acrmApiUrl', 'acrmApiKey', 'capturePresence')) {
+            $want = if ($kv -eq 'capturePresence') { 'true' } else { (ConvertTo-Json $(if ($kv -eq 'acrmApiUrl') { $cfg.apiUrl } else { $cfg.apiKey })) }
+            if ($existing -notmatch ('"' + $kv + '"\s*:\s*' + [regex]::Escape($want))) { $alreadyCorrect = $false; break }
+          }
+          if (-not $alreadyCorrect) {
+            $replacement = $pluginKeyJson + ': ' + $entryJson
+            $setRaw = $setRaw.Substring(0, $em.Index) + $replacement + $setRaw.Substring($em.Index + $em.Length)
+            Write-JsonSafe $settingsPath $setRaw
+            $changed = $true
+            "settings.json plugin '$pluginName' re-configured" | Out-File $log -Append -Encoding utf8
+          } else {
+            "settings.json plugin '$pluginName' already correct" | Out-File $log -Append -Encoding utf8
+          }
+        } elseif ($pluginPresent) {
+          # name exists but not as a flat entry (nested settings?) — refuse
+          # rather than risk a duplicate key or corrupted structure
+          "ERROR: plugin '$pluginName' exists in settings.json but isn't a flat entry — inspect manually" | Out-File $log -Append -Encoding utf8
+          exit 1
         } else {
-          $settings.plugins | Add-Member -NotePropertyName $pluginName -NotePropertyValue $pluginEntry
+          # no entry — insert right after `"plugins": {` opening brace
+          $pm = [regex]::Match($setRaw, '"plugins"\s*:\s*\{')
+          if (-not $pm.Success) { "ERROR: settings.json has no plugins object" | Out-File $log -Append -Encoding utf8; exit 1 }
+          $at = $pm.Index + $pm.Length
+          $tail = $setRaw.Substring($at)
+          $comma = ''
+          if (-not $tail.TrimStart().StartsWith('}')) { $comma = ',' }
+          $insert = "`n    " + $pluginKeyJson + ": " + $entryJson + $comma
+          $setRaw = $setRaw.Substring(0, $at) + $insert + $tail
+          Write-JsonSafe $settingsPath $setRaw
+          $changed = $true
+          "settings.json plugin '$pluginName' enabled + configured" | Out-File $log -Append -Encoding utf8
         }
-        $settings | ConvertTo-Json -Depth 10 | Set-Content $settingsPath -Encoding utf8
-        "settings.json plugin '$pluginName' enabled + configured" | Out-File $log -Append -Encoding utf8
 
         # --- consume the config (contains the api key) ---
         Remove-Item '{{ acrm_vencord_config_path }}' -Force -ErrorAction SilentlyContinue
 
-        # --- restart Vesktop inside this interactive session ---
-        Get-Process -Name 'Vesktop' -ErrorAction SilentlyContinue | Stop-Process -Force
-        Start-Sleep -Seconds 3  # project-lint: disable=magic-int  Windows/PowerShell config value, not a standalone magic number
+        # --- restart Vesktop inside this interactive session (only when we wrote) ---
+        if (-not $changed) {
+          "no config changes — leaving Vesktop running" | Out-File $log -Append -Encoding utf8
+          "=== done $(Get-Date -Format o) ===" | Out-File $log -Append -Encoding utf8
+          exit 0
+        }
+        Start-Sleep -Seconds 2  # project-lint: disable=magic-int  Windows/PowerShell config value, not a standalone magic number
         $exe = $null
-        $link = Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Links\vesktop.exe'
-        if (Test-Path $link) { $exe = $link }
-        if (-not $exe) {
-          $candidate = Get-ChildItem 'C:\Program Files\Vesktop\Vesktop.exe','C:\Program Files (x86)\Vesktop\Vesktop.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
-          if ($candidate) { $exe = $candidate.FullName }
+        foreach ($candidate in @(
+          (Join-Path $env:LOCALAPPDATA 'Vesktop\vesktop.exe'),
+          (Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Links\vesktop.exe'),
+          'C:\Program Files\Vesktop\Vesktop.exe',
+          'C:\Program Files (x86)\Vesktop\Vesktop.exe'
+        )) {
+          if (Test-Path $candidate) { $exe = $candidate; break }
         }
         if (-not $exe) {
           $pkg = Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Packages') -Directory -Filter 'Vencord.Vesktop*' -ErrorAction SilentlyContinue |
@@ -163,7 +257,7 @@
           Start-Process $exe
           "Vesktop restarted via $exe" | Out-File $log -Append -Encoding utf8
         } else {
-          "WARN: Vesktop.exe not found — restart it manually" | Out-File $log -Append -Encoding utf8
+          "WARN: Vesktop.exe not found - restart it manually" | Out-File $log -Append -Encoding utf8
         }
         "=== done $(Get-Date -Format o) ===" | Out-File $log -Append -Encoding utf8
         exit 0
