@@ -13,10 +13,12 @@ set -euo pipefail
 #   2. Creates the auser admin user
 #   3. Grants auser passwordless sudo (NOPASSWD) — required for unattended Ansible
 #   4. Adds the SSH public key for auser
-#   5. Verifies SSH access is working
-#   6. Checks Apple ID / App Store sign-in for the current (GUI) user
+#   5. Installs Tailscale if missing (preferred ansible_host path — see
+#      AGENTS.md → Architectural Invariants #13/#14)
+#   6. Verifies SSH access is working
+#   7. Checks Apple ID / App Store sign-in for the current (GUI) user
 #
-# Why step 6 exists — distributed configuration for Xcode:
+# Why step 7 exists — distributed configuration for Xcode:
 #   Xcode is installed by the Ansible `macos-xcode` role using `mas` (Mac App
 #   Store CLI). `mas` is installed by nix-darwin via Ansible (not this script),
 #   and `mas` requires an Apple ID signed in to the App Store. However, `mas
@@ -108,7 +110,7 @@ echo ""
 # --- Step 1: Enable Remote Login ---
 # systemsetup -setremotelogin requires Full Disk Access on macOS 15+ (Sequoia).
 # Fall back to launchctl if it fails, then verify the actual state.
-echo "[1/6] Enabling Remote Login (SSH server)..."
+echo "[1/7] Enabling Remote Login (SSH server)..."
 REMOTE_LOGIN_STATE=$(sudo systemsetup -getremotelogin 2>/dev/null || echo "")
 if [[ "${REMOTE_LOGIN_STATE}" == *"On"* ]]; then
   echo "  ✓ Remote Login already on"
@@ -137,7 +139,7 @@ fi
 echo ""
 
 # --- Step 2: Create auser ---
-echo "[2/6] Creating ${AUSER_NAME} admin user..."
+echo "[2/7] Creating ${AUSER_NAME} admin user..."
 if dscl . -read "/Users/${AUSER_NAME}" UniqueID &>/dev/null; then
   echo "  ✓ ${AUSER_NAME} already exists"
 else
@@ -168,7 +170,7 @@ echo ""
 # would need --ask-become-pass, breaking automated configure/os-update runs.
 # Mirrors the /etc/sudoers.d/<admin_user> entry created by bootstrap-macos-host.yml.
 # We do it here (in the manual script) so Ansible has no barriers when it runs.
-echo "[3/6] Granting ${AUSER_NAME} passwordless sudo (NOPASSWD)..."
+echo "[3/7] Granting ${AUSER_NAME} passwordless sudo (NOPASSWD)..."
 SUDOERS_FILE="/etc/sudoers.d/${AUSER_NAME}"
 SUDOERS_ENTRY="${AUSER_NAME} ALL=(ALL) NOPASSWD: ALL"
 if sudo test -f "${SUDOERS_FILE}" && sudo grep -qxF "${SUDOERS_ENTRY}" "${SUDOERS_FILE}" 2>/dev/null; then
@@ -191,7 +193,7 @@ fi
 echo ""
 
 # --- Step 4: Add SSH public key ---
-echo "[4/6] Adding SSH public key for ${AUSER_NAME}..."
+echo "[4/7] Adding SSH public key for ${AUSER_NAME}..."
 
 # Get the public key
 # Embedded default — the control Mac's lzkmbp2016-micro-oracle key (also in client inventory).
@@ -233,8 +235,36 @@ else
 fi
 echo ""
 
-# --- Step 5: Verify ---
-echo "[5/6] Verification..."
+# --- Step 5: Ensure Tailscale is installed ---
+# Tailscale is a justified host-level daemon (AGENTS.md → Architectural
+# Invariants #5) and the preferred ansible_host path for tailnet-attached
+# hosts (#14). macOS has no single headless installer: the Homebrew formula
+# runs tailscaled via `brew services` (no GUI approval needed); the
+# App Store / standalone app requires a GUI sign-in for the network
+# extension. Best-effort — if neither is available, Ansible can still reach
+# the host via its LAN IP until Tailscale is installed manually.
+echo "[5/7] Ensuring Tailscale is installed..."
+if command -v tailscale &>/dev/null || [[ -d "/Applications/Tailscale.app" ]]; then
+  echo "  ✓ Tailscale already installed"
+elif command -v brew &>/dev/null; then
+  if brew install tailscale; then
+    echo "  ✓ tailscale installed via Homebrew"
+    echo "  Starting tailscaled (brew services)..."
+    sudo brew services start tailscale 2>/dev/null || brew services start tailscale 2>/dev/null || true
+  else
+    echo "  ! WARNING: brew install tailscale failed." >&2
+    echo "    Install Tailscale manually (App Store or https://pkgs.tailscale.com/stable/#macos)" >&2
+    echo "    — until then, reach this host via its LAN IP." >&2
+  fi
+else
+  echo "  ! WARNING: Tailscale not installed and Homebrew not found." >&2
+  echo "    Install Tailscale from the App Store or https://pkgs.tailscale.com/stable/#macos" >&2
+  echo "    — until then, reach this host via its LAN IP." >&2
+fi
+echo ""
+
+# --- Step 6: Verify ---
+echo "[6/7] Verification..."
 echo "  User: $(dscl . -read "/Users/${AUSER_NAME}" UniqueID 2>/dev/null | awk '{print $2}')"
 echo "  Admin group: $(sudo dseditgroup -o checkmember -m "${AUSER_NAME}" admin 2>/dev/null || echo 'NOT in admin group')"
 echo "  SSH key: $(sudo cat "/Users/${AUSER_NAME}/.ssh/authorized_keys" | head -c 40)..."
@@ -285,7 +315,7 @@ for U in ${ALL_HUMAN_USERS}; do
 done
 
 echo ""
-echo "[6/6] Checking Apple ID / App Store sign-in across all users..."
+echo "[7/7] Checking Apple ID / App Store sign-in across all users..."
 echo "  Users to check: ${CHECK_USERS:-none found}"
 
 SIGNED_IN_USER=""

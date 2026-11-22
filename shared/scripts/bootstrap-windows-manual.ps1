@@ -14,7 +14,9 @@
       3. Installs docker Python package (needed by Ansible community.docker modules)
       4. Creates the service account (configadmin) with admin privileges
       5. Adds the SSH public key for the service user
-      6. Verifies SSH access is working
+      6. Installs Tailscale if missing (preferred ansible_host path — see
+         AGENTS.md → Architectural Invariants #13/#14)
+      7. Verifies SSH access is working
 
     After this, run from the control Mac:
       just ansible-bootstrap-windows-docker
@@ -75,7 +77,7 @@ Write-Host "Service user: $ServiceUserName (admin)"
 Write-Host ""
 
 # --- Step 1: Enable OpenSSH Server ---
-Write-Host "[1/6] Enabling OpenSSH Server..." -ForegroundColor Yellow
+Write-Host "[1/7] Enabling OpenSSH Server..." -ForegroundColor Yellow
 
 $sshCap = Get-WindowsCapability -Online -Name "OpenSSH.Server~~~~0.0.1.0" -ErrorAction SilentlyContinue
 if ($sshCap -and $sshCap.State -eq "Installed") {
@@ -144,7 +146,7 @@ if (Test-Path $sshdConfig) {
 Write-Host ""
 
 # --- Step 2: Install Python 3.12 ---
-Write-Host "[2/6] Installing Python 3.12..." -ForegroundColor Yellow
+Write-Host "[2/7] Installing Python 3.12..." -ForegroundColor Yellow
 
 # Check for REAL Python -- Get-Command python finds the Windows Store stub
 # (C:\Users\*\AppData\Local\Microsoft\WindowsApps\python.exe, 0 bytes) which is NOT
@@ -202,7 +204,7 @@ if (-not $pythonExe) {
 Write-Host ""
 
 # --- Step 3: Install docker Python package ---
-Write-Host "[3/6] Installing docker Python package..." -ForegroundColor Yellow
+Write-Host "[3/7] Installing docker Python package..." -ForegroundColor Yellow
 
 # Use the verified python.exe, not whatever 'python' resolves to on PATH (could still be the stub)
 # ponytail: pip show writes "Package(s) not found" to stderr, which PS 5.1 with
@@ -219,7 +221,7 @@ if ($dockerPip -and ($dockerPip -join "`n").Contains('Name: docker')) {
 Write-Host ""
 
 # --- Step 4: Create service account (admin) ---
-Write-Host "[4/6] Creating $ServiceUserName service account..." -ForegroundColor Yellow
+Write-Host "[4/7] Creating $ServiceUserName service account..." -ForegroundColor Yellow
 
 $existingUser = Get-LocalUser -Name $ServiceUserName -ErrorAction SilentlyContinue
 if ($existingUser) {
@@ -317,7 +319,7 @@ Write-Host "  .ssh directory ready at $sshDir" -ForegroundColor Green
 Write-Host ""
 
 # --- Step 5: Add SSH public key ---
-Write-Host "[5/6] Adding SSH public key for $ServiceUserName..." -ForegroundColor Yellow
+Write-Host "[5/7] Adding SSH public key for $ServiceUserName..." -ForegroundColor Yellow
 
 # Get the public key
 # Embedded default — the control Mac's lzkmbp2016-micro-oracle key (also in client inventory).
@@ -385,8 +387,41 @@ if ($existingKeys -and $existingKeys.Contains($pubKey)) {
 }
 Write-Host ""
 
-# --- Step 6: Verify ---
-Write-Host "[6/6] Verification..." -ForegroundColor Yellow
+# --- Step 6: Ensure Tailscale is installed ---
+# Tailscale is a justified host-level daemon (AGENTS.md → Architectural
+# Invariants #5) and the preferred ansible_host path for tailnet-attached
+# hosts (#14). Best-effort via winget (#13): if winget or the package is
+# unavailable, Ansible can still reach the host via its LAN IP until
+# Tailscale is installed manually and `tailscale up` is run.
+Write-Host "[6/7] Ensuring Tailscale is installed..." -ForegroundColor Yellow
+
+$tsService = Get-Service -Name "Tailscale" -ErrorAction SilentlyContinue
+$tsCmd = Get-Command tailscale -ErrorAction SilentlyContinue
+if ($tsService -or $tsCmd) {
+    Write-Host "  Tailscale already installed" -ForegroundColor Green
+} else {
+    $wingetCmd = Get-Command winget -ErrorAction SilentlyContinue
+    if ($wingetCmd) {
+        winget install tailscale.tailscale --silent --accept-package-agreements --accept-source-agreements | Out-Null
+        $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+        if ((Get-Service -Name "Tailscale" -ErrorAction SilentlyContinue) -or (Get-Command tailscale -ErrorAction SilentlyContinue)) {
+            Write-Host "  Tailscale installed" -ForegroundColor Green
+            Write-Host "  Run 'tailscale up' (or sign in via the tray icon) to join the tailnet." -ForegroundColor Cyan
+        } else {
+            Write-Host "  WARNING: winget install completed but Tailscale not detected." -ForegroundColor Yellow
+            Write-Host "  Install manually from https://tailscale.com/download/windows — until then," -ForegroundColor Yellow
+            Write-Host "  reach this host via its LAN IP." -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "  WARNING: winget not found — cannot auto-install Tailscale." -ForegroundColor Yellow
+        Write-Host "  Install from https://tailscale.com/download/windows, then run 'tailscale up'." -ForegroundColor Yellow
+        Write-Host "  Until then, reach this host via its LAN IP." -ForegroundColor Yellow
+    }
+}
+Write-Host ""
+
+# --- Step 7: Verify ---
+Write-Host "[7/7] Verification..." -ForegroundColor Yellow
 
 $sshServiceCheck = Get-Service sshd
 Write-Host "  sshd: $($sshServiceCheck.Status) (Startup: $($sshServiceCheck.StartType))"
