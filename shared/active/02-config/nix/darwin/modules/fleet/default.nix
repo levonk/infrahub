@@ -149,7 +149,8 @@ in
     #               nono-nocheck disables a sandbox-hostile unit test)
     #
     # CLI tools migrated from imperative `nix profile install`:
-    #   cargo, coreutils, delta, difftastic, eza, gh, git-lfs, nodejs, pnpm
+    #   cargo, coreutils, delta, difftastic, eza, ffmpeg, gh, git-lfs, nodejs,
+    #   pnpm, uv
     # These were previously installed via `nix profile install nixpkgs#<pkg>`
     # and are now declarative. `nix profile list` should show empty (or only
     # flake-based entries like devbox) after `darwin-rebuild switch`.
@@ -180,11 +181,13 @@ in
         delta
         difftastic
         eza
+        ffmpeg
         gh
         git-lfs
         mas
         nodejs
         pnpm
+        uv
 
         # --- Secret scanning ---
         gitleaks
