@@ -162,7 +162,7 @@
 
 - name: Deploy download watcher systemd units
   ansible.builtin.template:
-    src: "{{ item }}.j2"
+    src: "copyparty-download-watch.{{ item }}.j2"
     dest: "/etc/systemd/system/{{ copyparty_download_watch_service_name }}.{{ item }}"
     owner: root
     group: root
