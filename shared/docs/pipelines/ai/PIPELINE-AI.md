@@ -89,6 +89,11 @@ This is a topology decision, not a pipeline architecture decision. See `shared/d
 
 ## Recent Changes
 
+**2026-11-18**: Added kckinai abliterated endpoint to OmniRoute managed config
+- `model-abliterated.sh` in levonk-ai-playground now defaults the NVIDIA endpoint to `huihui-ai/Huihui-Qwen3.8-27B-abliterated` (bf16, ~54 GB) on SGLang, port 8008 — co-run headroom vs the previous ~84 GB Flash-Next GGUF/Strata default
+- OmniRoute managed config gains a `kckinai-abliterated` provider node + connection (`http://<inference-host>:8008/v1`) and a dedicated `kckinai-abliterated` combo, gated by `ai_omniroute_kckinai_abliterated_enabled` — kept out of `kckinaicombo` so uncensored weights stay opt-in
+- Endpoint is only up while the model script runs on kckinai (manual launch, not yet a service)
+
 **2026-11-17**: Added FreeLLMAPI as OmniRoute's free-tier leaf provider
 - FreeLLMAPI (https://github.com/tashfeenahmed/freellmapi) is a free-tier LLM aggregator — 34+ providers behind a single OpenAI-compatible `/v1` endpoint with automatic fallover, per-key rate tracking, and a self-updating model catalog (~7.4B tokens/month of free inference)
 - Deployed as `ai-freellmapi` Ansible role on the OCI cloud server; container `localnet-ai-freellmapi` (image `ghcr.io/tashfeenahmed/freellmapi:v0.16.34`)

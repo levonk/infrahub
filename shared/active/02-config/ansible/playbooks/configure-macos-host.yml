@@ -725,19 +725,92 @@
       when: infra_app_container_runtime == "apple-container"
       tags: ["containers", "check"]
 
+    # ---------------------------------------------------------------------------
+    # Apple Container service — runs as the INTERACTIVE (GUI) user, not auser.
+    # `container system start` registers a per-user launchd service in the
+    # caller's gui/<uid> domain, so the apiserver/kernel only exist for that
+    # user. First run downloads the default kernel + init image;
+    # --enable-kernel-install makes the kernel prompt non-interactive (bare
+    # `system start` prompts [Y/n] and fails over SSH).
+    # ---------------------------------------------------------------------------
+    - name: "Detect console (interactive) user"
+      ansible.builtin.command: stat -f%Su /dev/console
+      register: macos_console_user
+      changed_when: false
+      failed_when: false
+      when: infra_app_container_runtime == "apple-container"
+      tags: ["containers", "setup"]
+
+    - name: "Resolve Apple Container service user"
+      ansible.builtin.set_fact:
+        apple_container_service_user: >-
+          {{ macos_gui_user
+             | default(macos_console_user.stdout | default('', true) | trim, true) }}
+      when: infra_app_container_runtime == "apple-container"
+      tags: ["containers", "setup"]
+
+    - name: "Warn if no interactive user resolved for Apple Container"
+      ansible.builtin.debug:
+        msg: "WARNING: no interactive user resolved (macos_gui_user unset and /dev/console empty) — Apple Container service will not be started"
+      when:
+        - infra_app_container_runtime == "apple-container"
+        - apple_container_service_user | length == 0
+      tags: ["containers", "setup"]
+
+    - name: "Check Apple Container service status"
+      ansible.builtin.command: container system status
+      register: apple_container_service
+      changed_when: false
+      failed_when: false
+      become: true
+      become_user: "{{ apple_container_service_user }}"
+      when:
+        - infra_app_container_runtime == "apple-container"
+        - apple_container_service_user | length > 0
+      tags: ["containers", "setup"]
+
+    - name: "Start Apple Container service (installs kernel if needed)"
+      ansible.builtin.command: container system start --enable-kernel-install
+      become: true
+      become_user: "{{ apple_container_service_user }}"
+      when:
+        - infra_app_container_runtime == "apple-container"
+        - apple_container_service_user | length > 0
+        - apple_container_service.rc != 0
+      tags: ["containers", "setup"]
+
     # OrbStack is installed via brew cask above (in infra_app_brew_casks).
     # Apple Container is built into macOS 26+ (no install needed).
 
-    - name: "Verify container runtime is available"
+    - name: "Verify Apple Container service is running"
+      ansible.builtin.command: container system status
+      register: apple_container_verify
+      changed_when: false
+      failed_when: false
+      become: true
+      become_user: "{{ apple_container_service_user }}"
+      when:
+        - infra_app_container_runtime == "apple-container"
+        - apple_container_service_user | length > 0
+      tags: ["containers", "verify"]
+
+    - name: "Verify Docker CLI is available"
       ansible.builtin.command: docker --version
       register: docker_check
       changed_when: false
       failed_when: false
+      when: infra_app_container_runtime != "apple-container"
       tags: ["containers", "verify"]
 
     - name: "Report container runtime"
       ansible.builtin.debug:
-        msg: "Docker CLI: {{ docker_check.stdout if docker_check.rc == 0 else 'NOT available — OrbStack may need to be started' }}"
+        msg: >-
+          {% if infra_app_container_runtime == 'apple-container' %}
+          Apple Container service (user {{ apple_container_service_user }}):
+          {{ 'running' if apple_container_verify.rc | default(-1) == 0 else 'NOT running — see containers/setup output' }}
+          {% else %}
+          Docker CLI: {{ docker_check.stdout if docker_check.rc == 0 else 'NOT available — OrbStack may need to be started' }}
+          {% endif %}
       tags: ["containers", "verify"]
 
     # ---------------------------------------------------------------------------
@@ -819,6 +892,11 @@
     - name: "Sinkhole IP-logger/tracker domains in /etc/hosts"
       ansible.builtin.include_role:
         name: common-hosts-blocklist
+        # include_role does NOT propagate tags to role tasks — apply:
+        # ensures --tags hosts-blocklist/--tags hardening select the tasks
+        # inside the role.
+        apply:
+          tags: ["hardening", "hosts-blocklist"]
       tags: ["hardening", "hosts-blocklist"]
 
     # ---------------------------------------------------------------------------
@@ -829,6 +907,11 @@
     - name: "Distribute Firefox enterprise policies.json"
       ansible.builtin.include_role:
         name: common-firefox-policy
+        # include_role does NOT propagate tags to role tasks — apply:
+        # ensures --tags firefox-policy/--tags hardening select the tasks
+        # inside the role.
+        apply:
+          tags: ["firefox-policy", "hardening"]
       tags: ["firefox-policy", "hardening"]
 
     # ---------------------------------------------------------------------------
@@ -839,6 +922,11 @@
     - name: "Distribute Chromium managed-preferences policies"
       ansible.builtin.include_role:
         name: common-chromium-policy
+        # include_role does NOT propagate tags to role tasks — apply:
+        # ensures --tags chromium-policy/--tags hardening select the tasks
+        # inside the role.
+        apply:
+          tags: ["chromium-policy", "hardening"]
       tags: ["chromium-policy", "hardening"]
 
     # ---------------------------------------------------------------------------
@@ -868,6 +956,11 @@
     - name: "Install Xcode via mas"
       ansible.builtin.include_role:
         name: macos-xcode
+        # include_role does NOT propagate tags to role tasks — apply:
+        # ensures --tags xcode/--tags dev-tools select the tasks inside the
+        # role.
+        apply:
+          tags: ["xcode", "dev-tools"]
       tags: ["xcode", "dev-tools"]
 
     # ---------------------------------------------------------------------------

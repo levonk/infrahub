@@ -1,0 +1,335 @@
+---
+# Moonlight client — macOS (Darwin) install and optional pairing
+#
+# 1. Moonlight.app via Homebrew cask (the nix-darwin homebrew module also
+#    manages the "moonlight" cask fleet-wide — this is the self-contained
+#    fallback, same as rustdesk-client).
+# 2. Optional automated pairing against the Sunshine host: register a
+#    role-generated PIN via the web UI's /api/pin (Basic auth), then run
+#    `moonlight pair --pin` as the console GUI user.
+#
+# No launchd/daemon/TCC machinery — Moonlight is a pure client and needs
+# none of it. Remaining human steps are printed in the final report:
+#   (a) first launch may prompt "Local Network" permission (one-time click)
+#   (b) manual pairing fallback via Moonlight → Add Host + web UI PIN page
+#   (c) mDNS host discovery does not cross Tailscale — add hosts by FQDN
+
+# ============================================================================
+# Resolve the GUI user — pairing state is per-user QSettings
+# (~/Library/Preferences/com.moonlight-stream.Moonlight.plist) and every
+# moonlight CLI subcommand builds a QGuiApplication, so pair/verify MUST run
+# as the console user (micro), not the headless auser account Ansible
+# connects as. Priority: role override → macos_gui_user inventory var →
+# /dev/console owner. Empty result means headless/no GUI session — pairing
+# is skipped and the manual fallback is reported instead.
+# ============================================================================
+- name: Detect console GUI user
+  ansible.builtin.command: stat -f%Su /dev/console
+  register: media_moonlight_macos_console_user
+  changed_when: false
+  failed_when: false
+  tags: ["moonlight", "check"]
+
+- name: Resolve GUI user
+  ansible.builtin.set_fact:
+    media_moonlight_gui_user_resolved: >-
+      {% set u = (media_moonlight_macos_gui_user | default('') | trim) or
+                 (media_moonlight_macos_console_user.stdout | default('') | trim) %}
+      {{- '' if u in ['root', 'loginwindow', '_mbsetupuser'] else u }}
+  tags: ["moonlight", "check"]
+
+- name: Get GUI user uid
+  ansible.builtin.command: "id -u {{ media_moonlight_gui_user_resolved }}"
+  register: media_moonlight_gui_uid_result
+  changed_when: false
+  failed_when: false
+  when: media_moonlight_gui_user_resolved | length > 0
+  tags: ["moonlight", "check"]
+
+- name: Set GUI user uid fact
+  ansible.builtin.set_fact:
+    media_moonlight_gui_uid: "{{ media_moonlight_gui_uid_result.stdout | trim }}"
+  when:
+    - media_moonlight_gui_user_resolved | length > 0
+    - media_moonlight_gui_uid_result.rc == 0
+  tags: ["moonlight", "check"]
+
+# ============================================================================
+# Moonlight.app — installed by the nix-darwin homebrew module (cask
+# "moonlight"); install it here as a fallback so the role is self-contained.
+# ============================================================================
+- name: Check if Moonlight.app is installed
+  ansible.builtin.stat:
+    path: "{{ media_moonlight_macos_app_bin }}"
+  register: media_moonlight_macos_app
+  tags: ["moonlight", "install"]
+
+- name: Check Homebrew availability
+  ansible.builtin.command: "{{ macos_brew_dir | default('/opt/homebrew/bin' if ansible_facts['architecture'] == 'arm64' else '/usr/local/bin') }}/brew --version"
+  register: media_moonlight_macos_brew
+  changed_when: false
+  failed_when: false
+  when: not media_moonlight_macos_app.stat.exists
+  tags: ["moonlight", "install"]
+
+# auser (the SSH account) is admin-group but the brew prefix drifts: dirs
+# created later by micro (e.g. /usr/local/share/man) lose group-write, and
+# brew then aborts with "directories are not writable by your user". Apply
+# the same admin-group normalization as configure-macos-host.yml before
+# invoking brew — idempotent, NOPASSWD sudo is fleet-standard.
+- name: Normalize Homebrew dir permissions for admin group
+  ansible.builtin.shell:
+    cmd: |
+      BREW_DIR="{{ macos_brew_dir | default('/opt/homebrew/bin' if ansible_facts['architecture'] == 'arm64' else '/usr/local/bin') | dirname }}"
+      chgrp -R admin "$BREW_DIR"
+      find "$BREW_DIR" -type d -exec chmod g+w {} +
+      chmod -R g+w "$BREW_DIR"
+  become: true
+  changed_when: false
+  when:
+    - not media_moonlight_macos_app.stat.exists
+    - media_moonlight_macos_brew.rc == 0
+  tags: ["moonlight", "install"]
+
+- name: Install Moonlight via Homebrew cask
+  community.general.homebrew_cask:
+    name: moonlight
+    state: present
+    path: "{{ macos_brew_dir | default('/opt/homebrew/bin' if ansible_facts['architecture'] == 'arm64' else '/usr/local/bin') }}"
+    install_options: "appdir=/Applications"
+  when:
+    - not media_moonlight_macos_app.stat.exists
+    - media_moonlight_macos_brew.rc == 0
+  tags: ["moonlight", "install"]
+
+- name: Re-check Moonlight.app after install
+  ansible.builtin.stat:
+    path: "{{ media_moonlight_macos_app_bin }}"
+  register: media_moonlight_macos_app_final
+  tags: ["moonlight", "install"]
+
+- name: Assert Moonlight.app is present
+  ansible.builtin.assert:
+    that:
+      - media_moonlight_macos_app_final.stat.exists
+    fail_msg: >-
+      Moonlight.app not found at {{ media_moonlight_macos_app_path }} and
+      Homebrew is not available to install it. Run configure-macos-host.yml
+      (installs brew + casks) or install manually: brew install --cask moonlight
+  tags: ["moonlight", "install"]
+
+# ============================================================================
+# Existing pairing probe — the GUI user's `hosts` QSettings array contains
+# an NvComputer record per paired host (keyed by the address it was added
+# with). If the pair host's FQDN is already there, skip the whole flow.
+# ============================================================================
+- name: Check existing pairing state (GUI user's QSettings)
+  ansible.builtin.command: defaults read com.moonlight-stream.Moonlight hosts
+  register: media_moonlight_hosts
+  changed_when: false
+  failed_when: false
+  become: true
+  become_user: "{{ media_moonlight_gui_user_resolved }}"
+  when: media_moonlight_gui_user_resolved | length > 0
+  tags: ["moonlight", "pair"]
+
+- name: Compute whether automated pairing should run
+  ansible.builtin.set_fact:
+    media_moonlight_already_paired: >-
+      {{ media_moonlight_pair_host | default('') | length > 0
+         and media_moonlight_pair_host in (media_moonlight_hosts.stdout | default('')) }}
+    media_moonlight_pairing_active: >-
+      {{ media_moonlight_pair_enabled | bool
+         and (media_moonlight_pair_host | default('') | length > 0)
+         and (media_sunshine_web_username | default('') | length > 0)
+         and (media_sunshine_web_password | default('') | length > 0)
+         and (media_moonlight_gui_user_resolved | length > 0)
+         and not (media_moonlight_pair_host | default('') | length > 0
+                  and media_moonlight_pair_host in (media_moonlight_hosts.stdout | default(''))) }}
+  tags: ["moonlight", "pair"]
+
+# ============================================================================
+# Automated pairing (optional)
+#
+# Sunshine's /api/pin (Basic auth = web-UI admin creds) accepts the pairing
+# PIN from non-browser clients without a CSRF token. Two API shapes exist:
+#
+#   old (≤ v2026.516.x): POST {"pin","name"} — registers the PIN on the
+#     host; the client's next pair request is checked against it. The POST
+#     must land BEFORE `moonlight pair` runs.
+#   new (≥ v2026.906.x): pending-pairing model — the client's pair request
+#     appears in GET /api/pin and POST {"pairing_id","pin","name"}
+#     completes it. The pair request must be in-flight first.
+#
+# The sequence below covers both: register the old-shape PIN first
+# (harmless/rejected on new hosts — failure is expected there and ignored),
+# launch `moonlight pair` (completes instantly on old Sunshine; parks as a
+# pending pairing on new), then drive the pending-pairing API.
+# ============================================================================
+- name: Resolve Sunshine web UI API base
+  ansible.builtin.set_fact:
+    media_moonlight_sunshine_api: "https://{{ media_moonlight_pair_host }}:{{ infra_port_stream_sunshine_webui | default('47990') }}/api"
+  when: media_moonlight_pairing_active
+  tags: ["moonlight", "pair"]
+
+- name: Generate pairing PIN (4 digits)
+  ansible.builtin.set_fact:
+    media_moonlight_pair_pin: "{{ lookup('password', '/dev/null chars=0123456789 length=4') }}"
+  when: media_moonlight_pairing_active
+  no_log: true
+  tags: ["moonlight", "pair"]
+
+# Old /api/pin shape — registers the PIN before the client pairs. New-API
+# hosts reject it (pairing_id required); that failure is expected and
+# ignored, the pending-pairing flow below handles them.
+- name: Register PIN with Sunshine (old /api/pin shape)
+  ansible.builtin.uri:
+    url: "{{ media_moonlight_sunshine_api }}/pin"
+    method: POST
+    user: "{{ media_sunshine_web_username }}"
+    password: "{{ media_sunshine_web_password }}"
+    force_basic_auth: true
+    validate_certs: false
+    body_format: json
+    body:
+      pin: "{{ media_moonlight_pair_pin }}"
+      name: "{{ inventory_hostname }}"
+    status_code: [200, 201, 400, 401, 403, 404]
+  delegate_to: localhost
+  register: media_moonlight_pin_old
+  changed_when: false
+  failed_when: false
+  no_log: true
+  when: media_moonlight_pairing_active
+  tags: ["moonlight", "pair"]
+
+# `moonlight pair` shows a GUI window (CliPair.qml) and stays running until
+# the result dialog is dismissed, so run it async — the process gets its
+# WindowServer session by become_user'ing the console user, and the async
+# timeout eventually reaps the leftover window.
+- name: Start Moonlight pair with the pre-chosen PIN (GUI user)
+  ansible.builtin.command:
+    argv:
+      - "{{ media_moonlight_macos_cli_bin }}"
+      - pair
+      - "{{ media_moonlight_pair_host }}"
+      - --pin
+      - "{{ media_moonlight_pair_pin }}"
+  become: true
+  become_user: "{{ media_moonlight_gui_user_resolved }}"
+  async: 60
+  poll: 0
+  changed_when: true
+  no_log: true
+  when: media_moonlight_pairing_active
+  tags: ["moonlight", "pair"]
+
+- name: Let the pair request reach Sunshine
+  ansible.builtin.pause:
+    seconds: "{{ media_moonlight_pair_settle_seconds }}"
+  when: media_moonlight_pairing_active
+  tags: ["moonlight", "pair"]
+
+# New /api/pin shape — the in-flight pair request shows up as a pending
+# pairing; completing it requires its pairing_id.
+- name: List pending pairings on Sunshine (new /api/pin shape)
+  ansible.builtin.uri:
+    url: "{{ media_moonlight_sunshine_api }}/pin"
+    method: GET
+    user: "{{ media_sunshine_web_username }}"
+    password: "{{ media_sunshine_web_password }}"
+    force_basic_auth: true
+    validate_certs: false
+    status_code: [200, 404]
+  delegate_to: localhost
+  register: media_moonlight_pending
+  changed_when: false
+  failed_when: false
+  no_log: true
+  when: media_moonlight_pairing_active
+  tags: ["moonlight", "pair"]
+
+- name: Complete pending pairing with PIN (new /api/pin shape)
+  ansible.builtin.uri:
+    url: "{{ media_moonlight_sunshine_api }}/pin"
+    method: POST
+    user: "{{ media_sunshine_web_username }}"
+    password: "{{ media_sunshine_web_password }}"
+    force_basic_auth: true
+    validate_certs: false
+    body_format: json
+    body:
+      pairing_id: "{{ item.id }}"
+      pin: "{{ media_moonlight_pair_pin }}"
+      name: "{{ inventory_hostname }}"
+    status_code: [200, 201]
+  loop: "{{ media_moonlight_pending.json.pairings | default([]) }}"
+  delegate_to: localhost
+  register: media_moonlight_pin_new
+  changed_when: false
+  failed_when: false
+  no_log: true
+  when:
+    - media_moonlight_pairing_active
+    - media_moonlight_pending.status | default(0) | int == 200
+  tags: ["moonlight", "pair"]
+
+# `moonlight list` prints the paired host's app list — rc 0 = paired and
+# reachable. It still builds a QGuiApplication (headless output only), so
+# run it as the GUI user too.
+- name: Verify pairing (moonlight list as GUI user)
+  ansible.builtin.command:
+    argv:
+      - "{{ media_moonlight_macos_cli_bin }}"
+      - list
+      - "{{ media_moonlight_pair_host }}"
+  become: true
+  become_user: "{{ media_moonlight_gui_user_resolved }}"
+  register: media_moonlight_list
+  changed_when: false
+  failed_when: false
+  retries: "{{ media_moonlight_pair_verify_retries }}"
+  delay: "{{ media_moonlight_pair_verify_delay }}"
+  until: media_moonlight_list.rc == 0
+  no_log: true
+  when: media_moonlight_pairing_active
+  tags: ["moonlight", "pair"]
+
+# ============================================================================
+# Status report
+# ============================================================================
+- name: Report Moonlight client status
+  ansible.builtin.debug:
+    msg: |
+      ========================================
+      Moonlight client configured (macOS)
+      ========================================
+        App:          {{ media_moonlight_macos_app_path }}
+        CLI:          {{ media_moonlight_macos_cli_bin }}
+        GUI user:     {{ media_moonlight_gui_user_resolved | default('none — no console session') }}
+      {% if media_moonlight_already_paired | default(false) %}
+        Pairing:      already paired with {{ media_moonlight_pair_host }} — skipped
+      {% elif media_moonlight_pairing_active | default(false) %}
+        Pairing:      automated pairing attempted against {{ media_moonlight_pair_host }}
+        Result:       {{ 'PAIRED (moonlight list succeeded)' if (media_moonlight_list.rc | default(1)) == 0 else 'NOT CONFIRMED — use the manual fallback below' }}
+      {% elif media_moonlight_pair_enabled | bool %}
+        Pairing:      enabled but INCOMPLETE — needs Sunshine web creds
+                      (vault_sunshine_web_username / _password in the client
+                      vault) and a console GUI session. Manual fallback below.
+      {% else %}
+        Pairing:      disabled (media_moonlight_pair_enabled: false)
+      {% endif %}
+
+      HANDOFF NOTES:
+        (a) First launch may prompt "Moonlight would like to find and
+            connect to devices on your local network" — a one-time human
+            click (macOS 14+/15+ Local Network privacy; NOT a TCC grant,
+            Ansible cannot click it).
+        (b) Manual pairing fallback: Moonlight → Add Host (PC) →
+            {{ media_moonlight_pair_host }} → enter the displayed PIN in
+            the Sunshine web UI:
+            https://{{ media_moonlight_pair_host }}:{{ infra_port_stream_sunshine_webui | default('47990') }}
+        (c) mDNS host discovery does NOT cross Tailscale — always add the
+            host by its Tailscale FQDN.
+      ========================================
+  tags: ["always", "info"]

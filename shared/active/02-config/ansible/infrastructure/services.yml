@@ -2324,6 +2324,67 @@ services:
     service: "coturn"
 
 # ===========================================================================
+# Game Streaming — Sunshine host (native Windows) + Moonlight clients
+# ===========================================================================
+
+- name: "Sunshine"
+  container: "—"
+  machine: "dtop202311"
+  category: "ui"
+  description: "GameStream host — streams the real Windows desktop to Moonlight clients over Tailscale (native winget install, NOT a container)"
+  source_repo: "https://github.com/LizardByte/Sunshine"
+  ports:
+    - host: "infra_port_stream_sunshine_webui"
+      label: "Web UI (HTTPS, Tailscale-only)"
+    - host: "infra_port_stream_sunshine_https"
+      label: "GameStream HTTPS (TCP)"
+    - host: "infra_port_stream_sunshine_http"
+      label: "GameStream HTTP (TCP)"
+    - host: "infra_port_stream_sunshine_rtsp"
+      label: "RTSP (TCP+UDP)"
+    - host: "infra_port_stream_sunshine_video"
+      label: "Video (UDP)"
+    - host: "infra_port_stream_sunshine_control"
+      label: "Control (UDP)"
+    - host: "infra_port_stream_sunshine_audio"
+      label: "Audio (UDP)"
+  traefik: false
+  pipeline: "media"
+  alert_labels:
+    pipeline: "media"
+    stage: "streaming"
+    service: "sunshine"
+
+- name: "Moonlight"
+  container: "—"
+  machine: "macos_hosts"
+  category: "tools"
+  description: "Moonlight game-stream client (homebrew cask `moonlight`) on the macOS fleet"
+  source_repo: "https://github.com/moonlight-stream/moonlight-qt"
+
+# ===========================================================================
+# Localnet Host Services (minime01 — RPi2 DietPi, armv7)
+# ===========================================================================
+
+- name: "CastSponsorSkip"
+  container: "cast-sponsor-skip"
+  machine: "minime01"
+  category: "tools"
+  description: "YouTube sponsor-segment + ad skipper for Google Cast devices — host-networked mDNS discovery, SponsorBlock API"
+  source_repo: "https://github.com/gabe565/CastSponsorSkip"
+  ports: []
+  network: "host"
+  health_endpoint: null
+  pipeline: "none"
+  pipeline_stage: "standalone"
+  alert_labels:
+    pipeline: "none"
+    stage: "standalone"
+    service: "cast-sponsor-skip"
+  probe:
+    skip: true  # host-networked daemon — no listening TCP/HTTP port to probe
+
+# ===========================================================================
 # Service Chains
 # Data-driven request-flow topology for proxy/cache chains.
 # The generate_service_catalog.py script renders each chain as a Mermaid

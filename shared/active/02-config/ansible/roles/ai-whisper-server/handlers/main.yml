@@ -1,0 +1,6 @@
+---
+- name: restart whisper-server
+  community.docker.docker_container:
+    name: "{{ whisper_container_name }}"
+    state: started
+    restart: true

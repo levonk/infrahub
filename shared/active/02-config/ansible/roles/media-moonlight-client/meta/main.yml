@@ -1,0 +1,26 @@
+---
+galaxy_info:
+  role_name: media_moonlight_client
+  author: infrahub
+  description: >
+    Installs the Moonlight game-streaming client (moonlight-qt) on macOS
+    via the Homebrew cask and optionally automates pairing against a
+    Sunshine host: a role-generated PIN is registered via Sunshine's
+    /api/pin endpoint (Basic auth = web-UI admin creds), then `moonlight
+    pair --pin` runs as the console GUI user.
+  company: levonk
+  license: MIT
+  min_ansible_version: "2.9"
+
+  platforms:
+    - name: MacOSX
+      versions:
+        - all
+
+  galaxy_tags:
+    - moonlight
+    - sunshine
+    - gamestreaming
+    - client
+
+dependencies: []

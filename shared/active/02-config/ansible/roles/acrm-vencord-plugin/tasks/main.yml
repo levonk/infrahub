@@ -1,0 +1,331 @@
+---
+# acrm-vencord-plugin — tasks
+#
+# Flow:
+#   1. Validate the controller-side Vencord dist (must contain the
+#      vencordDesktop* bundles built with the ACRM userplugin linked).
+#   2. Stage the dist onto the Windows host at acrm_vencord_dist_dest.
+#   3. Write a small JSON config (api url + key) — no_log, deleted by the
+#      setup script after use.
+#   4. Deploy the setup PS1 (state.json vencordDir merge + settings.json
+#      plugin enable + Vesktop restart).
+#   5. Run it via a scheduled task as the INTERACTIVE user (the desktop-apps
+#      pattern — the ansible SSH session has no GUI session of its own).
+
+- name: "Validate Vencord dist on controller"
+  ansible.builtin.stat:
+    path: "{{ acrm_vencord_dist_dir }}/vencordDesktopRenderer.js"
+  register: acrm_vencord_dist_check
+  delegate_to: localhost
+  become: false
+  when: acrm_vencord_plugin_enabled | bool
+  tags: ["acrm-plugin", "validate"]
+
+- name: "Assert Vencord dist contains the desktop renderer bundle"
+  ansible.builtin.assert:
+    that:
+      - acrm_vencord_dist_check.stat.exists
+    fail_msg: >-
+      Vencord dist not found at {{ acrm_vencord_dist_dir }} — build Vencord
+      with the ACRM plugin linked (see role defaults) before deploying.
+    success_msg: "Vencord dist OK."
+  when:
+    - acrm_vencord_plugin_enabled | bool
+    - acrm_vencord_dist_check is defined
+  tags: ["acrm-plugin", "validate"]
+
+- name: "Check interactive user is logged on"
+  ansible.windows.win_shell:
+    cmd: "(Get-CimInstance Win32_ComputerSystem).UserName"
+  register: acrm_plugin_console_user
+  changed_when: false
+  when: acrm_vencord_plugin_enabled | bool
+  tags: ["acrm-plugin", "check"]
+
+- name: "Skip when no interactive user (Vesktop needs a desktop session)"
+  ansible.builtin.debug:
+    msg: >-
+      No interactive user logged on {{ inventory_hostname }}; ACRM plugin
+      deploy skipped. Log in and re-run.
+  when:
+    - acrm_vencord_plugin_enabled | bool
+    - acrm_plugin_console_user.stdout | default('') | trim | length == 0
+  tags: ["acrm-plugin", "info"]
+
+- name: "Create Vencord dist staging dir on Windows host"
+  ansible.windows.win_file:
+    path: "{{ acrm_vencord_dist_dest }}"
+    state: directory
+  when:
+    - acrm_vencord_plugin_enabled | bool
+    - acrm_plugin_console_user.stdout | default('') | trim | length > 0
+  tags: ["acrm-plugin", "deploy"]
+
+- name: "Stage Vencord dist (vencordDesktop* bundles)"
+  ansible.windows.win_copy:
+    src: "{{ acrm_vencord_dist_dir }}/"
+    dest: "{{ acrm_vencord_dist_dest }}\\"
+  when:
+    - acrm_vencord_plugin_enabled | bool
+    - acrm_plugin_console_user.stdout | default('') | trim | length > 0
+  tags: ["acrm-plugin", "deploy"]
+
+- name: "Write plugin config (api url + key) — consumed once by setup script"
+  ansible.windows.win_copy:
+    dest: "{{ acrm_vencord_config_path }}"
+    content: |
+      {{ {
+        "apiUrl": acrm_vencord_api_url,
+        "apiKey": acrm_vencord_api_key,
+        "pluginName": acrm_vencord_plugin_name,
+        "distDir": acrm_vencord_dist_dest,
+      } | to_json }}
+  no_log: true
+  when:
+    - acrm_vencord_plugin_enabled | bool
+    - acrm_plugin_console_user.stdout | default('') | trim | length > 0
+  tags: ["acrm-plugin", "deploy"]
+
+- name: "Deploy plugin setup script (state.json + settings.json + restart)"
+  ansible.windows.win_copy:
+    dest: "{{ acrm_vencord_setup_script }}"
+    content: |
+      $ErrorActionPreference = 'Stop'
+      $log = '{{ acrm_vencord_log_path }}'
+      "=== acrm plugin setup $(Get-Date -Format o) ===" | Out-File $log -Encoding utf8
+
+      try {
+        $cfg = Get-Content '{{ acrm_vencord_config_path }}' -Raw | ConvertFrom-Json
+        $distDir = $cfg.distDir
+        $pluginName = $cfg.pluginName
+
+        # --- stop Vesktop FIRST: it rewrites state.json/settings.json from
+        #     memory on shutdown, which would clobber the edits below ---
+        Get-Process -Name 'Vesktop' -ErrorAction SilentlyContinue | Stop-Process -Force
+        $waited = 0  # project-lint: disable=magic-int  loop counter init, not a config value
+        while ((Get-Process -Name 'Vesktop' -ErrorAction SilentlyContinue) -and $waited -lt 15000) {  # project-lint: disable=magic-int  Windows/PowerShell config value, not a standalone magic number
+          Start-Sleep -Milliseconds 500  # project-lint: disable=magic-int  Windows/PowerShell config value, not a standalone magic number
+          $waited += 500  # project-lint: disable=magic-int  polling interval accumulator
+        }
+        $survivors = @(Get-Process -Name 'Vesktop' -ErrorAction SilentlyContinue)
+        "Vesktop stopped ($waited ms, survivors=$($survivors.Count))" | Out-File $log -Append -Encoding utf8
+        if ($survivors.Count -gt 0) {
+          # A surviving process can flush stale state over our edits — abort rather than risk it.
+          "ERROR: Vesktop processes still alive after stop: $($survivors.Id -join ',')" | Out-File $log -Append -Encoding utf8
+          exit 1
+        }
+
+        # --- surgical JSON edits only: NEVER ConvertFrom-Json + ConvertTo-Json
+        #     the whole file (PS5.1 depth truncation + reserialization has
+        #     already destroyed user plugin settings once). Text-level edits
+        #     preserve every other byte. Timestamped backup before any write.
+        function Backup-File($path) {
+          if (Test-Path $path) {
+            $bak = "$path.acrm-bak-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+            Copy-Item $path $bak -Force
+            "backup -> $bak" | Out-File $log -Append -Encoding utf8
+          }
+        }
+        function Write-JsonSafe($path, $raw) {
+          # parse-check the NEW text before touching the file; never write invalid JSON
+          try { $null = $raw | ConvertFrom-Json -ErrorAction Stop } catch {
+            "ERROR: refusing to write invalid JSON to $path : $_" | Out-File $log -Append -Encoding utf8
+            exit 1
+          }
+          Backup-File $path
+          [System.IO.File]::WriteAllText($path, $raw, (New-Object System.Text.UTF8Encoding($false)))
+        }
+        $changed = $false
+
+        # --- state.json: point Vesktop's vencordDir at the staged dist ---
+        $statePath = Join-Path $env:APPDATA 'Vesktop\state.json'
+        $stateDir = Split-Path $statePath -Parent
+        if (-not (Test-Path $stateDir)) { New-Item -ItemType Directory -Path $stateDir -Force | Out-Null }
+        $distJson = ConvertTo-Json $distDir  # JSON-escaped string literal
+        if (Test-Path $statePath) {
+          $stateRaw = Get-Content $statePath -Raw
+        } else {
+          $stateRaw = '{}'
+        }
+        $vdPattern = '"vencordDir"\s*:\s*"(?:[^"\\]|\\.)*"'
+        if ([regex]::IsMatch($stateRaw, $vdPattern)) {
+          if ($stateRaw -match ('"vencordDir"\s*:\s*' + [regex]::Escape($distJson))) {
+            "state.json vencordDir already correct" | Out-File $log -Append -Encoding utf8
+          } else {
+            $stateRaw = [regex]::Replace($stateRaw, $vdPattern, ('"vencordDir": ' + $distJson), 1)
+            Write-JsonSafe $statePath $stateRaw
+            $changed = $true
+            "state.json vencordDir -> $distDir" | Out-File $log -Append -Encoding utf8
+          }
+        } else {
+          $m = [regex]::Match($stateRaw, '\{')
+          if (-not $m.Success) { "ERROR: state.json has no opening brace" | Out-File $log -Append -Encoding utf8; exit 1 }
+          $at = $m.Index + 1
+          $tail = $stateRaw.Substring($at)
+          $comma = ''
+          if (-not $tail.TrimStart().StartsWith('}')) { $comma = ',' }
+          $stateRaw = $stateRaw.Substring(0, $at) + "`n  `"vencordDir`": $distJson$comma" + $tail
+          Write-JsonSafe $statePath $stateRaw
+          $changed = $true
+          "state.json vencordDir -> $distDir" | Out-File $log -Append -Encoding utf8
+        }
+
+        # --- settings.json: enable plugin + set plugin settings (surgical) ---
+        $settingsDir = Join-Path $env:APPDATA 'Vesktop\settings'
+        if (-not (Test-Path $settingsDir)) { New-Item -ItemType Directory -Path $settingsDir -Force | Out-Null }
+        $settingsPath = Join-Path $settingsDir 'settings.json'
+        if (Test-Path $settingsPath) {
+          $setRaw = Get-Content $settingsPath -Raw
+        } else {
+          $setRaw = '{"plugins":{}}'
+        }
+        # flat entry — our plugin settings have no nested objects, so the
+        # first closing brace after the entry's opening brace is its end
+        $entryJson = (@{
+          enabled         = $true
+          acrmApiUrl      = $cfg.apiUrl
+          acrmApiKey      = $cfg.apiKey
+          capturePresence = $true
+        } | ConvertTo-Json -Compress)
+        $pluginKeyJson = ConvertTo-Json $pluginName
+        $pluginKeyPattern = '"' + [regex]::Escape($pluginName) + '"\s*:\s*\{[^{}]*\}'
+        $pluginPresent = $setRaw -match ('"' + [regex]::Escape($pluginName) + '"')
+        if ([regex]::IsMatch($setRaw, $pluginKeyPattern)) {
+          # entry exists — only rewrite when values actually differ, and only
+          # the entry's own {...} span (surrounding bytes untouched)
+          $em = [regex]::Match($setRaw, $pluginKeyPattern)
+          $existing = $em.Value
+          $alreadyCorrect = $existing -match '"enabled"\s*:\s*true'
+          foreach ($kv in @('acrmApiUrl', 'acrmApiKey', 'capturePresence')) {
+            $want = if ($kv -eq 'capturePresence') { 'true' } else { (ConvertTo-Json $(if ($kv -eq 'acrmApiUrl') { $cfg.apiUrl } else { $cfg.apiKey })) }
+            if ($existing -notmatch ('"' + $kv + '"\s*:\s*' + [regex]::Escape($want))) { $alreadyCorrect = $false; break }
+          }
+          if (-not $alreadyCorrect) {
+            $replacement = $pluginKeyJson + ': ' + $entryJson
+            $setRaw = $setRaw.Substring(0, $em.Index) + $replacement + $setRaw.Substring($em.Index + $em.Length)
+            Write-JsonSafe $settingsPath $setRaw
+            $changed = $true
+            "settings.json plugin '$pluginName' re-configured" | Out-File $log -Append -Encoding utf8
+          } else {
+            "settings.json plugin '$pluginName' already correct" | Out-File $log -Append -Encoding utf8
+          }
+        } elseif ($pluginPresent) {
+          # name exists but not as a flat entry (nested settings?) — refuse
+          # rather than risk a duplicate key or corrupted structure
+          "ERROR: plugin '$pluginName' exists in settings.json but isn't a flat entry — inspect manually" | Out-File $log -Append -Encoding utf8
+          exit 1
+        } else {
+          # no entry — insert right after `"plugins": {` opening brace
+          $pm = [regex]::Match($setRaw, '"plugins"\s*:\s*\{')
+          if (-not $pm.Success) { "ERROR: settings.json has no plugins object" | Out-File $log -Append -Encoding utf8; exit 1 }
+          $at = $pm.Index + $pm.Length
+          $tail = $setRaw.Substring($at)
+          $comma = ''
+          if (-not $tail.TrimStart().StartsWith('}')) { $comma = ',' }
+          $insert = "`n    " + $pluginKeyJson + ": " + $entryJson + $comma
+          $setRaw = $setRaw.Substring(0, $at) + $insert + $tail
+          Write-JsonSafe $settingsPath $setRaw
+          $changed = $true
+          "settings.json plugin '$pluginName' enabled + configured" | Out-File $log -Append -Encoding utf8
+        }
+
+        # --- consume the config (contains the api key) ---
+        Remove-Item '{{ acrm_vencord_config_path }}' -Force -ErrorAction SilentlyContinue
+
+        # --- restart Vesktop inside this interactive session (only when we wrote) ---
+        if (-not $changed) {
+          "no config changes — leaving Vesktop running" | Out-File $log -Append -Encoding utf8
+          "=== done $(Get-Date -Format o) ===" | Out-File $log -Append -Encoding utf8
+          exit 0
+        }
+        Start-Sleep -Seconds 2  # project-lint: disable=magic-int  Windows/PowerShell config value, not a standalone magic number
+        $exe = $null
+        foreach ($candidate in @(
+          (Join-Path $env:LOCALAPPDATA 'Vesktop\vesktop.exe'),
+          (Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Links\vesktop.exe'),
+          'C:\Program Files\Vesktop\Vesktop.exe',
+          'C:\Program Files (x86)\Vesktop\Vesktop.exe'
+        )) {
+          if (Test-Path $candidate) { $exe = $candidate; break }
+        }
+        if (-not $exe) {
+          $pkg = Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Packages') -Directory -Filter 'Vencord.Vesktop*' -ErrorAction SilentlyContinue |
+            Get-ChildItem -Recurse -Filter 'Vesktop.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($pkg) { $exe = $pkg.FullName }
+        }
+        if ($exe) {
+          Start-Process $exe
+          "Vesktop restarted via $exe" | Out-File $log -Append -Encoding utf8
+        } else {
+          "WARN: Vesktop.exe not found - restart it manually" | Out-File $log -Append -Encoding utf8
+        }
+        "=== done $(Get-Date -Format o) ===" | Out-File $log -Append -Encoding utf8
+        exit 0
+      } catch {
+        "ERROR: $_" | Out-File $log -Append -Encoding utf8
+        exit 1
+      }
+  when:
+    - acrm_vencord_plugin_enabled | bool
+    - acrm_plugin_console_user.stdout | default('') | trim | length > 0
+  tags: ["acrm-plugin", "deploy"]
+
+- name: "Run plugin setup as interactive user (scheduled task)"
+  ansible.windows.win_shell:
+    cmd: |
+      $interactive = (Get-CimInstance Win32_ComputerSystem).UserName
+      if ([string]::IsNullOrWhiteSpace($interactive)) {
+        Write-Output 'SKIP: no interactive user logged on'
+        exit 0
+      }
+
+      $scriptPath = '{{ acrm_vencord_setup_script }}'
+      $logPath = '{{ acrm_vencord_log_path }}'
+      if (Test-Path $logPath) { Remove-Item $logPath -Force -ErrorAction SilentlyContinue }
+
+      $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$scriptPath`""
+      $principal = New-ScheduledTaskPrincipal -UserId $interactive -LogonType Interactive -RunLevel Limited
+      Register-ScheduledTask -TaskName 'InfrahubAcrmPluginSetup' -Action $action -Principal $principal -Force | Out-Null
+      try {
+        Start-ScheduledTask -TaskName 'InfrahubAcrmPluginSetup'
+        $timeoutSec = 120  # project-lint: disable=magic-int  Windows/PowerShell config value, not a standalone magic number
+        $elapsed = 0  # project-lint: disable=magic-int  loop counter init, not a config value
+        do {
+          Start-Sleep -Seconds 3  # project-lint: disable=magic-int  Windows/PowerShell config value, not a standalone magic number
+          $elapsed += 3  # project-lint: disable=magic-int  polling interval accumulator
+          $task = Get-ScheduledTask -TaskName 'InfrahubAcrmPluginSetup'
+          $info = $task | Get-ScheduledTaskInfo
+        } while ($task.State -eq 'Running' -and $elapsed -lt $timeoutSec)
+        Write-Output "TaskState=$($task.State) LastResult=$($info.LastTaskResult)"
+      } finally {
+        Unregister-ScheduledTask -TaskName 'InfrahubAcrmPluginSetup' -Confirm:$false -ErrorAction SilentlyContinue
+      }
+      if (Test-Path $logPath) { Get-Content $logPath -Raw }
+  register: acrm_plugin_setup
+  changed_when: "'LastResult=0' in acrm_plugin_setup.stdout"
+  failed_when: >-
+    ('LastResult=' in acrm_plugin_setup.stdout) and
+    ('LastResult=0' not in acrm_plugin_setup.stdout)
+  when:
+    - acrm_vencord_plugin_enabled | bool
+    - acrm_plugin_console_user.stdout | default('') | trim | length > 0
+  tags: ["acrm-plugin", "deploy"]
+
+- name: "Report plugin setup log"
+  ansible.windows.win_shell:
+    cmd: "if (Test-Path '{{ acrm_vencord_log_path }}') { Get-Content '{{ acrm_vencord_log_path }}' -Raw } else { Write-Output 'no log' }"
+  register: acrm_plugin_log
+  changed_when: false
+  failed_when: false
+  when:
+    - acrm_vencord_plugin_enabled | bool
+    - acrm_plugin_console_user.stdout | default('') | trim | length > 0
+  tags: ["acrm-plugin", "info"]
+
+- name: "Show plugin setup output"
+  ansible.builtin.debug:
+    var: acrm_plugin_log.stdout_lines | default([])
+  when:
+    - acrm_vencord_plugin_enabled | bool
+    - acrm_plugin_log is defined
+  tags: ["acrm-plugin", "info"]

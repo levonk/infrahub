@@ -53,9 +53,11 @@ PB_DNS_STACK := ANSIBLE_ROOT + "/playbooks/dns-stack.yml"
 PB_VAL_DNS := ANSIBLE_ROOT + "/playbooks/validate-dns.yml"
 PB_VAL_AUTHELIA := ANSIBLE_ROOT + "/playbooks/validate-authelia.yml"
 PB_ACRM := ANSIBLE_ROOT + "/playbooks/deploy-acrm.yml"
+PB_ACRM_PLUGIN := ANSIBLE_ROOT + "/playbooks/deploy-acrm-plugin.yml"
 PB_POSTIZ := ANSIBLE_ROOT + "/playbooks/deploy-postiz.yml"
 PB_IMAGINATION_STUDIO := ANSIBLE_ROOT + "/playbooks/deploy-imagination-studio.yml"
 PB_IMAGINATION_STUDIO_MODELS := ANSIBLE_ROOT + "/playbooks/deploy-imagination-studio-models.yml"
+PB_WHISPER := ANSIBLE_ROOT + "/playbooks/deploy-whisper-server.yml"
 PB_VAL_IMAGINATION_STUDIO := ANSIBLE_ROOT + "/playbooks/validate-imagination-studio.yml"
 PB_PATCH_OPENSSH := ANSIBLE_ROOT + "/playbooks/patch-openssh-musl-bypass.yml"
 WINDOWS_INVENTORY := INFRAHUB_ROOT + "/levonk/active/02-config/ansible/inventories/windows-docker.yml"
@@ -772,6 +774,32 @@ ansible_deploy_acrm_check_impl:
     log_start "Checking ACRM deployment on Windows Docker host (--check --diff)"
     ansible-playbook -i {{WINDOWS_INVENTORY}} {{PB_ACRM}} --check --diff --vault-password-file ~/.ansible/vault_password
 
+# Deploy the ACRM Vencord plugin into Vesktop on Windows desktop hosts.
+# Prerequisites: deploy-acrm.yml run first (API reachable), Vencord dist
+# built on the controller with the plugin linked, interactive user logged on.
+ansible-deploy-acrm-plugin:
+    @just _devbox ansible_deploy_acrm_plugin_impl
+
+[private]
+ansible_deploy_acrm_plugin_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Deploying ACRM Vencord plugin to Windows desktop Vesktop"
+    ansible-playbook -i {{WINDOWS_INVENTORY}} {{PB_ACRM_PLUGIN}} --vault-password-file ~/.ansible/vault_password
+
+# Dry-run ACRM plugin deploy (--check --diff; limited fidelity — role tasks are shell/command)
+ansible-deploy-acrm-plugin-check:
+    @just _devbox ansible_deploy_acrm_plugin_check_impl
+
+[private]
+ansible_deploy_acrm_plugin_check_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Checking ACRM plugin deployment (--check --diff)"
+    ansible-playbook -i {{WINDOWS_INVENTORY}} {{PB_ACRM_PLUGIN}} --check --diff --vault-password-file ~/.ansible/vault_password
+
 # Deploy Postiz (app + postgres + redis + temporal + temporal-postgres) on
 # Windows Docker host (nl region). App's own auth — no Authelia.
 # Prerequisites: vault keys (vault_postiz_jwt_secret,
@@ -827,6 +855,35 @@ ansible_deploy_imagination_studio_check_impl:
     {{_log}}
     log_start "Checking Imagination Studio deployment on kckinai (--check --diff)"
     ansible-playbook -i {{LOCALNET_INVENTORY}} {{PB_IMAGINATION_STUDIO}} --limit kckinai --check --diff --vault-password-file ~/.ansible/vault_password
+
+# Deploy whisper.cpp STT server (CUDA container) on kckinai (localnet)
+# Builds the aarch64+CUDA image on the target host and runs whisper-server
+# with NVIDIA GPU passthrough on :8178. Consumed by the bffdwn
+# audio-pipeline Mac orchestrator (POST /inference).
+# Prerequisites: SSH to kckinai as lk, NVIDIA GPU + nvidia-container-toolkit,
+# model files in whisper_models_host_dir (default reuses /home/lk/models/whisper).
+ansible-deploy-whisper:
+    @just _devbox ansible_deploy_whisper_impl
+
+[private]
+ansible_deploy_whisper_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Deploying whisper.cpp STT server on kckinai"
+    ansible-playbook -i {{LOCALNET_INVENTORY}} {{PB_WHISPER}} --limit kckinai --vault-password-file ~/.ansible/vault_password
+
+# Dry-run whisper deployment on kckinai (--check --diff)
+ansible-deploy-whisper-check:
+    @just _devbox ansible_deploy_whisper_check_impl
+
+[private]
+ansible_deploy_whisper_check_impl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Checking whisper.cpp deployment on kckinai (--check --diff)"
+    ansible-playbook -i {{LOCALNET_INVENTORY}} {{PB_WHISPER}} --limit kckinai --check --diff --vault-password-file ~/.ansible/vault_password
 
 # Deploy Imagination Studio models/components on kckinai (ASYNC, ~423 GB)
 # Runs the upstream oneshot installer as lk; returns immediately (poll: 0).

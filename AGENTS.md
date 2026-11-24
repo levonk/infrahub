@@ -1208,6 +1208,27 @@ When transferring config files to a Windows Docker host via `DOCKER_HOST: ssh://
 2. `docker cp` config files from local temp dir into the container
 3. `docker rm -f` the temporary container
 
+#### 13. Host system packages use the distro package manager — nix is for user CLI tools only
+
+Host-level packages — daemons and system tools installed on the target OS — MUST come from the target's native package manager: `apt`/`dnf`/`yum`/`zypper` on Linux, `winget` on Windows, Homebrew on macOS. This applies both to Ansible roles (`ansible.builtin.apt`/`dnf`/`package`/`win_package` tasks) and to the `shared/scripts/bootstrap-*` scripts.
+
+Nix profile installs (`nix-env -iA`, `nix profile install`, the `nix-*` roles) are for **user CLI tools only** — never for daemons. A nix profile package does not create or manage a systemd/launchd service and does not receive the distro's security-update stream; using it for a daemon means hand-rolling service management and losing upstream updates.
+
+**Rules**:
+- Host daemons that must run outside containers (Tailscale/Netbird, sshd, Docker engine, fail2ban — see Invariant #5 exceptions) are installed via the distro package manager.
+- `shared/scripts/bootstrap-*` scripts run on the target before Ansible can reach it, so they may install the minimal connectivity set — SSH server, Python 3, and `tailscale` — via the distro package manager. Ansible roles then converge the rest (e.g., `vpn-tailscale` adds the official repo and handles `tailscale up`).
+- If a service can run in a container, it MUST (Invariant #5) — package-manager installs are only for the host-level exceptions.
+
+#### 14. Tailnet-first host addressing — `ansible_host` prefers the MagicDNS name
+
+When a host is attached to the tailnet, its `ansible_host` SHOULD be the MagicDNS FQDN (`<host>.<tailnet>.ts.net`) rather than a LAN or tailnet IP. Names survive tailnet IP reassignment (node re-keying, re-registration), and the literal-FQDN pattern is already used by the Windows and macOS inventories.
+
+**Rules**:
+- `ansible_host` must resolve from inventory/group_vars/host_vars/extra-vars only — `infra_*` variables live in `infrastructure/*.yml`, which playbooks load via `include_vars` *after* the SSH connection is already open, so they cannot be referenced from `ansible_host`.
+- Keep the LAN IP as a documented fallback (comment or `*_ansible_host_lan_ip` var) for first bootstrap or off-tailnet recovery: `-e ansible_host=<lan-ip>`.
+- `infra_tailscale_ip_*` variables remain the source of truth for Cloudflare A records (Invariant #9) — they are not for `ansible_host`.
+- Hosts that cannot join the tailnet (OpenWrt APs, NAT'd VMs without a tailscale client) keep LAN/private `ansible_host` values.
+
 ### Per-Client Centralized Files
 
 Every client directory (`<client>/active/02-config/ansible/`) MUST contain this set of centralized files. They are the single source of truth for that client — `shared/` only holds the schemas and neutral defaults, the client directory holds the actual values.

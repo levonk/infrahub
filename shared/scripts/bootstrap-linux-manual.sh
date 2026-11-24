@@ -13,7 +13,9 @@ set -euo pipefail
 #   2. Creates the auser admin user with sudo access
 #   3. Grants auser passwordless sudo (NOPASSWD) — required for unattended Ansible
 #   4. Adds the SSH public key for auser
-#   5. Verifies SSH access and Python3 are working
+#   5. Installs Tailscale if missing (preferred ansible_host path — see
+#      AGENTS.md → Architectural Invariants #13/#14)
+#   6. Verifies SSH access and Python3 are working
 #
 # After this, run from the control Mac:
 #   just ansible-deploy-bootstrap          # cloud server (OCI)
@@ -104,7 +106,7 @@ echo "Admin user: ${AUSER_NAME}"
 echo ""
 
 # --- Step 1: Install and enable SSH server ---
-echo "[1/5] Installing and enabling OpenSSH Server..."
+echo "[1/6] Installing and enabling OpenSSH Server..."
 if systemctl is-active --quiet "${SSH_SVC}" 2>/dev/null; then
   echo "  ✓ SSH server already running (${SSH_SVC})"
 else
@@ -123,7 +125,7 @@ fi
 echo ""
 
 # --- Step 2: Create auser ---
-echo "[2/5] Creating ${AUSER_NAME} admin user..."
+echo "[2/6] Creating ${AUSER_NAME} admin user..."
 if getent passwd "${AUSER_NAME}" &>/dev/null; then
   echo "  ✓ ${AUSER_NAME} already exists"
 else
@@ -156,7 +158,7 @@ echo ""
 # Mirrors the /etc/sudoers.d/<admin_user> entry created by the host-os-bootstrap
 # Ansible role. We do it here (in the manual script) so Ansible has no barriers
 # when it runs.
-echo "[3/5] Granting ${AUSER_NAME} passwordless sudo (NOPASSWD)..."
+echo "[3/6] Granting ${AUSER_NAME} passwordless sudo (NOPASSWD)..."
 SUDOERS_FILE="/etc/sudoers.d/${AUSER_NAME}"
 SUDOERS_ENTRY="${AUSER_NAME} ALL=(ALL) NOPASSWD: ALL"
 if sudo test -f "${SUDOERS_FILE}" && sudo grep -qxF "${SUDOERS_ENTRY}" "${SUDOERS_FILE}" 2>/dev/null; then
@@ -179,7 +181,7 @@ fi
 echo ""
 
 # --- Step 4: Add SSH public key ---
-echo "[4/5] Adding SSH public key for ${AUSER_NAME}..."
+echo "[4/6] Adding SSH public key for ${AUSER_NAME}..."
 
 # Get the public key
 # Embedded default — the control Mac's lzkmbp2016-micro-oracle key (also in client inventory).
@@ -222,8 +224,27 @@ else
 fi
 echo ""
 
-# --- Step 5: Verify ---
-echo "[5/5] Verification..."
+# --- Step 5: Ensure Tailscale is installed ---
+# Tailscale is a justified host-level daemon (AGENTS.md → Architectural
+# Invariants #5) and the preferred ansible_host path for tailnet-attached
+# hosts (#14). Best-effort via the distro package manager (#13): if the
+# distro doesn't package tailscale, the vpn-tailscale Ansible role adds the
+# official repo and installs it on first converge — until then use the LAN
+# IP for ansible_host.
+echo "[5/6] Ensuring Tailscale is installed..."
+if command -v tailscale &>/dev/null; then
+  echo "  ✓ tailscale already installed ($(tailscale version 2>/dev/null | head -1))"
+elif sudo "${PKG_MGR}" install -y tailscale; then
+  echo "  ✓ tailscale installed via ${PKG_MGR}"
+else
+  echo "  ! WARNING: tailscale not available via ${PKG_MGR}." >&2
+  echo "    The vpn-tailscale Ansible role will install it from the official" >&2
+  echo "    repo on first run — until then, reach this host via its LAN IP." >&2
+fi
+echo ""
+
+# --- Step 6: Verify ---
+echo "[6/6] Verification..."
 echo "  User: $(getent passwd "${AUSER_NAME}" | cut -d: -f1) (UID: $(id -u "${AUSER_NAME}"))"
 echo "  Admin group: $(id -nG "${AUSER_NAME}" | tr ' ' '\n' | grep -x "${ADMIN_GRP}" || echo "NOT in ${ADMIN_GRP}")"
 echo "  Passwordless sudo: $(sudo -u "${AUSER_NAME}" sudo -n true 2>/dev/null && echo 'working' || echo 'NOT working')"

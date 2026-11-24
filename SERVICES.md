@@ -1,11 +1,11 @@
 # Infrahub Service Catalog (Shared Defaults)
 
-> **Auto-generated** from `infrastructure/*.yml` (shared defaults only) — last updated: 2026-11-17 09:12
+> **Auto-generated** from `infrastructure/*.yml` (shared defaults only) — last updated: 2026-11-20 10:17
 > Regenerate with: `just generate-service-catalog-shared`
 > Source: `shared/active/02-config/ansible/infrastructure/services.yml`
 > Note: This catalog shows **default ports and suggested hostnames** only. Client-specific deployment details (custom domains, deployed machines, client port overrides) are not included. See `levonk/SERVICES.md` for the deployed client catalog.
 
-**123 services** (shared defaults — no deployment info)
+**126 services** (shared defaults — no deployment info)
 
 ## Table of Contents
 
@@ -55,7 +55,7 @@ flowchart TD
 
     %% Machine color coding
     classDef machine_oci_AI_Pipeline fill:#4A90D9,color:#fff,stroke:#333,stroke-width:1px
-    class OmniRoute,Pi,LiteLLM,iron_proxy,Headroom,Omnigent,treg_Tool_Registry__cno_ machine_oci_AI_Pipeline
+    class Headroom,LiteLLM,Pi,Omnigent,iron_proxy,OmniRoute,treg_Tool_Registry__cno_ machine_oci_AI_Pipeline
 ```
 
 ### Nix Cache Chain (nl)
@@ -79,7 +79,7 @@ flowchart TD
 
     %% Machine color coding
     classDef machine_dtop_Nix_Cache_Chain__nl_ fill:#50C878,color:#fff,stroke:#333,stroke-width:1px
-    class Nix_Harmonia__nl_,Nix_ncro__nl_,Nix_ncps__nl_ machine_dtop_Nix_Cache_Chain__nl_
+    class Nix_ncps__nl_,Nix_ncro__nl_,Nix_Harmonia__nl_ machine_dtop_Nix_Cache_Chain__nl_
 ```
 
 ### Nix Cache Chain (cno)
@@ -103,7 +103,7 @@ flowchart TD
 
     %% Machine color coding
     classDef machine_oci_Nix_Cache_Chain__cno_ fill:#4A90D9,color:#fff,stroke:#333,stroke-width:1px
-    class Nix_Harmonia__cno_,Nix_ncps__cno_,Nix_ncro__cno_ machine_oci_Nix_Cache_Chain__cno_
+    class Nix_ncro__cno_,Nix_Harmonia__cno_,Nix_ncps__cno_ machine_oci_Nix_Cache_Chain__cno_
 ```
 
 ### Media Pipeline
@@ -149,7 +149,7 @@ flowchart TD
 
     %% Machine color coding
     classDef machine_dtop_Media_Pipeline fill:#50C878,color:#fff,stroke:#333,stroke-width:1px
-    class Prowlarr,RomM,SABnzbd,Jellyseerr,Bazarr,Calibre_Web,Lidarr,qBittorrent,Jellyfin,Audiobookshelf,Kavita,Unpackarr,Komga,Flaresolverr,Sonarr,Radarr machine_dtop_Media_Pipeline
+    class Lidarr,SABnzbd,Audiobookshelf,Kavita,Jellyseerr,Jellyfin,RomM,Komga,Radarr,qBittorrent,Sonarr,Unpackarr,Flaresolverr,Prowlarr,Calibre_Web,Bazarr machine_dtop_Media_Pipeline
 ```
 
 ## All Services (Alphabetical)
@@ -169,6 +169,7 @@ flowchart TD
 | Buzz Agent Runtime | `buzz-agent-*` | — | — | buzz-network | — | — | ai | [block/buzz](https://github.com/block/buzz) |
 | Buzz Relay | `buzz` | `infra_domain_buzz` (suggested) | `3101`→`3000` (WebSocket Relay)<br>`3102`→`8080` (Health)<br>`3103`→`9102` (Metrics) | — | — | metrics: `/metrics`<br>health: `/_liveness`<br>pipeline: `ai`/`relay`<br>labels: `pipeline=ai, service=buzz, stage=relay` | ai | [block/buzz](https://github.com/block/buzz) |
 | Calibre-Web | `localnet-media-calibre-web` | `infra_domain_media_calibre_web` (suggested) | `8087`→`8083` (Web) | traefik-windows-network | — | pipeline: `media`<br>labels: `pipeline=media, service=calibre-web, stage=library` | UI (Web Apps) | [janeczku/calibre-web](https://github.com/janeczku/calibre-web) |
+| CastSponsorSkip | `cast-sponsor-skip` | — | — | host | — | labels: `pipeline=none, service=cast-sponsor-skip, stage=standalone` | tools | [gabe565/CastSponsorSkip](https://github.com/gabe565/CastSponsorSkip) |
 | ComfyUI | `comfyui` | `infra_domain_ai_comfyui` (suggested) | `8188`→`8188` (Web UI) | — | — | health: `/`<br>labels: `pipeline=none, service=comfyui, stage=standalone` | ai | [comfyanonymous/ComfyUI](https://github.com/comfyanonymous/ComfyUI) |
 | Control Center | `localnet-dashboard-control-center` | `infra_domain_dashboard_control_center` (suggested)<br>`infra_domain_dashboard_control_center_nl` (suggested) | `4537`→`3000` (Web) | traefik-windows-network | `localnet-control-center-data-volume` (volume) | health: `/api/health`<br>labels: `pipeline=none, service=control-center, stage=none` | UI (Web Apps) | [lrepo52/control-center](https://github.com/lrepo52/control-center) |
 | copyparty | `{{ infra_hostname_copyparty | default('copyparty') }}` | `infra_domain_storage_copyparty` (suggested) | `3923`→`3923` (Web) | — | `localnet-copyparty-data-volume` (volume)<br>`localnet-copyparty-config-volume` (volume) | health: `/`<br>labels: `pipeline=none, service=copyparty, stage=storage` | UI (Web Apps) | [9001/copyparty](https://github.com/9001/copyparty) |
@@ -215,6 +216,7 @@ flowchart TD
 | Local Watch Party | `localnet-media-watch-party` | `infra_domain_media_watch_party` (suggested) | `3137`→`3001` (Web UI + Socket.IO) | traefik-network | — | health: `/api/health`<br>labels: `pipeline=none, service=watch-party, stage=standalone` | UI (Web Apps) | [smSamani/Local-Watch-Party](https://github.com/smSamani/Local-Watch-Party) |
 | Loki | `localnet-monitoring-loki` | — | `3135`→`3100` (API) | traefik-network | — | — | Passive (Databases / Caches / Queues) | [grafana/loki](https://github.com/grafana/loki) |
 | MITM Proxy | `mitmproxy` | — | `3128`→`3128` (HTTP Proxy) | localnet-network | — | pipeline: `web`/`interception`<br>labels: `pipeline=web, service=mitm, stage=interception` | Proxy Chain (Internal) | [mitmproxy/mitmproxy](https://github.com/mitmproxy/mitmproxy) |
+| Moonlight | `—` | — | — | — | — | — | tools | [moonlight-stream/moonlight-qt](https://github.com/moonlight-stream/moonlight-qt) |
 | n8n | `localnet-n8n` | `infra_domain_ai_n8n` (suggested) | `3106`→`5678` (Web UI) | n8n-network | `localnet-n8n-data-volume` (volume) | — | UI (Web Apps) | [n8n-io/n8n](https://github.com/n8n-io/n8n) |
 | n8n Grafana | `localnet-n8n-grafana` | `infra_domain_ai_n8n_grafana` (suggested) | `3108`→`3000` (Web UI) | n8n-network | `localnet-n8n-grafana-data-volume` (volume) | — | Console / Dashboard | [n8n-io/n8n-observability](https://github.com/n8n-io/n8n-observability) |
 | n8n Postgres | `localnet-n8n-postgres` | — | `5438`→`5432` (PostgreSQL) | n8n-network | `localnet-n8n-postgres-data-volume` (volume) | — | Passive (Databases / Caches / Queues) | [postgres/postgres](https://github.com/postgres/postgres) |
@@ -258,6 +260,7 @@ flowchart TD
 | SearXNG | `searxng` | `infra_domain_proxy_search` (suggested) | `8080`→`8080` (Web) | — | — | — | UI (Web Apps) | [searxng/searxng](https://github.com/searxng/searxng) |
 | Sonarr | `localnet-media-sonarr` | `infra_domain_media_sonarr` (suggested) | `8989`→`8989` (Web) | traefik-windows-network | — | pipeline: `media`<br>labels: `pipeline=media, service=sonarr, stage=manager` | UI (Web Apps) | [Sonarr/Sonarr](https://github.com/Sonarr/Sonarr) |
 | Stirling-PDF | `localnet-tools-stirling-pdf` | `infra_domain_tools_stirling_pdf` (suggested) | `4531`→`8080` (Web) | traefik-windows-network | — | health: `/api/v1/info/status`<br>labels: `pipeline=none, service=stirling-pdf, stage=tools` | tools | [Stirling-Tools/Stirling-PDF](https://github.com/Stirling-Tools/Stirling-PDF) |
+| Sunshine | `—` | — | `47990` (Web UI (HTTPS, Tailscale-only))<br>`47984` (GameStream HTTPS (TCP))<br>`47989` (GameStream HTTP (TCP))<br>`48010` (RTSP (TCP+UDP))<br>`47998` (Video (UDP))<br>`47999` (Control (UDP))<br>`48000` (Audio (UDP)) | — | — | pipeline: `media`<br>labels: `pipeline=media, service=sunshine, stage=streaming` | UI (Web Apps) | [LizardByte/Sunshine](https://github.com/LizardByte/Sunshine) |
 | Tailscale | `tailscale` | — | `41641`→`41641` (WireGuard) | — | — | pipeline: `vpn`/`mesh` | VPN / Mesh Networking | [tailscale/tailscale](https://github.com/tailscale/tailscale) |
 | Tor Exit Node (cno) | `tor` | — | `9001`→`9001` (ORPort)<br>`9030`→`9030` (DirPort)<br>`9050`→`9050` (SOCKS) | tor-network | — | pipeline: `vpn`/`egress`<br>labels: `pipeline=vpn, service=tor-exit, stage=egress` | VPN / Mesh Networking | [torproject/tor](https://github.com/torproject/tor) |
 | Tor Exit Node (nl) | `tor-exit` | — | `9011`→`9001` (ORPort)<br>`9031`→`9030` (DirPort)<br>`9051`→`9050` (SOCKS) | tor-network | — | — | VPN / Mesh Networking | [torproject/tor](https://github.com/torproject/tor) |
@@ -314,6 +317,7 @@ flowchart TD
 | SABnzbd | `localnet-media-sabnzbd` | `infra_domain_media_sabnzbd` (suggested) | `8081` (Web UI (via nordvpn)) | container:nordvpn | — | pipeline: `media`<br>labels: `pipeline=media, service=sabnzbd, stage=download` | [sabnzbd/sabnzbd](https://github.com/sabnzbd/sabnzbd) |
 | SearXNG | `searxng` | `infra_domain_proxy_search` (suggested) | `8080`→`8080` (Web) | — | — | — | [searxng/searxng](https://github.com/searxng/searxng) |
 | Sonarr | `localnet-media-sonarr` | `infra_domain_media_sonarr` (suggested) | `8989`→`8989` (Web) | traefik-windows-network | — | pipeline: `media`<br>labels: `pipeline=media, service=sonarr, stage=manager` | [Sonarr/Sonarr](https://github.com/Sonarr/Sonarr) |
+| Sunshine | `—` | — | `47990` (Web UI (HTTPS, Tailscale-only))<br>`47984` (GameStream HTTPS (TCP))<br>`47989` (GameStream HTTP (TCP))<br>`48010` (RTSP (TCP+UDP))<br>`47998` (Video (UDP))<br>`47999` (Control (UDP))<br>`48000` (Audio (UDP)) | — | — | pipeline: `media`<br>labels: `pipeline=media, service=sunshine, stage=streaming` | [LizardByte/Sunshine](https://github.com/LizardByte/Sunshine) |
 | WorldMonitor | `worldmonitor-app` | — | `3000`→`8080` (Web) | worldmonitor-net | — | — | [koala73/worldmonitor](https://github.com/koala73/worldmonitor) |
 
 ### 🔌 API (HTTP Services)
