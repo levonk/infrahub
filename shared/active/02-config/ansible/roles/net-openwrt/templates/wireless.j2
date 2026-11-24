@@ -3,6 +3,12 @@
 
 config wifi-device '{{ radio.name }}'
 	option type 'mac80211'
+{% if radio.path is defined %}
+	option path '{{ radio.path }}'
+{% endif %}
+{% if radio.phy is defined %}
+	option phy '{{ radio.phy }}'
+{% endif %}
 	option band '{{ radio.band }}'
 	option channel '{{ radio.channel }}'
 	option htmode '{{ radio.htmode }}'

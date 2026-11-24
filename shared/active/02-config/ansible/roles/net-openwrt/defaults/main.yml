@@ -15,9 +15,24 @@ openwrt_country: "US"
 # ---------------------------------------------------------------------------
 # Bootstrap
 # ---------------------------------------------------------------------------
-# Fresh OpenWrt has no Python; the role installs python3-light via raw/opkg
-# so standard Ansible modules work afterwards.
+# Fresh OpenWrt has no Python; the role installs python3 + support packages
+# via raw/apk (25.x) or raw/opkg (older) so Ansible modules work afterwards.
 openwrt_bootstrap_python: true
+# python3-light alone is NOT enough for ansible-core modules (missing idna
+# codec, urllib, ctypes...). openssh-sftp-server lets ansible transfer module
+# payloads (dropbear ships no sftp).
+openwrt_bootstrap_python_packages:
+  - "python3-light"
+  - "python3-codecs"
+  - "python3-ctypes"
+  - "python3-logging"
+  - "python3-urllib"
+  - "python3-email"
+  - "python3-openssl"
+  - "python3-multiprocessing"
+  - "python3-decimal"
+  - "python3-pydoc"
+  - "openssh-sftp-server"
 openwrt_packages: []
 openwrt_admin_authorized_keys: []
 
@@ -71,13 +86,19 @@ openwrt_dhcp_leasetime: "12h"
 # Wireless
 # ---------------------------------------------------------------------------
 # Radio devices — Linksys WHW01/VLP01: radio0 = 2.4 GHz, radio1 = 5 GHz.
+# `path` (or `phy`) is REQUIRED: without it wifi-scripts cannot bind the
+# section to a physical radio (shows "Bug: PHY is undefined for device" in
+# logread, radio stays down, retry_setup_failed in `wifi status`).
+# Get values from `wifi status` / board.json, or the generated default config.
 openwrt_radios:
   - name: "radio0"
+    path: "platform/soc/a000000.wifi"
     band: "2g"
     channel: "auto"
     htmode: "HT40"
     disabled: false
   - name: "radio1"
+    path: "platform/soc/a800000.wifi"
     band: "5g"
     channel: "auto"
     htmode: "VHT80"

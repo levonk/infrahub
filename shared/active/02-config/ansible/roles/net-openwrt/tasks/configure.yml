@@ -57,7 +57,7 @@
 
 - name: Enable core services in router mode
   ansible.builtin.raw: >-
-    /etc/init.d/{{ item }} enabled || (/etc/init.d/{{ item }} enable && exit 0) ; exit 1
+    /etc/init.d/{{ item }} enabled && exit 1; /etc/init.d/{{ item }} enable
   register: openwrt_svc_enable
   changed_when: openwrt_svc_enable.rc == 0
   failed_when: false

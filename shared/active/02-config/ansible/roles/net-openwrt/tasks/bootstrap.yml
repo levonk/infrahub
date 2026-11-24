@@ -9,17 +9,31 @@
   failed_when: false
   when: openwrt_bootstrap_python
 
-- name: Install python3-light via opkg
-  ansible.builtin.raw: opkg update && opkg install python3-light
+- name: Detect package manager (apk on OpenWrt >= 24.10/25.x, opkg on older)
+  ansible.builtin.raw: command -v apk || command -v opkg
+  register: openwrt_pkg_mgr
+  changed_when: false
+
+- name: Install python3 + support packages for Ansible (idempotent)
+  ansible.builtin.raw: >-
+    if [ -x "$(command -v apk)" ]; then
+      apk add {{ openwrt_bootstrap_python_packages | join(' ') }}
+    else
+      opkg update && opkg install {{ openwrt_bootstrap_python_packages | join(' ') }}
+    fi
   register: openwrt_python_install
   when:
     - openwrt_bootstrap_python
     - openwrt_python_check.rc != 0
 
-- name: Install extra opkg packages (idempotent)
+- name: Install extra packages (idempotent)
   ansible.builtin.raw: >-
-    (opkg list-installed | grep -q '^{{ item }} ' && exit 1) ||
-    (opkg update >/dev/null && opkg install {{ item }})
+    if [ -x "$(command -v apk)" ]; then
+      apk info -e {{ item }} && exit 1; apk add {{ item }}
+    else
+      opkg list-installed | grep -q '^{{ item }} ' && exit 1;
+      opkg update >/dev/null && opkg install {{ item }}
+    fi
   register: openwrt_pkg_install
   changed_when: openwrt_pkg_install.rc == 0
   failed_when: false
@@ -33,7 +47,7 @@
 
 - name: Install admin SSH authorized keys (idempotent)
   ansible.builtin.raw: >-
-    (grep -qxF '{{ item }}' /etc/dropbear/authorized_keys && exit 1) ||
+    grep -qxF '{{ item }}' /etc/dropbear/authorized_keys && exit 1;
     echo '{{ item }}' >> /etc/dropbear/authorized_keys
   register: openwrt_key_install
   changed_when: openwrt_key_install.rc == 0
