@@ -1,0 +1,7 @@
+[Unit]
+Description=copyparty download watcher (one-shot scan, posts matches to ntfy)
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart={{ copyparty_download_watch_script }}

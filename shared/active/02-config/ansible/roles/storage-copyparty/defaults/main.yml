@@ -50,3 +50,20 @@ copyparty_healthcheck_start_period: "30s"
 # ---------------------------------------------------------------------------
 copyparty_log_max_size: "10m"
 copyparty_log_max_file: "5"
+
+# ---------------------------------------------------------------------------
+# Download Watcher (ntfy.sh push notification on file downloads)
+# Scans copyparty request logs for GETs of real files and POSTs a notification
+# to an ntfy topic. Enabled automatically when vault_copyparty_ntfy_url is set.
+# ---------------------------------------------------------------------------
+copyparty_ntfy_url: "{{ vault_copyparty_ntfy_url | default('') }}"
+copyparty_download_watch_enabled: "{{ copyparty_ntfy_url | length > 0 }}"
+# Volume names must match the [volumes] in copyparty.conf.j2 — used to filter
+# request-log paths so scanner probes outside real volumes are ignored.
+copyparty_watch_volumes: "public uploads family dawn"
+# Volumes readable by anonymous users (@*) — GETs by @* elsewhere are denied
+# probes and are skipped. Anonymous UPLOADS to /uploads are still reported.
+copyparty_watch_anon_volumes: "public"
+copyparty_download_watch_script: "{{ copyparty_config_dir }}/download-watch.sh"
+copyparty_download_watch_state_dir: "{{ copyparty_config_dir }}/watch-state"
+copyparty_download_watch_service_name: "copyparty-download-watch"
