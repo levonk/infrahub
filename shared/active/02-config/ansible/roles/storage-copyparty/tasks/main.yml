@@ -138,6 +138,51 @@
   when: copyparty_enabled | bool
 
 # ---------------------------------------------------------------------------
+# Download Watcher (ntfy notifications on file downloads)
+# ---------------------------------------------------------------------------
+- name: Ensure copyparty watch state directory exists
+  ansible.builtin.file:
+    path: "{{ copyparty_download_watch_state_dir }}"
+    state: directory
+    owner: "{{ infra_storage_userns_remap_uid | default(infra_storage_userns_remap_uid) }}"
+    group: "{{ infra_storage_userns_remap_gid | default(infra_storage_userns_remap_uid) }}"
+    mode: "{{ infra_mode_dir }}"
+  become: true
+  when: copyparty_download_watch_enabled | bool
+
+- name: Deploy download watcher script
+  ansible.builtin.template:
+    src: download-watch.sh.j2
+    dest: "{{ copyparty_download_watch_script }}"
+    owner: "{{ infra_storage_userns_remap_uid | default(infra_storage_userns_remap_uid) }}"
+    group: "{{ infra_storage_userns_remap_gid | default(infra_storage_userns_remap_uid) }}"
+    mode: "{{ infra_mode_exec_restricted }}"
+  become: true
+  when: copyparty_download_watch_enabled | bool
+
+- name: Deploy download watcher systemd units
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ copyparty_download_watch_service_name }}.{{ item }}"
+    owner: root
+    group: root
+    mode: "{{ infra_mode_file }}"
+  become: true
+  loop:
+    - service
+    - timer
+  when: copyparty_download_watch_enabled | bool
+
+- name: Enable and start copyparty download watcher timer
+  ansible.builtin.systemd:
+    name: "{{ copyparty_download_watch_service_name }}.timer"
+    state: started
+    enabled: true
+    daemon_reload: true
+  become: true
+  when: copyparty_download_watch_enabled | bool
+
+# ---------------------------------------------------------------------------
 # Health Verification
 # ---------------------------------------------------------------------------
 - name: Wait for copyparty to be healthy

@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+# copyparty download/upload watcher
+# Scans copyparty request logs for file downloads (GET) and uploads/writes
+# (PUT/POST) and posts each match to an ntfy topic. Deployed by the
+# storage-copyparty Ansible role; runs via copyparty-download-watch.timer
+# (every minute). State is a per-file byte offset so each line is processed
+# exactly once.
+set -euo pipefail
+
+LOG_DIR="{{ copyparty_config_dir }}/logs"
+STATE_DIR="{{ copyparty_download_watch_state_dir }}"
+NTFY_URL="{{ copyparty_ntfy_url }}"
+VOLUMES="{{ copyparty_watch_volumes }}"
+ANON_VOLUMES="{{ copyparty_watch_anon_volumes }}"
+
+mkdir -p "$STATE_DIR"
+
+notify() {
+  local action="$1" ip="$2" path="$3" user="$4"
+  local title tag
+  case "$action" in
+    downloaded) title="copyparty download"; tag="arrow_down" ;;
+    uploaded)   title="copyparty upload";   tag="arrow_up" ;;
+    *)          title="copyparty activity"; tag="arrows_counterclockwise" ;;
+  esac
+  curl -fsS --max-time 10 \
+    -H "Title: ${title}" \
+    -H "Priority: 3" \
+    -H "Tags: ${tag}" \
+    -d "${ip} ${action} ${path} — user: ${user}" \
+    "$NTFY_URL" >/dev/null 2>&1 || true
+}
+
+in_list() {
+  case " $2 " in *" $1 "*) return 0 ;; *) return 1 ;; esac
+}
+
+shopt -s nullglob
+for logfile in "$LOG_DIR"/copyparty-*.txt; do
+  state_file="$STATE_DIR/$(basename "$logfile").off"
+  size=$(stat -c %s "$logfile")
+
+  if [ ! -f "$state_file" ]; then
+    # First sight of a log file: record current size, do not alert on history.
+    echo "$size" > "$state_file"
+    continue
+  fi
+
+  offset=$(cat "$state_file" 2>/dev/null || echo 0)
+  case "$offset" in ''|*[!0-9]*) offset=0 ;; esac
+  # File truncated/rotated in place: rescan from start.
+  if [ "$offset" -gt "$size" ]; then offset=0; fi
+  [ "$offset" -eq "$size" ] && continue
+
+  new_data=$(tail -c "+$((offset + 1))" "$logfile")
+  echo "$size" > "$state_file"
+  [ -z "$new_data" ] && continue
+
+  while IFS= read -r line; do
+    # Parse request lines: "<date> <time> <ip> <port> LOG: <METHOD> <path> @<user>"
+    # Completion lines ("LOG:  /path plain 200,...") and access-denied lines
+    # have no METHOD/@user and fail this match.
+    parsed=$(printf '%s\n' "$line" | sed -nE \
+      's/^"[^"]*"[[:space:]]+[0-9:.]+[[:space:]]+([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)[[:space:]]+[0-9]+[[:space:]]+LOG:[[:space:]]+([A-Z]+)[[:space:]]+([^[:space:]]+)[[:space:]]+@([^[:space:]]+).*$/\1|\2|\3|\4/p')
+    [ -z "$parsed" ] && continue
+
+    ip=${parsed%%|*}; rest=${parsed#*|}
+    method=${rest%%|*}; rest=${rest#*|}
+    path=${rest%%|*}; user=${rest##*|}
+
+    # Only paths inside a real copyparty volume.
+    vol=${path#/}; vol=${vol%%/*}
+    in_list "$vol" "$VOLUMES" || continue
+
+    case "$method" in
+      GET)
+        # Skip static assets and directory-tree listings.
+        case "$path" in *.res/*|*tree=*) continue ;; esac
+        # File download: path ends in .<ext> (optional ?query) or is a ?zip archive.
+        if [[ "$path" =~ \.[A-Za-z0-9]{2,}(\?[^[:space:]]*)?$ || ( "$path" == *\?* && "$path" == *zip* ) ]]; then
+          action="downloaded"
+        else
+          continue
+        fi
+        # @* can only legitimately read ANON_VOLUMES; elsewhere it is a
+        # denied probe — the "has no access" follow-up line confirms it.
+        if [ "$user" = "*" ] && ! in_list "$vol" "$ANON_VOLUMES"; then continue; fi
+        ;;
+      PUT)
+        action="uploaded"
+        ;;
+      POST)
+        # POST to a volume path = upload or file op; POST / is auth noise.
+        action="posted"
+        ;;
+      *)
+        continue
+        ;;
+    esac
+
+    if [ "$user" = "*" ]; then user="anonymous"; fi
+    notify "$action" "$ip" "$path" "$user"
+  done <<< "$new_data"
+done
