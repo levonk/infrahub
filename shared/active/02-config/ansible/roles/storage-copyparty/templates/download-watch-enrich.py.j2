@@ -1,0 +1,114 @@
+#!/usr/bin/env python3
+"""Correlate a copyparty request-log event with Traefik access.log entries.
+
+Reads Traefik JSON access-log lines on stdin and prints tab-separated
+enrichment fields for the best match:
+
+    user_agent <TAB> referer <TAB> status <TAB> size_human <TAB> duration_ms
+
+Usage: enrich.py <ip> <port> <method> <path_no_query> <epoch_center>
+
+Matching is two-pass: first requires client port equality (HTTP/1.1 and
+HTTP/2 connections reuse the same source port), then falls back to IP +
+method + path within a +/-600s window.
+"""
+import datetime
+import json
+import sys
+
+WINDOW_S = 600
+
+
+def parse_ts(entry):
+    raw = entry.get("StartUTC") or entry.get("time") or ""
+    try:
+        return datetime.datetime.strptime(
+            raw[:19], "%Y-%m-%dT%H:%M:%S"
+        ).replace(tzinfo=datetime.timezone.utc).timestamp()
+    except Exception:
+        return None
+
+
+def path_matches(request_path, wanted):
+    return request_path == wanted or request_path.startswith(wanted + "?")
+
+
+def human_size(num):
+    size = float(num or 0)
+    for unit in ("B", "KiB", "MiB", "GiB"):
+        if size < 1024.0 or unit == "GiB":
+            return f"{size:.0f}{unit}" if unit == "B" else f"{size:.1f}{unit}"
+        size /= 1024.0
+    return f"{size:.1f}TiB"
+
+
+def clean(value, limit=160):
+    text = (value or "-").replace("\t", " ").replace("\n", " ").replace("\r", " ")
+    return text[:limit]
+
+
+def main():
+    if len(sys.argv) != 6:
+        return
+    ip, port, method, wanted_path, center_s = sys.argv[1:6]
+    try:
+        center = float(center_s)
+    except ValueError:
+        return
+
+    candidates = []
+    for raw in sys.stdin:
+        raw = raw.strip()
+        if not raw.startswith("{"):
+            continue
+        try:
+            entry = json.loads(raw)
+        except Exception:
+            continue
+        if entry.get("ClientHost") != ip or entry.get("RequestMethod") != method:
+            continue
+        if not path_matches(entry.get("RequestPath") or "", wanted_path):
+            continue
+        ts = parse_ts(entry)
+        if ts is None or abs(ts - center) > WINDOW_S:
+            continue
+        candidates.append((ts, entry))
+
+    if not candidates:
+        return
+
+    # Prefer entries whose client port matches the copyparty log's source port.
+    with_port = [(t, e) for t, e in candidates if e.get("ClientPort") == port]
+    pool = with_port or candidates
+
+    # Thumbnail fetches (?th=) share the file's path prefix — prefer real
+    # file responses over preview thumbnails when both are candidates.
+    full = [
+        item
+        for item in pool
+        if "?th=" not in (item[1].get("RequestPath") or "")
+        and "&th=" not in (item[1].get("RequestPath") or "")
+    ]
+    if full:
+        pool = full
+
+    best = max(pool, key=lambda item: item[0])[1]
+
+    status = best.get("DownstreamStatus") or 0
+    size = human_size(best.get("DownstreamContentSize") or 0)
+    duration_ms = (best.get("Duration") or 0) / 1e6
+    print(
+        "\t".join(
+            [
+                clean(best.get("request_User-Agent")),
+                clean(best.get("request_Referer")),
+                str(status),
+                size,
+                f"{duration_ms:.0f}",
+            ]
+        )
+    )
+
+
+if __name__ == "__main__":
+    main()
