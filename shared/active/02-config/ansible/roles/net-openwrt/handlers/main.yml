@@ -21,3 +21,6 @@
 
 - name: restart mwan3
   ansible.builtin.command: /usr/sbin/mwan3 restart
+
+- name: restart tailscale
+  ansible.builtin.raw: /etc/init.d/tailscale restart || true

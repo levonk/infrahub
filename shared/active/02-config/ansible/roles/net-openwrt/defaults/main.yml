@@ -15,11 +15,57 @@ openwrt_country: "US"
 # ---------------------------------------------------------------------------
 # Bootstrap
 # ---------------------------------------------------------------------------
-# Fresh OpenWrt has no Python; the role installs python3-light via raw/opkg
-# so standard Ansible modules work afterwards.
+# Fresh OpenWrt has no Python; the role installs python3 + support packages
+# via raw/apk (25.x) or raw/opkg (older) so Ansible modules work afterwards.
 openwrt_bootstrap_python: true
+# python3-light alone is NOT enough for ansible-core modules (missing idna
+# codec, urllib, ctypes...). openssh-sftp-server lets ansible transfer module
+# payloads (dropbear ships no sftp).
+openwrt_bootstrap_python_packages:
+  - "python3-light"
+  - "python3-codecs"
+  - "python3-ctypes"
+  - "python3-logging"
+  - "python3-urllib"
+  - "python3-email"
+  - "python3-openssl"
+  - "python3-multiprocessing"
+  - "python3-decimal"
+  - "python3-pydoc"
+  - "openssh-sftp-server"
 openwrt_packages: []
+# Packages removed before openwrt_packages install (e.g. wpad-basic-mbedtls
+# when swapping in wpad-mesh-mbedtls).
+openwrt_packages_remove: []
 openwrt_admin_authorized_keys: []
+
+# Tailscale security floor — when set, the role compares the INSTALLED
+# tailscaled version against it and only then fetches the matching upstream
+# static build (pkgs.tailscale.com). If the feed package is ever >= this
+# version (feed catches up, or a sysupgrade reinstalls a newer package) the
+# task skips — the managed floor never downgrades anything. Empty = feed
+# package as-is. Note: upstream static tailscaled is NOT multicall, so the
+# packaged /usr/sbin/tailscale CLI symlink stops working — the CLI is a
+# separate binary upstream ships next to the daemon.
+openwrt_tailscale_version: ""
+openwrt_tailscale_arch: "arm"  # pkgs.tailscale.com arch suffix (arm = armv7)
+
+# tailscaled outbound proxy — rendered into UCI 'proxy_url' and exported as
+# HTTPS_PROXY/ALL_PROXY by the managed init script. Needed on WAN-less boxes:
+# e.g. "http://127.0.0.1:8899" pointing at an SSH -R forward to a host with
+# internet. Empty = direct outbound (normal once WAN exists).
+openwrt_tailscale_proxy: ""
+# Optional tailnet pre-auth key (point at a vault var) for unattended
+# `tailscale up` on nodes that aren't already logged in. Empty = skip —
+# existing registrations survive anyway via /etc/tailscale in sysupgrade.conf.
+openwrt_tailscale_auth_key: ""
+
+# Root password — empty means "leave whatever is on the device". Point at a
+# client vault var (e.g. openwrt_root_password: "{{ vault_... }}") to manage
+# it: the task writes the sha512-crypt hash into /etc/shadow so plaintext
+# never touches the device config or logs. Fixed salt keeps it idempotent.
+openwrt_root_password: ""
+openwrt_root_password_salt: "wrt0p3n.5a1t"
 
 # ---------------------------------------------------------------------------
 # LAN / management interface (br-lan)
@@ -71,13 +117,19 @@ openwrt_dhcp_leasetime: "12h"
 # Wireless
 # ---------------------------------------------------------------------------
 # Radio devices — Linksys WHW01/VLP01: radio0 = 2.4 GHz, radio1 = 5 GHz.
+# `path` (or `phy`) is REQUIRED: without it wifi-scripts cannot bind the
+# section to a physical radio (shows "Bug: PHY is undefined for device" in
+# logread, radio stays down, retry_setup_failed in `wifi status`).
+# Get values from `wifi status` / board.json, or the generated default config.
 openwrt_radios:
   - name: "radio0"
+    path: "platform/soc/a000000.wifi"
     band: "2g"
     channel: "auto"
     htmode: "HT40"
     disabled: false
   - name: "radio1"
+    path: "platform/soc/a800000.wifi"
     band: "5g"
     channel: "auto"
     htmode: "VHT80"
@@ -98,6 +150,19 @@ openwrt_radios:
 #   disabled:      keep defined but off air (default false)
 openwrt_mobility_domain: "4f57"
 openwrt_wireless_networks: []
+
+# 802.11s wireless backhaul — emits a `mode mesh` wifi-iface on each listed
+# radio, bridged into the given network. Leave `id` empty to disable.
+# Encrypted mesh (sae) requires wpad-mesh-mbedtls instead of wpad-basic-* —
+# put it in openwrt_packages and the replaced package in
+# openwrt_packages_remove. Peers must share mesh_id, key, encryption AND
+# channel — use a fixed non-DFS channel on the backhaul radio.
+openwrt_mesh:
+  id: ""
+  key: ""
+  encryption: "sae"
+  radios: []
+  network: "lan"
 
 # ---------------------------------------------------------------------------
 # Dropbear (SSH)
