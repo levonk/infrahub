@@ -7,9 +7,11 @@
 # Container configuration
 ai_freellmapi_container_name: "{{ infra_hostname_ai_freellmapi | default('localnet-ai-freellmapi') }}"
 ai_freellmapi_image_name: "ghcr.io/tashfeenahmed/freellmapi"
-# Pinned release — the admin/license FREEAPI_CONFIG_JSON fields require
+# Pinned build — the admin/license FREEAPI_CONFIG_JSON fields require
 # upstream >= v0.12.0 (PR #1291). Never track `latest` for this service.
-ai_freellmapi_image_tag: "v0.16.34"
+# sha-f581c5f = v0.16.43 + the OIDC dashboard-login merge (#2082), which is
+# not yet in a tagged release. Return to a release tag once one ships it.
+ai_freellmapi_image_tag: "sha-f581c5f"
 
 # Port configuration (reference infrastructure variables)
 ai_freellmapi_host_port: "{{ infra_port_ai_freellmapi_host }}"
@@ -75,6 +77,29 @@ ai_freellmapi_admin_password: "{{ vault_ai_freellmapi_admin_password | default('
 # an unreachable license service never delays boot. An identical stored key
 # short-circuits; a changed key re-activates (rotation).
 ai_freellmapi_license_key: "{{ vault_ai_freellmapi_license_key | default('') }}"
+
+# --- Optional OIDC dashboard SSO (upstream #2082, sha-f581c5f+) --------------
+# Active only when ai_freellmapi_oidc_enabled is true AND issuer/client_id are
+# set. Standard Authorization Code + PKCE — works with Authelia. Dashboard
+# users get full admin, so access control is fail-closed: auto-provisioning
+# requires OIDC_ALLOWED_GROUPS/EMAILS (or OIDC_ALLOW_ANY_USER=true).
+ai_freellmapi_oidc_enabled: false
+ai_freellmapi_oidc_issuer_url: "https://{{ infra_domain_sso_authelia | default('auth.' ~ (infra_domain_base | default('example.com'))) }}"
+ai_freellmapi_oidc_client_id: "freellmapi"
+ai_freellmapi_oidc_client_secret: "{{ vault_ai_freellmapi_oidc_client_secret | default('') }}"
+ai_freellmapi_oidc_provider_name: "SSO"
+ai_freellmapi_oidc_scopes: "openid email profile groups"
+# Explicit callback behind Traefik (recommended by upstream).
+ai_freellmapi_oidc_redirect_uri: "https://{{ ai_freellmapi_domain }}/api/auth/oidc/callback"
+# Access control — group allowlist against the `groups` claim.
+ai_freellmapi_oidc_groups_claim: "groups"
+ai_freellmapi_oidc_allowed_groups: "admins"
+ai_freellmapi_oidc_allowed_emails: ""
+ai_freellmapi_oidc_auto_provision: "true"
+ai_freellmapi_oidc_allow_any_user: "false"
+# Keep password login as a fallback while SSO bedded in — the provisioned
+# FREEAPI_CONFIG_JSON admin still works. Flip to "true" to go SSO-only.
+ai_freellmapi_oidc_disable_password_login: "false"
 
 # Optional declarative startup config — rendered to FREEAPI_CONFIG_JSON and
 # applied idempotently by the server on every boot. Shape (upstream docs):
