@@ -44,6 +44,13 @@
             model: "openai/kckinaicombo"
             api_base: "{{ ai_litellm_upstream_url }}"
             api_key: "sk-litellm-internal"
+        # kckinai abliterated (SGLang :8008) — opt-in model, intentionally
+        # separate from kckinaicombo so uncensored weights stay opt-in.
+        - model_name: "kckinai-abliterated"
+          litellm_params:
+            model: "openai/kckinai-abliterated"
+            api_base: "{{ ai_litellm_upstream_url }}"
+            api_key: "sk-litellm-internal"
         # Claude models
         - model_name: "claude-sonnet-4-20250514"  # project-lint: disable=magic-int  model identifier/version string, not an operational value
           litellm_params:

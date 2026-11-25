@@ -45,5 +45,5 @@ http:
     omniroute:
       loadBalancer:
         servers:
-          - url: "http://{{ ai_omniroute_container_name | default('localnet-ai-omniroute') }}:{{ ai_omniroute_container_port | default(infra_port_vpn_netbird_management_host) }}"
+          - url: "http://{{ ai_omniroute_container_name | default('localnet-ai-omniroute') }}:{{ ai_omniroute_container_port | default(infra_port_ai_omniroute_container) }}"
         passHostHeader: true

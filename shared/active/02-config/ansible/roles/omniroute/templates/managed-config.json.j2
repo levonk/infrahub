@@ -112,7 +112,16 @@
           "connectionId": "{{ ai_omniroute_managed_kckinai_connection_id }}",
           "weight": 14,  {# project-lint: disable=magic-int  JSON config field, not an operational value #}
           "label": "kckinai-vllm"
-        },
+        }{% if ai_omniroute_kckinai_abliterated_enabled | bool %},
+        {
+          "id": "kckinaicombo-model-1b-kckinai-abliterated",
+          "kind": "model",
+          "model": "{{ ai_omniroute_managed_kckinai_abliterated_node_id }}/{{ ai_omniroute_managed_kckinai_abliterated_model }}",
+          "providerId": "{{ ai_omniroute_managed_kckinai_abliterated_node_id }}",
+          "connectionId": "{{ ai_omniroute_managed_kckinai_abliterated_connection_id }}",
+          "weight": 14,  {# project-lint: disable=magic-int  JSON config field, not an operational value #}
+          "label": "kckinai-abliterated"
+        }{% endif %},
         {
           "id": "kckinaicombo-model-2-agy-gemini-3-5-flash-medium",
           "kind": "model",
