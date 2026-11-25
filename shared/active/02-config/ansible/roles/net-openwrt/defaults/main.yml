@@ -39,6 +39,17 @@ openwrt_packages: []
 openwrt_packages_remove: []
 openwrt_admin_authorized_keys: []
 
+# Tailscale security floor — when set, the role compares the INSTALLED
+# tailscaled version against it and only then fetches the matching upstream
+# static build (pkgs.tailscale.com). If the feed package is ever >= this
+# version (feed catches up, or a sysupgrade reinstalls a newer package) the
+# task skips — the managed floor never downgrades anything. Empty = feed
+# package as-is. Note: upstream static tailscaled is NOT multicall, so the
+# packaged /usr/sbin/tailscale CLI symlink stops working — the CLI is a
+# separate binary upstream ships next to the daemon.
+openwrt_tailscale_version: ""
+openwrt_tailscale_arch: "arm"  # pkgs.tailscale.com arch suffix (arm = armv7)
+
 # Root password — empty means "leave whatever is on the device". Point at a
 # client vault var (e.g. openwrt_root_password: "{{ vault_... }}") to manage
 # it: the task writes the sha512-crypt hash into /etc/shadow so plaintext

@@ -74,6 +74,41 @@
   failed_when: false
   when: "'tailscale' in openwrt_packages"
 
+# Upstream binary floor: only swap in the static build when the daemon on
+# disk is OLDER than openwrt_tailscale_version. A newer feed package —
+# whether already installed or restored by sysupgrade — always wins, so the
+# floor can never downgrade. Set openwrt_tailscale_version: "" to disable.
+- name: Check installed tailscaled version
+  ansible.builtin.raw: /usr/sbin/tailscaled --version 2>/dev/null | head -n1
+  register: openwrt_ts_running
+  changed_when: false
+  failed_when: false
+  when: "'tailscale' in openwrt_packages and openwrt_tailscale_version | length > 0"
+
+- name: Fetch upstream tailscale static build (controller-side)
+  ansible.builtin.unarchive:
+    src: "https://pkgs.tailscale.com/stable/tailscale_{{ openwrt_tailscale_version }}_{{ openwrt_tailscale_arch }}.tgz"
+    dest: "/tmp/ts-{{ openwrt_tailscale_version }}-{{ openwrt_tailscale_arch }}"
+    remote_src: true
+  delegate_to: localhost
+  run_once: true
+  when: "'tailscale' in openwrt_packages and openwrt_tailscale_version | length > 0 and (openwrt_ts_running.stdout | default('0')) is version(openwrt_tailscale_version, '<')"
+
+- name: Stage upstream tailscaled on device
+  ansible.builtin.copy:
+    src: "/tmp/ts-{{ openwrt_tailscale_version }}-{{ openwrt_tailscale_arch }}/tailscale_{{ openwrt_tailscale_version }}_{{ openwrt_tailscale_arch }}/tailscaled"
+    dest: "/tmp/tailscaled-{{ openwrt_tailscale_version }}.bin"
+    mode: "0755"
+  when: "'tailscale' in openwrt_packages and openwrt_tailscale_version | length > 0 and (openwrt_ts_running.stdout | default('0')) is version(openwrt_tailscale_version, '<')"
+
+- name: Swap in upstream tailscaled binary
+  ansible.builtin.raw: >-
+    cp /tmp/tailscaled-{{ openwrt_tailscale_version }}.bin /usr/sbin/tailscaled.new &&
+    mv /usr/sbin/tailscaled.new /usr/sbin/tailscaled &&
+    rm -f /tmp/tailscaled-{{ openwrt_tailscale_version }}.bin
+  notify: restart tailscale
+  when: "'tailscale' in openwrt_packages and openwrt_tailscale_version | length > 0 and (openwrt_ts_running.stdout | default('0')) is version(openwrt_tailscale_version, '<')"
+
 - name: Ensure dropbear authorized_keys exists
   ansible.builtin.raw: mkdir -p /etc/dropbear && touch /etc/dropbear/authorized_keys && chmod 700 /etc/dropbear && chmod 600 /etc/dropbear/authorized_keys
   changed_when: false
