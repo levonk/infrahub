@@ -53,4 +53,15 @@ config wifi-iface
 {% endif %}
 {% endif %}
 {% endfor %}
+{% if openwrt_mesh.id is defined and radio.name in (openwrt_mesh.radios | default([])) %}
+
+config wifi-iface
+	option device '{{ radio.name }}'
+	option network '{{ openwrt_mesh.network | default('lan') }}'
+	option mode 'mesh'
+	option mesh_id '{{ openwrt_mesh.id }}'
+	option encryption '{{ openwrt_mesh.encryption | default('sae') }}'
+	option key '{{ openwrt_mesh.key }}'
+	option mesh_fwding '1'
+{% endif %}
 {% endfor %}

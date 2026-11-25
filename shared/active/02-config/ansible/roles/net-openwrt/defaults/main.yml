@@ -34,7 +34,17 @@ openwrt_bootstrap_python_packages:
   - "python3-pydoc"
   - "openssh-sftp-server"
 openwrt_packages: []
+# Packages removed before openwrt_packages install (e.g. wpad-basic-mbedtls
+# when swapping in wpad-mesh-mbedtls).
+openwrt_packages_remove: []
 openwrt_admin_authorized_keys: []
+
+# Root password — empty means "leave whatever is on the device". Point at a
+# client vault var (e.g. openwrt_root_password: "{{ vault_... }}") to manage
+# it: the task writes the sha512-crypt hash into /etc/shadow so plaintext
+# never touches the device config or logs. Fixed salt keeps it idempotent.
+openwrt_root_password: ""
+openwrt_root_password_salt: "wrt0p3n.5a1t"
 
 # ---------------------------------------------------------------------------
 # LAN / management interface (br-lan)
@@ -119,6 +129,19 @@ openwrt_radios:
 #   disabled:      keep defined but off air (default false)
 openwrt_mobility_domain: "4f57"
 openwrt_wireless_networks: []
+
+# 802.11s wireless backhaul — emits a `mode mesh` wifi-iface on each listed
+# radio, bridged into the given network. Leave `id` empty to disable.
+# Encrypted mesh (sae) requires wpad-mesh-mbedtls instead of wpad-basic-* —
+# put it in openwrt_packages and the replaced package in
+# openwrt_packages_remove. Peers must share mesh_id, key, encryption AND
+# channel — use a fixed non-DFS channel on the backhaul radio.
+openwrt_mesh:
+  id: ""
+  key: ""
+  encryption: "sae"
+  radios: []
+  network: "lan"
 
 # ---------------------------------------------------------------------------
 # Dropbear (SSH)

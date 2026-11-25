@@ -29,6 +29,18 @@
     mode: "0644"
   notify: reload dropbear
 
+- name: Set root password (idempotent, vault-managed)
+  ansible.builtin.raw: >-
+    NEW='{{ openwrt_root_password | password_hash("sha512", salt=openwrt_root_password_salt) }}';
+    CUR=$(grep '^root:' /etc/shadow | cut -d: -f2);
+    [ "$CUR" = "$NEW" ] && exit 1;
+    sed -i "s|^root:[^:]*:|root:$NEW:|" /etc/shadow
+  register: openwrt_root_pw
+  changed_when: openwrt_root_pw.rc == 0
+  failed_when: false
+  no_log: true
+  when: openwrt_root_password | length > 0
+
 - name: Render /etc/config/dhcp (router mode / extra-interface DHCP)
   ansible.builtin.template:
     src: dhcp.j2
