@@ -288,12 +288,6 @@
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
 
-        type: "CNAME"
-        content: "{{ ts_fqdn_windows_docker }}"
-        ttl: "{{ cloudflare_dns_ttl }}"
-        proxied: "{{ cloudflare_dns_proxied }}"
-        state: "{{ cloudflare_dns_state }}"
-
       - name: "{{ infra_domain_media_audiobookshelf | default('audiobooks.nl.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
         content: "{{ ts_fqdn_windows_docker }}"
@@ -355,11 +349,6 @@
       - name: "{{ infra_domain_media_kapowarr_alias | default('comics.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
         content: "{{ infra_domain_media_kapowarr | default('kapowarr.nl.' ~ (infra_domain_base | default('example.com'))) }}"
-        ttl: "{{ cloudflare_dns_ttl }}"
-        proxied: "{{ cloudflare_dns_proxied }}"
-        state: "{{ cloudflare_dns_state }}"
-
-        type: "CNAME"
         ttl: "{{ cloudflare_dns_ttl }}"
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
@@ -930,6 +919,25 @@
       - name: "{{ infra_domain_storage_copyparty | default('files.' ~ (infra_domain_base | default('example.com'))) }}"
         type: "CNAME"
         content: "{{ public_fqdn }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      # OpenWrt Velop APs (nl region — on-prem LAN)
+      # Management-plane names: each CNAME → the node's own Tailscale FQDN
+      # so LuCI/SSH names resolve from anywhere on the tailnet. velop02 is
+      # mesh-backed (802.11s via velop01) — it has no wired uplink, so the
+      # tailnet path is also its WAN-independent admin path.
+      - name: "{{ infra_domain_net_velop01 | default('velop01.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "CNAME"
+        content: "{{ infra_tailscale_fqdn_velop01 | default('velop01.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      - name: "{{ infra_domain_net_velop02 | default('velop02.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "CNAME"
+        content: "{{ infra_tailscale_fqdn_velop02 | default('velop02.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) }}"
         ttl: "{{ cloudflare_dns_ttl }}"
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
