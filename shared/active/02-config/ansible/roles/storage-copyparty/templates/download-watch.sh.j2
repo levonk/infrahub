@@ -1,33 +1,64 @@
 #!/usr/bin/env bash
 # copyparty download/upload watcher
 # Scans copyparty request logs for file downloads (GET) and uploads/writes
-# (PUT/POST) and posts each match to an ntfy topic. Deployed by the
-# storage-copyparty Ansible role; runs via copyparty-download-watch.timer
-# (every minute). State is a per-file byte offset so each line is processed
-# exactly once.
+# (PUT/POST) and posts each match to an ntfy topic, enriched with
+# User-Agent/Referer/status/bytes looked up from the Traefik access log.
+# Deployed by the storage-copyparty Ansible role; runs via
+# copyparty-download-watch.timer (every minute). State is a per-file byte
+# offset so each line is processed exactly once.
 set -euo pipefail
 
 LOG_DIR="{{ copyparty_config_dir }}/logs"
 STATE_DIR="{{ copyparty_download_watch_state_dir }}"
 NTFY_URL="{{ copyparty_ntfy_url }}"
+ENRICH_SCRIPT="{{ copyparty_config_dir }}/download-watch-enrich.py"
 VOLUMES="{{ copyparty_watch_volumes }}"
 ANON_VOLUMES="{{ copyparty_watch_anon_volumes }}"
+TRAEFIK_CONTAINER="{{ copyparty_watch_traefik_container }}"
+TRAEFIK_ACCESS_LOG="{{ copyparty_watch_traefik_access_log }}"
+TRAEFIK_TAIL_BYTES="{{ copyparty_watch_traefik_tail_bytes }}"
 
 mkdir -p "$STATE_DIR"
 
+# Looks up the matching Traefik access-log entry for a copyparty request.
+# Args: ip port method path_no_query epoch_center
+# Prints "ua<TAB>referer<TAB>status<TAB>size<TAB>duration_ms" or nothing.
+enrich() {
+  command -v docker >/dev/null 2>&1 || return 0
+  command -v python3 >/dev/null 2>&1 || return 0
+  [ -n "$TRAEFIK_CONTAINER" ] || return 0
+  timeout "{{ copyparty_watch_enrich_timeout }}" \
+    docker exec "$TRAEFIK_CONTAINER" tail -c "$TRAEFIK_TAIL_BYTES" "$TRAEFIK_ACCESS_LOG" 2>/dev/null \
+    | python3 "$ENRICH_SCRIPT" "$1" "$2" "$3" "$4" "$5" 2>/dev/null || true
+}
+
 notify() {
-  local action="$1" ip="$2" path="$3" user="$4"
+  local action="$1" ip="$2" port="$3" method="$4" path="$5" user="$6" epoch="$7"
   local title tag
   case "$action" in
     downloaded) title="copyparty download"; tag="arrow_down" ;;
     uploaded)   title="copyparty upload";   tag="arrow_up" ;;
     *)          title="copyparty activity"; tag="arrows_counterclockwise" ;;
   esac
+
+  local body="${ip} ${action} ${path} — user: ${user}"
+
+  # Traefik enrichment: User-Agent, Referer, HTTP status, bytes, duration.
+  local ea eb ec ed ee
+  ea="-"; eb="-"; ec="-"; ed="-"; ee="-"
+  local enr
+  enr=$(enrich "$ip" "$port" "$method" "${path%%\?*}" "$epoch")
+  if [ -n "$enr" ]; then
+    IFS=$'\t' read -r ea eb ec ed ee <<< "$enr"
+  fi
+  body="${body}
+UA: ${ea} | ref: ${eb} | http ${ec} ${ed} ${ee}ms"
+
   curl -fsS --max-time 10 \
     -H "Title: ${title}" \
     -H "Priority: 3" \
     -H "Tags: ${tag}" \
-    -d "${ip} ${action} ${path} — user: ${user}" \
+    -d "$body" \
     "$NTFY_URL" >/dev/null 2>&1 || true
 }
 
@@ -57,16 +88,15 @@ for logfile in "$LOG_DIR"/copyparty-*.txt; do
   [ -z "$new_data" ] && continue
 
   while IFS= read -r line; do
-    # Parse request lines: "<date> <time> <ip> <port> LOG: <METHOD> <path> @<user>"
+    # Parse request lines:
+    # "<date> <time> <ip> <port> LOG: <METHOD> <path> @<user>"
     # Completion lines ("LOG:  /path plain 200,...") and access-denied lines
     # have no METHOD/@user and fail this match.
     parsed=$(printf '%s\n' "$line" | sed -nE \
-      's/^"[^"]*"[[:space:]]+[0-9:.]+[[:space:]]+([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)[[:space:]]+[0-9]+[[:space:]]+LOG:[[:space:]]+([A-Z]+)[[:space:]]+([^[:space:]]+)[[:space:]]+@([^[:space:]]+).*$/\1|\2|\3|\4/p')
+      's/^"([0-9-]+)"[[:space:]]+([0-9:.]+)[[:space:]]+([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)[[:space:]]+([0-9]+)[[:space:]]+LOG:[[:space:]]+([A-Z]+)[[:space:]]+([^[:space:]]+)[[:space:]]+@([^[:space:]]+).*$/\1|\2|\3|\4|\5|\6|\7/p')
     [ -z "$parsed" ] && continue
 
-    ip=${parsed%%|*}; rest=${parsed#*|}
-    method=${rest%%|*}; rest=${rest#*|}
-    path=${rest%%|*}; user=${rest##*|}
+    IFS='|' read -r date time ip port method path user <<< "$parsed"
 
     # Only paths inside a real copyparty volume.
     vol=${path#/}; vol=${vol%%/*}
@@ -74,8 +104,9 @@ for logfile in "$LOG_DIR"/copyparty-*.txt; do
 
     case "$method" in
       GET)
-        # Skip static assets and directory-tree listings.
-        case "$path" in *.res/*|*tree=*) continue ;; esac
+        # Skip static assets, directory-tree listings, and thumbnail fetches
+        # (?th= generates a small preview image, not a real download).
+        case "$path" in *.res/*|*tree=*|*\?th=*|*\&th=*) continue ;; esac
         # File download: path ends in .<ext> (optional ?query) or is a ?zip archive.
         if [[ "$path" =~ \.[A-Za-z0-9]{2,}(\?[^[:space:]]*)?$ || ( "$path" == *\?* && "$path" == *zip* ) ]]; then
           action="downloaded"
@@ -99,6 +130,8 @@ for logfile in "$LOG_DIR"/copyparty-*.txt; do
     esac
 
     if [ "$user" = "*" ]; then user="anonymous"; fi
-    notify "$action" "$ip" "$path" "$user"
+    # copyparty timestamps are UTC (TZ=UTC); strip fractional seconds.
+    epoch=$(date -u -d "${date} ${time%.*}" +%s 2>/dev/null || echo 0)
+    notify "$action" "$ip" "$port" "$method" "$path" "$user" "$epoch"
   done <<< "$new_data"
 done

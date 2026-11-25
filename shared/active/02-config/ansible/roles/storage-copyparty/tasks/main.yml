@@ -160,6 +160,16 @@
   become: true
   when: copyparty_download_watch_enabled | bool
 
+- name: Deploy download watcher enrichment script
+  ansible.builtin.template:
+    src: download-watch-enrich.py.j2
+    dest: "{{ copyparty_download_watch_enrich_script }}"
+    owner: "{{ infra_storage_userns_remap_uid | default(infra_storage_userns_remap_uid) }}"
+    group: "{{ infra_storage_userns_remap_gid | default(infra_storage_userns_remap_uid) }}"
+    mode: "{{ infra_mode_exec_restricted }}"
+  become: true
+  when: copyparty_download_watch_enabled | bool
+
 - name: Deploy download watcher systemd units
   ansible.builtin.template:
     src: "copyparty-download-watch.{{ item }}.j2"

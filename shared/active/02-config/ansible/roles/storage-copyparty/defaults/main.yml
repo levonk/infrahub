@@ -64,6 +64,14 @@ copyparty_watch_volumes: "public uploads family dawn"
 # Volumes readable by anonymous users (@*) — GETs by @* elsewhere are denied
 # probes and are skipped. Anonymous UPLOADS to /uploads are still reported.
 copyparty_watch_anon_volumes: "public"
+# Traefik access-log enrichment (User-Agent, Referer, status, bytes).
+# The access log lives inside the traefik container; the watcher reads the
+# tail of it via docker exec and correlates on client IP/port/method/path.
+copyparty_watch_traefik_container: "traefik"
+copyparty_watch_traefik_access_log: "/var/log/traefik/access.log"
+copyparty_watch_traefik_tail_bytes: "67108864"
+copyparty_watch_enrich_timeout: "25s"
 copyparty_download_watch_script: "{{ copyparty_config_dir }}/download-watch.sh"
+copyparty_download_watch_enrich_script: "{{ copyparty_config_dir }}/download-watch-enrich.py"
 copyparty_download_watch_state_dir: "{{ copyparty_config_dir }}/watch-state"
 copyparty_download_watch_service_name: "copyparty-download-watch"
