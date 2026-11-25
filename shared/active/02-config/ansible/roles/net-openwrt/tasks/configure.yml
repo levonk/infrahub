@@ -78,3 +78,54 @@
     - "odhcpd"
     - "firewall"
   when: openwrt_mode == "router"
+
+# ---------------------------------------------------------------------------
+# Tailscale (procd-managed, proxy-aware)
+# Stock init script can't express HTTPS_PROXY — our tailscale-init.j2 adds a
+# UCI 'proxy_url' option so WAN-less nodes reach the control plane through a
+# forwarded CONNECT proxy. Empty proxy = direct outbound.
+# ---------------------------------------------------------------------------
+- name: Render /etc/config/tailscale
+  ansible.builtin.template:
+    src: tailscale-config.j2
+    dest: /etc/config/tailscale
+    mode: "0644"
+  notify: restart tailscale
+  when: "'tailscale' in openwrt_packages"
+
+- name: Render /etc/init.d/tailscale (proxy-aware)
+  ansible.builtin.template:
+    src: tailscale-init.j2
+    dest: /etc/init.d/tailscale
+    mode: "0755"
+  notify: restart tailscale
+  when: "'tailscale' in openwrt_packages"
+
+# Take over any manually-started daemon — procd should own it (respawn,
+# boot start, proxy env from UCI). Idempotent: skips when a procd instance
+# is already running.
+- name: Ensure tailscaled runs under procd (idempotent)
+  ansible.builtin.raw: >-
+    ubus call service list '{"name":"tailscale"}' 2>/dev/null | grep -q '"running": *true' && exit 1;
+    /etc/init.d/tailscale enable;
+    killall tailscaled 2>/dev/null;
+    sleep 1;
+    /etc/init.d/tailscale start
+  register: openwrt_ts_svc
+  changed_when: openwrt_ts_svc.rc == 0
+  failed_when: false
+  when: "'tailscale' in openwrt_packages"
+
+# Unattended join for fresh nodes. The CLI lives at /tmp/tailscale when the
+# upstream binary floor staged it (upstream build isn't multicall), else the
+# packaged multicall symlink works. Prefers /tmp/tailscale.
+- name: Join tailnet via vault auth key (idempotent)
+  ansible.builtin.raw: >-
+    TS=$([ -x /tmp/tailscale ] && echo /tmp/tailscale || command -v tailscale);
+    $TS status 2>/dev/null | grep -q 'Logged out' || exit 1;
+    $TS up --auth-key '{{ openwrt_tailscale_auth_key }}' --timeout 30s
+  register: openwrt_ts_up
+  changed_when: openwrt_ts_up.rc == 0
+  failed_when: false
+  no_log: true
+  when: "'tailscale' in openwrt_packages and openwrt_tailscale_auth_key | length > 0"

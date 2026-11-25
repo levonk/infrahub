@@ -1,0 +1,11 @@
+config settings 'settings'
+	option log_stderr '1'
+	option log_stdout '1'
+	option port '{{ openwrt_tailscale_port | default(41641) }}'
+	option state_file '{{ openwrt_tailscale_state_file | default("/etc/tailscale/tailscaled.state") }}'
+	option fw_mode 'nftables'
+{% if openwrt_tailscale_proxy | length > 0 %}
+	# Outbound CONNECT proxy for control-plane + DERP (WAN-less outbound
+	# via an SSH -R forward on a reachable host). Clear when WAN exists.
+	option proxy_url '{{ openwrt_tailscale_proxy }}'
+{% endif %}

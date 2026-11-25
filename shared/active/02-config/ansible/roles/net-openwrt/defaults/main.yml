@@ -50,6 +50,16 @@ openwrt_admin_authorized_keys: []
 openwrt_tailscale_version: ""
 openwrt_tailscale_arch: "arm"  # pkgs.tailscale.com arch suffix (arm = armv7)
 
+# tailscaled outbound proxy — rendered into UCI 'proxy_url' and exported as
+# HTTPS_PROXY/ALL_PROXY by the managed init script. Needed on WAN-less boxes:
+# e.g. "http://127.0.0.1:8899" pointing at an SSH -R forward to a host with
+# internet. Empty = direct outbound (normal once WAN exists).
+openwrt_tailscale_proxy: ""
+# Optional tailnet pre-auth key (point at a vault var) for unattended
+# `tailscale up` on nodes that aren't already logged in. Empty = skip —
+# existing registrations survive anyway via /etc/tailscale in sysupgrade.conf.
+openwrt_tailscale_auth_key: ""
+
 # Root password — empty means "leave whatever is on the device". Point at a
 # client vault var (e.g. openwrt_root_password: "{{ vault_... }}") to manage
 # it: the task writes the sha512-crypt hash into /etc/shadow so plaintext

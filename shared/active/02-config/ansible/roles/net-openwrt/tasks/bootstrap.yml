@@ -101,6 +101,16 @@
     mode: "0755"
   when: "'tailscale' in openwrt_packages and openwrt_tailscale_version | length > 0 and (openwrt_ts_running.stdout | default('0')) is version(openwrt_tailscale_version, '<')"
 
+# Stage the CLI too — upstream tailscaled is not multicall so the packaged
+# /usr/sbin/tailscale symlink dies with the swap. tmpfs CLI is enough for
+# `tailscale up`/status; the daemon is what must persist.
+- name: Stage upstream tailscale CLI on device
+  ansible.builtin.copy:
+    src: "/tmp/ts-{{ openwrt_tailscale_version }}-{{ openwrt_tailscale_arch }}/tailscale_{{ openwrt_tailscale_version }}_{{ openwrt_tailscale_arch }}/tailscale"
+    dest: "/tmp/tailscale"
+    mode: "0755"
+  when: "'tailscale' in openwrt_packages and openwrt_tailscale_version | length > 0 and (openwrt_ts_running.stdout | default('0')) is version(openwrt_tailscale_version, '<')"
+
 - name: Swap in upstream tailscaled binary
   ansible.builtin.raw: >-
     cp /tmp/tailscaled-{{ openwrt_tailscale_version }}.bin /usr/sbin/tailscaled.new &&
