@@ -25,18 +25,8 @@
     success_msg: "All required Tor Windows variables are defined."
   tags: ["always", "validate"]
 
-# 2. Pull images via docker CLI (skip if image is already loaded)
-- name: "Check if Tor exit node image exists"
-  ansible.builtin.command: "docker image inspect {{ vpn_tor_windows_tor_image }}"
-  environment:
-    DOCKER_HOST: "{{ vpn_tor_windows_docker_host }}"
-    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
-  delegate_to: localhost
-  changed_when: false
-  failed_when: false
-  register: tor_image_check
-  tags: ["deploy", "pull"]
-
+# 2. Pull images via docker CLI (always pull — :latest must refresh on every
+#    deploy or the nodes go stale, e.g. Tailscale security updates)
 - name: "Pull Tor exit node image"
   ansible.builtin.command: "docker pull {{ vpn_tor_windows_tor_image }}"
   environment:
@@ -44,18 +34,6 @@
     DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
   delegate_to: localhost
   changed_when: true
-  when: tor_image_check.rc != 0
-  tags: ["deploy", "pull"]
-
-- name: "Check if Tailscale image exists"
-  ansible.builtin.command: "docker image inspect {{ vpn_tor_windows_tailscale_image }}"
-  environment:
-    DOCKER_HOST: "{{ vpn_tor_windows_docker_host }}"
-    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
-  delegate_to: localhost
-  changed_when: false
-  failed_when: false
-  register: tailscale_image_check
   tags: ["deploy", "pull"]
 
 - name: "Pull Tailscale image"
@@ -65,7 +43,6 @@
     DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
   delegate_to: localhost
   changed_when: true
-  when: tailscale_image_check.rc != 0
   tags: ["deploy", "pull"]
 
 # 3. Create Docker network

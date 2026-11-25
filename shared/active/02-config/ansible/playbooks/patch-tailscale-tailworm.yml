@@ -316,8 +316,7 @@
         image: "tailscale/tailscale:latest"
         state: started
         restart_policy: unless-stopped
-        networks:
-          - name: "{{ vpn_nordvpn_network_name | default('vpn-network') }}"
+        network_mode: "container:{{ infra_hostname_nordvpn | default('nordvpn') }}"
         capabilities:
           - NET_ADMIN
         env:
@@ -331,31 +330,6 @@
         - "'vpn-tailscale-exit' in (tailworm_ctn_stale | default([])) or (infra_hostname_vpn_tailscale_nordvpn | default('vpn-tailscale-exit')) in (tailworm_ctn_stale | default([]))"
         - tailworm_nordvpn.rc == 0
       register: tailworm_vpn_ctn_deploy
-      tags: ["patch-tailworm", "containers", "remediate"]
-
-    - name: "PATCH-TAILWORM | Get NordVPN container IP (route fixup)"  # noqa no-handler — sequential fixup, not a notify target
-      ansible.builtin.command:
-        cmd: "docker inspect {{ infra_hostname_nordvpn | default('nordvpn') }} --format '{% raw %}{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}{% endraw %}'"
-      register: tailworm_nordvpn_ip
-      changed_when: false
-      when: tailworm_vpn_ctn_deploy is changed
-      tags: ["patch-tailworm", "containers", "remediate"]
-
-    - name: "PATCH-TAILWORM | Restore NordVPN gateway route in tailscale container"  # noqa no-handler — sequential fixup, not a notify target
-      ansible.builtin.shell: |
-        docker exec {{ infra_hostname_vpn_tailscale_nordvpn | default('vpn-tailscale-exit') }} ip route del default || true
-        docker exec {{ infra_hostname_vpn_tailscale_nordvpn | default('vpn-tailscale-exit') }} ip route add default via {{ tailworm_nordvpn_ip.stdout }}
-      when: tailworm_vpn_ctn_deploy is changed
-      ignore_errors: true
-      tags: ["patch-tailworm", "containers", "remediate"]
-
-    - name: "PATCH-TAILWORM | Restore NAT masquerade in NordVPN container"  # noqa no-handler — sequential fixup, not a notify target
-      ansible.builtin.shell: |
-        docker exec {{ infra_hostname_nordvpn | default('nordvpn') }} iptables -t nat -A POSTROUTING -s {{ vpn_nordvpn_network_subnet | default(infra_network_vpn_nordvpn_subnet) }} -j MASQUERADE || true
-        docker exec {{ infra_hostname_nordvpn | default('nordvpn') }} iptables -A FORWARD -i eth0 -o tun0 -j ACCEPT || true
-        docker exec {{ infra_hostname_nordvpn | default('nordvpn') }} iptables -A FORWARD -i tun0 -o eth0 -m state --state RELATED,ESTABLISHED -j ACCEPT || true
-      when: tailworm_vpn_ctn_deploy is changed
-      ignore_errors: true
       tags: ["patch-tailworm", "containers", "remediate"]
 
     # --- Recreate: Tor-path exit node (mirrors vpn-tailscale role spec) ---
@@ -387,8 +361,8 @@
           TS_EXTRA_ARGS: "--advertise-exit-node --accept-routes"
           TS_STATE_DIR: "/var/lib/tailscale"
           TS_SOCKET_DIR: "/var/run/tailscale"
-          ALL_PROXY: "socks5://{{ infra_hostname_vpn_tor | default('tor-exit') }}:{{ infra_port_vpn_tor_transparent_host }}"
-          all_proxy: "socks5://{{ infra_hostname_vpn_tor | default('tor-exit') }}:{{ infra_port_vpn_tor_transparent_host }}"
+          ALL_PROXY: "socks5://{{ infra_hostname_vpn_tor | default('tor-exit') }}:{{ infra_port_proxy_tor_socks5_container }}"
+          all_proxy: "socks5://{{ infra_hostname_vpn_tor | default('tor-exit') }}:{{ infra_port_proxy_tor_socks5_container }}"
           TZ: "{{ localnet_tz | default('UTC') }}"
         sysctls:
           net.ipv4.ip_forward: "1"
