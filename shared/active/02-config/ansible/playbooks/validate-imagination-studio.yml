@@ -1,0 +1,572 @@
+---
+# Validate Imagination Studio — read-only post-deploy checks on kckinai
+# Location: shared/active/02-config/ansible/playbooks/validate-imagination-studio.yml
+#
+# PURPOSE
+#   Read-only health/security checks for the NATIVE Imagination Studio
+#   install (systemd --user unit under lk on the GB10 host). Mirrors the
+#   validate-<service>.yml convention: results are collected into
+#   `validation_results` (+ `security_warnings`) and a summary is printed —
+#   checks do NOT fail fast and no task mutates the host.
+#
+# CHECKS
+#   - systemd --user unit `imagination-studio` active + enabled (as lk,
+#     XDG_RUNTIME_DIR=/run/user/<uid>)
+#   - linger enabled for lk (user manager survives logout/reboot)
+#   - port 7870 listening — bound to the tailscale IP ONLY (never 0.0.0.0,
+#     never the LAN address)
+#   - GET /api/spark/self on the bind address — accepts 200 (keyed) or
+#     401 (alive, key required); the access key itself is never read
+#   - managed ComfyUI on 127.0.0.1:8190 — when listening it must be loopback
+#     only and never published
+#   - restart-loop guard via NRestarts (warning, not failure)
+#   - journalctl --user tail (last 50 lines — reported, never fails)
+#   - pre-existing standalone ComfyUI on :8188 still listening (unaffected)
+#   - disk headroom on the studio storage filesystem
+#   - installer dir + memguard user unit presence (informational)
+#
+# USAGE
+#   ansible-playbook \
+#     -i levonk/active/02-config/ansible/inventories/localnet.yml \
+#     shared/active/02-config/ansible/playbooks/validate-imagination-studio.yml \
+#     --vault-password-file ~/.ansible/vault_password \
+#     --limit kckinai
+#
+#   Run only the validation checks (all tasks carry these tags anyway):
+#     ... --limit kckinai --tags validate,imagination-studio
+#
+# PREREQUISITES
+#   - deploy-imagination-studio.yml converged (unit + dirs exist)
+#   - For the API probe to return 200/401 the models playbook must have run
+#     ($PREFIX/venv exists). Before that the probe records 'unreachable' —
+#     expected, not a failure.
+
+- name: "Validate Imagination Studio deployment (read-only)"
+  hosts: localnet_hosts
+  become: true
+  gather_facts: true
+
+  vars_files:
+    - "{{ playbook_dir }}/../infrastructure/ports.yml"
+    - "{{ playbook_dir }}/../infrastructure/domains.yml"
+    - "{{ playbook_dir }}/../infrastructure/storage.yml"
+    - "{{ playbook_dir }}/../infrastructure/modes.yml"
+    - "{{ playbook_dir }}/../infrastructure/timing.yml"
+    - "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/ports.yml"
+    - "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/domains.yml"
+    - "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/storage.yml"
+
+  vars:
+    # Run user — lk on kckinai (localnet_kckinai_ansible_user via inventory).
+    ai_studio_run_user: "{{ localnet_kckinai_ansible_user | default(ansible_user | default('lk')) }}"
+    ai_studio_service_name: "imagination-studio"
+
+    # Paths — mirror roles/ai-imagination-studio/defaults/main.yml.
+    ai_studio_home: "{{ infra_storage_studio_home_dir }}"
+    ai_studio_install_dir: "{{ infra_storage_studio_install_dir }}"
+    ai_studio_prefix: "{{ infra_storage_studio_prefix_dir }}"
+    ai_studio_env_file: "{{ ai_studio_home }}/imagination-studio.env"
+    ai_studio_port: "{{ infra_port_ai_studio_container | default(infra_port_ai_studio_host) }}"
+    ai_studio_comfy_port: "{{ infra_port_ai_studio_comfy_host | default('8190') }}"
+    ai_studio_comfyui_port: "{{ infra_port_ai_comfyui_host | default('8188') }}"
+
+    # Disk headroom warning threshold (GiB free on the studio filesystem).
+    ai_studio_validate_min_free_gb: 50
+    # NRestarts above this is treated as a probable restart loop (warning).
+    ai_studio_validate_max_restarts: 10
+
+    validation_results: {}
+    security_warnings: []
+
+  pre_tasks:
+    - name: "Gather ansible_facts"
+      ansible.builtin.setup:
+        gather_subset: ["all"]
+      tags: ["always"]
+
+    - name: "Initialize validation results"
+      ansible.builtin.set_fact:
+        validation_results:
+          unit_file_present: false
+          service_active: false
+          service_enabled: false
+          linger_enabled: false
+          tailscale_ip: null
+          port_listening: false
+          port_bind_addresses: []
+          port_tailnet_only: false
+          api_status: null
+          managed_comfy_loopback: "not_listening"
+          nrestarts: null
+          comfyui_8188_listening: false
+          free_gb: null
+          install_dir_present: false
+          memguard_unit_present: false
+        security_warnings: []
+      tags: ["always"]
+
+    - name: "Report target"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Validate Imagination Studio (read-only)
+          ========================================
+          Host: {{ inventory_hostname }}
+          Ansible Host: {{ ansible_host }}
+          Run user: {{ ai_studio_run_user }}
+          Service: {{ ai_studio_service_name }} (systemd --user)
+          Port: {{ ai_studio_port }}
+          ========================================
+      tags: ["always", "info"]
+
+    - name: "Look up run user account (home dir + uid)"
+      ansible.builtin.getent:
+        database: passwd
+        key: "{{ ai_studio_run_user }}"
+      register: ai_studio_passwd
+      failed_when: false
+      tags: ["validate", "imagination-studio"]
+
+    - name: "Resolve run user home and uid"
+      ansible.builtin.set_fact:
+        ai_studio_run_home: "{{ ai_studio_passwd.ansible_facts.getent_passwd[0][5] }}"
+        ai_studio_run_uid: "{{ ai_studio_passwd.ansible_facts.getent_passwd[0][2] }}"
+        ai_studio_xdg_runtime_dir: "/run/user/{{ ai_studio_passwd.ansible_facts.getent_passwd[0][2] }}"
+      when: ai_studio_passwd.ansible_facts.getent_passwd | default([]) | length > 0
+      tags: ["validate", "imagination-studio"]
+
+    - name: "Warn when run user is missing"
+      ansible.builtin.debug:
+        msg: >-
+          WARNING: run user '{{ ai_studio_run_user }}' not found on
+          {{ inventory_hostname }} — user-level checks will be skipped.
+      when: ai_studio_passwd.ansible_facts.getent_passwd | default([]) | length == 0
+      tags: ["validate", "imagination-studio"]
+
+  tasks:
+    # ------------------------------------------------------------------
+    # Unit file + linger
+    # ------------------------------------------------------------------
+    - name: "Check systemd user unit file exists"
+      ansible.builtin.stat:
+        path: "{{ ai_studio_run_home | default('/nonexistent') }}/.config/systemd/user/{{ ai_studio_service_name }}.service"
+      register: ai_studio_unit_stat
+      when: ai_studio_run_home is defined
+      tags: ["validate", "imagination-studio"]
+
+    - name: "Record unit file presence"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'unit_file_present': ai_studio_unit_stat.stat.exists | default(false)}) }}"
+      when: ai_studio_unit_stat is defined
+      tags: ["validate", "imagination-studio"]
+
+    - name: "Check linger state for run user"
+      ansible.builtin.command:
+        cmd: "loginctl show-user {{ ai_studio_run_user }} --property=Linger --value"
+      become: true
+      check_mode: false
+      register: ai_studio_linger
+      changed_when: false
+      failed_when: false
+      tags: ["validate", "imagination-studio"]
+
+    - name: "Record linger state"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'linger_enabled': (ai_studio_linger.stdout | default('') | trim) == 'yes'}) }}"
+      tags: ["validate", "imagination-studio"]
+
+    - name: "Warn when linger is disabled"
+      ansible.builtin.set_fact:
+        security_warnings: "{{ security_warnings + ['Linger is NOT enabled for ' ~ ai_studio_run_user ~ ' — the user service will stop at logout/reboot.'] }}"
+      when: (ai_studio_linger.stdout | default('') | trim) != 'yes'
+      tags: ["validate", "imagination-studio"]
+
+    - name: "Check systemd user service is active" # noqa command-instead-of-module — read-only is-active probe; systemd module cannot query --user scope state without mutating
+      ansible.builtin.command:
+        cmd: "systemctl --user is-active {{ ai_studio_service_name }}"
+      become: true
+      become_user: "{{ ai_studio_run_user }}"
+      environment:
+        XDG_RUNTIME_DIR: "{{ ai_studio_xdg_runtime_dir }}"
+      check_mode: false
+      register: ai_studio_is_active
+      changed_when: false
+      failed_when: false
+      when: ai_studio_run_uid is defined
+      tags: ["validate", "imagination-studio"]
+
+    - name: "Record service active state"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'service_active': ai_studio_is_active.rc == 0}) }}"
+      when: ai_studio_is_active is defined
+      tags: ["validate", "imagination-studio"]
+
+    - name: "Check systemd user service is enabled" # noqa command-instead-of-module — read-only is-enabled probe; systemd module cannot query --user scope state without mutating
+      ansible.builtin.command:
+        cmd: "systemctl --user is-enabled {{ ai_studio_service_name }}"
+      become: true
+      become_user: "{{ ai_studio_run_user }}"
+      environment:
+        XDG_RUNTIME_DIR: "{{ ai_studio_xdg_runtime_dir }}"
+      check_mode: false
+      register: ai_studio_is_enabled
+      changed_when: false
+      failed_when: false
+      when: ai_studio_run_uid is defined
+      tags: ["validate", "imagination-studio"]
+
+    - name: "Record service enabled state"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'service_enabled': ai_studio_is_enabled.rc == 0}) }}"
+      when: ai_studio_is_enabled is defined
+      tags: ["validate", "imagination-studio"]
+
+    # ------------------------------------------------------------------
+    # Port binding — tailnet-only check
+    # ------------------------------------------------------------------
+    - name: "Resolve tailscale IPv4 on the host"
+      ansible.builtin.command:
+        cmd: tailscale ip -4  # project-lint: disable=magic-int  IP version flag in tailscale command, not an operational value
+      become: true
+      check_mode: false
+      register: ai_studio_ts_ip
+      changed_when: false
+      failed_when: false
+      tags: ["validate", "imagination-studio"]
+
+    - name: "Normalize tailscale IPv4"
+      ansible.builtin.set_fact:
+        ai_studio_tailscale_ip4: "{{ ((ai_studio_ts_ip.stdout_lines | default(['']))[0] | default('')) if (ai_studio_ts_ip.stdout_lines | default([]) | length > 0) else '' }}"
+      tags: ["validate", "imagination-studio"]
+
+    - name: "Record tailscale IP"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'tailscale_ip': ai_studio_tailscale_ip4 if ai_studio_tailscale_ip4 | length > 0 else none}) }}"
+      tags: ["validate", "imagination-studio"]
+
+    - name: "Read env file to confirm configured bind (contents stay on host)"
+      ansible.builtin.slurp:
+        src: "{{ ai_studio_env_file }}"
+      register: ai_studio_env_slurp
+      failed_when: false
+      tags: ["validate", "imagination-studio"]
+
+    - name: "Extract configured HOST from env file"
+      ansible.builtin.set_fact:
+        ai_studio_env_host: "{{ (ai_studio_env_slurp.content | b64decode | regex_findall('(?m)^HOST=(.+)$') | default([]) | first | default('')) if (ai_studio_env_slurp.content is defined) else '' }}"
+      tags: ["validate", "imagination-studio"]
+
+    - name: "Resolve API probe target (env HOST, else tailscale IP)"
+      ansible.builtin.set_fact:
+        ai_studio_probe_host: "{{ ai_studio_env_host if ai_studio_env_host | length > 0 else ai_studio_tailscale_ip4 }}"
+      tags: ["validate", "imagination-studio"]
+
+    - name: "Build forbidden bind-address pattern (wildcard + LAN)"
+      ansible.builtin.set_fact:
+        ai_studio_forbidden_bind_re: "^(0\\.0\\.0\\.0|\\[?::\\]?|{{ ansible_facts['default_ipv4']['address'] | default('255.255.255.255') }})$"
+      tags: ["validate", "imagination-studio"]
+
+    - name: "List listeners on the studio port"
+      ansible.builtin.command:
+        cmd: "ss -tlnH '( sport = :{{ ai_studio_port }} )'"
+      become: true
+      check_mode: false
+      register: ai_studio_ss
+      changed_when: false
+      failed_when: false
+      tags: ["validate", "imagination-studio"]
+
+    - name: "Parse bound addresses for the studio port"
+      ansible.builtin.set_fact:
+        ai_studio_bind_addrs: >-
+          {{ ai_studio_ss.stdout_lines | default([])
+             | map('regex_replace', '^\\s*\\S+\\s+\\S+\\s+\\S+\\s+(\\S+?):\\d+\\s.*$', '\\1')
+             | list }}
+      tags: ["validate", "imagination-studio"]
+
+    - name: "Evaluate tailnet-only binding"
+      ansible.builtin.set_fact:
+        ai_studio_addrs_all_ts: >-
+          {{ validation_results.tailscale_ip is defined
+             and validation_results.tailscale_ip is not none
+             and (ai_studio_bind_addrs | unique | list) == [validation_results.tailscale_ip] }}
+        ai_studio_addrs_no_forbidden: >-
+          {{ validation_results.tailscale_ip is defined
+             and validation_results.tailscale_ip is none
+             and ((ai_studio_bind_addrs | reject('match', ai_studio_forbidden_bind_re) | list | length)
+                  == (ai_studio_bind_addrs | length)) }}
+      tags: ["validate", "imagination-studio"]
+
+    - name: "Combine tailnet-only verdict"
+      ansible.builtin.set_fact:
+        ai_studio_port_tailnet_only: >-
+          {{ ai_studio_ss.rc == 0
+             and (ai_studio_ss.stdout_lines | default([]) | length > 0)
+             and (ai_studio_bind_addrs | length > 0)
+             and ((ai_studio_addrs_all_ts | bool) or (ai_studio_addrs_no_forbidden | bool)) }}
+      tags: ["validate", "imagination-studio"]
+
+    - name: "Record port binding results"
+      ansible.builtin.set_fact:
+        validation_results: >-
+          {{ validation_results | combine({
+               'port_listening': ai_studio_ss.rc == 0 and (ai_studio_ss.stdout_lines | default([]) | length > 0),
+               'port_bind_addresses': ai_studio_bind_addrs,
+               'port_tailnet_only': ai_studio_port_tailnet_only | bool
+             }) }}
+      tags: ["validate", "imagination-studio"]
+
+    - name: "Warn when the studio port is not tailnet-only"
+      ansible.builtin.set_fact:
+        security_warnings: "{{ security_warnings + ['Studio port ' ~ ai_studio_port ~ ' is bound to ' ~ (ai_studio_bind_addrs | join(', ')) ~ ' — expected ONLY the tailscale IP ' ~ (validation_results.tailscale_ip | default('unknown', true)) ~ '. Check for 0.0.0.0/LAN exposure.'] }}"
+      when:
+        - ai_studio_ss.rc == 0
+        - ai_studio_ss.stdout_lines | default([]) | length > 0
+        - not (ai_studio_port_tailnet_only | bool)
+      tags: ["validate", "imagination-studio"]
+
+    # ------------------------------------------------------------------
+    # API probe — /api/spark/self accepts 200 (keyed) or 401 (key required)
+    # ------------------------------------------------------------------
+    - name: "Probe /api/spark/self on the configured bind"
+      ansible.builtin.uri:
+        url: "http://{{ ai_studio_probe_host }}:{{ ai_studio_port }}/api/spark/self"
+        method: GET
+        status_code: [200, 401]
+        timeout: 10
+      register: ai_studio_probe
+      failed_when: false
+      when: ai_studio_probe_host is defined and ai_studio_probe_host | length > 0
+      tags: ["validate", "imagination-studio"]
+
+    - name: "Record API probe result"
+      ansible.builtin.set_fact:
+        validation_results: >-
+          {{ validation_results | combine({
+               'api_status': ai_studio_probe.status | default('unreachable')
+             }) }}
+      when: ai_studio_probe is defined
+      tags: ["validate", "imagination-studio"]
+
+    # ------------------------------------------------------------------
+    # Managed ComfyUI — loopback 8190 only (when running)
+    # ------------------------------------------------------------------
+    - name: "List listeners on the managed ComfyUI port"
+      ansible.builtin.command:
+        cmd: "ss -tlnH '( sport = :{{ ai_studio_comfy_port }} )'"
+      become: true
+      check_mode: false
+      register: ai_studio_comfy_ss
+      changed_when: false
+      failed_when: false
+      tags: ["validate", "imagination-studio"]
+
+    - name: "Parse bound addresses for the managed ComfyUI port"
+      ansible.builtin.set_fact:
+        ai_studio_comfy_addrs: >-
+          {{ ai_studio_comfy_ss.stdout_lines | default([])
+             | map('regex_replace', '^\\s*\\S+\\s+\\S+\\s+\\S+\\s+(\\S+?):\\d+\\s.*$', '\\1')
+             | list }}
+      tags: ["validate", "imagination-studio"]
+
+    - name: "Count non-loopback managed ComfyUI binds"
+      ansible.builtin.set_fact:
+        ai_studio_comfy_non_loopback: "{{ ai_studio_comfy_addrs | reject('match', '^(127\\.0\\.0\\.1|::1|\\[::1\\])') | list | length }}"
+      tags: ["validate", "imagination-studio"]
+
+    - name: "Record managed ComfyUI binding (not listening)"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'managed_comfy_loopback': 'not_listening'}) }}"
+      when: ai_studio_comfy_ss.stdout_lines | default([]) | length == 0
+      tags: ["validate", "imagination-studio"]
+
+    - name: "Record managed ComfyUI binding (loopback only)"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'managed_comfy_loopback': 'loopback'}) }}"
+      when:
+        - ai_studio_comfy_ss.stdout_lines | default([]) | length > 0
+        - ai_studio_comfy_non_loopback | int == 0
+      tags: ["validate", "imagination-studio"]
+
+    - name: "Record managed ComfyUI binding (exposed)"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'managed_comfy_loopback': 'EXPOSED:' ~ (ai_studio_comfy_addrs | join(','))}) }}"
+      when:
+        - ai_studio_comfy_ss.stdout_lines | default([]) | length > 0
+        - ai_studio_comfy_non_loopback | int > 0
+      tags: ["validate", "imagination-studio"]
+
+    - name: "Warn when managed ComfyUI is published beyond loopback"
+      ansible.builtin.set_fact:
+        security_warnings: "{{ security_warnings + ['Managed ComfyUI port ' ~ ai_studio_comfy_port ~ ' is listening on ' ~ (ai_studio_comfy_addrs | join(', ')) ~ ' — expected 127.0.0.1 only (never published).'] }}"
+      when: ai_studio_comfy_non_loopback | int > 0
+      tags: ["validate", "imagination-studio"]
+
+    # ------------------------------------------------------------------
+    # Restart-loop guard + journal tail (report only)
+    # ------------------------------------------------------------------
+    - name: "Read NRestarts for the user service" # noqa command-instead-of-module — read-only property query; systemd module does not expose arbitrary show properties
+      ansible.builtin.command:
+        cmd: "systemctl --user show {{ ai_studio_service_name }} --property=NRestarts --value"
+      become: true
+      become_user: "{{ ai_studio_run_user }}"
+      environment:
+        XDG_RUNTIME_DIR: "{{ ai_studio_xdg_runtime_dir }}"
+      check_mode: false
+      register: ai_studio_nrestarts
+      changed_when: false
+      failed_when: false
+      when: ai_studio_run_uid is defined
+      tags: ["validate", "imagination-studio"]
+
+    - name: "Record NRestarts"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'nrestarts': ai_studio_nrestarts.stdout | trim | int}) }}"
+      when:
+        - ai_studio_nrestarts is defined
+        - ai_studio_nrestarts.stdout | default('') | trim is match('^\\d+$')
+      tags: ["validate", "imagination-studio"]
+
+    - name: "Warn on probable restart loop"
+      ansible.builtin.set_fact:
+        security_warnings: "{{ security_warnings + ['Imagination Studio has restarted ' ~ (validation_results.nrestarts | string) ~ ' times — possible restart loop. Check the journal tail below and whether $PREFIX/venv exists (models playbook run?).'] }}"
+      when:
+        - validation_results.nrestarts is defined
+        - validation_results.nrestarts is not none
+        - (validation_results.nrestarts | int) > (ai_studio_validate_max_restarts | int)
+      tags: ["validate", "imagination-studio"]
+
+    - name: "Tail journal for the user service (last 50 lines)"
+      ansible.builtin.command:
+        cmd: "journalctl --user -u {{ ai_studio_service_name }} -n 50 --no-pager"
+      become: true
+      become_user: "{{ ai_studio_run_user }}"
+      environment:
+        XDG_RUNTIME_DIR: "{{ ai_studio_xdg_runtime_dir }}"
+      check_mode: false
+      register: ai_studio_journal
+      changed_when: false
+      failed_when: false
+      when: ai_studio_run_uid is defined
+      tags: ["validate", "imagination-studio"]
+
+    - name: "Report journal tail (informational — never fails)"
+      ansible.builtin.debug:
+        msg: >-
+          journalctl --user -u {{ ai_studio_service_name }} (last 50 lines):
+          {{ (ai_studio_journal.stdout_lines | default(['(unavailable)'])) | join('\n') }}
+      when: ai_studio_journal is defined
+      tags: ["validate", "imagination-studio"]
+
+    # ------------------------------------------------------------------
+    # Pre-existing standalone ComfyUI on :8188 — must be unaffected
+    # ------------------------------------------------------------------
+    - name: "List listeners on the standalone ComfyUI port"
+      ansible.builtin.command:
+        cmd: "ss -tlnH '( sport = :{{ ai_studio_comfyui_port }} )'"
+      become: true
+      check_mode: false
+      register: ai_studio_comfyui_ss
+      changed_when: false
+      failed_when: false
+      tags: ["validate", "imagination-studio"]
+
+    - name: "Record standalone ComfyUI listener state"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'comfyui_8188_listening': ai_studio_comfyui_ss.rc == 0 and (ai_studio_comfyui_ss.stdout_lines | default([]) | length > 0)}) }}"
+      tags: ["validate", "imagination-studio"]
+
+    # ------------------------------------------------------------------
+    # Disk headroom
+    # ------------------------------------------------------------------
+    - name: "Check free space on the studio filesystem"
+      ansible.builtin.command:
+        cmd: "df -BG --output=avail {{ ai_studio_prefix | dirname }}"
+      become: true
+      check_mode: false
+      register: ai_studio_df
+      changed_when: false
+      failed_when: false
+      tags: ["validate", "imagination-studio"]
+
+    - name: "Resolve free space in GiB"
+      ansible.builtin.set_fact:
+        ai_studio_free_gb: "{{ (ai_studio_df.stdout_lines | default(['0'])) | last | regex_replace('\\D', '') | int }}"
+        validation_results: "{{ validation_results | combine({'free_gb': ((ai_studio_df.stdout_lines | default(['0'])) | last | regex_replace('\\D', '') | int)}) }}"
+      when: ai_studio_df.rc == 0
+      tags: ["validate", "imagination-studio"]
+
+    - name: "Warn when disk headroom is low"
+      ansible.builtin.set_fact:
+        security_warnings: "{{ security_warnings + ['Only ' ~ (validation_results.free_gb | string) ~ ' GiB free on the studio filesystem — renders/models need headroom (warn threshold: ' ~ (ai_studio_validate_min_free_gb | string) ~ ' GiB).'] }}"
+      when:
+        - validation_results.free_gb is defined
+        - validation_results.free_gb is not none
+        - (validation_results.free_gb | int) < (ai_studio_validate_min_free_gb | int)
+      tags: ["validate", "imagination-studio"]
+
+    # ------------------------------------------------------------------
+    # Informational — install dir + memguard user unit
+    # ------------------------------------------------------------------
+    - name: "Check installer dir exists"
+      ansible.builtin.stat:
+        path: "{{ ai_studio_install_dir }}"
+      register: ai_studio_install_stat
+      tags: ["validate", "imagination-studio"]
+
+    - name: "Record installer dir presence"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'install_dir_present': ai_studio_install_stat.stat.exists | default(false)}) }}"
+      tags: ["validate", "imagination-studio"]
+
+    - name: "Look for memguard user units"
+      ansible.builtin.command:
+        cmd: "find {{ ai_studio_run_home | default('/nonexistent') }}/.config/systemd/user -maxdepth 1 -name '*memguard*' -printf '%f\n'"
+      become: true
+      check_mode: false
+      register: ai_studio_memguard_units
+      changed_when: false
+      failed_when: false
+      when: ai_studio_run_home is defined
+      tags: ["validate", "imagination-studio"]
+
+    - name: "Record memguard unit presence"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results | combine({'memguard_unit_present': (ai_studio_memguard_units.stdout_lines | default([]) | length > 0)}) }}"
+      when: ai_studio_memguard_units is defined
+      tags: ["validate", "imagination-studio"]
+
+  post_tasks:
+    - name: "Display validation results"
+      ansible.builtin.debug:
+        msg: "{{ validation_results | to_nice_json }}"
+      tags: ["always"]
+
+    - name: "Display security warnings"
+      ansible.builtin.debug:
+        msg: >-
+          Security warnings ({{ security_warnings | length }}):
+          {{ security_warnings | join('\n- ') if security_warnings | length > 0 else 'none' }}
+      tags: ["always"]
+
+    - name: "Display validation summary"
+      ansible.builtin.debug:
+        msg: |
+          Imagination Studio Validation Summary ({{ inventory_hostname }}):
+          - Unit file present:        {{ validation_results.unit_file_present }}
+          - Service active:           {{ validation_results.service_active }}
+          - Service enabled:          {{ validation_results.service_enabled }}
+          - Linger enabled:           {{ validation_results.linger_enabled }}
+          - Tailscale IP:             {{ validation_results.tailscale_ip }}
+          - Port {{ ai_studio_port }} listening:      {{ validation_results.port_listening }}
+          - Bound addresses:          {{ validation_results.port_bind_addresses | join(', ') }}
+          - Tailnet-only bind:        {{ validation_results.port_tailnet_only }}
+          - API /api/spark/self:      {{ validation_results.api_status }}
+          - Managed ComfyUI :{{ ai_studio_comfy_port }}:  {{ validation_results.managed_comfy_loopback }}
+          - NRestarts:                {{ validation_results.nrestarts }}
+          - ComfyUI :{{ ai_studio_comfyui_port }} listening: {{ validation_results.comfyui_8188_listening }}
+          - Free disk (GiB):          {{ validation_results.free_gb }}
+          - Install dir present:      {{ validation_results.install_dir_present }}
+          - Memguard unit present:    {{ validation_results.memguard_unit_present }}
+          - Security warnings:        {{ security_warnings | length }}
+      tags: ["always"]

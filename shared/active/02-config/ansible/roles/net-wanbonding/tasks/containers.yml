@@ -1,0 +1,212 @@
+---
+# Container deployment for net-wanbonding.
+# shadowsocks-libev + glorytun run as community.docker-managed containers
+# with host networking — the WAN-facing ports must bind the VM's bridge IP
+# directly (a Docker bridge inside the guest would add a second DNAT hop,
+# break client source-IP visibility, and complicate TUN device handling).
+# Image is pulled from the local registry — built on the control machine
+# with `just docker-build-push localnet-net-wanbonding` (Invariant #2).
+# ---------------------------------------------------------------------------
+
+- name: Ensure config and script directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "{{ infra_mode_dir_restricted }}"
+  become: true
+  loop:
+    - "{{ wanbonding_shadowsocks_config_dir }}"
+    - "{{ wanbonding_glorytun_config_dir }}"
+    - "{{ wanbonding_glorytun_scripts_dir }}"
+
+- name: Deploy shadowsocks-libev server config
+  ansible.builtin.template:
+    src: shadowsocks-config.json.j2
+    dest: "{{ wanbonding_shadowsocks_config_file }}"
+    owner: root
+    group: root
+    mode: "{{ infra_mode_secret }}"
+  become: true
+  when: wanbonding_shadowsocks_enabled | bool
+  notify: restart wanbonding shadowsocks
+
+- name: Deploy glorytun keyfile (UDP variant)
+  ansible.builtin.template:
+    src: glorytun.key.j2
+    dest: "{{ wanbonding_glorytun_udp_keyfile }}"
+    owner: root
+    group: root
+    mode: "{{ infra_mode_secret }}"
+  become: true
+  when: wanbonding_glorytun_udp_enabled | bool
+  notify: restart wanbonding glorytun-udp
+
+- name: Deploy glorytun keyfile (TCP variant)
+  ansible.builtin.template:
+    src: glorytun.key.j2
+    dest: "{{ wanbonding_glorytun_tcp_keyfile }}"
+    owner: root
+    group: root
+    mode: "{{ infra_mode_secret }}"
+  become: true
+  when: wanbonding_glorytun_tcp_enabled | bool
+  notify: restart wanbonding glorytun-tcp
+
+- name: Deploy glorytun UDP server entrypoint
+  ansible.builtin.template:
+    src: glorytun-udp-server.sh.j2
+    dest: "{{ wanbonding_glorytun_scripts_dir }}/glorytun-udp-server.sh"
+    owner: root
+    group: root
+    mode: "{{ infra_mode_exec }}"
+  become: true
+  when: wanbonding_glorytun_udp_enabled | bool
+  notify: restart wanbonding glorytun-udp
+
+- name: Deploy glorytun TCP server entrypoint
+  ansible.builtin.template:
+    src: glorytun-tcp-server.sh.j2
+    dest: "{{ wanbonding_glorytun_scripts_dir }}/glorytun-tcp-server.sh"
+    owner: root
+    group: root
+    mode: "{{ infra_mode_exec }}"
+  become: true
+  when: wanbonding_glorytun_tcp_enabled | bool
+  notify: restart wanbonding glorytun-tcp
+
+- name: Pull wanbonding image from local registry
+  community.docker.docker_image:
+    name: "{{ wanbonding_image }}"
+    source: pull
+  become: true
+
+- name: Check whether the shadowsocks container already exists
+  community.docker.docker_container_info:
+    name: "{{ wanbonding_shadowsocks_container_name }}"
+  register: wanbonding_ss_existing
+  failed_when: false
+  when: wanbonding_shadowsocks_enabled | bool
+
+# Only enforce the free-port check on first deploy — on re-runs the bound
+# port belongs to our own container and must not trip the conflict check.
+- name: Check WAN-facing port availability (shadowsocks TCP)
+  ansible.builtin.wait_for:
+    host: "{{ wanbonding_vm_ip_address }}"
+    port: "{{ wanbonding_shadowsocks_port }}"
+    state: stopped
+    timeout: "{{ infra_timeout_short }}"
+  register: wanbonding_ss_port_check
+  ignore_errors: true
+  when:
+    - wanbonding_shadowsocks_enabled | bool
+    - not (wanbonding_ss_existing.container.State.Running | default(false))
+
+- name: Fail if the shadowsocks port is already bound on the VM
+  ansible.builtin.fail:
+    msg: "ERROR: TCP port {{ wanbonding_shadowsocks_port }} is already in use on {{ wanbonding_vm_ip_address }}. Check listeners with 'ss -tlnp' and resolve the conflict."
+  when:
+    - wanbonding_shadowsocks_enabled | bool
+    - not (wanbonding_ss_existing.container.State.Running | default(false))
+    - wanbonding_ss_port_check is failed
+
+- name: Deploy shadowsocks-libev container (MPTCP listener)
+  community.docker.docker_container:
+    name: "{{ wanbonding_shadowsocks_container_name }}"
+    image: "{{ wanbonding_image }}"
+    state: started
+    restart_policy: unless-stopped
+    network_mode: host
+    capabilities:
+      - NET_ADMIN
+      - NET_RAW
+    cap_drop:
+      - ALL
+    security_opts:
+      - "no-new-privileges:true"
+    command: "ss-server -c {{ wanbonding_shadowsocks_config_file }} --mptcp -v"
+    volumes:
+      - "{{ wanbonding_shadowsocks_config_dir }}:{{ wanbonding_shadowsocks_config_dir }}:ro"
+    healthcheck:
+      test: ["CMD-SHELL", "ss -ltn | grep -q ':{{ wanbonding_shadowsocks_port }} '"]
+      interval: "{{ wanbonding_healthcheck_interval }}"
+      timeout: "{{ wanbonding_healthcheck_timeout }}"
+      start_period: "{{ wanbonding_healthcheck_start_period }}"
+      retries: "{{ wanbonding_healthcheck_retries }}"
+    log_driver: json-file
+    log_options:
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "3"
+  become: true
+  when: wanbonding_shadowsocks_enabled | bool
+
+- name: Deploy glorytun UDP container
+  community.docker.docker_container:
+    name: "{{ wanbonding_glorytun_udp_container_name }}"
+    image: "{{ wanbonding_image }}"
+    state: started
+    restart_policy: unless-stopped
+    network_mode: host
+    capabilities:
+      - NET_ADMIN
+      - NET_RAW
+    cap_drop:
+      - ALL
+    security_opts:
+      - "no-new-privileges:true"
+    devices:
+      - /dev/net/tun
+    sysctls:
+      net.ipv4.ip_forward: "1"
+    command: "{{ wanbonding_glorytun_scripts_dir }}/glorytun-udp-server.sh"
+    volumes:
+      - "{{ wanbonding_glorytun_config_dir }}:{{ wanbonding_glorytun_config_dir }}:ro"
+      - "{{ wanbonding_glorytun_scripts_dir }}:{{ wanbonding_glorytun_scripts_dir }}:ro"
+    healthcheck:
+      test: ["CMD-SHELL", "glorytun show dev {{ wanbonding_glorytun_udp_dev }}"]
+      interval: "{{ wanbonding_healthcheck_interval }}"
+      timeout: "{{ wanbonding_healthcheck_timeout }}"
+      start_period: "{{ wanbonding_healthcheck_start_period }}"
+      retries: "{{ wanbonding_healthcheck_retries }}"
+    log_driver: json-file
+    log_options:
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "3"
+  become: true
+  when: wanbonding_glorytun_udp_enabled | bool and wanbonding_glorytun_variant == "udp"
+
+- name: Deploy glorytun TCP container (MPTCP variant)
+  community.docker.docker_container:
+    name: "{{ wanbonding_glorytun_tcp_container_name }}"
+    image: "{{ wanbonding_image }}"
+    state: started
+    restart_policy: unless-stopped
+    network_mode: host
+    capabilities:
+      - NET_ADMIN
+      - NET_RAW
+    cap_drop:
+      - ALL
+    security_opts:
+      - "no-new-privileges:true"
+    devices:
+      - /dev/net/tun
+    sysctls:
+      net.ipv4.ip_forward: "1"
+    command: "{{ wanbonding_glorytun_scripts_dir }}/glorytun-tcp-server.sh"
+    volumes:
+      - "{{ wanbonding_glorytun_config_dir }}:{{ wanbonding_glorytun_config_dir }}:ro"
+      - "{{ wanbonding_glorytun_scripts_dir }}:{{ wanbonding_glorytun_scripts_dir }}:ro"
+    healthcheck:
+      test: ["CMD-SHELL", "ss -ltn | grep -q ':{{ wanbonding_glorytun_tcp_port }} '"]
+      interval: "{{ wanbonding_healthcheck_interval }}"
+      timeout: "{{ wanbonding_healthcheck_timeout }}"
+      start_period: "{{ wanbonding_healthcheck_start_period }}"
+      retries: "{{ wanbonding_healthcheck_retries }}"
+    log_driver: json-file
+    log_options:
+      max-size: "{{ infra_log_max_size }}"
+      max-file: "3"
+  become: true
+  when: wanbonding_glorytun_tcp_enabled | bool and wanbonding_glorytun_variant == "tcp"

@@ -1,0 +1,33 @@
+---
+# Guest firewall for net-wanbonding — nftables inside bonding-vm.
+# Default-deny input; WAN-facing service ports open to 0.0.0.0/0 (required —
+# the endpoint is public by design); SSH/admin restricted to the KVM bridge
+# subnets + tailnet; postrouting masquerade for the glorytun tunnel subnets
+# so client traffic egresses with the VM's address.
+# ---------------------------------------------------------------------------
+
+- name: Install nftables
+  ansible.builtin.package:
+    name: nftables
+    state: present
+  become: true
+  when: wanbonding_guest_firewall_type == "nftables"
+
+- name: Deploy guest nftables ruleset
+  ansible.builtin.template:
+    src: nftables-wanbonding.conf.j2
+    dest: "{{ wanbonding_guest_firewall_conf }}"
+    owner: root
+    group: root
+    mode: "{{ infra_mode_file }}"
+  become: true
+  when: wanbonding_guest_firewall_type == "nftables"
+  notify: reload nftables
+
+- name: Enable and start nftables
+  ansible.builtin.systemd:
+    name: nftables
+    state: started
+    enabled: true
+  become: true
+  when: wanbonding_guest_firewall_type == "nftables"

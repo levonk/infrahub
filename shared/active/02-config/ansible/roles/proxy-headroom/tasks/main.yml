@@ -100,10 +100,10 @@
       max-file: "{{ infra_log_max_file }}"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:{{ proxy_headroom_container_port }}/health"]
-      interval: "{{ infra_timeout_default }}"
-      timeout: "{{ infra_timeout_short }}"
+      interval: "{{ infra_healthcheck_interval }}"
+      timeout: "{{ infra_healthcheck_timeout }}"
       retries: "{{ infra_retry_short }}"
-      start_period: "{{ infra_timeout_default }}"
+      start_period: "{{ infra_healthcheck_start_period }}"
   become: true
   when: proxy_headroom_enabled | bool
 
@@ -115,7 +115,7 @@
     url: "http://{{ infra_network_bind_localhost }}:{{ proxy_headroom_host_port }}/health"
     status_code: "{{ infra_http_status_ok }}"
   register: headroom_health
-  until: headroom_health.status == {{ infra_http_status_ok }}
+  until: headroom_health.status == (infra_http_status_ok | int)
   retries: "{{ infra_retry_long }}"
   delay: "{{ infra_delay_default }}"
   when:

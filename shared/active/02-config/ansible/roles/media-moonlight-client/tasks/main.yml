@@ -1,0 +1,27 @@
+---
+# Moonlight client — Installation and (optional) Pairing
+#
+# Thin role mirroring rustdesk-client: Homebrew cask install + optional
+# automated Sunshine pairing. Dispatches on OS:
+#
+#   macOS — Homebrew cask "moonlight" + GUI-user pairing handoff
+
+# ============================================================================
+# OS dispatch
+# ============================================================================
+- name: Include macOS tasks
+  ansible.builtin.include_tasks: darwin.yml
+  when:
+    - media_moonlight_client_enabled | bool
+    - ansible_facts['distribution'] == "MacOSX"
+  tags: ["moonlight"]
+
+- name: Warn on unsupported platform
+  ansible.builtin.debug:
+    msg: >-
+      media-moonlight-client: unsupported platform
+      (distribution={{ ansible_facts['distribution'] | default('?') }},
+      os_family={{ ansible_facts['os_family'] | default('?') }}).
+      Nothing was done.
+  when: ansible_facts['distribution'] != "MacOSX"
+  tags: ["always"]

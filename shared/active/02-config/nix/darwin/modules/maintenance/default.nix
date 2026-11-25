@@ -2,5 +2,6 @@
 {
   imports = [
     ./disk-janitor.nix
+    ./nix-gc.nix
   ];
 }

@@ -1,0 +1,64 @@
+---
+# Deploy Moonlight (moonlight-qt) game-streaming client to the macOS fleet
+# Location: shared/active/02-config/ansible/playbooks/deploy-moonlight.yml
+#
+# Installs Moonlight.app via the Homebrew cask (the nix-darwin homebrew
+# module also manages the "moonlight" cask fleet-wide; the role is the
+# self-contained fallback) and optionally automates pairing against the
+# Sunshine host on dtop202311 — gated on media_moonlight_pair_enabled plus
+# vault_sunshine_web_username / vault_sunshine_web_password in the client
+# vault. Remaining human steps (Local Network prompt, manual pairing
+# fallback) are printed in the role's final report.
+#
+# Prerequisites:
+#   1. macOS hosts bootstrapped (auser + Homebrew): levonk-bootstrap-macos
+#   2. Sunshine deployed on dtop202311: levonk-deploy-sunshine
+#   3. For automated pairing: vault creds set via scripts/edit-vault.sh and
+#      media_moonlight_pair_enabled: true (inventory/host var)
+#
+# Usage:
+#   ansible-playbook -i levonk/active/02-config/ansible/inventories/macos-hosts.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-moonlight.yml \
+#     --vault-password-file ~/.ansible/vault_password
+
+- name: "Deploy Moonlight game-streaming client to macOS hosts"
+  hosts: macos_hosts
+  gather_facts: true
+  become: false  # macOS uses sudo per-task
+
+  pre_tasks:
+    # modes.yml + timing.yml are shared-only (no client overrides exist in
+    # levonk/active/02-config/ansible/infrastructure/) — same include_vars
+    # pattern as configure-macos-host.yml.
+    - name: "Load shared infrastructure modes (infra_mode_*)"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/modes.yml"
+      tags: ["always"]
+
+    - name: "Load shared infrastructure timing defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/timing.yml"
+      tags: ["always"]
+
+    # ports.yml carries infra_port_stream_sunshine_* — the web UI port used
+    # for the /api/pin pairing call and the manual-fallback URL.
+    - name: "Load shared infrastructure port defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/ports.yml"
+      tags: ["always"]
+
+    - name: "Load client infrastructure port overrides"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/ports.yml"
+      tags: ["always"]
+
+  tasks:
+    - name: "Deploy Moonlight client (cask + optional automated pairing)"
+      ansible.builtin.include_role:
+        name: media-moonlight-client
+        # include_role does NOT propagate tags to role tasks (unlike
+        # include_tasks) — apply: ensures --tags moonlight selects the tasks
+        # inside the role.
+        apply:
+          tags: ["moonlight"]
+      tags: ["moonlight"]

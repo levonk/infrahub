@@ -1,0 +1,43 @@
+---
+# acrm-vencord-plugin — deploys the ACRM Vencord plugin into Vesktop on a
+# Windows desktop host (windows_docker_hosts). The plugin is a compile-time
+# Vencord userplugin — it cannot be installed at runtime — so this role ships
+# a prebuilt Vencord `dist` (built on the controller with the plugin linked
+# into src/userplugins) and points Vesktop's `vencordDir` at it.
+#
+# Client-side config written into Vesktop's Electron userData:
+#   %APPDATA%\Vesktop\state.json     — "vencordDir" -> staged dist dir
+#   %APPDATA%\Vesktop\settings\settings.json — plugins."ACRM Communication
+#     Intelligence" enabled + acrmApiUrl/acrmApiKey/capturePresence
+# Then Vesktop is restarted inside the interactive user session.
+
+acrm_vencord_plugin_enabled: true
+
+# Prebuilt Vencord dist on the CONTROLLER (must contain
+# vencordDesktop{Main,Preload,Renderer}.{js,css}). Build with:
+#   cd <vencord checkout> && pnpm install
+#   cd <acrm>/apps/active/plugins/discord-vencord
+#   VENCORD_REPO_PATH=<vencord checkout> pnpm run link:vencord
+#   cd <vencord checkout> && pnpm build
+acrm_vencord_dist_dir: "{{ lookup('env', 'HOME') }}/p/gh/Vendicated/Vencord/dist"
+
+# Vencord plugin display name — must match definePlugin({ name }) in the
+# plugin's index.ts.
+acrm_vencord_plugin_name: "ACRM Communication Intelligence"
+
+# API endpoint the plugin posts to. The deployed API is fronted by Traefik
+# at the acrm-api subdomain; /api/v1 is part of the app's route tree.
+acrm_vencord_api_url: "https://{{ infra_domain_ai_acrm_api }}/api/v1"
+
+# API key sent as x-acrm-api-key. Prefer a dedicated minted key with the
+# plugin's call-site scopes; falls back to the deploy master key when the
+# scoped vault var is absent (least-privilege upgrade path).
+acrm_vencord_api_key: "{{ vault_acrm_plugin_api_key | default(vault_acrm_api_key | default('')) }}"
+
+# Staging dir on the Windows host — Public profile so the interactive user
+# can read the dist without per-user copies (same convention as
+# install-desktop-apps.ps1).
+acrm_vencord_dist_dest: "C:\\Users\\Public\\acrm-vencord-dist"
+acrm_vencord_config_path: "C:\\Users\\Public\\acrm-plugin-config.json"
+acrm_vencord_setup_script: "C:\\Users\\Public\\acrm-plugin-setup.ps1"
+acrm_vencord_log_path: "C:\\Users\\Public\\acrm-plugin-setup.log"

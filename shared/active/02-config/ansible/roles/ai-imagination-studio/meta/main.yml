@@ -1,0 +1,16 @@
+---
+galaxy_info:
+  role_name: ai_imagination_studio
+  author: localnet
+  description: Deploy Imagination Studio AI film studio (native install on kckinai)
+  license: MIT
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - jammy
+        - noble
+    - name: EL
+      versions:
+        - "9"
+dependencies: []

@@ -119,7 +119,7 @@
 
     - name: "Display MITM UI check result"
       ansible.builtin.debug:
-        msg: "MITM web UI: {{ 'OK' if mitm_ui_check.status == {{ infra_http_status_ok }} else 'FAIL' }}"
+        msg: "MITM web UI: {{ 'OK' if mitm_ui_check.status == (infra_http_status_ok | int) else 'FAIL' }}"
       tags: ["validate", "mitm"]
 
     - name: "Check Gost SOCKS5 is reachable"

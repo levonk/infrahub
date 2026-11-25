@@ -1,0 +1,88 @@
+---
+# Host-side WAN port forwarding for net-wanbonding.
+# Invoked via `tasks_from: host-forwarding` on the cloud_servers play of
+# deploy-wanbonding.yml — NOT included from tasks/main.yml.
+#
+# Purpose: DNAT the WAN-facing ports from the OCI host's public interface
+# into bonding-vm on the KVM NAT bridge ({{ wanbonding_vm_ip_address }}).
+#
+# IMPORTANT — OCI VCN security list:
+# These rules only configure the HOST firewall. The OCI VCN security list
+# is NOT managed by Ansible. Matching ingress rules for each port below
+# must be added in the OCI console (source 0.0.0.0/0), the same manual step
+# used by deploy-watch-party.yml / deploy-copyparty.yml.
+# ---------------------------------------------------------------------------
+
+- name: Gather network facts for forwarding rules
+  ansible.builtin.setup:
+    gather_subset: ["network"]
+  tags: ["always"]
+
+- name: Validate forwarding variables
+  ansible.builtin.assert:
+    that:
+      - wanbonding_vm_ip_address is defined
+      - wanbonding_vm_ip_address | length > 0
+      - wanbonding_host_forward_ports is defined
+      - wanbonding_host_forward_ports | length > 0
+    fail_msg: "ERROR: wanbonding host forwarding variables are missing. Check infrastructure/networks.yml and group_vars."
+    success_msg: "WAN bonding forwarding variables validated."
+  tags: ["always", "validate"]
+
+# ---------------------------------------------------------------------------
+# firewalld path (levonk default: cloud_server_firewall_type == "firewalld")
+# forward-port rich rules DNAT inbound traffic to the VM; because the VM's
+# default gateway is the host bridge address, replies return through the
+# host and are un-DNATed by conntrack.
+# ---------------------------------------------------------------------------
+- name: DNAT WAN-facing ports into bonding-vm (firewalld rich rules)
+  ansible.posix.firewalld:
+    rich_rule: 'rule family="ipv4" forward-port port="{{ item.port }}" protocol="{{ item.proto }}" to-port="{{ item.port }}" to-addr="{{ wanbonding_vm_ip_address }}"'
+    zone: "{{ wanbonding_host_dnat_zone }}"
+    state: enabled
+    permanent: true
+    immediate: true
+  become: true
+  loop: "{{ wanbonding_host_forward_ports }}"
+  when:
+    - wanbonding_host_firewall_type == "firewalld"
+    - (item.enabled | default(true)) | bool
+  tags: ["forwarding", "firewall"]
+
+- name: Allow forwarding to bonding-vm inside the VM bridge zone
+  ansible.posix.firewalld:
+    rich_rule: 'rule family="ipv4" destination address="{{ wanbonding_vm_ip_address }}" port port="{{ item.port }}" protocol="{{ item.proto }}" accept'
+    zone: "{{ wanbonding_host_vm_zone }}"
+    state: enabled
+    permanent: true
+    immediate: true
+  become: true
+  loop: "{{ wanbonding_host_forward_ports }}"
+  when:
+    - wanbonding_host_firewall_type == "firewalld"
+    - (item.enabled | default(true)) | bool
+  tags: ["forwarding", "firewall"]
+
+# ---------------------------------------------------------------------------
+# nftables path — append DNAT rules to the role-rendered table on hosts that
+# use the nftables firewall engine.
+# ---------------------------------------------------------------------------
+- name: DNAT WAN-facing ports into bonding-vm (nftables)
+  ansible.builtin.template:
+    src: nftables-dnat-wanbonding.conf.j2
+    dest: /etc/nftables.d/wanbonding-dnat.conf
+    owner: root
+    group: root
+    mode: "{{ infra_mode_file }}"
+  become: true
+  when: wanbonding_host_firewall_type == "nftables"
+  notify: reload nftables
+  tags: ["forwarding", "firewall"]
+
+- name: Report WAN port forwarding summary
+  ansible.builtin.debug:
+    msg:
+      - "WAN bonding host forwarding (DNAT → {{ wanbonding_vm_ip_address }}):"
+      - "{% for p in wanbonding_host_forward_ports %}{{ p.proto }}/{{ p.port }} — {{ p.comment | default('') }}{{ ' (DISABLED)' if not (p.enabled | default(true)) | bool else '' }}{{ '; ' if not loop.last }}{% endfor %}"
+      - "REMINDER: add matching ingress rules in the OCI VCN security list (console) — Ansible does not manage it."
+  tags: ["always", "info"]

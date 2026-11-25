@@ -82,7 +82,7 @@
     url: "http://{{ infra_network_bind_localhost }}:{{ proxy_router_9router_host_port | default(infra_port_proxy_router_9router_host) }}/health"
     status_code: "{{ infra_http_status_ok }}"
   register: router_health
-  until: router_health.status == {{ infra_http_status_ok }}
+  until: router_health.status == (infra_http_status_ok | int)
   retries: "{{ infra_retry_long }}"
   delay: "{{ infra_delay_default }}"
 

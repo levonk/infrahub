@@ -1,0 +1,109 @@
+---
+# Imagination Studio — AI film studio (native install on kckinai)
+# https://github.com/Keys-Wasserman/Imagination-Studio-by-keys-Wasserman
+#
+# Imagination Studio ("TensorFold Studio" upstream) runs natively — not in a
+# container — on the GB10 inference host, as the `lk` user. This role
+# provisions the checkout, runtime directories, environment file and a
+# systemd --user service. It does NOT install the ~423 GB of models or the
+# Python/CUDA environment: that is the separate
+# deploy-imagination-studio-models.yml playbook (upstream
+# oneshot-setup-spark.sh), which is re-runnable.
+#
+# The app binds HOST=<kckinai tailscale IPv4> so it is reachable only over
+# the tailnet — never 0.0.0.0, never the LAN address.
+
+# ---------------------------------------------------------------------------
+# Service
+# ---------------------------------------------------------------------------
+ai_studio_enabled: true
+ai_studio_state: "started"
+ai_studio_service_name: "imagination-studio"
+
+# ---------------------------------------------------------------------------
+# Upstream source
+# ---------------------------------------------------------------------------
+# Pinned to the newest upstream release tag at authoring time (VERSION file
+# in the tag reads 4.5.0). Must be a tag or branch name for the git module;
+# a commit SHA also works. Upgrade path: bump this var (or `git pull` +
+# `oneshot-setup.sh --upgrade` on the host — see role README).
+ai_studio_repo_url: "https://github.com/Keys-Wasserman/Imagination-Studio-by-keys-Wasserman.git"
+ai_studio_ref: "v4.5.0"
+
+# ---------------------------------------------------------------------------
+# Run user / group (lk on kckinai — the localnet ansible user for that host)
+# ---------------------------------------------------------------------------
+ai_studio_run_user: "{{ localnet_kckinai_ansible_user | default(ansible_user | default('lk')) }}"
+ai_studio_run_group: "{{ ai_studio_run_user }}"
+
+# ---------------------------------------------------------------------------
+# Storage (all infra_storage_studio_* — see infrastructure/storage.yml)
+# ---------------------------------------------------------------------------
+# STUDIO_HOME: projects, uploads, renders, access-key (upstream default would
+# be ~/ImaginationStudio; we pin it under /opt/localnet per the PRD).
+ai_studio_home: "{{ infra_storage_studio_home_dir }}"
+# Git checkout of the upstream repo (app/, scripts/, spark/, ...).
+ai_studio_install_dir: "{{ infra_storage_studio_install_dir }}"
+# PREFIX: the install prefix the oneshot installer fills with venv/,
+# ComfyUI/, model trees, engines (upstream default ~/.local/opt/tensorfold-studio).
+ai_studio_prefix: "{{ infra_storage_studio_prefix_dir }}"
+# HF cache dir — created for tidiness, but deliberately NOT exported as
+# HF_HOME: upstream honors HF_HOME (app/bolt.py, app/discover.py,
+# app/hf_gate.py) and pointing it elsewhere would hide the existing HF
+# token at ~/.cache/huggingface/token and the hub cache. Model weights go
+# to $PREFIX via `hf download --local-dir`, not the hub cache.
+ai_studio_hf_cache_dir: "{{ infra_storage_studio_hf_cache_dir }}"
+
+# ---------------------------------------------------------------------------
+# Network
+# ---------------------------------------------------------------------------
+# App port. infra_port_ai_studio_container is the catalogued value (7870);
+# for a native install host==container port.
+ai_studio_port: "{{ infra_port_ai_studio_container | default(infra_port_ai_studio_host) }}"
+# Bind address. Empty (default) = resolve `tailscale ip -4` on the host at
+# converge time (same mechanism as playbooks/bootstrap-ai-inference-host.yml).
+# Set explicitly only to override (e.g. testing against 127.0.0.1).
+ai_studio_bind_host: ""
+
+# ---------------------------------------------------------------------------
+# Environment file (systemd EnvironmentFile=)
+# ---------------------------------------------------------------------------
+ai_studio_env_file: "{{ ai_studio_home }}/imagination-studio.env"
+# Extra KEY=VALUE pairs appended to the env file (e.g. STUDIO_TRUST_TAILNET,
+# STUDIO_ALLOWED_HOSTS, IMAGE_MODEL). Core vars below always win order-wise:
+# extras are appended last so they can override nothing structural — keep
+# HOST/PORT/STUDIO_HOME/PREFIX out of here.
+ai_studio_env_extra: {}
+
+# ---------------------------------------------------------------------------
+# OS packages (deps phase)
+# ---------------------------------------------------------------------------
+# git/ffmpeg/ffprobe are hard requirements of oneshot-setup-cuda.sh; python3
+# is needed by scripts/memguard.py and app helpers; uv is installed by the
+# role when missing (the oneshot installer also self-installs it, but only
+# finds it if ~/.local/bin is already on PATH).
+ai_studio_packages_debian:
+  - git
+  - ffmpeg
+  - python3
+  - python3-venv
+  - rsync
+  - openssh-client
+  - curl
+  - ca-certificates
+ai_studio_packages_redhat:
+  - git
+  - ffmpeg
+  - python3
+  - rsync
+  - openssh-clients
+  - curl
+  - ca-certificates
+
+# ---------------------------------------------------------------------------
+# Health probe (verify tag)
+# ---------------------------------------------------------------------------
+ai_studio_verify_health: true
+ai_studio_health_timeout: 10
+ai_studio_health_retries: 6
+ai_studio_health_retry_delay: 10

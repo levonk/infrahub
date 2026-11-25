@@ -51,6 +51,9 @@
         - networks.yml
         - domains.yml
         - storage.yml
+        - modes.yml
+        - timing.yml
+        - values.yml
       tags: ["always"]
 
     - name: "Load client infrastructure overrides (levonk)"
@@ -101,6 +104,11 @@
     - name: "Deploy LiteLLM via role"
       ansible.builtin.include_role:
         name: ai-litellm
+        # include_role does NOT propagate tags to role tasks (unlike
+        # include_tasks) — apply: ensures --tags litellm/--tags deploy select
+        # the tasks inside the role.
+        apply:
+          tags: ["deploy", "litellm"]
       tags: ["deploy", "litellm"]
 
     # ===========================================================================
@@ -112,6 +120,11 @@
     - name: "Deploy headroom via role"
       ansible.builtin.include_role:
         name: proxy-headroom
+        # include_role does NOT propagate tags to role tasks (unlike
+        # include_tasks) — apply: ensures --tags headroom/--tags deploy select
+        # the tasks inside the role.
+        apply:
+          tags: ["deploy", "headroom"]
       tags: ["deploy", "headroom"]
 
     # ===========================================================================
@@ -129,6 +142,11 @@
     - name: "Deploy freellmapi via role"
       ansible.builtin.include_role:
         name: ai-freellmapi
+        # include_role does NOT propagate tags to role tasks (unlike
+        # include_tasks) — apply: ensures --tags freellmapi/--tags deploy
+        # select the tasks inside the role.
+        apply:
+          tags: ["deploy", "freellmapi"]
       tags: ["deploy", "freellmapi"]
 
     # ===========================================================================
@@ -145,6 +163,11 @@
     - name: "Deploy omniroute via role"
       ansible.builtin.include_role:
         name: omniroute
+        # include_role does NOT propagate tags to role tasks (unlike
+        # include_tasks) — apply: ensures --tags omniroute/--tags deploy
+        # select the tasks inside the role.
+        apply:
+          tags: ["deploy", "omniroute"]
       tags: ["deploy", "omniroute"]
 
     # ===========================================================================
@@ -152,7 +175,7 @@
     # ===========================================================================
     - name: "Verify litellm container is running"
       ansible.builtin.command:
-        cmd: "docker inspect --format='{% raw %}{{.State.Status}}{% endraw %}' {{ ai_litellm_container_name }}"
+        cmd: "docker inspect --format='{% raw %}{{.State.Status}}{% endraw %}' {{ infra_hostname_litellm }}"
       become: true
       become_user: "{{ cloud_server_admin_user }}"
       register: litellm_status
@@ -162,7 +185,7 @@
 
     - name: "Verify litellm-postgres container is running"
       ansible.builtin.command:
-        cmd: "docker inspect --format='{% raw %}{{.State.Status}}{% endraw %}' {{ ai_litellm_postgres_container_name }}"
+        cmd: "docker inspect --format='{% raw %}{{.State.Status}}{% endraw %}' {{ infra_hostname_litellm_postgres }}"
       become: true
       become_user: "{{ cloud_server_admin_user }}"
       register: litellm_postgres_status
@@ -172,7 +195,7 @@
 
     - name: "Verify headroom container is running"
       ansible.builtin.command:
-        cmd: "docker inspect --format='{% raw %}{{.State.Status}}{% endraw %}' headroom"
+        cmd: "docker inspect --format='{% raw %}{{.State.Status}}{% endraw %}' {{ infra_hostname_headroom }}"
       become: true
       become_user: "{{ cloud_server_admin_user }}"
       register: headroom_status
@@ -192,7 +215,7 @@
 
     - name: "Verify omniroute container is running"
       ansible.builtin.command:
-        cmd: "docker inspect --format='{% raw %}{{.State.Status}}{% endraw %}' {{ ai_omniroute_container_name }}"
+        cmd: "docker inspect --format='{% raw %}{{.State.Status}}{% endraw %}' {{ infra_hostname_ai_omniroute }}"
       become: true
       become_user: "{{ cloud_server_admin_user }}"
       register: omniroute_status
@@ -222,14 +245,14 @@
           Timestamp: {{ ansible_date_time.iso8601 }}
           ----------------------------------------
           Deployed via Ansible roles (community.docker):
-          - LiteLLM: AI gateway entry point (aigate.<base>, proxy-chain {{ infra_network_ai_subnet_ip_18 }})
+          - LiteLLM: AI gateway entry point (aigate.<base>, proxy-chain {{ infra_network_ip_litellm }})
             - Auth, virtual keys, spend tracking, PII guardrail (Presidio), Langfuse logging
             - Postgres database for keys/spend/teams
-          - Headroom: context compression (proxy-chain {{ infra_network_ai_subnet_ip_13 }})
+          - Headroom: context compression (proxy-chain {{ infra_network_ip_headroom }})
           - FreeLLMAPI: free-tier LLM aggregator (freellmapi.<base>, traefik-network)
             - 34+ free-tier providers, automatic fallover, per-key rate tracking  # project-lint: disable=magic-int  provider count in description, not an operational value
             - OmniRoute's free-tier leaf provider (proxy-chain {{ infra_network_ip_ai_freellmapi }})
-          - OmniRoute: provider fanout (airoute.<base>, proxy-chain {{ infra_network_ai_subnet_ip_14 }})
+          - OmniRoute: provider fanout (airoute.<base>, proxy-chain {{ infra_network_ip_omniroute }})
             - Tier-based fallback, 9-factor auto-combo scoring, free-tier draining
             - Managed config: kckinai + freellmapi providers, freellmapi/auto in kckinaicombo
           ----------------------------------------

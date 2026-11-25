@@ -1,0 +1,39 @@
+#!/bin/sh
+# {{ ansible_managed }}
+# glorytun-tcp server entrypoint — mirrors the OpenMPTCProuter VPS
+# `glorytun-tcp-run` script semantics:
+#   glorytun-tcp listener keyfile <k> dev <d> host <h> port <p> mptcp <opts>
+# The `mptcp` flag makes the listener create an IPPROTO_MPTCP socket, so a
+# client can stripe subflows across multiple WANs to this endpoint — same
+# aggregation model as the shadowsocks path (trades latency for it:
+# TCP-in-TCP head-of-line on lossy links — see the ADR).
+set -e
+
+DEV="{{ wanbonding_glorytun_tcp_dev }}"
+
+glorytun-tcp \
+    listener \
+    keyfile {{ wanbonding_glorytun_tcp_keyfile }} \
+    dev "${DEV}" \
+    host {{ wanbonding_glorytun_tcp_bind }} \
+    port {{ wanbonding_glorytun_tcp_port }} \
+    {% if wanbonding_glorytun_tcp_mptcp | bool %}mptcp{% endif %} \
+    {{ wanbonding_glorytun_tcp_options }} &
+GT_PID=$!
+
+# Wait for the tun device to appear, then give it the point-to-point
+# addresses (OMR convention: server {{ wanbonding_glorytun_tcp_server_tun_ip }},
+# client {{ wanbonding_glorytun_tcp_client_tun_ip }}).
+i=0
+while [ "$i" -lt 30 ]; do
+    if ip link show "${DEV}" >/dev/null 2>&1; then
+        break
+    fi
+    i=$((i + 1))
+    sleep 1
+done
+
+ip addr add {{ wanbonding_glorytun_tcp_server_tun_ip }}/32 peer {{ wanbonding_glorytun_tcp_client_tun_ip }} dev "${DEV}" 2>/dev/null || true
+ip link set "${DEV}" mtu {{ wanbonding_glorytun_mtu }} up
+
+wait "${GT_PID}"

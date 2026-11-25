@@ -96,6 +96,11 @@
     - name: "Deploy iron-proxy via role"
       ansible.builtin.include_role:
         name: proxy-iron-proxy
+        # include_role does NOT propagate tags to role tasks (unlike
+        # include_tasks) — apply: ensures --tags iron-proxy/--tags deploy
+        # select the tasks inside the role.
+        apply:
+          tags: ["deploy", "iron-proxy"]
       tags: ["deploy", "iron-proxy"]
 
     # ===========================================================================
@@ -104,6 +109,11 @@
     - name: "Deploy headroom via role"
       ansible.builtin.include_role:
         name: proxy-headroom
+        # include_role does NOT propagate tags to role tasks (unlike
+        # include_tasks) — apply: ensures --tags headroom/--tags deploy select
+        # the tasks inside the role.
+        apply:
+          tags: ["deploy", "headroom"]
       tags: ["deploy", "headroom"]
 
     # ===========================================================================
@@ -112,6 +122,11 @@
     - name: "Deploy omniroute via role"
       ansible.builtin.include_role:
         name: omniroute
+        # include_role does NOT propagate tags to role tasks (unlike
+        # include_tasks) — apply: ensures --tags omniroute/--tags deploy
+        # select the tasks inside the role.
+        apply:
+          tags: ["deploy", "omniroute"]
       tags: ["deploy", "omniroute"]
 
     # ===========================================================================
@@ -180,7 +195,7 @@
 
     - name: "Verify omniroute container is running"
       ansible.builtin.command:
-        cmd: "docker inspect --format='{% raw %}{{.State.Status}}{% endraw %}' {{ ai_omniroute_container_name }}"
+        cmd: "docker inspect --format='{% raw %}{{.State.Status}}{% endraw %}' {{ infra_hostname_ai_omniroute }}"
       become: true
       become_user: "{{ cloud_server_admin_user }}"
       register: omniroute_status

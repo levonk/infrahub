@@ -1042,6 +1042,98 @@ services:
   storage:
     - "localnet-acrm-postgres-data-volume (pgdata — /var/lib/postgresql/data)"
 
+# ---------------------------------------------------------------------------
+# Postiz (self-hosted social-media scheduling — nl region, dtop202311)
+# All-in-one ghcr.io image (Next.js UI + NestJS API + Temporal worker on
+# :5000) + dedicated Postgres + Redis + Temporal auto-setup + Temporal's
+# own Postgres. App auth, no Authelia — provider OAuth callbacks need a
+# direct path. postiz.nl serves UI /api /uploads /integrations on one port.
+# ---------------------------------------------------------------------------
+
+- name: "Postiz"
+  container: "{{ infra_hostname_postiz }}"
+  machine: "dtop202311"
+  category: "app"
+  description: "Social-media scheduling platform (UI + API + Temporal worker, all-in-one)"
+  source_repo: "https://github.com/gitroomhq/postiz-app"
+  domains:
+    - "infra_domain_tools_postiz"
+  ports:
+    - host: "infra_port_tools_postiz_host"
+      container: "infra_port_tools_postiz_container"
+      label: "Web/API"
+  traefik: true
+  network: "traefik-windows-network"
+  notes: "Also joined to postiz-network + postiz-temporal-network for postgres/redis/temporal access"
+  storage:
+    - "localnet-postiz-uploads-volume (user media — /uploads)"
+  health_endpoint: "/"
+  metrics_path: null
+  pipeline: "none"
+  alert_labels:
+    pipeline: "none"
+    stage: "app"
+    service: "postiz"
+
+- name: "Postiz Postgres"
+  container: "{{ infra_hostname_postiz_postgres }}"
+  machine: "dtop202311"
+  category: "passive"
+  description: "PostgreSQL database for Postiz (channels, posts, schedules)"
+  source_repo: "https://github.com/postgres/postgres"
+  ports:
+    - host: "infra_port_tools_postiz_postgres_host"
+      container: "infra_port_tools_postiz_postgres_container"
+      label: "PostgreSQL"
+  network: "postiz-network"
+  storage:
+    - "localnet-postiz-postgres-data-volume (pgdata — /var/lib/postgresql/data)"
+
+- name: "Postiz Redis"
+  container: "{{ infra_hostname_postiz_redis }}"
+  machine: "dtop202311"
+  category: "passive"
+  description: "Redis queues/cache/sessions for Postiz"
+  source_repo: "https://github.com/redis/redis"
+  network: "postiz-network"
+  storage:
+    - "localnet-postiz-redis-data-volume (AOF — /data)"
+
+- name: "Postiz Temporal"
+  container: "{{ infra_hostname_postiz_temporal }}"
+  machine: "dtop202311"
+  category: "passive"
+  description: "Temporal workflow engine (auto-setup) for Postiz post scheduling"
+  source_repo: "https://github.com/temporalio/temporal"
+  network: "postiz-temporal-network"
+  storage:
+    - "localnet-postiz-temporal-dynamicconfig-volume (development-sql.yaml — /etc/temporal/config/dynamicconfig)"
+  notes: "ENABLE_ES=false — no Elasticsearch; gRPC 7233 internal only (TEMPORAL_ADDRESS)"
+
+- name: "Postiz Temporal Postgres"
+  container: "{{ infra_hostname_postiz_temporal_postgres }}"
+  machine: "dtop202311"
+  category: "passive"
+  description: "PostgreSQL persistence for Temporal (separate from app DB per upstream layout)"
+  source_repo: "https://github.com/postgres/postgres"
+  ports:
+    - host: "infra_port_tools_postiz_temporal_postgres_host"
+      container: "infra_port_tools_postiz_temporal_postgres_container"
+      label: "PostgreSQL"
+  network: "postiz-temporal-network"
+  storage:
+    - "localnet-postiz-temporal-postgres-data-volume (pgdata — /var/lib/postgresql/data)"
+
+- name: "Postiz Temporal Elasticsearch"
+  container: "localnet-postiz-temporal-elasticsearch"
+  machine: "dtop202311"
+  category: "passive"
+  description: "Advanced visibility store for Temporal — required by Postiz (registers more Text search attributes than SQL visibility allows)"
+  source_repo: "https://github.com/elastic/elasticsearch"
+  network: "postiz-temporal-network"
+  storage:
+    - "localnet-postiz-temporal-es-data-volume (indices — /usr/share/elasticsearch/data)"
+
 # ===========================================================================
 # Dashboards / Start Pages
 # ===========================================================================
@@ -1784,6 +1876,34 @@ services:
     stage: "standalone"
     service: "comfyui"
 
+# ---------------------------------------------------------------------------
+# Imagination Studio — AI film studio (native on kckinai)
+# Native (non-Docker) install under user lk on the GB10 inference host.
+# Tailnet-only: the app binds the host Tailscale IP on port 7870 — no
+# Traefik route and no domain (reached as
+# http://kckinai.<tailnet>:7870 with the studio access key). Its managed
+# ComfyUI is app-spawned on 127.0.0.1:8190 and never published, so only the
+# app port is cataloged.
+# ---------------------------------------------------------------------------
+- name: "Imagination Studio"
+  container: "imagination-studio"
+  machine: "kckinai"
+  category: "ai"
+  description: "AI film studio — FastH3 video, Qwen/FLUX images, Drama3 voice, Music3/YuE2 music (tailnet-only)"
+  source_repo: "https://github.com/Keys-Wasserman/Imagination-Studio-by-keys-Wasserman"
+  ports:
+    - host: "infra_port_ai_studio_host"
+      container: "infra_port_ai_studio_container"
+      label: "Web UI (tailnet)"
+  traefik: false
+  health_endpoint: "/api/spark/self"
+  pipeline: "none"
+  pipeline_stage: "standalone"
+  alert_labels:
+    pipeline: "none"
+    stage: "standalone"
+    service: "imagination-studio"
+
 # ===========================================================================
 # Media Stack Services (nl region = dtop202311, Windows Docker Desktop)
 # See shared/docs/pipelines/media/PIPELINE-MEDIA.md for the full pipeline.
@@ -2202,6 +2322,67 @@ services:
     pipeline: "none"
     stage: "standalone"
     service: "coturn"
+
+# ===========================================================================
+# Game Streaming — Sunshine host (native Windows) + Moonlight clients
+# ===========================================================================
+
+- name: "Sunshine"
+  container: "—"
+  machine: "dtop202311"
+  category: "ui"
+  description: "GameStream host — streams the real Windows desktop to Moonlight clients over Tailscale (native winget install, NOT a container)"
+  source_repo: "https://github.com/LizardByte/Sunshine"
+  ports:
+    - host: "infra_port_stream_sunshine_webui"
+      label: "Web UI (HTTPS, Tailscale-only)"
+    - host: "infra_port_stream_sunshine_https"
+      label: "GameStream HTTPS (TCP)"
+    - host: "infra_port_stream_sunshine_http"
+      label: "GameStream HTTP (TCP)"
+    - host: "infra_port_stream_sunshine_rtsp"
+      label: "RTSP (TCP+UDP)"
+    - host: "infra_port_stream_sunshine_video"
+      label: "Video (UDP)"
+    - host: "infra_port_stream_sunshine_control"
+      label: "Control (UDP)"
+    - host: "infra_port_stream_sunshine_audio"
+      label: "Audio (UDP)"
+  traefik: false
+  pipeline: "media"
+  alert_labels:
+    pipeline: "media"
+    stage: "streaming"
+    service: "sunshine"
+
+- name: "Moonlight"
+  container: "—"
+  machine: "macos_hosts"
+  category: "tools"
+  description: "Moonlight game-stream client (homebrew cask `moonlight`) on the macOS fleet"
+  source_repo: "https://github.com/moonlight-stream/moonlight-qt"
+
+# ===========================================================================
+# Localnet Host Services (minime01 — RPi2 DietPi, armv7)
+# ===========================================================================
+
+- name: "CastSponsorSkip"
+  container: "cast-sponsor-skip"
+  machine: "minime01"
+  category: "tools"
+  description: "YouTube sponsor-segment + ad skipper for Google Cast devices — host-networked mDNS discovery, SponsorBlock API"
+  source_repo: "https://github.com/gabe565/CastSponsorSkip"
+  ports: []
+  network: "host"
+  health_endpoint: null
+  pipeline: "none"
+  pipeline_stage: "standalone"
+  alert_labels:
+    pipeline: "none"
+    stage: "standalone"
+    service: "cast-sponsor-skip"
+  probe:
+    skip: true  # host-networked daemon — no listening TCP/HTTP port to probe
 
 # ===========================================================================
 # Service Chains

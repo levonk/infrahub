@@ -1,0 +1,44 @@
+---
+# Postiz handlers — restart via docker CLI over the ssh tunnel
+# (delegate_to: localhost + DOCKER_HOST env; never state: restarted, which
+# would require community.docker on the Windows target).
+
+- name: restart postiz
+  ansible.builtin.command: "docker restart {{ tools_postiz_container_name }}"
+  environment:
+    DOCKER_HOST: "{{ tools_postiz_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["restart"]
+
+- name: restart postiz-postgres
+  ansible.builtin.command: "docker restart {{ tools_postiz_container_name_postgres }}"
+  environment:
+    DOCKER_HOST: "{{ tools_postiz_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["restart"]
+
+- name: restart postiz-redis
+  ansible.builtin.command: "docker restart {{ tools_postiz_container_name_redis }}"
+  environment:
+    DOCKER_HOST: "{{ tools_postiz_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["restart"]
+
+- name: restart postiz-temporal
+  ansible.builtin.command: "docker restart {{ tools_postiz_container_name_temporal }}"
+  environment:
+    DOCKER_HOST: "{{ tools_postiz_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["restart"]
+
+- name: restart postiz-temporal-postgres
+  ansible.builtin.command: "docker restart {{ tools_postiz_container_name_temporal_postgres }}"
+  environment:
+    DOCKER_HOST: "{{ tools_postiz_docker_host }}"
+  delegate_to: localhost
+  changed_when: true
+  tags: ["restart"]

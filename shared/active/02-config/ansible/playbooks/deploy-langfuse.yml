@@ -23,6 +23,9 @@
   gather_facts: false
   become: false
   vars_files:
+    - "{{ playbook_dir }}/../infrastructure/domains.yml"
+    - "{{ playbook_dir }}/../infrastructure/timing.yml"
+    - "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/infrastructure/domains.yml"
     - "{{ playbook_dir }}/../../../../../levonk/active/02-config/ansible/inventories/group_vars/infrahub-levonk-all.vault.yml"
   vars:
     cloudflare_api_token: "{{ vault_cloudflare_api_token | default('') }}"
@@ -36,8 +39,8 @@
     cloudflare_dns_allow_private_ip: false
     cloudflare_dns_records:
       - name: "{{ infra_domain_ai_langfuse | default('langfuse.' ~ (infra_domain_base | default('example.com'))) }}"
-        type: "CNAME"
-        content: "{{ infra_tailscale_fqdn_cloud_server | default('oci.' ~ (infra_tailscale_tailnet | default('example.ts.net'))) }}"
+        type: "A"
+        content: "{{ infra_tailscale_ip_cloud_server | default('') }}"
         ttl: "{{ cloudflare_dns_ttl }}"
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
@@ -62,6 +65,9 @@
         - networks.yml
         - domains.yml
         - storage.yml
+        - modes.yml
+        - timing.yml
+        - values.yml
       tags: ["always"]
 
     - name: "Load client infrastructure overrides (levonk)"
@@ -81,7 +87,7 @@
           Langfuse Deployment Started
           ========================================
           Target: {{ inventory_hostname }}
-          User: {{ ansible_user_id }}
+          User: {{ ansible_user }}
           OS: {{ ansible_distribution }} {{ ansible_distribution_version }}
           Architecture: {{ ansible_facts['architecture'] }}
           Timestamp: {{ ansible_date_time.iso8601 }}
@@ -173,7 +179,7 @@
 
     - name: "Network setup - Ensure ai-dashboard-network exists"
       ansible.builtin.shell:
-        cmd: "docker network inspect ai-dashboard-network >/dev/null 2>&1 || docker network create ai-dashboard-network --driver bridge --subnet {{ infra_network_proxy_alt_subnet }}"
+        cmd: "docker network inspect ai-dashboard-network >/dev/null 2>&1 || docker network create ai-dashboard-network --driver bridge --subnet {{ infra_network_ai_forge_subnet }}"
       become: true
       become_user: "{{ cloud_server_admin_user }}"
       ignore_errors: true
@@ -197,6 +203,13 @@
       ignore_errors: true
       tags: ["cleanup", "docker"]
 
+    - name: "Remove stale Langfuse containers not managed by compose"
+      ansible.builtin.shell:
+        cmd: "docker ps -aq --filter 'name=langfuse-' | xargs -r docker rm -f"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      tags: ["cleanup", "docker"]
+
     - name: "Deploy Langfuse containers"
       ansible.builtin.shell:
         cmd: "docker compose -f docker-compose.langfuse.yml --env-file .env.langfuse --profile langfuse up -d"
@@ -216,6 +229,22 @@
       retries: "{{ infra_retry_long }}"
       delay: "{{ infra_delay_default }}"
       tags: ["verify", "database"]
+
+    - name: "Sync Langfuse Postgres role password with vault"
+      ansible.builtin.shell:
+        cmd: "docker exec -i {{ infra_hostname_langfuse_postgres | default('langfuse-postgres') }} psql -U {{ langfuse_postgres_user | default('langfuse') }} -d {{ langfuse_postgres_db | default('langfuse') }} -v ON_ERROR_STOP=1"
+        stdin: "ALTER USER {{ langfuse_postgres_user | default('langfuse') }} WITH PASSWORD '{{ vault_langfuse_postgres_password }}';"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      no_log: true
+      tags: ["deploy", "database"]
+
+    - name: "Restart Langfuse web and worker to pick up synced DB credentials"
+      ansible.builtin.shell:
+        cmd: "docker restart {{ infra_hostname_langfuse_web | default('langfuse-web') }} {{ infra_hostname_langfuse_worker | default('langfuse-worker') }}"
+      become: true
+      become_user: "{{ cloud_server_admin_user }}"
+      tags: ["deploy", "docker"]
 
     - name: "Wait for Langfuse ClickHouse to be ready"
       ansible.builtin.shell:
@@ -270,17 +299,31 @@
       loop: "{{ langfuse_container_status.results }}"
       tags: ["verify", "containers"]
 
+    - name: "Get Langfuse Web container start time"
+      community.docker.docker_container_info:
+        name: "{{ infra_hostname_langfuse_web | default('langfuse-web') }}"
+      register: langfuse_web_info
+      changed_when: false
+      tags: ["verify", "logs"]
+
     - name: "Check Langfuse Web logs for errors"
       ansible.builtin.shell:
-        cmd: "docker logs {{ infra_hostname_langfuse_web | default('langfuse-web') }} --tail=50 2>&1 | grep -i error || echo 'No errors found'"  # project-lint: disable=magic-int  docker logs tail count, not an operational value
+        cmd: "docker logs {{ infra_hostname_langfuse_web | default('langfuse-web') }} --since '{{ langfuse_web_info.container.State.StartedAt }}' 2>&1 | grep -i error || echo 'No errors found'"
       register: langfuse_web_logs
       changed_when: false
       failed_when: "'error' in langfuse_web_logs.stdout.lower() and 'No errors found' not in langfuse_web_logs.stdout"
       tags: ["verify", "logs"]
 
+    - name: "Get Langfuse Worker container start time"
+      community.docker.docker_container_info:
+        name: "{{ infra_hostname_langfuse_worker | default('langfuse-worker') }}"
+      register: langfuse_worker_info
+      changed_when: false
+      tags: ["verify", "logs"]
+
     - name: "Check Langfuse Worker logs for errors"
       ansible.builtin.shell:
-        cmd: "docker logs {{ infra_hostname_langfuse_worker | default('langfuse-worker') }} --tail=50 2>&1 | grep -i error || echo 'No errors found'"  # project-lint: disable=magic-int  docker logs tail count, not an operational value
+        cmd: "docker logs {{ infra_hostname_langfuse_worker | default('langfuse-worker') }} --since '{{ langfuse_worker_info.container.State.StartedAt }}' 2>&1 | grep -i error || echo 'No errors found'"
       register: langfuse_worker_logs
       changed_when: false
       failed_when: "'error' in langfuse_worker_logs.stdout.lower() and 'No errors found' not in langfuse_worker_logs.stdout"

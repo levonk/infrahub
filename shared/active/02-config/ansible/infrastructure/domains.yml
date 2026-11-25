@@ -39,6 +39,7 @@ infra_domain_ai_buzz: "buzz.{{ infra_domain_base }}"
 # FreeLLMAPI (Free-tier LLM aggregator — OpenAI-compatible /v1 endpoint)
 infra_domain_ai_freellmapi: "freellmapi.{{ infra_domain_base }}"
 infra_hostname_ai_freellmapi: "localnet-ai-freellmapi"
+infra_hostname_ai_omniroute: "localnet-ai-omniroute"
 
 # QM (Multiplayer agent harness for work — web UI)
 infra_domain_ai_qm: "qm.{{ infra_domain_base }}"
@@ -162,6 +163,14 @@ infra_tailscale_ip_windows_docker: ""
 # Used where CNAME→*.ts.net is unreliable: MagicDNS intermittently NXDOMAINs
 # tailnet names reached by chasing a CNAME across zones.
 infra_tailscale_ip_cloud_server: ""
+# Tailscale IP for the AI inference host (A records — same rationale as above).
+infra_tailscale_ip_inference_host: ""
+# Tailscale IPs for the exit-node containers (tagged devices — stable IPs).
+# A records, not CNAME→*.ts.net, for the same MagicDNS CNAME-chase reason.
+infra_tailscale_ip_cno_vpn_exit: ""
+infra_tailscale_ip_cno_tor_exit: ""
+infra_tailscale_ip_nl_vpn_exit: ""
+infra_tailscale_ip_nl_tor_exit: ""
 
 # ---------------------------------------------------------------------------
 # Service Hostnames (container names)
@@ -352,6 +361,18 @@ infra_domain_ai_acrm: "acrm.nl.{{ infra_domain_base }}"
 infra_domain_ai_acrm_api: "acrm-api.nl.{{ infra_domain_base }}"
 infra_hostname_acrm_web: "localnet-acrm-web"
 infra_hostname_acrm_postgres: "localnet-acrm-postgres"
+# ---------------------------------------------------------------------------
+# Postiz (nl region — X86, dtop202311)
+# Self-hosted social-media scheduling (all-in-one ghcr.io image: Next.js UI +
+# NestJS API + Temporal worker on container :5000). App's own auth — no
+# Authelia: provider OAuth callbacks and registration need a direct path.
+# ---------------------------------------------------------------------------
+infra_domain_tools_postiz: "postiz.nl.{{ infra_domain_base }}"
+infra_hostname_postiz: "localnet-postiz"
+infra_hostname_postiz_postgres: "localnet-postiz-postgres"
+infra_hostname_postiz_redis: "localnet-postiz-redis"
+infra_hostname_postiz_temporal: "localnet-postiz-temporal"
+infra_hostname_postiz_temporal_postgres: "localnet-postiz-temporal-postgres"
 
 # ---------------------------------------------------------------------------
 # Fallback hostnames — generic (non-suffixed) aliases for roles that reference

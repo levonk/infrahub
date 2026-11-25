@@ -143,7 +143,7 @@
       IRON_DNS_PROXY_IP: "{{ proxy_iron_proxy_dns_proxy_ip }}"
       IRON_PROXY_HTTP_LISTEN: ":{{ proxy_iron_proxy_http_container_port }}"
       IRON_PROXY_HTTPS_LISTEN: ":{{ proxy_iron_proxy_https_container_port }}"
-      IRON_PROXY_TUNNEL_LISTEN: "{{ ':{{ infra_port_proxy_dashboard_host }}' if proxy_iron_proxy_tunnel_host_port | length > 0 else '' }}"
+      IRON_PROXY_TUNNEL_LISTEN: "{{ ':' ~ proxy_iron_proxy_tunnel_container_port if proxy_iron_proxy_tunnel_host_port | length > 0 else '' }}"
       IRON_TLS_MODE: "{{ proxy_iron_proxy_tls_mode }}"
       IRON_TLS_CA_CERT: "/etc/iron-proxy/ca.crt"
       IRON_TLS_CA_KEY: "/etc/iron-proxy/ca.key"
@@ -173,10 +173,10 @@
       max-file: "{{ infra_log_max_file }}"
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:{{ proxy_iron_proxy_http_container_port }}/ 2>/dev/null; rc=$?; [ $rc -le 1 ] || exit 1"]
-      interval: "{{ infra_timeout_default }}"
-      timeout: "{{ infra_timeout_healthcheck_short }}"
+      interval: "{{ infra_healthcheck_interval }}"
+      timeout: "{{ infra_healthcheck_timeout }}"
       retries: "{{ infra_retry_short }}"
-      start_period: "{{ infra_timeout_short }}"
+      start_period: "{{ infra_healthcheck_interval_short }}"
   become: true
   when: proxy_iron_proxy_enabled | bool
 

@@ -39,6 +39,7 @@ flowchart LR
             LIT["LiteLLM — aigate\nEntry: auth, keys,\nPII masking (Presidio),\nspend, Langfuse traces"]
             HEAD["Headroom\nContext compression\n(RTK+Caveman)"]
             OR["OmniRoute — airoute\nProvider fanout\n4-tier fallback"]
+            FREE["FreeLLMAPI — freellmapi\nFree-tier aggregator\n34+ providers\n(direct egress)"]
             IP["Iron-Proxy\nEgress firewall\nMITM TLS inspection"]
         end
 
@@ -59,6 +60,8 @@ flowchart LR
     PAPER -. "agent tasks" .-> LIT
     LIT -- "forwards traces" -.-> LF
     LIT --> HEAD --> OR --> IP --> NET
+    OR -. "free-tier leaf\nfreellmapi/* models" .-> FREE
+    FREE -- "aggregates 34+\nfree providers" --> NET
     TREG -- "credential-injected\nrelay" --> IP --> NET
 ```
 
@@ -85,6 +88,19 @@ Agent requests (LLM calls and treg tool calls) currently egress through Iron-Pro
 This is a topology decision, not a pipeline architecture decision. See `shared/docs/pipelines/web/complete-web-proxy-chain.md` for the web proxy chain details.
 
 ## Recent Changes
+
+**2026-11-18**: Added kckinai abliterated endpoint to OmniRoute managed config
+- `model-abliterated.sh` in levonk-ai-playground now defaults the NVIDIA endpoint to `huihui-ai/Huihui-Qwen3.8-27B-abliterated` (bf16, ~54 GB) on SGLang, port 8008 — co-run headroom vs the previous ~84 GB Flash-Next GGUF/Strata default
+- OmniRoute managed config gains a `kckinai-abliterated` provider node + connection (`http://<inference-host>:8008/v1`) and a dedicated `kckinai-abliterated` combo, gated by `ai_omniroute_kckinai_abliterated_enabled` — kept out of `kckinaicombo` so uncensored weights stay opt-in
+- Endpoint is only up while the model script runs on kckinai (manual launch, not yet a service)
+
+**2026-11-17**: Added FreeLLMAPI as OmniRoute's free-tier leaf provider
+- FreeLLMAPI (https://github.com/tashfeenahmed/freellmapi) is a free-tier LLM aggregator — 34+ providers behind a single OpenAI-compatible `/v1` endpoint with automatic fallover, per-key rate tracking, and a self-updating model catalog (~7.4B tokens/month of free inference)
+- Deployed as `ai-freellmapi` Ansible role on the OCI cloud server; container `localnet-ai-freellmapi` (image `ghcr.io/tashfeenahmed/freellmapi:sha-f581c5f` — v0.16.43 + OIDC login merge, pending a tagged release)
+- Domain: https://freellmapi.<base-domain> (Traefik + GeoBlock + CrowdSec + Authelia); host port 3003 → container 3001
+- Wired into OmniRoute via managed config: `freellmapi` provider node + connection, `freellmapi/auto` model in the `kckinaicombo` combo
+- **Egress exception**: FreeLLMAPI egresses directly to its 34+ providers (`PROXY_URL` unset) — it does NOT traverse Iron-Proxy. Routing it through iron-proxy is deferred (default-deny would require allowlisting the dynamic provider catalog)
+- PRD: `internal-docs/feature/todo/freellmapi/prd.md`; role README: `shared/active/02-config/ansible/roles/ai-freellmapi/README.md`
 
 **2026-09-03**: Expanded pipeline to include development environment, agent memory, and tool call path
 - Added **herdr** (https://github.com/herdrdev/herdr) as the terminal runtime in the dev container — always-running server for coding agents, survives laptop close/lid drop
@@ -185,6 +201,7 @@ Omnigent → Pi → LiteLLM (aigate) → Headroom → OmniRoute (airoute) → Ir
 - **Privacy**: LiteLLM's Presidio PII guardrail masks PII on raw text before compression
 - **Observability**: LiteLLM forwards traces to Langfuse (parallel sink)
 - **Egress**: Iron-Proxy egresses directly to the Internet (no VPN chaining)
+- **Free-tier leaf**: OmniRoute's managed `freellmapi` provider serves `freellmapi/*` models via FreeLLMAPI (free-tier aggregator, 34+ providers) — a provider leaf, not a serial stage; its own egress to providers bypasses Iron-Proxy
 
 ### Phase 2 (Future) — Forge
 
@@ -234,7 +251,7 @@ Omnigent → Pi → LiteLLM (aigate) → Headroom → OmniRoute (airoute) → Ir
                 langfuse-web → postgres + clickhouse + redis + minio
 ```
 
-**Note**: LiteLLM is the entry point for the LLM pipeline. It handles auth, virtual keys, spend tracking, PII guardrail (Presidio masking), and forwards traces to Langfuse. LiteLLM routes to Headroom for context compression, then to OmniRoute for provider fanout (tier-based fallback, 9-factor auto-combo scoring, free-tier draining). Iron-Proxy enforces egress firewall policy and egresses directly to the Internet (NordVPN VPN chaining is deferred to Phase 3). Forge (tool-call repair) is deferred to Phase 2.
+**Note**: LiteLLM is the entry point for the LLM pipeline. It handles auth, virtual keys, spend tracking, PII guardrail (Presidio masking), and forwards traces to Langfuse. LiteLLM routes to Headroom for context compression, then to OmniRoute for provider fanout (tier-based fallback, 9-factor auto-combo scoring, free-tier draining). Iron-Proxy enforces egress firewall policy and egresses directly to the Internet (NordVPN VPN chaining is deferred to Phase 3). Forge (tool-call repair) is deferred to Phase 2. OmniRoute's managed providers include `kckinai-vllm` and FreeLLMAPI (`freellmapi/*` models) — see "FreeLLMAPI (Free-Tier Provider Leaf)" for the one egress exception (FreeLLMAPI → providers bypasses Iron-Proxy).
 
 **Previous architecture** (pre-2026-06-29): AI Dashboard Proxy 1 → Privacy Orchestrator → Headroom → OmniRoute → Forge → AI Dashboard Proxy 2 → Iron-Proxy. The Proxy 1/2 collectors and Privacy Orchestrator are now absorbed into LiteLLM. See PIPELINE-LITELLM-JANUS-NOTES.md for the full analysis.
 
@@ -403,7 +420,10 @@ Omnigent + Pi are NOT mid-pipeline transformation stages like Headroom or Forge 
    - **Domain**: airoute.<base-domain>
    - **Port**: 20128
    - **Upstream from**: Headroom
-   - **Downstream to**: Iron-Proxy (Forge chaining deferred to Phase 2)
+   - **Downstream to**: Provider leaf nodes → Iron-Proxy (Forge chaining deferred to Phase 2)
+   - **Managed providers** (pushed via `managed-config.json.j2`, gated by `ai_omniroute_freellmapi_enabled`):
+     - `kckinai-vllm` — local vLLM on the kckinai inference host (Tailscale, `:8002/v1`)
+     - `freellmapi` — FreeLLMAPI free-tier aggregator on proxy-chain-network (`172.29.0.20:3001/v1`); serves `freellmapi/auto` in the `kckinaicombo` combo
 
 4. **Forge (Tool Calling Reliability Layer)** — **DEFERRED — Future Evolution (Phase 2)**
    - Fixes tool calling issues in AI requests
@@ -452,6 +472,20 @@ Omnigent + Pi are NOT mid-pipeline transformation stages like Headroom or Forge 
    - **Upstream from**: Iron-Proxy
    - **Downstream to**: Internet
    - **Status**: **DEFERRED** — Iron-Proxy egresses directly to the Internet for the MVP. NordVPN chaining is planned for Phase 3. See "Pipeline Evolution Roadmap" for details.
+
+### FreeLLMAPI (Free-Tier Provider Leaf)
+
+FreeLLMAPI (https://github.com/tashfeenahmed/freellmapi) is not a serial pipeline stage — it is a **provider leaf** that OmniRoute routes to for `freellmapi/*` models. It aggregates free tiers from 34+ LLM providers behind a single OpenAI-compatible `/v1` endpoint with automatic fallover, per-key rate tracking, and a self-updating model catalog (~7.4B tokens/month of free inference capacity).
+
+- **Implementation**: `ghcr.io/tashfeenahmed/freellmapi:sha-f581c5f` (pinned — v0.16.43 + OIDC dashboard login #2082; declarative `admin`/`license` provisioning requires >= v0.12.0)
+- **Ansible role**: `roles/ai-freellmapi/`; deployed by `playbooks/deploy-ai-gateway-pipeline.yml` (tags `deploy`/`verify`/`freellmapi`), staged BEFORE the omniroute role so managed config can reference it
+- **Container**: `localnet-ai-freellmapi`; **Domain**: freellmapi.<base-domain> (Traefik + GeoBlock + CrowdSec + Authelia); **Ports**: 3003 → 3001
+- **Networks**: `traefik-network` (ingress) + `proxy-chain-network` at `172.29.0.20` (OmniRoute reaches it here as `http://172.29.0.20:3001/v1`)
+- **State**: SQLite at `/app/server/data` in `localnet-ai-freellmapi-data-volume` — provider keys AES-256-GCM encrypted via `vault_ai_freellmapi_encryption_key`; not regenerable from Ansible (file-based backup required)
+- **OmniRoute wiring**: managed config pushes a `freellmapi` provider node + connection and a `freellmapi/auto` entry in the `kckinaicombo` combo
+- **Egress exception**: FreeLLMAPI's provider calls egress DIRECTLY to the Internet (`PROXY_URL` unset) — they do NOT traverse Iron-Proxy. This is the one LLM-path exception to the "everything egresses via Iron-Proxy" rule: iron-proxy default-deny would require allowlisting the self-updating provider catalog, so chaining is deferred. OmniRoute → FreeLLMAPI traffic itself stays inside proxy-chain-network.
+- **Health**: `GET /api/ping`; monitoring metadata `pipeline=ai, service=freellmapi, stage=gateway` (no native Prometheus metrics endpoint)
+- **PRD**: `internal-docs/feature/todo/freellmapi/prd.md`
 
 ## Analytics Dimensions
 
@@ -913,6 +947,12 @@ The AI Dashboard web interface is accessible via Traefik with proper domain name
 
 - **OmniRoute (airoute)**: https://airoute.<base-domain> *(active — Phase 1 MVP)*
   - OmniRoute provider management and configuration interface
+  - Authenticated via Authelia with security middleware chain
+  - SSL certificates managed by Let's Encrypt via Traefik
+
+- **FreeLLMAPI**: https://freellmapi.<base-domain> *(active)*
+  - Free-tier LLM aggregator dashboard + OpenAI-compatible API at `/v1`
+  - OmniRoute's free-tier leaf provider (`freellmapi/*` models)
   - Authenticated via Authelia with security middleware chain
   - SSL certificates managed by Let's Encrypt via Traefik
 

@@ -331,6 +331,20 @@ infra_storage_stirling_pdf_logs_volume: "localnet-stirling-pdf-logs-volume"
 infra_storage_acrm_postgres_data_volume: "localnet-acrm-postgres-data-volume"
 
 # ---------------------------------------------------------------------------
+# Postiz (self-hosted social-media scheduling — nl region, dtop202311)
+# Uploads volume holds user media (STORAGE_PROVIDER=local, mounted at
+# /uploads). Temporal dynamicconfig volume is populated by a one-shot init
+# container (development-sql.yaml — not baked into the image) and mounted
+# at /etc/temporal/config/dynamicconfig. Redis persistence is nice-to-have.
+# ---------------------------------------------------------------------------
+infra_storage_postiz_uploads_volume: "localnet-postiz-uploads-volume"
+infra_storage_postiz_postgres_data_volume: "localnet-postiz-postgres-data-volume"
+infra_storage_postiz_redis_data_volume: "localnet-postiz-redis-data-volume"
+infra_storage_postiz_temporal_postgres_data_volume: "localnet-postiz-temporal-postgres-data-volume"
+infra_storage_postiz_temporal_dynamicconfig_volume: "localnet-postiz-temporal-dynamicconfig-volume"
+infra_storage_postiz_es_data_volume: "localnet-postiz-temporal-es-data-volume"
+
+# ---------------------------------------------------------------------------
 # Wazuh Security Stack — missing volume definitions
 # ---------------------------------------------------------------------------
 infra_storage_wazuh_indexer_config_volume: "localnet-wazuh-indexer-config-volume"
@@ -360,6 +374,25 @@ infra_storage_comfyui_output_dir: "{{ infra_storage_comfyui_install_dir }}/outpu
 infra_storage_comfyui_input_dir: "{{ infra_storage_comfyui_install_dir }}/input"
 infra_storage_comfyui_custom_nodes_dir: "{{ infra_storage_comfyui_install_dir }}/custom_nodes"
 infra_storage_comfyui_config_dir: "{{ infra_storage_config_dir }}/comfyui"
+
+# ---------------------------------------------------------------------------
+# Imagination Studio — AI film studio (native on kckinai)
+# Native (non-Docker) install under user lk on the GB10 inference host.
+# base_dir doubles as STUDIO_HOME (home_dir) — projects, renders, library,
+# and the auto-generated access-key live at its root. install_dir is the
+# pinned upstream source checkout the role clones and the oneshot installer
+# runs from. prefix_dir is exported as PREFIX — holds the Python venv, the
+# single deduplicated model tree, and the app-managed ComfyUI (loopback
+# :8190). hf_cache_dir overrides HF_HOME so hub caches stay inside service
+# storage instead of lk's home (the HF token itself stays under
+# ~/.cache/huggingface). Model tree is disjoint from the standalone
+# ComfyUI tree above. Keep on the fastest NVMe storage available.
+# ---------------------------------------------------------------------------
+infra_storage_studio_base_dir: "{{ infra_storage_services_dir }}/imagination-studio"
+infra_storage_studio_install_dir: "{{ infra_storage_studio_base_dir }}/app"
+infra_storage_studio_home_dir: "{{ infra_storage_studio_base_dir }}"
+infra_storage_studio_prefix_dir: "{{ infra_storage_studio_base_dir }}/studio"
+infra_storage_studio_hf_cache_dir: "{{ infra_storage_studio_base_dir }}/hf-cache"
 
 # ---------------------------------------------------------------------------
 # Media Stack — Jellyfin + *arr services (nl region = dtop202311)

@@ -807,7 +807,7 @@ curl http://<health-check-endpoint>
 
 **MANDATORY**: DNS records for all services exposed via Traefik MUST be created automatically by the Ansible Cloudflare DNS playbook. **NEVER** create DNS records manually in the Cloudflare dashboard — that's why the vault contains `vault_cloudflare_api_token` and `vault_cloudflare_zone_id`.
 
-The DNS architecture has two layers — see [Architectural Invariant #9](#9-cloudflare-dns-uses-cnames-to-tailscale-fqdns--never-a-records-to-tailscale-ips) for the CNAME rule and [Cloudflare DDNS](#cloudflare-ddns-public-ip-redundancy) for the DDNS layer.
+The DNS architecture has two layers — see [Architectural Invariant #9](#9-cloudflare-dns-uses-a-records-to-tailscale-ips-for-tailnet-only-services) for the A-record rule and [Cloudflare DDNS](#cloudflare-ddns-public-ip-redundancy) for the DDNS layer.
 
 **Playbook**: `shared/active/02-config/ansible/playbooks/configure-cloudflare-dns.yml`
 **Role**: `shared/active/02-config/ansible/roles/cloudflare-dns/`
@@ -816,7 +816,7 @@ The DNS architecture has two layers — see [Architectural Invariant #9](#9-clou
 1. Add the DNS record to the `cloudflare_dns_records` list in the playbook
 2. Run the DNS playbook before (or as part of) the service deployment
 3. The role is idempotent — it creates missing records, updates changed records, and skips matching records
-4. The role handles A→CNAME migration automatically (deletes conflicting A records before creating CNAMEs)
+4. The role handles CNAME↔A migration automatically (deletes conflicting records of a different type before creating the new one)
 
 ```bash
 # Run DNS configuration (creates/updates all records in cloudflare_dns_records)
@@ -829,8 +829,8 @@ devbox run -- rtk ansible-playbook shared/active/02-config/ansible/playbooks/con
 # In shared/active/02-config/ansible/playbooks/configure-cloudflare-dns.yml
 cloudflare_dns_records:
   - name: "new-service.levonk.com"
-    type: "CNAME"
-    content: "{{ infra_tailscale_fqdn_cloud_server | default('oci.tale-grouper.ts.net') }}"
+    type: "A"
+    content: "{{ infra_tailscale_ip_cloud_server | default('') }}"
     ttl: "{{ cloudflare_dns_ttl }}"
     proxied: "{{ cloudflare_dns_proxied }}"
     state: "{{ cloudflare_dns_state }}"
@@ -853,8 +853,8 @@ The `cloudflare-ddns` role deploys a lightweight container on each Tailscale-att
 
 | Layer | Record type | Target | Purpose |
 |-------|------------|--------|---------|
-| `*.levonk.com` | CNAME | `*.tale-grouper.ts.net` (Tailscale FQDN) | Primary access via Tailscale |
-| `*.mach.levonk.com` | A | Public IP (auto-updated) | Fallback when Tailscale DNS is down |
+| `*.levonk.com` | A | Tailscale IP (`infra_tailscale_ip_*`) | Primary access via Tailscale |
+| `*.mach.levonk.com` | A | Public IP (auto-updated) | Fallback for services reachable off-tailnet |
 
 **Deploying DDNS to a new host:**
 1. Set `cloudflare_ddns_hostname` in the host's inventory vars (e.g., `"oci"`, `"kckinai"`)
@@ -1171,25 +1171,26 @@ This caused a critical security issue: Authelia secrets were defined as vault re
   - `inventories/group_vars/*.vault.yml`: Encrypted vault values (the actual secrets)
 - **If a secret needs to be different per host**: Use a host-specific vault variable (e.g., `vault_authelia_admin_password_host1`) and reference it in the inventory, not in host_vars.
 
-#### 9. Cloudflare DNS uses CNAMEs to Tailscale FQDNs — NEVER A records to Tailscale IPs
+#### 9. Cloudflare DNS uses A records to Tailscale IPs for tailnet-only services
 
-All services accessible via `*.levonk.com` run on Tailscale-attached hosts. Tailscale IPs are ephemeral — they can change on node re-registration, tailnet reconfiguration, or provider migration. Cloudflare DNS records MUST use **CNAMEs** pointing to Tailscale FQDNs (e.g., `oci.tale-grouper.ts.net`), NEVER A records pointing to Tailscale IPs (e.g., `100.90.22.85`).
+All services accessible via `*.levonk.com` run on Tailscale-attached hosts. Cloudflare DNS records for tailnet-only services MUST use **A records** pointing to the host's Tailscale IP via `infra_tailscale_ip_*` variables — NOT CNAMEs to `*.ts.net` FQDNs.
 
-A CNAME decouples Cloudflare DNS from the ephemeral IP. If Tailscale reassigns the IP, only Tailscale's internal DNS updates — Cloudflare is untouched. With an A record, every Cloudflare record must be manually updated.
+**Why**: Tailscale's `*.ts.net` names are only resolvable via MagicDNS (100.100.100.100) — they return NXDOMAIN in public DNS. Worse, MagicDNS *intermittently* NXDOMAINs tailnet names reached by chasing a CNAME from a public zone (quad100 resolves the target against public DNS instead of the tailnet map), which made CNAME→ts.net records flaky with intermittent "server not found" errors. Tailscale IPs are stable for tagged nodes; the `cloudflare-dns` role migrates conflicting record types automatically, so an IP change is a one-line edit + playbook run.
 
 **Rules**:
-- DNS records in `configure-cloudflare-dns.yml` and all `deploy-*.yml` playbooks MUST use `type: "CNAME"` with `content: "{{ infra_tailscale_fqdn_* }}"`.
-- The Tailscale tailnet name and per-host FQDNs are defined in `levonk/active/02-config/ansible/infrastructure/domains.yml` (`infra_tailscale_tailnet`, `infra_tailscale_fqdn_cloud_server`, `infra_tailscale_fqdn_inference_host`).
-- The `cloudflare-dns` role handles A→CNAME migration automatically: if a conflicting A record exists, it deletes it before creating the CNAME.
-- Cloudflare must stay in DNS-only mode (grey cloud, not proxied) — if proxied, Cloudflare would try to resolve the CNAME target and fail (Tailscale FQDNs are not publicly resolvable).
-- New Tailscale-attached hosts get a CNAME in `configure-cloudflare-dns.yml` pointing to their Tailscale FQDN.
+- DNS records in `configure-cloudflare-dns.yml` and all `deploy-*.yml` playbooks MUST use `type: "A"` with `content: "{{ infra_tailscale_ip_* }}"` for tailnet-only services.
+- Tailscale IPs are defined in `levonk/active/02-config/ansible/infrastructure/domains.yml` (`infra_tailscale_ip_cloud_server`, `infra_tailscale_ip_windows_docker`, `infra_tailscale_ip_inference_host`, `infra_tailscale_ip_{cno,nl}_{vpn,tor}_exit`). Shared defaults in `shared/active/02-config/ansible/infrastructure/domains.yml` are empty strings — every client must override them.
+- **CNAMEs are only allowed for**: (a) in-zone service aliases (e.g., `pdf.` → `stirling.nl.`), and (b) the public fallback records `auth.`/`watch.`/`files.` → `*.mach.<base>` (the mach A record is maintained by the cloudflare-ddns container with the host's public IP — it must stay a CNAME so it follows the dynamic IP).
+- Cloudflare must stay in DNS-only mode (grey cloud, not proxied) — a proxied A record to a 100.x CGNAT IP would send Cloudflare edge traffic to an unreachable address.
+- New Tailscale-attached hosts get an `infra_tailscale_ip_<host>` var in the client's `infrastructure/domains.yml` plus an A record in `configure-cloudflare-dns.yml`.
+- If a Tailscale IP changes (node re-registration, tailnet reconfig), update the single `infra_tailscale_ip_*` var and re-run the DNS playbook.
 
-#### 10. Each network runs its own Traefik — CNAME points to the network's Traefik host
+#### 10. Each network runs its own Traefik — DNS record points to the network's Traefik host
 
-Each network (cno=OCI, nl=Windows) runs its own Traefik container for TLS termination. The Cloudflare CNAME for a service domain MUST point to the Tailscale FQDN of the host running Traefik for that network — NOT to a different network's Traefik.
+Each network (cno=OCI, nl=Windows) runs its own Traefik container for TLS termination. The Cloudflare A record for a service domain MUST point to the Tailscale IP of the host running Traefik for that network — NOT to a different network's Traefik.
 
-- `npmjs.cno.levonk.com` → CNAME → `oci.tale-grouper.ts.net` (Traefik on OCI → Verdaccio on OCI)
-- `npmjs.nl.levonk.com` → CNAME → `dtop202311.tale-grouper.ts.net` (Traefik on Windows → Verdaccio on Windows)
+- `npmjs.cno.levonk.com` → A → `infra_tailscale_ip_cloud_server` (Traefik on OCI → Verdaccio on OCI)
+- `npmjs.nl.levonk.com` → A → `infra_tailscale_ip_windows_docker` (Traefik on Windows → Verdaccio on Windows)
 
 The `proxy_traefik_windows` role deploys Traefik on Windows Docker Desktop using the same ssh-tunneled Docker CLI pattern as other Windows containers. It uses Let's Encrypt DNS-01 challenge via Cloudflare API token, and can optionally forward auth to Authelia on OCI via Tailscale.
 
@@ -1206,6 +1207,27 @@ When transferring config files to a Windows Docker host via `DOCKER_HOST: ssh://
 1. `docker create` a temporary container with the target volume mounted
 2. `docker cp` config files from local temp dir into the container
 3. `docker rm -f` the temporary container
+
+#### 13. Host system packages use the distro package manager — nix is for user CLI tools only
+
+Host-level packages — daemons and system tools installed on the target OS — MUST come from the target's native package manager: `apt`/`dnf`/`yum`/`zypper` on Linux, `winget` on Windows, Homebrew on macOS. This applies both to Ansible roles (`ansible.builtin.apt`/`dnf`/`package`/`win_package` tasks) and to the `shared/scripts/bootstrap-*` scripts.
+
+Nix profile installs (`nix-env -iA`, `nix profile install`, the `nix-*` roles) are for **user CLI tools only** — never for daemons. A nix profile package does not create or manage a systemd/launchd service and does not receive the distro's security-update stream; using it for a daemon means hand-rolling service management and losing upstream updates.
+
+**Rules**:
+- Host daemons that must run outside containers (Tailscale/Netbird, sshd, Docker engine, fail2ban — see Invariant #5 exceptions) are installed via the distro package manager.
+- `shared/scripts/bootstrap-*` scripts run on the target before Ansible can reach it, so they may install the minimal connectivity set — SSH server, Python 3, and `tailscale` — via the distro package manager. Ansible roles then converge the rest (e.g., `vpn-tailscale` adds the official repo and handles `tailscale up`).
+- If a service can run in a container, it MUST (Invariant #5) — package-manager installs are only for the host-level exceptions.
+
+#### 14. Tailnet-first host addressing — `ansible_host` prefers the MagicDNS name
+
+When a host is attached to the tailnet, its `ansible_host` SHOULD be the MagicDNS FQDN (`<host>.<tailnet>.ts.net`) rather than a LAN or tailnet IP. Names survive tailnet IP reassignment (node re-keying, re-registration), and the literal-FQDN pattern is already used by the Windows and macOS inventories.
+
+**Rules**:
+- `ansible_host` must resolve from inventory/group_vars/host_vars/extra-vars only — `infra_*` variables live in `infrastructure/*.yml`, which playbooks load via `include_vars` *after* the SSH connection is already open, so they cannot be referenced from `ansible_host`.
+- Keep the LAN IP as a documented fallback (comment or `*_ansible_host_lan_ip` var) for first bootstrap or off-tailnet recovery: `-e ansible_host=<lan-ip>`.
+- `infra_tailscale_ip_*` variables remain the source of truth for Cloudflare A records (Invariant #9) — they are not for `ansible_host`.
+- Hosts that cannot join the tailnet (OpenWrt APs, NAT'd VMs without a tailscale client) keep LAN/private `ansible_host` values.
 
 ### Per-Client Centralized Files
 
