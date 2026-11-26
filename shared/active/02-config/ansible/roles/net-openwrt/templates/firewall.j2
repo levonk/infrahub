@@ -15,6 +15,9 @@ config zone 'lan'
 	option output 'ACCEPT'
 	option forward 'ACCEPT'
 	list network 'lan'
+{% if 'tailscale' in openwrt_packages %}
+	list network 'tailscale0'
+{% endif %}
 {% for iface in openwrt_extra_interfaces %}
 {% if (iface.zone | default('lan')) == 'lan' %}
 	list network '{{ iface.name }}'
