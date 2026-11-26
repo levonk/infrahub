@@ -200,16 +200,17 @@
   tags: ["deploy", "wait"]
 
 # 10. Deploy Tailscale exit node container (routes through NordVPN)
+# Shares the NordVPN container's network namespace (--network container:):
+# all egress goes through gluetun's tun0 with its kill-switch — no manual
+# ip route / iptables fixups that silently die on container restart.
 - name: "Deploy Tailscale NordVPN Windows exit node container"
   ansible.builtin.shell: >-
     docker run -d
     --name {{ vpn_nordvpn_windows_tailscale_container_name }}
     --restart unless-stopped
-    --network {{ vpn_nordvpn_windows_network_name }}
+    --network container:{{ vpn_nordvpn_windows_container_name }}
     --cap-add NET_ADMIN
     --device /dev/net/tun:/dev/net/tun
-    --sysctl net.ipv4.ip_forward=1
-    --sysctl net.ipv6.conf.all.forwarding=1
     --security-opt no-new-privileges:true
     -e TS_AUTHKEY={{ vpn_tailscale_windows_auth_key }}
     -e TS_HOSTNAME={{ vpn_tailscale_windows_nordvpn_hostname }}
@@ -235,32 +236,7 @@
     seconds: "{{ infra_delay_extended }}"
   tags: ["deploy", "wait"]
 
-# 12. Configure NordVPN as gateway for Tailscale traffic
-- name: "Get NordVPN Windows container IP"
-  ansible.builtin.shell: >-
-    docker inspect {{ vpn_nordvpn_windows_container_name }}
-    --format '{% raw %}{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}{% endraw %}'
-  environment:
-    DOCKER_HOST: "{{ vpn_nordvpn_windows_docker_host }}"
-    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
-  delegate_to: localhost
-  register: nordvpn_windows_ip_result
-  changed_when: false
-  tags: ["deploy", "route"]
-
-- name: "Configure NordVPN Windows as gateway for Tailscale traffic"
-  ansible.builtin.command: >-
-    docker exec {{ vpn_nordvpn_windows_tailscale_container_name }} sh -c
-    'ip route del default 2>/dev/null; ip route add default via {{ nordvpn_windows_ip_result.stdout }}'
-  environment:
-    DOCKER_HOST: "{{ vpn_nordvpn_windows_docker_host }}"
-    DOCKER_CONFIG: "{{ lookup('env', 'HOME') }}/.docker-no-creds"
-  delegate_to: localhost
-  changed_when: true
-  failed_when: false
-  tags: ["deploy", "route"]
-
-# 13. Status report
+# 12. Status report
 - name: "Get NordVPN Windows container status"
   ansible.builtin.shell: >-
     docker inspect {{ vpn_nordvpn_windows_container_name }}
