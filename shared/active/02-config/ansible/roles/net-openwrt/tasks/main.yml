@@ -26,6 +26,7 @@
       (e.g. vault_openwrt_wifi_key_*) in group_vars/openwrt_aps.yml.
     success_msg: "All SSIDs have keys."
   loop: "{{ openwrt_wireless_networks }}"
+  no_log: true   # items contain vault keys — suppress all task output
   when: (item.encryption | default('sae-mixed')) != "none"
   tags: ["always", "validate"]
 

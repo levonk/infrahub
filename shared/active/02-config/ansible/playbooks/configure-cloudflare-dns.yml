@@ -935,5 +935,26 @@
         proxied: "{{ cloudflare_dns_proxied }}"
         state: "{{ cloudflare_dns_state }}"
 
+      # OpenWrt Velop APs (nl region — on-prem LAN)
+      # Management-plane names: A records → each node's Tailscale IP so
+      # LuCI/SSH names resolve from anywhere on the tailnet (MagicDNS
+      # CNAME-chase flakes from a public zone — same reason the service
+      # domains moved off CNAME→ts.net). velop02 is mesh-backed
+      # (802.11s via velop01) — it has no wired uplink, so the tailnet path
+      # is also its WAN-independent admin path.
+      - name: "{{ infra_domain_net_velop01 | default('velop01.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "A"
+        content: "{{ infra_tailscale_ip_velop01 | default('') }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
+      - name: "{{ infra_domain_net_velop02 | default('velop02.' ~ (infra_domain_base | default('example.com'))) }}"
+        type: "A"
+        content: "{{ infra_tailscale_ip_velop02 | default('') }}"
+        ttl: "{{ cloudflare_dns_ttl }}"
+        proxied: "{{ cloudflare_dns_proxied }}"
+        state: "{{ cloudflare_dns_state }}"
+
   roles:
     - cloudflare-dns

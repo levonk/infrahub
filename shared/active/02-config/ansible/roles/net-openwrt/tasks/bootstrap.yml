@@ -9,22 +9,115 @@
   failed_when: false
   when: openwrt_bootstrap_python
 
-- name: Install python3-light via opkg
-  ansible.builtin.raw: opkg update && opkg install python3-light
+- name: Detect package manager (apk on OpenWrt >= 24.10/25.x, opkg on older)
+  ansible.builtin.raw: command -v apk || command -v opkg
+  register: openwrt_pkg_mgr
+  changed_when: false
+
+- name: Install python3 + support packages for Ansible (idempotent)
+  ansible.builtin.raw: >-
+    if [ -x "$(command -v apk)" ]; then
+      apk add {{ openwrt_bootstrap_python_packages | join(' ') }}
+    else
+      opkg update && opkg install {{ openwrt_bootstrap_python_packages | join(' ') }}
+    fi
   register: openwrt_python_install
   when:
     - openwrt_bootstrap_python
     - openwrt_python_check.rc != 0
 
-- name: Install extra opkg packages (idempotent)
+- name: Remove replaced/conflicting packages (idempotent)
   ansible.builtin.raw: >-
-    (opkg list-installed | grep -q '^{{ item }} ' && exit 1) ||
-    (opkg update >/dev/null && opkg install {{ item }})
+    if [ -x "$(command -v apk)" ]; then
+      apk info -e {{ item }} || exit 1; apk del {{ item }}
+    else
+      opkg list-installed | grep -q '^{{ item }} ' || exit 1;
+      opkg remove {{ item }}
+    fi
+  register: openwrt_pkg_remove
+  changed_when: openwrt_pkg_remove.rc == 0
+  failed_when: false
+  loop: "{{ openwrt_packages_remove }}"
+  when: openwrt_packages_remove | length > 0
+
+- name: Install extra packages (idempotent)
+  ansible.builtin.raw: >-
+    if [ -x "$(command -v apk)" ]; then
+      apk info -e {{ item }} && exit 1; apk add {{ item }}
+    else
+      opkg list-installed | grep -q '^{{ item }} ' && exit 1;
+      opkg update >/dev/null && opkg install {{ item }}
+    fi
   register: openwrt_pkg_install
   changed_when: openwrt_pkg_install.rc == 0
   failed_when: false
   loop: "{{ openwrt_packages + (['mwan3'] if openwrt_mwan3_enabled else []) }}"
   when: openwrt_packages | length > 0 or openwrt_mwan3_enabled
+
+# The wpad init script only registers procd instances for binaries present
+# at start_service time — a basic->mesh package swap leaves it "active with
+# no instances" and every radio loops "Not supported (-95)". Restart wpad
+# then reload wireless whenever the package set changed.
+- name: Restart wpad after package changes
+  ansible.builtin.raw: /etc/init.d/wpad restart; sleep 2; wifi reload
+  when: (openwrt_pkg_remove is defined and openwrt_pkg_remove is changed) or (openwrt_pkg_install is defined and openwrt_pkg_install is changed)
+
+# /etc/tailscale is not in the default sysupgrade backup list — without this,
+# every sysupgrade wipes tailscaled.state (node key) and the box rejoins the
+# tailnet as a new node. Register the dir so identity survives flashes.
+- name: Preserve tailscale state across sysupgrades (idempotent)
+  ansible.builtin.raw: >-
+    grep -qxF '/etc/tailscale/' /etc/sysupgrade.conf && exit 1;
+    echo '/etc/tailscale/' >> /etc/sysupgrade.conf
+  register: openwrt_tailscale_sysupgrade
+  changed_when: openwrt_tailscale_sysupgrade.rc == 0
+  failed_when: false
+  when: "'tailscale' in openwrt_packages"
+
+# Upstream binary floor: only swap in the static build when the daemon on
+# disk is OLDER than openwrt_tailscale_version. A newer feed package —
+# whether already installed or restored by sysupgrade — always wins, so the
+# floor can never downgrade. Set openwrt_tailscale_version: "" to disable.
+- name: Check installed tailscaled version
+  ansible.builtin.raw: /usr/sbin/tailscaled --version 2>/dev/null | head -n1
+  register: openwrt_ts_running
+  changed_when: false
+  failed_when: false
+  when: "'tailscale' in openwrt_packages and openwrt_tailscale_version | length > 0"
+
+- name: Fetch upstream tailscale static build (controller-side)
+  ansible.builtin.unarchive:
+    src: "https://pkgs.tailscale.com/stable/tailscale_{{ openwrt_tailscale_version }}_{{ openwrt_tailscale_arch }}.tgz"
+    dest: "/tmp/ts-{{ openwrt_tailscale_version }}-{{ openwrt_tailscale_arch }}"
+    remote_src: true
+  delegate_to: localhost
+  run_once: true
+  when: "'tailscale' in openwrt_packages and openwrt_tailscale_version | length > 0 and (openwrt_ts_running.stdout | default('0')) is version(openwrt_tailscale_version, '<')"
+
+- name: Stage upstream tailscaled on device
+  ansible.builtin.copy:
+    src: "/tmp/ts-{{ openwrt_tailscale_version }}-{{ openwrt_tailscale_arch }}/tailscale_{{ openwrt_tailscale_version }}_{{ openwrt_tailscale_arch }}/tailscaled"
+    dest: "/tmp/tailscaled-{{ openwrt_tailscale_version }}.bin"
+    mode: "0755"
+  when: "'tailscale' in openwrt_packages and openwrt_tailscale_version | length > 0 and (openwrt_ts_running.stdout | default('0')) is version(openwrt_tailscale_version, '<')"
+
+# Stage the CLI too — upstream tailscaled is not multicall so the packaged
+# /usr/sbin/tailscale symlink dies with the swap. tmpfs CLI is enough for
+# `tailscale up`/status; the daemon is what must persist.
+- name: Stage upstream tailscale CLI on device
+  ansible.builtin.copy:
+    src: "/tmp/ts-{{ openwrt_tailscale_version }}-{{ openwrt_tailscale_arch }}/tailscale_{{ openwrt_tailscale_version }}_{{ openwrt_tailscale_arch }}/tailscale"
+    dest: "/tmp/tailscale"
+    mode: "0755"
+  when: "'tailscale' in openwrt_packages and openwrt_tailscale_version | length > 0 and (openwrt_ts_running.stdout | default('0')) is version(openwrt_tailscale_version, '<')"
+
+- name: Swap in upstream tailscaled binary
+  ansible.builtin.raw: >-
+    cp /tmp/tailscaled-{{ openwrt_tailscale_version }}.bin /usr/sbin/tailscaled.new &&
+    mv /usr/sbin/tailscaled.new /usr/sbin/tailscaled &&
+    rm -f /tmp/tailscaled-{{ openwrt_tailscale_version }}.bin
+  notify: restart tailscale
+  when: "'tailscale' in openwrt_packages and openwrt_tailscale_version | length > 0 and (openwrt_ts_running.stdout | default('0')) is version(openwrt_tailscale_version, '<')"
 
 - name: Ensure dropbear authorized_keys exists
   ansible.builtin.raw: mkdir -p /etc/dropbear && touch /etc/dropbear/authorized_keys && chmod 700 /etc/dropbear && chmod 600 /etc/dropbear/authorized_keys
@@ -33,7 +126,7 @@
 
 - name: Install admin SSH authorized keys (idempotent)
   ansible.builtin.raw: >-
-    (grep -qxF '{{ item }}' /etc/dropbear/authorized_keys && exit 1) ||
+    grep -qxF '{{ item }}' /etc/dropbear/authorized_keys && exit 1;
     echo '{{ item }}' >> /etc/dropbear/authorized_keys
   register: openwrt_key_install
   changed_when: openwrt_key_install.rc == 0

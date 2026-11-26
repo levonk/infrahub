@@ -10,7 +10,8 @@ set -euo pipefail
 #
 # What it does:
 #   1. Enables Remote Login (SSH server)
-#   2. Creates the auser admin user
+#   2. Creates the auser admin user (password from --password/AUSER_PASSWORD,
+#      or a random throwaway — SSH key auth + NOPASSWD sudo are what Ansible uses)
 #   3. Grants auser passwordless sudo (NOPASSWD) — required for unattended Ansible
 #   4. Adds the SSH public key for auser
 #   5. Installs Tailscale if missing (preferred ansible_host path — see
@@ -56,6 +57,10 @@ set -euo pipefail
 #   ./bootstrap-macos-manual.sh                          # uses embedded default key (lzkmbp2016-micro-oracle)
 #   ./bootstrap-macos-manual.sh --ssh-key ~/.ssh/foo.pub # override — uses specified public key file
 #   AUSER_PASSWORD="secret" ./bootstrap-macos-manual.sh --ssh-key ~/.ssh/foo.pub  # non-interactive with password
+#
+# Fully hands-off: the only prompt is the initial sudo password. If no auser
+# password is given, a random one is generated (nothing uses it — Ansible
+# authenticates via SSH key and NOPASSWD sudo).
 
 set -euo pipefail
 
@@ -78,7 +83,7 @@ while [[ $# -gt 0 ]]; do
       echo "Usage: $0 [--ssh-key ~/.ssh/id_rsa.pub] [--password secret]"
       echo ""
       echo "Run ON the target Mac. Creates the auser admin user and adds SSH key."
-      echo "If --password is omitted, you will be prompted to enter a password interactively."
+      echo "Password resolution order: --password > AUSER_PASSWORD env > random."
       echo "If --ssh-key is omitted, uses the embedded default key (lzkmbp2016-micro-oracle)."
       exit 0
       ;;
@@ -99,6 +104,11 @@ fi
 if ! sudo -n true 2>/dev/null; then
   echo "This script needs sudo access. You'll be prompted for your password."
   sudo -v || { echo "ERROR: sudo access required" >&2; exit 1; }
+fi
+
+# Fall back to AUSER_PASSWORD env (documented in usage) if --password not given.
+if [[ -z "${PASSWORD}" && -n "${AUSER_PASSWORD:-}" ]]; then
+  PASSWORD="${AUSER_PASSWORD}"
 fi
 
 echo "=== macOS Manual Bootstrap ==="
@@ -143,15 +153,17 @@ echo "[2/7] Creating ${AUSER_NAME} admin user..."
 if dscl . -read "/Users/${AUSER_NAME}" UniqueID &>/dev/null; then
   echo "  ✓ ${AUSER_NAME} already exists"
 else
-  if [[ -n "${PASSWORD}" ]]; then
-    sudo sysadminctl -addUser "${AUSER_NAME}" -password "${PASSWORD}" -admin -home "/Users/${AUSER_NAME}"
-  else
-    # No --password given — prompt interactively (matches runbook).
-    # sysadminctl cannot create a user with no password non-interactively;
-    # -password "" fails with error 5402. Use -password - for interactive prompt.
-    echo "  Enter a password for ${AUSER_NAME} (will be set; SSH key auth is also configured below):"
-    sudo sysadminctl -addUser "${AUSER_NAME}" -password - -admin -home "/Users/${AUSER_NAME}"
+  # No --password/AUSER_PASSWORD given — generate a random throwaway.
+  # Nothing downstream uses the auser password: Ansible connects via SSH key
+  # and becomes via NOPASSWD sudo. sysadminctl requires a non-empty password
+  # (-password "" fails with error 5402, -password - prompts interactively —
+  # both unacceptable for a hands-off script), so generate one.
+  if [[ -z "${PASSWORD}" ]]; then
+    PASSWORD="$(openssl rand -hex 16)"
+    echo "  No auser password provided — generated a random one (unused; auth is SSH key + NOPASSWD sudo)."
+    echo "  Reset later if ever needed: sudo sysadminctl -resetPasswordFor ${AUSER_NAME} -newPassword <new-password>"
   fi
+  sudo sysadminctl -addUser "${AUSER_NAME}" -password "${PASSWORD}" -admin -home "/Users/${AUSER_NAME}"
   # sysadminctl can log errors to stderr but still exit 0 — verify with dscl.
   if ! dscl . -read "/Users/${AUSER_NAME}" UniqueID &>/dev/null; then
     echo "  ✗ ERROR: ${AUSER_NAME} was not created (sysadminctl failed)." >&2
@@ -247,9 +259,12 @@ echo "[5/7] Ensuring Tailscale is installed..."
 if command -v tailscale &>/dev/null || [[ -d "/Applications/Tailscale.app" ]]; then
   echo "  ✓ Tailscale already installed"
 elif command -v brew &>/dev/null; then
-  if brew install tailscale; then
+  # HOMEBREW_NO_ASK=1: newer Homebrew asks for confirmation before installing
+  # by default — suppress it so this script stays hands-off.
+  if HOMEBREW_NO_ASK=1 brew install tailscale; then
     echo "  ✓ tailscale installed via Homebrew"
     echo "  Starting tailscaled (brew services)..."
+    sudo -v  # refresh sudo timestamp — install may have outlived the initial one
     sudo brew services start tailscale 2>/dev/null || brew services start tailscale 2>/dev/null || true
   else
     echo "  ! WARNING: brew install tailscale failed." >&2
