@@ -15,6 +15,9 @@ config dnsmasq
 	option resolvfile '/tmp/resolv.conf.d/resolv.conf.auto'
 	option localservice '1'
 	option ednspacket_max '1232'
+{% for rec in openwrt_https_lan_records | default([]) %}
+	list address '/{{ rec.name }}/{{ rec.ip }}'
+{% endfor %}
 
 config dhcp 'lan'
 	option interface 'lan'

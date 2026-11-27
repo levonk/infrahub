@@ -202,3 +202,29 @@ openwrt_ap_disabled_services:
   - "dnsmasq"
   - "odhcpd"
   - "firewall"
+
+# ---------------------------------------------------------------------------
+# HTTPS for uHTTPd (LuCI) via Let's Encrypt — acme.sh, DNS-01 challenge
+# ---------------------------------------------------------------------------
+openwrt_https_enabled: false
+# Public name on the cert, e.g. "velop01.example.com". Must have a public A
+# record (tailnet IP is fine — DNS-01 does not need inbound reachability).
+openwrt_https_domain: ""
+openwrt_https_ca: "letsencrypt"
+# Cloudflare API token with Zone:DNS edit on the domain's zone (dns_cf plugin).
+openwrt_https_cf_token: ""
+openwrt_https_email: ""
+openwrt_https_dns_plugin: "dns_cf"
+# LAN-side split-horizon: dnsmasq answers these names with LAN IPs so
+# https://<domain> works for DHCP clients. Rendered only on router-mode
+# nodes (AP mode skips the dhcp config entirely).
+# Each entry: {name: "host.example.com", ip: "192.168.x.y"}
+openwrt_https_lan_records: []
+
+# ---------------------------------------------------------------------------
+# Tailscale HTTPS (tailnet-only *.ts.net cert via `tailscale serve`)
+# ---------------------------------------------------------------------------
+# Requires "HTTPS Certificates" enabled in the tailnet admin console, and the
+# node cert provisioned by `tailscale cert`. Serve config persists in
+# tailscaled state across reboots; the CLI is staged to /tmp on demand.
+openwrt_tailscale_https: false

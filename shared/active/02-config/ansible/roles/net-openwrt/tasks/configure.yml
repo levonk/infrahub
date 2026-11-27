@@ -129,3 +129,23 @@
   failed_when: false
   no_log: true
   when: "'tailscale' in openwrt_packages and openwrt_tailscale_auth_key | length > 0"
+
+# Prompt for sysupgrades on first LuCI login after boot.
+- name: Check attended sysupgrade login check setting
+  ansible.builtin.raw: uci -q get attendedsysupgrade.client.login_check_for_upgrades
+  register: openwrt_asu_check
+  changed_when: false
+  failed_when: false
+  when: "'attendedsysupgrade' in openwrt_packages"
+
+- name: Enable attended sysupgrade login check
+  ansible.builtin.raw: >-
+    uci set attendedsysupgrade.client.login_check_for_upgrades='1';
+    uci commit attendedsysupgrade
+  when: >-
+    'attendedsysupgrade' in openwrt_packages and
+    openwrt_asu_check.stdout | default('') | trim != '1'
+
+- name: HTTPS for uHTTPd (Let's Encrypt via acme.sh)
+  ansible.builtin.include_tasks: https.yml
+  when: openwrt_https_enabled | bool or openwrt_tailscale_https | bool

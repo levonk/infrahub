@@ -1,0 +1,155 @@
+---
+# HTTPS for uHTTPd (LuCI) via Let's Encrypt — acme.sh with a Cloudflare
+# DNS-01 challenge, so no inbound port 80/443 is needed (the WAN is NAT'd).
+#
+# The issued cert is installed to /etc/uhttpd.crt + /etc/uhttpd.key — the
+# stock uhttpd paths — and uhttpd is switched to redirect :80 → :443.
+# Renewal runs from acme.sh's own cron entry; --install-cert's reloadcmd
+# reloads uhttpd after each renewal.
+#
+# Requires: openwrt_https_enabled, openwrt_https_domain,
+#           openwrt_https_cf_token (Cloudflare token, Zone:DNS on the zone).
+
+- name: Validate HTTPS variables
+  ansible.builtin.assert:
+    that:
+      - openwrt_https_domain | length > 0
+      - openwrt_https_cf_token | length > 0
+    fail_msg: >-
+      openwrt_https_enabled requires openwrt_https_domain and
+      openwrt_https_cf_token (Cloudflare API token with Zone:DNS edit).
+  when: openwrt_https_enabled | bool
+
+- name: Check for curl (acme.sh ACME + Cloudflare API client)
+  ansible.builtin.raw: command -v curl
+  register: openwrt_https_curl
+  changed_when: false
+  failed_when: false
+  when: openwrt_https_enabled | bool
+
+- name: Install curl
+  ansible.builtin.raw: apk add --no-cache curl
+  when: openwrt_https_enabled | bool and openwrt_https_curl.rc != 0
+
+# acme.sh is a POSIX-sh script; the installer also registers its cron job.
+- name: Install acme.sh
+  ansible.builtin.raw: >-
+    [ -x /root/.acme.sh/acme.sh ] && exit 42;
+    wget -qO- https://get.acme.sh | sh -s email={{ openwrt_https_email | default('admin@' ~ openwrt_https_domain) }}
+  register: openwrt_acme_install
+  changed_when: openwrt_acme_install.rc == 0
+  failed_when: openwrt_acme_install.rc not in [0, 42]
+  when: openwrt_https_enabled | bool
+
+# Credentials live in a root-only env file — never on a command line.
+- name: Stage Cloudflare API token for acme.sh
+  ansible.builtin.copy:
+    dest: /root/.acme-cf.env
+    mode: "0600"
+    content: |
+      export CF_Token="{{ openwrt_https_cf_token }}"
+  no_log: true
+  when: openwrt_https_enabled | bool
+
+- name: Check for existing ACME cert
+  ansible.builtin.stat:
+    path: "/root/.acme.sh/{{ openwrt_https_domain }}_ecc/{{ openwrt_https_domain }}.conf"
+  register: openwrt_acme_conf
+  when: openwrt_https_enabled | bool
+
+- name: Issue Let's Encrypt cert (DNS-01 via Cloudflare)
+  ansible.builtin.raw: >-
+    . /root/.acme-cf.env;
+    /root/.acme.sh/acme.sh --issue --dns {{ openwrt_https_dns_plugin }}
+    -d {{ openwrt_https_domain }} --server {{ openwrt_https_ca }}
+    --keylength ec-256
+  no_log: true
+  register: openwrt_acme_issue
+  changed_when: openwrt_acme_issue.rc == 0
+  failed_when: false
+  when: openwrt_https_enabled | bool and not openwrt_acme_conf.stat.exists
+
+# --install-cert copies cert+key into the uhttpd paths and reloads uhttpd.
+# Gated on mtime so routine deploys don't bounce LuCI; acme.sh's own cron
+# renewals go through the same reloadcmd.
+- name: Install cert into uHTTPd paths (when renewed)
+  ansible.builtin.raw: >-
+    CER=/root/.acme.sh/{{ openwrt_https_domain }}_ecc/{{ openwrt_https_domain }}.cer;
+    [ -f "$CER" ] || exit 1;
+    [ /etc/uhttpd.crt -ot "$CER" ] || exit 1;
+    /root/.acme.sh/acme.sh --install-cert -d {{ openwrt_https_domain }}
+    --key-file /etc/uhttpd.key --fullchain-file /etc/uhttpd.crt
+    --reloadcmd "/etc/init.d/uhttpd reload"
+  register: openwrt_acme_installcert
+  changed_when: openwrt_acme_installcert.rc == 0
+  failed_when: false
+  when: openwrt_https_enabled | bool
+
+- name: Redirect HTTP to HTTPS in uHTTPd
+  ansible.builtin.lineinfile:
+    path: /etc/config/uhttpd
+    regexp: '^\s*option redirect_https'
+    line: "\toption redirect_https '1'"
+  notify: reload uhttpd
+  when: openwrt_https_enabled | bool
+
+# ---------------------------------------------------------------------------
+# Tailscale HTTPS — serves https://<node>.<tailnet>.ts.net on the tailnet.
+# `tailscale serve` provisions the cert itself; needs "HTTPS Certificates"
+# enabled in the tailnet admin console. Serve config persists in tailscaled
+# state across reboots, but the CLI lives on tmpfs — restaged on demand.
+# Until the admin toggle is on, these tasks warn without failing the run.
+# ---------------------------------------------------------------------------
+
+- name: Check for tailscale CLI on device
+  ansible.builtin.stat:
+    path: /tmp/tailscale
+  register: openwrt_ts_cli
+  when: openwrt_tailscale_https | bool and 'tailscale' in openwrt_packages
+
+- name: Ensure controller staging dir exists
+  ansible.builtin.file:
+    path: "/tmp/ts-{{ openwrt_tailscale_version }}-{{ openwrt_tailscale_arch }}"
+    state: directory
+  delegate_to: localhost
+  run_once: true
+  when: >-
+    openwrt_tailscale_https | bool and
+    'tailscale' in openwrt_packages and
+    openwrt_tailscale_version | length > 0 and
+    not openwrt_ts_cli.stat.exists
+
+- name: Fetch upstream tailscale static build for CLI (controller-side)
+  ansible.builtin.unarchive:
+    src: "https://pkgs.tailscale.com/stable/tailscale_{{ openwrt_tailscale_version }}_{{ openwrt_tailscale_arch }}.tgz"
+    dest: "/tmp/ts-{{ openwrt_tailscale_version }}-{{ openwrt_tailscale_arch }}"
+    remote_src: true
+  delegate_to: localhost
+  run_once: true
+  when: >-
+    openwrt_tailscale_https | bool and
+    'tailscale' in openwrt_packages and
+    openwrt_tailscale_version | length > 0 and
+    not openwrt_ts_cli.stat.exists
+
+- name: Stage tailscale CLI on device
+  ansible.builtin.copy:
+    src: "/tmp/ts-{{ openwrt_tailscale_version }}-{{ openwrt_tailscale_arch }}/tailscale_{{ openwrt_tailscale_version }}_{{ openwrt_tailscale_arch }}/tailscale"
+    dest: /tmp/tailscale
+    mode: "0755"
+  when: >-
+    openwrt_tailscale_https | bool and
+    'tailscale' in openwrt_packages and
+    openwrt_tailscale_version | length > 0 and
+    not openwrt_ts_cli.stat.exists
+
+- name: Enable tailscale serve HTTPS → uHTTPd
+  ansible.builtin.raw: >-
+    TS=$([ -x /tmp/tailscale ] && echo /tmp/tailscale || command -v tailscale);
+    [ -n "$TS" ] || exit 1;
+    $TS serve status 2>/dev/null | grep -q 'https://{{ inventory_hostname }}.{{ infra_tailscale_tailnet }}' && exit 0;
+    $TS serve --bg --https=443 http://127.0.0.1:80
+  register: openwrt_ts_serve
+  changed_when: openwrt_ts_serve.rc == 0
+  failed_when: false
+  when: openwrt_tailscale_https | bool and 'tailscale' in openwrt_packages

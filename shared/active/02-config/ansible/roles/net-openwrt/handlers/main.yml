@@ -24,3 +24,6 @@
 
 - name: restart tailscale
   ansible.builtin.raw: /etc/init.d/tailscale restart || true
+
+- name: reload uhttpd
+  ansible.builtin.command: /etc/init.d/uhttpd reload
