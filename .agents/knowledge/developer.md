@@ -34,14 +34,50 @@ This guide is for developers/agents working on the infrahub codebase. For user-f
 - Automatically called after `just ansible-deploy-site` (full stack deploy)
 </commands>
 
+## <git-workflow>
+Canonical Git workflow for the parent repository and every client submodule (`master` is the default branch):
+
+1. **Fetch and rebase before starting or resuming work** — even if the branch was current earlier in the day:
+   ```bash
+   git fetch origin
+   # New work:
+   git switch --no-track -c <topic-branch> origin/master
+
+   # Resuming existing work:
+   git switch <topic-branch>
+   git rebase origin/master
+   ```
+2. **Never commit or push directly to `master`.** Use a short-lived topic branch for every change.
+3. Make focused changes, validate them, and commit with conventional commit messages.
+4. Push with an explicit source and destination so a tracking misconfiguration cannot target `master`:
+   ```bash
+   git push -u origin <topic-branch>:<topic-branch>
+   gh pr create
+   ```
+5. Merge the pull request into `master` after validation/review.
+6. Refresh the central/default branch after merging:
+   ```bash
+   git fetch origin
+   git worktree list
+   # If master is checked out in a linked worktree, refresh it there:
+   git -C <master-worktree> pull --ff-only origin master
+   # If no worktree has master checked out, fast-forward the local ref:
+   git fetch origin master:master
+   ```
+7. Refresh the current worktree/branch. If work continues on a topic branch, switch back to it and rebase it onto `origin/master`; if work is complete, the branch can be retained or deleted according to the user's cleanup preference.
+
+For client submodules, run this same lifecycle inside the submodule first. Only after the submodule PR merges should the parent repository update the submodule gitlink on its own topic branch and follow the same parent-repo PR workflow.
+</git-workflow>
+
 ## <workflow>
 1. Enter project directory: `cd /Users/micro/p/gh/levonk/infrahub`
-2. Activate environment: `export PATH="/nix/var/nix/profiles/default/bin:$HOME/.local/share/devbox/global/shims:$PATH"`
-3. Lint: `devbox run -- just ansible-lint-internal`
-4. Make changes to roles/playbooks/templates
-5. Deploy locally or remotely per the AGENTS.md workflow
-6. Verify: check container health, logs, and service endpoints
-7. Commit with conventional commit message
+2. Follow the canonical Git workflow above before starting or resuming work
+3. Activate environment: `export PATH="/nix/var/nix/profiles/default/bin:$HOME/.local/share/devbox/global/shims:$PATH"`
+4. Lint: `devbox run -- just ansible-lint-internal`
+5. Make changes to roles/playbooks/templates
+6. Deploy locally or remotely per the AGENTS.md workflow
+7. Verify: check container health, logs, and service endpoints
+8. Commit with conventional commit message, then push/PR/merge/refresh per the canonical Git workflow
 </workflow>
 
 ## <key-directories>

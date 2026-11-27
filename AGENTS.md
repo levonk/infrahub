@@ -168,22 +168,25 @@ If any of these fail, add the appropriate paths to PATH before proceeding.
 
 1. **NEVER** delete the submodule and replace it with a regular directory
 2. **NEVER** treat submodule files as if they were part of the parent repo
-3. **ALWAYS** use proper git submodule commands:
+3. **ALWAYS** use the canonical branch → rebase → PR → merge → refresh workflow inside the submodule. Never push directly to submodule `master`:
    ```bash
-   # Update submodule to latest
-   git submodule update --remote levonk
-   
-   # Enter submodule to make changes
+   # Enter the submodule and follow .agents/knowledge/developer.md <git-workflow>
    cd levonk
-   # Make changes, commit, push
-   git add .
-   git commit -m "Description"
-   git push origin master
-   
-   # Return to parent and update reference
+   git fetch origin
+   git switch --no-track -c <topic-branch> origin/master   # new work
+   # or: git switch <topic-branch> && git rebase origin/master
+
+   # After validation and commits:
+   git push -u origin <topic-branch>:<topic-branch>
+   gh pr create
+   # Merge the PR, then refresh local master.
+   ```
+
+   After the submodule PR merges, return to the parent repository, update the `levonk` gitlink on a parent topic branch, and put that parent change through the same PR workflow:
+   ```bash
    cd ..
    git add levonk
-   git commit -m "Update levonk submodule reference"
+   git commit -m "chore: bump levonk submodule"
    ```
 
 4. **ALWAYS** work within the submodule directory for submodule-specific changes
