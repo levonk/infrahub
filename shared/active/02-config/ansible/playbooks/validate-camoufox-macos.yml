@@ -1,0 +1,23 @@
+---
+# Validate Camoufox on macOS Hosts
+# Location: shared/active/02-config/ansible/playbooks/validate-camoufox-macos.yml
+#
+# Read-only post-deployment checks for Camoufox. Runs against the same
+# inventory as deploy-camoufox-macos.yml.
+
+- name: "Validate Camoufox on macOS hosts"
+  hosts: macos_hosts
+  gather_facts: true
+  become: false
+
+  pre_tasks:
+    - name: "Load shared infrastructure timing defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/timing.yml"
+      tags: ["always"]
+
+  roles:
+    - role: macos-camoufox
+      vars:
+        camoufox_validate_only: true
+      tags: ["validate", "camoufox"]

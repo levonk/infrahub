@@ -1,0 +1,150 @@
+---
+# Install/upgrade the Camoufox Python interface and fetch its browser.
+
+- name: "CAMOUFOX | Install or upgrade Python interface with uv"
+  ansible.builtin.shell: |
+    set -euo pipefail
+    export HOME={{ camoufox_target_home | quote }}
+    export UV_TOOL_BIN_DIR="$HOME/.local/bin"
+    export UV_TOOL_DIR="$HOME/.local/share/uv/tools"
+    export PATH="$UV_TOOL_BIN_DIR:/run/current-system/sw/bin:/nix/var/nix/profiles/default/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+    UV_BIN={{ camoufox_uv_bin | quote }}
+    PKG={{ camoufox_python_package | quote }}
+    PYTHON_VERSION={{ camoufox_python_version | quote }}
+    TOOL_PYTHON="$UV_TOOL_DIR/camoufox/bin/python"
+
+    python_version_matches=0
+    if [ -x "$TOOL_PYTHON" ] && PYTHON_VERSION="$PYTHON_VERSION" "$TOOL_PYTHON" -c 'import os, sys; raise SystemExit(0 if sys.version_info[:2] == tuple(map(int, os.environ["PYTHON_VERSION"].split("."))) else 1)' 2>/dev/null; then
+      python_version_matches=1
+    fi
+
+    if ! "$UV_BIN" tool list | awk '$1 == "camoufox" { found=1 } END { exit(found ? 0 : 1) }'; then
+      "$UV_BIN" tool install --python "$PYTHON_VERSION" "$PKG"
+      echo CAMOUFOX_TOOL_CHANGED=1
+    elif [ "$python_version_matches" -eq 0 ]; then
+      "$UV_BIN" tool install --reinstall --python "$PYTHON_VERSION" "$PKG"
+      echo CAMOUFOX_TOOL_CHANGED=1
+    elif "$UV_BIN" tool list --outdated | awk '$1 == "camoufox" { outdated=1 } END { exit(outdated ? 0 : 1) }'; then
+      "$UV_BIN" tool install --upgrade --python "$PYTHON_VERSION" "$PKG"
+      echo CAMOUFOX_TOOL_CHANGED=1
+    else
+      echo CAMOUFOX_TOOL_CHANGED=0
+    fi
+  become: true
+  become_user: "{{ camoufox_target_user }}"
+  register: camoufox_tool_install
+  changed_when: "'CAMOUFOX_TOOL_CHANGED=1' in camoufox_tool_install.stdout"
+  tags: ["camoufox", "install"]
+
+- name: "CAMOUFOX | Verify CLI was installed"
+  ansible.builtin.stat:
+    path: "{{ camoufox_cli_bin }}"
+    follow: true
+  register: camoufox_cli_stat
+  tags: ["camoufox", "verify"]
+
+- name: "CAMOUFOX | Validate CLI exists"
+  ansible.builtin.assert:
+    that:
+      - camoufox_cli_stat.stat.exists
+      - camoufox_cli_stat.stat.isreg
+    fail_msg: "Camoufox CLI was not created at {{ camoufox_cli_bin }}."
+    success_msg: "Camoufox CLI exists."
+  tags: ["camoufox", "validate"]
+
+- name: "CAMOUFOX | Migrate browser cache to target user cache home"
+  ansible.builtin.shell: |
+    set -euo pipefail
+    LEGACY={{ camoufox_legacy_cache_dir | quote }}
+    EFFECTIVE={{ camoufox_cache_dir | quote }}
+    migrated=0
+    if [ "$LEGACY" != "$EFFECTIVE" ]; then
+      if [ -d "$LEGACY" ] && [ -e "$EFFECTIVE" ] && [ -n "$(find "$LEGACY" -mindepth 1 -print -quit 2>/dev/null)" ]; then
+        echo "Both legacy and XDG Camoufox caches exist; refusing to merge them" >&2
+        exit 1
+      fi
+      if [ -d "$LEGACY" ] && [ ! -e "$EFFECTIVE" ]; then
+        mkdir -p "$(dirname "$EFFECTIVE")"
+        mv "$LEGACY" "$EFFECTIVE"
+        migrated=1
+      fi
+    fi
+    echo "CAMOUFOX_CACHE_MIGRATED=$migrated"
+  become: true
+  become_user: "{{ camoufox_target_user }}"
+  register: camoufox_cache_migration
+  changed_when: "'CAMOUFOX_CACHE_MIGRATED=1' in camoufox_cache_migration.stdout"
+  tags: ["camoufox", "fetch"]
+
+- name: "CAMOUFOX | Fetch browser and support data"
+  ansible.builtin.shell: |
+    set -euo pipefail
+    export HOME={{ camoufox_target_home | quote }}
+    export XDG_CACHE_HOME={{ camoufox_cache_root | quote }}
+    export UV_TOOL_BIN_DIR="$HOME/.local/bin"
+    export UV_TOOL_DIR="$HOME/.local/share/uv/tools"
+    CLI={{ camoufox_cli_bin | quote }}
+    SPECIFIER={{ camoufox_fetch_specifier | quote }}
+    if [ -n "$SPECIFIER" ]; then
+      "$CLI" fetch "$SPECIFIER"
+    else
+      "$CLI" fetch
+    fi
+  become: true
+  become_user: "{{ camoufox_target_user }}"
+  register: camoufox_fetch
+  async: "{{ infra_timeout_hour_long }}"
+  poll: "{{ infra_delay_extended }}"
+  changed_when: "'Camoufox binaries up to date!' not in (camoufox_fetch.stdout + camoufox_fetch.stderr)"
+  tags: ["camoufox", "fetch"]
+
+- name: "CAMOUFOX | Verify uv tool Python exists"
+  ansible.builtin.stat:
+    path: "{{ camoufox_tool_python }}"
+  register: camoufox_tool_python_stat
+  when: camoufox_run_smoke_test | bool
+  tags: ["camoufox", "verify"]
+
+- name: "CAMOUFOX | Validate uv tool Python exists"
+  ansible.builtin.assert:
+    that:
+      - camoufox_tool_python_stat.stat.exists
+    fail_msg: "uv tool Python was not found at {{ camoufox_tool_python }}."
+    success_msg: "uv tool Python exists."
+  when: camoufox_run_smoke_test | bool
+  tags: ["camoufox", "validate"]
+
+- name: "CAMOUFOX | Smoke test headless browser launch"
+  ansible.builtin.shell: |
+    set -euo pipefail
+    export HOME={{ camoufox_target_home | quote }}
+    export XDG_CACHE_HOME={{ camoufox_cache_root | quote }}
+    export UV_TOOL_BIN_DIR="$HOME/.local/bin"
+    export UV_TOOL_DIR="$HOME/.local/share/uv/tools"
+    PYTHON_BIN={{ camoufox_tool_python | quote }}
+    "$PYTHON_BIN" -c '
+    from camoufox.sync_api import Camoufox
+
+    with Camoufox(headless=True) as browser:
+        page = browser.new_page()
+        page.goto("about:blank")
+
+    print("CAMOUFOX_SMOKE_OK")
+    '
+  become: true
+  become_user: "{{ camoufox_target_user }}"
+  register: camoufox_smoke_test
+  async: "{{ infra_timeout_max }}"
+  poll: "{{ infra_delay_long }}"
+  changed_when: false
+  when: camoufox_run_smoke_test | bool
+  tags: ["camoufox", "smoke"]
+
+- name: "CAMOUFOX | Validate smoke test marker"
+  ansible.builtin.assert:
+    that:
+      - "'CAMOUFOX_SMOKE_OK' in camoufox_smoke_test.stdout"
+    fail_msg: "Camoufox launched but did not emit the expected smoke-test marker."
+    success_msg: "Camoufox headless launch succeeded."
+  when: camoufox_run_smoke_test | bool
+  tags: ["camoufox", "validate"]

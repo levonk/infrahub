@@ -1,0 +1,15 @@
+---
+# Camoufox for macOS — user-level installation through uv.
+
+- name: "CAMOUFOX | Resolve target user and environment"
+  ansible.builtin.include_tasks: resolve.yml
+  tags: ["camoufox"]
+
+- name: "CAMOUFOX | Install browser and Python interface"
+  ansible.builtin.include_tasks: install.yml
+  when: not camoufox_validate_only | bool
+  tags: ["camoufox"]
+
+- name: "CAMOUFOX | Validate installation"
+  ansible.builtin.include_tasks: validate.yml
+  tags: ["camoufox"]

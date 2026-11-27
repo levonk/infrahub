@@ -1,0 +1,26 @@
+---
+# Camoufox macOS deployment defaults
+
+# Python package specifier installed with uv. The geoip extra is upstream's
+# recommended install because it enables proxy-aware timezone/locale data.
+camoufox_python_package: "camoufox[geoip]"
+
+# Python version for the uv tool environment. Python 3.15 rejects the
+# shorthand Base85 index used by fpgen's browser node, so use 3.14 until
+# upstream supports 3.15.
+camoufox_python_version: "3.14"
+
+# Optional explicit browser specifier passed to `camoufox fetch` (for example
+# official/stable/158.0.1-beta.41). Empty uses Camoufox's package-paired default.
+camoufox_fetch_specifier: ""
+
+# GUI/daily-use account that owns the user-level uv tool and browser cache.
+# Inventory may override this directly or through macos_gui_user.
+camoufox_gui_user: "{{ macos_gui_user | default('') }}"
+
+# Run a headless launch after installation. This verifies that the downloaded
+# browser, Python package, and Playwright runtime work together.
+camoufox_run_smoke_test: true
+
+# Validation-only mode is used by validate-camoufox-macos.yml.
+camoufox_validate_only: false
