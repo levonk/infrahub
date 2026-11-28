@@ -112,6 +112,40 @@
       when: openwrt_mode == "ap"
       tags: ["validate", "openwrt"]
 
+    - name: "Tailscale interface address"
+      ansible.builtin.command: ip -4 addr show tailscale0
+      register: openwrt_ts_addr
+      changed_when: false
+      failed_when: false
+      when: "'tailscale' in openwrt_packages"
+      tags: ["validate", "openwrt"]
+
+    - name: "Record tailnet presence check"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results + [{'check': 'tailscale0 interface up with 100.x address', 'ok': (openwrt_ts_addr.stdout | default('')) is regex('inet 100\\.')} ] }}"
+      when: "'tailscale' in openwrt_packages"
+      tags: ["validate", "openwrt"]
+
+    # The fw4-tailnet bug class: config rendered fine but input path silently
+    # dead. Assert an actual TCP connect to port 22 over the tailnet succeeds
+    # from the controller — this is the test that would have caught it.
+    - name: "Tailnet SSH port reachable from controller"
+      ansible.builtin.wait_for:
+        host: "{{ openwrt_ts_addr.stdout | regex_search('inet (100\\.[0-9.]+)', '\\1') | first | default('') }}"
+        port: 22
+        timeout: 10
+      delegate_to: localhost
+      register: openwrt_ts_ssh
+      failed_when: false
+      when: "'tailscale' in openwrt_packages and (openwrt_ts_addr.stdout | default('')) is regex('inet 100\\.')"
+      tags: ["validate", "openwrt"]
+
+    - name: "Record tailnet SSH check"
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results + [{'check': 'tailnet port 22 accepts TCP (fw4 input path)', 'ok': (openwrt_ts_ssh.elapsed | default(-1)) >= 0 and (openwrt_ts_ssh.failed | default(true)) == false}] }}"
+      when: "'tailscale' in openwrt_packages and (openwrt_ts_addr.stdout | default('')) is regex('inet 100\\.')"
+      tags: ["validate", "openwrt"]
+
     - name: "Validation summary"
       ansible.builtin.debug:
         msg: |
