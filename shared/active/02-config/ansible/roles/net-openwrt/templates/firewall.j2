@@ -38,20 +38,50 @@ config zone 'wan'
 config forwarding
 	option src 'lan'
 	option dest 'wan'
-{% for iface in openwrt_extra_interfaces %}
-{% if (iface.zone | default('lan')) == 'guest' %}
+{% set seg_zones = openwrt_extra_interfaces
+    | selectattr('zone', 'defined')
+    | rejectattr('zone', 'equalto', 'lan')
+    | map(attribute='zone') | unique | list %}
+{% for z in seg_zones %}
 
-config zone 'guest_{{ iface.name }}'
-	option name 'guest_{{ iface.name }}'
-	option input 'ACCEPT'
+config zone '{{ z }}'
+	option name '{{ z }}'
+	option input 'REJECT'
 	option output 'ACCEPT'
 	option forward 'REJECT'
+{% for iface in openwrt_extra_interfaces %}
+{% if iface.zone | default('lan') == z %}
 	list network '{{ iface.name }}'
+{% endif %}
+{% endfor %}
+
+# Isolated segment: Internet-only. lan may initiate INTO the segment
+# (management), but the segment cannot initiate back to lan.
+config forwarding
+	option src '{{ z }}'
+	option dest 'wan'
 
 config forwarding
-	option src 'guest_{{ iface.name }}'
-	option dest 'wan'
-{% endif %}
+	option src 'lan'
+	option dest '{{ z }}'
+
+# Zone input is REJECT — punch holes only for DHCP + DNS to the router.
+config rule
+	option name 'Allow-DHCP-{{ z }}'
+	option src '{{ z }}'
+	option proto 'udp'
+	option dest_port '67'
+	option target 'ACCEPT'
+	option family 'ipv4'
+
+config rule
+	option name 'Allow-DNS-{{ z }}'
+	option src '{{ z }}'
+	list proto 'tcp'
+	list proto 'udp'
+	option dest_port '53'
+	option target 'ACCEPT'
+	option family 'ipv4'
 {% endfor %}
 
 config rule
@@ -72,3 +102,6 @@ config rule
 
 config include
 	option path '/etc/firewall.user'
+	option type 'script'
+	option reload '1'
+	option fw4_compatible '1'
