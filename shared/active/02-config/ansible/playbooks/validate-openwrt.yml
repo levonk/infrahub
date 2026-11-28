@@ -54,6 +54,7 @@
       ansible.builtin.set_fact:
         validation_results: "{{ validation_results + [{'check': 'ssid ' + item.ssid, 'ok': item.ssid in openwrt_uci_wireless.stdout}] }}"
       loop: "{{ openwrt_wireless_networks }}"
+      when: item.hosts is not defined or inventory_hostname in item.hosts
       tags: ["validate", "openwrt"]
 
     - name: "Radios up (iwinfo)"
