@@ -1,0 +1,23 @@
+---
+galaxy_info:
+  role_name: macos_camoufox
+  author: infrahub
+  description: >
+    Installs Camoufox on macOS with uv for the GUI user, fetches the
+    package-paired browser, and validates the installation headlessly.
+  company: infrahub
+  license: MIT
+  min_ansible_version: "2.9"
+
+  platforms:
+    - name: MacOSX
+      versions:
+        - all
+
+  galaxy_tags:
+    - camoufox
+    - browser
+    - macos
+    - playwright
+
+dependencies: []

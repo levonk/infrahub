@@ -1,0 +1,41 @@
+---
+# Deploy Camoufox to macOS Hosts
+# Location: shared/active/02-config/ansible/playbooks/deploy-camoufox-macos.yml
+#
+# Camoufox has neither a nixpkgs package nor a Homebrew formula/cask, so the
+# supported upstream installation path is used: uv installs the Python
+# interface and `camoufox fetch` downloads the package-paired browser for the
+# GUI user. uv itself is fleet-managed through nix-darwin.
+#
+# Usage:
+#   ansible-playbook -i <client>/active/02-config/ansible/inventories/macos-hosts.yml \
+#     shared/active/02-config/ansible/playbooks/deploy-camoufox-macos.yml \
+#     --vault-password-file ~/.ansible/vault_password
+
+- name: "Deploy Camoufox to macOS hosts"
+  hosts: macos_hosts
+  gather_facts: true
+  become: false
+
+  pre_tasks:
+    - name: "Load shared infrastructure timing defaults"
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../infrastructure/timing.yml"
+      tags: ["always"]
+
+    - name: "Report Camoufox deployment target"
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Deploy Camoufox
+          ========================================
+          Host: {{ inventory_hostname }}
+          OS: macOS {{ ansible_facts['distribution_version'] }}
+          Architecture: {{ ansible_facts['architecture'] }}
+          Method: uv tool install + camoufox fetch
+          ========================================
+      tags: ["always", "info"]
+
+  roles:
+    - role: macos-camoufox
+      tags: ["camoufox"]

@@ -64,6 +64,8 @@ WINDOWS_INVENTORY := INFRAHUB_ROOT + "/levonk/active/02-config/ansible/inventori
 MACOS_INVENTORY := INFRAHUB_ROOT + "/levonk/active/02-config/ansible/inventories/macos-hosts.yml"
 PB_CONFIGURE_MACOS := ANSIBLE_ROOT + "/playbooks/configure-macos-host.yml"
 PB_BOOTSTRAP_MACOS := ANSIBLE_ROOT + "/playbooks/bootstrap-macos-host.yml"
+PB_DEPLOY_CAMOUFOX_MACOS := ANSIBLE_ROOT + "/playbooks/deploy-camoufox-macos.yml"
+PB_VALIDATE_CAMOUFOX_MACOS := ANSIBLE_ROOT + "/playbooks/validate-camoufox-macos.yml"
 
 # Docker commands for Ansible test containers
 ANSIBLE_TEST_IMAGE := "ansible-test-runner:latest"
@@ -1290,6 +1292,32 @@ ansible_configure_macos_impl:
     log_start "Configuring macOS host"
     ansible-playbook -i {{MACOS_INVENTORY}} {{PB_CONFIGURE_MACOS}} \
       --vault-password-file ~/.ansible/vault_password
+
+# Deploy Camoufox to macOS hosts (uv-installed Python interface + browser)
+ansible-deploy-camoufox-macos *ANSIBLE_ARGS:
+    @just _devbox ansible_deploy_camoufox_macos_impl {{ANSIBLE_ARGS}}
+
+[private]
+ansible_deploy_camoufox_macos_impl *ANSIBLE_ARGS:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Deploying Camoufox to macOS hosts"
+    ansible-playbook -i {{MACOS_INVENTORY}} {{PB_DEPLOY_CAMOUFOX_MACOS}} \
+      --vault-password-file ~/.ansible/vault_password {{ANSIBLE_ARGS}}
+
+# Validate Camoufox installation on macOS hosts
+ansible-validate-camoufox-macos *ANSIBLE_ARGS:
+    @just _devbox ansible_validate_camoufox_macos_impl {{ANSIBLE_ARGS}}
+
+[private]
+ansible_validate_camoufox_macos_impl *ANSIBLE_ARGS:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{_log}}
+    log_start "Validating Camoufox on macOS hosts"
+    ansible-playbook -i {{MACOS_INVENTORY}} {{PB_VALIDATE_CAMOUFOX_MACOS}} \
+      --vault-password-file ~/.ansible/vault_password {{ANSIBLE_ARGS}}
 
 # Install Xcode on macOS hosts via mas (Mac App Store CLI)
 # Requires: Apple ID signed in to App Store (System Settings → App Store)

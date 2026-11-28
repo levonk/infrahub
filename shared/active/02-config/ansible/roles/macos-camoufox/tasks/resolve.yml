@@ -1,0 +1,128 @@
+---
+# Resolve and validate the macOS user/environment used for Camoufox.
+
+- name: "CAMOUFOX | Validate target is macOS"
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['distribution'] == "MacOSX"
+    fail_msg: "macos-camoufox only supports macOS targets (inventory group macos_hosts)."
+    success_msg: "Target is macOS."
+  tags: ["camoufox", "validate"]
+
+- name: "CAMOUFOX | Detect console GUI user when no override is set"
+  ansible.builtin.command: stat -f%Su /dev/console
+  register: camoufox_console_user
+  changed_when: false
+  failed_when: false
+  when: camoufox_gui_user | length == 0
+  tags: ["camoufox", "user"]
+
+- name: "CAMOUFOX | Resolve target user and paths"
+  ansible.builtin.set_fact:
+    camoufox_target_user: >-
+      {% set configured = camoufox_gui_user | trim -%}
+      {% set detected = camoufox_console_user.stdout | trim if camoufox_console_user is defined else '' -%}
+      {% set resolved = configured if configured | length > 0 else detected -%}
+      {{- '' if resolved in ['root', 'loginwindow', '_mbsetupuser'] else resolved -}}
+    camoufox_target_home: >-
+      {% set configured = camoufox_gui_user | trim -%}
+      {% set detected = camoufox_console_user.stdout | trim if camoufox_console_user is defined else '' -%}
+      {% set resolved = configured if configured | length > 0 else detected -%}
+      {{- '/Users/' + resolved if resolved not in ['', 'root', 'loginwindow', '_mbsetupuser'] else '' -}}
+  tags: ["camoufox", "user"]
+
+- name: "CAMOUFOX | Validate target user was resolved"
+  ansible.builtin.assert:
+    that:
+      - camoufox_target_user | length > 0
+      - camoufox_target_home | length > 0
+    fail_msg: >-
+      Could not resolve a GUI user for Camoufox. Set macos_gui_user or
+      camoufox_gui_user in the macOS inventory.
+    success_msg: "Camoufox target user resolved."
+  tags: ["camoufox", "validate"]
+
+- name: "CAMOUFOX | Verify target user exists"
+  ansible.builtin.command: "id -u {{ camoufox_target_user }}"
+  register: camoufox_target_user_id
+  changed_when: false
+  tags: ["camoufox", "validate"]
+
+- name: "CAMOUFOX | Check target user home directory"
+  ansible.builtin.stat:
+    path: "{{ camoufox_target_home }}"
+  register: camoufox_target_home_stat
+  tags: ["camoufox", "validate"]
+
+- name: "CAMOUFOX | Validate target user home directory"
+  ansible.builtin.assert:
+    that:
+      - camoufox_target_home_stat.stat.exists
+      - camoufox_target_home_stat.stat.isdir
+    fail_msg: "Target user home {{ camoufox_target_home }} does not exist or is not a directory."
+    success_msg: "Target user home exists."
+  tags: ["camoufox", "validate"]
+
+- name: "CAMOUFOX | Detect target user XDG cache home"
+  ansible.builtin.shell: /bin/zsh -c 'printf "%s" "$XDG_CACHE_HOME"'
+  become: true
+  become_user: "{{ camoufox_target_user }}"
+  register: camoufox_xdg_cache_lookup
+  changed_when: false
+  failed_when: false
+  tags: ["camoufox", "user"]
+
+- name: "CAMOUFOX | Resolve cache root"
+  ansible.builtin.set_fact:
+    camoufox_cache_root: >-
+      {{- camoufox_xdg_cache_lookup.stdout | trim if camoufox_xdg_cache_lookup.rc == 0 and camoufox_xdg_cache_lookup.stdout | trim | length > 0 else camoufox_target_home + '/Library/Caches' -}}
+  tags: ["camoufox", "user"]
+
+- name: "CAMOUFOX | Resolve cache directories"
+  ansible.builtin.set_fact:
+    camoufox_cache_dir: "{{ camoufox_cache_root }}/camoufox"
+    camoufox_legacy_cache_dir: "{{ camoufox_target_home }}/Library/Caches/camoufox"
+  tags: ["camoufox", "user"]
+
+- name: "CAMOUFOX | Locate uv executable"
+  ansible.builtin.shell: |
+    for candidate in \
+      /run/current-system/sw/bin/uv \
+      /nix/var/nix/profiles/default/bin/uv \
+      "{{ camoufox_target_home }}/.nix-profile/bin/uv" \
+      /opt/homebrew/bin/uv \
+      /usr/local/bin/uv; do
+      if [ -x "$candidate" ]; then
+        printf '%s\n' "$candidate"
+        exit 0
+      fi
+    done
+    if command -v uv >/dev/null 2>&1; then
+      command -v uv
+      exit 0
+    fi
+    exit 1
+  register: camoufox_uv_lookup
+  changed_when: false
+  failed_when: false
+  tags: ["camoufox", "uv"]
+
+- name: "CAMOUFOX | Validate uv is available"
+  ansible.builtin.assert:
+    that:
+      - camoufox_uv_lookup.rc == 0
+      - camoufox_uv_lookup.stdout | length > 0
+    fail_msg: >-
+      uv is required but was not found. Run configure-macos-host.yml first so
+      the nix-darwin fleet packages (including uv) are active.
+    success_msg: "uv is available."
+  tags: ["camoufox", "validate"]
+
+- name: "CAMOUFOX | Set uv and Camoufox paths"
+  ansible.builtin.set_fact:
+    camoufox_uv_bin: "{{ camoufox_uv_lookup.stdout_lines[0] }}"
+    camoufox_uv_tool_bin_dir: "{{ camoufox_target_home }}/.local/bin"
+    camoufox_uv_tool_dir: "{{ camoufox_target_home }}/.local/share/uv/tools"
+    camoufox_cli_bin: "{{ camoufox_target_home }}/.local/bin/camoufox"
+    camoufox_tool_python: "{{ camoufox_target_home }}/.local/share/uv/tools/camoufox/bin/python"
+  tags: ["camoufox", "uv"]

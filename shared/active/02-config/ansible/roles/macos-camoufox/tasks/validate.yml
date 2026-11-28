@@ -1,0 +1,87 @@
+---
+# Read-only validation for an installed Camoufox instance.
+
+- name: "CAMOUFOX | Check CLI during validation"
+  ansible.builtin.stat:
+    path: "{{ camoufox_cli_bin }}"
+    follow: true
+  register: camoufox_validate_cli_stat
+  tags: ["camoufox", "validate"]
+
+- name: "CAMOUFOX | Validate CLI installation"
+  ansible.builtin.assert:
+    that:
+      - camoufox_validate_cli_stat.stat.exists
+      - camoufox_validate_cli_stat.stat.isreg
+    fail_msg: "Camoufox CLI is missing at {{ camoufox_cli_bin }}."
+    success_msg: "Camoufox CLI is installed."
+  tags: ["camoufox", "validate"]
+
+- name: "CAMOUFOX | Read package and browser status"
+  ansible.builtin.shell: |
+    set -euo pipefail
+    export HOME={{ camoufox_target_home | quote }}
+    export XDG_CACHE_HOME={{ camoufox_cache_root | quote }}
+    export UV_TOOL_BIN_DIR="$HOME/.local/bin"
+    export UV_TOOL_DIR="$HOME/.local/share/uv/tools"
+    {{ camoufox_cli_bin | quote }} version
+  become: true
+  become_user: "{{ camoufox_target_user }}"
+  register: camoufox_version
+  changed_when: false
+  tags: ["camoufox", "validate"]
+
+- name: "CAMOUFOX | Validate browser is installed"
+  ansible.builtin.assert:
+    that:
+      - camoufox_version.rc == 0
+      - "'Installed' in camoufox_version.stdout"
+      - "'Yes' in camoufox_version.stdout"
+    fail_msg: "camoufox version did not report an installed browser. Run deploy-camoufox-macos.yml."
+    success_msg: "Camoufox browser is installed."
+  tags: ["camoufox", "validate"]
+
+- name: "CAMOUFOX | Read install directory"
+  ansible.builtin.shell: |
+    set -euo pipefail
+    export HOME={{ camoufox_target_home | quote }}
+    export XDG_CACHE_HOME={{ camoufox_cache_root | quote }}
+    export UV_TOOL_BIN_DIR="$HOME/.local/bin"
+    export UV_TOOL_DIR="$HOME/.local/share/uv/tools"
+    {{ camoufox_cli_bin | quote }} path
+  become: true
+  become_user: "{{ camoufox_target_user }}"
+  register: camoufox_install_path
+  changed_when: false
+  tags: ["camoufox", "validate"]
+
+- name: "CAMOUFOX | Check install directory"
+  ansible.builtin.stat:
+    path: "{{ camoufox_install_path.stdout_lines[0] }}"
+  become: true
+  become_user: "{{ camoufox_target_user }}"
+  register: camoufox_install_path_stat
+  tags: ["camoufox", "validate"]
+
+- name: "CAMOUFOX | Validate install directory exists"
+  ansible.builtin.assert:
+    that:
+      - camoufox_install_path_stat.stat.exists
+      - camoufox_install_path_stat.stat.isdir
+    fail_msg: "Camoufox install directory is missing: {{ camoufox_install_path.stdout_lines[0] }}"
+    success_msg: "Camoufox install directory exists."
+  tags: ["camoufox", "validate"]
+
+- name: "CAMOUFOX | Validation summary"
+  ansible.builtin.debug:
+    msg: |
+      ========================================
+      Camoufox validation: {{ inventory_hostname }}
+      ========================================
+      User:        {{ camoufox_target_user }}
+      CLI:         {{ camoufox_cli_bin }}
+      Install dir: {{ camoufox_install_path.stdout_lines[0] }}
+
+      {{ camoufox_version.stdout }}
+      ========================================
+  tags: ["camoufox", "validate", "summary"]
