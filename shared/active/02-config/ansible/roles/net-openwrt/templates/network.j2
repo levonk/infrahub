@@ -42,7 +42,7 @@ config bridge-vlan
 {% endfor %}
 {% endfor %}
 {% for iface in openwrt_extra_interfaces %}
-{% if iface.ports is defined and iface.ports | length > 0 %}
+{% if iface.ports is defined %}
 
 config device
 	option name 'br-{{ iface.name }}'

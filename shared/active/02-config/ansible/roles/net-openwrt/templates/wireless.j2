@@ -18,7 +18,7 @@ config wifi-device '{{ radio.name }}'
 	option disabled '1'
 {% endif %}
 {% for net in openwrt_wireless_networks %}
-{% if radio.name in (net.radios | default(openwrt_radios | map(attribute='name') | list)) %}
+{% if (net.hosts is not defined or inventory_hostname in net.hosts) and radio.name in (net.radios | default(openwrt_radios | map(attribute='name') | list)) %}
 
 config wifi-iface
 	option device '{{ radio.name }}'

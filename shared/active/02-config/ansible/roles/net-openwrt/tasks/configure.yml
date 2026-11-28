@@ -6,7 +6,9 @@
     src: system.j2
     dest: /etc/config/system
     mode: "0644"
-  notify: reload system
+  notify:
+    - reload system
+    - restart log
 
 - name: Render /etc/config/network
   ansible.builtin.template:
@@ -55,6 +57,17 @@
     dest: /etc/config/firewall
     mode: "0644"
   when: openwrt_mode == "router"
+  notify: reload firewall
+
+# fw4 input dispatch is iifname-based and tailscale0 is not netifd-managed,
+# so the lan zone's `list network 'tailscale0'` never matches. The include
+# file bridges tailnet input into input_lan on every fw4 reload.
+- name: Render /etc/firewall.user (tailscale input bridge)
+  ansible.builtin.template:
+    src: firewall.user.j2
+    dest: /etc/firewall.user
+    mode: "0644"
+  when: openwrt_mode == "router" and 'tailscale' in openwrt_packages
   notify: reload firewall
 
 - name: Disable services not needed in pure AP mode (idempotent)

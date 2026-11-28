@@ -5,8 +5,12 @@ config system
 	option timezone '{{ openwrt_timezone }}'
 	option zonename '{{ openwrt_zonename }}'
 	option ttylogin '0'
-	option log_size '64'
+	option log_size '{{ openwrt_log_size | default('64') }}'
 	option urandom_seed '0'
+{% if openwrt_log_file | default('') != '' %}
+	option log_type 'file'
+	option log_file '{{ openwrt_log_file }}'
+{% endif %}
 
 config timeserver 'ntp'
 	option enabled '1'

@@ -4,6 +4,11 @@
 - name: reload system
   ansible.builtin.command: /etc/init.d/system reload
 
+# logd/logread followers don't pick up log_file/log_size changes on
+# /etc/init.d/system reload — the log service must restart to spawn them.
+- name: restart log
+  ansible.builtin.command: /etc/init.d/log restart
+
 - name: reload network
   ansible.builtin.command: /etc/init.d/network reload
 

@@ -85,6 +85,13 @@
   failed_when: false
   when: "'tailscale' in openwrt_packages and openwrt_tailscale_version | length > 0"
 
+- name: Check for tmpfs tailscale CLI (wiped on reboot)
+  ansible.builtin.raw: test -x /tmp/tailscale && echo present || echo missing
+  register: openwrt_ts_tmpcli
+  changed_when: false
+  failed_when: false
+  when: "'tailscale' in openwrt_packages"
+
 - name: Fetch upstream tailscale static build (controller-side)
   ansible.builtin.unarchive:
     src: "https://pkgs.tailscale.com/stable/tailscale_{{ openwrt_tailscale_version }}_{{ openwrt_tailscale_arch }}.tgz"
@@ -92,7 +99,10 @@
     remote_src: true
   delegate_to: localhost
   run_once: true
-  when: "'tailscale' in openwrt_packages and openwrt_tailscale_version | length > 0 and (openwrt_ts_running.stdout | default('0')) is version(openwrt_tailscale_version, '<')"
+  when: >-
+    'tailscale' in openwrt_packages
+    and openwrt_tailscale_version | length > 0
+    and ((openwrt_ts_running.stdout | default('0')) is version(openwrt_tailscale_version, '<') or (openwrt_ts_tmpcli.stdout | default('missing')) == 'missing')
 
 - name: Stage upstream tailscaled on device
   ansible.builtin.copy:
@@ -109,7 +119,10 @@
     src: "/tmp/ts-{{ openwrt_tailscale_version }}-{{ openwrt_tailscale_arch }}/tailscale_{{ openwrt_tailscale_version }}_{{ openwrt_tailscale_arch }}/tailscale"
     dest: "/tmp/tailscale"
     mode: "0755"
-  when: "'tailscale' in openwrt_packages and openwrt_tailscale_version | length > 0 and (openwrt_ts_running.stdout | default('0')) is version(openwrt_tailscale_version, '<')"
+  when: >-
+    'tailscale' in openwrt_packages
+    and openwrt_tailscale_version | length > 0
+    and (openwrt_ts_tmpcli.stdout | default('missing')) == 'missing'
 
 - name: Swap in upstream tailscaled binary
   ansible.builtin.raw: >-

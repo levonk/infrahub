@@ -1,0 +1,8 @@
+# Managed by Ansible (net-openwrt role) — manual edits will be overwritten.
+# fw4's input dispatch is purely iifname-based, and tailscale0 is not a
+# netifd interface, so `list network 'tailscale0'` in the lan zone never
+# produces a jump — tailnet input falls through to the default REJECT.
+# Bridge tailnet packets into the lan input chain explicitly. fw4 flushes
+# and rebuilds its table on every reload, so this file is re-sourced each
+# time via the `config include` stanza and cannot accumulate duplicates.
+nft insert rule inet fw4 input iifname "tailscale0*" jump input_lan
