@@ -28,10 +28,18 @@
 # session. Re-run validation afterwards (validate-openwrt.yml) against the
 # final management IP.
 
+# Staged rollout contract: hosts deploy ONE AT A TIME in inventory order,
+# and inventory lists the dependent AP-mode node (velop02) BEFORE the
+# router/gateway (velop01). The AP is the canary — if its deploy or the
+# post-deploy verification fails, any_errors_fatal stops the run before
+# the gateway node is touched. Never reorder the inventory casually.
 - name: "Configure OpenWrt devices"
   hosts: openwrt_aps
   gather_facts: false
   become: false
+  serial: 1
+  order: inventory
+  any_errors_fatal: true
 
   pre_tasks:
     - name: "Load shared infrastructure variable schemas"
